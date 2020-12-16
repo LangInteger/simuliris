@@ -1,0 +1,15 @@
+opam-version: "2.0"
+maintainer: "Ralf Jung <jung@mpi-sws.org>"
+authors: "Simuliris Authors"
+homepage: "http://iris-project.org/"
+bug-reports: "https://gitlab.mpi-sws.org/iris/simuliris/issues"
+dev-repo: "git+https://gitlab.mpi-sws.org/iris/simuliris.git"
+
+synopsis: "Local Simulation proofs, the Iris style"
+
+depends: [
+  "coq-iris" { (= "dev.2020-12-10.1.872fe77b") | (= "dev") }
+]
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
