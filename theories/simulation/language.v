@@ -41,6 +41,8 @@ Section language_mixin.
     mixin_fill_empty e : fill empty_ectx e = e;
     mixin_fill_comp K1 K2 e : fill K1 (fill K2 e) = fill (comp_ectx K1 K2) e;
     mixin_fill_inj K : Inj (=) (=) (fill K);
+    (* FIXME: we will probably also need something for the interaction of [fill]
+       with [ExprCall]... maybe we can generalize this and avoid [mixin_to_val]? *)
     mixin_fill_val K e : is_Some (mixin_to_val (fill K e)) → is_Some (mixin_to_val e);
 
     (** Given a head redex [e1_redex] somewhere in a term, and another
@@ -203,7 +205,7 @@ Section language.
   Proof. intros (?&?&?); eauto using val_stuck. Qed.
   Lemma val_irreducible p e σ : is_Some (to_val e) → irreducible p e σ.
   Proof. intros [??] ?? ?%val_stuck. by destruct (to_val e). Qed.
-  Global Instance of_val_inj : Inj (=) (=) of_val.
+  Global Instance of_val_inj : Inj (=) (=) (@of_val Λ).
   Proof. by intros v v' Hv; apply (inj Some); rewrite -!to_of_val Hv. Qed.
   Lemma not_not_stuck p e σ : ¬not_stuck p e σ ↔ stuck p e σ.
   Proof.
