@@ -1,2 +1,1309 @@
-DIGEST d41d8cd98f00b204e9800998ecf8427e
+DIGEST fc3ec041cd3e7b9501a7985668a6bd17
 Fsimuliris.simulation.language
+R26:32 stdpp.strings <> <> lib
+R34:37 stdpp.gmap <> <> lib
+R73:79 iris.prelude.prelude <> <> lib
+R115:121 iris.prelude.options <> <> lib
+sec 133:146 <> language_mixin
+binder 160:163 <> expr:1
+binder 165:167 <> val:2
+binder 169:172 <> ectx:3
+binder 174:178 <> state:4
+ind 258:273 <> mixin_expr_class
+constr 282:288 <> ExprVal
+constr 323:330 <> ExprCall
+R295:297 simuliris.simulation.language <> language_mixin.val var
+binder 291:291 <> v:7
+R302:317 simuliris.simulation.language <> mixin_expr_class:5 ind
+R343:348 Coq.Strings.String <> string ind
+binder 333:339 <> fn_name:8
+R358:360 simuliris.simulation.language <> language_mixin.val var
+binder 352:354 <> arg:9
+R365:380 simuliris.simulation.language <> mixin_expr_class:5 ind
+R422:426 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R427:430 simuliris.simulation.language <> language_mixin.expr var
+R406:421 simuliris.simulation.language <> mixin_expr_class ind
+binder 395:402 <> of_class:10
+R460:464 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R465:470 Coq.Init.Datatypes <> option ind
+R472:487 simuliris.simulation.language <> mixin_expr_class ind
+R456:459 simuliris.simulation.language <> language_mixin.expr var
+binder 445:452 <> to_class:11
+def 505:516 <> mixin_to_val
+R523:526 simuliris.simulation.language <> language_mixin.expr var
+binder 519:519 <> e:12
+R531:536 Coq.Init.Datatypes <> option ind
+R538:540 simuliris.simulation.language <> language_mixin.val var
+R555:562 simuliris.simulation.language <> language_mixin.to_class var
+R564:564 simuliris.simulation.language <> e:12 var
+R577:580 Coq.Init.Datatypes <> Some constr
+R583:589 simuliris.simulation.language <> ExprVal constr
+R597:600 Coq.Init.Datatypes <> Some constr
+R615:618 Coq.Init.Datatypes <> None constr
+R654:657 simuliris.simulation.language <> language_mixin.ectx var
+binder 641:650 <> empty_ectx:13
+R688:692 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R697:701 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R702:705 simuliris.simulation.language <> language_mixin.ectx var
+R693:696 simuliris.simulation.language <> language_mixin.ectx var
+R684:687 simuliris.simulation.language <> language_mixin.ectx var
+binder 672:680 <> comp_ectx:14
+R731:735 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R740:744 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R745:748 simuliris.simulation.language <> language_mixin.expr var
+R736:739 simuliris.simulation.language <> language_mixin.expr var
+R727:730 simuliris.simulation.language <> language_mixin.ectx var
+binder 720:723 <> fill:15
+def 834:843 <> mixin_prog
+R848:851 stdpp.gmap <> gmap rec
+R860:863 simuliris.simulation.language <> language_mixin.ectx var
+R853:858 Coq.Strings.String <> string ind
+R900:904 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R909:913 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R919:923 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R928:932 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R938:942 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R933:937 simuliris.simulation.language <> language_mixin.state var
+R924:927 simuliris.simulation.language <> language_mixin.expr var
+R914:918 simuliris.simulation.language <> language_mixin.state var
+R905:908 simuliris.simulation.language <> language_mixin.expr var
+R890:899 simuliris.simulation.language <> mixin_prog def
+binder 878:886 <> head_step:16
+rec 960:972 <> LanguageMixin
+proj 983:999 <> mixin_to_of_class
+proj 1041:1057 <> mixin_of_to_class
+proj 1109:1128 <> mixin_val_head_stuck
+proj 1213:1228 <> mixin_fill_empty
+proj 1261:1275 <> mixin_fill_comp
+proj 1339:1352 <> mixin_fill_inj
+proj 1384:1397 <> mixin_fill_val
+proj 1945:1961 <> mixin_step_by_val
+proj 2401:2423 <> mixin_head_ctx_step_val
+binder 1001:1001 <> c:18
+R1026:1028 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R1005:1012 simuliris.simulation.language <> language_mixin.to_class var
+R1015:1022 simuliris.simulation.language <> language_mixin.of_class var
+R1024:1024 simuliris.simulation.language <> c:18 var
+R1029:1032 Coq.Init.Datatypes <> Some constr
+R1034:1034 simuliris.simulation.language <> c:18 var
+binder 1059:1059 <> e:20
+binder 1061:1061 <> c:21
+R1084:1088 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R1099:1101 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R1089:1096 simuliris.simulation.language <> language_mixin.of_class var
+R1098:1098 simuliris.simulation.language <> c:21 var
+R1102:1102 simuliris.simulation.language <> e:20 var
+R1075:1077 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R1065:1072 simuliris.simulation.language <> language_mixin.to_class var
+R1074:1074 simuliris.simulation.language <> e:20 var
+R1078:1081 Coq.Init.Datatypes <> Some constr
+R1083:1083 simuliris.simulation.language <> c:21 var
+binder 1130:1130 <> p:23
+binder 1132:1133 <> e1:24
+binder 1135:1137 <> σ1:25
+binder 1139:1140 <> e2:26
+binder 1142:1144 <> σ2:27
+R1179:1183 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R1199:1201 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R1184:1195 simuliris.simulation.language <> mixin_to_val def
+R1197:1198 simuliris.simulation.language <> e1:24 var
+R1202:1205 Coq.Init.Datatypes <> None constr
+R1154:1162 simuliris.simulation.language <> language_mixin.head_step var
+R1176:1178 simuliris.simulation.language <> σ2:27 var
+R1173:1174 simuliris.simulation.language <> e2:26 var
+R1169:1171 simuliris.simulation.language <> σ1:25 var
+R1166:1167 simuliris.simulation.language <> e1:24 var
+R1164:1164 simuliris.simulation.language <> p:23 var
+binder 1230:1230 <> e:29
+R1251:1253 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R1234:1237 simuliris.simulation.language <> language_mixin.fill var
+R1250:1250 simuliris.simulation.language <> e:29 var
+R1239:1248 simuliris.simulation.language <> language_mixin.empty_ectx var
+R1254:1254 simuliris.simulation.language <> e:29 var
+binder 1277:1278 <> K1:31
+binder 1280:1281 <> K2:32
+binder 1283:1283 <> e:33
+R1306:1308 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R1287:1290 simuliris.simulation.language <> language_mixin.fill var
+R1296:1299 simuliris.simulation.language <> language_mixin.fill var
+R1304:1304 simuliris.simulation.language <> e:33 var
+R1301:1302 simuliris.simulation.language <> K2:32 var
+R1292:1293 simuliris.simulation.language <> K1:31 var
+R1309:1312 simuliris.simulation.language <> language_mixin.fill var
+R1332:1332 simuliris.simulation.language <> e:33 var
+R1315:1323 simuliris.simulation.language <> language_mixin.comp_ectx var
+R1328:1329 simuliris.simulation.language <> K2:32 var
+R1325:1326 simuliris.simulation.language <> K1:31 var
+binder 1354:1354 <> K:35
+R1358:1360 stdpp.base <> Inj class
+R1371:1374 simuliris.simulation.language <> language_mixin.fill var
+R1376:1376 simuliris.simulation.language <> K:35 var
+R1366:1368 stdpp.base <> ::stdpp_scope:'(=)' not
+R1362:1364 stdpp.base <> ::stdpp_scope:'(=)' not
+binder 1399:1399 <> K:37
+binder 1401:1401 <> e:38
+R1438:1442 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R1443:1449 stdpp.option <> is_Some def
+R1452:1463 simuliris.simulation.language <> mixin_to_val def
+R1465:1465 simuliris.simulation.language <> e:38 var
+R1405:1411 stdpp.option <> is_Some def
+R1414:1425 simuliris.simulation.language <> mixin_to_val def
+R1428:1431 simuliris.simulation.language <> language_mixin.fill var
+R1435:1435 simuliris.simulation.language <> e:38 var
+R1433:1433 simuliris.simulation.language <> K:37 var
+binder 1963:1963 <> p:40
+binder 1965:1966 <> K':41
+binder 1968:1974 <> K_redex:42
+binder 1976:1978 <> e1':43
+binder 1980:1987 <> e1_redex:44
+binder 1989:1991 <> σ1:45
+binder 1993:1994 <> e2:46
+binder 1996:1998 <> σ2:47
+R2043:2053 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2077:2087 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2119:2129 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2130:2133 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+R2137:2138 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+binder 2134:2136 <> K'':48
+R2146:2148 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2139:2145 simuliris.simulation.language <> K_redex:42 var
+R2149:2157 simuliris.simulation.language <> language_mixin.comp_ectx var
+R2162:2164 simuliris.simulation.language <> K'':48 var
+R2159:2160 simuliris.simulation.language <> K':41 var
+R2088:2096 simuliris.simulation.language <> language_mixin.head_step var
+R2116:2118 simuliris.simulation.language <> σ2:47 var
+R2113:2114 simuliris.simulation.language <> e2:46 var
+R2109:2111 simuliris.simulation.language <> σ1:45 var
+R2100:2107 simuliris.simulation.language <> e1_redex:44 var
+R2098:2098 simuliris.simulation.language <> p:40 var
+R2070:2072 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2054:2065 simuliris.simulation.language <> mixin_to_val def
+R2067:2069 simuliris.simulation.language <> e1':43 var
+R2073:2076 Coq.Init.Datatypes <> None constr
+R2019:2021 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2008:2011 simuliris.simulation.language <> language_mixin.fill var
+R2016:2018 simuliris.simulation.language <> e1':43 var
+R2013:2014 simuliris.simulation.language <> K':41 var
+R2022:2025 simuliris.simulation.language <> language_mixin.fill var
+R2035:2042 simuliris.simulation.language <> e1_redex:44 var
+R2027:2033 simuliris.simulation.language <> K_redex:42 var
+binder 2425:2425 <> p:50
+binder 2427:2427 <> K:51
+binder 2429:2429 <> e:52
+binder 2431:2433 <> σ1:53
+binder 2435:2436 <> e2:54
+binder 2438:2440 <> σ2:55
+R2483:2487 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2512:2516 Coq.Unicode.Utf8_core <> ::type_scope:x_'∨'_x not
+R2488:2494 stdpp.option <> is_Some def
+R2497:2508 simuliris.simulation.language <> mixin_to_val def
+R2510:2510 simuliris.simulation.language <> e:52 var
+R2518:2520 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2517:2517 simuliris.simulation.language <> K:51 var
+R2521:2530 simuliris.simulation.language <> language_mixin.empty_ectx var
+R2450:2458 simuliris.simulation.language <> language_mixin.head_step var
+R2480:2482 simuliris.simulation.language <> σ2:55 var
+R2477:2478 simuliris.simulation.language <> e2:54 var
+R2473:2475 simuliris.simulation.language <> σ1:53 var
+R2463:2466 simuliris.simulation.language <> language_mixin.fill var
+R2470:2470 simuliris.simulation.language <> e:52 var
+R2468:2468 simuliris.simulation.language <> K:51 var
+R2460:2460 simuliris.simulation.language <> p:50 var
+R2542:2555 simuliris.simulation.language language_mixin <> sec
+R2569:2584 simuliris.simulation.language <> mixin_expr_class ind
+R2569:2584 simuliris.simulation.language <> mixin_expr_class ind
+R2615:2624 simuliris.simulation.language <> mixin_prog def
+R2615:2624 simuliris.simulation.language <> mixin_prog def
+constr 2668:2675 <> Language
+rec 2656:2663 <> language
+proj 2681:2684 <> expr
+proj 2696:2698 <> val
+proj 2710:2713 <> ectx
+proj 2725:2729 <> state
+proj 2742:2749 <> of_class
+proj 2786:2793 <> to_class
+proj 2839:2848 <> empty_ectx
+proj 2860:2868 <> comp_ectx
+proj 2898:2901 <> fill
+proj 2931:2939 <> head_step
+proj 3010:3023 <> language_mixin
+R2773:2777 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2778:2781 simuliris.simulation.language <> expr:58 meth
+R2753:2768 simuliris.simulation.language <> mixin_expr_class ind
+R2770:2772 simuliris.simulation.language <> val:59 meth
+R2801:2805 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2806:2811 Coq.Init.Datatypes <> option ind
+R2814:2829 simuliris.simulation.language <> mixin_expr_class ind
+R2831:2833 simuliris.simulation.language <> val:59 meth
+R2797:2800 simuliris.simulation.language <> expr:58 meth
+R2852:2855 simuliris.simulation.language <> ectx:60 meth
+R2876:2880 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2885:2889 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2890:2893 simuliris.simulation.language <> ectx:60 meth
+R2881:2884 simuliris.simulation.language <> ectx:60 meth
+R2872:2875 simuliris.simulation.language <> ectx:60 meth
+R2909:2913 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2918:2922 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2923:2926 simuliris.simulation.language <> expr:58 meth
+R2914:2917 simuliris.simulation.language <> expr:58 meth
+R2905:2908 simuliris.simulation.language <> ectx:60 meth
+R2958:2962 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2967:2971 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2977:2981 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2986:2990 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2996:3000 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R2991:2995 simuliris.simulation.language <> state:61 meth
+R2982:2985 simuliris.simulation.language <> expr:58 meth
+R2972:2976 simuliris.simulation.language <> state:61 meth
+R2963:2966 simuliris.simulation.language <> expr:58 meth
+R2943:2952 simuliris.simulation.language <> mixin_prog def
+R2954:2957 simuliris.simulation.language <> ectx:60 meth
+R3031:3043 simuliris.simulation.language <> LanguageMixin rec
+R3100:3108 simuliris.simulation.language <> head_step:67 meth
+R3095:3098 simuliris.simulation.language <> fill:66 meth
+R3085:3093 simuliris.simulation.language <> comp_ectx:65 meth
+R3074:3083 simuliris.simulation.language <> empty_ectx:64 meth
+R3065:3072 simuliris.simulation.language <> to_class:63 meth
+R3056:3063 simuliris.simulation.language <> of_class:62 meth
+R3051:3053 simuliris.simulation.language <> val:59 meth
+R3241:3248 simuliris.simulation.language <> Language constr
+R3241:3248 simuliris.simulation.language <> Language constr
+R3285:3292 simuliris.simulation.language <> of_class proj
+R3285:3292 simuliris.simulation.language <> of_class proj
+R3311:3318 simuliris.simulation.language <> to_class proj
+R3311:3318 simuliris.simulation.language <> to_class proj
+R3337:3346 simuliris.simulation.language <> empty_ectx proj
+R3337:3346 simuliris.simulation.language <> empty_ectx proj
+R3363:3371 simuliris.simulation.language <> comp_ectx proj
+R3363:3371 simuliris.simulation.language <> comp_ectx proj
+R3392:3395 simuliris.simulation.language <> fill proj
+R3392:3395 simuliris.simulation.language <> fill proj
+R3416:3424 simuliris.simulation.language <> head_step proj
+R3416:3424 simuliris.simulation.language <> head_step proj
+def 3453:3462 <> expr_class
+R3469:3476 simuliris.simulation.language <> language rec
+binder 3465:3465 <> l:69
+R3482:3497 simuliris.simulation.language <> mixin_expr_class ind
+R3502:3504 simuliris.simulation.language <> val proj
+R3499:3499 simuliris.simulation.language <> l:69 var
+def 3519:3524 <> to_val
+R3531:3538 simuliris.simulation.language <> language rec
+binder 3527:3527 <> l:70
+R3544:3555 simuliris.simulation.language <> mixin_to_val def
+R3561:3568 simuliris.simulation.language <> to_class proj
+R3557:3557 simuliris.simulation.language <> l:70 var
+def 3583:3586 <> prog
+R3593:3600 simuliris.simulation.language <> language rec
+binder 3589:3589 <> l:71
+R3607:3616 simuliris.simulation.language <> mixin_prog def
+R3621:3624 simuliris.simulation.language <> ectx proj
+R3618:3618 simuliris.simulation.language <> l:71 var
+sec 3696:3703 <> language
+R3722:3729 simuliris.simulation.language <> language rec
+binder 3717:3718 <> Λ:72
+R3754:3756 simuliris.simulation.language <> val proj
+R3758:3759 simuliris.simulation.language <> language.Λ var
+R3783:3786 simuliris.simulation.language <> expr proj
+R3788:3789 simuliris.simulation.language <> language.Λ var
+R3813:3822 simuliris.simulation.language <> expr_class def
+R3824:3825 simuliris.simulation.language <> language.Λ var
+R3849:3852 simuliris.simulation.language <> ectx proj
+R3854:3855 simuliris.simulation.language <> language.Λ var
+R3879:3882 simuliris.simulation.language <> prog def
+R3884:3885 simuliris.simulation.language <> language.Λ var
+def 3902:3907 <> of_val
+binder 3909:3909 <> v:73
+R3914:3921 simuliris.simulation.language <> of_class proj
+R3924:3930 simuliris.simulation.language <> ExprVal constr
+R3932:3932 simuliris.simulation.language <> v:73 var
+prf 3947:3957 <> to_of_class
+binder 3959:3959 <> c:74
+R3984:3986 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R3963:3970 simuliris.simulation.language <> to_class proj
+R3973:3980 simuliris.simulation.language <> of_class proj
+R3982:3982 simuliris.simulation.language <> c:74 var
+R3987:3990 Coq.Init.Datatypes <> Some constr
+R3992:3992 simuliris.simulation.language <> c:74 var
+R4010:4023 simuliris.simulation.language <> language_mixin proj
+R4010:4023 simuliris.simulation.language <> language_mixin proj
+prf 4039:4049 <> of_to_class
+binder 4051:4051 <> e:75
+binder 4053:4053 <> c:76
+R4076:4080 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R4091:4093 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4081:4088 simuliris.simulation.language <> of_class proj
+R4090:4090 simuliris.simulation.language <> c:76 var
+R4094:4094 simuliris.simulation.language <> e:75 var
+R4067:4069 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4057:4064 simuliris.simulation.language <> to_class proj
+R4066:4066 simuliris.simulation.language <> e:75 var
+R4070:4073 Coq.Init.Datatypes <> Some constr
+R4075:4075 simuliris.simulation.language <> c:76 var
+R4112:4125 simuliris.simulation.language <> language_mixin proj
+R4112:4125 simuliris.simulation.language <> language_mixin proj
+prf 4141:4154 <> val_head_stuck
+binder 4156:4156 <> p:77
+binder 4158:4158 <> e:78
+binder 4160:4161 <> σ:79
+binder 4163:4164 <> e':80
+binder 4166:4168 <> σ':81
+R4195:4199 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R4208:4210 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4200:4205 simuliris.simulation.language <> to_val def
+R4207:4207 simuliris.simulation.language <> e:78 var
+R4211:4214 Coq.Init.Datatypes <> None constr
+R4172:4180 simuliris.simulation.language <> head_step proj
+R4192:4194 simuliris.simulation.language <> σ':81 var
+R4189:4190 simuliris.simulation.language <> e':80 var
+R4186:4187 simuliris.simulation.language <> σ:79 var
+R4184:4184 simuliris.simulation.language <> e:78 var
+R4182:4182 simuliris.simulation.language <> p:77 var
+R4232:4245 simuliris.simulation.language <> language_mixin proj
+R4232:4245 simuliris.simulation.language <> language_mixin proj
+prf 4262:4271 <> fill_empty
+binder 4273:4273 <> e:82
+R4294:4296 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4277:4280 simuliris.simulation.language <> fill proj
+R4293:4293 simuliris.simulation.language <> e:82 var
+R4282:4291 simuliris.simulation.language <> empty_ectx proj
+R4297:4297 simuliris.simulation.language <> e:82 var
+R4315:4328 simuliris.simulation.language <> language_mixin proj
+R4315:4328 simuliris.simulation.language <> language_mixin proj
+prf 4344:4352 <> fill_comp
+binder 4354:4355 <> K1:83
+binder 4357:4358 <> K2:84
+binder 4360:4360 <> e:85
+R4383:4385 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4364:4367 simuliris.simulation.language <> fill proj
+R4373:4376 simuliris.simulation.language <> fill proj
+R4381:4381 simuliris.simulation.language <> e:85 var
+R4378:4379 simuliris.simulation.language <> K2:84 var
+R4369:4370 simuliris.simulation.language <> K1:83 var
+R4386:4389 simuliris.simulation.language <> fill proj
+R4409:4409 simuliris.simulation.language <> e:85 var
+R4392:4400 simuliris.simulation.language <> comp_ectx proj
+R4405:4406 simuliris.simulation.language <> K2:84 var
+R4402:4403 simuliris.simulation.language <> K1:83 var
+R4427:4440 simuliris.simulation.language <> language_mixin proj
+R4427:4440 simuliris.simulation.language <> language_mixin proj
+inst 4466:4473 <> fill_inj
+binder 4475:4475 <> K:86
+R4479:4481 stdpp.base <> Inj class
+R4492:4495 simuliris.simulation.language <> fill proj
+R4497:4497 simuliris.simulation.language <> K:86 var
+R4487:4489 stdpp.base <> ::stdpp_scope:'(=)' not
+R4483:4485 stdpp.base <> ::stdpp_scope:'(=)' not
+R4516:4529 simuliris.simulation.language <> language_mixin proj
+R4516:4529 simuliris.simulation.language <> language_mixin proj
+prf 4545:4552 <> fill_val
+binder 4554:4554 <> K:87
+binder 4556:4556 <> e:88
+R4587:4591 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R4592:4598 stdpp.option <> is_Some def
+R4601:4606 simuliris.simulation.language <> to_val def
+R4608:4608 simuliris.simulation.language <> e:88 var
+R4560:4566 stdpp.option <> is_Some def
+R4569:4574 simuliris.simulation.language <> to_val def
+R4577:4580 simuliris.simulation.language <> fill proj
+R4584:4584 simuliris.simulation.language <> e:88 var
+R4582:4582 simuliris.simulation.language <> K:87 var
+R4627:4640 simuliris.simulation.language <> language_mixin proj
+R4627:4640 simuliris.simulation.language <> language_mixin proj
+prf 4656:4666 <> step_by_val
+binder 4668:4668 <> p:89
+binder 4670:4671 <> K':90
+binder 4673:4679 <> K_redex:91
+binder 4681:4683 <> e1':92
+binder 4685:4692 <> e1_redex:93
+binder 4694:4696 <> σ1:94
+binder 4698:4699 <> e2:95
+binder 4701:4703 <> σ2:96
+R4748:4758 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R4776:4786 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R4818:4828 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R4829:4832 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+R4836:4837 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+binder 4833:4835 <> K'':97
+R4845:4847 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4838:4844 simuliris.simulation.language <> K_redex:91 var
+R4848:4856 simuliris.simulation.language <> comp_ectx proj
+R4861:4863 simuliris.simulation.language <> K'':97 var
+R4858:4859 simuliris.simulation.language <> K':90 var
+R4787:4795 simuliris.simulation.language <> head_step proj
+R4815:4817 simuliris.simulation.language <> σ2:96 var
+R4812:4813 simuliris.simulation.language <> e2:95 var
+R4808:4810 simuliris.simulation.language <> σ1:94 var
+R4799:4806 simuliris.simulation.language <> e1_redex:93 var
+R4797:4797 simuliris.simulation.language <> p:89 var
+R4769:4771 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4759:4764 simuliris.simulation.language <> to_val def
+R4766:4768 simuliris.simulation.language <> e1':92 var
+R4772:4775 Coq.Init.Datatypes <> None constr
+R4724:4726 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4713:4716 simuliris.simulation.language <> fill proj
+R4721:4723 simuliris.simulation.language <> e1':92 var
+R4718:4719 simuliris.simulation.language <> K':90 var
+R4727:4730 simuliris.simulation.language <> fill proj
+R4740:4747 simuliris.simulation.language <> e1_redex:93 var
+R4732:4738 simuliris.simulation.language <> K_redex:91 var
+R4881:4894 simuliris.simulation.language <> language_mixin proj
+R4881:4894 simuliris.simulation.language <> language_mixin proj
+prf 4910:4926 <> head_ctx_step_val
+binder 4928:4928 <> p:98
+binder 4930:4930 <> K:99
+binder 4932:4932 <> e:100
+binder 4934:4936 <> σ1:101
+binder 4938:4939 <> e2:102
+binder 4941:4943 <> σ2:103
+R4984:4988 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5007:5011 Coq.Unicode.Utf8_core <> ::type_scope:x_'∨'_x not
+R4989:4995 stdpp.option <> is_Some def
+R4998:5003 simuliris.simulation.language <> to_val def
+R5005:5005 simuliris.simulation.language <> e:100 var
+R5013:5015 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5012:5012 simuliris.simulation.language <> K:99 var
+R5016:5025 simuliris.simulation.language <> empty_ectx proj
+R4951:4959 simuliris.simulation.language <> head_step proj
+R4981:4983 simuliris.simulation.language <> σ2:103 var
+R4978:4979 simuliris.simulation.language <> e2:102 var
+R4974:4976 simuliris.simulation.language <> σ1:101 var
+R4964:4967 simuliris.simulation.language <> fill proj
+R4971:4971 simuliris.simulation.language <> e:100 var
+R4969:4969 simuliris.simulation.language <> K:99 var
+R4961:4961 simuliris.simulation.language <> p:98 var
+R5043:5056 simuliris.simulation.language <> language_mixin proj
+R5043:5056 simuliris.simulation.language <> language_mixin proj
+def 5078:5091 <> head_reducible
+R5098:5101 simuliris.simulation.language <> prog def
+R5103:5104 simuliris.simulation.language <> language.Λ var
+binder 5094:5094 <> p:104
+R5112:5115 simuliris.simulation.language <> expr proj
+R5117:5118 simuliris.simulation.language <> language.Λ var
+binder 5108:5108 <> e:105
+R5127:5131 simuliris.simulation.language <> state proj
+R5133:5134 simuliris.simulation.language <> language.Λ var
+binder 5122:5123 <> σ:106
+R5144:5147 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+R5154:5155 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+binder 5148:5149 <> e':107
+binder 5151:5153 <> σ':108
+R5156:5164 simuliris.simulation.language <> head_step proj
+R5176:5178 simuliris.simulation.language <> σ':108 var
+R5173:5174 simuliris.simulation.language <> e':107 var
+R5170:5171 simuliris.simulation.language <> σ:106 var
+R5168:5168 simuliris.simulation.language <> e:105 var
+R5166:5166 simuliris.simulation.language <> p:104 var
+def 5194:5209 <> head_irreducible
+R5216:5219 simuliris.simulation.language <> prog def
+R5221:5222 simuliris.simulation.language <> language.Λ var
+binder 5212:5212 <> p:109
+R5230:5233 simuliris.simulation.language <> expr proj
+R5235:5236 simuliris.simulation.language <> language.Λ var
+binder 5226:5226 <> e:110
+R5245:5249 simuliris.simulation.language <> state proj
+R5251:5252 simuliris.simulation.language <> language.Λ var
+binder 5240:5241 <> σ:111
+R5262:5265 Coq.Unicode.Utf8_core <> ::type_scope:'∀'_x_'..'_x_','_x not
+R5272:5273 Coq.Unicode.Utf8_core <> ::type_scope:'∀'_x_'..'_x_','_x not
+binder 5266:5267 <> e':112
+binder 5269:5271 <> σ':113
+R5274:5275 Coq.Unicode.Utf8_core <> ::type_scope:'¬'_x not
+R5276:5284 simuliris.simulation.language <> head_step proj
+R5296:5298 simuliris.simulation.language <> σ':113 var
+R5293:5294 simuliris.simulation.language <> e':112 var
+R5290:5291 simuliris.simulation.language <> σ:111 var
+R5288:5288 simuliris.simulation.language <> e:110 var
+R5286:5286 simuliris.simulation.language <> p:109 var
+def 5314:5323 <> head_stuck
+R5330:5333 simuliris.simulation.language <> prog def
+R5335:5336 simuliris.simulation.language <> language.Λ var
+binder 5326:5326 <> p:114
+R5344:5347 simuliris.simulation.language <> expr proj
+R5349:5350 simuliris.simulation.language <> language.Λ var
+binder 5340:5340 <> e:115
+R5359:5363 simuliris.simulation.language <> state proj
+R5365:5366 simuliris.simulation.language <> language.Λ var
+binder 5354:5355 <> σ:116
+R5391:5395 Coq.Unicode.Utf8_core <> ::type_scope:x_'∧'_x not
+R5384:5386 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5376:5381 simuliris.simulation.language <> to_val def
+R5383:5383 simuliris.simulation.language <> e:115 var
+R5387:5390 Coq.Init.Datatypes <> None constr
+R5396:5411 simuliris.simulation.language <> head_irreducible def
+R5417:5418 simuliris.simulation.language <> σ:116 var
+R5415:5415 simuliris.simulation.language <> e:115 var
+R5413:5413 simuliris.simulation.language <> p:114 var
+def 5532:5553 <> sub_redexes_are_values
+R5560:5563 simuliris.simulation.language <> expr proj
+R5565:5566 simuliris.simulation.language <> language.Λ var
+binder 5556:5556 <> e:117
+R5576:5579 Coq.Unicode.Utf8_core <> ::type_scope:'∀'_x_'..'_x_','_x not
+R5584:5585 Coq.Unicode.Utf8_core <> ::type_scope:'∀'_x_'..'_x_','_x not
+binder 5580:5580 <> K:118
+binder 5582:5583 <> e':119
+R5599:5603 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5620:5624 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5626:5628 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5625:5625 simuliris.simulation.language <> K:118 var
+R5629:5638 simuliris.simulation.language <> empty_ectx proj
+R5613:5615 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5604:5609 simuliris.simulation.language <> to_val def
+R5611:5612 simuliris.simulation.language <> e':119 var
+R5616:5619 Coq.Init.Datatypes <> None constr
+R5587:5589 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5586:5586 simuliris.simulation.language <> e:117 var
+R5590:5593 simuliris.simulation.language <> fill proj
+R5597:5598 simuliris.simulation.language <> e':119 var
+R5595:5595 simuliris.simulation.language <> K:118 var
+ind 5654:5662 <> prim_step
+constr 5762:5770 <> Prim_step
+R5669:5672 simuliris.simulation.language <> prog def
+R5674:5675 simuliris.simulation.language <> language.Λ var
+binder 5665:5665 <> p:120
+R5684:5687 simuliris.simulation.language <> expr proj
+R5689:5690 simuliris.simulation.language <> language.Λ var
+binder 5679:5680 <> e1:121
+R5700:5704 simuliris.simulation.language <> state proj
+R5706:5707 simuliris.simulation.language <> language.Λ var
+binder 5694:5696 <> σ1:122
+R5722:5725 simuliris.simulation.language <> expr proj
+R5727:5728 simuliris.simulation.language <> language.Λ var
+binder 5717:5718 <> e2:123
+R5738:5742 simuliris.simulation.language <> state proj
+R5744:5745 simuliris.simulation.language <> language.Λ var
+binder 5732:5734 <> σ2:124
+binder 5772:5772 <> K:127
+binder 5774:5776 <> e1':128
+binder 5778:5780 <> e2':129
+R5805:5809 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5825:5835 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5863:5867 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5868:5876 simuliris.simulation.language <> prim_step:125 ind
+R5890:5892 simuliris.simulation.language <> σ2:124 var
+R5887:5888 simuliris.simulation.language <> e2:123 var
+R5883:5885 simuliris.simulation.language <> σ1:122 var
+R5880:5881 simuliris.simulation.language <> e1:121 var
+R5878:5878 simuliris.simulation.language <> p:120 var
+R5836:5844 simuliris.simulation.language <> head_step proj
+R5860:5862 simuliris.simulation.language <> σ2:124 var
+R5856:5858 simuliris.simulation.language <> e2':129 var
+R5852:5854 simuliris.simulation.language <> σ1:122 var
+R5848:5850 simuliris.simulation.language <> e1':128 var
+R5846:5846 simuliris.simulation.language <> p:120 var
+R5812:5814 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5810:5811 simuliris.simulation.language <> e2:123 var
+R5815:5818 simuliris.simulation.language <> fill proj
+R5822:5824 simuliris.simulation.language <> e2':129 var
+R5820:5820 simuliris.simulation.language <> K:127 var
+R5792:5794 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5790:5791 simuliris.simulation.language <> e1:121 var
+R5795:5798 simuliris.simulation.language <> fill proj
+R5802:5804 simuliris.simulation.language <> e1':128 var
+R5800:5800 simuliris.simulation.language <> K:127 var
+prf 5904:5913 <> Prim_step'
+binder 5915:5915 <> p:130
+binder 5917:5917 <> K:131
+binder 5919:5920 <> e1:132
+binder 5922:5924 <> σ1:133
+binder 5926:5927 <> e2:134
+binder 5929:5931 <> σ2:135
+R5964:5968 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R5969:5977 simuliris.simulation.language <> prim_step ind
+R6009:6011 simuliris.simulation.language <> σ2:135 var
+R5998:6001 simuliris.simulation.language <> fill proj
+R6005:6006 simuliris.simulation.language <> e2:134 var
+R6003:6003 simuliris.simulation.language <> K:131 var
+R5993:5995 simuliris.simulation.language <> σ1:133 var
+R5982:5985 simuliris.simulation.language <> fill proj
+R5989:5990 simuliris.simulation.language <> e1:132 var
+R5987:5987 simuliris.simulation.language <> K:131 var
+R5979:5979 simuliris.simulation.language <> p:130 var
+R5939:5947 simuliris.simulation.language <> head_step proj
+R5961:5963 simuliris.simulation.language <> σ2:135 var
+R5958:5959 simuliris.simulation.language <> e2:134 var
+R5954:5956 simuliris.simulation.language <> σ1:133 var
+R5951:5952 simuliris.simulation.language <> e1:132 var
+R5949:5949 simuliris.simulation.language <> p:130 var
+def 6063:6071 <> reducible
+R6078:6081 simuliris.simulation.language <> prog def
+R6083:6084 simuliris.simulation.language <> language.Λ var
+binder 6074:6074 <> p:136
+R6092:6095 simuliris.simulation.language <> expr proj
+R6097:6098 simuliris.simulation.language <> language.Λ var
+binder 6088:6088 <> e:137
+R6107:6111 simuliris.simulation.language <> state proj
+R6113:6114 simuliris.simulation.language <> language.Λ var
+binder 6102:6103 <> σ:138
+R6124:6127 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+R6134:6135 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+binder 6128:6129 <> e':139
+binder 6131:6133 <> σ':140
+R6136:6144 simuliris.simulation.language <> prim_step ind
+R6156:6158 simuliris.simulation.language <> σ':140 var
+R6153:6154 simuliris.simulation.language <> e':139 var
+R6150:6151 simuliris.simulation.language <> σ:138 var
+R6148:6148 simuliris.simulation.language <> e:137 var
+R6146:6146 simuliris.simulation.language <> p:136 var
+def 6174:6184 <> irreducible
+R6191:6194 simuliris.simulation.language <> prog def
+R6196:6197 simuliris.simulation.language <> language.Λ var
+binder 6187:6187 <> p:141
+R6205:6208 simuliris.simulation.language <> expr proj
+R6210:6211 simuliris.simulation.language <> language.Λ var
+binder 6201:6201 <> e:142
+R6220:6224 simuliris.simulation.language <> state proj
+R6226:6227 simuliris.simulation.language <> language.Λ var
+binder 6215:6216 <> σ:143
+R6237:6240 Coq.Unicode.Utf8_core <> ::type_scope:'∀'_x_'..'_x_','_x not
+R6247:6248 Coq.Unicode.Utf8_core <> ::type_scope:'∀'_x_'..'_x_','_x not
+binder 6241:6242 <> e':144
+binder 6244:6246 <> σ':145
+R6249:6250 Coq.Unicode.Utf8_core <> ::type_scope:'¬'_x not
+R6251:6259 simuliris.simulation.language <> prim_step ind
+R6271:6273 simuliris.simulation.language <> σ':145 var
+R6268:6269 simuliris.simulation.language <> e':144 var
+R6265:6266 simuliris.simulation.language <> σ:143 var
+R6263:6263 simuliris.simulation.language <> e:142 var
+R6261:6261 simuliris.simulation.language <> p:141 var
+def 6289:6293 <> stuck
+R6300:6303 simuliris.simulation.language <> prog def
+R6305:6306 simuliris.simulation.language <> language.Λ var
+binder 6296:6296 <> p:146
+R6314:6317 simuliris.simulation.language <> expr proj
+R6319:6320 simuliris.simulation.language <> language.Λ var
+binder 6310:6310 <> e:147
+R6329:6333 simuliris.simulation.language <> state proj
+R6335:6336 simuliris.simulation.language <> language.Λ var
+binder 6324:6325 <> σ:148
+R6361:6365 Coq.Unicode.Utf8_core <> ::type_scope:x_'∧'_x not
+R6354:6356 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6346:6351 simuliris.simulation.language <> to_val def
+R6353:6353 simuliris.simulation.language <> e:147 var
+R6357:6360 Coq.Init.Datatypes <> None constr
+R6366:6376 simuliris.simulation.language <> irreducible def
+R6382:6383 simuliris.simulation.language <> σ:148 var
+R6380:6380 simuliris.simulation.language <> e:147 var
+R6378:6378 simuliris.simulation.language <> p:146 var
+def 6399:6407 <> not_stuck
+R6414:6417 simuliris.simulation.language <> prog def
+R6419:6420 simuliris.simulation.language <> language.Λ var
+binder 6410:6410 <> p:149
+R6428:6431 simuliris.simulation.language <> expr proj
+R6433:6434 simuliris.simulation.language <> language.Λ var
+binder 6424:6424 <> e:150
+R6443:6447 simuliris.simulation.language <> state proj
+R6449:6450 simuliris.simulation.language <> language.Λ var
+binder 6438:6439 <> σ:151
+R6478:6482 Coq.Unicode.Utf8_core <> ::type_scope:x_'∨'_x not
+R6460:6466 stdpp.option <> is_Some def
+R6469:6474 simuliris.simulation.language <> to_val def
+R6476:6476 simuliris.simulation.language <> e:150 var
+R6483:6491 simuliris.simulation.language <> reducible def
+R6497:6498 simuliris.simulation.language <> σ:151 var
+R6495:6495 simuliris.simulation.language <> e:150 var
+R6493:6493 simuliris.simulation.language <> p:149 var
+prf 6553:6561 <> to_of_val
+binder 6563:6563 <> v:152
+R6584:6586 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6567:6572 simuliris.simulation.language <> to_val def
+R6575:6580 simuliris.simulation.language <> of_val def
+R6582:6582 simuliris.simulation.language <> v:152 var
+R6587:6590 Coq.Init.Datatypes <> Some constr
+R6592:6592 simuliris.simulation.language <> v:152 var
+R6613:6618 simuliris.simulation.language <> to_val def
+R6621:6626 simuliris.simulation.language <> of_val def
+R6629:6640 simuliris.simulation.language <> mixin_to_val def
+R6642:6652 simuliris.simulation.language <> to_of_class thm
+R6613:6618 simuliris.simulation.language <> to_val def
+R6613:6618 simuliris.simulation.language <> to_val def
+R6621:6626 simuliris.simulation.language <> of_val def
+R6621:6626 simuliris.simulation.language <> of_val def
+R6629:6640 simuliris.simulation.language <> mixin_to_val def
+R6629:6640 simuliris.simulation.language <> mixin_to_val def
+R6642:6652 simuliris.simulation.language <> to_of_class thm
+R6642:6652 simuliris.simulation.language <> to_of_class thm
+prf 6671:6679 <> of_to_val
+binder 6681:6681 <> e:153
+binder 6683:6683 <> v:154
+R6704:6708 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R6717:6719 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6709:6714 simuliris.simulation.language <> of_val def
+R6716:6716 simuliris.simulation.language <> v:154 var
+R6720:6720 simuliris.simulation.language <> e:153 var
+R6695:6697 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6687:6692 simuliris.simulation.language <> to_val def
+R6694:6694 simuliris.simulation.language <> e:153 var
+R6698:6701 Coq.Init.Datatypes <> Some constr
+R6703:6703 simuliris.simulation.language <> v:154 var
+R6745:6750 simuliris.simulation.language <> to_val def
+R6753:6758 simuliris.simulation.language <> of_val def
+R6761:6772 simuliris.simulation.language <> mixin_to_val def
+R6745:6750 simuliris.simulation.language <> to_val def
+R6745:6750 simuliris.simulation.language <> to_val def
+R6753:6758 simuliris.simulation.language <> of_val def
+R6753:6758 simuliris.simulation.language <> of_val def
+R6761:6772 simuliris.simulation.language <> mixin_to_val def
+R6761:6772 simuliris.simulation.language <> mixin_to_val def
+R6789:6799 simuliris.simulation.language <> of_to_class thm
+R6789:6799 simuliris.simulation.language <> of_to_class thm
+R6816:6823 simuliris.simulation.language <> to_class proj
+R6816:6823 simuliris.simulation.language <> to_class proj
+prf 6879:6887 <> val_stuck
+binder 6889:6889 <> p:155
+binder 6891:6891 <> e:156
+binder 6893:6894 <> σ:157
+binder 6896:6897 <> e':158
+binder 6899:6901 <> σ':159
+R6928:6932 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R6941:6943 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6933:6938 simuliris.simulation.language <> to_val def
+R6940:6940 simuliris.simulation.language <> e:156 var
+R6944:6947 Coq.Init.Datatypes <> None constr
+R6905:6913 simuliris.simulation.language <> prim_step ind
+R6925:6927 simuliris.simulation.language <> σ':159 var
+R6922:6923 simuliris.simulation.language <> e':158 var
+R6919:6920 simuliris.simulation.language <> σ:157 var
+R6917:6917 simuliris.simulation.language <> e:156 var
+R6915:6915 simuliris.simulation.language <> p:155 var
+R6983:6996 simuliris.simulation.language <> val_head_stuck thm
+R6983:6996 simuliris.simulation.language <> val_head_stuck thm
+R7010:7025 stdpp.option <> eq_None_not_Some thm
+R7010:7025 stdpp.option <> eq_None_not_Some thm
+R7049:7064 stdpp.option <> eq_None_not_Some thm
+R7040:7047 simuliris.simulation.language <> fill_val thm
+R7040:7047 simuliris.simulation.language <> fill_val thm
+R7049:7064 stdpp.option <> eq_None_not_Some thm
+prf 7083:7096 <> of_to_val_flip
+binder 7098:7098 <> v:160
+binder 7100:7100 <> e:161
+R7116:7120 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R7129:7131 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7121:7126 simuliris.simulation.language <> to_val def
+R7128:7128 simuliris.simulation.language <> e:161 var
+R7132:7135 Coq.Init.Datatypes <> Some constr
+R7137:7137 simuliris.simulation.language <> v:160 var
+R7112:7114 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7104:7109 simuliris.simulation.language <> of_val def
+R7111:7111 simuliris.simulation.language <> v:160 var
+R7115:7115 simuliris.simulation.language <> e:161 var
+R7171:7179 simuliris.simulation.language <> to_of_val thm
+R7171:7179 simuliris.simulation.language <> to_of_val thm
+R7171:7179 simuliris.simulation.language <> to_of_val thm
+prf 7196:7208 <> not_reducible
+binder 7210:7210 <> p:162
+binder 7212:7212 <> e:163
+binder 7214:7215 <> σ:164
+R7237:7241 Coq.Unicode.Utf8_core <> ::type_scope:x_'↔'_x not
+R7219:7220 Coq.Unicode.Utf8_core <> ::type_scope:'¬'_x not
+R7221:7229 simuliris.simulation.language <> reducible def
+R7235:7236 simuliris.simulation.language <> σ:164 var
+R7233:7233 simuliris.simulation.language <> e:163 var
+R7231:7231 simuliris.simulation.language <> p:162 var
+R7242:7252 simuliris.simulation.language <> irreducible def
+R7258:7259 simuliris.simulation.language <> σ:164 var
+R7256:7256 simuliris.simulation.language <> e:163 var
+R7254:7254 simuliris.simulation.language <> p:162 var
+R7278:7286 simuliris.simulation.language <> reducible def
+R7289:7299 simuliris.simulation.language <> irreducible def
+prf 7329:7345 <> reducible_not_val
+binder 7347:7347 <> p:165
+binder 7349:7349 <> e:166
+binder 7351:7352 <> σ:167
+R7372:7376 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R7385:7387 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7377:7382 simuliris.simulation.language <> to_val def
+R7384:7384 simuliris.simulation.language <> e:166 var
+R7388:7391 Coq.Init.Datatypes <> None constr
+R7356:7364 simuliris.simulation.language <> reducible def
+R7370:7371 simuliris.simulation.language <> σ:167 var
+R7368:7368 simuliris.simulation.language <> e:166 var
+R7366:7366 simuliris.simulation.language <> p:165 var
+R7431:7439 simuliris.simulation.language <> val_stuck thm
+R7431:7439 simuliris.simulation.language <> val_stuck thm
+prf 7455:7469 <> val_irreducible
+binder 7471:7471 <> p:168
+binder 7473:7473 <> e:169
+binder 7475:7476 <> σ:170
+R7498:7502 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R7503:7513 simuliris.simulation.language <> irreducible def
+R7519:7520 simuliris.simulation.language <> σ:170 var
+R7517:7517 simuliris.simulation.language <> e:169 var
+R7515:7515 simuliris.simulation.language <> p:168 var
+R7480:7486 stdpp.option <> is_Some def
+R7489:7494 simuliris.simulation.language <> to_val def
+R7496:7496 simuliris.simulation.language <> e:169 var
+R7549:7557 simuliris.simulation.language <> val_stuck thm
+R7549:7557 simuliris.simulation.language <> val_stuck thm
+R7573:7578 simuliris.simulation.language <> to_val def
+R7573:7578 simuliris.simulation.language <> to_val def
+inst 7607:7616 <> of_val_inj
+R7620:7622 stdpp.base <> Inj class
+R7632:7637 simuliris.simulation.language <> of_val def
+R7628:7630 stdpp.base <> ::stdpp_scope:'(=)' not
+R7624:7626 stdpp.base <> ::stdpp_scope:'(=)' not
+R7675:7677 stdpp.base <> inj def
+R7679:7682 Coq.Init.Datatypes <> Some constr
+R7696:7704 simuliris.simulation.language <> to_of_val thm
+R7675:7677 stdpp.base <> inj def
+R7679:7682 Coq.Init.Datatypes <> Some constr
+R7696:7704 simuliris.simulation.language <> to_of_val thm
+R7696:7704 simuliris.simulation.language <> to_of_val thm
+R7696:7704 simuliris.simulation.language <> to_of_val thm
+R7696:7704 simuliris.simulation.language <> to_of_val thm
+prf 7723:7735 <> not_not_stuck
+binder 7737:7737 <> p:171
+binder 7739:7739 <> e:172
+binder 7741:7742 <> σ:173
+R7764:7768 Coq.Unicode.Utf8_core <> ::type_scope:x_'↔'_x not
+R7746:7747 Coq.Unicode.Utf8_core <> ::type_scope:'¬'_x not
+R7748:7756 simuliris.simulation.language <> not_stuck def
+R7762:7763 simuliris.simulation.language <> σ:173 var
+R7760:7760 simuliris.simulation.language <> e:172 var
+R7758:7758 simuliris.simulation.language <> p:171 var
+R7769:7773 simuliris.simulation.language <> stuck def
+R7779:7780 simuliris.simulation.language <> σ:173 var
+R7777:7777 simuliris.simulation.language <> e:172 var
+R7775:7775 simuliris.simulation.language <> p:171 var
+R7805:7809 simuliris.simulation.language <> stuck def
+R7812:7820 simuliris.simulation.language <> not_stuck def
+R7823:7838 stdpp.option <> not_eq_None_Some thm
+R7841:7853 simuliris.simulation.language <> not_reducible thm
+R7805:7809 simuliris.simulation.language <> stuck def
+R7805:7809 simuliris.simulation.language <> stuck def
+R7812:7820 simuliris.simulation.language <> not_stuck def
+R7812:7820 simuliris.simulation.language <> not_stuck def
+R7823:7838 stdpp.option <> not_eq_None_Some thm
+R7823:7838 stdpp.option <> not_eq_None_Some thm
+R7841:7853 simuliris.simulation.language <> not_reducible thm
+R7841:7853 simuliris.simulation.language <> not_reducible thm
+R7870:7875 stdpp.base <> decide def
+R7886:7888 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7878:7883 simuliris.simulation.language <> to_val def
+R7889:7892 Coq.Init.Datatypes <> None constr
+R7870:7875 stdpp.base <> decide def
+R7886:7888 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7878:7883 simuliris.simulation.language <> to_val def
+R7889:7892 Coq.Init.Datatypes <> None constr
+prf 7927:7938 <> fill_not_val
+binder 7940:7940 <> K:174
+binder 7942:7942 <> e:175
+R7961:7965 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R7983:7985 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7966:7971 simuliris.simulation.language <> to_val def
+R7974:7977 simuliris.simulation.language <> fill proj
+R7981:7981 simuliris.simulation.language <> e:175 var
+R7979:7979 simuliris.simulation.language <> K:174 var
+R7986:7989 Coq.Init.Datatypes <> None constr
+R7954:7956 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7946:7951 simuliris.simulation.language <> to_val def
+R7953:7953 simuliris.simulation.language <> e:175 var
+R7957:7960 Coq.Init.Datatypes <> None constr
+R8010:8025 stdpp.option <> eq_None_not_Some thm
+R8010:8025 stdpp.option <> eq_None_not_Some thm
+R8010:8025 stdpp.option <> eq_None_not_Some thm
+R8010:8025 stdpp.option <> eq_None_not_Some thm
+R8010:8025 stdpp.option <> eq_None_not_Some thm
+R8040:8047 simuliris.simulation.language <> fill_val thm
+R8040:8047 simuliris.simulation.language <> fill_val thm
+prf 8064:8081 <> not_head_reducible
+binder 8083:8083 <> p:176
+binder 8085:8085 <> e:177
+binder 8087:8088 <> σ:178
+R8115:8119 Coq.Unicode.Utf8_core <> ::type_scope:x_'↔'_x not
+R8092:8093 Coq.Unicode.Utf8_core <> ::type_scope:'¬'_x not
+R8094:8107 simuliris.simulation.language <> head_reducible def
+R8113:8114 simuliris.simulation.language <> σ:178 var
+R8111:8111 simuliris.simulation.language <> e:177 var
+R8109:8109 simuliris.simulation.language <> p:176 var
+R8120:8135 simuliris.simulation.language <> head_irreducible def
+R8141:8142 simuliris.simulation.language <> σ:178 var
+R8139:8139 simuliris.simulation.language <> e:177 var
+R8137:8137 simuliris.simulation.language <> p:176 var
+R8161:8174 simuliris.simulation.language <> head_reducible def
+R8177:8192 simuliris.simulation.language <> head_irreducible def
+prf 8513:8529 <> head_redex_unique
+binder 8531:8531 <> p:179
+binder 8533:8533 <> K:180
+binder 8535:8536 <> K':181
+binder 8538:8538 <> e:182
+binder 8540:8541 <> e':183
+binder 8543:8544 <> σ:184
+R8573:8581 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R8603:8611 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R8634:8642 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R8670:8674 Coq.Unicode.Utf8_core <> ::type_scope:x_'∧'_x not
+R8644:8646 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R8643:8643 simuliris.simulation.language <> K:180 var
+R8647:8655 simuliris.simulation.language <> comp_ectx proj
+R8660:8669 simuliris.simulation.language <> empty_ectx proj
+R8657:8658 simuliris.simulation.language <> K':181 var
+R8676:8678 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R8675:8675 simuliris.simulation.language <> e:182 var
+R8679:8680 simuliris.simulation.language <> e':183 var
+R8612:8625 simuliris.simulation.language <> head_reducible def
+R8632:8633 simuliris.simulation.language <> σ:184 var
+R8629:8630 simuliris.simulation.language <> e':183 var
+R8627:8627 simuliris.simulation.language <> p:179 var
+R8582:8595 simuliris.simulation.language <> head_reducible def
+R8601:8602 simuliris.simulation.language <> σ:184 var
+R8599:8599 simuliris.simulation.language <> e:182 var
+R8597:8597 simuliris.simulation.language <> p:179 var
+R8560:8562 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R8552:8555 simuliris.simulation.language <> fill proj
+R8559:8559 simuliris.simulation.language <> e:182 var
+R8557:8557 simuliris.simulation.language <> K:180 var
+R8563:8566 simuliris.simulation.language <> fill proj
+R8571:8572 simuliris.simulation.language <> e':183 var
+R8568:8569 simuliris.simulation.language <> K':181 var
+R8762:8772 simuliris.simulation.language <> step_by_val thm
+R8822:8835 simuliris.simulation.language <> val_head_stuck thm
+R8762:8772 simuliris.simulation.language <> step_by_val thm
+R8822:8835 simuliris.simulation.language <> val_head_stuck thm
+R8822:8835 simuliris.simulation.language <> val_head_stuck thm
+R8822:8835 simuliris.simulation.language <> val_head_stuck thm
+R8875:8883 simuliris.simulation.language <> fill_comp thm
+R8875:8883 simuliris.simulation.language <> fill_comp thm
+R8875:8883 simuliris.simulation.language <> fill_comp thm
+R8897:8899 stdpp.base <> inj def
+R8902:8905 simuliris.simulation.language <> fill proj
+R8897:8899 stdpp.base <> inj def
+R8902:8905 simuliris.simulation.language <> fill proj
+R8970:8985 stdpp.option <> not_eq_None_Some thm
+R8926:8942 simuliris.simulation.language <> head_ctx_step_val thm
+R8926:8942 simuliris.simulation.language <> head_ctx_step_val thm
+R8970:8985 stdpp.option <> not_eq_None_Some thm
+R9010:9023 simuliris.simulation.language <> val_head_stuck thm
+R9010:9023 simuliris.simulation.language <> val_head_stuck thm
+R9051:9060 simuliris.simulation.language <> fill_empty thm
+R9051:9060 simuliris.simulation.language <> fill_empty thm
+R9051:9060 simuliris.simulation.language <> fill_empty thm
+prf 9085:9098 <> head_prim_step
+binder 9100:9100 <> p:185
+binder 9102:9103 <> e1:186
+binder 9105:9107 <> σ1:187
+binder 9109:9110 <> e2:188
+binder 9112:9114 <> σ2:189
+R9147:9151 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R9152:9160 simuliris.simulation.language <> prim_step ind
+R9174:9176 simuliris.simulation.language <> σ2:189 var
+R9171:9172 simuliris.simulation.language <> e2:188 var
+R9167:9169 simuliris.simulation.language <> σ1:187 var
+R9164:9165 simuliris.simulation.language <> e1:186 var
+R9162:9162 simuliris.simulation.language <> p:185 var
+R9122:9130 simuliris.simulation.language <> head_step proj
+R9144:9146 simuliris.simulation.language <> σ2:189 var
+R9141:9142 simuliris.simulation.language <> e2:188 var
+R9137:9139 simuliris.simulation.language <> σ1:187 var
+R9134:9135 simuliris.simulation.language <> e1:186 var
+R9132:9132 simuliris.simulation.language <> p:185 var
+R9209:9218 simuliris.simulation.language <> empty_ectx proj
+R9194:9202 simuliris.simulation.language <> Prim_step constr
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+R9209:9218 simuliris.simulation.language <> empty_ectx proj
+R9194:9202 simuliris.simulation.language <> Prim_step constr
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+R9233:9242 simuliris.simulation.language <> fill_empty thm
+prf 9259:9277 <> head_step_not_stuck
+binder 9279:9279 <> p:190
+binder 9281:9281 <> e:191
+binder 9283:9284 <> σ:192
+binder 9286:9287 <> e':193
+binder 9289:9291 <> σ':194
+R9322:9326 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R9327:9335 simuliris.simulation.language <> not_stuck def
+R9341:9342 simuliris.simulation.language <> σ:192 var
+R9339:9339 simuliris.simulation.language <> e:191 var
+R9337:9337 simuliris.simulation.language <> p:190 var
+R9299:9307 simuliris.simulation.language <> head_step proj
+R9319:9321 simuliris.simulation.language <> σ':194 var
+R9316:9317 simuliris.simulation.language <> e':193 var
+R9313:9314 simuliris.simulation.language <> σ:192 var
+R9311:9311 simuliris.simulation.language <> e:191 var
+R9309:9309 simuliris.simulation.language <> p:190 var
+R9363:9371 simuliris.simulation.language <> not_stuck def
+R9374:9382 simuliris.simulation.language <> reducible def
+R9363:9371 simuliris.simulation.language <> not_stuck def
+R9363:9371 simuliris.simulation.language <> not_stuck def
+R9374:9382 simuliris.simulation.language <> reducible def
+R9374:9382 simuliris.simulation.language <> reducible def
+R9403:9416 simuliris.simulation.language <> head_prim_step thm
+R9403:9416 simuliris.simulation.language <> head_prim_step thm
+prf 9433:9446 <> fill_prim_step
+binder 9448:9448 <> p:195
+binder 9450:9450 <> K:196
+binder 9452:9453 <> e1:197
+binder 9455:9457 <> σ1:198
+binder 9459:9460 <> e2:199
+binder 9462:9464 <> σ2:200
+R9497:9501 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R9502:9510 simuliris.simulation.language <> prim_step ind
+R9542:9544 simuliris.simulation.language <> σ2:200 var
+R9531:9534 simuliris.simulation.language <> fill proj
+R9538:9539 simuliris.simulation.language <> e2:199 var
+R9536:9536 simuliris.simulation.language <> K:196 var
+R9526:9528 simuliris.simulation.language <> σ1:198 var
+R9515:9518 simuliris.simulation.language <> fill proj
+R9522:9523 simuliris.simulation.language <> e1:197 var
+R9520:9520 simuliris.simulation.language <> K:196 var
+R9512:9512 simuliris.simulation.language <> p:195 var
+R9472:9480 simuliris.simulation.language <> prim_step ind
+R9494:9496 simuliris.simulation.language <> σ2:200 var
+R9491:9492 simuliris.simulation.language <> e2:199 var
+R9487:9489 simuliris.simulation.language <> σ1:198 var
+R9484:9485 simuliris.simulation.language <> e1:197 var
+R9482:9482 simuliris.simulation.language <> p:195 var
+R9607:9615 simuliris.simulation.language <> fill_comp thm
+R9607:9615 simuliris.simulation.language <> fill_comp thm
+R9607:9615 simuliris.simulation.language <> fill_comp thm
+R9607:9615 simuliris.simulation.language <> fill_comp thm
+R9607:9615 simuliris.simulation.language <> fill_comp thm
+prf 9650:9663 <> fill_reducible
+binder 9665:9665 <> p:201
+binder 9667:9667 <> K:202
+binder 9669:9669 <> e:203
+binder 9671:9672 <> σ:204
+R9692:9696 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R9697:9705 simuliris.simulation.language <> reducible def
+R9720:9721 simuliris.simulation.language <> σ:204 var
+R9710:9713 simuliris.simulation.language <> fill proj
+R9717:9717 simuliris.simulation.language <> e:203 var
+R9715:9715 simuliris.simulation.language <> K:202 var
+R9707:9707 simuliris.simulation.language <> p:201 var
+R9676:9684 simuliris.simulation.language <> reducible def
+R9690:9691 simuliris.simulation.language <> σ:204 var
+R9688:9688 simuliris.simulation.language <> e:203 var
+R9686:9686 simuliris.simulation.language <> p:201 var
+R9764:9767 simuliris.simulation.language <> fill proj
+R9764:9767 simuliris.simulation.language <> fill proj
+R9790:9803 simuliris.simulation.language <> fill_prim_step thm
+R9790:9803 simuliris.simulation.language <> fill_prim_step thm
+prf 9821:9839 <> head_prim_reducible
+binder 9841:9841 <> p:205
+binder 9843:9843 <> e:206
+binder 9845:9846 <> σ:207
+R9871:9875 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R9876:9884 simuliris.simulation.language <> reducible def
+R9890:9891 simuliris.simulation.language <> σ:207 var
+R9888:9888 simuliris.simulation.language <> e:206 var
+R9886:9886 simuliris.simulation.language <> p:205 var
+R9850:9863 simuliris.simulation.language <> head_reducible def
+R9869:9870 simuliris.simulation.language <> σ:207 var
+R9867:9867 simuliris.simulation.language <> e:206 var
+R9865:9865 simuliris.simulation.language <> p:205 var
+R9948:9961 simuliris.simulation.language <> head_prim_step thm
+R9948:9961 simuliris.simulation.language <> head_prim_step thm
+prf 9977:10000 <> head_prim_fill_reducible
+binder 10002:10002 <> p:208
+binder 10004:10004 <> e:209
+binder 10006:10006 <> K:210
+binder 10008:10009 <> σ:211
+R10038:10042 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10043:10051 simuliris.simulation.language <> reducible def
+R10066:10067 simuliris.simulation.language <> σ:211 var
+R10056:10059 simuliris.simulation.language <> fill proj
+R10063:10063 simuliris.simulation.language <> e:209 var
+R10061:10061 simuliris.simulation.language <> K:210 var
+R10053:10053 simuliris.simulation.language <> p:208 var
+R10017:10030 simuliris.simulation.language <> head_reducible def
+R10036:10037 simuliris.simulation.language <> σ:211 var
+R10034:10034 simuliris.simulation.language <> e:209 var
+R10032:10032 simuliris.simulation.language <> p:208 var
+R10095:10108 simuliris.simulation.language <> fill_reducible thm
+R10111:10129 simuliris.simulation.language <> head_prim_reducible thm
+R10095:10108 simuliris.simulation.language <> fill_reducible thm
+R10111:10129 simuliris.simulation.language <> head_prim_reducible thm
+prf 10145:10165 <> head_prim_irreducible
+binder 10167:10167 <> p:212
+binder 10169:10169 <> e:213
+binder 10171:10172 <> σ:214
+R10194:10198 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10199:10214 simuliris.simulation.language <> head_irreducible def
+R10220:10221 simuliris.simulation.language <> σ:214 var
+R10218:10218 simuliris.simulation.language <> e:213 var
+R10216:10216 simuliris.simulation.language <> p:212 var
+R10176:10186 simuliris.simulation.language <> irreducible def
+R10192:10193 simuliris.simulation.language <> σ:214 var
+R10190:10190 simuliris.simulation.language <> e:213 var
+R10188:10188 simuliris.simulation.language <> p:212 var
+R10246:10258 simuliris.simulation.language <> not_reducible thm
+R10261:10278 simuliris.simulation.language <> not_head_reducible thm
+R10246:10258 simuliris.simulation.language <> not_reducible thm
+R10246:10258 simuliris.simulation.language <> not_reducible thm
+R10261:10278 simuliris.simulation.language <> not_head_reducible thm
+R10261:10278 simuliris.simulation.language <> not_head_reducible thm
+R10293:10311 simuliris.simulation.language <> head_prim_reducible thm
+R10293:10311 simuliris.simulation.language <> head_prim_reducible thm
+prf 10330:10348 <> prim_head_reducible
+binder 10350:10350 <> p:215
+binder 10352:10352 <> e:216
+binder 10354:10355 <> σ:217
+R10379:10383 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10408:10412 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10413:10426 simuliris.simulation.language <> head_reducible def
+R10432:10433 simuliris.simulation.language <> σ:217 var
+R10430:10430 simuliris.simulation.language <> e:216 var
+R10428:10428 simuliris.simulation.language <> p:215 var
+R10384:10405 simuliris.simulation.language <> sub_redexes_are_values def
+R10407:10407 simuliris.simulation.language <> e:216 var
+R10363:10371 simuliris.simulation.language <> reducible def
+R10377:10378 simuliris.simulation.language <> σ:217 var
+R10375:10375 simuliris.simulation.language <> e:216 var
+R10373:10373 simuliris.simulation.language <> p:215 var
+R10505:10507 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R10508:10517 simuliris.simulation.language <> empty_ectx proj
+R10544:10557 simuliris.simulation.language <> val_head_stuck thm
+R10505:10507 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R10508:10517 simuliris.simulation.language <> empty_ectx proj
+R10544:10557 simuliris.simulation.language <> val_head_stuck thm
+R10572:10581 simuliris.simulation.language <> fill_empty thm
+R10584:10597 simuliris.simulation.language <> head_reducible def
+R10572:10581 simuliris.simulation.language <> fill_empty thm
+R10572:10581 simuliris.simulation.language <> fill_empty thm
+R10584:10597 simuliris.simulation.language <> head_reducible def
+R10584:10597 simuliris.simulation.language <> head_reducible def
+prf 10622:10642 <> prim_head_irreducible
+binder 10644:10644 <> p:218
+binder 10646:10646 <> e:219
+binder 10648:10649 <> σ:220
+R10680:10684 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10709:10713 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10714:10724 simuliris.simulation.language <> irreducible def
+R10730:10731 simuliris.simulation.language <> σ:220 var
+R10728:10728 simuliris.simulation.language <> e:219 var
+R10726:10726 simuliris.simulation.language <> p:218 var
+R10685:10706 simuliris.simulation.language <> sub_redexes_are_values def
+R10708:10708 simuliris.simulation.language <> e:219 var
+R10657:10672 simuliris.simulation.language <> head_irreducible def
+R10678:10679 simuliris.simulation.language <> σ:220 var
+R10676:10676 simuliris.simulation.language <> e:219 var
+R10674:10674 simuliris.simulation.language <> p:218 var
+R10756:10768 simuliris.simulation.language <> not_reducible thm
+R10771:10788 simuliris.simulation.language <> not_head_reducible thm
+R10756:10768 simuliris.simulation.language <> not_reducible thm
+R10756:10768 simuliris.simulation.language <> not_reducible thm
+R10771:10788 simuliris.simulation.language <> not_head_reducible thm
+R10771:10788 simuliris.simulation.language <> not_head_reducible thm
+R10803:10821 simuliris.simulation.language <> prim_head_reducible thm
+R10803:10821 simuliris.simulation.language <> prim_head_reducible thm
+prf 10840:10855 <> head_stuck_stuck
+binder 10857:10857 <> p:221
+binder 10859:10859 <> e:222
+binder 10861:10862 <> σ:223
+R10887:10891 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10916:10920 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R10921:10925 simuliris.simulation.language <> stuck def
+R10931:10932 simuliris.simulation.language <> σ:223 var
+R10929:10929 simuliris.simulation.language <> e:222 var
+R10927:10927 simuliris.simulation.language <> p:221 var
+R10892:10913 simuliris.simulation.language <> sub_redexes_are_values def
+R10915:10915 simuliris.simulation.language <> e:222 var
+R10870:10879 simuliris.simulation.language <> head_stuck def
+R10885:10886 simuliris.simulation.language <> σ:223 var
+R10883:10883 simuliris.simulation.language <> e:222 var
+R10881:10881 simuliris.simulation.language <> p:221 var
+R10989:11009 simuliris.simulation.language <> prim_head_irreducible thm
+R10989:11009 simuliris.simulation.language <> prim_head_irreducible thm
+prf 11028:11055 <> head_reducible_prim_step_ctx
+binder 11057:11057 <> p:224
+binder 11059:11059 <> K:225
+binder 11061:11062 <> e1:226
+binder 11064:11066 <> σ1:227
+binder 11068:11069 <> e2:228
+binder 11071:11073 <> σ2:229
+R11104:11112 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R11147:11155 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R11156:11159 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+R11163:11164 Coq.Unicode.Utf8_core <> ::type_scope:'∃'_x_'..'_x_','_x not
+binder 11160:11162 <> e2':230
+R11180:11184 Coq.Unicode.Utf8_core <> ::type_scope:x_'∧'_x not
+R11167:11169 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R11165:11166 simuliris.simulation.language <> e2:228 var
+R11170:11173 simuliris.simulation.language <> fill proj
+R11177:11179 simuliris.simulation.language <> e2':230 var
+R11175:11175 simuliris.simulation.language <> K:225 var
+R11185:11193 simuliris.simulation.language <> head_step proj
+R11208:11210 simuliris.simulation.language <> σ2:229 var
+R11204:11206 simuliris.simulation.language <> e2':230 var
+R11200:11202 simuliris.simulation.language <> σ1:227 var
+R11197:11198 simuliris.simulation.language <> e1:226 var
+R11195:11195 simuliris.simulation.language <> p:224 var
+R11113:11121 simuliris.simulation.language <> prim_step ind
+R11144:11146 simuliris.simulation.language <> σ2:229 var
+R11141:11142 simuliris.simulation.language <> e2:228 var
+R11137:11139 simuliris.simulation.language <> σ1:227 var
+R11126:11129 simuliris.simulation.language <> fill proj
+R11133:11134 simuliris.simulation.language <> e1:226 var
+R11131:11131 simuliris.simulation.language <> K:225 var
+R11123:11123 simuliris.simulation.language <> p:224 var
+R11081:11094 simuliris.simulation.language <> head_reducible def
+R11101:11103 simuliris.simulation.language <> σ1:227 var
+R11098:11099 simuliris.simulation.language <> e1:226 var
+R11096:11096 simuliris.simulation.language <> p:224 var
+R11297:11307 simuliris.simulation.language <> step_by_val thm
+R11344:11357 simuliris.simulation.language <> val_head_stuck thm
+R11297:11307 simuliris.simulation.language <> step_by_val thm
+R11344:11357 simuliris.simulation.language <> val_head_stuck thm
+R11344:11357 simuliris.simulation.language <> val_head_stuck thm
+R11344:11357 simuliris.simulation.language <> val_head_stuck thm
+R11344:11357 simuliris.simulation.language <> val_head_stuck thm
+R11388:11396 simuliris.simulation.language <> fill_comp thm
+R11388:11396 simuliris.simulation.language <> fill_comp thm
+R11388:11396 simuliris.simulation.language <> fill_comp thm
+R11432:11435 simuliris.simulation.language <> fill proj
+R11432:11435 simuliris.simulation.language <> fill proj
+R11455:11463 simuliris.simulation.language <> fill_comp thm
+R11455:11463 simuliris.simulation.language <> fill_comp thm
+R11455:11463 simuliris.simulation.language <> fill_comp thm
+R11495:11511 simuliris.simulation.language <> head_ctx_step_val thm
+R11495:11511 simuliris.simulation.language <> head_ctx_step_val thm
+R11563:11576 simuliris.simulation.language <> val_head_stuck thm
+R11563:11576 simuliris.simulation.language <> val_head_stuck thm
+R11619:11628 simuliris.simulation.language <> fill_empty thm
+R11619:11628 simuliris.simulation.language <> fill_empty thm
+R11619:11628 simuliris.simulation.language <> fill_empty thm
+R11619:11628 simuliris.simulation.language <> fill_empty thm
+R11619:11628 simuliris.simulation.language <> fill_empty thm
+prf 11647:11670 <> head_reducible_prim_step
+binder 11672:11672 <> p:231
+binder 11674:11675 <> e1:232
+binder 11677:11679 <> σ1:233
+binder 11681:11682 <> e2:234
+binder 11684:11686 <> σ2:235
+R11717:11725 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R11751:11759 Coq.Unicode.Utf8_core <> ::type_scope:x_'→'_x not
+R11760:11768 simuliris.simulation.language <> head_step proj
+R11782:11784 simuliris.simulation.language <> σ2:235 var
+R11779:11780 simuliris.simulation.language <> e2:234 var
+R11775:11777 simuliris.simulation.language <> σ1:233 var
+R11772:11773 simuliris.simulation.language <> e1:232 var
+R11770:11770 simuliris.simulation.language <> p:231 var
+R11726:11734 simuliris.simulation.language <> prim_step ind
+R11748:11750 simuliris.simulation.language <> σ2:235 var
+R11745:11746 simuliris.simulation.language <> e2:234 var
+R11741:11743 simuliris.simulation.language <> σ1:233 var
+R11738:11739 simuliris.simulation.language <> e1:232 var
+R11736:11736 simuliris.simulation.language <> p:231 var
+R11694:11707 simuliris.simulation.language <> head_reducible def
+R11714:11716 simuliris.simulation.language <> σ1:233 var
+R11711:11712 simuliris.simulation.language <> e1:232 var
+R11709:11709 simuliris.simulation.language <> p:231 var
+R11823:11850 simuliris.simulation.language <> head_reducible_prim_step_ctx thm
+R11854:11863 simuliris.simulation.language <> empty_ectx proj
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11823:11850 simuliris.simulation.language <> head_reducible_prim_step_ctx thm
+R11854:11863 simuliris.simulation.language <> empty_ectx proj
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11893:11902 simuliris.simulation.language <> fill_empty thm
+R11940:11949 simuliris.simulation.language <> fill_empty thm
+R11940:11949 simuliris.simulation.language <> fill_empty thm
+R11940:11949 simuliris.simulation.language <> fill_empty thm
+R11963:11970 simuliris.simulation.language language <> sec
