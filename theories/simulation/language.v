@@ -31,8 +31,12 @@ Section language_mixin.
   Record LanguageMixin := {
     mixin_to_of_class c : to_class (of_class c) = Some c;
     mixin_of_to_class e c : to_class e = Some c → of_class c = e;
-    mixin_val_head_stuck p e1 σ1 e2 σ2 :
-      head_step p e1 σ1 e2 σ2 → mixin_to_val e1 = None;
+
+    mixin_val_head_step p v σ1 e2 σ2 :
+      head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False;
+    mixin_call_head_step p f v σ1 e2 σ2 :
+      head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
+      ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1;
 
     mixin_fill_empty e : fill empty_ectx e = e;
     mixin_fill_comp K1 K2 e : fill K1 (fill K2 e) = fill (comp_ectx K1 K2) e;
@@ -95,9 +99,11 @@ Arguments comp_ectx {_} _ _.
 Arguments fill {_} _ _.
 Arguments head_step {_} _ _ _ _ _.
 
-Definition expr_class (l : language) := mixin_expr_class l.(val).
-Definition to_val {l : language} := mixin_to_val l.(@to_class).
-Definition prog (l : language) := (mixin_prog l.(ectx)).
+Definition expr_class (Λ : language) := mixin_expr_class Λ.(val).
+Definition prog (Λ : language) := (mixin_prog Λ.(ectx)).
+
+Definition to_val {Λ : language} := mixin_to_val Λ.(@to_class).
+Definition of_val {Λ : language} (v : val Λ) := of_class (ExprVal v).
 
 (* From an ectx_language, we can construct a language. *)
 Section language.
@@ -107,14 +113,18 @@ Section language.
   Implicit Types c : expr_class Λ.
   Implicit Types K : ectx Λ.
   Implicit Types p : prog Λ.
-
-  Definition of_val v := of_class (ExprVal v).
   
   Lemma to_of_class c : to_class (of_class c) = Some c.
   Proof. apply language_mixin. Qed.
   Lemma of_to_class e c : to_class e = Some c → of_class c = e.
   Proof. apply language_mixin. Qed.
-  Lemma val_head_stuck p e σ e' σ' : head_step p e σ e' σ' → to_val e = None.
+
+  Lemma val_head_step p v σ1 e2 σ2 :
+    head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False.
+  Proof. apply language_mixin. Qed.
+  Lemma call_head_step p f v σ1 e2 σ2 :
+    head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
+    ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1.
   Proof. apply language_mixin. Qed.
 
   Lemma fill_empty e : fill empty_ectx e = e.
@@ -174,14 +184,18 @@ Section language.
     rewrite /to_val /of_val /mixin_to_val => Hval. apply of_to_class.
     destruct (to_class e) as [[]|]; simplify_option_eq; done.
   Qed.
+  Lemma of_to_val_flip v e : of_val v = e → to_val e = Some v.
+  Proof. intros <-. by rewrite to_of_val. Qed.
+  Lemma val_head_stuck p e σ e' σ' : head_step p e σ e' σ' → to_val e = None.
+  Proof.
+    destruct (to_val e) as [v|] eqn:Hval; last done.
+    rewrite -(of_to_val e v) //. intros []%val_head_step.
+  Qed.
   Lemma val_stuck p e σ e' σ' : prim_step p e σ e' σ' → to_val e = None.
   Proof.
     intros [??? -> -> ?%val_head_stuck].
     apply eq_None_not_Some. by intros ?%fill_val%eq_None_not_Some.
   Qed.
-
-  Lemma of_to_val_flip v e : of_val v = e → to_val e = Some v.
-  Proof. intros <-. by rewrite to_of_val. Qed.
 
   Lemma not_reducible p e σ : ¬reducible p e σ ↔ irreducible p e σ.
   Proof. unfold reducible, irreducible. naive_solver. Qed.
