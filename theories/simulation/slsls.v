@@ -1,22 +1,21 @@
-(** * SLSLS Separation Logic Stuttering Local Simulation *)
-(* not to be confused with SLS LS, the infamous Space Launch System - Launch System *)
+(** * SLSLS, Separation Logic Stuttering Local Simulation *)
 
 From iris Require Import bi bi.lib.fixpoint bi.updates.
 From iris.proofmode Require Import tactics.
 From simuliris Require Import simulation.language.
 
-Inductive head_step_rtc {Λ} P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
-  | head_rtc_base e σ: head_step_rtc P e σ e σ
-  | head_rtc_step e1 e2 e3 σ1 σ2 σ3 : head_step P e1 σ1 e2 σ2 → head_step_rtc P e2 σ2 e3 σ3 → head_step_rtc P e1 σ1 e3 σ3.
-Hint Constructors head_step_rtc : core.
+Inductive prim_step_rtc {Λ} P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
+  | head_rtc_base e σ: prim_step_rtc P e σ e σ
+  | head_rtc_step e1 e2 e3 σ1 σ2 σ3 : prim_step P e1 σ1 e2 σ2 → prim_step_rtc P e2 σ2 e3 σ3 → prim_step_rtc P e1 σ1 e3 σ3.
+Hint Constructors prim_step_rtc : core.
 
-Inductive head_step_tc {Λ} P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
-  | head_tc_base e e' σ σ' : head_step_tc P e σ e' σ'
-  | head_tc_step e1 e2 e3 σ1 σ2 σ3 : head_step P e1 σ1 e2 σ2 → head_step_tc P e2 σ2 e3 σ3 → head_step_tc P e1 σ1 e3 σ3.
-Hint Constructors head_step_tc : core.
+Inductive prim_step_tc {Λ} P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
+  | head_tc_base e e' σ σ' : prim_step P e σ e' σ' → prim_step_tc P e σ e' σ'
+  | head_tc_step e1 e2 e3 σ1 σ2 σ3 : prim_step P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
+Hint Constructors prim_step_tc : core.
 
 Definition reach_stuck {Λ : language} (P : prog Λ) (e : expr Λ) (σ : state Λ) :=
-  ∃ e' σ', head_step_rtc P e σ e' σ' ∧ stuck P e' σ'.
+  ∃ e' σ', prim_step_rtc P e σ e' σ' ∧ stuck P e' σ'.
 
 Class simul_lang (PROP : bi) (Λ : language) := {
   (* state interpretation *)
@@ -28,7 +27,8 @@ Hint Mode simul_lang + - : typeclass_instances.
 
 (** Typeclass for the simulation relation so we can use the definitions with
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
-Class Sim {PROP : bi} {Λ : language} (s : simul_lang PROP Λ) := sim : (val Λ → val Λ → PROP) → expr Λ → expr Λ → PROP.
+(* TODO: remove this TC once we don't need the no-stutter version anymore*)
+Class Sim {PROP : bi} {Λ : language} (s : simul_lang PROP Λ) := sim : expr Λ → expr Λ → (val Λ → val Λ → PROP) → PROP.
 Hint Mode Sim + + - : typeclass_instances.
 
 (* discrete OFE instance for expr *)
@@ -40,9 +40,9 @@ Section fix_lang.
   Context {Λ : language}.
   Context {s : simul_lang PROP Λ}.
 
-  Definition sim_expr {sim : Sim s} Φ e_t e_s := sim Φ e_s e_t.
-  Definition sim_ctx {sim : Sim s} Φ K_t K_s :=
-    (∀ v_t v_s, val_rel v_t v_s -∗ sim_expr Φ (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
+  Definition sim_expr {sim : Sim s} e_t e_s Φ := sim e_t e_s Φ.
+  Definition sim_ectx {sim : Sim s} K_t K_s Φ :=
+    (∀ v_t v_s, val_rel v_t v_s -∗ sim_expr (fill K_t (of_val v_t)) (fill K_s (of_val v_s)) Φ)%I.
 
   Implicit Types
     (e_s e_t e: expr Λ)
@@ -56,21 +56,21 @@ Section fix_lang.
   Section stuttering.
     (** Simulation relation with stuttering *)
 
-    Definition least_step (Φ : val Λ → val Λ → PROP) (greatest_rec : expr Λ → expr Λ → PROP) (e_s : exprO) (least_rec : exprO → PROP) :=
-      λ (e_t : exprO), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
+    Definition least_step (Φ : val Λ → val Λ → PROP) (greatest_rec : expr Λ → expr Λ → PROP) (e_s : exprO) (least_rec : exprO → PROP) (e_t : exprO) :=
+      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜head_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
+        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
           (* stuttering *)
           (state_interp P_t σ_t' P_s σ_s ∗ least_rec e_t') ∨
           (* take a step *)
-          (∃ e_s' σ_s', ⌜head_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec e_s' e_t'))
+          (∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec e_s' e_t'))
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜head_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
           (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec (fill K_s (of_val v_s)) (fill K_t (of_val v_t))))
       )%I.
@@ -151,29 +151,30 @@ Section fix_lang.
       sim_def Φ (e_s, e_t) ⊣⊢ least_def Φ (uncurry (sim_def Φ)) e_s e_t.
     Proof. by rewrite sim_def_unfold. Qed.
 
-    Definition sim_aux Φ : seal (@sim_def Φ). by eexists. Qed.
-    Instance sim_stutter : Sim s. intros Φ. exact (uncurry (sim_aux Φ).(unseal)). Defined.
-    Definition sim_eq Φ : sim_stutter Φ = uncurry (@sim_def Φ). by rewrite <- (sim_aux Φ).(seal_eq). Defined.
+    Definition sim_aux : seal (λ e_t e_s Φ, @sim_def Φ (e_s, e_t)). by eexists. Qed.
+    Instance sim_stutter : Sim s. exact ((sim_aux).(unseal)). Defined.
+    Definition sim_eq : sim_stutter = λ e_t e_s Φ, @sim_def Φ (e_s, e_t). by rewrite <- (sim_aux).(seal_eq). Defined.
+
     Lemma sim_expr_unfold Φ e_t e_s:
-      sim_expr (sim:=sim_stutter) Φ e_t e_s ⊣⊢
+      sim_expr (sim:=sim_stutter) e_t e_s Φ ⊣⊢
       (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜head_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
+          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-          (state_interp P_t σ_t' P_s σ_s ∗ sim_expr (sim:=sim_stutter) Φ e_t' e_s) ∨
-          (∃ e_s' σ_s', ⌜head_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
-          sim_expr (sim:=sim_stutter) Φ e_t' e_s'))
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
+          (state_interp P_t σ_t' P_s σ_s ∗ sim_expr (sim:=sim_stutter) e_t' e_s Φ) ∨
+          (∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
+          sim_expr (sim:=sim_stutter) e_t' e_s' Φ))
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜head_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
-          sim_ctx (sim:=sim_stutter) Φ K_t K_s)
+          sim_ectx (sim:=sim_stutter) K_t K_s Φ)
       )%I.
     Proof.
-      rewrite /sim_ctx /sim_expr  !sim_eq /uncurry sim_def_unfold /greatest_step.
+      rewrite /sim_ectx /sim_expr !sim_eq /uncurry sim_def_unfold /greatest_step.
       rewrite least_def_unfold /least_step.
       by setoid_rewrite <-sim_def_least_def_unfold.
     Qed.
@@ -186,15 +187,15 @@ Section fix_lang.
     Definition step_nostutter (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
       λ '(e_s, e_t), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜head_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
+        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-          ∃ e_s' σ_s', ⌜head_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec (e_s', e_t'))
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
+          ∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec (e_s', e_t'))
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜head_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
           (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec (fill K_s (of_val v_s), fill K_t (of_val v_t))))
       )%I.
@@ -230,30 +231,30 @@ Section fix_lang.
       sim_nostutter_def Φ (e_s, e_t) ⊣⊢ step_nostutter Φ (sim_nostutter_def Φ) (e_s, e_t).
     Proof. by rewrite /sim_nostutter_def greatest_fixpoint_unfold. Qed.
 
-    Definition sim_nostutter_aux Φ : seal (@sim_nostutter_def Φ). by eexists. Qed.
-    Instance sim_nostutter : Sim s. intros Φ. exact (uncurry (sim_nostutter_aux Φ).(unseal)). Defined.
-    Definition sim_nostutter_eq Φ : sim_nostutter Φ = uncurry (@sim_nostutter_def Φ).
-      by rewrite <- (sim_nostutter_aux Φ).(seal_eq). Defined.
+    Definition sim_nostutter_aux : seal (λ e_t e_s Φ, @sim_nostutter_def Φ (e_s, e_t)). by eexists. Qed.
+    Instance sim_nostutter : Sim s. exact ((sim_nostutter_aux).(unseal)). Defined.
+    Definition sim_nostutter_eq : sim_nostutter = λ e_t e_s Φ, @sim_nostutter_def Φ (e_s, e_t).
+      by rewrite <- (sim_nostutter_aux).(seal_eq). Defined.
 
-    Lemma sim_expr_unfold_nostutter Φ e_t e_s:
-      sim_expr (sim:=sim_nostutter) Φ e_t e_s ⊣⊢
+    Lemma sim_expr_unfold_nostutter e_t e_s Φ:
+      sim_expr (sim:=sim_nostutter) e_t e_s Φ ⊣⊢
       (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜head_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
+          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-          ∃ e_s' σ_s', ⌜head_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
-          sim_expr (sim:=sim_nostutter) Φ e_t' e_s')
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
+          ∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
+          sim_expr (sim:=sim_nostutter) e_t' e_s' Φ)
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜head_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
-          sim_ctx (sim:=sim_nostutter) Φ K_t K_s)
+          sim_ectx (sim:=sim_nostutter) K_t K_s Φ)
       )%I.
     Proof.
-      by rewrite /sim_ctx /sim_expr !sim_nostutter_eq /uncurry sim_nostutter_def_unfold /step_nostutter.
+      by rewrite /sim_ectx /sim_expr !sim_nostutter_eq /uncurry sim_nostutter_def_unfold /step_nostutter.
     Qed.
   End no_stuttering.
 End fix_lang.
