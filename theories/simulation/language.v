@@ -107,6 +107,13 @@ Definition prog (Λ : language) := (mixin_prog Λ.(ectx)).
 Definition to_val {Λ : language} := mixin_to_val Λ.(@to_class).
 Definition of_val {Λ : language} (v : val Λ) := of_class (ExprVal v).
 
+Definition to_call {Λ : language} (e : expr Λ) :=
+  match to_class e with
+  | Some (ExprCall f v) => Some (f, v)
+  | _ => None
+  end.
+Definition of_call {Λ : language} f (v : val Λ) := of_class (ExprCall f v).
+
 (* From an ectx_language, we can construct a language. *)
 Section language.
   Context {Λ : language}.
@@ -115,7 +122,7 @@ Section language.
   Implicit Types c : expr_class Λ.
   Implicit Types K : ectx Λ.
   Implicit Types p : prog Λ.
-  
+
   Lemma to_of_class c : to_class (of_class c) = Some c.
   Proof. apply language_mixin. Qed.
   Lemma of_to_class e c : to_class e = Some c → of_class c = e.
@@ -198,6 +205,16 @@ Section language.
     intros [??? -> -> ?%val_head_stuck].
     apply eq_None_not_Some. by intros ?%fill_val%eq_None_not_Some.
   Qed.
+
+  Lemma to_of_call f v : to_call (of_call f v) = Some (f, v).
+  Proof. rewrite /to_call /of_call to_of_class //. Qed.
+  Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e.
+  Proof.
+    rewrite /to_call /of_call => Hval. apply of_to_class.
+    destruct (to_class e) as [[] | ]; simplify_option_eq; done.
+  Qed.
+  Lemma of_to_call_flip f v e : of_call f v = e → to_call e = Some (f, v).
+  Proof. intros <-. apply to_of_call. Qed.
 
   Lemma not_reducible p e σ : ¬reducible p e σ ↔ irreducible p e σ.
   Proof. unfold reducible, irreducible. naive_solver. Qed.
