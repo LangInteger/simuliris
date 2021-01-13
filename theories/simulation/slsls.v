@@ -397,15 +397,13 @@ Section fix_lang.
     Qed.
 
     Lemma sim_bind e_t e_s K_t K_s Φ: 
-      ⊢ e_t ⪯ e_s {{λ v_t v_s : val Λ, (∀ P_s σ_s, ¬ ⌜reach_stuck P_s (fill K_s (of_val v_s)) σ_s⌝) ∗
-          fill K_t (of_val v_t) ⪯ fill K_s (of_val v_s) {{Φ}} }}
+      ⊢ e_t ⪯ e_s {{λ v_t v_s : val Λ, fill K_t (of_val v_t) ⪯ fill K_s (of_val v_s) {{Φ}} }}
         -∗ fill K_t e_t ⪯ fill K_s e_s {{Φ}}.
     Proof. 
       iIntros "H".
       iApply (sim_coind Φ (λ e_t' e_s', 
         ∃ e_t e_s K_t K_s, ⌜e_t' = fill K_t e_t⌝ ∧ ⌜e_s' = fill K_s e_s⌝ ∧
-        e_t ⪯ e_s {{λ v_t v_s : val Λ, (∀ P_s σ_s, ¬ ⌜reach_stuck P_s (fill K_s (of_val v_s)) σ_s⌝) ∗ 
-            fill K_t (of_val v_t) ⪯ fill K_s (of_val v_s) {{Φ}}}})%I).
+        e_t ⪯ e_s {{λ v_t v_s : val Λ, fill K_t (of_val v_t) ⪯ fill K_s (of_val v_s) {{Φ}}}})%I).
       2: { iExists e_t, e_s, K_t, K_s. iFrame. eauto. } 
       iModIntro. clear e_t e_s K_t K_s.
       iIntros (e_t' e_s') "IH".
@@ -413,17 +411,17 @@ Section fix_lang.
       rewrite {1}/sim {1}sim_eq {1}sim_def_unfold. 
       rewrite /greatest_step !least_def_unfold /least_step.
 
-      iIntros (????) "[Hs Hnreach]".
+      iIntros (????) "[Hs Hnreach]". (* TODO: should move Hnreach into Coq context here to keep it for the value case*)
       iMod ("H" with "[Hs Hnreach]") as "H". 
       { iFrame. iIntros "%". iApply ("Hnreach" with "[%]"). by apply fill_reach_stuck. }
       iDestruct "H" as "[Hval | [Hstep | Hcall]]". 
-      - iDestruct "Hval" as (v_t v_s σ_s') "(%& %&Hstate&[Hnreach Hpost])". 
+      - iDestruct "Hval" as (v_t v_s σ_s') "(%& %&Hstate&Hpost)". 
 
         (* unfold Hpost to examine the result and combine the two simulation proofs *)
         rewrite {1}/sim {1}sim_eq {1}sim_def_unfold. 
         rewrite {1}/greatest_step !least_def_unfold /least_step.
-        iMod ("Hpost" with "[Hstate Hnreach]") as "Hpost".   
-        { iFrame. iApply "Hnreach". } 
+        iMod ("Hpost" with "[Hstate]") as "Hpost".   
+        { iFrame. iIntros "%". exfalso. (*TODO use Hnreach *) admit. } 
         iModIntro.
         iDestruct "Hpost" as "[Hv | [Hstep | Hcall]]". 
         + iLeft. iDestruct "Hv" as (v_t' v_s' σ_s'') "(% & % & Hstate & Hpost)". 
@@ -455,8 +453,7 @@ Section fix_lang.
             cbn. iExists e_t', e_s', empty_ectx, empty_ectx. rewrite !fill_empty. 
             do 2 (iSplitL ""; first auto). 
             iApply sim_mono. 2: { rewrite /sim sim_eq. iApply "Hrec". }
-            iModIntro. iIntros (??) "H". rewrite !fill_empty. iSplitL "". 
-            { iIntros (??) "%". iPureIntro. by eapply val_not_reach_stuck. } 
+            iModIntro. iIntros (??) "H". rewrite !fill_empty. 
             by iApply sim_value.
         + iDestruct "Hcall" as (f K_t' v_t' K_s' v_s' σ_s'') "Hcall". iRight; iRight.
           admit. (* TODO *)
