@@ -32,10 +32,11 @@ Section language_mixin.
     mixin_to_of_class c : to_class (of_class c) = Some c;
     mixin_of_to_class e c : to_class e = Some c → of_class c = e;
 
+    (* mixin_val_head_step is not an iff because the backward direction is trivial*)
     mixin_val_head_step p v σ1 e2 σ2 :
       head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False;
     mixin_call_head_step p f v σ1 e2 σ2 :
-      head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
+      head_step p (of_class (ExprCall f v)) σ1 e2 σ2 ↔
       ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1;
 
     mixin_fill_empty e : fill empty_ectx e = e;
@@ -132,7 +133,7 @@ Section language.
     head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False.
   Proof. apply language_mixin. Qed.
   Lemma call_head_step p f v σ1 e2 σ2 :
-    head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
+    head_step p (of_class (ExprCall f v)) σ1 e2 σ2 ↔
     ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1.
   Proof. apply language_mixin. Qed.
 
@@ -153,6 +154,15 @@ Section language.
   Lemma head_ctx_step_val p K e σ1 e2 σ2 :
     head_step p (fill K e) σ1 e2 σ2 → is_Some (to_val e) ∨ K = empty_ectx.
   Proof. apply language_mixin. Qed.
+  Lemma call_head_step_inv p f v σ1 e2 σ2 :
+  head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
+  ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1.
+  Proof. eapply call_head_step. Qed.
+  Lemma call_head_step_intro p f v K σ1 :
+  p !! f = Some K →
+  head_step p (of_call f v) σ1 (fill K (of_val v)) σ1.
+  Proof. intros ?. eapply call_head_step; eexists; eauto. Qed.
+
 
   Definition head_reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
     ∃ e' σ', head_step p e σ e' σ'.
