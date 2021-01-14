@@ -105,6 +105,10 @@ Section local_to_global.
     prim_step P (fill K (of_call f v)) σ e' σ' →
     ∃ K_f, P !! f = Some K_f ∧ e' = fill K (fill K_f (of_val v)) ∧ σ' = σ.
   Proof.
+    intros (K' & e1 & e2 & Hctx & -> & Hstep) % prim_step_inv.
+    eapply step_by_val in Hstep as H'; eauto; last apply to_val_of_call.
+    destruct H' as [K'' Hctx']; subst K'.
+    rewrite -fill_comp in Hctx. eapply fill_inj in Hctx.
   Admitted.
 
   Lemma reach_call_in_prg P f K e σ σ' v:
@@ -113,10 +117,10 @@ Section local_to_global.
     destruct (P !! f) eqn: Hloook; eauto.
     intros Hstuck Hsteps. exfalso; eapply Hstuck.
     eexists _, _. split; eauto. unfold stuck; split.
-    - admit.
+    - apply fill_not_val, to_val_of_call.
     - intros e'' σ'' [K' [H _]] % prim_step_call_inv.
       naive_solver.
-  Admitted.
+  Qed.
 
 
   Lemma local_to_global P_t P_s e_t e_s:
