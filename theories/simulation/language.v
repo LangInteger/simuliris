@@ -129,6 +129,9 @@ Section language.
   Lemma of_to_class e c : to_class e = Some c → of_class c = e.
   Proof. apply language_mixin. Qed.
 
+  Lemma to_val_of_call f v : to_val (of_call f v) = None.
+  Proof. rewrite /to_val /of_call /mixin_to_val to_of_class. done. Qed.
+
   Lemma val_head_step p v σ1 e2 σ2 :
     head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False.
   Proof. apply language_mixin. Qed.
