@@ -7,3 +7,4 @@
 
 theories/simulation/language.v
 theories/simulation/slsls.v
+theories/simulation/adequacy.v
