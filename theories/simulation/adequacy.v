@@ -13,7 +13,6 @@ Section fix_lang.
   Context {s : simul_lang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {PROP_pure : BiPureForall PROP}.
 
   Implicit Types
     (e_s e_t e: exprO (Λ := Λ))
