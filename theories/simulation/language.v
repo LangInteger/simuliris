@@ -23,12 +23,6 @@ Section language_mixin.
   Context (of_class : mixin_expr_class → expr).
   Context (to_class : expr → option mixin_expr_class).
 
-  Definition mixin_to_val (e : expr) : option val :=
-    match to_class e with
-    | Some (ExprVal v) => Some v
-    | _ => None
-    end.
-
   Context (empty_ectx : ectx).
   Context (comp_ectx : ectx → ectx → ectx).
   Context (fill : ectx → expr → expr).
@@ -42,7 +36,7 @@ Section language_mixin.
     mixin_to_of_class c : to_class (of_class c) = Some c;
     mixin_of_to_class e c : to_class e = Some c → of_class c = e;
 
-    (* mixin_val_head_step is not an iff because the backward direction is trivial*)
+    (** mixin_val_head_step is not an iff because the backward direction is trivial *)
     mixin_val_head_step p v σ1 e2 σ2 :
       head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False;
     mixin_call_head_step p f v σ1 e2 σ2 :
@@ -52,9 +46,10 @@ Section language_mixin.
     mixin_fill_empty e : fill empty_ectx e = e;
     mixin_fill_comp K1 K2 e : fill K1 (fill K2 e) = fill (comp_ectx K1 K2) e;
     mixin_fill_inj K : Inj (=) (=) (fill K);
-    (* FIXME: we will probably also need something for the interaction of [fill]
-       with [ExprCall]... maybe we can generalize this and avoid [mixin_to_val]? *)
-    mixin_fill_val K e : is_Some (mixin_to_val (fill K e)) → is_Some (mixin_to_val e);
+    (* The the things in a class contain only values in redex positions (or the
+       redex is the topmost one). *)
+    mixin_fill_class K e :
+      is_Some (to_class (fill K e)) → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v);
 
     (** Given a head redex [e1_redex] somewhere in a term, and another
         decomposition of the same term into [fill K' e1'] such that [e1'] is not
@@ -66,15 +61,17 @@ Section language_mixin.
         [head_redex_unique]. *)
     mixin_step_by_val p K' K_redex e1' e1_redex σ1 e2 σ2 :
       fill K' e1' = fill K_redex e1_redex →
-      mixin_to_val e1' = None →
+      match to_class e1' with Some (ExprVal _) => False | _ => True end →
       head_step p e1_redex σ1 e2 σ2 →
       ∃ K'', K_redex = comp_ectx K' K'';
 
     (** If [fill K e] takes a head step, then either [e] is a value or [K] is
         the empty evaluation context. In other words, if [e] is not a value
         wrapping it in a context does not add new head redex positions. *)
+    (* FIXME: This is the exact same conclusion as [mixin_fill_class]... is
+       there some pattern or reduncancy here? *)
     mixin_head_ctx_step_val p K e σ1 e2 σ2 :
-      head_step p (fill K e) σ1 e2 σ2 → is_Some (mixin_to_val e) ∨ K = empty_ectx;
+      head_step p (fill K e) σ1 e2 σ2 → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v);
   }.
 End language_mixin.
 
@@ -115,7 +112,11 @@ Arguments head_step {_} _ _ _ _ _.
 Definition expr_class (Λ : language) := mixin_expr_class Λ.(val).
 Definition prog (Λ : language) := (mixin_prog Λ.(ectx)).
 
-Definition to_val {Λ : language} := mixin_to_val Λ.(@to_class).
+Definition to_val {Λ : language} (e : expr Λ) :=
+  match to_class e with
+  | Some (ExprVal v) => Some v
+  | _ => None
+  end.
 Definition of_val {Λ : language} (v : val Λ) := of_class (ExprVal v).
 
 Definition to_call {Λ : language} (e : expr Λ) :=
@@ -140,7 +141,13 @@ Section language.
   Proof. apply language_mixin. Qed.
 
   Lemma to_val_of_call f v : to_val (of_call f v) = None.
-  Proof. rewrite /to_val /of_call /mixin_to_val to_of_class. done. Qed.
+  Proof. rewrite /to_val /of_call to_of_class. done. Qed.
+  Lemma to_call_of_val v : to_call (of_val v) = None.
+  Proof. rewrite /to_call /of_val to_of_class. done. Qed.
+  Lemma is_val_is_class e : is_Some (to_val e) → is_Some (to_class e).
+  Proof. rewrite /to_val /is_Some. destruct (to_class e) as [[|]|]; naive_solver. Qed.
+  Lemma is_call_is_class e : is_Some (to_call e) → is_Some (to_class e).
+  Proof. rewrite /to_call /is_Some. destruct (to_class e) as [[|]|]; naive_solver. Qed.
 
   Lemma val_head_step p v σ1 e2 σ2 :
     head_step p (of_class (ExprVal v)) σ1 e2 σ2 → False.
@@ -156,26 +163,48 @@ Section language.
   Proof. apply language_mixin. Qed.
   Global Instance fill_inj K : Inj (=) (=) (fill K).
   Proof. apply language_mixin. Qed.
-  Lemma fill_val K e : is_Some (to_val (fill K e)) → is_Some (to_val e).
+  Lemma fill_class' K e :
+    is_Some (to_class (fill K e)) → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v).
   Proof. apply language_mixin. Qed.
+  Lemma step_by_val' p K' K_redex e1' e1_redex σ1 e2 σ2 :
+      fill K' e1' = fill K_redex e1_redex →
+      match to_class e1' with Some (ExprVal _) => False | _ => True end →
+      head_step p e1_redex σ1 e2 σ2 →
+      ∃ K'', K_redex = comp_ectx K' K''.
+  Proof. apply language_mixin. Qed.
+  Lemma head_ctx_step_val' p K e σ1 e2 σ2 :
+    head_step p (fill K e) σ1 e2 σ2 → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v).
+  Proof. apply language_mixin. Qed.
+
+  Lemma fill_class K e :
+    is_Some (to_class (fill K e)) → K = empty_ectx ∨ is_Some (to_val e).
+  Proof.
+    intros [?|[v Hv]]%fill_class'; first by left. right.
+    rewrite /to_val Hv. eauto.
+  Qed.
   Lemma step_by_val p K' K_redex e1' e1_redex σ1 e2 σ2 :
       fill K' e1' = fill K_redex e1_redex →
       to_val e1' = None →
       head_step p e1_redex σ1 e2 σ2 →
       ∃ K'', K_redex = comp_ectx K' K''.
-  Proof. apply language_mixin. Qed.
+  Proof.
+    rewrite /to_val => ? He1'. eapply step_by_val'; first done.
+    destruct (to_class e1') as [[]|]; done.
+  Qed.
   Lemma head_ctx_step_val p K e σ1 e2 σ2 :
-    head_step p (fill K e) σ1 e2 σ2 → is_Some (to_val e) ∨ K = empty_ectx.
-  Proof. apply language_mixin. Qed.
+    head_step p (fill K e) σ1 e2 σ2 → K = empty_ectx ∨ is_Some (to_val e).
+  Proof.
+    intros [?|[v Hv]]%head_ctx_step_val'; first by left. right.
+    rewrite /to_val Hv. eauto.
+  Qed.
   Lemma call_head_step_inv p f v σ1 e2 σ2 :
-  head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
-  ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1.
+    head_step p (of_class (ExprCall f v)) σ1 e2 σ2 →
+    ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1.
   Proof. eapply call_head_step. Qed.
   Lemma call_head_step_intro p f v K σ1 :
-  p !! f = Some K →
-  head_step p (of_call f v) σ1 (fill K (of_val v)) σ1.
+    p !! f = Some K →
+    head_step p (of_call f v) σ1 (fill K (of_val v)) σ1.
   Proof. intros ?. eapply call_head_step; eexists; eauto. Qed.
-
 
   Definition head_reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
     ∃ e' σ', head_step p e σ e' σ'.
@@ -213,10 +242,10 @@ Section language.
     ∃ K e1' e2', e1 = fill K e1' ∧ e2 = fill K e2' ∧ head_step p e1' σ1 e2' σ2.
   Proof. inversion 1; subst; do 3 eexists; eauto. Qed.
   Lemma to_of_val v : to_val (of_val v) = Some v.
-  Proof. rewrite /to_val /of_val /mixin_to_val to_of_class //. Qed.
+  Proof. rewrite /to_val /of_val to_of_class //. Qed.
   Lemma of_to_val e v : to_val e = Some v → of_val v = e.
   Proof.
-    rewrite /to_val /of_val /mixin_to_val => Hval. apply of_to_class.
+    rewrite /to_val /of_val => Hval. apply of_to_class.
     destruct (to_class e) as [[]|]; simplify_option_eq; done.
   Qed.
   Lemma of_to_val_flip v e : of_val v = e → to_val e = Some v.
@@ -225,6 +254,13 @@ Section language.
   Proof.
     destruct (to_val e) as [v|] eqn:Hval; last done.
     rewrite -(of_to_val e v) //. intros []%val_head_step.
+  Qed.
+  Lemma fill_val K e : is_Some (to_val (fill K e)) → is_Some (to_val e).
+  Proof.
+    intros Hval. destruct (fill_class K e) as [HK|He].
+    - apply is_val_is_class. done.
+    - subst K. move: Hval. rewrite fill_empty. done.
+    - done.
   Qed.
   Lemma val_stuck p e σ e' σ' : prim_step p (e, σ) (e', σ') → to_val e = None.
   Proof.
@@ -277,9 +313,9 @@ Section language.
     edestruct (step_by_val p K' K e' e) as [K'' HK];
       [by eauto using val_head_stuck..|].
     subst K. move: Heq. rewrite -fill_comp. intros <-%(inj (fill _)).
-    destruct (head_ctx_step_val _ _ _ _ _ _ Hred') as [[]%not_eq_None_Some|HK''].
-    { by eapply val_head_stuck. }
-    subst K''. rewrite fill_empty. done.
+    destruct (head_ctx_step_val _ _ _ _ _ _ Hred') as [HK''|[]%not_eq_None_Some].
+    - subst K''. rewrite fill_empty. done.
+    - by eapply val_head_stuck.
   Qed.
 
   Lemma head_prim_step p e1 σ1 e2 σ2 :
@@ -339,9 +375,9 @@ Section language.
       eauto using val_head_stuck; simplify_eq/=.
     rewrite -fill_comp in HKe1; simplify_eq.
     exists (fill K'' e2'). rewrite fill_comp; split; first done.
-    apply head_ctx_step_val in HhstepK as [[v ?]|?]; simplify_eq.
-    { apply val_head_stuck in Hstep; simplify_eq. }
-    by rewrite !fill_empty.
+    apply head_ctx_step_val in HhstepK as [?|[v ?]]; simplify_eq.
+    - by rewrite !fill_empty.
+    - apply val_head_stuck in Hstep; simplify_eq.
   Qed.
 
   Lemma head_reducible_prim_step p e1 σ1 e2 σ2 :
@@ -369,13 +405,17 @@ Section language.
     prim_step P (fill K (of_call f v), σ) (e', σ') →
     ∃ K_f, P !! f = Some K_f ∧ e' = fill K (fill K_f (of_val v)) ∧ σ' = σ.
   Proof.
-    intros (K' & e1 & e2 & Hctx & -> & Hstep) % prim_step_inv.
+    intros (K' & e1 & e2 & Hctx & -> & Hstep)%prim_step_inv.
     eapply step_by_val in Hstep as H'; eauto; last apply to_val_of_call.
     destruct H' as [K'' Hctx']; subst K'.
     rewrite -fill_comp in Hctx. eapply fill_inj in Hctx.
-    (* TODO: finish this proof *)
-  Admitted.
-
+    destruct (fill_class K'' e1) as [->|Hval].
+    - apply is_call_is_class. erewrite of_to_call_flip; eauto.
+    - rewrite fill_empty in Hctx. subst e1.
+      apply call_head_step_inv in Hstep as (K_f & ? & -> & ->).
+      exists K_f. rewrite -fill_comp fill_empty. naive_solver.
+    - unfold is_Some in Hval. erewrite val_head_stuck in Hval; naive_solver.
+  Qed.
 
   Section basic.
   Implicit Types (P : prog Λ).
@@ -450,7 +490,7 @@ Section language.
   Qed.
 
 
-  Lemma reach_call_in_prg P f K e σ σ' v:
+  Lemma not_stuck_call_in_prg P f K e σ σ' v:
     ¬ reach_stuck P e σ → rtc (prim_step P) (e, σ) (fill K (of_call f v), σ') → ∃ K, P !! f = Some K.
   Proof.
     destruct (P !! f) eqn: Hloook; eauto.

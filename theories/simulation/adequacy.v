@@ -126,7 +126,7 @@ Section local_to_global.
     subst e_t. iRight.
 
     (* the function is in the source table *)
-    edestruct (@reach_call_in_prg Λ) as [K_f_s Hdef_s]; [by eauto..|].
+    edestruct (@not_stuck_call_in_prg Λ) as [K_f_s Hdef_s]; [by eauto..|].
 
     (* we prove reducibility and the step relation *)
     iSplit.
