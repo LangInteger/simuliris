@@ -86,7 +86,11 @@ End global_no_stuttering.
 Section local_to_global.
 
   Definition local_rel P_t P_s : PROP :=
-    (∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx (sim:=sim_nostutter) K_t K_s val_rel)%I.
+    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx (sim:=sim_nostutter) K_t K_s val_rel)%I.
+  Typeclasses Opaque local_rel.
+
+  Global Instance local_rel_persistent P_s P_t: Persistent (local_rel P_s P_t).
+  Proof. rewrite /local_rel; apply _. Qed.
 
   Lemma gsim_coind (Φ : exprO * exprO → PROP) (Post: val Λ → val Λ → PROP) `{NonExpansive Φ}:
     □ (∀ e_t e_s, Φ (e_t, e_s) -∗ global_step_nostutter Post Φ (e_t, e_s)) -∗
@@ -98,19 +102,26 @@ Section local_to_global.
     iModIntro. iIntros ([e_s e_t]). iApply "H".
   Qed.
 
+  Definition progs_are P_t P_s : PROP :=
+    (□ ∀ P_s' P_t' σ_s σ_t, state_interp P_t' σ_t P_s' σ_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
+  Typeclasses Opaque progs_are.
+
+  Global Instance progs_are_persistent P_s P_t: Persistent (progs_are P_s P_t).
+  Proof. rewrite /progs_are; apply _. Qed.
+
   Lemma local_to_global P_t P_s e_t e_s:
-    □ local_rel P_t P_s -∗
+    local_rel P_t P_s -∗
+    progs_are P_t P_s  -∗
     sim (Sim:=sim_nostutter) e_t e_s val_rel -∗
     gsim_expr e_t e_s val_rel.
   Proof.
-    iIntros "#Hloc Hsim".
+    iIntros "#Hloc #Hprog Hsim".
     iApply (gsim_coind (λ '(e_t, e_s), sim e_t e_s val_rel) with "[] Hsim"); last clear e_t e_s.
     { by intros n [] [] [-> ->]. }
     iModIntro. rewrite /global_step_nostutter.
     iIntros (e_t e_s). erewrite sim_nostutter_unfold.
     iIntros "Hsim" (P_t' σ_t P_s' σ_s) "[Hstate %]".
-    assert (P_t' = P_t) as Heq by admit; subst P_t'.
-    assert (P_s' = P_s) as Heq by admit; subst P_s'.
+    rewrite /progs_are; iDestruct ("Hprog" with "Hstate") as "[% %]"; subst P_t' P_s'.
     iMod ("Hsim" with "[$Hstate //]") as "[Hsim|[Hsim|Hsim]]"; iModIntro; [by eauto..|].
     iDestruct "Hsim" as (f K_t v_t K_s v_s σ_s') "(% & % & Hval & Hstate & Hcont)".
     subst e_t. iRight.
@@ -121,7 +132,7 @@ Section local_to_global.
     (* we prove reducibility and the step relation *)
     iSplit.
     - iAssert (∃ K_f_t, ⌜P_t !! f = Some K_f_t⌝)%I as (K_f_t) "%".
-      { iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t) "[% _]"; by eauto. }
+      { rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t) "[% _]"; by eauto. }
       iPureIntro. eexists _, _.
       by apply fill_prim_step, head_prim_step, call_head_step_intro.
     - iIntros (e_t' σ_t' Hstep).
@@ -131,10 +142,10 @@ Section local_to_global.
       + iPureIntro. eapply prim_step_rtc_tc; first by eauto.
         constructor. by apply fill_prim_step, head_prim_step, call_head_step_intro.
       + iApply sim_nostutter_bind. iApply (sim_nostutter_mono with "Hcont [Hval]").
-        iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hcont]".
+        rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hcont]".
         assert (K_f_t' = K_f_t) as -> by naive_solver.
         by iApply "Hcont".
-  Admitted.
+  Qed.
 
 End local_to_global.
 End fix_lang.
