@@ -1,4 +1,4 @@
-From stdpp Require Import strings gmap.
+From stdpp Require Import relations strings gmap.
 From iris.prelude Require Export prelude.
 From iris.prelude Require Import options.
 
@@ -185,6 +185,16 @@ Section language.
       e1 = fill K e1' → e2 = fill K e2' →
       head_step p e1' σ1 e2' σ2 → prim_step p e1 σ1 e2 σ2.
 
+  Inductive prim_step_rtc P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
+  | prim_rtc_base e σ: prim_step_rtc P e σ e σ
+  | prim_rtc_step e1 e2 e3 σ1 σ2 σ3 : prim_step P e1 σ1 e2 σ2 → prim_step_rtc P e2 σ2 e3 σ3 → prim_step_rtc P e1 σ1 e3 σ3.
+
+  Inductive prim_step_tc P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
+  | prim_tc_base e e' σ σ' : prim_step P e σ e' σ' → prim_step_tc P e σ e' σ'
+  | prim_tc_step e1 e2 e3 σ1 σ2 σ3 : prim_step P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
+  Hint Constructors prim_step_rtc : core.
+  Hint Constructors prim_step_tc : core.
+
   Lemma Prim_step' p K e1 σ1 e2 σ2 :
     head_step p e1 σ1 e2 σ2 → prim_step p (fill K e1) σ1 (fill K e2) σ2.
   Proof. econstructor; eauto. Qed.
@@ -341,4 +351,136 @@ Section language.
       rewrite ?fill_empty; eauto.
     by simplify_eq; rewrite fill_empty.
   Qed.
+
+
+  Lemma prim_step_inv (P : prog Λ) e σ e' σ': prim_step P e σ e' σ'
+    → ∃ K_redex e1 e2, e = fill K_redex e1 ∧ e' = fill K_redex e2 ∧ head_step P e1 σ e2 σ'.
+  Proof. inversion 1. eauto 10. Qed.
+
+  Lemma fill_stuck (P : prog Λ) e σ K: stuck P e σ → stuck P (fill K e) σ.
+  Proof.
+    intros Hstuck; split.
+    + apply fill_not_val, Hstuck.
+    + intros e'' σ'' (K_redex &e1 &e2 &Heq &-> &Hhead)%prim_step_inv.
+      edestruct (step_by_val P K K_redex _ _ _ _ _ Heq ltac:(apply Hstuck) Hhead) as (K'' & ->).
+      rewrite -fill_comp in Heq. apply fill_inj in Heq as ->.
+      eapply (proj2 Hstuck). econstructor; eauto.
+  Qed.
+
+  Lemma prim_step_call_inv P K f v e' σ σ':
+    prim_step P (fill K (of_call f v)) σ e' σ' →
+    ∃ K_f, P !! f = Some K_f ∧ e' = fill K (fill K_f (of_val v)) ∧ σ' = σ.
+  Proof.
+    intros (K' & e1 & e2 & Hctx & -> & Hstep) % prim_step_inv.
+    eapply step_by_val in Hstep as H'; eauto; last apply to_val_of_call.
+    destruct H' as [K'' Hctx']; subst K'.
+    rewrite -fill_comp in Hctx. eapply fill_inj in Hctx.
+    (* TODO: finish this proof *)
+  Admitted.
+
+
+  Section basic.
+  Implicit Types (P : prog Λ).
+
+  Lemma prim_step_rtc_trans P e1 e2 e3 σ1 σ2 σ3:
+    prim_step_rtc P e1 σ1 e2 σ2 → prim_step_rtc P e2 σ2 e3 σ3 → prim_step_rtc P e1 σ1 e3 σ3.
+  Proof. induction 1 as [ | e1 e2 e σ1 σ2 σ H1 H2 IH]; eauto. Qed.
+
+  Lemma fill_prim_step_rtc (P : prog Λ) (e e': expr Λ) σ σ' K :
+    prim_step_rtc P e σ e' σ' → prim_step_rtc P (fill K e) σ (fill K e') σ'.
+  Proof.
+    induction 1 as [ | e1 e2 e3 σ1 σ2 σ3 H1 H2 IH]; first constructor.
+    econstructor; last apply IH. by apply fill_prim_step.
+  Qed.
+
+  Lemma prim_step_rtc_tc_or P e1 e2 σ1 σ2:
+    prim_step_rtc P e1 σ1 e2 σ2 → (e1 = e2 ∧ σ1 = σ2) ∨ (prim_step_tc P e1 σ1 e2 σ2).
+  Proof.
+    destruct 1 as [ | ?????? H1 H2]; first by left.
+    right. revert e1 σ1 H1. induction H2 as [ | ?????? H H2 IH]; eauto.
+  Qed.
+
+  Lemma prim_step_tc_rtc P e1 e2 σ1 σ2:
+    prim_step_tc P e1 σ1 e2 σ2 → prim_step_rtc P e1 σ1 e2 σ2.
+  Proof. induction 1; eauto. Qed.
+
+  Lemma prim_step_rtc_tc_trans P e1 e2 e3 σ1 σ2 σ3:
+    prim_step_rtc P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
+  Proof. induction 1 as [ | e1 e2 e σ1 σ2 σ H1 H2 IH]; eauto. Qed.
+
+  Lemma fill_prim_step_tc (P : prog Λ) (e e': expr Λ) σ σ' K :
+    prim_step_tc P e σ e' σ' → prim_step_tc P (fill K e) σ (fill K e') σ'.
+  Proof.
+    induction 1 as [ | e1 e2 e3 σ1 σ2 σ3 H1 H2 IH]; first (constructor; by apply fill_prim_step).
+    econstructor; last apply IH. by apply fill_prim_step.
+  Qed.
+
+  Lemma prim_step_rtc_tc P (e1 e2 e3: expr Λ) (σ1 σ2 σ3: state Λ): prim_step_rtc P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
+  Proof.
+    induction 1; eauto.
+  Qed.
+  End basic.
+
+
+
+  Lemma val_prim_step_rtc P v σ e' σ' :
+    prim_step_rtc P (of_val v) σ e' σ' → e' = of_val v ∧ σ' = σ.
+  Proof.
+    inversion 1; subst; first done.
+    inversion H0; subst.
+    edestruct (fill_val K e1') as (v1''& ?).
+    { rewrite -H2. rewrite to_of_val. by exists v. }
+    exfalso; eapply val_head_step.
+    erewrite <-(of_to_val e1') in H4; eauto.
+  Qed.
+
+  Lemma fill_reducible_prim_step P e e' σ σ' K:
+    reducible P e σ → prim_step P (fill K e) σ e' σ' → ∃ e'', e' = fill K e'' ∧ prim_step P e σ e'' σ'.
+  Proof.
+    (* TODO *)
+  Admitted.
+
+
+  Section reach_stuck.
+
+  Definition reach_stuck (P : prog Λ) (e : expr Λ) (σ : state Λ) :=
+    ∃ e' σ', prim_step_rtc P e σ e' σ' ∧ stuck P e' σ'.
+
+  Lemma val_not_reach_stuck P v σ : ¬ reach_stuck P (of_val v) σ.
+  Proof.
+    intros (e'&σ'& H & Hstuck). apply val_prim_step_rtc in H as (->&->).
+    destruct Hstuck as [H _]. rewrite to_of_val in H; discriminate.
+  Qed.
+
+  Lemma fill_reach_stuck (P : prog Λ) (e : expr Λ) K (σ : state Λ) :
+    reach_stuck P e σ → reach_stuck P (fill K e) σ.
+  Proof.
+    intros (e' & σ' & [Hreach Hstuck]). exists (fill K e'), σ'. split.
+    - by apply fill_prim_step_rtc.
+    - by apply fill_stuck.
+  Qed.
+
+  Lemma prim_step_rtc_reach_stuck P e e' σ σ':
+    prim_step_rtc P e σ e' σ' → reach_stuck P e' σ' → reach_stuck P e σ.
+  Proof.
+    intros H (e'' & σ'' & Hstep & Hstuck).
+    exists e'', σ''. split; last assumption. by eapply prim_step_rtc_trans.
+  Qed.
+
+
+  Lemma reach_call_in_prg P f K e σ σ' v:
+    ¬ reach_stuck P e σ → prim_step_rtc P e σ (fill K (of_call f v)) σ' → ∃ K, P !! f = Some K.
+  Proof.
+    destruct (P !! f) eqn: Hloook; eauto.
+    intros Hstuck Hsteps. exfalso; eapply Hstuck.
+    eexists _, _. split; eauto. unfold stuck; split.
+    - apply fill_not_val, to_val_of_call.
+    - intros e'' σ'' [K' [H _]] % prim_step_call_inv.
+      naive_solver.
+  Qed.
+  End reach_stuck.
 End language.
+
+(* TODO: remove once different version is used *)
+Hint Constructors prim_step_rtc : core.
+Hint Constructors prim_step_tc : core.

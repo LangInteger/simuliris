@@ -5,10 +5,6 @@ From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import language slsls.
 
 
-Lemma prim_step_rtc_tc {Λ} P (e1 e2 e3: expr Λ) (σ1 σ2 σ3: state Λ): prim_step_rtc P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
-Proof.
-  induction 1; eauto.
-Qed.
 
 Section fix_lang.
   Context {PROP : bi}.
@@ -93,35 +89,14 @@ Section local_to_global.
     (∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx (sim:=sim_nostutter) K_t K_s val_rel)%I.
 
   Lemma gsim_coind (Φ : exprO * exprO → PROP) (Post: val Λ → val Λ → PROP) `{NonExpansive Φ}:
-    □ (∀ e_t e_s, Φ (e_t, e_s) -∗ global_step_nostutter Post Φ (e_t, e_s)) -∗ ∀ e_t e_s, Φ (e_t, e_s) -∗ gsim_expr e_t e_s Post.
+    □ (∀ e_t e_s, Φ (e_t, e_s) -∗ global_step_nostutter Post Φ (e_t, e_s)) -∗
+    ∀ e_t e_s, Φ (e_t, e_s) -∗ gsim_expr e_t e_s Post.
   Proof.
     iIntros "#H" (e_t e_s). rewrite gsim_expr_eq.
     remember (e_t, e_s) as p; clear Heqp e_s e_t.
     iApply (greatest_fixpoint_coind with "[H]").
     iModIntro. iIntros ([e_s e_t]). iApply "H".
   Qed.
-
-  Lemma prim_step_call_inv P K f v e' σ σ':
-    prim_step P (fill K (of_call f v)) σ e' σ' →
-    ∃ K_f, P !! f = Some K_f ∧ e' = fill K (fill K_f (of_val v)) ∧ σ' = σ.
-  Proof.
-    intros (K' & e1 & e2 & Hctx & -> & Hstep) % prim_step_inv.
-    eapply step_by_val in Hstep as H'; eauto; last apply to_val_of_call.
-    destruct H' as [K'' Hctx']; subst K'.
-    rewrite -fill_comp in Hctx. eapply fill_inj in Hctx.
-  Admitted.
-
-  Lemma reach_call_in_prg P f K e σ σ' v:
-    ¬ reach_stuck P e σ → prim_step_rtc P e σ (fill K (of_call f v)) σ' → ∃ K, P !! f = Some K.
-  Proof.
-    destruct (P !! f) eqn: Hloook; eauto.
-    intros Hstuck Hsteps. exfalso; eapply Hstuck.
-    eexists _, _. split; eauto. unfold stuck; split.
-    - apply fill_not_val, to_val_of_call.
-    - intros e'' σ'' [K' [H _]] % prim_step_call_inv.
-      naive_solver.
-  Qed.
-
 
   Lemma local_to_global P_t P_s e_t e_s:
     □ local_rel P_t P_s -∗
@@ -141,7 +116,7 @@ Section local_to_global.
     subst e_t. iRight.
 
     (* the function is in the source and target table *)
-    edestruct reach_call_in_prg as [K_f_s Hdef_s]; eauto.
+    edestruct (@reach_call_in_prg Λ) as [K_f_s Hdef_s]; eauto.
     { admit. (* this should have been there from the beginning *) }
 
     (* we prove reducibility and the step relation *)
