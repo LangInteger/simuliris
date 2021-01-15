@@ -44,13 +44,12 @@ Section fix_lang.
 
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {PROP_pure : BiPureForall PROP}.
 
   Section stuttering.
     (** Simulation relation with stuttering *)
 
     Definition least_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO → exprO → PROP) (e_s : exprO) (least_rec : exprO → PROP) (e_t : exprO) :=
-      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
+      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
         (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
@@ -151,7 +150,7 @@ Section fix_lang.
 
     Lemma sim_unfold Φ e_t e_s:
       sim (Sim:=sim_stutter) e_t e_s Φ ⊣⊢
-      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
+      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
           (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
             state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
@@ -349,7 +348,7 @@ Section fix_lang.
       rewrite {1}/sim {1}sim_eq {1}sim_def_unfold.
       rewrite {1}/greatest_step !least_def_unfold /least_step.
       iMod ("Hpost" with "[Hstate]") as "Hpost".
-      { iFrame. iIntros "%". exfalso. eapply Hnreach, prim_step_rtc_reach_stuck.
+      { iFrame. iPureIntro. intros Hstuck. eapply Hnreach, prim_step_rtc_reach_stuck.
         by apply fill_prim_step_rtc. assumption. }
       iModIntro.
       iDestruct "Hpost" as "[Hv | [Hstep | Hcall]]".
@@ -488,7 +487,7 @@ Section fix_lang.
     (** Simpler relation without stuttering using just a greatest fp. *)
 
     Definition step_nostutter (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
-      λ '(e_s, e_t), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
+      λ '(e_s, e_t), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
         (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
@@ -544,7 +543,7 @@ Section fix_lang.
 
     Lemma sim_nostutter_unfold e_t e_s Φ:
       sim (Sim:=sim_nostutter) e_t e_s Φ ⊣⊢
-      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ¬ ⌜reach_stuck P_s e_s σ_s⌝ -∗ |==>
+      (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
           (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
             state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
@@ -658,7 +657,7 @@ Section fix_lang.
       rewrite {1}/sim {1}sim_nostutter_eq {1}sim_nostutter_def_unfold.
       rewrite {1}/step_nostutter.
       iMod ("Hpost" with "[Hstate]") as "Hpost".
-      { iFrame. iIntros "%". exfalso. eapply Hnreach, prim_step_rtc_reach_stuck.
+      { iFrame. iPureIntro. intros Hstuck. eapply Hnreach, prim_step_rtc_reach_stuck.
         by apply fill_prim_step_rtc. assumption. }
       iModIntro.
       iDestruct "Hpost" as "[Hv | [Hstep | Hcall]]".
