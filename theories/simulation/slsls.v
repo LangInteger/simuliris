@@ -51,19 +51,19 @@ Section fix_lang.
     Definition least_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO → exprO → PROP) (e_s : exprO) (least_rec : exprO → PROP) (e_t : exprO) :=
       (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
+        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
           (* stuttering *)
           (state_interp P_t σ_t' P_s σ_s ∗ least_rec e_t') ∨
           (* take a step *)
-          (∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec e_s' e_t'))
+          (∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec e_s' e_t'))
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
           (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec (fill K_s (of_val v_s)) (fill K_t (of_val v_t))))
       )%I.
@@ -152,18 +152,18 @@ Section fix_lang.
       sim (Sim:=sim_stutter) e_t e_s Φ ⊣⊢
       (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
+          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
             state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
           (state_interp P_t σ_t' P_s σ_s ∗ sim (Sim:=sim_stutter) e_t' e_s Φ) ∨
-          (∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
+          (∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
           sim (Sim:=sim_stutter) e_t' e_s' Φ))
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
           sim_ectx (sim:=sim_stutter) K_t K_s Φ)
       )%I.
@@ -314,7 +314,7 @@ Section fix_lang.
 
     (* Lemma used two times in the proof of the bind lemma (for the value cases of the inner and outer induction) *)
     Lemma sim_bind_val P_s e_s σ_s v_s σ_s' e_t v_t K_t σ_t P_t K_s Φ:
-        prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s' →
+        rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') →
         to_val e_t = Some v_t →
         (¬ reach_stuck P_s (fill K_s e_s) σ_s) →
         ⊢ fill K_t (of_val v_t) ⪯ fill K_s (of_val v_s) {{Φ}} -∗
@@ -322,23 +322,23 @@ Section fix_lang.
 
           (* val case *)
           (∃ (v_t' v_s' : val Λ) σ_s'', ⌜to_val (fill K_t e_t) = Some v_t'⌝ ∗
-            ⌜prim_step_rtc P_s (fill K_s e_s) σ_s (of_val v_s') σ_s''⌝ ∗
+            ⌜rtc (prim_step P_s) (fill K_s e_s, σ_s) (of_val v_s', σ_s'')⌝ ∗
             state_interp P_t σ_t P_s σ_s'' ∗ Φ v_t' v_s')
 
           ∨ (* red case *)
            ⌜reducible P_t (fill K_t e_t) σ_t⌝ ∗
            (∀ e_t' σ_t',
-              ⌜prim_step P_t (fill K_t e_t) σ_t e_t' σ_t'⌝ -∗ |==>
+              ⌜prim_step P_t (fill K_t e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
                 (* stutter *)
                 state_interp P_t σ_t' P_s σ_s ∗ least_def Φ (bind_pred Φ) (fill K_s e_s) e_t'
                 ∨ (* step *)
                 (∃ e_s' σ_s'',
-                 ⌜prim_step_tc P_s (fill K_s e_s) σ_s e_s' σ_s''⌝ ∗ state_interp P_t σ_t' P_s σ_s'' ∗
+                 ⌜tc (prim_step P_s) (fill K_s e_s, σ_s) (e_s', σ_s'')⌝ ∗ state_interp P_t σ_t' P_s σ_s'' ∗
                  bind_pred Φ e_s' e_t'))
           ∨ (* call case *)
             (∃ (f : string) (K_t' : ectx Λ) (v_t' : val Λ) (K_s' : ectx Λ) (v_s' : val Λ) σ_s'',
               ⌜fill K_t e_t = fill K_t' (of_call f v_t')⌝ ∗
-              ⌜prim_step_rtc P_s (fill K_s e_s) σ_s (fill K_s' (of_call f v_s')) σ_s''⌝ ∗
+              ⌜rtc (prim_step P_s) (fill K_s e_s, σ_s) (fill K_s' (of_call f v_s'), σ_s'')⌝ ∗
               val_rel v_t' v_s' ∗ state_interp P_t σ_t P_s σ_s'' ∗
               (∀ v_t'' v_s'' : val Λ, val_rel v_t'' v_s'' -∗
                 bind_pred Φ (fill K_s' (of_val v_s'')) (fill K_t' (of_val v_t'')))).
@@ -355,17 +355,15 @@ Section fix_lang.
       + iLeft. iDestruct "Hv" as (v_t' v_s' σ_s'') "(% & % & Hstate & Hpost)".
         iExists v_t', v_s', σ_s''. iFrame.
         iSplitL. { iPureIntro. by rewrite -H1 (of_to_val _ _ H). }
-        iPureIntro.
-        eapply prim_step_rtc_trans. { apply fill_prim_step_rtc, H0. }
-        assumption.
+        iPureIntro. etrans; eauto using fill_prim_step_rtc.
       + iRight; iLeft. iDestruct "Hstep" as "[% Hstep]". iSplitR "Hstep".
         { iPureIntro. by rewrite (of_to_val _ _ H) in H1. }
         iIntros (e_t' σ_t') "%". iMod ("Hstep" with "[]") as "Hstep".
         { iPureIntro. by rewrite (of_to_val _ _ H). }
         iModIntro. iDestruct "Hstep" as "[[Hstate Hstutter] | Hstep]".
         * (* CA on the reduction of e_s to v_s to check if we need to stutter or not *)
-          apply (prim_step_rtc_tc_or) in H0 as [[-> ->] | H3].
-          { iLeft. iFrame. iApply least_def_mon. 2: iApply "Hstutter".
+          apply (rtc_inv_tc) in H0 as [Heq | H3].
+          { injection Heq as ??; subst. iLeft. iFrame. iApply least_def_mon. 2: iApply "Hstutter".
             iModIntro. iIntros ([e_s e_t'']) "H".
             iExists e_t'', e_s, empty_ectx, empty_ectx.
             rewrite !fill_empty. do 2 (iSplitL ""; first auto).
@@ -383,7 +381,7 @@ Section fix_lang.
           }
         * iDestruct "Hstep" as (e_s' σ_s'') "(%&Hstate& Hrec)". iRight.
           iExists e_s', σ_s''. iFrame. iSplitL "".
-          { iPureIntro. eapply prim_step_rtc_tc_trans; last eassumption. by apply fill_prim_step_rtc. }
+          { iPureIntro. eapply tc_rtc_l; by eauto using fill_prim_step_rtc. }
           cbn. iExists e_t', e_s', empty_ectx, empty_ectx. rewrite !fill_empty.
           do 2 (iSplitL ""; first auto).
           iApply sim_mono. 2: { rewrite /sim sim_eq. iApply "Hrec". }
@@ -394,7 +392,7 @@ Section fix_lang.
         iRight; iRight.
         iExists f, K_t', v_t', K_s', v_s', σ_s''. iFrame.
         iSplitL "". { iPureIntro. by rewrite -H1 (of_to_val _ _ H). }
-        iSplitL "". { iPureIntro. eapply prim_step_rtc_trans; last apply H2. by apply fill_prim_step_rtc. }
+        iSplitL "". { iPureIntro. etrans; eauto using fill_prim_step_rtc. }
         iIntros (v_t'' v_s'') "Hvrel". cbn.
         iExists (fill K_t' (of_val v_t'')), (fill K_s' (of_val v_s'')), empty_ectx, empty_ectx.
         rewrite !fill_empty. do 2 (iSplitL ""; first auto).
@@ -489,16 +487,16 @@ Section fix_lang.
     Definition step_nostutter (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
       λ '(e_s, e_t), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
+        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-          ∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec (e_s', e_t'))
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
+          ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec (e_s', e_t'))
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
           (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec (fill K_s (of_val v_s), fill K_t (of_val v_t))))
       )%I.
@@ -545,17 +543,17 @@ Section fix_lang.
       sim (Sim:=sim_nostutter) e_t e_s Φ ⊣⊢
       (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
         (* value case *)
-          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
+          (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
             state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-          ∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
+          ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
           sim (Sim:=sim_nostutter) e_t' e_s' Φ)
 
         ∨ (* call case *)
         (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-          ⌜prim_step_rtc P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
+          ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
           val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
           sim_ectx (sim:=sim_nostutter) K_t K_s Φ)
       )%I.
@@ -626,7 +624,7 @@ Section fix_lang.
 
     (* Lemma used two times in the proof of the bind lemma (for the value cases of the inner and outer induction) *)
     Lemma sim_bind_val_nostutter P_s e_s σ_s v_s σ_s' e_t v_t K_t σ_t P_t K_s Φ:
-        prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s' →
+        rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') →
         to_val e_t = Some v_t →
         (¬ reach_stuck P_s (fill K_s e_s) σ_s) →
         ⊢ fill K_t (of_val v_t) ⪯ fill K_s (of_val v_s) {{Φ}} -∗
@@ -634,20 +632,20 @@ Section fix_lang.
 
           (* val case *)
           (∃ (v_t' v_s' : val Λ) σ_s'', ⌜to_val (fill K_t e_t) = Some v_t'⌝ ∗
-            ⌜prim_step_rtc P_s (fill K_s e_s) σ_s (of_val v_s') σ_s''⌝ ∗
+            ⌜rtc (prim_step P_s) (fill K_s e_s, σ_s) (of_val v_s', σ_s'')⌝ ∗
             state_interp P_t σ_t P_s σ_s'' ∗ Φ v_t' v_s')
 
           ∨ (* red case *)
            ⌜reducible P_t (fill K_t e_t) σ_t⌝ ∗
            (∀ e_t' σ_t',
-              ⌜prim_step P_t (fill K_t e_t) σ_t e_t' σ_t'⌝ -∗ |==>
+              ⌜prim_step P_t (fill K_t e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
                 (∃ e_s' σ_s'',
-                 ⌜prim_step_tc P_s (fill K_s e_s) σ_s e_s' σ_s''⌝ ∗ state_interp P_t σ_t' P_s σ_s'' ∗
+                 ⌜tc (prim_step P_s) (fill K_s e_s, σ_s) (e_s', σ_s'')⌝ ∗ state_interp P_t σ_t' P_s σ_s'' ∗
                  bind_pred_nostutter Φ e_s' e_t'))
           ∨ (* call case *)
             (∃ (f : string) (K_t' : ectx Λ) (v_t' : val Λ) (K_s' : ectx Λ) (v_s' : val Λ) σ_s'',
               ⌜fill K_t e_t = fill K_t' (of_call f v_t')⌝ ∗
-              ⌜prim_step_rtc P_s (fill K_s e_s) σ_s (fill K_s' (of_call f v_s')) σ_s''⌝ ∗
+              ⌜rtc (prim_step P_s) (fill K_s e_s, σ_s) (fill K_s' (of_call f v_s'), σ_s'')⌝ ∗
               val_rel v_t' v_s' ∗ state_interp P_t σ_t P_s σ_s'' ∗
               (∀ v_t'' v_s'' : val Λ, val_rel v_t'' v_s'' -∗
                 bind_pred_nostutter Φ (fill K_s' (of_val v_s'')) (fill K_t' (of_val v_t'')))).
@@ -664,16 +662,14 @@ Section fix_lang.
       + iLeft. iDestruct "Hv" as (v_t' v_s' σ_s'') "(% & % & Hstate & Hpost)".
         iExists v_t', v_s', σ_s''. iFrame.
         iSplitL. { iPureIntro. by rewrite -H1 (of_to_val _ _ H). }
-        iPureIntro.
-        eapply prim_step_rtc_trans. { apply fill_prim_step_rtc, H0. }
-        assumption.
+        iPureIntro. etrans; eauto using fill_prim_step_rtc.
       + iRight; iLeft. iDestruct "Hstep" as "[% Hstep]". iSplitR "Hstep".
         { iPureIntro. by rewrite (of_to_val _ _ H) in H1. }
         iIntros (e_t' σ_t') "%". iMod ("Hstep" with "[]") as "Hstep".
         { iPureIntro. by rewrite (of_to_val _ _ H). }
         iDestruct "Hstep" as (e_s' σ_s'') "(%&Hstate& Hrec)".
         iExists e_s', σ_s''. iFrame. iSplitL "".
-        { iPureIntro. eapply prim_step_rtc_tc_trans; last eassumption. by apply fill_prim_step_rtc. }
+        { iPureIntro. eapply tc_rtc_l; by eauto using fill_prim_step_rtc. }
         cbn. iExists e_t', e_s', empty_ectx, empty_ectx. rewrite !fill_empty.
         do 2 (iSplitL ""; first auto).
         iApply sim_nostutter_mono. 2: { rewrite /sim sim_nostutter_eq. iApply "Hrec". }
@@ -684,7 +680,7 @@ Section fix_lang.
         iRight; iRight.
         iExists f, K_t', v_t', K_s', v_s', σ_s''. iFrame.
         iSplitL "". { iPureIntro. by rewrite -H1 (of_to_val _ _ H). }
-        iSplitL "". { iPureIntro. eapply prim_step_rtc_trans; last apply H2. by apply fill_prim_step_rtc. }
+        iSplitL "". { iPureIntro. etrans; by eauto using fill_prim_step_rtc. }
         iIntros (v_t'' v_s'') "Hvrel". cbn.
         iExists (fill K_t' (of_val v_t'')), (fill K_s' (of_val v_s'')), empty_ectx, empty_ectx.
         rewrite !fill_empty. do 2 (iSplitL ""; first auto).

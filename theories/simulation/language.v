@@ -2,6 +2,16 @@ From stdpp Require Import relations strings gmap.
 From iris.prelude Require Export prelude.
 From iris.prelude Require Import options.
 
+
+(* TODO: upstream *)
+Lemma rtc_inv_tc {X} (R: relation X) x y:
+  rtc R x y → x = y ∨ tc R x y.
+Proof.
+  destruct 1; first by eauto.
+  right. eapply tc_rtc_r; last eauto.
+  by apply tc_once.
+Qed.
+
 Section language_mixin.
   Context {expr val ectx state : Type}.
 
@@ -179,36 +189,29 @@ Section language.
   Definition sub_redexes_are_values (e : expr Λ) :=
     ∀ K e', e = fill K e' → to_val e' = None → K = empty_ectx.
 
-  Inductive prim_step (p : prog Λ) (e1 : expr Λ) (σ1 : state Λ)
-      (e2 : expr Λ) (σ2 : state Λ) : Prop :=
-    Prim_step K e1' e2' :
+  Inductive prim_step (p : prog Λ) : relation (expr Λ * state Λ) :=
+    Prim_step K e1 e2 σ1 σ2 e1' e2' :
       e1 = fill K e1' → e2 = fill K e2' →
-      head_step p e1' σ1 e2' σ2 → prim_step p e1 σ1 e2 σ2.
-
-  Inductive prim_step_rtc P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
-  | prim_rtc_base e σ: prim_step_rtc P e σ e σ
-  | prim_rtc_step e1 e2 e3 σ1 σ2 σ3 : prim_step P e1 σ1 e2 σ2 → prim_step_rtc P e2 σ2 e3 σ3 → prim_step_rtc P e1 σ1 e3 σ3.
-
-  Inductive prim_step_tc P : expr Λ → state Λ → expr Λ → state Λ → Prop :=
-  | prim_tc_base e e' σ σ' : prim_step P e σ e' σ' → prim_step_tc P e σ e' σ'
-  | prim_tc_step e1 e2 e3 σ1 σ2 σ3 : prim_step P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
-  Hint Constructors prim_step_rtc : core.
-  Hint Constructors prim_step_tc : core.
+      head_step p e1' σ1 e2' σ2 → prim_step p (e1, σ1) (e2, σ2).
 
   Lemma Prim_step' p K e1 σ1 e2 σ2 :
-    head_step p e1 σ1 e2 σ2 → prim_step p (fill K e1) σ1 (fill K e2) σ2.
+    head_step p e1 σ1 e2 σ2 → prim_step p (fill K e1, σ1) (fill K e2, σ2).
   Proof. econstructor; eauto. Qed.
 
   Definition reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    ∃ e' σ', prim_step p e σ e' σ'.
+    ∃ e' σ', prim_step p (e, σ) (e', σ').
   Definition irreducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    ∀ e' σ', ¬prim_step p e σ e' σ'.
+    ∀ e' σ', ¬prim_step p (e, σ) (e', σ').
   Definition stuck (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
     to_val e = None ∧ irreducible p e σ.
   Definition not_stuck (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
     is_Some (to_val e) ∨ reducible p e σ.
 
   (** * Some lemmas about this language *)
+  Lemma prim_step_inv p e1 e2 σ1 σ2:
+    prim_step p (e1, σ1) (e2, σ2) →
+    ∃ K e1' e2', e1 = fill K e1' ∧ e2 = fill K e2' ∧ head_step p e1' σ1 e2' σ2.
+  Proof. inversion 1; subst; do 3 eexists; eauto. Qed.
   Lemma to_of_val v : to_val (of_val v) = Some v.
   Proof. rewrite /to_val /of_val /mixin_to_val to_of_class //. Qed.
   Lemma of_to_val e v : to_val e = Some v → of_val v = e.
@@ -223,9 +226,9 @@ Section language.
     destruct (to_val e) as [v|] eqn:Hval; last done.
     rewrite -(of_to_val e v) //. intros []%val_head_step.
   Qed.
-  Lemma val_stuck p e σ e' σ' : prim_step p e σ e' σ' → to_val e = None.
+  Lemma val_stuck p e σ e' σ' : prim_step p (e, σ) (e', σ') → to_val e = None.
   Proof.
-    intros [??? -> -> ?%val_head_stuck].
+    intros (?&?&? & -> & -> & ?%val_head_stuck)%prim_step_inv.
     apply eq_None_not_Some. by intros ?%fill_val%eq_None_not_Some.
   Qed.
 
@@ -280,7 +283,7 @@ Section language.
   Qed.
 
   Lemma head_prim_step p e1 σ1 e2 σ2 :
-    head_step p e1 σ1 e2 σ2 → prim_step p e1 σ1 e2 σ2.
+    head_step p e1 σ1 e2 σ2 → prim_step p (e1, σ1) (e2, σ2).
   Proof. apply Prim_step with empty_ectx; by rewrite ?fill_empty. Qed.
 
   Lemma head_step_not_stuck p e σ e' σ' :
@@ -288,9 +291,9 @@ Section language.
   Proof. rewrite /not_stuck /reducible /=. eauto 10 using head_prim_step. Qed.
 
   Lemma fill_prim_step p K e1 σ1 e2 σ2 :
-    prim_step p e1 σ1 e2 σ2 → prim_step p (fill K e1) σ1 (fill K e2) σ2.
+    prim_step p (e1, σ1) (e2, σ2) → prim_step p (fill K e1, σ1) (fill K e2, σ2).
   Proof.
-    destruct 1 as [K' e1' e2' -> ->].
+    intros (K' & e1' & e2' & -> & -> & ?) % prim_step_inv.
     rewrite !fill_comp. by econstructor.
   Qed.
   Lemma fill_reducible p K e σ : reducible p e σ → reducible p (fill K e) σ.
@@ -310,7 +313,7 @@ Section language.
   Lemma prim_head_reducible p e σ :
     reducible p e σ → sub_redexes_are_values e → head_reducible p e σ.
   Proof.
-    intros (e'&σ'&[K e1' e2' -> -> Hstep]) ?.
+    intros (e'&σ'& Hprim) ?. destruct (prim_step_inv _ _ _ _ _ Hprim) as (K & e1' & e2' & -> & -> & Hstep).
     assert (K = empty_ectx) as -> by eauto 10 using val_head_stuck.
     rewrite fill_empty /head_reducible; eauto.
   Qed.
@@ -328,10 +331,10 @@ Section language.
 
   Lemma head_reducible_prim_step_ctx p K e1 σ1 e2 σ2 :
     head_reducible p e1 σ1 →
-    prim_step p (fill K e1) σ1 e2 σ2 →
+    prim_step p (fill K e1, σ1) (e2, σ2) →
     ∃ e2', e2 = fill K e2' ∧ head_step p e1 σ1 e2' σ2.
   Proof.
-    intros (e2''&σ2''&HhstepK) [K' e1' e2' HKe1 -> Hstep].
+    intros (e2''&σ2''&HhstepK) (K' & e1' & e2' & HKe1 & -> & Hstep) % prim_step_inv.
     edestruct (step_by_val p K) as [K'' ?];
       eauto using val_head_stuck; simplify_eq/=.
     rewrite -fill_comp in HKe1; simplify_eq.
@@ -343,7 +346,7 @@ Section language.
 
   Lemma head_reducible_prim_step p e1 σ1 e2 σ2 :
     head_reducible p e1 σ1 →
-    prim_step p e1 σ1 e2 σ2 →
+    prim_step p (e1, σ1) (e2, σ2) →
     head_step p e1 σ1 e2 σ2.
   Proof.
     intros.
@@ -351,11 +354,6 @@ Section language.
       rewrite ?fill_empty; eauto.
     by simplify_eq; rewrite fill_empty.
   Qed.
-
-
-  Lemma prim_step_inv (P : prog Λ) e σ e' σ': prim_step P e σ e' σ'
-    → ∃ K_redex e1 e2, e = fill K_redex e1 ∧ e' = fill K_redex e2 ∧ head_step P e1 σ e2 σ'.
-  Proof. inversion 1. eauto 10. Qed.
 
   Lemma fill_stuck (P : prog Λ) e σ K: stuck P e σ → stuck P (fill K e) σ.
   Proof.
@@ -368,7 +366,7 @@ Section language.
   Qed.
 
   Lemma prim_step_call_inv P K f v e' σ σ':
-    prim_step P (fill K (of_call f v)) σ e' σ' →
+    prim_step P (fill K (of_call f v), σ) (e', σ') →
     ∃ K_f, P !! f = Some K_f ∧ e' = fill K (fill K_f (of_val v)) ∧ σ' = σ.
   Proof.
     intros (K' & e1 & e2 & Hctx & -> & Hstep) % prim_step_inv.
@@ -382,69 +380,53 @@ Section language.
   Section basic.
   Implicit Types (P : prog Λ).
 
-  Lemma prim_step_rtc_trans P e1 e2 e3 σ1 σ2 σ3:
-    prim_step_rtc P e1 σ1 e2 σ2 → prim_step_rtc P e2 σ2 e3 σ3 → prim_step_rtc P e1 σ1 e3 σ3.
-  Proof. induction 1 as [ | e1 e2 e σ1 σ2 σ H1 H2 IH]; eauto. Qed.
-
   Lemma fill_prim_step_rtc (P : prog Λ) (e e': expr Λ) σ σ' K :
-    prim_step_rtc P e σ e' σ' → prim_step_rtc P (fill K e) σ (fill K e') σ'.
+    rtc (prim_step P) (e, σ) (e', σ') → rtc (prim_step P) (fill K e, σ) (fill K e', σ').
   Proof.
-    induction 1 as [ | e1 e2 e3 σ1 σ2 σ3 H1 H2 IH]; first constructor.
-    econstructor; last apply IH. by apply fill_prim_step.
+    intros Hrtc. remember (e, σ) as c. remember (e', σ') as c'. revert e e' σ σ' Heqc Heqc'.
+    induction Hrtc as [[e σ] | [e1 σ1] [e2 σ2] [e3 σ3] H1 H2 IH];
+    intros ????; injection 1; injection 3; intros; subst.
+    - done.
+    - econstructor; last (by apply IH). by apply fill_prim_step.
   Qed.
-
-  Lemma prim_step_rtc_tc_or P e1 e2 σ1 σ2:
-    prim_step_rtc P e1 σ1 e2 σ2 → (e1 = e2 ∧ σ1 = σ2) ∨ (prim_step_tc P e1 σ1 e2 σ2).
-  Proof.
-    destruct 1 as [ | ?????? H1 H2]; first by left.
-    right. revert e1 σ1 H1. induction H2 as [ | ?????? H H2 IH]; eauto.
-  Qed.
-
-  Lemma prim_step_tc_rtc P e1 e2 σ1 σ2:
-    prim_step_tc P e1 σ1 e2 σ2 → prim_step_rtc P e1 σ1 e2 σ2.
-  Proof. induction 1; eauto. Qed.
-
-  Lemma prim_step_rtc_tc_trans P e1 e2 e3 σ1 σ2 σ3:
-    prim_step_rtc P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
-  Proof. induction 1 as [ | e1 e2 e σ1 σ2 σ H1 H2 IH]; eauto. Qed.
 
   Lemma fill_prim_step_tc (P : prog Λ) (e e': expr Λ) σ σ' K :
-    prim_step_tc P e σ e' σ' → prim_step_tc P (fill K e) σ (fill K e') σ'.
+    tc (prim_step P) (e, σ) (e', σ') → tc (prim_step P) (fill K e, σ) (fill K e', σ').
   Proof.
-    induction 1 as [ | e1 e2 e3 σ1 σ2 σ3 H1 H2 IH]; first (constructor; by apply fill_prim_step).
-    econstructor; last apply IH. by apply fill_prim_step.
+    intros Htc. remember (e, σ) as c. remember (e', σ') as c'. revert e e' σ σ' Heqc Heqc'.
+    induction Htc as [[e1 σ1] [e2 σ2] | [e1 σ1] [e2 σ2] [e3 σ3] H1 H2 IH];
+    intros ????; injection 1; injection 3; intros; subst.
+    - constructor. by apply fill_prim_step.
+    - econstructor; last (by apply IH). by apply fill_prim_step.
   Qed.
 
-  Lemma prim_step_rtc_tc P (e1 e2 e3: expr Λ) (σ1 σ2 σ3: state Λ): prim_step_rtc P e1 σ1 e2 σ2 → prim_step_tc P e2 σ2 e3 σ3 → prim_step_tc P e1 σ1 e3 σ3.
-  Proof.
-    induction 1; eauto.
-  Qed.
   End basic.
 
 
-
   Lemma val_prim_step_rtc P v σ e' σ' :
-    prim_step_rtc P (of_val v) σ e' σ' → e' = of_val v ∧ σ' = σ.
+    rtc (prim_step P) (of_val v, σ) (e', σ') → e' = of_val v ∧ σ' = σ.
   Proof.
-    inversion 1; subst; first done.
-    inversion H0; subst.
+    intros [Heq|([e1 σ1] & Hstep & Hrtc)] % rtc_inv; first naive_solver.
+    destruct (prim_step_inv _ _ _ _ _ Hstep) as (K & e1' & e2' & Heq & -> & Hstep').
     edestruct (fill_val K e1') as (v1''& ?).
-    { rewrite -H2. rewrite to_of_val. by exists v. }
+    { rewrite -Heq. rewrite to_of_val. by exists v. }
     exfalso; eapply val_head_step.
-    erewrite <-(of_to_val e1') in H4; eauto.
+    erewrite <-(of_to_val e1') in Hstep'; eauto.
   Qed.
 
   Lemma fill_reducible_prim_step P e e' σ σ' K:
-    reducible P e σ → prim_step P (fill K e) σ e' σ' → ∃ e'', e' = fill K e'' ∧ prim_step P e σ e'' σ'.
+    reducible P e σ → prim_step P (fill K e, σ) (e', σ') → ∃ e'', e' = fill K e'' ∧ prim_step P (e, σ) (e'', σ').
   Proof.
-    (* TODO *)
-  Admitted.
-
+    intros (e1 & σ1 & (K'' & e1'' & e2'' & ->  & -> & Hhead) % prim_step_inv) Hprim.
+    rewrite fill_comp in Hprim.
+    eapply head_reducible_prim_step_ctx in Hprim as (e1' & -> & Hhead'); last by rewrite /head_reducible; eauto.
+    eexists. rewrite -fill_comp; by eauto using Prim_step'.
+  Qed.
 
   Section reach_stuck.
 
   Definition reach_stuck (P : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    ∃ e' σ', prim_step_rtc P e σ e' σ' ∧ stuck P e' σ'.
+    ∃ e' σ', rtc (prim_step P) (e, σ) (e', σ') ∧ stuck P e' σ'.
 
   Lemma val_not_reach_stuck P v σ : ¬ reach_stuck P (of_val v) σ.
   Proof.
@@ -461,15 +443,15 @@ Section language.
   Qed.
 
   Lemma prim_step_rtc_reach_stuck P e e' σ σ':
-    prim_step_rtc P e σ e' σ' → reach_stuck P e' σ' → reach_stuck P e σ.
+    rtc (prim_step P) (e, σ) (e', σ') → reach_stuck P e' σ' → reach_stuck P e σ.
   Proof.
     intros H (e'' & σ'' & Hstep & Hstuck).
-    exists e'', σ''. split; last assumption. by eapply prim_step_rtc_trans.
+    exists e'', σ''. split; last assumption. by etrans.
   Qed.
 
 
   Lemma reach_call_in_prg P f K e σ σ' v:
-    ¬ reach_stuck P e σ → prim_step_rtc P e σ (fill K (of_call f v)) σ' → ∃ K, P !! f = Some K.
+    ¬ reach_stuck P e σ → rtc (prim_step P) (e, σ) (fill K (of_call f v), σ') → ∃ K, P !! f = Some K.
   Proof.
     destruct (P !! f) eqn: Hloook; eauto.
     intros Hstuck Hsteps. exfalso; eapply Hstuck.
@@ -480,7 +462,3 @@ Section language.
   Qed.
   End reach_stuck.
 End language.
-
-(* TODO: remove once different version is used *)
-Hint Constructors prim_step_rtc : core.
-Hint Constructors prim_step_tc : core.

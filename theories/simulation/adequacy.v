@@ -24,12 +24,12 @@ Section global_no_stuttering.
   Definition global_step_nostutter (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
     λ '(e_t, e_s), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
       (* value case *)
-      (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
+      (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
       state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
       ∨ (* step case *)
-      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-        ∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
+      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
+        ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
         greatest_rec (e_t', e_s'))
     )%I.
 
@@ -70,12 +70,12 @@ Section global_no_stuttering.
     gsim_expr e_t e_s Φ ⊣⊢
     (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
       (* value case *)
-      (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜prim_step_rtc P_s e_s σ_s (of_val v_s) σ_s'⌝ ∗
+      (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
       state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
       ∨ (* step case *)
-      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t'⌝ -∗ |==>
-        ∃ e_s' σ_s', ⌜prim_step_tc P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
+      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
+        ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
         gsim_expr e_t' e_s' Φ)
     )%I.
     Proof.
@@ -126,7 +126,7 @@ Section local_to_global.
     iDestruct "Hsim" as (f K_t v_t K_s v_s σ_s') "(% & % & Hval & Hstate & Hcont)".
     subst e_t. iRight.
 
-    (* the function is in the source and target table *)
+    (* the function is in the source table *)
     edestruct (@reach_call_in_prg Λ) as [K_f_s Hdef_s]; [by eauto..|].
 
     (* we prove reducibility and the step relation *)
@@ -139,7 +139,7 @@ Section local_to_global.
       apply prim_step_call_inv in Hstep as (K_f_t & Hdef & -> & ->).
       iModIntro. iExists (fill K_s (fill K_f_s (of_val v_s))), σ_s'.
       iFrame. iSplit.
-      + iPureIntro. eapply prim_step_rtc_tc; first by eauto.
+      + iPureIntro. eapply tc_rtc_l; first by eauto.
         constructor. by apply fill_prim_step, head_prim_step, call_head_step_intro.
       + iApply sim_nostutter_bind. iApply (sim_nostutter_mono with "Hcont [Hval]").
         rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hcont]".
