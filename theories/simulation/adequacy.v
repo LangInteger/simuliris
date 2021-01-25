@@ -5,6 +5,11 @@ From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import language slsls.
 
 
+(* The adequacy proof proceeds in three steps:
+   1. We combine all local simulations to one global simulation in Iris
+   2. We obtain a meta level simultation by using satisfiability
+   3. We prove that the meta level simultation implies a behavioral refinement
+*)
 
 Section fix_lang.
   Context {PROP : bi}.
@@ -147,10 +152,157 @@ Section local_to_global.
   Qed.
 
 End local_to_global.
+
 End fix_lang.
 
 
 
+(* Satisfiability *)
+Section satisfiable.
 
+  Context {PROP : bi}.
+  Context {PROP_bupd : BiBUpd PROP}.
+  Context {PROP_affine : BiAffine PROP}.
+  Implicit Types (P Q: PROP).
 
+  Record SatMixin (sat: PROP → Prop) := {
+    mixin_sat_mono P Q: (P ⊢ Q) → sat P → sat Q;
+    mixin_sat_elim φ: sat (⌜φ⌝)%I → φ;
+    mixin_sat_bupd P: sat (|==> P)%I → sat P;
+    mixin_sat_exists {X} Φ: sat (∃ x: X, Φ x)%I → ∃ x: X, sat (Φ x);
+  }.
 
+  Class Satisfiable := {
+      sat : PROP → Prop;
+      sat_mixin: SatMixin sat
+  }.
+
+  Arguments sat {_} _%I.
+
+  Section derived_lemmas.
+    Context `{Satisfiable}.
+
+    Lemma sat_mono P Q: (P ⊢ Q) → sat P → sat Q.
+    Proof. apply mixin_sat_mono, sat_mixin. Qed.
+    Lemma sat_elim φ: sat (⌜φ⌝) → φ.
+    Proof. apply mixin_sat_elim, sat_mixin. Qed.
+    Lemma sat_bupd P: sat (|==> P) → sat P.
+    Proof. apply mixin_sat_bupd, sat_mixin. Qed.
+    Lemma sat_exists {X} Φ: sat (∃ x: X, Φ x) → ∃ x: X, sat (Φ x).
+    Proof. apply mixin_sat_exists, sat_mixin. Qed.
+
+    (* derived *)
+    Global Instance sat_if: Proper ((⊢) ==> impl) sat.
+    Proof. intros P Q Hent Hsat; by eapply sat_mono. Qed.
+
+    Global Instance sat_equiv: Proper ((≡) ==> iff) sat.
+    Proof.
+      intros P Q Heq; split; intros Hsat; eauto using sat_mono, equiv_entails, equiv_entails_sym.
+    Qed.
+
+    Lemma sat_sep P Q: sat (P ∗ Q) → sat P ∧ sat Q.
+    Proof.
+      intros Hsat; split; eapply sat_mono, Hsat; by iIntros "[P Q]".
+    Qed.
+    Lemma sat_and P Q: sat (P ∧ Q) → sat P ∧ sat Q.
+    Proof.
+      intros Hsat; split; eapply sat_mono, Hsat;
+      eauto using bi.and_elim_l, bi.and_elim_r.
+    Qed.
+    Lemma sat_or P Q: sat (P ∨ Q) → sat P ∨ sat Q.
+    Proof.
+      rewrite or_alt; intros [[] Hsat] % sat_exists; eauto.
+    Qed.
+    Lemma sat_forall {X} Φ x: sat (∀ x: X, Φ x) → sat (Φ x).
+    Proof.
+      eapply sat_mono; eauto.
+    Qed.
+    Lemma sat_pers P: sat (<pers> P) → sat P.
+    Proof.
+      eapply sat_mono; eauto.
+    Qed.
+    Lemma sat_intuitionistic P: sat (□ P) → sat P.
+    Proof.
+      eapply sat_mono; eauto.
+    Qed.
+    Lemma sat_impl P Q: (⊢ P) → sat (P → Q) →  sat Q.
+    Proof.
+      intros Hent Hsat; eapply sat_mono, Hsat.
+      iIntros "H". iApply impl_elim_r. iSplit; eauto.
+      iApply Hent.
+    Qed.
+    Lemma sat_wand P Q: (⊢ P) → sat (P -∗ Q) → sat Q.
+    Proof.
+      intros Hent Hsat; eapply sat_mono, Hsat.
+      iIntros "HPQ". iApply "HPQ". iApply Hent.
+    Qed.
+  End derived_lemmas.
+End satisfiable.
+Arguments sat {_ _ _} _%I.
+
+Section meta_level_simulation.
+
+  Context {PROP : bi}.
+  Context {Λ : language}.
+  Context {s : simul_lang PROP Λ}.
+  Context {PROP_bupd : BiBUpd PROP}.
+  Context {PROP_affine : BiAffine PROP}.
+  Context `{Satisfiable PROP}.
+
+  Variable (P_t P_s: prog Λ).
+
+  (* we pull out the simulation to a meta-level simulation *)
+  Definition Sim (e_t: expr Λ) (σ_t: state Λ) (e_s: expr Λ) (σ_s: state Λ) :=
+    sat (state_interp P_t σ_t P_s σ_s ∗ gsim_expr e_t e_s val_rel).
+
+  (* unfolding of the first case *)
+  Lemma Sim_val (v_t: val Λ) (e_s: expr Λ) (σ_t σ_s: state Λ):
+    Sim (of_val v_t) σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') ∧ sat (state_interp P_t σ_t P_s σ_s' ∗ val_rel v_t v_s).
+  Proof.
+    rewrite /Sim gsim_expr_unfold_nostutter; intros Hsat Hreach.
+    eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
+    { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
+    eapply sat_bupd in Hsat.
+    eapply sat_or in Hsat as [Hsat|Hsat]; last first.
+    { eapply sat_sep in Hsat as [Hsat _].
+      eapply sat_elim in Hsat as [e [σ [] % val_prim_step]]. }
+    eapply sat_exists in Hsat as [v_t' Hsat].
+    eapply sat_exists in Hsat as [v_s Hsat].
+    eapply sat_exists in Hsat as [σ_s' Hsat].
+    eapply sat_sep in Hsat as [Heq % sat_elim Hsat].
+    eapply sat_sep in Hsat as [Hrtc % sat_elim Hsat].
+    rewrite to_of_val in Heq; injection Heq as <-.
+    exists v_s, σ_s'; split; auto.
+  Qed.
+
+  (* unfolding of the second case *)
+  Lemma Sim_step (e_t e_t' e_s: expr Λ) (σ_t σ_t' σ_s: state Λ):
+    Sim e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    prim_step P_t (e_t, σ_t) (e_t', σ_t') →
+    ∃ e_s' σ_s', tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim e_t' σ_t' e_s' σ_s'.
+  Proof.
+    rewrite /Sim gsim_expr_unfold_nostutter; intros Hsat Hreach Hstep.
+    eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
+    { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
+    eapply sat_bupd in Hsat.
+    eapply sat_or in Hsat as [Hsat|Hsat].
+    { eapply sat_exists in Hsat as [v_t' Hsat].
+      eapply sat_exists in Hsat as [v_s Hsat].
+      eapply sat_exists in Hsat as [σ_s' Hsat].
+      eapply sat_sep in Hsat as [Heq % sat_elim _].
+      exfalso; eapply val_prim_step.
+      by rewrite -(of_to_val _ _ Heq) in Hstep. }
+    eapply sat_sep in Hsat as [_ Hsat].
+    do 2 eapply sat_forall in Hsat.
+    eapply sat_wand in Hsat; last by iPureIntro.
+    eapply sat_bupd in Hsat.
+    eapply sat_exists in Hsat as [e_s' Hsat].
+    eapply sat_exists in Hsat as [σ_s' Hsat].
+    eapply sat_sep in Hsat as [Htc % sat_elim Hsat].
+    exists e_s', σ_s'; split; auto.
+  Qed.
+
+End meta_level_simulation.
