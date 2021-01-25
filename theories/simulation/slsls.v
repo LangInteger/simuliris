@@ -13,6 +13,14 @@ Class simul_lang (PROP : bi) (Λ : language) := {
 }.
 Hint Mode simul_lang + - : typeclass_instances.
 
+Definition progs_are {Λ PROP} `{simul_lang PROP Λ} (P_t P_s: prog Λ) : PROP :=
+  (□ ∀ P_t' P_s' σ_t σ_s, state_interp P_t' σ_t P_s' σ_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
+Hint Mode progs_are - - - + + : typeclass_instances.
+Typeclasses Opaque progs_are.
+
+Global Instance progs_are_persistent {Λ} {PROP} `{s: simul_lang PROP Λ} (P_s P_t: prog Λ): Persistent (@progs_are Λ PROP s P_s P_t).
+Proof. rewrite /progs_are; apply _. Qed.
+
 (** Typeclass for the simulation relation so we can use the definitions with
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
 (* TODO: remove this TC once we don't need the no-stutter version anymore*)
@@ -592,6 +600,26 @@ Section fix_lang.
       iIntros "Hv". rewrite sim_nostutter_unfold. iIntros (????) "[Hstate Hreach]".
       iModIntro. iLeft. iExists (v_t), (v_s), (σ_s). iFrame.
       iSplitL. by rewrite to_of_val. eauto.
+    Qed.
+
+    Lemma sim_nostutter_call P_t P_s v_t v_s K_t K_s f Φ:
+      P_t !! f = Some K_t →
+      P_s !! f = Some K_s →
+      ⊢ progs_are P_t P_s ∗ val_rel v_t v_s ∗ sim_ectx K_t K_s Φ -∗ (of_call f v_t) ⪯ (of_call f v_s) {{Φ}}.
+    Proof.
+      intros Htgt Hsrc. iIntros "(#Prog & Val & Sim)".
+      rewrite sim_nostutter_unfold. iIntros (P_t' σ_t P_s' σ_s) "[SI %]".
+      iModIntro. iRight. iLeft.
+      rewrite /progs_are; iDestruct ("Prog" with "SI") as "[% %]"; subst P_t' P_s'; iClear "Prog".
+      iSplit.
+      - iPureIntro. eapply head_prim_reducible. eexists _, _. by eapply call_head_step_intro.
+      - iIntros (e_t' σ_t' Hstep). iModIntro.
+       pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t') as (K_t' & Heq & -> & ->);
+        first by rewrite fill_empty.
+        rewrite fill_empty in Hstep.
+        iExists _, _; iFrame; iSplit.
+        + iPureIntro. eapply tc_once, head_prim_step, call_head_step_intro, Hsrc.
+        + rewrite fill_empty; assert (K_t' = K_t) as -> by naive_solver. iApply ("Sim" with "Val").
     Qed.
 
     Lemma bupd_sim_nostutter Φ e_t e_s:
