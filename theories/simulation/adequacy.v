@@ -305,4 +305,158 @@ Section meta_level_simulation.
     exists e_s', σ_s'; split; auto.
   Qed.
 
+  (* progress *)
+  Lemma Sim_progress (e_t e_s: expr Λ) (σ_t σ_s: state Λ):
+    Sim e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    ¬ stuck P_t e_t σ_t.
+  Proof.
+    rewrite /Sim gsim_expr_unfold_nostutter; intros Hsat Hreach Hstuck.
+    eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
+    { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
+    eapply sat_bupd in Hsat.
+    eapply sat_or in Hsat as [Hsat|Hsat].
+    { eapply sat_exists in Hsat as [v_t' Hsat].
+      eapply sat_exists in Hsat as [v_s Hsat].
+      eapply sat_exists in Hsat as [σ_s' Hsat].
+      eapply sat_sep in Hsat as [Heq % sat_elim _].
+      unfold stuck in *; naive_solver. }
+    eapply sat_sep in Hsat as [Hred % sat_elim _].
+    by destruct Hstuck as [Hval Hirr % not_reducible].
+  Qed.
+
 End meta_level_simulation.
+
+
+
+Lemma ex_loop_prim_step_inv {Λ} (P: prog Λ) e σ:
+  ex_loop (prim_step P) (e, σ) →
+  ∃ e' σ', prim_step P (e, σ) (e', σ') ∧ ex_loop (prim_step P) (e', σ').
+Proof.
+  inversion 1 as [? [] ??]; eauto.
+Qed.
+
+Lemma not_reach_stuck_pres {Λ} (P: prog Λ) e e' σ σ':
+  ¬ reach_stuck P e σ →
+  prim_step P (e, σ) (e', σ') →
+  ¬ reach_stuck P e' σ'.
+Proof.
+ intros Hnstuck Hstep Hstuck; apply Hnstuck.
+ destruct Hstuck as (e_stuck & σ_stuck & Hsteps & Hstuck).
+ exists e_stuck, σ_stuck; split; last by eauto.
+ by econstructor.
+Qed.
+
+Lemma not_reach_stuck_pres_rtc {Λ} (P: prog Λ) e e' σ σ':
+  ¬ reach_stuck P e σ →
+  rtc (prim_step P) (e, σ) (e', σ') →
+  ¬ reach_stuck P e' σ'.
+Proof.
+  intros Hstuck Hrtc; remember (e, σ) as cfg; remember (e', σ') as cfg'.
+  revert e e' σ σ' Heqcfg Heqcfg' Hstuck.
+  induction Hrtc as [|? [e_mid σ_mid]]; first by naive_solver.
+  intros e e' σ σ' -> -> Hstuck; by eauto using not_reach_stuck_pres.
+Qed.
+
+Lemma not_reach_stuck_pres_tc {Λ} (P: prog Λ) e e' σ σ':
+  ¬ reach_stuck P e σ →
+  tc (prim_step P) (e, σ) (e', σ') →
+  ¬ reach_stuck P e' σ'.
+Proof.
+  eauto using not_reach_stuck_pres_rtc, tc_rtc.
+Qed.
+
+
+Lemma ex_loop_tc {X: Type} (R: relation X) (x: X):
+  ex_loop (tc R) x → ex_loop R x.
+Proof.
+  revert x; cofix IH.
+  intros x Hloop; inversion Hloop as [x' y Hstep Hloop']; subst x'.
+  destruct Hstep as [x y Hstep|x y z Hstep Hsteps].
+  - econstructor; eauto.
+  - econstructor; first by eauto.
+    eapply IH; econstructor; eauto.
+Qed.
+
+
+Section simulation_behaviorally_related.
+
+  Context {PROP : bi}.
+  Context {Λ : language}.
+  Context {s : simul_lang PROP Λ}.
+  Context {PROP_bupd : BiBUpd PROP}.
+  Context {PROP_affine : BiAffine PROP}.
+  Context `{Satisfiable PROP}.
+
+  Variable (P_t P_s: prog Λ).
+
+  (* divergent case *)
+  Lemma Sim_diverge' e_t e_s σ_t σ_s:
+    Sim P_t P_s e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    ex_loop (prim_step P_t) (e_t, σ_t) →
+    ex_loop (tc (prim_step P_s)) (e_s, σ_s).
+  Proof.
+    revert e_t e_s σ_t σ_s; cofix IH.
+    intros e_s σ_s e_t σ_t Hsim Hstuck Hdiv.
+    eapply ex_loop_prim_step_inv in Hdiv as (e_t' & σ_t' & Hstep & Hdiv).
+    eapply Sim_step in Hsim as (e_s' & σ_s' & Hsteps & Hsim'); [|by auto..].
+    econstructor; first apply Hsteps.
+    eapply IH; eauto.
+    eapply not_reach_stuck_pres_tc; eauto.
+  Qed.
+
+  Lemma Sim_diverge e_t e_s σ_t σ_s:
+    Sim P_t P_s e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    ex_loop (prim_step P_t) (e_t, σ_t) →
+    ex_loop (prim_step P_s) (e_s, σ_s).
+  Proof.
+    eauto using Sim_diverge', ex_loop_tc.
+  Qed.
+
+
+  (* return value case *)
+  Lemma Sim_steps e_t e_s σ_t σ_s e_t' σ_t':
+    Sim P_t P_s e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    rtc (prim_step P_t) (e_t, σ_t) (e_t', σ_t') →
+    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim P_t P_s e_t' σ_t' e_s' σ_s'.
+  Proof.
+    intros Hsim Hstuck Hrtc; remember (e_t, σ_t) as tgt; remember (e_t', σ_t') as src.
+    revert e_t e_t' e_s σ_t σ_t' σ_s Heqtgt Heqsrc Hsim Hstuck; induction Hrtc as [|? [e_t_mid σ_t_mid] ? Hstep ? IH];
+    intros e_t e_t' e_s σ_t σ_t' σ_s Heqtgt Heqsrc Hsim Hstuck; subst.
+    - exists e_s, σ_s; split; first reflexivity.
+      naive_solver.
+    - eapply Sim_step in Hsim as (e_s_mid & σ_s_mid & Htc & Hsim); [|by eauto..].
+      edestruct IH as (e_s' & σ_s' & Hrtc' & Hsim'); [by eauto using not_reach_stuck_pres_tc..|].
+      eexists _, _; split; last done. etrans; eauto using tc_rtc.
+  Qed.
+
+  Lemma Sim_return e_t e_s σ_t σ_s v_t σ_t':
+    Sim P_t P_s e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    rtc (prim_step P_t) (e_t, σ_t) (of_val v_t, σ_t') →
+    ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')
+    ∧ sat (state_interp P_t σ_t' P_s σ_s' ∗ val_rel v_t v_s).
+  Proof.
+    (* first we exectute the simulation to v_t *)
+    intros Hsim Hstuck Htgt; eapply Sim_steps in Htgt as (e_s' & σ_s' & Hsrc & Hsim'); [|eauto..].
+    (* then we use the value case to extract the source value *)
+    eapply Sim_val in Hsim' as (v_s & σ_s'' & Hsteps & Hsat); last by eauto using not_reach_stuck_pres_rtc.
+    eexists _, _; split; eauto using rtc_transitive.
+  Qed.
+
+  (* undefined behavior *)
+  Lemma Sim_safety e_t e_s σ_t σ_s:
+    Sim P_t P_s e_t σ_t e_s σ_s →
+    ¬ reach_stuck P_s e_s σ_s →
+    ¬ reach_stuck P_t e_t σ_t.
+  Proof.
+    intros Hsim Hnstuck (e_t' & σ_t' & Hrtc & Hstuck).
+    eapply Sim_steps in Hsim as (e_s' & σ_s' & Hsteps & Hsim); [|by eauto..].
+    eapply Sim_progress; eauto using not_reach_stuck_pres_rtc.
+  Qed.
+
+
+End simulation_behaviorally_related.
