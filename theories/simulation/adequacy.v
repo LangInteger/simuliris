@@ -232,6 +232,31 @@ Section satisfiable.
       iIntros "HPQ". iApply "HPQ". iApply Hent.
     Qed.
   End derived_lemmas.
+
+  Section framing_sat.
+    Context `{Satisfiable}.
+
+    Definition sat_frame (F P: PROP) := sat (F ∗ P).
+
+    Lemma sat_frame_mixin F: SatMixin (sat_frame F).
+    Proof.
+      split.
+      - intros P Q HPQ Hsat. eapply sat_mono, Hsat.
+        iIntros "($ & P)". by iApply HPQ.
+      - intros Φ Hsat. eapply sat_elim, sat_mono, Hsat.
+        iIntros "(_ & $)".
+      - intros P Hsat. eapply sat_bupd, sat_mono, Hsat.
+        iIntros "($ & $)".
+      - intros X Φ Hsat. eapply sat_exists, sat_mono, Hsat.
+        iIntros "($ & $)".
+    Qed.
+
+    Definition sat_frame_class (F: PROP): Satisfiable :=
+      {| sat := sat_frame F;
+         sat_mixin := sat_frame_mixin F;
+      |}.
+
+  End framing_sat.
 End satisfiable.
 Arguments sat {_ _ _} _%I.
 
@@ -482,12 +507,12 @@ Section adequacy_statement.
     (¬ reach_stuck P_t (of_call main u) σ_t).
 
   Lemma adequacy P_t P_s:
-    (* precondition *)
+    (* pre *)
     sat (local_rel (s := s) P_t P_s ∗
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
       progs_are P_t P_s ∗
       val_rel u u) →
-    (* postcondition *)
+    (* post *)
     (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel (simul_lang := s) v_t v_s) → O v_t v_s) →
     B P_t P_s.
   Proof.
@@ -510,3 +535,39 @@ Section adequacy_statement.
   Qed.
 
 End adequacy_statement.
+
+Section adequacy_statement_alt.
+
+  Context {PROP : bi}.
+  Context {Λ : language}.
+  Context {s : simul_lang PROP Λ}.
+  Context {PROP_bupd : BiBUpd PROP}.
+  Context {PROP_affine : BiAffine PROP}.
+  Context {Sat: @Satisfiable PROP PROP_bupd}.
+
+  Variable (I: state Λ → state Λ → Prop).
+  Variable (O: val Λ → val Λ → Prop).
+  Variable (main: string) (u: val Λ).
+
+  Lemma adequacy_alt P_t P_s:
+    sat (local_rel (s := s) P_t P_s ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
+      progs_are P_t P_s ∗
+      val_rel u u ∗
+      ∀ v_s v_t, val_rel (simul_lang := s) v_t v_s -∗ ⌜O v_t v_s⌝) →
+    B I O main u P_t P_s.
+  Proof.
+    intros Hsat.
+    pose (satF := sat_frame (∀ v_s v_t : val Λ, val_rel v_t v_s -∗ ⌜O v_t v_s⌝)%I).
+    assert (satF (local_rel (s := s) P_t P_s ∗
+    (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
+    progs_are P_t P_s ∗
+    val_rel u u)%I) as Hsat'.
+    { eapply sat_mono, Hsat. iIntros "($ & $ & $ & $ & $)". }
+    eapply (@adequacy PROP Λ s PROP_bupd _ (sat_frame_class _)) in Hsat'; first done.
+    intros v_t v_s σ_t σ_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
+    iIntros "(H & _ & Hval)". by iApply "H".
+  Qed.
+
+End adequacy_statement_alt.
+
