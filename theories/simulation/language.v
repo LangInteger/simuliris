@@ -442,16 +442,21 @@ Section language.
 
   End basic.
 
+  Lemma val_prim_step P v σ e' σ':
+   ¬ prim_step P (of_val v, σ) (e', σ').
+  Proof.
+    intros (K & e1' & e2' & Heq & -> & Hstep') % prim_step_inv.
+    edestruct (fill_val K e1') as (v1''& ?).
+    { rewrite -Heq. rewrite to_of_val. by exists v. }
+    eapply val_head_step.
+    erewrite <-(of_to_val e1') in Hstep'; eauto.
+  Qed.
 
   Lemma val_prim_step_rtc P v σ e' σ' :
     rtc (prim_step P) (of_val v, σ) (e', σ') → e' = of_val v ∧ σ' = σ.
   Proof.
     intros [Heq|([e1 σ1] & Hstep & Hrtc)] % rtc_inv; first naive_solver.
-    destruct (prim_step_inv _ _ _ _ _ Hstep) as (K & e1' & e2' & Heq & -> & Hstep').
-    edestruct (fill_val K e1') as (v1''& ?).
-    { rewrite -Heq. rewrite to_of_val. by exists v. }
-    exfalso; eapply val_head_step.
-    erewrite <-(of_to_val e1') in Hstep'; eauto.
+    exfalso; by eapply val_prim_step.
   Qed.
 
   Lemma fill_reducible_prim_step P e e' σ σ' K:
