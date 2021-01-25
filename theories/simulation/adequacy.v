@@ -481,8 +481,7 @@ Section adequacy_statement.
     (* safety *)
     (¬ reach_stuck P_t (of_call main u) σ_t).
 
-  Lemma adequacy P_t P_s K_src:
-    P_s !! main = Some K_src →
+  Lemma adequacy P_t P_s:
     (* precondition *)
     sat (local_rel (s := s) P_t P_s ∗
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
@@ -492,7 +491,9 @@ Section adequacy_statement.
     (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel (simul_lang := s) v_t v_s) → O v_t v_s) →
     B P_t P_s.
   Proof.
-    intros Hsrc Hpre Hpost σ_t σ_s [HI Hstuck].
+    intros Hpre Hpost σ_t σ_s [HI Hstuck].
+    edestruct (not_stuck_call_in_prg P_s main empty_ectx) as [K_s Hsrc]; first done.
+    { by rewrite fill_empty. }
     eapply sat_mono with (Q := (state_interp P_t σ_t P_s σ_s ∗ gsim_expr (of_call main u) (of_call main u) val_rel)%I) in Hpre;
       first fold (Sim P_t P_s (of_call main u) σ_t (of_call main u) σ_s) in Hpre; last first.
     - iIntros "(#HL & HI & #Hprogs & Hval)".
