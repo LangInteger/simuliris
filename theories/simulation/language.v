@@ -1,16 +1,7 @@
 From stdpp Require Import relations strings gmap.
 From iris.prelude Require Export prelude.
 From iris.prelude Require Import options.
-
-
-(* TODO: upstream *)
-Lemma rtc_inv_tc {X} (R: relation X) x y:
-  rtc R x y → x = y ∨ tc R x y.
-Proof.
-  destruct 1; first by eauto.
-  right. eapply tc_rtc_r; last eauto.
-  by apply tc_once.
-Qed.
+From simuliris.simulation Require Import relations.
 
 Section language_mixin.
   Context {expr val ectx state : Type}.
@@ -494,6 +485,35 @@ Section language.
     exists e'', σ''. split; last assumption. by etrans.
   Qed.
 
+  Lemma not_reach_stuck_pres P e e' σ σ':
+    ¬ reach_stuck P e σ →
+    prim_step P (e, σ) (e', σ') →
+    ¬ reach_stuck P e' σ'.
+  Proof.
+    intros Hnstuck Hstep Hstuck; apply Hnstuck.
+    destruct Hstuck as (e_stuck & σ_stuck & Hsteps & Hstuck).
+    exists e_stuck, σ_stuck; split; last by eauto.
+    by econstructor.
+  Qed.
+
+  Lemma not_reach_stuck_pres_rtc P e e' σ σ':
+    ¬ reach_stuck P e σ →
+    rtc (prim_step P) (e, σ) (e', σ') →
+    ¬ reach_stuck P e' σ'.
+  Proof.
+    intros Hstuck Hrtc; remember (e, σ) as cfg; remember (e', σ') as cfg'.
+    revert e e' σ σ' Heqcfg Heqcfg' Hstuck.
+    induction Hrtc as [|? [e_mid σ_mid]]; first by naive_solver.
+    intros e e' σ σ' -> -> Hstuck; by eauto using not_reach_stuck_pres.
+  Qed.
+
+  Lemma not_reach_stuck_pres_tc P e e' σ σ':
+    ¬ reach_stuck P e σ →
+    tc (prim_step P) (e, σ) (e', σ') →
+    ¬ reach_stuck P e' σ'.
+  Proof.
+    eauto using not_reach_stuck_pres_rtc, tc_rtc.
+  Qed.
 
   Lemma not_stuck_call_in_prg P f K e σ σ' v:
     ¬ reach_stuck P e σ → rtc (prim_step P) (e, σ) (fill K (of_call f v), σ') → ∃ K, P !! f = Some K.

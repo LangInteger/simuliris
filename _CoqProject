@@ -5,6 +5,8 @@
 # (https://github.com/coq/coq/issues/6294).
 -arg -w -arg -redundant-canonical-projection
 
+theories/logic/satisfiable.v
+theories/simulation/relations.v
 theories/simulation/language.v
 theories/simulation/slsls.v
 theories/simulation/adequacy.v

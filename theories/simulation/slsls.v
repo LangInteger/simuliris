@@ -3,7 +3,7 @@
 From iris Require Import bi bi.lib.fixpoint bi.updates bi.derived_laws.
 Import bi.
 From iris.proofmode Require Import tactics.
-From simuliris Require Import simulation.language.
+From simuliris.simulation Require Import relations language.
 
 Class simul_lang (PROP : bi) (Λ : language) := {
   (* state interpretation *)

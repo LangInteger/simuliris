@@ -2,7 +2,8 @@
 From iris Require Import bi bi.lib.fixpoint bi.updates bi.derived_laws.
 Import bi.
 From iris.proofmode Require Import tactics.
-From simuliris.simulation Require Import language slsls.
+From simuliris.logic Require Import satisfiable.
+From simuliris.simulation Require Import relations language slsls.
 
 
 (* The adequacy proof proceeds in three steps:
@@ -151,115 +152,6 @@ End fix_lang.
 Typeclasses Opaque local_rel.
 
 
-
-(* Satisfiability *)
-Section satisfiable.
-
-  Context {PROP : bi}.
-  Context {PROP_bupd : BiBUpd PROP}.
-  Context {PROP_affine : BiAffine PROP}.
-  Implicit Types (P Q: PROP).
-
-  Record SatMixin (sat: PROP → Prop) := {
-    mixin_sat_mono P Q: (P ⊢ Q) → sat P → sat Q;
-    mixin_sat_elim φ: sat (⌜φ⌝)%I → φ;
-    mixin_sat_bupd P: sat (|==> P)%I → sat P;
-    mixin_sat_exists {X} Φ: sat (∃ x: X, Φ x)%I → ∃ x: X, sat (Φ x);
-  }.
-
-  Class Satisfiable := {
-      sat : PROP → Prop;
-      sat_mixin: SatMixin sat
-  }.
-
-  Arguments sat {_} _%I.
-
-  Section derived_lemmas.
-    Context `{Satisfiable}.
-
-    Lemma sat_mono P Q: (P ⊢ Q) → sat P → sat Q.
-    Proof. apply mixin_sat_mono, sat_mixin. Qed.
-    Lemma sat_elim φ: sat (⌜φ⌝) → φ.
-    Proof. apply mixin_sat_elim, sat_mixin. Qed.
-    Lemma sat_bupd P: sat (|==> P) → sat P.
-    Proof. apply mixin_sat_bupd, sat_mixin. Qed.
-    Lemma sat_exists {X} Φ: sat (∃ x: X, Φ x) → ∃ x: X, sat (Φ x).
-    Proof. apply mixin_sat_exists, sat_mixin. Qed.
-
-    (* derived *)
-    Global Instance sat_if: Proper ((⊢) ==> impl) sat.
-    Proof. intros P Q Hent Hsat; by eapply sat_mono. Qed.
-
-    Global Instance sat_equiv: Proper ((≡) ==> iff) sat.
-    Proof.
-      intros P Q Heq; split; intros Hsat; eauto using sat_mono, equiv_entails, equiv_entails_sym.
-    Qed.
-
-    Lemma sat_sep P Q: sat (P ∗ Q) → sat P ∧ sat Q.
-    Proof.
-      intros Hsat; split; eapply sat_mono, Hsat; by iIntros "[P Q]".
-    Qed.
-    Lemma sat_and P Q: sat (P ∧ Q) → sat P ∧ sat Q.
-    Proof.
-      intros Hsat; split; eapply sat_mono, Hsat;
-      eauto using bi.and_elim_l, bi.and_elim_r.
-    Qed.
-    Lemma sat_or P Q: sat (P ∨ Q) → sat P ∨ sat Q.
-    Proof.
-      rewrite or_alt; intros [[] Hsat] % sat_exists; eauto.
-    Qed.
-    Lemma sat_forall {X} Φ x: sat (∀ x: X, Φ x) → sat (Φ x).
-    Proof.
-      eapply sat_mono; eauto.
-    Qed.
-    Lemma sat_pers P: sat (<pers> P) → sat P.
-    Proof.
-      eapply sat_mono; eauto.
-    Qed.
-    Lemma sat_intuitionistic P: sat (□ P) → sat P.
-    Proof.
-      eapply sat_mono; eauto.
-    Qed.
-    Lemma sat_impl P Q: (⊢ P) → sat (P → Q) →  sat Q.
-    Proof.
-      intros Hent Hsat; eapply sat_mono, Hsat.
-      iIntros "H". iApply impl_elim_r. iSplit; eauto.
-      iApply Hent.
-    Qed.
-    Lemma sat_wand P Q: (⊢ P) → sat (P -∗ Q) → sat Q.
-    Proof.
-      intros Hent Hsat; eapply sat_mono, Hsat.
-      iIntros "HPQ". iApply "HPQ". iApply Hent.
-    Qed.
-  End derived_lemmas.
-
-  Section framing_sat.
-    Context `{Satisfiable}.
-
-    Definition sat_frame (F P: PROP) := sat (F ∗ P).
-
-    Lemma sat_frame_mixin F: SatMixin (sat_frame F).
-    Proof.
-      split.
-      - intros P Q HPQ Hsat. eapply sat_mono, Hsat.
-        iIntros "($ & P)". by iApply HPQ.
-      - intros Φ Hsat. eapply sat_elim, sat_mono, Hsat.
-        iIntros "(_ & $)".
-      - intros P Hsat. eapply sat_bupd, sat_mono, Hsat.
-        iIntros "($ & $)".
-      - intros X Φ Hsat. eapply sat_exists, sat_mono, Hsat.
-        iIntros "($ & $)".
-    Qed.
-
-    Definition sat_frame_class (F: PROP): Satisfiable :=
-      {| sat := sat_frame F;
-         sat_mixin := sat_frame_mixin F;
-      |}.
-
-  End framing_sat.
-End satisfiable.
-Arguments sat {_ _ _} _%I.
-
 Section meta_level_simulation.
 
   Context {PROP : bi}.
@@ -267,7 +159,8 @@ Section meta_level_simulation.
   Context {s : simul_lang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {Sat: @Satisfiable PROP PROP_bupd}.
+  Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
+  Arguments sat _%I.
 
   Variable (P_t P_s: prog Λ).
 
@@ -348,57 +241,6 @@ Section meta_level_simulation.
 End meta_level_simulation.
 
 
-
-Lemma ex_loop_prim_step_inv {Λ} (P: prog Λ) e σ:
-  ex_loop (prim_step P) (e, σ) →
-  ∃ e' σ', prim_step P (e, σ) (e', σ') ∧ ex_loop (prim_step P) (e', σ').
-Proof.
-  inversion 1 as [? [] ??]; eauto.
-Qed.
-
-Lemma not_reach_stuck_pres {Λ} (P: prog Λ) e e' σ σ':
-  ¬ reach_stuck P e σ →
-  prim_step P (e, σ) (e', σ') →
-  ¬ reach_stuck P e' σ'.
-Proof.
- intros Hnstuck Hstep Hstuck; apply Hnstuck.
- destruct Hstuck as (e_stuck & σ_stuck & Hsteps & Hstuck).
- exists e_stuck, σ_stuck; split; last by eauto.
- by econstructor.
-Qed.
-
-Lemma not_reach_stuck_pres_rtc {Λ} (P: prog Λ) e e' σ σ':
-  ¬ reach_stuck P e σ →
-  rtc (prim_step P) (e, σ) (e', σ') →
-  ¬ reach_stuck P e' σ'.
-Proof.
-  intros Hstuck Hrtc; remember (e, σ) as cfg; remember (e', σ') as cfg'.
-  revert e e' σ σ' Heqcfg Heqcfg' Hstuck.
-  induction Hrtc as [|? [e_mid σ_mid]]; first by naive_solver.
-  intros e e' σ σ' -> -> Hstuck; by eauto using not_reach_stuck_pres.
-Qed.
-
-Lemma not_reach_stuck_pres_tc {Λ} (P: prog Λ) e e' σ σ':
-  ¬ reach_stuck P e σ →
-  tc (prim_step P) (e, σ) (e', σ') →
-  ¬ reach_stuck P e' σ'.
-Proof.
-  eauto using not_reach_stuck_pres_rtc, tc_rtc.
-Qed.
-
-
-Lemma ex_loop_tc {X: Type} (R: relation X) (x: X):
-  ex_loop (tc R) x → ex_loop R x.
-Proof.
-  revert x; cofix IH.
-  intros x Hloop; inversion Hloop as [x' y Hstep Hloop']; subst x'.
-  destruct Hstep as [x y Hstep|x y z Hstep Hsteps].
-  - econstructor; eauto.
-  - econstructor; first by eauto.
-    eapply IH; econstructor; eauto.
-Qed.
-
-
 Section simulation_behaviorally_related.
 
   Context {PROP : bi}.
@@ -406,20 +248,21 @@ Section simulation_behaviorally_related.
   Context {s : simul_lang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {Sat: @Satisfiable PROP PROP_bupd}.
+  Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
+  Arguments sat _%I.
 
   Variable (P_t P_s: prog Λ).
 
   (* divergent case *)
   Lemma Sim_diverge' e_t e_s σ_t σ_s:
-    Sim P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat := sat) P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     ex_loop (prim_step P_t) (e_t, σ_t) →
     ex_loop (tc (prim_step P_s)) (e_s, σ_s).
   Proof.
     revert e_t e_s σ_t σ_s; cofix IH.
     intros e_s σ_s e_t σ_t Hsim Hstuck Hdiv.
-    eapply ex_loop_prim_step_inv in Hdiv as (e_t' & σ_t' & Hstep & Hdiv).
+    eapply ex_loop_pair_inv in Hdiv as (e_t' & σ_t' & Hstep & Hdiv).
     eapply Sim_step in Hsim as (e_s' & σ_s' & Hsteps & Hsim'); [|by auto..].
     econstructor; first apply Hsteps.
     eapply IH; eauto.
@@ -427,7 +270,7 @@ Section simulation_behaviorally_related.
   Qed.
 
   Lemma Sim_diverge e_t e_s σ_t σ_s:
-    Sim P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     ex_loop (prim_step P_t) (e_t, σ_t) →
     ex_loop (prim_step P_s) (e_s, σ_s).
@@ -438,10 +281,10 @@ Section simulation_behaviorally_related.
 
   (* return value case *)
   Lemma Sim_steps e_t e_s σ_t σ_s e_t' σ_t':
-    Sim P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     rtc (prim_step P_t) (e_t, σ_t) (e_t', σ_t') →
-    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim P_t P_s e_t' σ_t' e_s' σ_s'.
+    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim (sat:=sat) P_t P_s e_t' σ_t' e_s' σ_s'.
   Proof.
     intros Hsim Hstuck Hrtc; remember (e_t, σ_t) as tgt; remember (e_t', σ_t') as src.
     revert e_t e_t' e_s σ_t σ_t' σ_s Heqtgt Heqsrc Hsim Hstuck; induction Hrtc as [|? [e_t_mid σ_t_mid] ? Hstep ? IH];
@@ -454,7 +297,7 @@ Section simulation_behaviorally_related.
   Qed.
 
   Lemma Sim_return e_t e_s σ_t σ_s v_t σ_t':
-    Sim P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     rtc (prim_step P_t) (e_t, σ_t) (of_val v_t, σ_t') →
     ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')
@@ -469,7 +312,7 @@ Section simulation_behaviorally_related.
 
   (* undefined behavior *)
   Lemma Sim_safety e_t e_s σ_t σ_s:
-    Sim P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     ¬ reach_stuck P_t e_t σ_t.
   Proof.
@@ -490,7 +333,8 @@ Section adequacy_statement.
   Context {s : simul_lang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {Sat: @Satisfiable PROP PROP_bupd}.
+  Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
+  Arguments sat _%I.
 
   Variable (I: state Λ → state Λ → Prop).
   Variable (O: val Λ → val Λ → Prop).
@@ -520,7 +364,7 @@ Section adequacy_statement.
     edestruct (not_stuck_call_in_prg P_s main empty_ectx) as [K_s Hsrc]; first done.
     { by rewrite fill_empty. }
     eapply sat_mono with (Q := (state_interp P_t σ_t P_s σ_s ∗ gsim_expr (of_call main u) (of_call main u) val_rel)%I) in Hpre;
-      first fold (Sim P_t P_s (of_call main u) σ_t (of_call main u) σ_s) in Hpre; last first.
+      first fold (Sim (sat:=sat) P_t P_s (of_call main u) σ_t (of_call main u) σ_s) in Hpre; last first.
     - iIntros "(#HL & HI & #Hprogs & Hval)".
       iSplitL "HI"; first by iApply "HI".
       iApply (local_to_global with "HL Hprogs").
@@ -543,7 +387,8 @@ Section adequacy_statement_alt.
   Context {s : simul_lang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {Sat: @Satisfiable PROP PROP_bupd}.
+  Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
+  Arguments sat _%I.
 
   Variable (I: state Λ → state Λ → Prop).
   Variable (O: val Λ → val Λ → Prop).
@@ -557,14 +402,10 @@ Section adequacy_statement_alt.
       ∀ v_s v_t, val_rel (simul_lang := s) v_t v_s -∗ ⌜O v_t v_s⌝) →
     B I O main u P_t P_s.
   Proof.
-    intros Hsat.
-    pose (satF := sat_frame (∀ v_s v_t : val Λ, val_rel v_t v_s -∗ ⌜O v_t v_s⌝)%I).
-    assert (satF (local_rel (s := s) P_t P_s ∗
-    (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
-    progs_are P_t P_s ∗
-    val_rel u u)%I) as Hsat'.
-    { eapply sat_mono, Hsat. iIntros "($ & $ & $ & $ & $)". }
-    eapply (@adequacy PROP Λ s PROP_bupd _ (sat_frame_class _)) in Hsat'; first done.
+    intros Hsat. eapply sat_frame_intro in Hsat; last first.
+    { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
+      iCombine "H1 H2 H3 H4" as "H". iExact "H". }
+    eapply (@adequacy PROP _ _ _ _ (sat_frame _) _); first apply Hsat.
     intros v_t v_s σ_t σ_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
   Qed.
