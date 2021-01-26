@@ -25,8 +25,8 @@ Section fix_lang.
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ).
 
-Section global_no_stuttering.
-  Definition global_step_nostutter (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
+Section global.
+  Definition global_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
     λ '(e_t, e_s), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
       (* value case *)
       (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
@@ -38,15 +38,15 @@ Section global_no_stuttering.
         greatest_rec (e_t', e_s'))
     )%I.
 
-  Definition global_sim_nostutter_def (Φ : val Λ → val Λ → PROP) :=
-    bi_greatest_fixpoint (global_step_nostutter Φ).
+  Definition global_sim_def (Φ : val Λ → val Λ → PROP) :=
+    bi_greatest_fixpoint (global_step Φ).
 
-  Instance global_step_nostutter_proper Φ rec:
-    Proper ((≡) ==> (≡)) (global_step_nostutter Φ rec).
+  Instance global_step_proper Φ rec:
+    Proper ((≡) ==> (≡)) (global_step Φ rec).
   Proof. solve_proper. Qed.
 
-  Instance global_step_nostutter_mono (Φ : val Λ → val Λ → PROP):
-    BiMonoPred (global_step_nostutter Φ).
+  Instance global_step_mono (Φ : val Λ → val Λ → PROP):
+    BiMonoPred (global_step Φ).
   Proof.
     constructor.
     - intros g1 g2. iIntros "#H".
@@ -62,16 +62,16 @@ Section global_no_stuttering.
     apply discrete_iff in Heq as ->. reflexivity. apply _.
   Qed.
 
-  Lemma global_sim_nostutter_def_unfold Φ e_t e_s:
-    global_sim_nostutter_def Φ (e_t, e_s) ⊣⊢ global_step_nostutter Φ (global_sim_nostutter_def Φ) (e_t, e_s).
-  Proof. by rewrite /global_sim_nostutter_def greatest_fixpoint_unfold. Qed.
+  Lemma global_sim_def_unfold Φ e_t e_s:
+    global_sim_def Φ (e_t, e_s) ⊣⊢ global_step Φ (global_sim_def Φ) (e_t, e_s).
+  Proof. by rewrite /global_sim_def greatest_fixpoint_unfold. Qed.
 
-  Definition global_sim_nostutter_aux : seal (λ e_t e_s Φ, @global_sim_nostutter_def Φ (e_t, e_s)). by eexists. Qed.
-  Definition gsim_expr := ((global_sim_nostutter_aux).(unseal)).
-  Definition gsim_expr_eq : gsim_expr = λ e_t e_s Φ, @global_sim_nostutter_def Φ (e_t, e_s).
-    by rewrite <- (global_sim_nostutter_aux).(seal_eq). Defined.
+  Definition global_sim_aux : seal (λ e_t e_s Φ, @global_sim_def Φ (e_t, e_s)). by eexists. Qed.
+  Definition gsim_expr := ((global_sim_aux).(unseal)).
+  Definition gsim_expr_eq : gsim_expr = λ e_t e_s Φ, @global_sim_def Φ (e_t, e_s).
+    by rewrite <- (global_sim_aux).(seal_eq). Defined.
 
-  Lemma gsim_expr_unfold_nostutter e_t e_s Φ:
+  Lemma gsim_expr_unfold e_t e_s Φ:
     gsim_expr e_t e_s Φ ⊣⊢
     (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
       (* value case *)
@@ -84,9 +84,9 @@ Section global_no_stuttering.
         gsim_expr e_t' e_s' Φ)
     )%I.
     Proof.
-      by rewrite !gsim_expr_eq global_sim_nostutter_def_unfold /global_step_nostutter.
+      by rewrite !gsim_expr_eq global_sim_def_unfold /global_step.
     Qed.
-End global_no_stuttering.
+End global.
 
 Section local_to_global.
 
@@ -98,7 +98,7 @@ Section local_to_global.
   Proof. rewrite /local_rel; apply _. Qed.
 
   Lemma gsim_coind (Φ : exprO * exprO → PROP) (Post: val Λ → val Λ → PROP) `{NonExpansive Φ}:
-    □ (∀ e_t e_s, Φ (e_t, e_s) -∗ global_step_nostutter Post Φ (e_t, e_s)) -∗
+    □ (∀ e_t e_s, Φ (e_t, e_s) -∗ global_step Post Φ (e_t, e_s)) -∗
     ∀ e_t e_s, Φ (e_t, e_s) -∗ gsim_expr e_t e_s Post.
   Proof.
     iIntros "#H" (e_t e_s). rewrite gsim_expr_eq.
@@ -117,7 +117,7 @@ Section local_to_global.
     iIntros "#Hloc #Hprog Hsim".
     iApply (gsim_coind (λ '(e_t, e_s), sim e_t e_s val_rel) with "[] Hsim"); last clear e_t e_s.
     { by intros n [] [] [-> ->]. }
-    iModIntro. rewrite /global_step_nostutter.
+    iModIntro. rewrite /global_step.
     iIntros (e_t e_s). erewrite sim_nostutter_unfold.
     iIntros "Hsim" (P_t' σ_t P_s' σ_s) "[Hstate %]".
     rewrite /progs_are; iDestruct ("Hprog" with "Hstate") as "[% %]"; subst P_t' P_s'.
@@ -174,7 +174,7 @@ Section meta_level_simulation.
     ¬ reach_stuck P_s e_s σ_s →
     ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') ∧ sat (state_interp P_t σ_t P_s σ_s' ∗ val_rel v_t v_s).
   Proof.
-    rewrite /Sim gsim_expr_unfold_nostutter; intros Hsat Hreach.
+    rewrite /Sim gsim_expr_unfold; intros Hsat Hreach.
     eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
     { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
     eapply sat_bupd in Hsat.
@@ -197,7 +197,7 @@ Section meta_level_simulation.
     prim_step P_t (e_t, σ_t) (e_t', σ_t') →
     ∃ e_s' σ_s', tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim e_t' σ_t' e_s' σ_s'.
   Proof.
-    rewrite /Sim gsim_expr_unfold_nostutter; intros Hsat Hreach Hstep.
+    rewrite /Sim gsim_expr_unfold; intros Hsat Hreach Hstep.
     eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
     { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
     eapply sat_bupd in Hsat.
@@ -224,7 +224,7 @@ Section meta_level_simulation.
     ¬ reach_stuck P_s e_s σ_s →
     ¬ stuck P_t e_t σ_t.
   Proof.
-    rewrite /Sim gsim_expr_unfold_nostutter; intros Hsat Hreach Hstuck.
+    rewrite /Sim gsim_expr_unfold; intros Hsat Hreach Hstuck.
     eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
     { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
     eapply sat_bupd in Hsat.
