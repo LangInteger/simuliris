@@ -10,3 +10,4 @@ theories/simulation/relations.v
 theories/simulation/language.v
 theories/simulation/slsls.v
 theories/simulation/nostutter_adequacy.v
+theories/simulation/stutter_adequacy.v
