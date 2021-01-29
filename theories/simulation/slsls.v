@@ -280,28 +280,33 @@ Section fix_lang.
       iIntros "Hv". rewrite sim_unfold. iIntros (????) "H". iMod "Hv". iApply ("Hv" with "H").
     Qed.
 
+    (* we change the predicate beause at every recursive ocurrence,
+       we give back ownership of the monotonicity assumption *)
     Lemma least_def_mono rec Φ Φ':
-      ⊢ (□ ∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s)
-        -∗ ∀ e_s e_t : exprO, least_def Φ rec e_s e_t -∗ least_def Φ' rec e_s e_t.
+      ⊢ (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s)
+        -∗ ∀ e_s e_t : exprO, least_def Φ rec e_s e_t -∗
+        least_def Φ' (λ e_s e_t, rec e_s e_t ∗ ∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) e_s e_t.
     Proof.
-      iIntros "#Hmon" (e_s e_t). iIntros "Hleast".
-      iApply sim_ind. 2: iApply "Hleast". clear e_t.
-      iModIntro. iIntros (e_t) "IH". rewrite least_def_unfold /least_step.
+      iIntros "Hmon" (e_s e_t). iIntros "Hleast". iRevert "Hmon".
+      iApply (sim_ind _ _ _ (λ e_t, (∀ v_t v_s : val Λ, Φ v_t v_s -∗ Φ' v_t v_s) -∗ least_def Φ' (λ e_s e_t, rec e_s e_t ∗ ∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) e_s e_t)%I with "[] Hleast"); clear e_t.
+      iModIntro. iIntros (e_t) "IH Hmon". rewrite least_def_unfold /least_step.
       iIntros (P_t σ_t P_s σ_s) "H". iMod ("IH" with "H") as "IH". iModIntro.
       iDestruct "IH" as "[Hval | [Hstep | Hcall]]".
-      * iLeft. iDestruct "Hval" as (v_t v_s σ_s') "(?&?&?&?)". iExists v_t, v_s, σ_s'. iFrame. by iApply "Hmon".
-      * iRight; iLeft. iFrame.
-      * iRight; iRight. iFrame.
+      - iLeft. iDestruct "Hval" as (v_t v_s σ_s') "(?&?&?&?)". iExists v_t, v_s, σ_s'. iFrame. by iApply "Hmon".
+      - iRight; iLeft. iDestruct "Hstep" as "[$ Hstep]". iIntros (e_t' σ_t' Hstep).
+        iMod ("Hstep" with "[//]") as "[Hstep|Hstep]".
+        + iModIntro. iLeft. iDestruct "Hstep" as "[$ H]". by iApply "H".
+        + iModIntro. iRight. iFrame "Hmon". eauto.
+      - iRight; iRight. by iFrame "Hmon".
     Qed.
 
     Lemma sim_mono Φ Φ':
-      ⊢ (□ ∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s)
+      ⊢ (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s)
          -∗ ∀ e_s e_t : exprO, e_t ⪯ e_s {{Φ}} -∗ e_t ⪯ e_s {{Φ'}}.
     Proof.
-      iIntros "#Hmon".
-      iIntros (e_s e_t) "H".
-      iApply (sim_coind Φ' (λ e_t e_s, e_t ⪯ e_s {{Φ}})%I); last done.
-      iModIntro. clear e_t e_s. iIntros (e_t e_s) "H".
+      iIntros "Hmon" (e_s e_t) "H".
+      iApply (sim_coind Φ' (λ e_t e_s, e_t ⪯ e_s {{Φ}} ∗ (∀ v_t v_s : val Λ, Φ v_t v_s -∗ Φ' v_t v_s))%I); last by iFrame.
+      iModIntro. clear e_t e_s. iIntros (e_t e_s) "[H Hmon]".
       rewrite /sim sim_eq sim_def_unfold.
       rewrite /greatest_step !least_def_unfold /least_step.
       iIntros (????) "Hs". iSpecialize ("H" with "Hs"). iMod "H". iModIntro.
@@ -309,8 +314,8 @@ Section fix_lang.
       - iLeft. iDestruct "Hval" as (v_t v_s σ_s') "(?&?&?&?)". iExists v_t, v_s, σ_s'. iFrame. by iApply "Hmon".
       - iRight; iLeft. iDestruct "Hred" as "[Hred Hstep]". iFrame.
         iIntros (e_t' σ_t') "Hprim". iMod ("Hstep" with "Hprim") as "[Hstutter | Hstep]"; iModIntro.
-        + iLeft. iDestruct "Hstutter" as "[Hstate Hleast]". iFrame. by iApply least_def_mono.
-        + iRight. iFrame.
+        + iLeft. iDestruct "Hstutter" as "[Hstate Hleast]". iFrame. by iApply (least_def_mono with "Hmon").
+        + iRight. by iFrame.
       - iRight; iRight. iFrame.
     Qed.
 
@@ -376,7 +381,7 @@ Section fix_lang.
             iExists e_t'', e_s, empty_ectx, empty_ectx.
             rewrite !fill_empty. do 2 (iSplitL ""; first auto).
             iApply sim_mono. 2: { rewrite /sim sim_eq. iApply "H". }
-            iModIntro. iIntros (v_t' v_s') "Hv". rewrite !fill_empty. by iApply sim_value.
+            iIntros (v_t' v_s') "Hv". rewrite !fill_empty. by iApply sim_value.
           }
           {
             iRight. iExists (fill K_s (of_val v_s)), σ_s'. iFrame.
@@ -385,7 +390,7 @@ Section fix_lang.
             cbn. iExists e_t', (fill K_s (of_val v_s)), empty_ectx, empty_ectx. rewrite !fill_empty.
             do 2 (iSplitL ""; first auto).
             iApply sim_mono. 2: { iApply sim_stutter_incl. iApply "Hstutter". }
-            iModIntro. iIntros (v_t' v_s') "Hv". rewrite !fill_empty. by iApply sim_value.
+            iIntros (v_t' v_s') "Hv". rewrite !fill_empty. by iApply sim_value.
           }
         * iDestruct "Hstep" as (e_s' σ_s'') "(%&Hstate& Hrec)". iRight.
           iExists e_s', σ_s''. iFrame. iSplitL "".
@@ -393,7 +398,7 @@ Section fix_lang.
           cbn. iExists e_t', e_s', empty_ectx, empty_ectx. rewrite !fill_empty.
           do 2 (iSplitL ""; first auto).
           iApply sim_mono. 2: { rewrite /sim sim_eq. iApply "Hrec". }
-          iModIntro. iIntros (??) "H". rewrite !fill_empty.
+          iIntros (??) "H". rewrite !fill_empty.
           by iApply sim_value.
       + iDestruct "Hcall" as (f K_t' v_t' K_s' v_s' σ_s'') "(%&%&Hvrel&Hstate&Hcall)".
         (* CA on the reduction of fill K_s v_s to fill K_s' (f v_s') to see if we need to take a step or do the call *)
@@ -406,7 +411,7 @@ Section fix_lang.
         rewrite !fill_empty. do 2 (iSplitL ""; first auto).
         iApply sim_mono; first last.
         { rewrite /sim sim_eq. by iApply "Hcall". }
-        iModIntro. iIntros (??) "H". rewrite !fill_empty. by iApply sim_value.
+        iIntros (??) "H". rewrite !fill_empty. by iApply sim_value.
     Qed.
 
     Lemma sim_bind e_t e_s K_t K_s Φ:
