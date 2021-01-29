@@ -1,4 +1,4 @@
-From iris Require Import bi bi.lib.fixpoint bi.updates bi.derived_laws.
+From iris Require Import upred base_logic.bi bi bi.lib.fixpoint bi.updates bi.derived_laws.
 From iris.proofmode Require Import tactics.
 Import bi.
 
@@ -97,3 +97,20 @@ Section satisfiable.
 
 End satisfiable.
 Arguments sat_frame {_} {_}%function_scope _%I _%I.
+
+
+
+(* Iris satisfiability instance *)
+Import upred.
+Definition isat {M} (P: uPred M) := ∃ x: M, ✓{0} x ∧ P 0 x.
+
+Global Instance isat_satisfiable {M}: Satisfiable (@isat M).
+Proof.
+  split; unfold isat; try uPred.unseal.
+  - intros P Q [H] [x [Hv HP]]; by eauto.
+  - intros φ [x [_ Hφ]]. apply Hφ.
+  - intros P [x [Hv HP]].
+    destruct (HP 0 ε) as [y HP']; [done|by rewrite right_id|].
+    revert HP'; rewrite right_id; eauto.
+  - intros X Φ [x [Hv [a HΦ]]]; eauto.
+Qed.
