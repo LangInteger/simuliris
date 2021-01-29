@@ -490,6 +490,25 @@ Section fix_lang.
 
 
     (** Corollaries *)
+    Lemma sim_call P_t P_s v_t v_s K_t K_s f Φ:
+      P_t !! f = Some K_t →
+      P_s !! f = Some K_s →
+      ⊢ progs_are P_t P_s ∗ val_rel v_t v_s ∗ sim_ectx K_t K_s Φ -∗ (of_call f v_t) ⪯ (of_call f v_s) {{Φ}}.
+    Proof.
+      intros Htgt Hsrc. iIntros "(#Prog & Val & Sim)".
+      rewrite sim_unfold. iIntros (P_t' σ_t P_s' σ_s) "[SI %]".
+      iModIntro. iRight. iLeft.
+      rewrite /progs_are; iDestruct ("Prog" with "SI") as "[% %]"; subst P_t' P_s'; iClear "Prog".
+      iSplit.
+      - iPureIntro. eapply head_prim_reducible. eexists _, _. by eapply call_head_step_intro.
+      - iIntros (e_t' σ_t' Hstep). iModIntro.
+       pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t') as (K_t' & Heq & -> & ->);
+        first by rewrite fill_empty.
+        rewrite fill_empty in Hstep. iRight.
+        iExists _, _; iFrame; iSplit.
+        + iPureIntro. eapply tc_once, head_prim_step, call_head_step_intro, Hsrc.
+        + rewrite fill_empty; assert (K_t' = K_t) as -> by naive_solver. iApply ("Sim" with "Val").
+    Qed.
 
 
   End stuttering.
