@@ -1,6 +1,6 @@
 (** * SLSLS, Separation Logic Stuttering Local Simulation *)
 
-From iris Require Import bi bi.lib.fixpoint bi.updates bi.derived_laws.
+From iris Require Import bi.bi bi.lib.fixpoint.
 Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import relations language.

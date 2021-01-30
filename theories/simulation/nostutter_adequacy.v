@@ -1,5 +1,4 @@
-
-From iris Require Import bi bi.lib.fixpoint bi.updates bi.derived_laws.
+From iris Require Import bi.bi bi.lib.fixpoint.
 Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
