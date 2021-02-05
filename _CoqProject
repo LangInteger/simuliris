@@ -11,3 +11,7 @@ theories/simulation/language.v
 theories/simulation/slsls.v
 theories/simulation/nostutter_adequacy.v
 theories/simulation/stutter_adequacy.v
+
+theories/simplang/locations.v
+theories/simplang/lang.v
+theories/simplang/notation.v
