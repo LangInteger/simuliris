@@ -11,12 +11,12 @@ Class simul_lang (PROP : bi) (Λ : language) := {
   (* value relation that restricts values passed to functions *)
   val_rel : val Λ → val Λ → PROP;
 }.
-#[export]
+#[global]
 Hint Mode simul_lang + - : typeclass_instances.
 
 Definition progs_are {Λ PROP} `{simul_lang PROP Λ} (P_t P_s: prog Λ) : PROP :=
   (□ ∀ P_t' P_s' σ_t σ_s, state_interp P_t' σ_t P_s' σ_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
-#[export]
+#[global]
 Hint Mode progs_are - - - + + : typeclass_instances.
 Typeclasses Opaque progs_are.
 
@@ -27,7 +27,7 @@ Proof. rewrite /progs_are; apply _. Qed.
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
 (* TODO: remove this TC once we don't need the no-stutter version anymore*)
 Class Sim {PROP : bi} {Λ : language} (s : simul_lang PROP Λ) := sim : expr Λ → expr Λ → (val Λ → val Λ → PROP) → PROP.
-#[export]
+#[global]
 Hint Mode Sim - - - : typeclass_instances.
 
 (* FIXME: the notation with binders somehow does not work *)
