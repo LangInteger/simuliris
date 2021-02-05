@@ -1,7 +1,7 @@
 From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
-From simuliris.simulation Require Export language. 
+From simuliris.simulation Require Export language.
 From simuliris.simplang Require Export locations.
 From iris.prelude Require Import options.
 
@@ -99,8 +99,8 @@ Definition to_val (e : expr) : option val :=
   end.
 
 Definition of_call f v := Call f (of_val v).
-Definition to_call (e : expr) : option (fname * val) := 
-  match e with 
+Definition to_call (e : expr) : option (fname * val) :=
+  match e with
   | Call f e => option_map (pair f) (to_val e)
   | _ => None
   end.
@@ -174,10 +174,10 @@ Proof. destruct e=>//=. by intros [= <-]. Qed.
 Global Instance of_val_inj : Inj (=) (=) of_val.
 Proof. intros ??. congruence. Qed.
 
-Lemma to_of_call f v : to_call (of_call f v) = Some (f, v). 
+Lemma to_of_call f v : to_call (of_call f v) = Some (f, v).
 Proof. reflexivity. Qed.
 
-Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e. 
+Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e.
 Proof. destruct e => //=. destruct e => //=. by intros [= <- <-]. Qed.
 
 Global Instance base_lit_eq_dec : EqDecision base_lit.
@@ -221,7 +221,7 @@ Proof.
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
      | FAA e1 e2, FAA e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Call f1 e1, Call f2 e2 => 
+     | Call f1 e1, Call f2 e2 =>
         cast_if_and (decide (f1 = f2)) (decide (e1 = e2))
      | _, _ => right _
      end
@@ -612,7 +612,7 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      head_step P (Case (Val $ InjRV v) e1 e2) σ (App e2 (Val v)) σ
   | ForkS e σ:
       (* TODO: for now, this is just a NOP -- maybe we want to change this later and add concurrency?*)
-     head_step P (Fork e) σ (Val $ LitV LitUnit) σ 
+     head_step P (Fork e) σ (Val $ LitV LitUnit) σ
   | AllocNS n v σ l :
      (0 < n)%Z →
      (∀ i, (0 ≤ i)%Z → (i < n)%Z → σ.(heap) !! (l +ₗ i) = None) →
@@ -645,36 +645,36 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      head_step P (Call f (Val v)) σ (fill K (Val v)) σ.
 
 
-Definition of_class (m : mixin_expr_class val) : expr := 
-  match m with 
+Definition of_class (m : mixin_expr_class val) : expr :=
+  match m with
   | ExprVal v => of_val v
   | ExprCall f v => of_call f v
   end.
-Definition to_class (e : expr) : option (mixin_expr_class val) := 
-  match e with 
+Definition to_class (e : expr) : option (mixin_expr_class val) :=
+  match e with
   | Call f e => option_map (ExprCall f) (to_val e)
   | _ => option_map ExprVal (to_val e)
   end.
 
-Lemma to_of_class m : to_class (of_class m) = Some m. 
+Lemma to_of_class m : to_class (of_class m) = Some m.
 Proof. destruct m; done. Qed.
 Lemma of_to_class e m : to_class e = Some m → of_class m = e.
-Proof. 
+Proof.
   destruct m.
   + destruct e; try discriminate 1; first by inversion 1. destruct e; cbn; congruence.
-  + destruct e; try discriminate 1. destruct e; try discriminate 1. by inversion 1. 
+  + destruct e; try discriminate 1. destruct e; try discriminate 1. by inversion 1.
 Qed.
 
 Lemma to_class_val e v : to_class e = Some (ExprVal v) → to_val e = Some v.
-Proof. 
+Proof.
   destruct e; cbn; try discriminate 1.
-  - by inversion 1. 
-  - destruct e; cbn; discriminate 1. 
-Qed. 
-Lemma to_class_call e f v : to_class e = Some (ExprCall f v) → to_call e = Some (f, v). 
+  - by inversion 1.
+  - destruct e; cbn; discriminate 1.
+Qed.
+Lemma to_class_call e f v : to_class e = Some (ExprCall f v) → to_call e = Some (f, v).
 Proof. do 2 (destruct e; cbn; try discriminate 1). by inversion 1. Qed.
 
-Lemma to_val_class e v : to_val e = Some v → to_class e = Some (ExprVal v). 
+Lemma to_val_class e v : to_val e = Some v → to_class e = Some (ExprVal v).
 Proof. destruct e; cbn; try discriminate 1. by inversion 1. Qed.
 Lemma to_call_class e f v : to_call e = Some (f, v) → to_class e = Some (ExprCall f v).
 Proof. do 2 (destruct e; cbn; try discriminate 1). by inversion 1. Qed.
@@ -683,31 +683,31 @@ Proof. do 2 (destruct e; cbn; try discriminate 1). by inversion 1. Qed.
 Global Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
 Proof. induction Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
 
-Global Instance fill_inj K : Inj (=) (=) (fill K). 
+Global Instance fill_inj K : Inj (=) (=) (fill K).
 Proof. induction K; intros ???; by simplify_eq/=. Qed.
 
 Lemma fill_item_val Ki e :
   is_Some (to_val (fill_item Ki e)) → is_Some (to_val e).
 Proof. intros [v ?]. induction Ki; simplify_option_eq; eauto. Qed.
-Lemma fill_item_val_none Ki e: 
-  to_val e = None → to_val (fill_item Ki e) = None. 
-Proof. 
-  destruct (to_val (fill_item Ki e)) eqn:H. 
+Lemma fill_item_val_none Ki e:
+  to_val e = None → to_val (fill_item Ki e) = None.
+Proof.
+  destruct (to_val (fill_item Ki e)) eqn:H.
   - edestruct (fill_item_val) as [v' H1]; [ eauto | congruence].
   - done.
 Qed.
 
-Lemma fill_val K e : 
-  is_Some (to_val (fill K e)) → is_Some (to_val e). 
-Proof. 
+Lemma fill_val K e :
+  is_Some (to_val (fill K e)) → is_Some (to_val e).
+Proof.
   induction K in e |-*; intros [v ?].
-  - simplify_option_eq; eauto. 
-  - eapply fill_item_val, IHK, mk_is_Some, H. 
+  - simplify_option_eq; eauto.
+  - eapply fill_item_val, IHK, mk_is_Some, H.
 Qed.
-Lemma fill_val_none K e: 
-  to_val e = None → to_val (fill K e) = None. 
-Proof. 
-  destruct (to_val (fill K e)) eqn:H. 
+Lemma fill_val_none K e:
+  to_val e = None → to_val (fill K e) = None.
+Proof.
+  destruct (to_val (fill K e)) eqn:H.
   - edestruct (fill_val) as [v' H1]; [ eauto | congruence].
   - done.
 Qed.
@@ -720,9 +720,9 @@ Lemma head_ctx_step_val P Ki e σ1 e2 σ2 :
 Proof. revert e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
 
 Lemma head_ectx_step_val P K e σ1 e2 σ2 :
-  head_step P (fill K e) σ1 e2 σ2 → K = empty_ectx. 
-Proof. 
-Admitted. 
+  head_step P (fill K e) σ1 e2 σ2 → K = empty_ectx.
+Proof.
+Admitted.
 
 Lemma fill_item_no_val_inj Ki1 Ki2 e1 e2 :
   to_val e1 = None → to_val e2 = None →
@@ -731,13 +731,13 @@ Proof.
   revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
 Qed.
 
-Lemma fill_call e1 e2 K1 K2 v fn_name: 
+Lemma fill_call e1 e2 K1 K2 v fn_name:
   to_call e1 = Some (fn_name, v) →
   fill K1 e1 = fill K2 e2 →
-  (K1 = K2 ∧ e1 = e2) ∨ to_val e2 = Some v ∧ K2 = ectx_compose K1 [CallCtx fn_name]. 
-Proof. 
-  intros H1. 
-Admitted. 
+  (K1 = K2 ∧ e1 = e2) ∨ to_val e2 = Some v ∧ K2 = ectx_compose K1 [CallCtx fn_name].
+Proof.
+  intros H1.
+Admitted.
 
 Lemma alloc_fresh P v n σ :
   let l := fresh_locs (dom (gset loc) σ.(heap)) in
@@ -755,46 +755,46 @@ Qed.
 (* Proving the mixin *)
 
 Lemma simp_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill head_step.
-Proof. 
-  constructor. 
-  - apply to_of_class. 
-  - apply of_to_class. 
-  - intros p v ??? H%val_head_stuck. cbn in H. congruence. 
-  - intros p f v ???. split. 
+Proof.
+  constructor.
+  - apply to_of_class.
+  - apply of_to_class.
+  - intros p v ??? H%val_head_stuck. cbn in H. congruence.
+  - intros p f v ???. split.
     + cbn. inversion 1; subst. exists K. eauto.
-    + intros (K & H1 & -> & ->). cbn. by constructor. 
-  - done. 
-  - intros ???. by rewrite -fill_app. 
-  - apply fill_inj. 
-  - intros K e H. 
+    + intros (K & H1 & -> & ->). cbn. by constructor.
+  - done.
+  - intros ???. by rewrite -fill_app.
+  - apply fill_inj.
+  - intros K e H.
     destruct to_class as [[]|] eqn:H1; last by apply is_Some_None in H.
-    + right. apply to_class_val in H1. 
+    + right. apply to_class_val in H1.
       edestruct (fill_val K e) as [v' H2]; first by eauto.
-      exists v'. by apply to_val_class. 
+      exists v'. by apply to_val_class.
     + destruct (to_val e) eqn:H2. { right; eauto using to_val_class. }
-      left. apply to_class_call in H1. clear H. 
-      assert (K ≠ empty_ectx → to_call (fill K e) = None) as H. 
+      left. apply to_class_call in H1. clear H.
+      assert (K ≠ empty_ectx → to_call (fill K e) = None) as H.
       { clear H1. destruct K as [ | Ki K]; first by destruct 1. intros _.
-        revert H2. revert Ki e. 
-        induction K as [ | ?? IH]; cbn; intros Ki e H2. 
+        revert H2. revert Ki e.
+        induction K as [ | ?? IH]; cbn; intros Ki e H2.
         - destruct Ki; cbn; eauto. by rewrite H2.
         - cbn in IH. by apply IH, fill_item_val_none.
-      } 
-      rewrite H1 in H. destruct K; first done. 
-      enough (Some (fn_name, arg) = None) by congruence. by apply H. 
-  - intros p K K' e1' e1_redex σ1 e2 σ2 H. destruct to_class as [ [] | ] eqn:H1; first done. 
-    + apply to_class_call in H1. intros _. 
-      intros H2%val_head_stuck. exists empty_ectx. 
-      destruct (fill_call _ _ _ _ _ _ H1 H) as [[-> ->] | [? _]]; first done. 
-      congruence. 
-    + intros _ H2%val_head_stuck. revert K' H. 
+      }
+      rewrite H1 in H. destruct K; first done.
+      enough (Some (fn_name, arg) = None) by congruence. by apply H.
+  - intros p K K' e1' e1_redex σ1 e2 σ2 H. destruct to_class as [ [] | ] eqn:H1; first done.
+    + apply to_class_call in H1. intros _.
+      intros H2%val_head_stuck. exists empty_ectx.
+      destruct (fill_call _ _ _ _ _ _ H1 H) as [[-> ->] | [? _]]; first done.
+      congruence.
+    + intros _ H2%val_head_stuck. revert K' H.
       induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
-      admit. 
-  - intros ?????? H. 
+      admit.
+  - intros ?????? H.
     destruct (to_val e) eqn:H1. { right. exists v. by apply to_val_class. }
     left. by eapply head_ectx_step_val.
-Admitted. 
-End simp_lang. 
+Admitted.
+End simp_lang.
 
-Canonical Structure simp_lang := Language (simp_lang.simp_lang_mixin). 
-Export simp_lang. 
+Canonical Structure simp_lang := Language (simp_lang.simp_lang_mixin).
+Export simp_lang.

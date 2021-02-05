@@ -513,40 +513,40 @@ Section fix_lang.
         + rewrite fill_empty; assert (K_t' = K_t) as -> by naive_solver. iApply ("Sim" with "Val").
     Qed.
 
-    Lemma sim_frame_r e_t e_s R Φ : 
-      e_t ⪯ e_s {{Φ}} ∗ R ⊢ e_t ⪯ e_s {{λ v_t v_s, Φ v_t v_s ∗ R}}. 
-    Proof. 
-      iIntros "[Hsim HR]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame. 
+    Lemma sim_frame_r e_t e_s R Φ :
+      e_t ⪯ e_s {{Φ}} ∗ R ⊢ e_t ⪯ e_s {{λ v_t v_s, Φ v_t v_s ∗ R}}.
+    Proof.
+      iIntros "[Hsim HR]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame.
     Qed.
 
-    Lemma sim_frame_l e_t e_s R Φ : 
-      R ∗ e_t ⪯ e_s {{Φ}} ⊢ e_t ⪯ e_s {{λ v_t v_s, R ∗ Φ v_t v_s}}. 
-    Proof. 
-      iIntros "[HR Hsim]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame. 
+    Lemma sim_frame_l e_t e_s R Φ :
+      R ∗ e_t ⪯ e_s {{Φ}} ⊢ e_t ⪯ e_s {{λ v_t v_s, R ∗ Φ v_t v_s}}.
+    Proof.
+      iIntros "[HR Hsim]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame.
     Qed.
 
-    Lemma sim_wand e_t e_s Φ Ψ: 
+    Lemma sim_wand e_t e_s Φ Ψ:
       e_t ⪯ e_s {{Φ}} -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯ e_s {{Ψ}}.
     Proof. iIntros "H Hv". iApply (sim_mono with "[Hv//] [H//]"). Qed.
 
-    Lemma sim_wand_l e_t e_s Φ Ψ: 
-      (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ∗ e_t ⪯ e_s {{Φ}} ⊢ e_t ⪯ e_s {{Ψ}}. 
+    Lemma sim_wand_l e_t e_s Φ Ψ:
+      (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ∗ e_t ⪯ e_s {{Φ}} ⊢ e_t ⪯ e_s {{Ψ}}.
     Proof. iIntros "[Hv H]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
 
-    Lemma sim_wand_r e_t e_s Φ Ψ: 
-      e_t ⪯ e_s {{Φ}} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯ e_s {{Ψ}}. 
+    Lemma sim_wand_r e_t e_s Φ Ψ:
+      e_t ⪯ e_s {{Φ}} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯ e_s {{Ψ}}.
     Proof. iIntros "[H Hv]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
 
     Lemma sim_stutter_source e_t e_s Φ:
-      ⊢ (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗ ⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', 
-          ⌜ prim_step P_t (e_t, σ_t) (e_t', σ_t') ⌝ ==∗ state_interp P_t σ_t' P_s σ_s ∗ e_t' ⪯ e_s {{ Φ }}) -∗ 
+      ⊢ (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗ ⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t',
+          ⌜ prim_step P_t (e_t, σ_t) (e_t', σ_t') ⌝ ==∗ state_interp P_t σ_t' P_s σ_s ∗ e_t' ⪯ e_s {{ Φ }}) -∗
         e_t ⪯ e_s {{ Φ }}.
-    Proof. 
-      iIntros "H". rewrite (sim_unfold Φ e_t e_s). iIntros (????) "[H1 H2]". 
+    Proof.
+      iIntros "H". rewrite (sim_unfold Φ e_t e_s). iIntros (????) "[H1 H2]".
       iMod ("H" with "H1") as "H". iModIntro. iRight; iLeft. iDestruct "H" as "(% & Hnext)".
       iSplitL "". { by iPureIntro. }
-      iIntros (e_t' σ_t') "Hstep". iMod ("Hnext" with "Hstep") as "[Hstate Hsim]". 
-      iModIntro. iLeft. iFrame. 
+      iIntros (e_t' σ_t') "Hstep". iMod ("Hnext" with "Hstep") as "[Hstate Hsim]".
+      iModIntro. iLeft. iFrame.
     Qed.
 
     (*Lemma sim_stutter_target e_t e_s Φ: *)
