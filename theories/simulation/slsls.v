@@ -11,10 +11,12 @@ Class simul_lang (PROP : bi) (Λ : language) := {
   (* value relation that restricts values passed to functions *)
   val_rel : val Λ → val Λ → PROP;
 }.
+#[export]
 Hint Mode simul_lang + - : typeclass_instances.
 
 Definition progs_are {Λ PROP} `{simul_lang PROP Λ} (P_t P_s: prog Λ) : PROP :=
   (□ ∀ P_t' P_s' σ_t σ_s, state_interp P_t' σ_t P_s' σ_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
+#[export]
 Hint Mode progs_are - - - + + : typeclass_instances.
 Typeclasses Opaque progs_are.
 
@@ -25,6 +27,7 @@ Proof. rewrite /progs_are; apply _. Qed.
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
 (* TODO: remove this TC once we don't need the no-stutter version anymore*)
 Class Sim {PROP : bi} {Λ : language} (s : simul_lang PROP Λ) := sim : expr Λ → expr Λ → (val Λ → val Λ → PROP) → PROP.
+#[export]
 Hint Mode Sim - - - : typeclass_instances.
 
 (* FIXME: the notation with binders somehow does not work *)
@@ -510,6 +513,53 @@ Section fix_lang.
         + rewrite fill_empty; assert (K_t' = K_t) as -> by naive_solver. iApply ("Sim" with "Val").
     Qed.
 
+    Lemma sim_frame_r e_t e_s R Φ : 
+      e_t ⪯ e_s {{Φ}} ∗ R ⊢ e_t ⪯ e_s {{λ v_t v_s, Φ v_t v_s ∗ R}}. 
+    Proof. 
+      iIntros "[Hsim HR]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame. 
+    Qed.
+
+    Lemma sim_frame_l e_t e_s R Φ : 
+      R ∗ e_t ⪯ e_s {{Φ}} ⊢ e_t ⪯ e_s {{λ v_t v_s, R ∗ Φ v_t v_s}}. 
+    Proof. 
+      iIntros "[HR Hsim]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame. 
+    Qed.
+
+    Lemma sim_wand e_t e_s Φ Ψ: 
+      e_t ⪯ e_s {{Φ}} -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯ e_s {{Ψ}}.
+    Proof. iIntros "H Hv". iApply (sim_mono with "[Hv//] [H//]"). Qed.
+
+    Lemma sim_wand_l e_t e_s Φ Ψ: 
+      (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ∗ e_t ⪯ e_s {{Φ}} ⊢ e_t ⪯ e_s {{Ψ}}. 
+    Proof. iIntros "[Hv H]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
+
+    Lemma sim_wand_r e_t e_s Φ Ψ: 
+      e_t ⪯ e_s {{Φ}} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯ e_s {{Ψ}}. 
+    Proof. iIntros "[H Hv]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
+
+    Lemma sim_stutter_source e_t e_s Φ:
+      ⊢ (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗ ⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', 
+          ⌜ prim_step P_t (e_t, σ_t) (e_t', σ_t') ⌝ ==∗ state_interp P_t σ_t' P_s σ_s ∗ e_t' ⪯ e_s {{ Φ }}) -∗ 
+        e_t ⪯ e_s {{ Φ }}.
+    Proof. 
+      iIntros "H". rewrite (sim_unfold Φ e_t e_s). iIntros (????) "[H1 H2]". 
+      iMod ("H" with "H1") as "H". iModIntro. iRight; iLeft. iDestruct "H" as "(% & Hnext)".
+      iSplitL "". { by iPureIntro. }
+      iIntros (e_t' σ_t') "Hstep". iMod ("Hnext" with "Hstep") as "[Hstate Hsim]". 
+      iModIntro. iLeft. iFrame. 
+    Qed.
+
+    (*Lemma sim_stutter_target e_t e_s Φ: *)
+      (*⊢ ( ∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗ ⌜ reducible P_t e_t σ_t⌝ ∗ ∃ e_s' σ_s', *)
+          (*⌜ prim_step P_s (e_s, σ_s) (e_s', σ_s') ⌝ ∗ state_interp P_t σ_t P_s σ_s' ∗ e_t ⪯ e_s' {{Φ}}) -∗ *)
+        (*e_t ⪯ e_s {{Φ}}.*)
+    (*Proof. *)
+      (*iIntros "H". rewrite (sim_unfold Φ e_t e_s). iIntros (????) "[Hstate %]".*)
+      (*iMod ("H" with "Hstate") as "[Hred H]". iModIntro. iRight; iLeft. *)
+      (*iFrame. iIntros (e_t' σ_t') "Hstep". iModIntro. iRight. *)
+      (*iDestruct "H" as (e_s' σ_s') "(Hsstep &Hstate& H)". iExists e_s', σ_s'. iSplitL "Hsstep". *)
+      (*{ iDestruct "Hsstep" as "%". iPureIntro. by constructor. } *)
+      (*rewrite (sim_unfold Φ e_t e_s').*)
 
   End stuttering.
 
@@ -740,7 +790,6 @@ Section fix_lang.
         { rewrite /sim sim_nostutter_eq. by iApply "Hcall". }
         iIntros (??) "H". rewrite !fill_empty. by iApply sim_nostutter_value.
     Qed.
-
 
 
     Lemma sim_nostutter_bind e_t e_s K_t K_s Φ:
