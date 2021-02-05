@@ -394,7 +394,7 @@ Inductive ectx_item :=
   | FaaRCtx (e1 : expr)
   | CallCtx (f : fname).
 
-Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
+Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
   | AppLCtx v2 => App e (of_val v2)
   | AppRCtx e1 => App e1 e
@@ -563,7 +563,7 @@ Definition state_init_heap (l : loc) (n : Z) (v : val) (σ : state) : state :=
 Lemma state_init_heap_singleton l v σ :
   state_init_heap l 1 v σ = state_upd_heap <[l:=Some v]> σ.
 Proof.
-  destruct σ as [h p]. rewrite /state_init_heap /=. f_equiv.
+  destruct σ as [h]. rewrite /state_init_heap /=. f_equiv.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
