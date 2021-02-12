@@ -1,8 +1,8 @@
-From simuliris.simplang Require Import lang notation.
+From simuliris.simplang Require Import lang notation tactics class_instances proofmode.
 From iris Require Import bi.bi.
 Import bi.
 From iris.proofmode Require Import tactics.
-From simuliris.simulation Require Import slsls.
+From simuliris.simulation Require Import slsls lifting. 
 
 
 
@@ -80,9 +80,11 @@ Admitted.
 
 
 (* TODO move *)
-Lemma step_Call (v_t v_s : val) f :
-  ⊢ val_rel v_t v_s -∗ Call f v_t ⪯ Call f v_s {{val_rel}}.
+Lemma step_Call e_t e_s (v_t v_s : val) f :
+  to_val e_t = Some v_t → to_val e_s = Some v_s → 
+  ⊢ val_rel v_t v_s -∗ Call f e_t ⪯ Call f e_s {{val_rel}}.
 Proof.
+  intros <-%of_to_val <-%of_to_val. 
   iIntros "H". rewrite sim_unfold. iIntros (????) "[H1 H2]". iModIntro.
   iRight; iRight. iExists f, empty_ectx, v_t, empty_ectx, v_s, σ_s. cbn. iFrame.
   iSplitL ""; first done. iSplitL "". { iPureIntro. constructor. }
@@ -96,5 +98,11 @@ Lemma client_sim (n : Z) :
   ⊢ target_client #n ⪯ source_client #n {{λ v_t v_s, val_rel v_t v_s }}.
 Proof.
   iStartProof. rewrite /target_client /source_client.
+  iApply sim_pure_steps; eauto. cbn. 
+  sim_expr_simpl. 
+  (* TODO: bind and further reduce target *)
+  (* TODO: fix handling of values. to_val (InjL ..) should go to InjLV .. ? *)
+  iApply step_Call. cbn. 
+
 Admitted.
 
