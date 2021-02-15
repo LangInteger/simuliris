@@ -1,4 +1,4 @@
-From simuliris.simplang Require Import lang. 
+From simuliris.simplang Require Import lang.
 From stdpp Require Import fin_maps.
 
 

@@ -6,7 +6,7 @@ From iris.proofmode Require Import tactics.
 
 
 (* TODO move to language.v? *)
-Section lang. 
+Section lang.
   Context {Λ : language}.
    Record pure_step (e1 e2 : expr Λ) := {
       pure_step_safe P σ1 : reducible P e1 σ1;
@@ -30,8 +30,8 @@ Section lang.
     intros [Hred Hstep]. split.
     - unfold reducible in *. naive_solver eauto using fill_prim_step.
     - intros P σ1 e2' σ2 Hpstep.
-      by destruct (fill_reducible_prim_step _ _ _ _ _ _ (Hred P σ1) Hpstep) as 
-        (e2'' & -> & [-> ->]%Hstep). 
+      by destruct (fill_reducible_prim_step _ _ _ _ _ _ (Hred P σ1) Hpstep) as
+        (e2'' & -> & [-> ->]%Hstep).
   Qed.
 
   Lemma pure_step_nsteps_ctx (K : ectx Λ) n e1 e2 :
@@ -62,55 +62,55 @@ Section lang.
       eexists e2', σ2. by apply head_prim_step.
     - intros P σ1 e2' σ2 ?%head_reducible_prim_step; eauto.
   Qed.
-End lang. 
+End lang.
 
-Section fix_sim. 
-  Context {PROP : bi} {PROP_bupd : BiBUpd PROP} {PROP_affine : BiAffine PROP}. 
+Section fix_sim.
+  Context {PROP : bi} {PROP_bupd : BiBUpd PROP} {PROP_affine : BiAffine PROP}.
   Context {Λ : language} {s : simul_lang PROP Λ}.
   Instance: Sim s := (sim_stutter (s := s)).
 
-  Lemma sim_pure_step_source Φ m e1 e2 e_s1 e_s2 ϕ : 
+  Lemma sim_pure_step_source Φ m e1 e2 e_s1 e_s2 ϕ :
     pure_step e1 e2 → PureExec ϕ m e_s1 e_s2 →
-    ϕ → e2 ⪯ e_s2 {{ Φ }} -∗ e1 ⪯ e_s1 {{ Φ }}. 
+    ϕ → e2 ⪯ e_s2 {{ Φ }} -∗ e1 ⪯ e_s1 {{ Φ }}.
   Proof.
     intros H1 H2 Hϕ. specialize (H2 Hϕ). destruct H1 as [Hred Hdet].
     iIntros "H". iApply sim_step_target.
-    iIntros (????) "Hstate". iModIntro. iSplitL "". 
-    { iPureIntro. apply Hred. } 
-    iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].  
-    iExists e_s2, σ_s. iFrame. iPureIntro. clear Hred Hdet. 
+    iIntros (????) "Hstate". iModIntro. iSplitL "".
+    { iPureIntro. apply Hred. }
+    iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].
+    iExists e_s2, σ_s. iFrame. iPureIntro. clear Hred Hdet.
     induction H2 as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH].
     - constructor.
-    - econstructor; last apply IH. destruct Hstep as [Hred Hdet]. 
-      destruct (Hred P_s σ_s) as (e_s' & σ_s' & H). 
+    - econstructor; last apply IH. destruct Hstep as [Hred Hdet].
+      destruct (Hred P_s σ_s) as (e_s' & σ_s' & H).
       by specialize (Hdet _ _ _ _ H) as [-> ->].
   Qed.
 
-  Lemma sim_pure_steps Φ n m e1 e2 e_s1 e_s2 ϕ' ϕ : 
-    PureExec ϕ n e1 e2 → PureExec ϕ' m e_s1 e_s2 → n > 0 → 
-    ϕ → ϕ' → e2 ⪯ e_s2 {{ Φ }} -∗ e1 ⪯ e_s1 {{ Φ }}. 
-  Proof. 
+  Lemma sim_pure_steps Φ n m e1 e2 e_s1 e_s2 ϕ' ϕ :
+    PureExec ϕ n e1 e2 → PureExec ϕ' m e_s1 e_s2 → n > 0 →
+    ϕ → ϕ' → e2 ⪯ e_s2 {{ Φ }} -∗ e1 ⪯ e_s1 {{ Φ }}.
+  Proof.
     intros H1 H2 Hgt Hϕ Hϕ'. specialize (H1 Hϕ).
-    iInduction H1 as [ | n e1 e2 e3 Hstep Hsteps] "IH". { lia. } 
-    destruct n as [ | n]. { inversion Hsteps; subst. iApply sim_pure_step_source; eauto. } 
+    iInduction H1 as [ | n e1 e2 e3 Hstep Hsteps] "IH". { lia. }
+    destruct n as [ | n]. { inversion Hsteps; subst. iApply sim_pure_step_source; eauto. }
     iIntros "H". iApply sim_stutter_source. destruct Hstep as [Hred Hdet].
-    iIntros (????) "Hstate". iModIntro. iSplitL "". 
-    { iPureIntro. apply Hred. } 
-    iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].  
-    iFrame. iApply "IH". { iPureIntro; lia. } iApply "H". 
+    iIntros (????) "Hstate". iModIntro. iSplitL "".
+    { iPureIntro. apply Hred. }
+    iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].
+    iFrame. iApply "IH". { iPureIntro; lia. } iApply "H".
   Qed.
 
-  Lemma sim_pure_step_target Φ n e1 e2 e_s ϕ : 
-    PureExec ϕ n e1 e2 → 
-    ϕ → e2 ⪯ e_s {{ Φ }} -∗ e1 ⪯ e_s {{ Φ }}. 
-  Proof. 
+  Lemma sim_pure_step_target Φ n e1 e2 e_s ϕ :
+    PureExec ϕ n e1 e2 →
+    ϕ → e2 ⪯ e_s {{ Φ }} -∗ e1 ⪯ e_s {{ Φ }}.
+  Proof.
     intros H1 H2. specialize (H1 H2). induction H1 as [ | n e1 e2 e3 Hstep _ IH].
-    - eauto. 
+    - eauto.
     - iIntros "H". iApply sim_stutter_source. destruct Hstep as [Hred Hdet].
-      iIntros (????) "Hstate". iModIntro. iSplitL "". 
-      { iPureIntro. apply Hred. } 
-      iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].  
-      iFrame. iApply IH. iApply "H". 
+      iIntros (????) "Hstate". iModIntro. iSplitL "".
+      { iPureIntro. apply Hred. }
+      iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].
+      iFrame. iApply IH. iApply "H".
   Qed.
 
 End fix_sim.

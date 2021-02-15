@@ -55,6 +55,7 @@ Section fix_lang.
 
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
+  Context {PROP_forall : BiPureForall PROP}.
 
   Section stuttering.
     (** Simulation relation with stuttering *)
@@ -264,6 +265,14 @@ Section fix_lang.
       apply least_fixpoint_proper; last reflexivity. solve_proper.
     Qed.
 
+    Lemma sim_value_target Φ v_t e_s v_s:
+      ⊢ Φ v_t v_s -∗ (∀ P_s σ_s, ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s)⌝) -∗ (of_val v_t) ⪯ e_s {{Φ}}.
+    Proof.
+      iIntros "Hv Hr". rewrite sim_unfold. iIntros (????) "[Hstate Hreach]".
+      iModIntro. iLeft. iExists (v_t), (v_s), (σ_s). iFrame.
+      iSplitL "". by rewrite to_of_val. eauto.
+    Qed.
+
     Lemma sim_value Φ v_t v_s:
       ⊢ (Φ v_t v_s) -∗ (of_val v_t) ⪯ (of_val v_s) {{Φ}}.
     Proof.
@@ -288,29 +297,29 @@ Section fix_lang.
     Proof.
       iIntros "Hv".
       iApply (sim_coind Φ (λ e_t e_s, e_t ⪯ e_s {{λ v_t v_s, |==> Φ v_t v_s}})%I); last by iFrame.
-      iModIntro. clear e_t e_s. iIntros (e_t e_s) "Hv". 
+      iModIntro. clear e_t e_s. iIntros (e_t e_s) "Hv".
       rewrite sim_unfold /greatest_step least_def_unfold /least_step.
-      iIntros (????) "H". iMod ("Hv" with "H") as "Hv". 
-      iDestruct "Hv" as "[Hv | [H | H]]". 
-      - iDestruct "Hv" as (v_t v_s σ_s') "(H1 & H2 & H3 & >H4)". 
-        iModIntro. iLeft. iExists v_t, v_s, σ_s'. iFrame. 
-      - iModIntro. iRight; iLeft. iDestruct "H" as "[Hred H]"; iFrame. 
-        iIntros (??) "Hs". iMod ("H" with "Hs") as "[[? Hs] | Hs]"; iModIntro. 
-        + iLeft. iFrame. 
-          iApply sim_ind. 2: { rewrite /sim sim_eq sim_def_least_def_unfold. iFrame. } 
-          iModIntro. clear e_t' P_t P_s σ_t' σ_t σ_s. iIntros (e_t') "IH". 
-          rewrite least_def_unfold !/least_step. 
-          iIntros (????) "H". iMod ("IH" with "H") as "Hv". 
-          iDestruct "Hv" as "[Hv | [H | H]]". 
-          * iDestruct "Hv" as (v_t v_s σ_s') "(H1 & H2 & H3 & >H4)". 
-            iModIntro. iLeft. iExists v_t, v_s, σ_s'. iFrame. 
-          * iModIntro. iRight; iLeft. iDestruct "H" as "[Hred H]"; iFrame. 
-            iIntros (??) "Hs". iMod ("H" with "Hs") as "[[? Hs] | Hs]"; iModIntro. 
-            { iLeft. iFrame. } 
-            iRight. rewrite /sim sim_eq. iFrame. 
-          * iModIntro. iRight; iRight. rewrite /sim sim_eq. iFrame. 
-        + iRight. iFrame. 
-      - iModIntro. iRight; iRight. iFrame. 
+      iIntros (????) "H". iMod ("Hv" with "H") as "Hv".
+      iDestruct "Hv" as "[Hv | [H | H]]".
+      - iDestruct "Hv" as (v_t v_s σ_s') "(H1 & H2 & H3 & >H4)".
+        iModIntro. iLeft. iExists v_t, v_s, σ_s'. iFrame.
+      - iModIntro. iRight; iLeft. iDestruct "H" as "[Hred H]"; iFrame.
+        iIntros (??) "Hs". iMod ("H" with "Hs") as "[[? Hs] | Hs]"; iModIntro.
+        + iLeft. iFrame.
+          iApply sim_ind. 2: { rewrite /sim sim_eq sim_def_least_def_unfold. iFrame. }
+          iModIntro. clear e_t' P_t P_s σ_t' σ_t σ_s. iIntros (e_t') "IH".
+          rewrite least_def_unfold !/least_step.
+          iIntros (????) "H". iMod ("IH" with "H") as "Hv".
+          iDestruct "Hv" as "[Hv | [H | H]]".
+          * iDestruct "Hv" as (v_t v_s σ_s') "(H1 & H2 & H3 & >H4)".
+            iModIntro. iLeft. iExists v_t, v_s, σ_s'. iFrame.
+          * iModIntro. iRight; iLeft. iDestruct "H" as "[Hred H]"; iFrame.
+            iIntros (??) "Hs". iMod ("H" with "Hs") as "[[? Hs] | Hs]"; iModIntro.
+            { iLeft. iFrame. }
+            iRight. rewrite /sim sim_eq. iFrame.
+          * iModIntro. iRight; iRight. rewrite /sim sim_eq. iFrame.
+        + iRight. iFrame.
+      - iModIntro. iRight; iRight. iFrame.
     Qed.
 
     (* we change the predicate beause at every recursive ocurrence,
@@ -580,19 +589,35 @@ Section fix_lang.
     Qed.
 
     (* the step case of the simulation relation, but the two cases are combined into an rtc in the source *)
-    Lemma sim_step_target e_t e_s Φ: 
-      ⊢ ( ∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗ ⌜ reducible P_t e_t σ_t⌝ ∗ (∀ e_t' σ_t', 
-          ⌜ prim_step P_t (e_t, σ_t) (e_t', σ_t') ⌝ ==∗ ∃ e_s' σ_s', 
-          ⌜ rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯ e_s' {{Φ}})) -∗ 
+    Lemma sim_step_target e_t e_s Φ:
+      ⊢ ( ∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗ ⌜ reducible P_t e_t σ_t⌝ ∗ (∀ e_t' σ_t',
+          ⌜ prim_step P_t (e_t, σ_t) (e_t', σ_t') ⌝ ==∗ ∃ e_s' σ_s',
+          ⌜ rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯ e_s' {{Φ}})) -∗
         e_t ⪯ e_s {{Φ}}.
-    Proof. 
+    Proof.
       iIntros "H". rewrite (sim_unfold Φ e_t e_s). iIntros (????) "[Hstate %]".
-      iMod ("H" with "Hstate") as "[Hred H]". iModIntro. iRight; iLeft. 
-      iFrame. iIntros (e_t' σ_t') "Hstep". iMod ("H" with "Hstep") as "H". iModIntro. 
-      iDestruct "H" as (e_s' σ_s') "(%&H2&H3)". 
-      apply rtc_inv_tc in H0 as [[= -> ->] | H0]. 
-      - iLeft. iFrame. 
+      iMod ("H" with "Hstate") as "[Hred H]". iModIntro. iRight; iLeft.
+      iFrame. iIntros (e_t' σ_t') "Hstep". iMod ("H" with "Hstep") as "H". iModIntro.
+      iDestruct "H" as (e_s' σ_s') "(%&H2&H3)".
+      apply rtc_inv_tc in H0 as [[= -> ->] | H0].
+      - iLeft. iFrame.
       - iRight; iExists e_s', σ_s'. iFrame. by iPureIntro.
+    Qed.
+
+    Lemma sim_reach_source_stuck e_t e_s Φ :
+      ⊢ (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s -∗ ⌜ reach_stuck P_s e_s σ_s ⌝) -∗
+        e_t ⪯ e_s {{ Φ }}.
+    Proof.
+      iIntros "H". rewrite sim_unfold. iIntros (????) "[Hs %]".
+      iDestruct ("H" with "Hs") as "%". exfalso. by apply H.
+    Qed.
+
+    Lemma sim_source_stuck e_t e_s Φ :
+      ⊢ (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s -∗ ⌜ stuck P_s e_s σ_s ⌝) -∗
+        e_t ⪯ e_s {{ Φ }}.
+    Proof.
+      iIntros "H". iApply sim_reach_source_stuck. iIntros (????) "H0". iDestruct ("H" with "H0") as "%".
+      iPureIntro. exists e_s, σ_s. split; [constructor | assumption].
     Qed.
   End stuttering.
 
