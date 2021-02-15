@@ -12,17 +12,18 @@ From simuliris.simulation Require Import relations language slsls.
 *)
 
 Section fix_lang.
-  Context {PROP : bi}.
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
 
   Context {Λ : language}.
-  Context {s : simul_lang PROP Λ}.
-  Context {PROP_bupd : BiBUpd PROP}.
-  Context {PROP_affine : BiAffine PROP}.
+  Context {s : SimulLang PROP Λ}.
 
   Implicit Types
-    (e_s e_t e: exprO (Λ := Λ))
-    (P_s P_t P: prog Λ)
-    (σ_s σ_t σ : state Λ).
+    (e_s e_t e : expr Λ)
+    (P_s P_t P : prog Λ)
+    (σ_s σ_t σ : state Λ)
+    (Φ Ψ : val Λ → val Λ → PROP).
+
+  Local Existing Instance sim_nostutter.
 
 Section global.
   Definition global_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
@@ -90,7 +91,7 @@ End global.
 Section local_to_global.
 
   Definition local_rel P_t P_s : PROP :=
-    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx (sim:=sim_nostutter) K_t K_s val_rel)%I.
+    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx K_t K_s val_rel)%I.
   Typeclasses Opaque local_rel.
 
   Global Instance local_rel_persistent P_s P_t: Persistent (local_rel P_s P_t).
@@ -155,7 +156,7 @@ Section meta_level_simulation.
 
   Context {PROP : bi}.
   Context {Λ : language}.
-  Context {s : simul_lang PROP Λ}.
+  Context {s : SimulLang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
@@ -242,11 +243,9 @@ End meta_level_simulation.
 
 Section simulation_behaviorally_related.
 
-  Context {PROP : bi}.
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : simul_lang PROP Λ}.
-  Context {PROP_bupd : BiBUpd PROP}.
-  Context {PROP_affine : BiAffine PROP}.
+  Context {s : SimulLang PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -327,11 +326,9 @@ End simulation_behaviorally_related.
 
 
 Section adequacy_statement.
-  Context {PROP : bi}.
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : simul_lang PROP Λ}.
-  Context {PROP_bupd : BiBUpd PROP}.
-  Context {PROP_affine : BiAffine PROP}.
+  Context {s : SimulLang PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -356,7 +353,7 @@ Section adequacy_statement.
       progs_are P_t P_s ∗
       val_rel u u) →
     (* post *)
-    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel (simul_lang := s) v_t v_s) → O v_t v_s) →
+    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel (SimulLang := s) v_t v_s) → O v_t v_s) →
     B P_t P_s.
   Proof.
     intros Hpre Hpost σ_t σ_s [HI Hstuck].
@@ -369,7 +366,7 @@ Section adequacy_statement.
       iApply (local_to_global with "HL Hprogs").
       unfold local_rel; iDestruct ("HL" $! _ _ Hsrc) as (K_tgt Htgt) "Hsim'".
       iPoseProof (intuitionistically_elim with "Hsim'") as "Hsim".
-      iApply sim_nostutter_call; last iFrame "Hsim Hval Hprogs"; by auto.
+      iApply (sim_nostutter_call with "Hprogs Hval Hsim"); by eauto.
     - split; [|split].
       + by eapply Sim_diverge.
       + intros v_t σ_t' Hsteps_tgt.
@@ -381,11 +378,9 @@ End adequacy_statement.
 
 Section adequacy_statement_alt.
 
-  Context {PROP : bi}.
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : simul_lang PROP Λ}.
-  Context {PROP_bupd : BiBUpd PROP}.
-  Context {PROP_affine : BiAffine PROP}.
+  Context {s : SimulLang PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -398,13 +393,13 @@ Section adequacy_statement_alt.
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
       progs_are P_t P_s ∗
       val_rel u u ∗
-      ∀ v_s v_t, val_rel (simul_lang := s) v_t v_s -∗ ⌜O v_t v_s⌝) →
+      ∀ v_s v_t, val_rel (SimulLang := s) v_t v_s -∗ ⌜O v_t v_s⌝) →
     B I O main u P_t P_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
       iCombine "H1 H2 H3 H4" as "H". iExact "H". }
-    eapply (@adequacy PROP _ _ _ _ (sat_frame _) _); first apply Hsat.
+    eapply (@adequacy PROP _ _ _ _ _ (sat_frame _) _); first apply Hsat.
     intros v_t v_s σ_t σ_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
   Qed.

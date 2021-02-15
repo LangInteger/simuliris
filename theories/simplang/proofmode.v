@@ -9,8 +9,8 @@ This is a heavily stripped-down version of HeapLang's proofmode support. To make
 |*)
 
 Section sim.
-Context {PROP : bi} {PROP_bupd : BiBUpd PROP} {PROP_affine : BiAffine PROP}.
-Context {s : simul_lang PROP simp_lang}.
+Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
+Context {s : SimulLang PROP simp_lang}.
 Instance: Sim s := (sim_stutter (s := s)).
 
 Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :
@@ -26,7 +26,7 @@ Lemma tac_sim_pure_both Δ n m e_t1 e_t2 e_s1 e_s2 K_t K_s Φ (ϕ ϕ' : Prop):
   n > 0 →
   envs_entails Δ ((fill K_t e_t2) ⪯ (fill K_s e_s2) {{Φ}}) →
   envs_entails Δ ((fill K_t e_t1) ⪯ (fill K_s e_s1) {{Φ}}).
-Proof using PROP_affine.
+Proof.
   intros ? ????. rewrite envs_entails_eq.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
@@ -38,7 +38,7 @@ Lemma tac_sim_pure_target Δ n e_t e_t' e_s K_t Φ (ϕ : Prop):
   ϕ →
   envs_entails Δ ((fill K_t e_t') ⪯ e_s {{Φ}}) →
   envs_entails Δ ((fill K_t e_t) ⪯ e_s {{Φ}}).
-Proof using PROP_affine.
+Proof.
   intros ? ?. rewrite envs_entails_eq.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
@@ -47,20 +47,20 @@ Qed.
 
 Lemma tac_sim_value v_t v_s Φ Δ:
   envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (Val v_t ⪯ Val v_s {{ Φ }}).
-Proof using PROP_affine.
+Proof.
   rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_value.
 Qed.
 
 Lemma tac_sim_value_no_bupd v_t v_s Φ Δ:
   envs_entails Δ (Φ v_t v_s) → envs_entails Δ (Val v_t ⪯ Val v_s {{ Φ }}).
-Proof using PROP_affine. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
+Proof. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
 
 Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s:
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
   envs_entails Δ (e_t ⪯ e_s {{ λ v_t v_s, f_t (Val v_t) ⪯ f_s (Val v_s) {{ Φ }} }})%I →
   envs_entails Δ (fill K_t e_t ⪯ fill K_s e_s {{ Φ }}).
-Proof using PROP_affine.
+Proof.
   rewrite envs_entails_eq=> -> ->. intros H.
   iIntros "H". iApply (sim_bind e_t e_s K_t K_s Φ). by iApply H.
 Qed.

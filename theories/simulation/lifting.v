@@ -65,9 +65,16 @@ Section lang.
 End lang.
 
 Section fix_sim.
-  Context {PROP : bi} {PROP_bupd : BiBUpd PROP} {PROP_affine : BiAffine PROP}.
-  Context {Λ : language} {s : simul_lang PROP Λ}.
-  Instance: Sim s := (sim_stutter (s := s)).
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
+  Context {Λ : language} {s : SimulLang PROP Λ}.
+  Existing Instance sim_stutter.
+
+
+  Implicit Types
+    (e_s e_t e: expr Λ)
+    (P_s P_t P: prog Λ)
+    (σ_s σ_t σ : state Λ)
+    (Φ Ψ : val Λ → val Λ → PROP).
 
   Lemma sim_pure_step_source Φ m e1 e2 e_s1 e_s2 ϕ :
     pure_step e1 e2 → PureExec ϕ m e_s1 e_s2 →
