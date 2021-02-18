@@ -697,6 +697,7 @@ Proof.
   - done.
 Qed.
 
+
 Lemma fill_val K e :
   is_Some (to_val (fill K e)) → is_Some (to_val e).
 Proof.
@@ -719,10 +720,23 @@ Lemma head_ctx_step_val P Ki e σ1 e2 σ2 :
   head_step P (fill_item Ki e) σ1 e2 σ2 → is_Some (to_val e).
 Proof. revert e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
 
-Lemma head_ectx_step_val P K e σ1 e2 σ2 :
-  head_step P (fill K e) σ1 e2 σ2 → K = empty_ectx.
+Lemma head_step_fill_no_val P Ki K e σ1 e2 σ2 :
+  head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 → is_Some (to_val e).
 Proof.
-Admitted.
+  revert e Ki.
+  induction K as [ | Ki' K IH]; cbn; intros e Ki.
+  - by intros ?%head_ctx_step_val.
+  - intros H. eapply IH in H. by eapply fill_item_val.
+Qed.
+
+Lemma head_ectx_step_val P K e σ1 e2 σ2 :
+  to_val e = None → head_step P (fill K e) σ1 e2 σ2 → K = empty_ectx.
+Proof.
+  intros Hnoval H.
+  destruct K as [ | Ki K]; first reflexivity.
+  exfalso. apply head_step_fill_no_val in H.
+  eapply is_Some_None; by rewrite <-Hnoval.
+Qed.
 
 Lemma fill_item_no_val_inj Ki1 Ki2 e1 e2 :
   to_val e1 = None → to_val e2 = None →
@@ -731,13 +745,28 @@ Proof.
   revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
 Qed.
 
-Lemma fill_call e1 e2 K1 K2 v fn_name:
-  to_call e1 = Some (fn_name, v) →
-  fill K1 e1 = fill K2 e2 →
-  (K1 = K2 ∧ e1 = e2) ∨ to_val e2 = Some v ∧ K2 = ectx_compose K1 [CallCtx fn_name].
+Lemma fill_item_call Ki e :
+  is_Some (to_call (fill_item Ki e)) → ∃ f, Ki = CallCtx f ∧ is_Some (to_val e).
 Proof.
-  intros H1.
-Admitted.
+  intros [[f v] ?]. exists f. induction Ki; simplify_option_eq.
+  destruct to_val; inversion H; subst; eauto.
+Qed.
+Lemma fill_call K e :
+  is_Some (to_call (fill K e)) →
+  ∃ f, (K = empty_ectx ∧ is_Some (to_call e)) ∨
+       (∃ K', K = K' ++ [CallCtx f] ∧ is_Some (to_val (fill K' e))).
+Proof.
+  induction K as [ | Ki K IH] in e |-*.
+  - intros [[f v] Heq]. exists f. left. rewrite Heq. eauto.
+  - intros [f Hcall]%IH. destruct Hcall as [[-> Hsome] | (K' & -> & Hsome)].
+    + apply fill_item_call in Hsome as (f' & [-> Hsome]).
+      exists f'. right. exists empty_ectx; simpl. eauto.
+    + exists f. right. exists (Ki :: K'). eauto.
+Qed.
+
+Lemma to_call_ectx e v fn_name :
+  to_call e = Some (fn_name, v) → e = fill_item (CallCtx fn_name) (of_val v).
+Proof. intros H. rewrite -(of_to_call _ _ _ H). reflexivity. Qed.
 
 Lemma alloc_fresh P v n σ :
   let l := fresh_locs (dom (gset loc) σ.(heap)) in
@@ -749,6 +778,25 @@ Proof.
   apply AllocNS; first done.
   intros. apply (not_elem_of_dom (D := gset loc)).
   by apply fresh_locs_fresh.
+Qed.
+
+Lemma fill_eq P σ1 σ2 e1 e1' e2 K K':
+  to_val e1 = None →
+  head_step P e1' σ1 e2 σ2 →
+  fill K e1 = fill K' e1' →
+  ∃ K'', K' = ectx_compose K K''.
+Proof.
+  intros Hval Hstep; revert K'.
+  induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
+  destruct K' as [|Ki' K' _] using @rev_ind; simplify_eq/=.
+  { rewrite fill_app in Hstep. apply head_ctx_step_val in Hstep.
+    apply fill_val in Hstep. by apply not_eq_None_Some in Hstep. }
+  rewrite !fill_app /= in Hfill.
+  assert (Ki = Ki') as ->.
+  { eapply fill_item_no_val_inj, Hfill; first by apply fill_val_none.
+    apply fill_val_none. eauto using val_head_stuck. }
+  simplify_eq. destruct (IH K') as [K'' ->]; auto.
+  exists K''. unfold ectx_compose. cbn. by rewrite assoc.
 Qed.
 
 
@@ -783,17 +831,15 @@ Proof.
       rewrite H1 in H. destruct K; first done.
       enough (Some (fn_name, arg) = None) by congruence. by apply H.
   - intros p K K' e1' e1_redex σ1 e2 σ2 H. destruct to_class as [ [] | ] eqn:H1; first done.
-    + apply to_class_call in H1. intros _.
-      intros H2%val_head_stuck. exists empty_ectx.
-      destruct (fill_call _ _ _ _ _ _ H1 H) as [[-> ->] | [? _]]; first done.
-      congruence.
-    + intros _ H2%val_head_stuck. revert K' H.
-      induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
-      admit.
+    + intros _ Hstep.
+      eapply fill_eq; [ | apply Hstep | apply H].
+      Search to_class. rewrite <-(of_to_class _ _ H1). reflexivity.
+    + intros _ Hstep. eapply fill_eq; [ | apply Hstep | apply H].
+      destruct to_val eqn:Hval; last done. apply to_val_class in Hval; congruence.
   - intros ?????? H.
     destruct (to_val e) eqn:H1. { right. exists v. by apply to_val_class. }
     left. by eapply head_ectx_step_val.
-Admitted.
+Qed.
 End simp_lang.
 
 Canonical Structure simp_lang := Language (simp_lang.simp_lang_mixin).
