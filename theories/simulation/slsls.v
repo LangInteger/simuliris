@@ -179,7 +179,7 @@ Section fix_lang.
             state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
         ∨ (* step case *)
-        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗ 
           (state_interp P_t σ_t' P_s σ_s ∗ sim e_t' e_s Φ) ∨
           (∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
           sim e_t' e_s' Φ))
@@ -552,9 +552,8 @@ Section fix_lang.
         rewrite sim_eq. iApply "Hrec".
     Qed.
 
-
     (** Corollaries *)
-    Lemma sim_call P_t P_s v_t v_s K_t K_s f Φ:
+    Lemma sim_call_inline P_t P_s v_t v_s K_t K_s f Φ:
       P_t !! f = Some K_t →
       P_s !! f = Some K_s →
       ⊢ progs_are P_t P_s ∗ val_rel v_t v_s ∗ sim_ectx K_t K_s Φ -∗ (of_call f v_t) ⪯ (of_call f v_s) {{Φ}}.

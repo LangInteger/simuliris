@@ -35,9 +35,10 @@ with anything. This is useful for erasure proofs: if we erased things to unit,
 [<erased> == unit] would evaluate to true after erasure, changing program
 behavior. So we erase to the poison value instead, making sure that no legal
 comparisons could be affected. *)
+Definition fname := string.
 Inductive base_lit : Set :=
   | LitInt (n : Z) | LitBool (b : bool) | LitUnit | LitPoison
-  | LitLoc (l : loc).
+  | LitLoc (l : loc) | LitFn (fn : fname).
 Inductive un_op : Set :=
   | NegOp | MinusUnOp.
 Inductive bin_op : Set :=
@@ -47,9 +48,7 @@ Inductive bin_op : Set :=
   | LeOp | LtOp | EqOp (* Relations *)
   | OffsetOp. (* Pointer offset *)
 
-(* Function names *)
-Definition fname := string.
-
+(*TODO: remove Rec ? *)
 Inductive expr :=
   (* Values *)
   | Val (v : val)
@@ -79,7 +78,7 @@ Inductive expr :=
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
   (* Calls *)
-  | Call (f : fname) (e : expr)
+  | Call (e1 : expr) (e2 : expr)
 with val :=
   | LitV (l : base_lit)
   | RecV (f x : binder) (e : expr)
@@ -98,10 +97,21 @@ Definition to_val (e : expr) : option val :=
   | _ => None
   end.
 
-Definition of_call f v := Call f (of_val v).
+Definition to_fname (e : expr) : option fname :=
+  match to_val e with 
+  | Some (LitV (LitFn fn)) => Some fn
+  | _ => None
+  end.
+Definition of_fname (fn : fname) := Val $ LitV $ LitFn fn. 
+
+Definition of_call f v := Call (of_fname f) (of_val v).
 Definition to_call (e : expr) : option (fname * val) :=
   match e with
-  | Call f e => option_map (pair f) (to_val e)
+  | Call e1 e2 => 
+      match to_fname e1 with 
+      | Some fn => option_map (pair fn) (to_val e2)
+      | _ => None
+      end
   | _ => None
   end.
 
@@ -136,7 +146,7 @@ Definition lit_is_unboxed (l: base_lit) : Prop :=
   (** Disallow comparing (erased) prophecies with (erased) prophecies, by
   considering them boxed. *)
   | LitPoison => False
-  | LitInt _ | LitBool _  | LitLoc _ | LitUnit => True
+  | LitInt _ | LitBool _  | LitLoc _ | LitFn _ | LitUnit => True
   end.
 Definition val_is_unboxed (v : val) : Prop :=
   match v with
@@ -178,7 +188,11 @@ Lemma to_of_call f v : to_call (of_call f v) = Some (f, v).
 Proof. reflexivity. Qed.
 
 Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e.
-Proof. destruct e => //=. destruct e => //=. by intros [= <- <-]. Qed.
+Proof. 
+  destruct e => //=. destruct e1 => //=. 
+  match goal with |- context[Val ?v] => destruct v as [[] | | | |] => //= end. 
+  destruct e2 => //=. by intros [= <- <-]. 
+Qed.
 
 Global Instance base_lit_eq_dec : EqDecision base_lit.
 Proof. solve_decision. Defined.
@@ -248,13 +262,15 @@ Proof.
   | LitBool b => (inl (inr b))
   | LitUnit => (inr (inl false))
   | LitPoison => (inr (inl true))
-  | LitLoc l => (inr (inr l))
+  | LitLoc l => (inr (inr (inr l)))
+  | LitFn fn => (inr (inr (inl fn)))
   end) (λ l, match l with
   | (inl (inl n)) => LitInt n
   | (inl (inr b)) => LitBool b
   | (inr (inl false)) => LitUnit
   | (inr (inl true)) => LitPoison
-  | (inr (inr l)) => LitLoc l
+  | (inr (inr (inr l))) => LitLoc l
+  | (inr (inr (inl fn))) => LitFn fn
   end) _); by intros [].
 Qed.
 Global Instance un_op_finite : Countable un_op.
@@ -281,7 +297,7 @@ Proof.
      match e with
      | Val v => GenNode 0 [gov v]
      | Var x => GenLeaf (inl (inl x))
-     | Rec f x e => GenNode 1 [GenLeaf (inl (inr (inl f))); GenLeaf (inl (inr (inl x))); go e]
+     | Rec f x e => GenNode 1 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); go e]
      | App e1 e2 => GenNode 2 [go e1; go e2]
      | UnOp op e => GenNode 3 [GenLeaf (inr (inr (inl op))); go e]
      | BinOp op e1 e2 => GenNode 4 [GenLeaf (inr (inr (inr op))); go e1; go e2]
@@ -299,13 +315,13 @@ Proof.
      | Store e1 e2 => GenNode 16 [go e1; go e2]
      | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
      | FAA e1 e2 => GenNode 18 [go e1; go e2]
-     | Call f e => GenNode 19 [GenLeaf (inl (inr (inr f))); go e]
+     | Call e1 e2 => GenNode 19 [go e1; go e2]
      end
    with gov v :=
      match v with
      | LitV l => GenLeaf (inr (inl l))
      | RecV f x e =>
-        GenNode 0 [GenLeaf (inl (inr (inl f))); GenLeaf (inl (inr (inl x))); go e]
+        GenNode 0 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); go e]
      | PairV v1 v2 => GenNode 1 [gov v1; gov v2]
      | InjLV v => GenNode 2 [gov v]
      | InjRV v => GenNode 3 [gov v]
@@ -316,7 +332,7 @@ Proof.
      match e with
      | GenNode 0 [v] => Val (gov v)
      | GenLeaf (inl (inl x)) => Var x
-     | GenNode 1 [GenLeaf (inl (inr (inl f))); GenLeaf (inl (inr (inl x))); e] => Rec f x (go e)
+     | GenNode 1 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); e] => Rec f x (go e)
      | GenNode 2 [e1; e2] => App (go e1) (go e2)
      | GenNode 3 [GenLeaf (inr (inr (inl op))); e] => UnOp op (go e)
      | GenNode 4 [GenLeaf (inr (inr (inr op))); e1; e2] => BinOp op (go e1) (go e2)
@@ -334,13 +350,13 @@ Proof.
      | GenNode 16 [e1; e2] => Store (go e1) (go e2)
      | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
      | GenNode 18 [e1; e2] => FAA (go e1) (go e2)
-     | GenNode 19 [GenLeaf (inl (inr (inr f))); e] => Call f (go e)
+     | GenNode 19 [e1; e2] => Call (go e1) (go e2)
      | _ => Val $ LitV LitUnit (* dummy *)
      end
    with gov v :=
      match v with
      | GenLeaf (inr (inl l)) => LitV l
-     | GenNode 0 [GenLeaf (inl (inr (inl f))); GenLeaf (inl (inr (inl x))); e] => RecV f x (go e)
+     | GenNode 0 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); e] => RecV f x (go e)
      | GenNode 1 [v1; v2] => PairV (gov v1) (gov v2)
      | GenNode 2 [v] => InjLV (gov v)
      | GenNode 3 [v] => InjRV (gov v)
@@ -392,7 +408,8 @@ Inductive ectx_item :=
   | CmpXchgRCtx (e0 : expr) (e1 : expr)
   | FaaLCtx (v2 : val)
   | FaaRCtx (e1 : expr)
-  | CallCtx (f : fname).
+  | CallLCtx (v2 : val)
+  | CallRCtx (e1 : expr).
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
@@ -420,7 +437,8 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
   | FaaLCtx v2 => FAA e (Val v2)
   | FaaRCtx e1 => FAA e1 e
-  | CallCtx f => Call f e
+  | CallLCtx v2 => Call e (Val v2)
+  | CallRCtx e1 => Call e1 e
   end.
 
 (** Substitution *)
@@ -447,7 +465,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Store e1 e2 => Store (subst x v e1) (subst x v e2)
   | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
   | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
-  | Call f e => Call f (subst x v e)
+  | Call e1 e2 => Call (subst x v e1) (subst x v e2)
   end.
 
 Definition subst' (mx : binder) (v : val) : expr → expr :=
@@ -642,7 +660,7 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
                (Val $ LitV $ LitInt i1) (state_upd_heap <[l:=Some $ LitV (LitInt (i1 + i2))]>σ)
   | CallS f v K σ :
      P !! f = Some K →
-     head_step P (Call f (Val v)) σ (fill K (Val v)) σ.
+     head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (fill K (Val v)) σ.
 
 
 Definition of_class (m : mixin_expr_class val) : expr :=
@@ -651,9 +669,9 @@ Definition of_class (m : mixin_expr_class val) : expr :=
   | ExprCall f v => of_call f v
   end.
 Definition to_class (e : expr) : option (mixin_expr_class val) :=
-  match e with
-  | Call f e => option_map (ExprCall f) (to_val e)
-  | _ => option_map ExprVal (to_val e)
+  match to_val e with 
+  | Some v => Some (ExprVal v)
+  | None => option_map (λ '(fn, v), ExprCall fn v) (to_call e)
   end.
 
 Lemma to_of_class m : to_class (of_class m) = Some m.
@@ -661,23 +679,38 @@ Proof. destruct m; done. Qed.
 Lemma of_to_class e m : to_class e = Some m → of_class m = e.
 Proof.
   destruct m.
-  + destruct e; try discriminate 1; first by inversion 1. destruct e; cbn; congruence.
-  + destruct e; try discriminate 1. destruct e; try discriminate 1. by inversion 1.
+  + destruct e; try discriminate 1; first by inversion 1.
+    rewrite /to_class; simpl. destruct to_fname, to_val; simpl; congruence. 
+  + destruct e; try discriminate 1. rewrite /to_class; simpl.
+    destruct e1; simpl. 
+    { destruct v as [[ | | | | |fn] | | | | ]; simpl; try congruence.
+      destruct e2; try discriminate 1. by inversion 1. } 
+    all: congruence. 
 Qed.
 
 Lemma to_class_val e v : to_class e = Some (ExprVal v) → to_val e = Some v.
 Proof.
-  destruct e; cbn; try discriminate 1.
+  destruct e; simpl; try discriminate 1.
   - by inversion 1.
-  - destruct e; cbn; discriminate 1.
+  - destruct e1; rewrite /to_class; simpl. 
+    { destruct to_fname; destruct e2; try discriminate 1. }
+    all: discriminate 1. 
 Qed.
 Lemma to_class_call e f v : to_class e = Some (ExprCall f v) → to_call e = Some (f, v).
-Proof. do 2 (destruct e; cbn; try discriminate 1). by inversion 1. Qed.
+Proof. 
+  destruct e; rewrite /to_class; simpl; try discriminate 1. 
+  destruct to_fname; simpl; try discriminate 1. 
+  destruct e2; simpl; try discriminate 1. by inversion 1. 
+Qed.
 
 Lemma to_val_class e v : to_val e = Some v → to_class e = Some (ExprVal v).
 Proof. destruct e; cbn; try discriminate 1. by inversion 1. Qed.
 Lemma to_call_class e f v : to_call e = Some (f, v) → to_class e = Some (ExprCall f v).
-Proof. do 2 (destruct e; cbn; try discriminate 1). by inversion 1. Qed.
+Proof. 
+  destruct e; rewrite /to_call /to_class; simpl; try discriminate 1. 
+  destruct to_fname; try discriminate 1. 
+  destruct to_val; try discriminate 1. by inversion 1. 
+Qed.
 
 (** Basic properties about the language *)
 Global Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
@@ -696,7 +729,6 @@ Proof.
   - edestruct (fill_item_val) as [v' ?]; [ eauto | congruence].
   - done.
 Qed.
-
 
 Lemma fill_val K e :
   is_Some (to_val (fill K e)) → is_Some (to_val e).
@@ -724,7 +756,7 @@ Lemma head_step_fill_no_val P Ki K e σ1 e2 σ2 :
   head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 → is_Some (to_val e).
 Proof.
   revert e Ki.
-  induction K as [ | Ki' K IH]; cbn; intros e Ki.
+  induction K as [ | Ki' K IH]; simpl; intros e Ki.
   - by intros ?%head_ctx_step_val.
   - intros H. eapply IH in H. by eapply fill_item_val.
 Qed.
@@ -744,29 +776,6 @@ Lemma fill_item_no_val_inj Ki1 Ki2 e1 e2 :
 Proof.
   revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
 Qed.
-
-Lemma fill_item_call Ki e :
-  is_Some (to_call (fill_item Ki e)) → ∃ f, Ki = CallCtx f ∧ is_Some (to_val e).
-Proof.
-  intros [[f v] ?]. exists f. induction Ki; simplify_option_eq.
-  destruct to_val; inversion H; subst; eauto.
-Qed.
-Lemma fill_call K e :
-  is_Some (to_call (fill K e)) →
-  ∃ f, (K = empty_ectx ∧ is_Some (to_call e)) ∨
-       (∃ K', K = K' ++ [CallCtx f] ∧ is_Some (to_val (fill K' e))).
-Proof.
-  induction K as [ | Ki K IH] in e |-*.
-  - intros [[f v] Heq]. exists f. left. rewrite Heq. eauto.
-  - intros [f Hcall]%IH. destruct Hcall as [[-> Hsome] | (K' & -> & Hsome)].
-    + apply fill_item_call in Hsome as (f' & [-> Hsome]).
-      exists f'. right. exists empty_ectx; simpl. eauto.
-    + exists f. right. exists (Ki :: K'). eauto.
-Qed.
-
-Lemma to_call_ectx e v fn_name :
-  to_call e = Some (fn_name, v) → e = fill_item (CallCtx fn_name) (of_val v).
-Proof. intros H. rewrite -(of_to_call _ _ _ H). reflexivity. Qed.
 
 Lemma alloc_fresh P v n σ :
   let l := fresh_locs (dom (gset loc) σ.(heap)) in
@@ -799,7 +808,6 @@ Proof.
   exists K''. unfold ectx_compose. cbn. by rewrite assoc.
 Qed.
 
-
 (* Proving the mixin *)
 
 Lemma simp_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill head_step.
@@ -817,15 +825,17 @@ Proof.
   - intros K e H.
     destruct to_class as [[]|] eqn:Heq; last by apply is_Some_None in H.
     + right. apply to_class_val in Heq.
-      edestruct (fill_val K e) as [v' ?]; first by eauto.
+      edestruct (fill_val K e) as [v' Hval]; first by eauto.
       exists v'. by apply to_val_class.
-    + destruct (to_val e) eqn:Hv. { right; eauto using to_val_class. }
+    + destruct (to_val e) eqn:Hval. { right; eauto using to_val_class. }
       left. apply to_class_call in Heq. clear H.
       assert (K ≠ empty_ectx → to_call (fill K e) = None) as H.
       { clear Heq. destruct K as [ | Ki K]; first by destruct 1. intros _.
-        revert Hv. revert Ki e.
-        induction K as [ | ?? IH]; cbn; intros Ki e Hv.
-        - destruct Ki; cbn; eauto. by rewrite Hv.
+        revert Hval. revert Ki e.
+        induction K as [ | ?? IH]; cbn; intros Ki e Hval.
+        - destruct Ki; cbn; try reflexivity. 
+          { rewrite /to_fname. by rewrite Hval. }
+          rewrite Hval. by destruct to_fname. 
         - cbn in IH. by apply IH, fill_item_val_none.
       }
       rewrite Heq in H. destruct K; first done.

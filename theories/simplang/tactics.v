@@ -33,7 +33,8 @@ Ltac reshape_expr e tac :=
     | CmpXchg ?e0 ?e1 ?e2             => add_item (CmpXchgRCtx e0 e1) K e2
     | FAA ?e (Val ?v)                 => add_item (FaaLCtx v) K e
     | FAA ?e1 ?e2                     => add_item (FaaRCtx e1) K e2
-    | Call ?f ?e                      => add_item (CallCtx f) K e
+    | Call ?e (Val ?v)                => add_item (CallLCtx v) K e
+    | Call ?e1 ?e2                    => add_item (CallRCtx e1) K e2
     end
   with add_item Ki K e :=
       go (Ki :: K) e

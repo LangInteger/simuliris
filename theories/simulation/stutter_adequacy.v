@@ -483,7 +483,7 @@ Section adequacy_statement.
       iApply (local_to_global with "HL Hprogs").
       unfold local_rel; iDestruct ("HL" $! _ _ Hsrc) as (K_tgt Htgt) "Hsim'".
       iPoseProof (intuitionistically_elim with "Hsim'") as "Hsim".
-      iApply sim_call; last iFrame "Hsim Hval Hprogs"; by auto.
+      iApply sim_call_inline; last iFrame "Hsim Hval Hprogs"; by auto.
     - split; [|split].
       + by eapply Sim_diverge.
       + intros v_t σ_t' Hsteps_tgt.
