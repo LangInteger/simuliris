@@ -8,7 +8,9 @@
 theories/logic/satisfiable.v
 theories/simulation/relations.v
 theories/simulation/language.v
+theories/simulation/simulation.v
 theories/simulation/slsls.v
+theories/simulation/slsls_nostutter.v
 theories/simulation/nostutter_adequacy.v
 theories/simulation/stutter_adequacy.v
 theories/simulation/lifting.v

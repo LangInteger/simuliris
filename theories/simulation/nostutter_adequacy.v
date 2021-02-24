@@ -2,7 +2,7 @@ From iris Require Import bi.bi bi.lib.fixpoint.
 Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
-From simuliris.simulation Require Import relations language slsls.
+From simuliris.simulation Require Import relations language slsls_nostutter.
 
 
 (* The adequacy proof proceeds in three steps:
