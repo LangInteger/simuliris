@@ -98,17 +98,17 @@ Definition to_val (e : expr) : option val :=
   end.
 
 Definition to_fname (e : expr) : option fname :=
-  match to_val e with 
+  match to_val e with
   | Some (LitV (LitFn fn)) => Some fn
   | _ => None
   end.
-Definition of_fname (fn : fname) := Val $ LitV $ LitFn fn. 
+Definition of_fname (fn : fname) := Val $ LitV $ LitFn fn.
 
 Definition of_call f v := Call (of_fname f) (of_val v).
 Definition to_call (e : expr) : option (fname * val) :=
   match e with
-  | Call e1 e2 => 
-      match to_fname e1 with 
+  | Call e1 e2 =>
+      match to_fname e1 with
       | Some fn => option_map (pair fn) (to_val e2)
       | _ => None
       end
@@ -188,10 +188,10 @@ Lemma to_of_call f v : to_call (of_call f v) = Some (f, v).
 Proof. reflexivity. Qed.
 
 Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e.
-Proof. 
-  destruct e => //=. destruct e1 => //=. 
-  match goal with |- context[Val ?v] => destruct v as [[] | | | |] => //= end. 
-  destruct e2 => //=. by intros [= <- <-]. 
+Proof.
+  destruct e => //=. destruct e1 => //=.
+  match goal with |- context[Val ?v] => destruct v as [[] | | | |] => //= end.
+  destruct e2 => //=. by intros [= <- <-].
 Qed.
 
 Global Instance base_lit_eq_dec : EqDecision base_lit.
@@ -669,7 +669,7 @@ Definition of_class (m : mixin_expr_class val) : expr :=
   | ExprCall f v => of_call f v
   end.
 Definition to_class (e : expr) : option (mixin_expr_class val) :=
-  match to_val e with 
+  match to_val e with
   | Some v => Some (ExprVal v)
   | None => option_map (λ '(fn, v), ExprCall fn v) (to_call e)
   end.
@@ -680,36 +680,36 @@ Lemma of_to_class e m : to_class e = Some m → of_class m = e.
 Proof.
   destruct m.
   + destruct e; try discriminate 1; first by inversion 1.
-    rewrite /to_class; simpl. destruct to_fname, to_val; simpl; congruence. 
+    rewrite /to_class; simpl. destruct to_fname, to_val; simpl; congruence.
   + destruct e; try discriminate 1. rewrite /to_class; simpl.
-    destruct e1; simpl. 
+    destruct e1; simpl.
     { destruct v as [[ | | | | |fn] | | | | ]; simpl; try congruence.
-      destruct e2; try discriminate 1. by inversion 1. } 
-    all: congruence. 
+      destruct e2; try discriminate 1. by inversion 1. }
+    all: congruence.
 Qed.
 
 Lemma to_class_val e v : to_class e = Some (ExprVal v) → to_val e = Some v.
 Proof.
   destruct e; simpl; try discriminate 1.
   - by inversion 1.
-  - destruct e1; rewrite /to_class; simpl. 
+  - destruct e1; rewrite /to_class; simpl.
     { destruct to_fname; destruct e2; try discriminate 1. }
-    all: discriminate 1. 
+    all: discriminate 1.
 Qed.
 Lemma to_class_call e f v : to_class e = Some (ExprCall f v) → to_call e = Some (f, v).
-Proof. 
-  destruct e; rewrite /to_class; simpl; try discriminate 1. 
-  destruct to_fname; simpl; try discriminate 1. 
-  destruct e2; simpl; try discriminate 1. by inversion 1. 
+Proof.
+  destruct e; rewrite /to_class; simpl; try discriminate 1.
+  destruct to_fname; simpl; try discriminate 1.
+  destruct e2; simpl; try discriminate 1. by inversion 1.
 Qed.
 
 Lemma to_val_class e v : to_val e = Some v → to_class e = Some (ExprVal v).
 Proof. destruct e; cbn; try discriminate 1. by inversion 1. Qed.
 Lemma to_call_class e f v : to_call e = Some (f, v) → to_class e = Some (ExprCall f v).
-Proof. 
-  destruct e; rewrite /to_call /to_class; simpl; try discriminate 1. 
-  destruct to_fname; try discriminate 1. 
-  destruct to_val; try discriminate 1. by inversion 1. 
+Proof.
+  destruct e; rewrite /to_call /to_class; simpl; try discriminate 1.
+  destruct to_fname; try discriminate 1.
+  destruct to_val; try discriminate 1. by inversion 1.
 Qed.
 
 (** Basic properties about the language *)
@@ -833,9 +833,9 @@ Proof.
       { clear Heq. destruct K as [ | Ki K]; first by destruct 1. intros _.
         revert Hval. revert Ki e.
         induction K as [ | ?? IH]; cbn; intros Ki e Hval.
-        - destruct Ki; cbn; try reflexivity. 
+        - destruct Ki; cbn; try reflexivity.
           { rewrite /to_fname. by rewrite Hval. }
-          rewrite Hval. by destruct to_fname. 
+          rewrite Hval. by destruct to_fname.
         - cbn in IH. by apply IH, fill_item_val_none.
       }
       rewrite Heq in H. destruct K; first done.

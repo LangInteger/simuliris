@@ -23,8 +23,6 @@ Section fix_lang.
     (σ_s σ_t σ : state Λ)
     (Φ Ψ : val Λ → val Λ → PROP).
 
-  Local Existing Instance sim_nostutter.
-
 Section global.
   Definition global_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
     λ '(e_t, e_s), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>

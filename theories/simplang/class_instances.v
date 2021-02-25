@@ -25,6 +25,34 @@ Definition AsRecV_recv f x e : AsRecV (RecV f x e) f x e := eq_refl.
 Global Hint Extern 0 (AsRecV (RecV _ _ _) _ _ _) =>
   apply AsRecV_recv : typeclass_instances.
 
+Section irreducible.
+  (*Lemma case_ctx v e1 e2 e1' K K' :*)
+    (*fill K (Case (Val v) e1 e2) = fill (K') e1' → K' ≠ [] → K' = [CaseCtx e1 e2] ++ K.*)
+  (*Proof.*)
+    (*intros H Hn. revert K H; induction K'. *)
+    (*- by destruct Hn.*)
+    (*- clear Hn. intros K Heq. *)
+      (*destruct K'. { apply (fill_inj K) in Heq. cbn in Heq. destruct a; cbn in Heq; inversion Heq; by subst. } *)
+      (*exfalso.*)
+
+
+  Global Instance irreducible_case v e1 e2 :
+    PureIrreducible (¬ ∃ v', v = InjLV v' ∨ v = InjRV v') (Case (Val v) e1 e2).
+  Proof.
+  Admitted.
+
+  Global Instance irreducible_binop v1 v2 o :
+    PureIrreducible (¬ (is_Some $ bin_op_eval o v1 v2)) (BinOp o (Val v1) (Val v2)).
+  Proof.
+  Admitted.
+
+  Global Instance irreducible_unop v o :
+    PureIrreducible (¬ (is_Some $ un_op_eval o v)) (UnOp o (Val v)).
+  Proof.
+  Admitted.
+
+End irreducible.
+
 Section pure_exec.
   Local Ltac solve_exec_safe := intros; subst; do 2 eexists; econstructor; eauto.
   Local Ltac solve_exec_puredet := simpl; intros; by inv_head_step.

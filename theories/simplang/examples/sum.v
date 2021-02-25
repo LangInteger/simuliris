@@ -12,12 +12,7 @@ Context {PROP_bupd : BiBUpd PROP}.
 Context {PROP_forall : BiPureForall PROP}.
 Context {PROP_affine : BiAffine PROP}.
 
-(* TODO: maybe change into non-bijective thing?*)
-(* Sums are encoded as injL x -> (1, (1, x)); injR x -> (1, (2, x));
-  the first tag encodes that this is a sum, the second tag the constructor.
-  Pairs are now also tagged to force interpretation as a pair (instead of sum).
-  (x, y) becomes (0, (x, y)).
- *)
+(* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
 
 Definition inj1_enc : val := (λ: "x", (#1, "x"))%V.
 Definition inj2_enc : val := (λ: "x", (#2, "x"))%V.
@@ -26,7 +21,7 @@ Definition diverge : val := (rec: "f" "x" := "f" "x")%V.
 
 (* on invalid inputs, we diverge: in the source we get stuck, so any target behaviour is okay *)
 Definition case_enc : val :=
-  (λ: "x" "f" "g", 
+  (λ: "x" "f" "g",
       if: Fst "x" = #1 then "f" (Snd "x")
       else if: Fst "x" = #2
         then "g" (Snd "x")
@@ -83,40 +78,25 @@ Proof.
   sim_pures.
   rewrite /case_enc /case_prim.
   sim_pures.
-  (* TODO: automation for proving stuckness *)
-  (* TODO: destruct *)
-  (* better: positive reasoning *) 
+  (* TODO: better: positive reasoning *)
   destruct Hval as [ l | v1 v2 Hval | v1 v2 Hval | ].
-  - iApply sim_source_stuck. iIntros (????) "_". iPureIntro.
-    split; first done. intros e' σ' Hprim. inversion Hprim; subst.
-
-    (* TODO: sep logic judgement for stuckness ; either 
-      * for every target, sim ...
-      * conclusion of sim_source_stuck with reach_stuck 
-
-
-      -> no inversions
-    *)
-    admit.
-  - sim_pures.
-    sim_pures_target.
-    destruct Hval. 
-    { destruct l.
-      { sim_pures. iModIntro. iPureIntro. constructor. }
-      all: iApply sim_source_stuck; admit.
-    }
-    all: admit.
+  - iApply source_stuck_sim. source_stuck_prim.
   - sim_pures. sim_pures_target.
     destruct Hval.
     { destruct l.
       { sim_pures. iModIntro. iPureIntro. constructor. }
-      all: iApply sim_source_stuck; admit.
+      all: iApply source_stuck_sim; source_stuck_prim.
     }
-    all: admit.
-  - iApply sim_source_stuck. iIntros (????) "_". iPureIntro.
-    split; first done. intros e' σ' H2. inversion H2; subst.
-    admit.
-Admitted.
+    all: iApply source_stuck_sim; source_stuck_prim.
+  - sim_pures. sim_pures_target.
+    destruct Hval.
+    { destruct l.
+      { sim_pures. iModIntro. iPureIntro. constructor. }
+      all: iApply source_stuck_sim; source_stuck_prim.
+    }
+    all: iApply source_stuck_sim; source_stuck_prim.
+  - iApply source_stuck_sim; source_stuck_prim.
+Qed.
 
 
 (* TODO move *)

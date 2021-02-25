@@ -62,6 +62,10 @@ Section lang.
       eexists e2', σ2. by apply head_prim_step.
     - intros P σ1 e2' σ2 ?%head_reducible_prim_step; eauto.
   Qed.
+
+  Class PureIrreducible (Φ : Prop) e :=
+    pure_irreducible (P : prog Λ) σ : Φ → ∀ e' σ', ¬ prim_step P (e, σ) (e', σ').
+
 End lang.
 
 Section fix_sim.
@@ -118,6 +122,17 @@ Section fix_sim.
       { iPureIntro. apply Hred. }
       iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].
       iFrame. iApply IH. iApply "H".
+  Qed.
+
+  Lemma source_stuck_prim ϕ e_s :
+    PureIrreducible ϕ e_s →
+    ϕ →
+    to_val e_s = None →
+    ⊢ source_stuck e_s.
+  Proof.
+    intros Hirred Hp Hval. iApply stuck_source_stuck.
+    iIntros (??). iPureIntro. split; first done.
+    by intros e' σ' Hprim%Hirred.
   Qed.
 
 End fix_sim.
