@@ -70,6 +70,20 @@ Definition target_prog : gmap string ectx := {[ "mul2" := fun_to_ectx mul2_targe
 
 (** We want to prove: *)
 
+Lemma sim_source_case e_t e_s1 e_s2 Φ v_s :
+  ⊢ (∀ v_s', ⌜v_s = InjLV v_s'⌝ -∗ e_t ⪯ Case (Val v_s) e_s1 e_s2 {{ Φ }}) -∗
+    (∀ v_s', ⌜v_s = InjRV v_s'⌝ -∗ e_t ⪯ Case (Val v_s) e_s1 e_s2 {{ Φ }}) -∗
+    e_t ⪯ Case (Val v_s) e_s1 e_s2 {{ Φ }}.
+Proof.
+  iIntros "Hvl Hvr".
+  destruct v_s as [ l | | v1 v2 | v1 | v2 ].
+  - iApply source_stuck_sim. source_stuck_prim.
+  - iApply source_stuck_sim. source_stuck_prim.
+  - iApply source_stuck_sim. source_stuck_prim.
+  - by iApply "Hvl".
+  - by iApply "Hvr".
+Qed.
+
 Lemma mul2_sim:
   ⊢ ∀ v_t v_s, val_rel v_t v_s -∗
     mul2_target (of_val v_t) ⪯ mul2_source (of_val v_s) {{ λ v_t' v_s', val_rel v_t' v_s' }}.
@@ -78,24 +92,19 @@ Proof.
   sim_pures.
   rewrite /case_enc /case_prim.
   sim_pures.
-  (* TODO: better: positive reasoning *)
-  destruct Hval as [ l | v1 v2 Hval | v1 v2 Hval | ].
-  - iApply source_stuck_sim. source_stuck_prim.
-  - sim_pures. sim_pures_target.
-    destruct Hval.
-    { destruct l.
-      { sim_pures. iModIntro. iPureIntro. constructor. }
+  iApply sim_source_case.
+  - iIntros (v_s') "->". inversion Hval; subst.
+    sim_pures. destruct H1.
+    { destruct l. { sim_pures. sim_pures_target. iModIntro. iPureIntro. constructor. }
       all: iApply source_stuck_sim; source_stuck_prim.
     }
     all: iApply source_stuck_sim; source_stuck_prim.
-  - sim_pures. sim_pures_target.
-    destruct Hval.
-    { destruct l.
-      { sim_pures. iModIntro. iPureIntro. constructor. }
+  - iIntros (v_t') "->". inversion Hval; subst.
+    sim_pures. sim_pures_target. destruct H1.
+    { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
       all: iApply source_stuck_sim; source_stuck_prim.
     }
     all: iApply source_stuck_sim; source_stuck_prim.
-  - iApply source_stuck_sim; source_stuck_prim.
 Qed.
 
 

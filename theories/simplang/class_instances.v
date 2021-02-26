@@ -26,30 +26,65 @@ Global Hint Extern 0 (AsRecV (RecV _ _ _) _ _ _) =>
   apply AsRecV_recv : typeclass_instances.
 
 Section irreducible.
-  (*Lemma case_ctx v e1 e2 e1' K K' :*)
-    (*fill K (Case (Val v) e1 e2) = fill (K') e1' → K' ≠ [] → K' = [CaseCtx e1 e2] ++ K.*)
-  (*Proof.*)
-    (*intros H Hn. revert K H; induction K'. *)
-    (*- by destruct Hn.*)
-    (*- clear Hn. intros K Heq. *)
-      (*destruct K'. { apply (fill_inj K) in Heq. cbn in Heq. destruct a; cbn in Heq; inversion Heq; by subst. } *)
-      (*exfalso.*)
+  Lemma language_to_val_eq e :
+    language.to_val e = to_val e.
+  Proof.
+    rewrite /language.to_val /language.to_class; cbn.
+    destruct (to_val e) eqn:Heq.
+    - by rewrite (to_val_class _ _ Heq).
+    - destruct to_class as [ [] | ] eqn:Heq';
+        [ by rewrite (to_class_val _ _ Heq') in Heq | done | done].
+  Qed.
 
-
+  (* TODO: the proofs of these lemmas are completely the same.
+    Can we factor this into common LTac/nice lemmas? *)
   Global Instance irreducible_case v e1 e2 :
     PureIrreducible (¬ ∃ v', v = InjLV v' ∨ v = InjRV v') (Case (Val v) e1 e2).
   Proof.
-  Admitted.
+    intros P_s σ_s ϕ e_s' σ_s' Hprim.
+    eapply prim_head_step in Hprim as Hhead.
+    { inversion Hhead; subst; apply ϕ; eauto. }
+    intros K e' Heq Hv. clear Hprim ϕ.
+    destruct K as [ | Ki K]; first done.
+    { exfalso. induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*.
+      - destruct Ki; inversion Heq; subst; cbn in *; congruence.
+      - eapply IH; first by rewrite Heq.
+        rewrite language_to_val_eq. apply fill_item_val_none.
+        by rewrite -language_to_val_eq.
+    }
+  Qed.
 
   Global Instance irreducible_binop v1 v2 o :
     PureIrreducible (¬ (is_Some $ bin_op_eval o v1 v2)) (BinOp o (Val v1) (Val v2)).
   Proof.
-  Admitted.
+    intros P_s σ_s ϕ e_s' σ_s' Hprim.
+    eapply prim_head_step in Hprim as Hhead.
+    { inversion Hhead; subst; apply ϕ; eauto. }
+    intros K e' Heq Hv. clear Hprim ϕ.
+    destruct K as [ | Ki K]; first done.
+    { exfalso. induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*.
+      - destruct Ki; inversion Heq; subst; cbn in *; congruence.
+      - eapply IH; first by rewrite Heq.
+        rewrite language_to_val_eq. apply fill_item_val_none.
+        by rewrite -language_to_val_eq.
+    }
+  Qed.
 
   Global Instance irreducible_unop v o :
     PureIrreducible (¬ (is_Some $ un_op_eval o v)) (UnOp o (Val v)).
   Proof.
-  Admitted.
+    intros P_s σ_s ϕ e_s' σ_s' Hprim.
+    eapply prim_head_step in Hprim as Hhead.
+    { inversion Hhead; subst; apply ϕ; eauto. }
+    intros K e' Heq Hv. clear Hprim ϕ.
+    destruct K as [ | Ki K]; first done.
+    { exfalso. induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*.
+      - destruct Ki; inversion Heq; subst; cbn in *; congruence.
+      - eapply IH; first by rewrite Heq.
+        rewrite language_to_val_eq. apply fill_item_val_none.
+        by rewrite -language_to_val_eq.
+    }
+  Qed.
 
 End irreducible.
 

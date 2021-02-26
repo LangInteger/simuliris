@@ -337,13 +337,16 @@ Section language.
     rewrite -not_reducible -not_head_reducible. eauto using head_prim_reducible.
   Qed.
 
+  Lemma prim_head_step p e σ e' σ':
+    prim_step p (e, σ) (e', σ') → sub_redexes_are_values e → head_step p e σ e' σ'.
+  Proof.
+    intros Hprim ?. destruct (prim_step_inv _ _ _ _ _ Hprim) as (K & e1' & e2' & -> & -> & Hstep).
+    assert (K = empty_ectx) as -> by eauto 10 using val_head_stuck.
+    rewrite !fill_empty /head_reducible; eauto.
+  Qed.
   Lemma prim_head_reducible p e σ :
     reducible p e σ → sub_redexes_are_values e → head_reducible p e σ.
-  Proof.
-    intros (e'&σ'& Hprim) ?. destruct (prim_step_inv _ _ _ _ _ Hprim) as (K & e1' & e2' & -> & -> & Hstep).
-    assert (K = empty_ectx) as -> by eauto 10 using val_head_stuck.
-    rewrite fill_empty /head_reducible; eauto.
-  Qed.
+  Proof. intros (e'&σ'& Hprim) ?. do 2 eexists; by eapply prim_head_step. Qed.
   Lemma prim_head_irreducible p e σ :
     head_irreducible p e σ → sub_redexes_are_values e → irreducible p e σ.
   Proof.

@@ -591,11 +591,12 @@ Section fix_lang.
   Qed.
 
   (** ** source_eval judgment *)
+  (* TODO: do we really want to thread through the state-interpration here? *)
   Definition source_eval_rec (Ψ : prog Λ → expr Λ → state Λ → PROP) (rec : exprO → PROP) e_s :=
     (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
       (∃ e_s' σ_s', ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
         state_interp P_t σ_t P_s σ_s' ∗ rec e_s')
-      ∨ Ψ P_s e_s σ_s)%I.
+      ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ P_s e_s σ_s))%I.
 
   Lemma source_eval_mon Ψ l1 l2 :
     ⊢ □ (∀ e, l1 e -∗ l2 e) -∗ ∀ e, source_eval_rec Ψ  l1 e -∗ source_eval_rec Ψ l2 e.
@@ -642,6 +643,24 @@ Section fix_lang.
     by iApply (@least_fixpoint_ind _ _ (source_eval_rec Ψ) Ψi).
   Qed.
 
+  Lemma source_eval_elim Ψ e_s :
+    ⊢ source_eval Ψ e_s -∗
+      ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+        ∃ e_s' σ_s', ⌜rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ Ψ P_s e_s' σ_s' ∗ state_interp P_t σ_t P_s σ_s'.
+  Proof.
+    iIntros "H". rewrite source_eval_eq.
+    iApply (source_eval_ind _ (λ e_s, ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+        ∃ e_s' σ_s', ⌜rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ Ψ P_s e_s' σ_s' ∗ state_interp P_t σ_t P_s σ_s')%I);
+    last by rewrite -source_eval_eq.
+    clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_s σ_s P_t σ_t) "HSI".
+    rewrite /source_eval_rec.
+    iMod ("IH" with "HSI") as "IH".
+    iDestruct "IH" as "[Hstep | [Hstate Hp]]"; first last.
+    { iModIntro. iExists e_s, σ_s. iFrame. by iPureIntro. }
+    iDestruct "Hstep" as (e_s' σ_s') "(% & Hstate & IH)".
+    iMod ("IH" with "Hstate") as (e_s'' σ_s'') "(% & Hp & Hs)". iModIntro.
+    iExists e_s'', σ_s''; iFrame. iPureIntro. econstructor; eauto.
+  Qed.
 
   (** * Definition of source_stuck *)
   Definition source_stuck_def := source_eval (λ P_s e_s σ_s, ⌜ stuck P_s e_s σ_s ⌝%I).
@@ -650,7 +669,7 @@ Section fix_lang.
       (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
         (∃ e_s' σ_s', ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗ source_stuck_def e_s')
-        ∨ ⌜ stuck P_s e_s σ_s ⌝ )%I.
+        ∨ (state_interp P_t σ_t P_s σ_s ∗ ⌜ stuck P_s e_s σ_s ⌝) )%I.
   Proof. by rewrite /source_stuck_def source_eval_eq source_eval_unfold. Qed.
 
   Definition source_stuck_aux : seal source_stuck_def.
@@ -663,17 +682,9 @@ Section fix_lang.
     ⊢ source_stuck e_s -∗
       ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗ ⌜ reach_stuck P_s e_s σ_s ⌝.
   Proof.
-    iIntros "H". rewrite source_stuck_eq.
-    iApply (source_eval_ind _ (λ e_s, ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗ ⌜reach_stuck P_s e_s σ_s⌝)%I);
-    last by rewrite -source_eval_eq.
-    clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_s σ_s P_t σ_t) "HSI".
-    rewrite /source_eval_rec.
-    iMod ("IH" with "HSI") as "IH".
-    iDestruct "IH" as "[Hstep | %]"; last by iPureIntro; exists e_s, σ_s.
-    iDestruct "Hstep" as (e_s' σ_s') "(% & Hstate & IH)".
-    iMod ("IH" with "Hstate") as "%". iModIntro; iPureIntro.
-    eapply prim_step_rtc_reach_stuck; last eassumption.
-    econstructor; first by eauto. constructor.
+    iIntros "H" (????) "Hstate". rewrite source_stuck_eq.
+    iMod (source_eval_elim with "H Hstate") as (e_s' σ_s') "(%&%&_)".
+    iModIntro; iPureIntro. exists e_s', σ_s'. eauto.
   Qed.
 
   Lemma source_stuck_sim e_s e_t Φ :
@@ -689,7 +700,7 @@ Section fix_lang.
       source_stuck e_s.
   Proof.
     iIntros "Hstuck". rewrite source_stuck_eq source_stuck_unfold.
-    iIntros (????) "_". by iRight.
+    iIntros (????) "Hstate". iModIntro; iRight. iFrame. eauto.
   Qed.
 
   Lemma source_stuck_fill e_s K_s :
@@ -699,8 +710,8 @@ Section fix_lang.
     iApply (source_eval_ind _ (λ e_s, (source_stuck (fill K_s e_s)%I))); last by rewrite -source_eval_eq.
     iModIntro. clear e_s. iIntros (e_s).
     rewrite source_stuck_eq source_stuck_unfold.
-    iIntros "He" (????) "Hstate". iMod ("He" with "Hstate") as "[Hstep | %]"; iModIntro;
-      last by iRight; iPureIntro; apply fill_stuck.
+    iIntros "He" (????) "Hstate". iMod ("He" with "Hstate") as "[Hstep | [Hstate %]]"; iModIntro;
+      last by iRight; iFrame; iPureIntro; apply fill_stuck.
     iLeft. iDestruct "Hstep" as (e_s' σ_s') "(%&?&Hsource)".
     iExists (fill K_s e_s'), σ_s'. iFrame. iPureIntro.
     by apply fill_prim_step.
@@ -713,7 +724,7 @@ Section fix_lang.
       (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
         (∃ e_s' σ_s', ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗ source_red_def Φ e_s')
-        ∨ ∃ v_s, ⌜ (to_val e_s) = Some v_s ⌝ ∗ Φ v_s )%I.
+        ∨ state_interp P_t σ_t P_s σ_s ∗ ∃ v_s, ⌜ (to_val e_s) = Some v_s ⌝ ∗ Φ v_s )%I.
   Proof. by rewrite /source_red_def source_eval_eq source_eval_unfold. Qed.
 
   Definition source_red_aux : seal source_red_def.
@@ -729,16 +740,35 @@ Section fix_lang.
     rewrite {1}source_red_eq. iIntros "He".
     iApply (source_eval_ind _ (λ e_s, source_stuck (fill K_s e_s))%I); last by rewrite -source_eval_eq.
     iModIntro. clear e_s. iIntros (e_s) "IH". rewrite source_stuck_eq source_stuck_unfold.
-    iIntros (????) "Hstate". iMod ("IH" with "Hstate") as "IH". iModIntro.
-    iDestruct "IH" as "[Hstep | Hstuck]".
-    { iDestruct "Hstep" as (e_s' σ_s') "(%&?&?)". iLeft.
+    iIntros (????) "Hstate". iMod ("IH" with "Hstate") as "IH".
+    iDestruct "IH" as "[Hstep | [Hstate Hstuck]]".
+    { iModIntro. iDestruct "Hstep" as (e_s' σ_s') "(%&?&?)". iLeft.
       iExists (fill K_s e_s'), σ_s'. iFrame. iPureIntro.
       by apply fill_prim_step. }
     iDestruct "Hstuck" as (v_s) "(% & Hstuck)".
-    (* FIXME: need the SI *)
-  Abort.
+    rewrite source_stuck_unfold.
+    iMod ("Hstuck" with "Hstate") as "[Hstep | Hstuck]"; iModIntro; rewrite -(of_to_val _ _ H);
+    eauto.
+  Qed.
 
 
+  (* a variant of sim_step_target that threads through the SI.
+    TODO: is this useful? *)
+  Lemma sim_step_target' e_t e_s Φ:
+    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
+      ⌜reducible P_t e_t σ_t⌝ ∗
+      ∀ e_t' σ_t',
+        ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
+          state_interp P_t σ_t' P_s σ_s ∗
+          source_eval (λ _ e_s' _, e_t' ⪯ e_s' {{ Φ }}) e_s) -∗
+    e_t ⪯ e_s {{ Φ }}.
+  Proof.
+    iIntros "Hev". iApply sim_step_target. iIntros (????) "Hstate".
+    iMod ("Hev" with "Hstate") as "[Hred Hev]". iModIntro. iFrame.
+    iIntros (e_t' σ_t') "Htarget". iMod ("Hev" with "Htarget") as "[Hstate Hev]".
+    iMod (source_eval_elim with "Hev Hstate") as (e_s' σ_s') "(?&?&?)".
+    iModIntro; iExists e_s', σ_s'. iFrame.
+  Qed.
 
 End fix_lang.
 
