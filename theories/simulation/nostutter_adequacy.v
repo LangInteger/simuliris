@@ -15,7 +15,8 @@ Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
 
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}.
+  Context {s : SimulLang PROP Λ val_rel}.
 
   Implicit Types
     (e_s e_t e : expr Λ)
@@ -154,7 +155,8 @@ Section meta_level_simulation.
 
   Context {PROP : bi}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}.
+  Context {s : SimulLang PROP Λ val_rel}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
@@ -243,7 +245,8 @@ Section simulation_behaviorally_related.
 
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}.
+  Context {s : SimulLang PROP Λ val_rel}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -326,7 +329,8 @@ End simulation_behaviorally_related.
 Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}.
+  Context {s : SimulLang PROP Λ val_rel}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -351,7 +355,7 @@ Section adequacy_statement.
       progs_are P_t P_s ∗
       val_rel u u) →
     (* post *)
-    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel (SimulLang := s) v_t v_s) → O v_t v_s) →
+    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel v_t v_s) → O v_t v_s) →
     B P_t P_s.
   Proof.
     intros Hpre Hpost σ_t σ_s [HI Hstuck].
@@ -378,7 +382,8 @@ Section adequacy_statement_alt.
 
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}.
+  Context {s : SimulLang PROP Λ val_rel}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -391,13 +396,13 @@ Section adequacy_statement_alt.
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
       progs_are P_t P_s ∗
       val_rel u u ∗
-      ∀ v_s v_t, val_rel (SimulLang := s) v_t v_s -∗ ⌜O v_t v_s⌝) →
+      ∀ v_s v_t, val_rel v_t v_s -∗ ⌜O v_t v_s⌝) →
     B I O main u P_t P_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
       iCombine "H1 H2 H3 H4" as "H". iExact "H". }
-    eapply (@adequacy PROP _ _ _ _ _ (sat_frame _) _); first apply Hsat.
+    eapply (@adequacy PROP _ _ _ _ _ _ (sat_frame _) _); first apply Hsat.
     intros v_t v_s σ_t σ_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
   Qed.

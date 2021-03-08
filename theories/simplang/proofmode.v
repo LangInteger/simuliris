@@ -10,7 +10,7 @@ This is a heavily stripped-down version of HeapLang's proofmode support. To make
 
 Section sim.
 Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-Context {s : SimulLang PROP simp_lang}.
+Context {val_rel} {s : SimulLang PROP simp_lang val_rel}.
 Instance: Sim s := (sim_stutter (s := s)).
 
 Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :

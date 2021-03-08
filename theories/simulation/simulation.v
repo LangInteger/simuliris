@@ -5,33 +5,32 @@ From simuliris.simulation Require Import relations language.
 From iris.prelude Require Import options.
 Import bi.
 
-Class SimulLang (PROP : bi) (Λ : language) := {
+(* parameterized over value relation that restricts values passed to functions *)
+Class SimulLang (PROP : bi) (Λ : language) (val_rel : val Λ → val Λ → PROP) := {
   (* state interpretation *)
   state_interp : prog Λ → state Λ → prog Λ → state Λ → PROP;
-  (* value relation that restricts values passed to functions *)
-  val_rel : val Λ → val Λ → PROP;
 }.
 #[global]
-Hint Mode SimulLang + - : typeclass_instances.
+Hint Mode SimulLang + - - : typeclass_instances.
 
-Definition progs_are {Λ PROP} `{SimulLang PROP Λ} (P_t P_s : prog Λ) : PROP :=
+Definition progs_are {Λ PROP} `{SimulLang PROP Λ val_rel} (P_t P_s : prog Λ) : PROP :=
   (□ ∀ P_t' P_s' σ_t σ_s, state_interp P_t' σ_t P_s' σ_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
 #[global]
-Hint Mode progs_are - - - + + : typeclass_instances.
+Hint Mode progs_are - - - - + + : typeclass_instances.
 Typeclasses Opaque progs_are.
 
-Global Instance progs_are_persistent {Λ} {PROP} `{s : SimulLang PROP Λ}
+Global Instance progs_are_persistent {Λ} {PROP} `{s : SimulLang PROP Λ val_rel}
     (P_s P_t : prog Λ) :
-  Persistent (@progs_are Λ PROP s P_s P_t).
+  Persistent (@progs_are Λ PROP val_rel s P_s P_t).
 Proof. rewrite /progs_are; apply _. Qed.
 
 (** Typeclass for the simulation relation so we can use the definitions with
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
 (* TODO: remove this TC once we don't need the no-stutter version anymore*)
-Class Sim {PROP : bi} {Λ : language} (s : SimulLang PROP Λ) :=
+Class Sim {PROP : bi} {Λ : language} {val_rel} (s : SimulLang PROP Λ val_rel) :=
   sim : expr Λ → expr Λ → (val Λ → val Λ → PROP) → PROP.
 #[global]
-Hint Mode Sim - - - : typeclass_instances.
+Hint Mode Sim - - - - : typeclass_instances.
 
 (* FIXME what are good levels for et, es? *)
 Notation "et  '⪯'  es  {{  Φ  }}" := (sim et es Φ) (at level 40, Φ at level 200) : bi_scope.
@@ -46,7 +45,8 @@ Instance expr_equiv {Λ} : Equiv (expr Λ). apply exprO. Defined.
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}. 
+  Context {s : SimulLang PROP Λ val_rel}.
 
   Set Default Proof Using "Type*".
 

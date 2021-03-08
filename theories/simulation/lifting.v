@@ -70,7 +70,7 @@ End lang.
 
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-  Context {Λ : language} {s : SimulLang PROP Λ}.
+  Context {Λ : language} {val_rel} {s : SimulLang PROP Λ val_rel}.
   Existing Instance sim_stutter.
 
 

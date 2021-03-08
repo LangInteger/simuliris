@@ -10,7 +10,8 @@ Import bi.
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {val_rel : val Λ → val Λ → PROP}.
+  Context {s : SimulLang PROP Λ val_rel}.
 
   Set Default Proof Using "Type*".
 
