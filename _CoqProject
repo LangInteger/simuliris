@@ -22,4 +22,6 @@ theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
 
+theories/base_logic/gen_sim_heap.v
+
 
