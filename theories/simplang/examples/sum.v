@@ -5,12 +5,9 @@ From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 
 
-
 Section fix_bi.
-Context (PROP : bi).
-Context {PROP_bupd : BiBUpd PROP}.
-Context {PROP_forall : BiPureForall PROP}.
-Context {PROP_affine : BiAffine PROP}.
+Context `{sheapG Σ}.
+
 
 (* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
 
@@ -46,18 +43,9 @@ Inductive val_rel_pure : val → val → Prop :=
       val_rel_pure v2 v2' →
       val_rel_pure ((v1, v2)%V) ((v1', v2')%V).
 Local Hint Constructors val_rel_pure : core.
-Definition val_rel v1 v2 : PROP := (⌜val_rel_pure v1 v2⌝)%I.
+Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
 
 Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-
-(* TODO: make a Record ? *)
-Instance sim_sum_lang : SimulLang PROP simp_lang :=
-  {|
-    (* TODO *)
-    state_interp Pt σt Ps σs := True%I;
-  |}.
-Instance: Sim sim_sum_lang := sim_stutter.
-
 
 Definition mul2_source :=
   (λ: "x", case_prim "x" (λ: "x", "x" * #2) (λ: "x", "x" + #2))%V.
@@ -95,13 +83,13 @@ Proof.
   sim_pures.
   iApply sim_source_case.
   - iIntros (v_s') "->". inversion Hval; subst.
-    sim_pures. destruct H1.
+    sim_pures. destruct H2.
     { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
       all: iApply source_stuck_sim; source_stuck_prim.
     }
     all: iApply source_stuck_sim; source_stuck_prim.
   - iIntros (v_t') "->". inversion Hval; subst.
-    sim_pures. destruct H1.
+    sim_pures. destruct H2.
     { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
       all: iApply source_stuck_sim; source_stuck_prim.
     }

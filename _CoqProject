@@ -17,11 +17,12 @@ theories/simulation/lifting.v
 
 theories/simplang/locations.v
 theories/simplang/lang.v
+theories/simplang/primitive_laws.v
 theories/simplang/notation.v
 theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
+theories/simplang/examples/sum.v
 
 theories/base_logic/gen_sim_heap.v
-
 

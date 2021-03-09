@@ -1,19 +1,15 @@
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
 From simuliris.simulation Require Import slsls lifting language.
-From simuliris.simplang Require Import tactics class_instances notation.
+From simuliris.simplang Require Import tactics class_instances.
+From simuliris.simplang Require Export notation primitive_laws.
 From iris.prelude Require Import options.
 
-(*|
-This is a heavily stripped-down version of HeapLang's proofmode support. To make any program proofs reasonable we do need to implement `wp_pure` and `wp_bind`, and as a demo of the implementation we also implement `wp_load` in the reflective style typical in the IPM. `wp_pure` is the basis for a number of tactics like `wp_rec` and `wp_let` and such, while `wp_bind` is what powers `wp_apply`.
-|*)
 
 Section sim.
-Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-Context {s : SimulLang PROP simp_lang}.
-Instance: Sim s := (sim_stutter (s := s)).
-Context (Ω : val → val → PROP).
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope. 
+Context `{!sheapG Σ}.
+Context (Ω : val → val → iProp Σ).
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :
   (∀ (e_t'':=e_t'), e_t = e_t'') →
@@ -38,7 +34,7 @@ Lemma tac_sim_pure_source Δ n e_s e_s' e_t K_s Φ (ϕ : Prop):
   ϕ →
   envs_entails Δ (e_t ⪯ (fill K_s e_s') {{Φ}}) →
   envs_entails Δ (e_t ⪯ (fill K_s e_s) {{Φ}}).
-Proof. 
+Proof.
   intros ? ?. rewrite envs_entails_eq.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
@@ -204,4 +200,3 @@ Ltac source_stuck_sidecond :=
 
 Ltac source_stuck_prim :=
   iApply source_stuck_prim; [ source_stuck_sidecond | reflexivity].
-

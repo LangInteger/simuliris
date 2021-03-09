@@ -89,7 +89,7 @@ Section fix_sim.
   Proof.
     intros H1 Hϕ. specialize (H1 Hϕ).
     iIntros "H". iApply sim_step_source.
-    iIntros (????) "Hstate". iModIntro. 
+    iIntros (????) "Hstate". iModIntro.
     iExists e_s2, σ_s. iFrame. iPureIntro.
     induction H1 as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH].
     - constructor.
@@ -128,7 +128,7 @@ Section fix_sim.
     iModIntro; iExists e_s', σ_s'. iFrame.
   Qed.
 
-  Lemma sim_prim_step_target e_t e_s Φ : 
+  Lemma sim_prim_step_target e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t',
@@ -136,28 +136,28 @@ Section fix_sim.
           state_interp P_t σ_t' P_s σ_s ∗
           e_t' ⪯{Ω} e_s {{ Φ }}) -∗
     e_t ⪯{Ω} e_s {{ Φ }}.
-  Proof. 
-    iIntros "Ha". iApply sim_prim_step_source_eval. iIntros (????) "Hstate". 
-    iMod ("Ha" with "Hstate") as "[Hred Hs]". iModIntro. iFrame. 
-    iIntros (e_t' σ_t') "Hprim". iMod ("Hs" with "Hprim") as "[Hstate Hs]". iModIntro. 
+  Proof.
+    iIntros "Ha". iApply sim_prim_step_source_eval. iIntros (????) "Hstate".
+    iMod ("Ha" with "Hstate") as "[Hred Hs]". iModIntro. iFrame.
+    iIntros (e_t' σ_t') "Hprim". iMod ("Hs" with "Hprim") as "[Hstate Hs]". iModIntro.
     iFrame. iApply source_eval_base; eauto.
   Qed.
 
-  Lemma sim_prim_step_source e_t e_s Φ : 
+  Lemma sim_prim_step_source e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ∃ e_s' σ_s',
         ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
           state_interp P_t σ_t P_s σ_s' ∗
           e_t ⪯{Ω} e_s' {{ Φ }}) -∗
     e_t ⪯{Ω} e_s {{ Φ }}.
-  Proof. 
-    iIntros "Hsource". iApply sim_step_source. 
+  Proof.
+    iIntros "Hsource". iApply sim_step_source.
     iIntros (????) "Hstate". iMod ("Hsource" with "Hstate") as (e_s' σ_s') "[% Hstate]".
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by econstructor.
   Qed.
 
   (** Head reduction *)
-  Lemma sim_head_step_target e_t e_s Φ : 
+  Lemma sim_head_step_target e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ⌜head_reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t',
@@ -165,12 +165,26 @@ Section fix_sim.
           state_interp P_t σ_t' P_s σ_s ∗
           e_t' ⪯{Ω} e_s {{ Φ }}) -∗
     e_t ⪯{Ω} e_s {{ Φ }}.
-  Proof. 
+  Proof.
     iIntros "Htarget". iApply sim_prim_step_target. iIntros (????) "Hstate".
     iMod ("Htarget" with "Hstate") as "(% & Hstep)". rename H into Hred. iModIntro.
     iSplitR. { iPureIntro. by apply head_prim_reducible. }
     iIntros (e_t' σ_t') "%". rename H into Hprim. iApply "Hstep".
     iPureIntro. by apply head_reducible_prim_step.
+  Qed.
+
+  (* for symmetry, in this lemma nothing actually happens *)
+  Lemma sim_head_step_source e_t e_s Φ :
+    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
+      ∃ e_s' σ_s',
+        ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗ |==> 
+          (state_interp P_t σ_t P_s σ_s' ∗
+          e_t ⪯{Ω} e_s' {{ Φ }})) -∗
+    e_t ⪯{Ω} e_s {{ Φ }}.
+  Proof.
+    iIntros "Hsource". iApply sim_prim_step_source.
+    iIntros (????) "Hstate". iMod ("Hsource" with "Hstate") as (e_s' σ_s') "[% >Hstate]".
+    iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
   Qed.
 
   (** Stuckness *)
