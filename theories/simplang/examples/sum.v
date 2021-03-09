@@ -46,14 +46,15 @@ Inductive val_rel_pure : val → val → Prop :=
       val_rel_pure v2 v2' →
       val_rel_pure ((v1, v2)%V) ((v1', v2')%V).
 Local Hint Constructors val_rel_pure : core.
-Definition val_rel_simp v1 v2 : PROP := (⌜val_rel_pure v1 v2⌝)%I.
+Definition val_rel v1 v2 : PROP := (⌜val_rel_pure v1 v2⌝)%I.
+
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 (* TODO: make a Record ? *)
 Instance sim_sum_lang : SimulLang PROP simp_lang :=
   {|
     (* TODO *)
     state_interp Pt σt Ps σs := True%I;
-    val_rel := val_rel_simp (* TODO: remove *)
   |}.
 Instance: Sim sim_sum_lang := sim_stutter.
 
@@ -132,3 +133,4 @@ Proof.
   sim_pures. sim_pures_target.
   iApply step_call; eauto.
 Qed.
+End fix_bi.

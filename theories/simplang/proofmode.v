@@ -1,7 +1,7 @@
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
-From simuliris.simplang Require Import tactics class_instances notation.
 From simuliris.simulation Require Import slsls lifting language.
+From simuliris.simplang Require Import tactics class_instances notation.
 From iris.prelude Require Import options.
 
 (*|
@@ -10,8 +10,10 @@ This is a heavily stripped-down version of HeapLang's proofmode support. To make
 
 Section sim.
 Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-Context {val_rel} {s : SimulLang PROP simp_lang val_rel}.
+Context {s : SimulLang PROP simp_lang}.
 Instance: Sim s := (sim_stutter (s := s)).
+Context (Ω : val → val → PROP).
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope. 
 
 Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :
   (∀ (e_t'':=e_t'), e_t = e_t'') →
@@ -62,15 +64,15 @@ Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s:
   envs_entails Δ (fill K_t e_t ⪯ fill K_s e_s {{ Φ }}).
 Proof.
   rewrite envs_entails_eq=> -> ->. intros H.
-  iIntros "H". iApply (sim_bind e_t e_s K_t K_s Φ). by iApply H.
+  iIntros "H". iApply (sim_bind Ω e_t e_s K_t K_s Φ). by iApply H.
 Qed.
 End sim.
 
 Tactic Notation "sim_expr_eval" tactic3(t) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim ?e_t ?e_s ?Φ) =>
-    notypeclasses refine (tac_sim_expr_eval _ _ e_t _ e_s _ _ _ _);
+  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
+    notypeclasses refine (tac_sim_expr_eval Ω _ _ e_t _ e_s _ _ _ _);
       [let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl|let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl | ]
   | _ => fail "sim_expr_eval: not a 'sim"
   end.
@@ -89,11 +91,11 @@ Ltac solve_vals_compare_safe :=
   here are bidirectional, so we never will make a goal unprovable. *)
 Ltac sim_value_head :=
   lazymatch goal with
-  | |- envs_entails _ (sim (Val _) (Val _) (λ _ _, bupd _)) =>
+  | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, bupd _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim (Val _) (Val _) (λ _ _, sim _ _ _)) =>
+  | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, sim _ _ _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim (Val _) (Val _) _) =>
+  | |- envs_entails _ (sim _ (Val _) (Val _) _) =>
       eapply tac_sim_value
   end.
 
@@ -112,11 +114,11 @@ The use of [open_constr] in this tactic is essential. It will convert all holes
 Tactic Notation "sim_pure_target" open_constr(efoc) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim ?e_t ?e_s ?Q) =>
+  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Q) =>
     let e_t := eval simpl in e_t in
     reshape_expr e_t ltac:(fun K_t e_t' =>
       unify e_t' efoc;
-      eapply (tac_sim_pure_target _ _ e_t' _ _ K_t _ _);
+      eapply (tac_sim_pure_target Ω _ _ e_t' _ _ K_t _ _);
       [ iSolveTC                       (* PureExec *)
       | try solve_vals_compare_safe    (* The pure condition for PureExec --
          handles trivial goals, including [vals_compare_safe] *)
@@ -136,14 +138,14 @@ Ltac sim_pures_target :=
 Tactic Notation "sim_pure" open_constr(efoc_t) open_constr(efoc_s) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim ?e_t ?e_s ?Q) =>
+  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Q) =>
     let e_t := eval simpl in e_t in
     let e_s := eval simpl in e_s in
     reshape_expr e_t ltac:(fun K_t e_t' =>
       unify e_t' efoc_t;
       reshape_expr e_s ltac:(fun K_s e_s' =>
         unify e_s' efoc_s;
-        eapply (tac_sim_pure_both _ _ _ e_t' _ e_s' _ K_t K_s Q _ _);
+        eapply (tac_sim_pure_both Ω _ _ _ e_t' _ e_s' _ K_t K_s Q _ _);
         [ iSolveTC                       (* PureExec *)
         | iSolveTC                       (* PureExec *)
         | try solve_vals_compare_safe    (* pure condition *)
@@ -169,15 +171,15 @@ Ltac sim_bind_core K_t K_s :=
   lazymatch eval hnf in K_t with
   | [] => lazymatch eval hnf in K_s with
           | [] => idtac
-          | _ => eapply (tac_sim_bind K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
+          | _ => eapply (tac_sim_bind _ K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
           end
-  | _ => eapply (tac_sim_bind K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
+  | _ => eapply (tac_sim_bind _ K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
   end.
 
 Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim ?e_t ?e_s ?Q) =>
+  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Q) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
                                     first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s; sim_bind_core K_t K_s)
                                            (* TODO: fix error handling *)

@@ -70,7 +70,8 @@ End lang.
 
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-  Context {Λ : language} {val_rel} {s : SimulLang PROP Λ val_rel}.
+  Context {Λ : language} {s : SimulLang PROP Λ}.
+  Context (Ω : val Λ → val Λ → PROP).
   Existing Instance sim_stutter.
 
 
@@ -79,6 +80,7 @@ Section fix_sim.
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ)
     (Φ Ψ : val Λ → val Λ → PROP).
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
   Lemma sim_pure_step_source Φ m e1 e2 e_s1 e_s2 ϕ :
     pure_step e1 e2 → PureExec ϕ m e_s1 e_s2 →

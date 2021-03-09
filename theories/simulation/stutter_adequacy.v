@@ -15,8 +15,8 @@ Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
 
   Context {Λ : language}.
-  Context {val_rel : val Λ → val Λ → PROP}.
-  Context {s : SimulLang PROP Λ val_rel}.
+  Context (Ω : val Λ → val Λ → PROP).
+  Context {s : SimulLang PROP Λ }.
 
   Implicit Types
     (e_s e_t e : expr Λ)
@@ -149,7 +149,7 @@ End global.
 Section local_to_global.
 
   Definition local_rel P_t P_s : PROP :=
-    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx K_t K_s val_rel)%I.
+    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx Ω K_t K_s Ω)%I.
   Typeclasses Opaque local_rel.
 
   Global Instance local_rel_persistent P_s P_t : Persistent (local_rel P_s P_t).
@@ -176,11 +176,11 @@ Section local_to_global.
   Lemma local_to_global P_t P_s e_t e_s:
     local_rel P_t P_s -∗
     progs_are P_t P_s  -∗
-    sim (Sim:=sim_stutter) e_t e_s val_rel -∗
-    gsim e_t e_s val_rel.
+    sim Ω e_t e_s Ω -∗
+    gsim e_t e_s Ω.
   Proof.
     iIntros "#Hloc #Hprog Hsim".
-    iApply (gsim_coind val_rel (λ e_t e_s, sim (Sim:=sim_stutter) e_t e_s val_rel) with "[] Hsim"); clear e_t e_s.
+    iApply (gsim_coind Ω (λ e_t e_s, sim Ω e_t e_s Ω) with "[] Hsim"); clear e_t e_s.
     iModIntro. iIntros (e_t e_s).
     rewrite /greatest_step sim_eq sim_def_unfold /slsls.greatest_step.
     iRevert (e_t). iApply sim_ind. iModIntro. iIntros (e_t).
@@ -206,7 +206,7 @@ Section local_to_global.
       iFrame. iSplit.
       + iPureIntro. eapply tc_rtc_l; first by eauto.
         constructor. by apply fill_prim_step, head_prim_step, call_head_step_intro.
-      + rewrite /uncurry. iPoseProof (sim_bind _ _ K_t K_s val_rel with "[Hval Hcont]") as "HP"; last first.
+      + rewrite /uncurry. iPoseProof (sim_bind Ω _ _ K_t K_s with "[Hval Hcont]") as "HP"; last first.
         { rewrite sim_eq; iApply "HP". }
         iApply (sim_mono with "[Hcont] [Hval]").
         * rewrite sim_eq. iExact "Hcont".
@@ -226,8 +226,8 @@ Section meta_level_simulation.
 
   Context {PROP : bi}.
   Context {Λ : language}.
-  Context {val_rel : val Λ → val Λ → PROP}.
-  Context {s : SimulLang PROP Λ val_rel}.
+  Context (Ω : val Λ → val Λ → PROP).
+  Context {s : SimulLang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
@@ -237,13 +237,13 @@ Section meta_level_simulation.
 
   (* we pull out the simulation to a meta-level simulation *)
   Definition Sim (e_t: expr Λ) (σ_t: state Λ) (e_s: expr Λ) (σ_s: state Λ) :=
-    sat (state_interp P_t σ_t P_s σ_s ∗ gsim e_t e_s val_rel).
+    sat (state_interp P_t σ_t P_s σ_s ∗ gsim e_t e_s Ω).
 
   (* unfolding of the first case *)
   Lemma Sim_val (v_t: val Λ) (e_s: expr Λ) (σ_t σ_s: state Λ):
     Sim (of_val v_t) σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
-    ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') ∧ sat (state_interp P_t σ_t P_s σ_s' ∗ val_rel v_t v_s).
+    ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') ∧ sat (state_interp P_t σ_t P_s σ_s' ∗ Ω v_t v_s).
   Proof.
     rewrite /Sim gsim_unfold; intros Hsat Hreach.
     eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
@@ -303,7 +303,7 @@ Section meta_level_simulation.
     enough (sat (∃ (e_t' : expr Λ) (σ_t' : state Λ) (e_s' : expr Λ) (σ_s' : state Λ),
       ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗
       ⌜ex_loop (prim_step P_t) (e_t', σ_t')⌝ ∗
-      state_interp P_t σ_t' P_s σ_s' ∗ gsim e_t' e_s' val_rel
+      state_interp P_t σ_t' P_s σ_s' ∗ gsim e_t' e_s' Ω
     )) as Hsat'.
     { do 4 eapply sat_exists in Hsat' as [? Hsat'].
       do 2 eapply sat_sep in Hsat' as [? % sat_elim Hsat'].
@@ -319,7 +319,7 @@ Section meta_level_simulation.
           -∗ |==> ∃ (e_t' : expr Λ) (σ_t' : state Λ) (e_s' : expr Λ)  (σ_s' : state Λ),
               ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝
             ∗ ⌜ex_loop (prim_step P_t) (e_t', σ_t')⌝
-            ∗ state_interp P_t σ_t' P_s σ_s' ∗ gsim e_t' e_s' val_rel)%I with "[] Hsim"); clear e_t.
+            ∗ state_interp P_t σ_t' P_s σ_s' ∗ gsim e_t' e_s' Ω)%I with "[] Hsim"); clear e_t.
     iModIntro. rewrite /least_step. iIntros (e_t) "Hsim". iIntros (σ_t Hdiv) "SI".
     iMod ("Hsim" with "[$SI //]") as "[Hsim|Hsim]".
     - iExFalso. iDestruct "Hsim" as (v_t v_s σ_s' Hval) "_".
@@ -363,8 +363,8 @@ Section simulation_behaviorally_related.
 
   Context {PROP : bi}.
   Context {Λ : language}.
-  Context {val_rel : val Λ → val Λ → PROP}.
-  Context {s : SimulLang PROP Λ val_rel}.
+  Context (Ω : val Λ → val Λ → PROP).
+  Context {s : SimulLang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
@@ -374,7 +374,7 @@ Section simulation_behaviorally_related.
 
   (* divergent case *)
   Lemma Sim_diverge' e_t e_s σ_t σ_s:
-    Sim (sat := sat) P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat := sat) Ω P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     ex_loop (prim_step P_t) (e_t, σ_t) →
     ex_loop (tc (prim_step P_s)) (e_s, σ_s).
@@ -388,7 +388,7 @@ Section simulation_behaviorally_related.
   Qed.
 
   Lemma Sim_diverge e_t e_s σ_t σ_s:
-    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     ex_loop (prim_step P_t) (e_t, σ_t) →
     ex_loop (prim_step P_s) (e_s, σ_s).
@@ -399,10 +399,10 @@ Section simulation_behaviorally_related.
 
   (* return value case *)
   Lemma Sim_steps e_t e_s σ_t σ_s e_t' σ_t':
-    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     rtc (prim_step P_t) (e_t, σ_t) (e_t', σ_t') →
-    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim (sat:=sat) P_t P_s e_t' σ_t' e_s' σ_s'.
+    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ Sim (sat:=sat) Ω P_t P_s e_t' σ_t' e_s' σ_s'.
   Proof.
     intros Hsim Hstuck Hrtc; remember (e_t, σ_t) as tgt; remember (e_t', σ_t') as src.
     revert e_t e_t' e_s σ_t σ_t' σ_s Heqtgt Heqsrc Hsim Hstuck; induction Hrtc as [|? [e_t_mid σ_t_mid] ? Hstep ? IH];
@@ -415,22 +415,23 @@ Section simulation_behaviorally_related.
   Qed.
 
   Lemma Sim_return e_t e_s σ_t σ_s v_t σ_t':
-    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     rtc (prim_step P_t) (e_t, σ_t) (of_val v_t, σ_t') →
     ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')
-    ∧ sat (state_interp P_t σ_t' P_s σ_s' ∗ val_rel v_t v_s).
+    ∧ sat (state_interp P_t σ_t' P_s σ_s' ∗ Ω v_t v_s).
   Proof.
     (* first we exectute the simulation to v_t *)
     intros Hsim Hstuck Htgt; eapply Sim_steps in Htgt as (e_s' & σ_s' & Hsrc & Hsim'); [|eauto..].
     (* then we use the value case to extract the source value *)
-    eapply Sim_val in Hsim' as (v_s & σ_s'' & Hsteps & Hsat); last by eauto using not_reach_stuck_pres_rtc.
+    eapply Sim_val in Hsim' as (v_s & σ_s'' & Hsteps & Hsat); last (by eauto using not_reach_stuck_pres_rtc);
+      [ | by eauto | by eauto].
     eexists _, _; split; eauto using rtc_transitive.
   Qed.
 
   (* undefined behavior *)
   Lemma Sim_safety e_t e_s σ_t σ_s:
-    Sim (sat:=sat) P_t P_s e_t σ_t e_s σ_s →
+    Sim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
     ¬ reach_stuck P_s e_s σ_s →
     ¬ reach_stuck P_t e_t σ_t.
   Proof.
@@ -448,8 +449,8 @@ End simulation_behaviorally_related.
 Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {val_rel : val Λ → val Λ → PROP}.
-  Context {s : SimulLang PROP Λ val_rel}.
+  Context (Ω : val Λ → val Λ → PROP).
+  Context {s : SimulLang PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -469,19 +470,19 @@ Section adequacy_statement.
 
   Lemma adequacy P_t P_s:
     (* pre *)
-    sat (local_rel (s := s) P_t P_s ∗
+    sat (local_rel (s := s) Ω P_t P_s ∗
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
       progs_are P_t P_s ∗
-      val_rel u u) →
+      Ω u u) →
     (* post *)
-    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ val_rel v_t v_s) → O v_t v_s) →
+    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ Ω v_t v_s) → O v_t v_s) →
     B P_t P_s.
   Proof.
     intros Hpre Hpost σ_t σ_s [HI Hstuck].
     edestruct (not_stuck_call_in_prg P_s main empty_ectx) as [K_s Hsrc]; first done.
     { by rewrite fill_empty. }
-    eapply sat_mono with (Q := (state_interp P_t σ_t P_s σ_s ∗ gsim (of_call main u) (of_call main u) val_rel)%I) in Hpre;
-      first fold (Sim (sat:=sat) P_t P_s (of_call main u) σ_t (of_call main u) σ_s) in Hpre; last first.
+    eapply sat_mono with (Q := (state_interp P_t σ_t P_s σ_s ∗ gsim (of_call main u) (of_call main u) Ω)%I) in Hpre;
+      first fold (Sim (sat:=sat) Ω P_t P_s (of_call main u) σ_t (of_call main u) σ_s) in Hpre; last first.
     - iIntros "(#HL & HI & #Hprogs & Hval)".
       iSplitL "HI"; first by iApply "HI".
       iApply (local_to_global with "HL Hprogs").
@@ -489,9 +490,9 @@ Section adequacy_statement.
       iPoseProof (intuitionistically_elim with "Hsim'") as "Hsim".
       iApply sim_call_inline; last iFrame "Hsim Hval Hprogs"; by auto.
     - split; [|split].
-      + by eapply Sim_diverge.
+      + by unshelve eapply Sim_diverge.
       + intros v_t σ_t' Hsteps_tgt.
-        edestruct Sim_return as (v_s & σ_s' & Hsteps_src & Hsat); by eauto.
+        edestruct (Sim_return (PROP:=PROP) (Λ:=Λ)) as (v_s & σ_s' & Hsteps_src & Hsat); by eauto.
       + by eapply Sim_safety.
   Qed.
 
@@ -501,8 +502,8 @@ Section adequacy_statement_alt.
 
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {val_rel : val Λ → val Λ → PROP}.
-  Context {s : SimulLang PROP Λ val_rel}.
+  Context (Ω : val Λ → val Λ → PROP).
+  Context {s : SimulLang PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -511,11 +512,11 @@ Section adequacy_statement_alt.
   Variable (main: string) (u: val Λ).
 
   Lemma adequacy_alt P_t P_s:
-    sat (local_rel (s := s) P_t P_s ∗
+    sat (local_rel (s := s) Ω P_t P_s ∗
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
       progs_are P_t P_s ∗
-      val_rel u u ∗
-      ∀ v_s v_t, val_rel v_t v_s -∗ ⌜O v_t v_s⌝) →
+      Ω u u ∗
+      ∀ v_s v_t, Ω v_t v_s -∗ ⌜O v_t v_s⌝) →
     B I O main u P_t P_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.

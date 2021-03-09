@@ -9,8 +9,7 @@ Import bi.
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {val_rel : val Λ → val Λ → PROP}.
-  Context {s : SimulLang PROP Λ val_rel}.
+  Context {s : SimulLang PROP Λ}.
 
   Set Default Proof Using "Type*".
 
@@ -20,66 +19,71 @@ Section fix_lang.
     (σ_s σ_t σ : state Λ)
     (Φ Ψ : val Λ → val Λ → PROP).
 
+  Section sim_def. 
+    Context (val_rel : val Λ → val Λ → PROP).
 
-  Definition step_nostutter Φ (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
-    λ '(e_s, e_t), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
-      (* value case *)
-      (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
-        state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
+    Definition step_nostutter Φ (greatest_rec : exprO * exprO → PROP) : exprO * exprO → PROP:=
+      λ '(e_s, e_t), (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
+        (* value case *)
+        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
+          state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
 
-      ∨ (* step case *)
-      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
-        ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ 
-          greatest_rec (e_s', e_t'))
+        ∨ (* step case *)
+        (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
+          ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ 
+            greatest_rec (e_s', e_t'))
 
-      ∨ (* call case *)
-      (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-        ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
-        val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
-        (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec (fill K_s (of_val v_s), fill K_t (of_val v_t))))
-    )%I.
+        ∨ (* call case *)
+        (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
+          ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
+          val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
+          (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec (fill K_s (of_val v_s), fill K_t (of_val v_t))))
+      )%I.
 
-  Definition sim_nostutter_def Φ :=
-    bi_greatest_fixpoint (step_nostutter Φ).
+    Definition sim_nostutter_def Φ :=
+      bi_greatest_fixpoint (step_nostutter Φ).
 
-  Instance step_nostutter_proper:
-    Proper ((pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡)))
-      ==> (pointwise_relation _ (≡))
-      ==> (≡) ==> (≡)) (step_nostutter).
-  Proof. solve_proper. Qed.
+    Instance step_nostutter_proper:
+      Proper ((pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡)))
+        ==> (pointwise_relation _ (≡))
+        ==> (≡) ==> (≡)) (step_nostutter).
+    Proof. solve_proper. Qed.
 
-  Instance step_nostutter_mono Φ:
-    BiMonoPred (step_nostutter Φ).
-  Proof.
-    constructor.
-    - intros g1 g2. iIntros "#H".
-      iIntros ([e_s e_t]) "Hg". rewrite /step_nostutter.
-      iIntros (P_t σ_t P_s σ_s) "Ha".
-      iMod ("Hg" with "Ha") as "[Hval | [Hstep | Hcall]]"; iModIntro.
-      + iLeft. iApply "Hval".
-      + iRight; iLeft. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
-        iIntros (e_t' σ_t') "Hstep". iMod ("Hr" with "Hstep") as "Hstep"; iModIntro.
-        iDestruct "Hstep" as (e_s' σ_s') "(H1& H2 &H3)".
-        iExists (e_s'), (σ_s'). iFrame. by iApply "H".
-      + iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s') "(H1& H2& H3& H4&H5)".
-        iExists (f), (K_t), (v_t), (K_s), (v_s), (σ_s'). iFrame.
-        iIntros (? ?) "H1". iApply "H". by iApply "H5".
-    - intros g Hne n e1 e2 Heq.
-      apply (discrete_iff _ _) in Heq as ->. done.
-  Qed.
+    Instance step_nostutter_mono Φ:
+      BiMonoPred (step_nostutter Φ).
+    Proof.
+      constructor.
+      - intros g1 g2. iIntros "#H".
+        iIntros ([e_s e_t]) "Hg". rewrite /step_nostutter.
+        iIntros (P_t σ_t P_s σ_s) "Ha".
+        iMod ("Hg" with "Ha") as "[Hval | [Hstep | Hcall]]"; iModIntro.
+        + iLeft. iApply "Hval".
+        + iRight; iLeft. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
+          iIntros (e_t' σ_t') "Hstep". iMod ("Hr" with "Hstep") as "Hstep"; iModIntro.
+          iDestruct "Hstep" as (e_s' σ_s') "(H1& H2 &H3)".
+          iExists (e_s'), (σ_s'). iFrame. by iApply "H".
+        + iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s') "(H1& H2& H3& H4&H5)".
+          iExists (f), (K_t), (v_t), (K_s), (v_s), (σ_s'). iFrame.
+          iIntros (? ?) "H1". iApply "H". by iApply "H5".
+      - intros g Hne n e1 e2 Heq.
+        apply (discrete_iff _ _) in Heq as ->. done.
+    Qed.
 
-  Lemma sim_nostutter_def_unfold Φ e_s e_t:
-    sim_nostutter_def Φ (e_s, e_t) ⊣⊢ step_nostutter Φ (sim_nostutter_def Φ) (e_s, e_t).
-  Proof. by rewrite /sim_nostutter_def greatest_fixpoint_unfold. Qed.
-
-  Definition sim_nostutter_aux : seal (λ e_t e_s Φ, @sim_nostutter_def Φ (e_s, e_t)).
+    Lemma sim_nostutter_def_unfold Φ e_s e_t:
+      sim_nostutter_def Φ (e_s, e_t) ⊣⊢ step_nostutter Φ (sim_nostutter_def Φ) (e_s, e_t).
+    Proof. by rewrite /sim_nostutter_def greatest_fixpoint_unfold. Qed.
+  End sim_def. 
+  Definition sim_nostutter_aux : seal (λ Ω e_t e_s Φ, @sim_nostutter_def Ω Φ (e_s, e_t)).
   Proof. by eexists. Qed.
   Global Instance sim_nostutter : Sim s := sim_nostutter_aux.(unseal).
-  Lemma sim_nostutter_eq : sim (Sim:=sim_nostutter) = λ e_t e_s Φ, @sim_nostutter_def Φ (e_s, e_t).
+  Lemma sim_nostutter_eq : sim (Sim:=sim_nostutter) = λ Ω e_t e_s Φ, @sim_nostutter_def Ω Φ (e_s, e_t).
   Proof. by rewrite <-sim_nostutter_aux.(seal_eq). Qed.
 
+  Context (Ω : val Λ → val Λ → PROP).
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope. 
+
   Lemma sim_nostutter_unfold e_t e_s Φ:
-    sim (Sim:=sim_nostutter) e_t e_s Φ ⊣⊢
+    sim (Sim:=sim_nostutter) Ω e_t e_s Φ ⊣⊢
     (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
       (* value case *)
         (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
@@ -88,13 +92,13 @@ Section fix_lang.
       ∨ (* step case *)
       (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
         ∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
-        sim e_t' e_s' Φ)
+        sim Ω e_t' e_s' Φ)
 
       ∨ (* call case *)
       (∃ f K_t v_t K_s v_s σ_s', ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
         ⌜rtc (prim_step P_s) (e_s, σ_s) (fill K_s (of_call f v_s), σ_s')⌝ ∗
-        val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
-        sim_ectx K_t K_s Φ)
+        Ω v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
+        sim_ectx Ω K_t K_s Φ)
     )%I.
   Proof.
     by rewrite /sim_ectx !sim_nostutter_eq /uncurry sim_nostutter_def_unfold /step_nostutter.
@@ -102,7 +106,7 @@ Section fix_lang.
 
   Lemma sim_nostutter_coind Φ (Ψ : exprO → exprO → PROP):
     Proper ((≡) ==> (≡) ==> (≡)) Ψ →
-    (□ ∀ e_t e_s, Ψ e_t e_s -∗ step_nostutter Φ (λ '(e_s', e_t'), Ψ e_t' e_s') (e_s, e_t)) -∗
+    (□ ∀ e_t e_s, Ψ e_t e_s -∗ step_nostutter Ω Φ (λ '(e_s', e_t'), Ψ e_t' e_s') (e_s, e_t)) -∗
     (∀ e_t e_s, Ψ e_t e_s -∗ e_t ⪯ e_s {{ Φ }}).
   Proof.
     iIntros (Hp) "#IH". iIntros (e_t e_s) "H".
@@ -115,16 +119,16 @@ Section fix_lang.
       - by apply (discrete_iff _ _) in H2.
     }
 
-    iApply (greatest_fixpoint_coind (step_nostutter Φ) Ψ_curry with "[]").
+    iApply (greatest_fixpoint_coind (step_nostutter Ω Φ) Ψ_curry with "[]").
     { iModIntro. iIntros ([e_s' e_t']) "H'". by iApply "IH". }
     iApply "H".
   Qed.
 
   Global Instance sim_nostutter_proper :
-    Proper (eq ==> eq ==>
+    Proper ((pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡))) ==> eq ==> eq ==>
       (pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡))) ==> (≡)) sim.
   Proof.
-    intros e e' -> e1 e1' -> p1 p2 Heq2.
+    intros o1 o2 H e e' -> e1 e1' -> p1 p2 Heq2.
     rewrite !sim_nostutter_eq. apply greatest_fixpoint_proper; solve_proper.
   Qed.
 
@@ -140,8 +144,8 @@ Section fix_lang.
     P_t !! f = Some K_t →
     P_s !! f = Some K_s →
     progs_are P_t P_s -∗
-    val_rel v_t v_s -∗
-    sim_ectx K_t K_s Φ -∗
+    Ω v_t v_s -∗
+    sim_ectx Ω K_t K_s Φ -∗
     (of_call f v_t) ⪯ (of_call f v_s) {{ Φ }}.
   Proof.
     intros Htgt Hsrc. iIntros "#Prog Val Sim".
@@ -211,8 +215,8 @@ Section fix_lang.
           (∃ (f : string) (K_t' : ectx Λ) (v_t' : val Λ) (K_s' : ectx Λ) (v_s' : val Λ) σ_s'',
             ⌜fill K_t e_t = fill K_t' (of_call f v_t')⌝ ∗
             ⌜rtc (prim_step P_s) (fill K_s e_s, σ_s) (fill K_s' (of_call f v_s'), σ_s'')⌝ ∗
-            val_rel v_t' v_s' ∗ state_interp P_t σ_t P_s σ_s'' ∗
-            (∀ v_t'' v_s'' : val Λ, val_rel v_t'' v_s'' -∗
+            Ω v_t' v_s' ∗ state_interp P_t σ_t P_s σ_s'' ∗
+            (∀ v_t'' v_s'' : val Λ, Ω v_t'' v_s'' -∗
               bind_pred_nostutter Φ (fill K_s' (of_val v_s'')) (fill K_t' (of_val v_t'')))).
   Proof.
     (* unfold Hpost to examine the result and combine the two simulation proofs *)
