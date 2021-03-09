@@ -21,20 +21,6 @@ Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :
   envs_entails Δ (e_t' ⪯ e_s' {{ Φ }}) → envs_entails Δ (e_t ⪯ e_s {{ Φ }}).
 Proof. by intros -> ->. Qed.
 
-Lemma tac_sim_pure_both Δ n m e_t1 e_t2 e_s1 e_s2 K_t K_s Φ (ϕ ϕ' : Prop):
-  PureExec ϕ n (e_t1) (e_t2) →
-  PureExec ϕ' m (e_s1) (e_s2) →
-  ϕ → ϕ' →
-  n > 0 →
-  envs_entails Δ ((fill K_t e_t2) ⪯ (fill K_s e_s2) {{Φ}}) →
-  envs_entails Δ ((fill K_t e_t1) ⪯ (fill K_s e_s1) {{Φ}}).
-Proof.
-  intros ? ????. rewrite envs_entails_eq.
-  (* We want [pure_exec_fill] to be available to TC search locally. *)
-  pose proof @pure_exec_ctx.
-  rewrite sim_pure_steps //.
-Qed.
-
 Lemma tac_sim_pure_target Δ n e_t e_t' e_s K_t Φ (ϕ : Prop):
   PureExec ϕ n (e_t) (e_t') →
   ϕ →
@@ -45,6 +31,18 @@ Proof.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
   rewrite sim_pure_step_target //.
+Qed.
+
+Lemma tac_sim_pure_source Δ n e_s e_s' e_t K_s Φ (ϕ : Prop):
+  PureExec ϕ n e_s e_s' →
+  ϕ →
+  envs_entails Δ (e_t ⪯ (fill K_s e_s') {{Φ}}) →
+  envs_entails Δ (e_t ⪯ (fill K_s e_s) {{Φ}}).
+Proof. 
+  intros ? ?. rewrite envs_entails_eq.
+  (* We want [pure_exec_fill] to be available to TC search locally. *)
+  pose proof @pure_exec_ctx.
+  rewrite sim_pure_step_source //.
 Qed.
 
 Lemma tac_sim_value v_t v_s Φ Δ:
@@ -128,6 +126,23 @@ Tactic Notation "sim_pure_target" open_constr(efoc) :=
   | _ => fail "sim_pure_target: not a 'sim'"
   end.
 
+Tactic Notation "sim_pure_source" open_constr(efoc) :=
+  iStartProof;
+  lazymatch goal with
+  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Q) =>
+    let e_s := eval simpl in e_s in
+    reshape_expr e_s ltac:(fun K_s e_s' =>
+      unify e_s' efoc;
+      eapply (tac_sim_pure_source Ω _ _ e_s' _ _ K_s _ _);
+      [ iSolveTC                       (* PureExec *)
+      | try solve_vals_compare_safe    (* The pure condition for PureExec --
+         handles trivial goals, including [vals_compare_safe] *)
+      | sim_finish                      (* new goal *)
+      ])
+    || fail "sim_pure_source: cannot find" efoc "in" e_s "or" efoc "is not a redex"
+  | _ => fail "sim_pure_source: not a 'sim'"
+  end.
+
 Ltac sim_pures_target :=
   iStartProof;
   first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
@@ -135,36 +150,14 @@ Ltac sim_pures_target :=
         | sim_finish (* In case sim_pure_target never ran, make sure we do the usual cleanup. *)
         ].
 
-Tactic Notation "sim_pure" open_constr(efoc_t) open_constr(efoc_s) :=
-  iStartProof;
-  lazymatch goal with
-  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Q) =>
-    let e_t := eval simpl in e_t in
-    let e_s := eval simpl in e_s in
-    reshape_expr e_t ltac:(fun K_t e_t' =>
-      unify e_t' efoc_t;
-      reshape_expr e_s ltac:(fun K_s e_s' =>
-        unify e_s' efoc_s;
-        eapply (tac_sim_pure_both Ω _ _ _ e_t' _ e_s' _ K_t K_s Q _ _);
-        [ iSolveTC                       (* PureExec *)
-        | iSolveTC                       (* PureExec *)
-        | try solve_vals_compare_safe    (* pure condition *)
-        | try solve_vals_compare_safe    (* pure condition *)
-        | lia                            (* pure n > 0 *)
-        | sim_finish                      (* new goal *)
-        ])
-      || fail "sim_pure: cannot find" efoc_s "in" e_s "or" efoc_s "is not a redex" (* TODO: fix error handling *)
-      )
-    || fail "sim_pure: cannot find" efoc_t "in" e_t "or" efoc_t "is not a redex"
-  | _ => fail "sim_pure: not a 'sim'"
-  end.
-
-Ltac sim_pures :=
+Ltac sim_pures_source :=
   iStartProof;
   first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
-          progress repeat (sim_pure _ _; [])
-        | sim_finish (* In case sim_pure never ran, make sure we do the usual cleanup. *)
+          progress repeat (sim_pure_source _; [])
+        | sim_finish (* In case sim_pure_target never ran, make sure we do the usual cleanup. *)
         ].
+
+Ltac sim_pures := (try sim_pures_target); (try sim_pures_source).
 
 
 Ltac sim_bind_core K_t K_s :=
@@ -188,7 +181,6 @@ Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
           | fail 1 "sim_bind: cannot find" efoc_t "in" e_t ]
   | _ => fail "sim_bind: not a 'sim"
   end.
-
 
 
 

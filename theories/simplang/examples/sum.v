@@ -96,12 +96,12 @@ Proof.
   iApply sim_source_case.
   - iIntros (v_s') "->". inversion Hval; subst.
     sim_pures. destruct H1.
-    { destruct l. { sim_pures. sim_pures_target. iModIntro. iPureIntro. constructor. }
+    { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
       all: iApply source_stuck_sim; source_stuck_prim.
     }
     all: iApply source_stuck_sim; source_stuck_prim.
   - iIntros (v_t') "->". inversion Hval; subst.
-    sim_pures. sim_pures_target. destruct H1.
+    sim_pures. destruct H1.
     { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
       all: iApply source_stuck_sim; source_stuck_prim.
     }
@@ -128,9 +128,8 @@ Lemma client_sim (n : Z) :
   ⊢ target_client #n ⪯ source_client #n {{ λ v_t v_s, val_rel v_t v_s }}.
 Proof.
   iStartProof. rewrite /target_client /source_client.
-  sim_pures. sim_bind (inj1_enc #n) (InjL #n).
-  rewrite /inj1_enc.
-  sim_pures. sim_pures_target.
+  sim_pures. sim_bind (inj1_enc #n) (Val (InjLV #n)).
+  rewrite /inj1_enc. sim_pures. 
   iApply step_call; eauto.
 Qed.
 End fix_bi.

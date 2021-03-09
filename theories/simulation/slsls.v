@@ -7,6 +7,10 @@ From simuliris.simulation Require Export simulation.
 From iris.prelude Require Import options.
 Import bi.
 
+(* TODO @LG: cleanup this file, check which lemmas belong here and which should be moved somewhere else.
+  e.g. should the source_eval + source_stutter judgments stay here (they could also be used with the nostutter relation)?
+*)
+
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
@@ -21,7 +25,7 @@ Section fix_lang.
 
   (** Simulation relation with stuttering *)
 
-  Section sim_def. 
+  Section sim_def.
   Context (val_rel : val Λ → val Λ → PROP).
   Definition least_step Φ (greatest_rec : exprO → exprO → PROP) e_s
       (least_rec : exprO → PROP) e_t :=
@@ -124,7 +128,7 @@ Section fix_lang.
   Lemma sim_def_least_def_unfold Φ e_s e_t :
     sim_def Φ (e_s, e_t) ⊣⊢ least_def Φ (uncurry (sim_def Φ)) e_s e_t.
   Proof. by rewrite sim_def_unfold. Qed.
-  End sim_def. 
+  End sim_def.
   Implicit Types (Ω : val Λ → val Λ → PROP).
 
   Definition sim_aux : seal (λ Ω e_t e_s Φ, @sim_def Ω Φ (e_s, e_t)).
@@ -179,8 +183,8 @@ Section fix_lang.
     iApply "H0".
   Qed.
 
-  Local Existing Instance least_step_mono. 
-  Local Existing Instance greatest_step_mono. 
+  Local Existing Instance least_step_mono.
+  Local Existing Instance greatest_step_mono.
   (* TODO: not sure yet if this lemma is useful. if not, remove *)
   Lemma sim_strong_ind' Ω e_s Φ (Ψ : exprO → exprO → (val Λ → val Λ → PROP) → PROP):
     Proper ((≡) ==> (≡) ==> (pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡))) ==> (≡)) Ψ →
@@ -577,6 +581,38 @@ Section fix_lang.
     iModIntro. iLeft. iFrame.
   Qed.
 
+  Lemma sim_step_source Ω e_t e_s Φ : 
+    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗ ∃ e_s' σ_s',
+      ⌜rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t P_s σ_s' ∗
+      e_t ⪯{Ω} e_s' {{ Φ }}) -∗ 
+    e_t ⪯{Ω} e_s {{ Φ }}.
+  Proof. 
+    rewrite sim_unfold. iIntros "Hsource" (P_t σ_t P_s σ_s) "[Hstate %]". 
+    iMod ("Hsource" with "Hstate") as (e_s' σ_s') "(% & Hstate & Hsim)". 
+    rename H0 into Hsrc_rtc.
+    rewrite {1}sim_unfold.
+    iMod ("Hsim" with "[Hstate]") as "Hsim". 
+    { iFrame. iPureIntro. by eapply not_reach_stuck_pres_rtc. }
+    iModIntro. iDestruct "Hsim" as "[Hval | [Hstep | Hcall]]". 
+    - iLeft. iDestruct "Hval" as (v_t v_s σ_s'') "(Hval & % & Hstate & Hphi)". 
+      iExists v_t, v_s, σ_s''. iFrame. iPureIntro. by etrans.
+    - iDestruct "Hstep" as "(%&Hstep)". iRight; iLeft. 
+      iSplitR; first by iPureIntro.
+      iIntros (e_t' σ_t') "Hprim". iMod ("Hstep" with "Hprim") as "[Hstutter | Hred]"; iModIntro.
+      + (* which path we want to take depends on the rtc we have *)
+        apply rtc_inv_tc in Hsrc_rtc as [[= <- <-] | Hsrc_tc]. 
+        { (* no step, just mirror the stuttering *) iLeft. iFrame. }
+        (* we have actually taken a source step *)
+        iRight. iExists e_s', σ_s'. iFrame. by iPureIntro. 
+      + iRight. iDestruct "Hred" as (e_s'' σ_s'') "(% & Hstate & Hsim)". 
+        iExists e_s'', σ_s''. iFrame. iPureIntro. 
+        apply rtc_inv_tc in Hsrc_rtc as [[= <- <-] | Hsrc_tc]; first done.
+        by etrans. 
+    - iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s'') "(-> & % & Hv & Hstate & Hsim)". 
+      iRight; iRight. iExists f, K_t, v_t, K_s, v_s, σ_s''. iFrame. 
+      iSplitR; first done. iPureIntro. by etrans.
+  Qed.
+
   (* the step case of the simulation relation, but the two cases are combined into an rtc in the source *)
   Lemma sim_step_target Ω e_t e_s Φ:
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
@@ -668,6 +704,24 @@ Section fix_lang.
     iExists e_s'', σ_s''; iFrame. iPureIntro. econstructor; eauto.
   Qed.
 
+  Lemma source_eval_base Ψ e_s :
+    (∀ P_s σ_s, |==> Ψ P_s e_s σ_s) -∗
+    source_eval Ψ e_s.
+  Proof.
+    iIntros "Hpsi". rewrite source_eval_eq source_eval_unfold /source_eval_rec.
+    iIntros (P_s σ_s P_t σ_t) "Hstate". iRight. iMod ("Hpsi" $! P_s σ_s). iModIntro. iFrame.
+  Qed.
+
+  Lemma source_eval_sim Ω e_s e_t Φ : 
+    (source_eval (λ _ e_s' _, e_t ⪯{Ω} e_s' {{Φ}}) e_s) -∗
+    e_t ⪯{Ω} e_s {{Φ}}.
+  Proof. 
+    iIntros "Hsource". iPoseProof (source_eval_elim with "Hsource") as "Hsource". 
+    iApply sim_step_source. iIntros (????) "Hstate". 
+    iMod ("Hsource" with "Hstate") as (e_s' σ_s') "(?&?&?)". 
+    iModIntro. iExists e_s', σ_s'. iFrame.
+  Qed.
+
   (** * Definition of source_stuck *)
   Definition source_stuck_def := source_eval (λ P_s e_s σ_s, ⌜ stuck P_s e_s σ_s ⌝%I).
   Lemma source_stuck_unfold e_s :
@@ -757,24 +811,6 @@ Section fix_lang.
     eauto.
   Qed.
 
-
-  (* a variant of sim_step_target that threads through the SI.
-    TODO: is this useful? *)
-  Lemma sim_step_target' Ω e_t e_s Φ:
-    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
-      ⌜reducible P_t e_t σ_t⌝ ∗
-      ∀ e_t' σ_t',
-        ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
-          state_interp P_t σ_t' P_s σ_s ∗
-          source_eval (λ _ e_s' _, e_t' ⪯{Ω} e_s' {{ Φ }}) e_s) -∗
-    e_t ⪯{Ω} e_s {{ Φ }}.
-  Proof.
-    iIntros "Hev". iApply sim_step_target. iIntros (????) "Hstate".
-    iMod ("Hev" with "Hstate") as "[Hred Hev]". iModIntro. iFrame.
-    iIntros (e_t' σ_t') "Htarget". iMod ("Hev" with "Htarget") as "[Hstate Hev]".
-    iMod (source_eval_elim with "Hev Hstate") as (e_s' σ_s') "(?&?&?)".
-    iModIntro; iExists e_s', σ_s'. iFrame.
-  Qed.
 
 End fix_lang.
 
