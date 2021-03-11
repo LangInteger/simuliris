@@ -117,7 +117,7 @@ Lemma client_sim (n : Z) :
 Proof.
   iStartProof. rewrite /target_client /source_client.
   sim_pures. sim_bind (inj1_enc #n) (Val (InjLV #n)).
-  rewrite /inj1_enc. sim_pures. 
+  rewrite /inj1_enc. sim_pures.
   iApply step_call; eauto.
 Qed.
 End fix_bi.

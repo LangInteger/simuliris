@@ -47,7 +47,7 @@ Notation "l '↦s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option v
 Section lifting.
 Context `{!sheapG Σ}.
 Implicit Types P Q : iProp Σ.
-Implicit Types Φ Ψ : val → val → iProp Σ.
+Implicit Types Φ : val → val → iProp Σ.
 Implicit Types σ σ_s σ_t : state.
 Implicit Types v v_s v_t : val.
 Implicit Types l : loc.
@@ -132,13 +132,14 @@ Proof.
   rewrite big_opM_singleton; iDestruct "Hvs" as "[$ Hvs]". by iApply "IH".
 Qed.
 
-Lemma sim_allocN_target n v Φ e_s :
+Lemma target_red_allocN_seq n v Ψ :
   (0 < n)%Z →
-  (∀ l, [∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦t v -∗ of_val #l ⪯ e_s {{ Φ }}) -∗
-  AllocN (Val $ LitV $ LitInt $ n) (Val v) ⪯ e_s {{ Φ }}.
+  (∀ l, ([∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦t v) -∗
+    target_red (of_val #l) Ψ) -∗
+  target_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
-  iIntros (Hn) "Hloc".
-  iApply sim_head_step_target. iIntros (P_t P_s σ_t σ_s) "[Hσ_t Hσ_s]". iModIntro.
+  iIntros (Hn) "Hloc". iApply target_red_lift_head_step.
+  iIntros (P_t P_s σ_t σ_s) "[Hσ_t Hσ_s]". iModIntro.
   iSplitR. { iPureIntro. eauto with lia head_step. }
   iIntros (e_t' σ_t') "%"; inv_head_step.
   iMod (gen_heap_alloc_big _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ_t")
@@ -146,17 +147,17 @@ Proof.
   { apply heap_array_map_disjoint. rewrite replicate_length Z2Nat.id; auto with lia. }
   iPoseProof (heap_array_to_seq_mapsto with "Hl") as "Hmap".
   iModIntro. iFrame. iSpecialize ("Hloc" $! l).
-  (* TODO: why does this fail? *)
-  (*by iApply "Hloc". *)
-Admitted.
+  by iApply "Hloc".
+Qed.
 
-Lemma sim_allocN_source n v Φ e_t :
+Lemma source_red_allocN_seq n v Ψ :
   (0 < n)%Z →
-  (∀ l, [∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦s v -∗ e_t ⪯ of_val #l  {{ Φ }}) -∗
-  e_t ⪯ AllocN (Val $ LitV $ LitInt $ n) (Val v) {{ Φ }}.
+  (∀ l, ([∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦s v) -∗
+    source_red (of_val #l) Ψ) -∗
+  source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
   iIntros (Hn) "Hloc".
-  iApply sim_head_step_source. iIntros (P_t P_s σ_t σ_s) "[Hσ_t Hσ_s]".
+  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t) "[Hσ_t Hσ_s]".
   assert (head_reducible P_s (AllocN #n v) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with lia head_step. }
   inv_head_step.
@@ -165,31 +166,28 @@ Proof.
   { apply heap_array_map_disjoint. rewrite replicate_length Z2Nat.id; auto with lia. }
   iModIntro. iExists #l, (state_init_heap l n v σ_s).
   iSplitR. { eauto with lia head_step. }
-  iFrame.
-  iPoseProof (heap_array_to_seq_mapsto with "Hl") as "Hmap".
-  iSpecialize ("Hloc" $! l).
-  (* TODO: why does this fail? *)
-  (*by iApply "Hloc". *)
-Admitted.
-
-Lemma sim_alloc_target v e_s Φ :
-  (∀ l, l ↦t v -∗ of_val #l ⪯ e_s {{ Φ }}) -∗ Alloc (Val v) ⪯ e_s {{ Φ }}.
-Proof.
-  iIntros "H". iApply sim_allocN_target; first lia.
-  iIntros (l). iSplitL; last done. by rewrite loc_add_0.
+  iFrame. iModIntro. iApply "Hloc".
+  iApply (heap_array_to_seq_mapsto with "Hl").
 Qed.
 
-Lemma sim_alloc_source v e_t Φ :
-  (∀ l, l ↦s v -∗ e_t ⪯ of_val #l {{ Φ }}) -∗ e_t ⪯ Alloc (Val v) {{ Φ }}.
+Lemma target_red_alloc v Ψ :
+  (∀ l, l ↦t v -∗ target_red (of_val #l) Ψ) -∗ target_red (Alloc (Val v)) Ψ.
 Proof.
-  iIntros "H". iApply sim_allocN_source; first lia.
-  iIntros (l). iSplitL; last done. by rewrite loc_add_0.
+  iIntros "Ht". iApply target_red_allocN_seq; first lia.
+  iIntros (l) "[Hl _]". iApply "Ht". by rewrite loc_add_0.
 Qed.
 
-Lemma sim_free_target v l e_s Φ :
-  l ↦t v -∗ #() ⪯ e_s {{ Φ }} -∗ Free (Val $ LitV (LitLoc l)) ⪯ e_s {{ Φ }}.
+Lemma source_red_alloc v Ψ :
+  (∀ l, l ↦s v -∗ source_red (of_val #l) Ψ) -∗ source_red (Alloc (Val v)) Ψ.
 Proof.
-  iIntros "Hl Hsim". iApply sim_head_step_target. iIntros (????) "[Hσ_t Hσ_s]".
+  iIntros "Ht". iApply source_red_allocN_seq; first lia.
+  iIntros (l) "[Hl _]". iApply "Ht". by rewrite loc_add_0.
+Qed.
+
+Lemma target_red_free v l Ψ :
+  l ↦t v -∗ target_red (of_val #()) Ψ -∗ target_red (Free (Val $ LitV (LitLoc l))) Ψ.
+Proof.
+  iIntros "Hl Hsim". iApply target_red_lift_head_step. iIntros (????) "[Hσ_t Hσ_s]".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' σ_t') "%"; inv_head_step.
@@ -197,12 +195,11 @@ Proof.
   iModIntro. iFrame.
 Qed.
 
-Lemma sim_free_source v l e_t Φ :
-  l ↦s v -∗ e_t ⪯ #() {{ Φ }} -∗ e_t ⪯ Free (Val $ LitV (LitLoc l)) {{ Φ }}.
+Lemma source_red_free v l Ψ :
+  l ↦s v -∗ source_red (of_val #()) Ψ -∗ source_red (Free (Val $ LitV (LitLoc l))) Ψ.
 Proof.
-  iIntros "Hl Hsim". iApply sim_head_step_source. iIntros (????) "[Hσ_t Hσ_s]".
-  iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
-  iModIntro.
+  iIntros "Hl Hsim". iApply source_red_lift_head_step. iIntros (????) "[Hσ_t Hσ_s]".
+  iModIntro. iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (head_reducible P_s (Free #l) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iExists e_s', σ_s'. iSplitR; first done.
@@ -210,12 +207,37 @@ Proof.
   iModIntro. iFrame.
 Qed.
 
-Lemma sim_store_target l v v' e_s Φ :
-  l ↦t v' -∗
-  (l ↦t v -∗ #() ⪯ e_s {{ Φ }}) -∗
-  Store (Val $ LitV (LitLoc l)) (Val v) ⪯ e_s {{ Φ }}.
+Lemma target_red_load l dq v Ψ :
+  l ↦t{dq} v -∗
+  (l ↦t{dq} v -∗ target_red (of_val v) Ψ) -∗
+  target_red (Load (Val $ LitV $ LitLoc l)) Ψ.
 Proof.
-  iIntros "Hl Hsim". iApply sim_head_step_target. iIntros (????) "[Hσ_t Hσ_s] !>".
+  iIntros "Hl Ht". iApply target_red_lift_head_step. iIntros (????) "[Hσ_t Hσ_s]".
+  iDestruct (gen_heap_valid with "Hσ_t Hl") as %?. iModIntro.
+  iSplit; first by eauto with head_step.
+  iIntros (?? Hstep); inv_head_step.
+  iModIntro. iFrame. by iApply "Ht".
+Qed.
+
+Lemma source_red_load l dq v Ψ :
+  l ↦s{dq} v -∗
+  (l ↦s{dq} v -∗ source_red (of_val v) Ψ) -∗
+  source_red (Load (Val $ LitV $ LitLoc l)) Ψ.
+Proof.
+  iIntros "Hl Ht". iApply source_red_lift_head_step. iIntros (????) "[Hσ_t Hσ_s]".
+  iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
+  assert (head_reducible P_s (Load #l) σ_s) as (e_s' & σ_s' & Hred).
+  { eauto with head_step. }
+  iModIntro; iExists e_s', σ_s'. iSplit; first by eauto. inv_head_step.
+  iModIntro. iFrame. by iApply "Ht".
+Qed.
+
+Lemma target_red_store l v v' Ψ :
+  l ↦t v' -∗
+  (l ↦t v -∗ target_red (of_val #()) Ψ) -∗
+  target_red (Store (Val $ LitV (LitLoc l)) (Val v)) Ψ.
+Proof.
+  iIntros "Hl Hsim". iApply target_red_lift_head_step. iIntros (????) "[Hσ_t Hσ_s] !>".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iSplitR; first by eauto with head_step.
   iIntros (e_t' σ_t') "%"; inv_head_step.
@@ -223,18 +245,91 @@ Proof.
   iModIntro. iFrame. by iApply "Hsim".
 Qed.
 
-Lemma sim_store_source l v v' e_t Φ :
+Lemma source_red_store l v v' Ψ :
   l ↦s v' -∗
-  (l ↦s v -∗ e_t ⪯ #() {{ Φ }}) -∗
-  e_t ⪯ Store (Val $ LitV (LitLoc l)) (Val v) {{ Φ }}.
+  (l ↦s v -∗ source_red (of_val #()) Ψ) -∗
+  source_red (Store (Val $ LitV (LitLoc l)) (Val v)) Ψ.
 Proof.
-  iIntros "Hl Hsim". iApply sim_head_step_source. iIntros (????) "[Hσ_t Hσ_s] !>".
+  iIntros "Hl Hsim". iApply source_red_lift_head_step. iIntros (????) "[Hσ_t Hσ_s] !>".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (head_reducible P_s (Store (Val $ LitV (LitLoc l)) (Val v)) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iExists e_s', σ_s'. iSplitR; first done. inv_head_step.
   iMod (gen_heap_update with "Hσ_s Hl") as "[$ Hl]".
   iModIntro. iFrame. by iApply "Hsim".
+Qed.
+
+
+(** Derived laws for sim -- may be of limited usefulness *)
+Lemma sim_allocN_target_seq n v Φ e_s :
+  (0 < n)%Z →
+  (∀ l, ([∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦t v) -∗
+    of_val #l ⪯ e_s {{ Φ }}) -∗
+  AllocN (Val $ LitV $ LitInt $ n) (Val v) ⪯ e_s {{ Φ }}.
+Proof.
+  iIntros (Hn) "Hloc". iApply target_red_sim.
+  iApply target_red_allocN_seq; first done.
+  iIntros (l) "Hl". iApply target_red_base; iModIntro. by iApply "Hloc".
+Qed.
+
+Lemma sim_allocN_source_seq n v Φ e_t :
+  (0 < n)%Z →
+  (∀ l, ([∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦s v) -∗
+    e_t ⪯ of_val #l  {{ Φ }}) -∗
+  e_t ⪯ AllocN (Val $ LitV $ LitInt $ n) (Val v) {{ Φ }}.
+Proof.
+  iIntros (Hn) "Hloc". iApply source_red_sim.
+  iApply source_red_allocN_seq; first done.
+  iIntros (l) "Hl". iApply source_red_base; iIntros (??). iModIntro. by iApply "Hloc".
+Qed.
+
+Lemma sim_alloc_target v e_s Φ :
+  (∀ l, l ↦t v -∗ of_val #l ⪯ e_s {{ Φ }}) -∗ Alloc (Val v) ⪯ e_s {{ Φ }}.
+Proof.
+  iIntros "Ht". iApply target_red_sim.
+  iApply target_red_alloc.
+  iIntros (l) "Hl". iApply target_red_base; iModIntro. by iApply "Ht".
+Qed.
+
+Lemma sim_alloc_source v e_t Φ :
+  (∀ l, l ↦s v -∗ e_t ⪯ of_val #l {{ Φ }}) -∗ e_t ⪯ Alloc (Val v) {{ Φ }}.
+Proof.
+  iIntros "Hs". iApply source_red_sim.
+  iApply source_red_alloc.
+  iIntros (l) "Hl". iApply source_red_base; iIntros (??). iModIntro.
+  by iApply "Hs".
+Qed.
+
+Lemma sim_free_target v l e_s Φ :
+  l ↦t v -∗ #() ⪯ e_s {{ Φ }} -∗ Free (Val $ LitV (LitLoc l)) ⪯ e_s {{ Φ }}.
+Proof.
+  iIntros "Hl Ht". iApply target_red_sim. iApply (target_red_free with "Hl").
+  by iApply target_red_base.
+Qed.
+
+Lemma sim_free_source v l e_t Φ :
+  l ↦s v -∗ e_t ⪯ #() {{ Φ }} -∗ e_t ⪯ Free (Val $ LitV (LitLoc l)) {{ Φ }}.
+Proof.
+  iIntros "Hl Hs". iApply source_red_sim. iApply (source_red_free with "Hl").
+  iApply source_red_base; eauto.
+Qed.
+
+Lemma sim_store_target l v v' e_s Φ :
+  l ↦t v' -∗
+  (l ↦t v -∗ #() ⪯ e_s {{ Φ }}) -∗
+  Store (Val $ LitV (LitLoc l)) (Val v) ⪯ e_s {{ Φ }}.
+Proof.
+  iIntros "Hl Ht". iApply target_red_sim. iApply (target_red_store with "Hl").
+  iIntros "Hl". iApply target_red_base; iModIntro; by iApply "Ht".
+Qed.
+
+Lemma sim_store_source l v v' e_t Φ :
+  l ↦s v' -∗
+  (l ↦s v -∗ e_t ⪯ #() {{ Φ }}) -∗
+  e_t ⪯ Store (Val $ LitV (LitLoc l)) (Val v) {{ Φ }}.
+Proof.
+  iIntros "Hl Hs". iApply source_red_sim. iApply (source_red_store with "Hl").
+  iIntros "Hl". iApply source_red_base; iIntros (??); iModIntro; by iApply "Hs".
 Qed.
 
 End lifting.

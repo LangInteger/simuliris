@@ -79,37 +79,51 @@ Section fix_sim.
     (e_s e_t e: expr Λ)
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ)
-    (Φ Ψ : val Λ → val Λ → PROP).
+    (Φ : val Λ → val Λ → PROP).
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
   (** Pure reduction *)
+  Lemma source_red_lift_pure Ψ m e_s1 e_s2 ϕ :
+    PureExec ϕ m e_s1 e_s2 →
+    ϕ → source_red e_s2 Ψ -∗ source_red e_s1 Ψ.
+  Proof.
+    intros Hp Hϕ. specialize (Hp Hϕ).
+    induction Hp as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH]; first done.
+    rewrite IH. iIntros "Hs". iApply source_red_step.
+    iIntros (????) "Hstate". iModIntro. iExists e_s2, σ_s.
+    iSplitR; last by iFrame. 
+    destruct Hstep as [Hred Hdet]. destruct (Hred P_s σ_s) as (e_s' & σ_s' & H).
+    by specialize (Hdet _ _ _ _ H) as [-> ->].
+  Qed.
+
+  Lemma target_red_lift_pure Ψ n e1 e2 ϕ :
+    PureExec ϕ n e1 e2 →
+    ϕ → target_red e2 Ψ -∗ target_red e1 Ψ.
+  Proof.
+    intros Hp Hϕ. specialize (Hp Hϕ).
+    induction Hp as [ e_t2 | n e_t1 e_t2 e_t3 Hstep _ IH]; first done.
+    rewrite IH. iIntros "Ht". iApply target_red_step.
+    iIntros (????) "Hstate". iModIntro. iSplitR. { iPureIntro. apply Hstep. }
+    iIntros (??) "%". iModIntro. apply Hstep in H as [-> ->]. iFrame.
+  Qed.
+
+  (* Corollaries -- TODO: are these even useful ? *)
   Lemma sim_pure_step_source Φ m e_t e_s1 e_s2 ϕ :
     PureExec ϕ m e_s1 e_s2 →
     ϕ → e_t ⪯ e_s2 {{ Φ }} -∗ e_t ⪯ e_s1 {{ Φ }}.
   Proof.
-    intros H1 Hϕ. specialize (H1 Hϕ).
-    iIntros "H". iApply sim_step_source.
-    iIntros (????) "Hstate". iModIntro.
-    iExists e_s2, σ_s. iFrame. iPureIntro.
-    induction H1 as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH].
-    - constructor.
-    - econstructor; last apply IH. destruct Hstep as [Hred Hdet].
-      destruct (Hred P_s σ_s) as (e_s' & σ_s' & H).
-      by specialize (Hdet _ _ _ _ H) as [-> ->].
+    intros Hp Hϕ. iIntros "Hsim". iApply source_red_sim. iApply source_red_lift_pure; first done. 
+    iApply source_red_base; eauto. 
   Qed.
 
   Lemma sim_pure_step_target Φ n e1 e2 e_s ϕ :
     PureExec ϕ n e1 e2 →
     ϕ → e2 ⪯ e_s {{ Φ }} -∗ e1 ⪯ e_s {{ Φ }}.
   Proof.
-    intros H1 H2. specialize (H1 H2). induction H1 as [ | n e1 e2 e3 Hstep _ IH].
-    - eauto.
-    - iIntros "H". iApply sim_stutter_source. destruct Hstep as [Hred Hdet].
-      iIntros (????) "Hstate". iModIntro. iSplitL "".
-      { iPureIntro. apply Hred. }
-      iIntros (??) "%". iModIntro. apply Hdet in H as [-> ->].
-      iFrame. iApply IH. iApply "H".
+    intros Hp Hϕ. iIntros "Hsim". iApply target_red_sim. iApply target_red_lift_pure; first done. 
+    iApply target_red_base; eauto. 
   Qed.
+
 
   (** Primitive reduction *)
   Lemma sim_prim_step_source_eval e_t e_s Φ:
@@ -118,13 +132,13 @@ Section fix_sim.
       ∀ e_t' σ_t',
         ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
           state_interp P_t σ_t' P_s σ_s ∗
-          source_eval (λ _ e_s' _, e_t' ⪯{Ω} e_s' {{ Φ }}) e_s) -∗
+          source_red e_s (λ _ e_s' _, e_t' ⪯{Ω} e_s' {{ Φ }})) -∗
     e_t ⪯{Ω} e_s {{ Φ }}.
   Proof.
     iIntros "Hev". iApply sim_step_target. iIntros (????) "Hstate".
     iMod ("Hev" with "Hstate") as "[Hred Hev]". iModIntro. iFrame.
     iIntros (e_t' σ_t') "Htarget". iMod ("Hev" with "Htarget") as "[Hstate Hev]".
-    iMod (source_eval_elim with "Hev Hstate") as (e_s' σ_s') "(?&?&?)".
+    iMod (source_red_elim with "Hev Hstate") as (e_s' σ_s') "(?&?&?)".
     iModIntro; iExists e_s', σ_s'. iFrame.
   Qed.
 
@@ -140,7 +154,7 @@ Section fix_sim.
     iIntros "Ha". iApply sim_prim_step_source_eval. iIntros (????) "Hstate".
     iMod ("Ha" with "Hstate") as "[Hred Hs]". iModIntro. iFrame.
     iIntros (e_t' σ_t') "Hprim". iMod ("Hs" with "Hprim") as "[Hstate Hs]". iModIntro.
-    iFrame. iApply source_eval_base; eauto.
+    iFrame. iApply source_red_base; eauto.
   Qed.
 
   Lemma sim_prim_step_source e_t e_s Φ :
@@ -177,7 +191,7 @@ Section fix_sim.
   Lemma sim_head_step_source e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ∃ e_s' σ_s',
-        ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗ |==> 
+        ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗ |==>
           (state_interp P_t σ_t P_s σ_s' ∗
           e_t ⪯{Ω} e_s' {{ Φ }})) -∗
     e_t ⪯{Ω} e_s {{ Φ }}.
@@ -199,4 +213,30 @@ Section fix_sim.
     by intros e' σ' Hprim%Hirred.
   Qed.
 
+  (** Target eval *)
+  Lemma target_red_lift_head_step Ψ e_t :
+    ⊢ (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+        (⌜ head_reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ ==∗
+          state_interp P_t σ_t' P_s σ_s ∗ target_red e_t' Ψ)) -∗
+      target_red e_t Ψ.
+  Proof.
+    iIntros "Htarget". iApply target_red_step. iIntros (????) "Hstate".
+    iMod ("Htarget" with "Hstate") as "(% & Hstep)". rename H into Hred. iModIntro.
+    iSplitR. { iPureIntro. by apply head_prim_reducible. }
+    iIntros (e_t' σ_t') "%". rename H into Hprim. iApply "Hstep".
+    iPureIntro. by apply head_reducible_prim_step.
+  Qed.
+
+  (** source eval *)
+  Lemma source_red_lift_head_step Ψ e_s :
+   ⊢ (∀ P_s σ_s P_t σ_t,
+        state_interp P_t σ_t P_s σ_s ==∗ ∃ e_s' σ_s',
+          ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗
+          |==> state_interp P_t σ_t P_s σ_s' ∗ source_red e_s' Ψ) -∗
+      source_red e_s Ψ.
+  Proof.
+    iIntros "Hsource". iApply source_red_step.
+    iIntros (????) "Hstate". iMod ("Hsource" with "Hstate") as (e_s' σ_s') "[% >Hstate]".
+    iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
+  Qed.
 End fix_sim.
