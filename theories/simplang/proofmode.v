@@ -478,6 +478,8 @@ Ltac source_red_pures :=
 Ltac sim_pures := (try target_red_pures); (try source_red_pures); try to_sim.
 
 
+(** ** Bind tactics *)
+
 Ltac sim_bind_core K_t K_s :=
   lazymatch eval hnf in K_t with
   | [] => lazymatch eval hnf in K_s with
@@ -502,25 +504,181 @@ Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
 
 
 (** ** Heap automation *)
-(*Tactic Notation "target_store" :=*)
-  (*let solve_mapsto _ :=*)
-    (*let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in*)
-    (*iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in*)
-  (*sim_pures;*)
-  (*lazymatch goal with*)
-  (*| |- envs_entails _ (target_red ?Ψ ?e) =>*)
-    (*first*)
-      (*[reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ Ψ))*)
-      (*|fail 1 "wp_store: cannot find 'Store' in" e];*)
-    (*[solve_mapsto ()*)
-    (*|pm_reduce; first [sim_seq|wp_finish]]*)
-  (*| _ => fail "target_store: not a 'target_red"*)
-  (*end.*)
+
+Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
+  to_target;
+  let Htmp := iFresh in
+  let finish _ :=
+    first [intros l | fail 1 "target_alloc:" l "not fresh"];
+    pm_reduce;
+    lazymatch goal with
+    | |- False => fail 1 "target_alloc:" H "not fresh"
+    | _ => iDestructHyp Htmp as H; target_finish
+    end in
+  target_red_pures;
+  (** The code first tries to use allocation lemma for a single reference,
+     ie, [tac_target_red_alloc].
+     If that fails, it tries to use the lemma [tac_target_red_allocN]
+     for allocating an array.
+     Notice that we could have used the array allocation lemma also for single
+     references. However, that would produce the resource l ↦t∗ [v] instead of
+     l ↦t v for single references. These are logically equivalent assertions
+     but are not equal. *)
+  lazymatch goal with
+  | |- envs_entails _ (target_red ?e ?Ψ) =>
+    let process_single _ :=
+        first
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp K _ _))
+          |fail 1 "target_alloc: cannot find 'Alloc' in" e];
+        finish ()
+    in
+    let process_array _ :=
+        first
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp K _ _))
+          |fail 1 "target_alloc: cannot find 'Alloc' in" e];
+        [idtac|finish ()]
+    in (process_single ()) || (process_array ())
+  | _ => fail "target_alloc: not a 'target_red'"
+  end.
+
+Tactic Notation "target_alloc" ident(l) :=
+  target_alloc l as "?".
+
+Tactic Notation "source_alloc" ident(l) "as" constr(H) :=
+  to_source;
+  let Htmp := iFresh in
+  let finish _ :=
+    first [intros l | fail 1 "source_alloc:" l "not fresh"];
+    pm_reduce;
+    lazymatch goal with
+    | |- False => fail 1 "source_alloc:" H "not fresh"
+    | _ => iDestructHyp Htmp as H; source_finish
+    end in
+  source_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (source_red ?e ?Ψ) =>
+    let process_single _ :=
+        first
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp K _ _))
+          |fail 1 "source_alloc: cannot find 'Alloc' in" e];
+        finish ()
+    in
+    let process_array _ :=
+        first
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp K _ _))
+          |fail 1 "source_alloc: cannot find 'Alloc' in" e];
+        [idtac|finish ()]
+    in (process_single ()) || (process_array ())
+  | _ => fail "source_alloc: not a 'source_red'"
+  end.
+
+Tactic Notation "source_alloc" ident(l) :=
+  source_alloc l as "?".
+
+Tactic Notation "target_free" :=
+  to_target;
+  let solve_mapsto _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
+    iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
+  target_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (target_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ K _ _))
+      |fail 1 "target_free: cannot find 'Free' in" e];
+    [solve_mapsto ()
+    |pm_reduce; target_finish]
+  | _ => fail "target_free: not a 'target_red'"
+  end.
+
+Tactic Notation "source_free" :=
+  to_source;
+  let solve_mapsto _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
+    iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
+  source_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (source_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ K _ _))
+      |fail 1 "source_free: cannot find 'Free' in" e];
+    [solve_mapsto ()
+    |pm_reduce; source_finish]
+  | _ => fail "source_free: not a 'source_red'"
+  end.
+
+Tactic Notation "target_load" :=
+  to_target;
+  let solve_mapsto _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
+    iAssumptionCore || fail "target_load: cannot find" l "↦t ?" in
+  target_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (target_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_load _ _ K _ _ _ _ _))
+      |fail 1 "target_load: cannot find 'Load' in" e];
+    [ solve_mapsto ()
+    |target_finish]
+  | _ => fail "target_load: not a 'target_red'"
+  end.
+
+Tactic Notation "source_load" :=
+  to_source;
+  let solve_mapsto _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
+    iAssumptionCore || fail "source_load: cannot find" l "↦s ?" in
+  source_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (source_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_load _ _ K _ _ _ _ _))
+      |fail 1 "source_load: cannot find 'Load' in" e];
+    [ solve_mapsto ()
+    |source_finish]
+  | _ => fail "source_load: not a 'source_red'"
+  end.
+
+
+
+
+(* FIXME: error messages seem broken (already the eapply seems to fail when the pointsto-assumption is missing)*)
+Tactic Notation "target_store" :=
+  to_target;
+  let solve_mapsto _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
+    iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in
+  target_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (target_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ Ψ))
+      |fail 1 "target_store: cannot find 'Store' in" e];
+    [solve_mapsto ()
+    |pm_reduce; target_finish]
+  | _ => fail "target_store: not a 'target_red'"
+  end.
+
+Tactic Notation "source_store" :=
+  to_source;
+  let solve_mapsto _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
+    iAssumptionCore || fail "source_store: cannot find" l "↦s ?" in
+  source_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (source_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ K _ _ _ Ψ))
+      |fail 1 "source_store: cannot find 'Store' in" e];
+    [solve_mapsto ()
+    |pm_reduce; source_finish]
+  | _ => fail "source_store: not a 'source_red'"
+  end.
 
 
 (** ** Automation related to stuckness *)
 
-(* FIXME: currently quote tailored to the sideconditions generated by the instances we already have.
+(* FIXME: currently quite tailored to the sideconditions generated by the instances we already have.
   Maybe we can make this more general? *)
 Ltac source_stuck_sidecond :=
   intros;
