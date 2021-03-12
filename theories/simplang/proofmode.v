@@ -150,7 +150,7 @@ Proof.
   iApply source_red_bind. iApply source_red_allocN; first done.
   iIntros (l) "Hl". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  iApply source_red_base; iIntros (??). iModIntro. 
+  iApply source_red_base; iIntros (??). iModIntro.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
@@ -167,7 +167,7 @@ Proof.
   iApply target_red_bind. iApply target_red_alloc.
   iIntros (l) "Hl". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  iApply target_red_base. iModIntro. 
+  iApply target_red_base. iModIntro.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
@@ -281,6 +281,37 @@ Proof.
   rewrite right_id. apply sep_mono_r, wand_mono; first done.
   rewrite Hi. iIntros "Hs". iApply source_red_base; eauto.
 Qed.
+
+Lemma tac_target_red_call Δ i K b f v K_t Ψ :
+  envs_lookup i Δ = Some (b, f @t K_t)%I →
+  envs_entails Δ (target_red (fill K (fill K_t (Val v))) Ψ) →
+  envs_entails Δ (target_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) Ψ).
+Proof.
+  rewrite envs_entails_eq=> ? Hi.
+  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_call.
+  rewrite envs_lookup_split //; simpl.
+  destruct b; simpl.
+  * iIntros "[#$ He]". iApply target_red_base. iModIntro.
+    iApply Hi. iApply "He". iFrame "#".
+  * rewrite Hi. iIntros "[#Hf Hs]". iSplitR; first done.
+    iApply target_red_base. iSpecialize ("Hs" with "Hf"); eauto.
+Qed.
+
+Lemma tac_source_red_call Δ i K b f v K_s Ψ :
+  envs_lookup i Δ = Some (b, f @s K_s)%I →
+  envs_entails Δ (source_red (fill K (fill K_s (Val v))) Ψ) →
+  envs_entails Δ (source_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) Ψ).
+Proof.
+  rewrite envs_entails_eq=> ? Hi.
+  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_call.
+  rewrite envs_lookup_split //; simpl.
+  destruct b; simpl.
+  * iIntros "[#$ He]". iApply source_red_base; iIntros (??). iModIntro.
+    iApply Hi. iApply "He". iFrame "#".
+  * rewrite Hi. iIntros "[#Hf Hs]". iSplitR; first done.
+    iApply source_red_base. iSpecialize ("Hs" with "Hf"); eauto.
+Qed.
+
 
 Lemma tac_to_target Δ e_t e_s Φ :
   envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s {{ Φ }}))%I →
@@ -518,7 +549,7 @@ Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
 
 Ltac target_red_bind_core K_t :=
   lazymatch eval hnf in K_t with
-  | [] => idtac 
+  | [] => idtac
   | _ => eapply (tac_target_red_bind K_t); [simpl; reflexivity| reduction.pm_prettify]
   end.
 
@@ -528,16 +559,15 @@ Tactic Notation "target_red_bind" open_constr(efoc_t) :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e_t ?Ψ) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
-                                    target_red_bind_core K_t 
+                                    target_red_bind_core K_t
                                   )
           | fail 1 "target_red_bind: cannot find" efoc_t "in" e_t ]
   | _ => fail "target_red_bind: not a 'target_red'"
   end.
 
-
 Ltac source_red_bind_core K_s :=
   lazymatch eval hnf in K_s with
-  | [] => idtac 
+  | [] => idtac
   | _ => eapply (tac_source_red_bind K_s); [simpl; reflexivity| reduction.pm_prettify]
   end.
 
@@ -547,10 +577,43 @@ Tactic Notation "source_red_bind" open_constr(efoc_s) :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e_s ?Ψ) =>
     first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s;
-                                    source_red_bind_core K_s 
+                                    source_red_bind_core K_s
                                   )
           | fail 1 "source_red_bind: cannot find" efoc_s "in" e_s ]
   | _ => fail "source_red_bind: not a 'source_red'"
+  end.
+
+(** ** Call automation *)
+Tactic Notation "target_call" :=
+  to_target;
+  let solve_hasfun _ :=
+    let f := match goal with |- _ = Some (_, (?f @t _)%I) => f end in
+    iAssumptionCore || fail "target_call: cannot find" f "@t ?" in
+  target_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (target_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_call _ _ K _ _ _ _ _))
+      |fail 1 "target_call: cannot find 'Call' in" e];
+    [ solve_hasfun ()
+    |target_finish]
+  | _ => fail "target_call: not a 'target_red'"
+  end.
+
+Tactic Notation "source_call" :=
+  to_source;
+  let solve_hasfun _ :=
+    let f := match goal with |- _ = Some (_, (?f @s _)%I) => f end in
+    iAssumptionCore || fail "source_call: cannot find" f "@s ?" in
+  source_red_pures;
+  lazymatch goal with
+  | |- envs_entails _ (source_red ?e ?Ψ) =>
+    first
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_call _ _ K _ _ _ _ _))
+      |fail 1 "source_call: cannot find 'Call' in" e];
+    [ solve_hasfun ()
+    |source_finish]
+  | _ => fail "source_call: not a 'source_red'"
   end.
 
 (** ** Heap automation *)

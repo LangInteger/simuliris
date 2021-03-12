@@ -97,27 +97,21 @@ Proof.
 Qed.
 
 
-(* TODO move *)
-Lemma step_call e_t e_s (v_t v_s : val) f :
-  to_val e_t = Some v_t → to_val e_s = Some v_s →
-  ⊢ val_rel v_t v_s -∗ Call (of_fname f) e_t ⪯ Call (of_fname f) e_s {{ val_rel }}.
-Proof.
-  intros <-%of_to_val <-%of_to_val.
-  iIntros "H". rewrite sim_unfold. iIntros (????) "[H1 H2]". iModIntro.
-  iRight; iRight. iExists f, empty_ectx, v_t, empty_ectx, v_s, σ_s. cbn. iFrame.
-  iSplitR; first done. iSplitR. { iPureIntro. constructor. }
-  iIntros (v_t' v_s' ) "H". iApply sim_value. iApply "H".
-Qed.
-
 Definition source_client := (λ: "x", Call (of_fname "mul2") (InjL "x"))%V.
 Definition target_client := (λ: "x", Call (of_fname "mul2") (inj1_enc "x"))%V.
 
+(* TODO: adapt once we have eliminated beta red from simplang *)
 Lemma client_sim (n : Z) :
-  ⊢ target_client #n ⪯ source_client #n {{ λ v_t v_s, val_rel v_t v_s }}.
+  "target_client" @t (fun_to_ectx target_client) -∗
+  "source_client" @s (fun_to_ectx source_client) -∗
+  Call #(LitFn "target_client") #n ⪯ Call #(LitFn "source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
 Proof.
-  iStartProof. rewrite /target_client /source_client.
-  sim_pures. sim_bind (inj1_enc #n) (Val (InjLV #n)).
+  iIntros "Htarget Hsource".
+  target_call. source_call. to_sim.
+  rewrite /target_client /source_client.
+  sim_pures.
+  (*sim_bind (inj1_enc #n) (Val (InjLV #n)).*)
   rewrite /inj1_enc. sim_pures.
-  iApply step_call; eauto.
+  iApply sim_call; eauto.
 Qed.
 End fix_bi.
