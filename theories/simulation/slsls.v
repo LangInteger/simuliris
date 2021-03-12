@@ -772,36 +772,26 @@ Section fix_lang.
     by apply fill_prim_step.
   Qed.
 
-  (** Source reduction to a value *)
-  Definition source_eval e_s Φ := source_red e_s (λ P_s e_s σ_s, ∃ v_s, ⌜ (to_val e_s) = Some v_s ⌝ ∗ Φ v_s)%I.
-
   Lemma source_red_bind e_s K_s Ψ :
-    source_eval e_s (λ v_s, source_red (fill K_s (of_val v_s)) Ψ) -∗
+    source_red e_s (λ _ e_s' _, source_red (fill K_s e_s') Ψ) -∗
     source_red (fill K_s e_s) Ψ.
   Proof.
     iIntros "He".
-    iApply (source_red_ind _ (λ e_s, source_red (fill K_s e_s) Ψ)%I); last by rewrite /source_eval source_red_eq /flip .
+    iApply (source_red_ind _ (λ e_s, source_red (fill K_s e_s) Ψ)%I); last by rewrite source_red_eq /flip .
     iModIntro. clear e_s. iIntros (e_s) "IH". rewrite source_red_eq /flip source_red_unfold.
     iIntros (????) "Hstate". iMod ("IH" with "Hstate") as "IH".
-    iDestruct "IH" as "[Hstep | [Hstate Hval]]".
+    iDestruct "IH" as "[Hstep | [Hstate Hred]]".
     { iModIntro. iDestruct "Hstep" as (e_s' σ_s') "(%&?&?)". iLeft.
       iExists (fill K_s e_s'), σ_s'. iFrame. iPureIntro.
       by apply fill_prim_step. }
-    iDestruct "Hval" as (v_s) "(% & Hval)".
     rewrite source_red_unfold.
-    iMod ("Hval" with "Hstate") as "[Hstep | Hval]"; iModIntro; rewrite -(of_to_val _ _ H);
-    eauto.
+    iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto. 
   Qed.
 
   Lemma source_stuck_bind e_s K_s :
-    source_eval e_s (λ v_s, source_stuck (fill K_s (of_val v_s))) -∗
+    source_red e_s (λ _ e_s' _, source_stuck (fill K_s e_s')) -∗
     source_stuck (fill K_s e_s).
   Proof. iIntros "Hstuck". rewrite /source_stuck. by iApply source_red_bind. Qed.
-
-  Lemma source_eval_bind e_s K_s Φ :
-    source_eval e_s (λ v_s, source_eval (fill K_s (of_val v_s)) Φ) -∗
-    source_eval (fill K_s e_s) Φ.
-  Proof. iIntros "Hval". iApply source_red_bind. iApply "Hval". Qed.
 
   (** ** same thing for target *)
   Definition target_red_rec (Ψ : expr Λ → PROP) (rec : exprO → PROP) e_t :=
@@ -888,25 +878,20 @@ Section fix_lang.
     - rewrite {1}sim_unfold. by iMod ("Hsim" with "[$Hstate $Hnreach]").
   Qed.
 
-  (** target eval to a value *)
-  Definition target_eval e_t Φ := target_red e_t (λ e_t, ∃ v_t, ⌜ (to_val e_t) = Some v_t ⌝ ∗ Φ v_t)%I.
-
   Lemma target_red_bind e_t K_t Ψ :
-    target_eval e_t (λ v_t, target_red (fill K_t (of_val v_t)) Ψ) -∗
+    target_red e_t (λ e_t', target_red (fill K_t e_t') Ψ) -∗
     target_red (fill K_t e_t) Ψ.
   Proof.
     iIntros "He".
-    iApply (target_red_ind _ (λ e_t, target_red (fill K_t e_t) Ψ)%I); last by rewrite /target_eval target_red_eq /flip.
+    iApply (target_red_ind _ (λ e_t, target_red (fill K_t e_t) Ψ)%I); last by rewrite target_red_eq /flip.
     iModIntro. clear e_t. iIntros (e_t) "IH". rewrite target_red_eq /flip target_red_unfold.
     iIntros (????) "Hstate". iMod ("IH" with "Hstate") as "IH".
-    iDestruct "IH" as "[[% Hstep] | [Hstate Hval]]"; first last.
-    - iDestruct "Hval" as (v_s) "(% & Hval)". rewrite target_red_unfold.
-      iMod ("Hval" with "Hstate") as "[Hstep | Hval]"; iModIntro; rewrite -(of_to_val _ _ H);
-        eauto.
+    iDestruct "IH" as "[[% Hstep] | [Hstate Hred]]"; first last.
+    - rewrite target_red_unfold.
+      iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto.
     - rename H into Hred. iModIntro. iLeft. iSplitR; first by eauto using fill_reducible.
       iIntros (e_t' σ_t') "%". rename H into Hprim.
       eapply fill_reducible_prim_step in Hprim as (e_t'' & -> & H); last done.
       by iMod ("Hstep" with "[% //]").
   Qed.
 End fix_lang.
-

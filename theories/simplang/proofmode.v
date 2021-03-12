@@ -86,11 +86,11 @@ Proof.
   rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_value.
 Qed.
 
-Lemma tac_sim_value_no_bupd v_t v_s Φ Δ:
+Lemma tac_sim_value_no_bupd v_t v_s Φ Δ :
   envs_entails Δ (Φ v_t v_s) → envs_entails Δ (Val v_t ⪯ Val v_s {{ Φ }}).
 Proof. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
 
-Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s:
+Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
   envs_entails Δ (e_t ⪯ e_s {{ λ v_t v_s, f_t (Val v_t) ⪯ f_s (Val v_s) {{ Φ }} }})%I →
@@ -98,6 +98,24 @@ Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s:
 Proof.
   rewrite envs_entails_eq=> -> ->. intros H.
   iIntros "H". iApply (sim_bind Ω e_t e_s K_t K_s Φ). by iApply H.
+Qed.
+
+Lemma tac_target_red_bind K_t e_t f_t Ψ Δ :
+  f_t = (λ e_t, fill K_t e_t) →
+  envs_entails Δ (target_red e_t (λ e_t', target_red (f_t e_t') Ψ) : iProp Σ) →
+  envs_entails Δ (target_red (fill K_t e_t) Ψ).
+Proof.
+  rewrite envs_entails_eq=> ->. intros H.
+  iIntros "H". iApply target_red_bind. by iApply H.
+Qed.
+
+Lemma tac_source_red_bind K_s e_s f_s Ψ Δ :
+  f_s = (λ e_s, fill K_s e_s) →
+  envs_entails Δ (source_red e_s (λ _ e_s' _, source_red (f_s e_s') Ψ) : iProp Σ) →
+  envs_entails Δ (source_red (fill K_s e_s) Ψ).
+Proof.
+  rewrite envs_entails_eq=> ->. intros H.
+  iIntros "H". iApply source_red_bind. by iApply H.
 Qed.
 
 Lemma tac_target_red_allocN n v j K Ψ Δ :
@@ -114,8 +132,7 @@ Proof.
   iApply target_red_bind. iApply target_red_allocN; first done.
   iIntros (l) "Hl". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  iApply target_red_base. iModIntro. iExists #l; iSplitR; first done.
-  iApply HΔ.
+  iApply target_red_base. iModIntro. iApply HΔ.
   rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
@@ -133,7 +150,7 @@ Proof.
   iApply source_red_bind. iApply source_red_allocN; first done.
   iIntros (l) "Hl". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  iApply source_red_base; iIntros (??). iModIntro. iExists #l; iSplitR; first done.
+  iApply source_red_base; iIntros (??). iModIntro. 
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
@@ -150,9 +167,8 @@ Proof.
   iApply target_red_bind. iApply target_red_alloc.
   iIntros (l) "Hl". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  iApply target_red_base. iModIntro. iExists #l; iSplitR; first done.
-  iApply HΔ.
-  rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply target_red_base. iModIntro. 
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
 Lemma tac_source_red_alloc v j K Ψ Δ :
@@ -168,9 +184,8 @@ Proof.
   iApply source_red_bind. iApply source_red_alloc.
   iIntros (l) "Hl". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  iApply source_red_base; iIntros (??). iModIntro. iExists #l; iSplitR; first done.
-  iApply HΔ.
-  rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply source_red_base; iIntros (??). iModIntro.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
 Lemma tac_target_red_free l v i K Ψ Δ :
@@ -183,7 +198,7 @@ Proof.
   rewrite -target_red_bind. eapply wand_apply; first exact: target_red_free.
   rewrite envs_lookup_split //; simpl.
   iIntros "H". iApply sep_mono_r.
-  { iIntros "H". iApply target_red_base. iModIntro. iExists (#()); iSplitR; first done. iApply "H". }
+  { iIntros "H". iApply target_red_base. iModIntro. iApply "H". }
   rewrite -Hfin.
   rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
   by rewrite wand_elim_r.
@@ -199,7 +214,7 @@ Proof.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_free.
   rewrite envs_lookup_split //; simpl.
   iIntros "H". iApply sep_mono_r.
-  { iIntros "H". iApply source_red_base; iIntros (??). iModIntro. iExists (#()); iSplitR; first done. iApply "H". }
+  { iIntros "H". iApply source_red_base; iIntros (??). iModIntro. iApply "H". }
   rewrite -Hfin.
   rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
   by rewrite wand_elim_r.
@@ -214,7 +229,7 @@ Proof.
   rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
-  * iIntros "[#$ He]". iIntros "_". iApply target_red_base. iModIntro. iExists v; iSplit; first done.
+  * iIntros "[#$ He]". iIntros "_". iApply target_red_base. iModIntro.
     iApply Hi. iApply "He". iFrame "#".
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Ht".
     iApply target_red_base; eauto.
@@ -229,7 +244,7 @@ Proof.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
-  * iIntros "[#$ He]". iIntros "_". iApply source_red_base; iIntros (??). iModIntro. iExists v; iSplit; first done.
+  * iIntros "[#$ He]". iIntros "_". iApply source_red_base; iIntros (??). iModIntro.
     iApply Hi. iApply "He". iFrame "#".
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Hs".
     iApply source_red_base; eauto.
@@ -293,7 +308,6 @@ Proof.
   rewrite envs_entails_eq=> Hi. rewrite -source_red_base.
   iIntros "He" (??). iModIntro. by iApply Hi.
 Qed.
-
 End sim.
 
 (** ** automation for source_red and target_red *)
@@ -305,7 +319,7 @@ Ltac to_sim :=
       notypeclasses refine (tac_target_to_sim _ _ e_t _ _ _)
   | |- envs_entails _ (source_red ?e_s _) =>
       notypeclasses refine (tac_source_to_sim _ _ _ e_s _ _)
-  | _ => fail "not a target_eval or source_eval of suitable shape"
+  | _ => fail "not a target_red or source_red of suitable shape"
   end.
 
 Ltac to_target :=
@@ -388,7 +402,7 @@ Ltac target_value_head :=
 
 Ltac target_finish :=
   target_expr_simpl;      (* simplify occurences of subst/fill *)
-  first [target_value_head; sim_finish | pm_prettify].
+  first [target_value_head; try sim_finish | pm_prettify].
 
 (** source_red *)
 Tactic Notation "source_red_expr_eval" tactic3(t) :=
@@ -414,7 +428,7 @@ Ltac source_value_head :=
 
 Ltac source_finish :=
   source_expr_simpl;      (* simplify occurences of subst/fill *)
-  first [source_value_head; sim_finish | pm_prettify].
+  first [source_value_head; try sim_finish | pm_prettify].
 
 (** ** Pure reduction *)
 
@@ -499,9 +513,45 @@ Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
                                            | fail 1 "sim_bind: cannot find" efoc_s "in" e_s]
                                   )
           | fail 1 "sim_bind: cannot find" efoc_t "in" e_t ]
-  | _ => fail "sim_bind: not a 'sim"
+  | _ => fail "sim_bind: not a 'sim'"
   end.
 
+Ltac target_red_bind_core K_t :=
+  lazymatch eval hnf in K_t with
+  | [] => idtac 
+  | _ => eapply (tac_target_red_bind K_t); [simpl; reflexivity| reduction.pm_prettify]
+  end.
+
+Tactic Notation "target_red_bind" open_constr(efoc_t) :=
+  iStartProof;
+  to_target;
+  lazymatch goal with
+  | |- envs_entails _ (target_red ?e_t ?Ψ) =>
+    first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
+                                    target_red_bind_core K_t 
+                                  )
+          | fail 1 "target_red_bind: cannot find" efoc_t "in" e_t ]
+  | _ => fail "target_red_bind: not a 'target_red'"
+  end.
+
+
+Ltac source_red_bind_core K_s :=
+  lazymatch eval hnf in K_s with
+  | [] => idtac 
+  | _ => eapply (tac_source_red_bind K_s); [simpl; reflexivity| reduction.pm_prettify]
+  end.
+
+Tactic Notation "source_red_bind" open_constr(efoc_s) :=
+  iStartProof;
+  to_source;
+  lazymatch goal with
+  | |- envs_entails _ (source_red ?e_s ?Ψ) =>
+    first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s;
+                                    source_red_bind_core K_s 
+                                  )
+          | fail 1 "source_red_bind: cannot find" efoc_s "in" e_s ]
+  | _ => fail "source_red_bind: not a 'source_red'"
+  end.
 
 (** ** Heap automation *)
 
