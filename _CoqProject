@@ -29,5 +29,6 @@ theories/simplang/examples/heap_test.v
 
 
 theories/base_logic/gen_sim_heap.v
+theories/base_logic/gen_sim_prog.v
 
 
