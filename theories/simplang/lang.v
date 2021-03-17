@@ -53,9 +53,10 @@ Inductive expr :=
   (* Values *)
   | Val (v : val)
   (* Base lambda calculus *)
+    (* instead of lambda abstractions, we have let expressions and calls *)
   | Var (x : string)
-  | Rec (f x : binder) (e : expr)
-  | App (e1 e2 : expr)
+  | Let (x : binder) (e1 e2 : expr)
+  | Call (e1 : expr) (e2 : expr)
   (* Base types and their operations *)
   | UnOp (op : un_op) (e : expr)
   | BinOp (op : bin_op) (e1 e2 : expr)
@@ -67,7 +68,7 @@ Inductive expr :=
   (* Sums *)
   | InjL (e : expr)
   | InjR (e : expr)
-  | Case (e0 : expr) (e1 : expr) (e2 : expr)
+  | Match (e0 : expr) (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
   (* Concurrency *)
   | Fork (e : expr)
   (* Heap *)
@@ -77,11 +78,8 @@ Inductive expr :=
   | Store (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
-  (* Calls *)
-  | Call (e1 : expr) (e2 : expr)
 with val :=
   | LitV (l : base_lit)
-  | RecV (f x : binder) (e : expr)
   | PairV (v1 v2 : val)
   | InjLV (v : val)
   | InjRV (v : val).
@@ -159,7 +157,7 @@ Definition val_is_unboxed (v : val) : Prop :=
 Global Instance lit_is_unboxed_dec l : Decision (lit_is_unboxed l).
 Proof. destruct l; simpl; exact (decide _). Defined.
 Global Instance val_is_unboxed_dec v : Decision (val_is_unboxed v).
-Proof. destruct v as [ | | | [] | [] ]; simpl; exact (decide _). Defined.
+Proof. destruct v as [ | | [] | [] ]; simpl; exact (decide _). Defined.
 
 (** We just compare the word-sized representation of two values, without looking
 into boxed data.  This works out fine if at least one of the to-be-compared
@@ -190,7 +188,7 @@ Proof. reflexivity. Qed.
 Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e.
 Proof.
   destruct e => //=. destruct e1 => //=.
-  match goal with |- context[Val ?v] => destruct v as [[] | | | |] => //= end.
+  match goal with |- context[Val ?v] => destruct v as [[] | | |] => //= end.
   destruct e2 => //=. by intros [= <- <-].
 Qed.
 
@@ -207,9 +205,8 @@ Proof.
      match e1, e2 with
      | Val v, Val v' => cast_if (decide (v = v'))
      | Var x, Var x' => cast_if (decide (x = x'))
-     | Rec f x e, Rec f' x' e' =>
-        cast_if_and3 (decide (f = f')) (decide (x = x')) (decide (e = e'))
-     | App e1 e2, App e1' e2' => cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
+     | Let x e1 e2, Let x' e1' e2' =>
+        cast_if_and3 (decide (x = x')) (decide (e1 = e1')) (decide (e2 = e2'))
      | UnOp o e, UnOp o' e' => cast_if_and (decide (o = o')) (decide (e = e'))
      | BinOp o e1 e2, BinOp o' e1' e2' =>
         cast_if_and3 (decide (o = o')) (decide (e1 = e1')) (decide (e2 = e2'))
@@ -221,8 +218,8 @@ Proof.
      | Snd e, Snd e' => cast_if (decide (e = e'))
      | InjL e, InjL e' => cast_if (decide (e = e'))
      | InjR e, InjR e' => cast_if (decide (e = e'))
-     | Case e0 e1 e2, Case e0' e1' e2' =>
-        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
+     | Match e0 x1 e1 x2 e2, Match e0' x1' e1' x2' e2' =>
+        cast_if_and5 (decide (e0 = e0')) (decide (x1 = x1')) (decide (e1 = e1')) (decide (x2 = x2')) (decide (e2 = e2'))
      | Fork e, Fork e' => cast_if (decide (e = e'))
      | AllocN e1 e2, AllocN e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
@@ -242,8 +239,6 @@ Proof.
    with gov (v1 v2 : val) {struct v1} : Decision (v1 = v2) :=
      match v1, v2 with
      | LitV l, LitV l' => cast_if (decide (l = l'))
-     | RecV f x e, RecV f' x' e' =>
-        cast_if_and3 (decide (f = f')) (decide (x = x')) (decide (e = e'))
      | PairV e1 e2, PairV e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | InjLV e, InjLV e' => cast_if (decide (e = e'))
@@ -297,8 +292,7 @@ Proof.
      match e with
      | Val v => GenNode 0 [gov v]
      | Var x => GenLeaf (inl (inl x))
-     | Rec f x e => GenNode 1 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); go e]
-     | App e1 e2 => GenNode 2 [go e1; go e2]
+     | Let x e1 e2 => GenNode 1 [GenLeaf (inl (inr x)); go e1; go e2]
      | UnOp op e => GenNode 3 [GenLeaf (inr (inr (inl op))); go e]
      | BinOp op e1 e2 => GenNode 4 [GenLeaf (inr (inr (inr op))); go e1; go e2]
      | If e0 e1 e2 => GenNode 5 [go e0; go e1; go e2]
@@ -307,7 +301,7 @@ Proof.
      | Snd e => GenNode 8 [go e]
      | InjL e => GenNode 9 [go e]
      | InjR e => GenNode 10 [go e]
-     | Case e0 e1 e2 => GenNode 11 [go e0; go e1; go e2]
+     | Match e0 x1 e1 x2 e2 => GenNode 11 [go e0; GenLeaf (inl (inr x1)); go e1; GenLeaf (inl (inr x2)); go e2]
      | Fork e => GenNode 12 [go e]
      | AllocN e1 e2 => GenNode 13 [go e1; go e2]
      | Free e => GenNode 14 [go e]
@@ -320,8 +314,6 @@ Proof.
    with gov v :=
      match v with
      | LitV l => GenLeaf (inr (inl l))
-     | RecV f x e =>
-        GenNode 0 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); go e]
      | PairV v1 v2 => GenNode 1 [gov v1; gov v2]
      | InjLV v => GenNode 2 [gov v]
      | InjRV v => GenNode 3 [gov v]
@@ -332,8 +324,7 @@ Proof.
      match e with
      | GenNode 0 [v] => Val (gov v)
      | GenLeaf (inl (inl x)) => Var x
-     | GenNode 1 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); e] => Rec f x (go e)
-     | GenNode 2 [e1; e2] => App (go e1) (go e2)
+     | GenNode 1 [GenLeaf (inl (inr x)); e1; e2] => Let x (go e1) (go e2)
      | GenNode 3 [GenLeaf (inr (inr (inl op))); e] => UnOp op (go e)
      | GenNode 4 [GenLeaf (inr (inr (inr op))); e1; e2] => BinOp op (go e1) (go e2)
      | GenNode 5 [e0; e1; e2] => If (go e0) (go e1) (go e2)
@@ -342,7 +333,7 @@ Proof.
      | GenNode 8 [e] => Snd (go e)
      | GenNode 9 [e] => InjL (go e)
      | GenNode 10 [e] => InjR (go e)
-     | GenNode 11 [e0; e1; e2] => Case (go e0) (go e1) (go e2)
+     | GenNode 11 [e0; GenLeaf (inl (inr x1)); e1; GenLeaf (inl (inr x2)); e2] => Match (go e0) x1 (go e1) x2 (go e2)
      | GenNode 12 [e] => Fork (go e)
      | GenNode 13 [e1; e2] => AllocN (go e1) (go e2)
      | GenNode 14 [e] => Free (go e)
@@ -356,7 +347,6 @@ Proof.
    with gov v :=
      match v with
      | GenLeaf (inr (inl l)) => LitV l
-     | GenNode 0 [GenLeaf (inl (inr f)); GenLeaf (inl (inr x)); e] => RecV f x (go e)
      | GenNode 1 [v1; v2] => PairV (gov v1) (gov v2)
      | GenNode 2 [v] => InjLV (gov v)
      | GenNode 3 [v] => InjRV (gov v)
@@ -365,7 +355,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -384,8 +374,8 @@ Canonical Structure exprO := leibnizO expr.
 
 (** Evaluation contexts *)
 Inductive ectx_item :=
-  | AppLCtx (v2 : val)
-  | AppRCtx (e1 : expr)
+  (* we can evaluate the expression that x will be bound to *)
+  | LetCtx (x : binder) (e2 : expr)
   | UnOpCtx (op : un_op)
   | BinOpLCtx (op : bin_op) (v2 : val)
   | BinOpRCtx (op : bin_op) (e1 : expr)
@@ -396,7 +386,7 @@ Inductive ectx_item :=
   | SndCtx
   | InjLCtx
   | InjRCtx
-  | CaseCtx (e1 : expr) (e2 : expr)
+  | MatchCtx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
   | AllocNLCtx (v2 : val)
   | AllocNRCtx (e1 : expr)
   | FreeCtx
@@ -413,8 +403,7 @@ Inductive ectx_item :=
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
-  | AppLCtx v2 => App e (of_val v2)
-  | AppRCtx e1 => App e1 e
+  | LetCtx x e2 => Let x e e2
   | UnOpCtx op => UnOp op e
   | BinOpLCtx op v2 => BinOp op e (Val v2)
   | BinOpRCtx op e1 => BinOp op e1 e
@@ -425,7 +414,7 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | SndCtx => Snd e
   | InjLCtx => InjL e
   | InjRCtx => InjR e
-  | CaseCtx e1 e2 => Case e e1 e2
+  | MatchCtx x1 e1 x2 e2 => Match e x1 e1 x2 e2
   | AllocNLCtx v2 => AllocN e (Val v2)
   | AllocNRCtx e1 => AllocN e1 e
   | FreeCtx => Free e
@@ -446,9 +435,8 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   match e with
   | Val _ => e
   | Var y => if decide (x = y) then Val v else Var y
-  | Rec f y e =>
-     Rec f y $ if decide (BNamed x ≠ f ∧ BNamed x ≠ y) then subst x v e else e
-  | App e1 e2 => App (subst x v e1) (subst x v e2)
+  | Let y e1 e2 =>
+     Let y (subst x v e1) (if decide (BNamed x ≠ y) then subst x v e2 else e2)
   | UnOp op e => UnOp op (subst x v e)
   | BinOp op e1 e2 => BinOp op (subst x v e1) (subst x v e2)
   | If e0 e1 e2 => If (subst x v e0) (subst x v e1) (subst x v e2)
@@ -457,7 +445,8 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Snd e => Snd (subst x v e)
   | InjL e => InjL (subst x v e)
   | InjR e => InjR (subst x v e)
-  | Case e0 e1 e2 => Case (subst x v e0) (subst x v e1) (subst x v e2)
+  | Match e0 x1 e1 x2 e2 => Match (subst x v e0) x1 (if decide (BNamed x ≠ x1) then subst x v e1 else e1)
+      x2 (if decide (BNamed x ≠ x2) then subst x v e2 else e2)
   | Fork e => Fork (subst x v e)
   | AllocN e1 e2 => AllocN (subst x v e1) (subst x v e2)
   | Free e => Free (subst x v e)
@@ -599,17 +588,15 @@ Proof. apply foldl_app. Qed.
 Definition prog := gmap fname ectx.
 
 Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
-  | RecS f x e σ :
-     head_step P (Rec f x e) σ (Val $ RecV f x e) σ
   | PairS v1 v2 σ :
      head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ
   | InjLS v σ :
      head_step P (InjL $ Val v) σ (Val $ InjLV v) σ
   | InjRS v σ :
      head_step P (InjR $ Val v) σ (Val $ InjRV v) σ
-  | BetaS f x e1 v2 e' σ :
-     e' = subst' x v2 (subst' f (RecV f x e1) e1) →
-     head_step P (App (Val $ RecV f x e1) (Val v2)) σ e' σ
+  | LetS x v1 e2 e' σ :
+     e' = subst' x v1 e2 →
+     head_step P (Let x (Val $ v1) e2) σ e' σ
   | UnOpS op v v' σ :
      un_op_eval op v = Some v' →
      head_step P (UnOp op (Val v)) σ (Val v') σ
@@ -624,10 +611,12 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      head_step P (Fst (Val $ PairV v1 v2)) σ (Val v1) σ
   | SndS v1 v2 σ :
      head_step P (Snd (Val $ PairV v1 v2)) σ (Val v2) σ
-  | CaseLS v e1 e2 σ :
-     head_step P (Case (Val $ InjLV v) e1 e2) σ (App e1 (Val v)) σ
-  | CaseRS v e1 e2 σ :
-     head_step P (Case (Val $ InjRV v) e1 e2) σ (App e2 (Val v)) σ
+  | MatchLS v x1 e1 x2 e2 e' σ :
+      e' = subst' x1 v e1 →
+     head_step P (Match (Val $ InjLV v) x1 e1 x2 e2) σ e' σ
+  | MatchRS v x1 e1 x2 e2 e' σ :
+      e' = subst' x2 v e2 →
+     head_step P (Match (Val $ InjRV v) x1 e1 x2 e2) σ e' σ
   | ForkS e σ:
       (* TODO: for now, this is just a NOP -- maybe we want to change this later and add concurrency?*)
      head_step P (Fork e) σ (Val $ LitV LitUnit) σ
@@ -683,7 +672,7 @@ Proof.
     rewrite /to_class; simpl. destruct to_fname, to_val; simpl; congruence.
   + destruct e; try discriminate 1. rewrite /to_class; simpl.
     destruct e1; simpl.
-    { destruct v as [[ | | | | |fn] | | | | ]; simpl; try congruence.
+    { destruct v as [[ | | | | |fn] | | | ]; simpl; try congruence.
       destruct e2; try discriminate 1. by inversion 1. }
     all: congruence.
 Qed.

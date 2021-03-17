@@ -11,30 +11,13 @@ Context `{sheapG Σ}.
 
 (* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
 
-Definition inj1_enc : val := (λ: "x", (#1, "x"))%V.
-Definition inj2_enc : val := (λ: "x", (#2, "x"))%V.
+Definition inj1_enc : ectx := (λ: "x", (#1, "x"))%E.
+Definition inj2_enc : ectx := (λ: "x", (#2, "x"))%E.
 
-Definition diverge : val := (rec: "f" "x" := "f" "x")%V.
-
-(* on invalid inputs, we diverge: in the source we get stuck, so any target behaviour is okay *)
-Definition case_enc : val :=
-  (λ: "x" "f" "g",
-      if: Fst "x" = #1 then "f" (Snd "x")
-      else if: Fst "x" = #2
-        then "g" (Snd "x")
-        else diverge #()
-  ).
-
-Definition case_prim : val :=
-  (λ: "x" "f" "g",
-    match: "x" with
-      InjL "x" => "f" "x"
-    | InjR "x" => "g" "x"
-    end)%V.
+Definition diverge : ectx := (λ: "x", Call "diverge" "x")%E.
 
 (** the value relation determining which values can be passed to a function *)
 Inductive val_rel_pure : val → val → Prop :=
-  (* functions are never related *)
   | val_rel_lit l : val_rel_pure (LitV l) (LitV l)
   | val_rel_injL v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#1, v1)%V) (InjLV v2)
   | val_rel_injR v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#2, v1)%V) (InjRV v2)
@@ -48,25 +31,41 @@ Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
 Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 Definition mul2_source :=
-  (λ: "x", case_prim "x" (λ: "x", "x" * #2) (λ: "x", "x" + #2))%V.
+  (λ: "x", 
+    match: "x" with
+      InjL "x" => "x" * #2
+    | InjR "x" => "x" + #2
+    end)%E.
+  
 Definition mul2_target :=
-  (λ: "x", case_enc "x" (λ: "x", "x" * #2) (λ: "x", "x" + #2))%V.
+  (λ: "x", 
+    if: Fst "x" = #1 then (Snd "x") * #2
+      else if: Fst "x" = #2
+        then (Snd "x") + #2
+        else Call "diverge" #())%E. 
 
-Definition fun_to_ectx (v : val) := [AppRCtx v].
+(*Definition insert' `{Insert K A M} '(k, v) (m : M) := insert (k : K) (v : A) m. *)
+(*Definition singletonM' `{SingletonM K A M} '(k, v) := singletonM (k : K) (v : A) : M. *)
+(*Declare Scope hack_scope.*)
+(*Notation "a := b" := (a, b) (at level 30, only parsing) : hack_scope. *)
+(*Delimit Scope hack_scope with hack.*)
+(*Notation "{[[ x ; .. ; z ]]}" :=*)
+  (*(insert' (x) .. (insert' (z) ∅) .. )*)
+  (*(at level 1) : stdpp_scope.*)
+(*Definition test :=  Eval cbn in ("diverge", diverge)%hack.*)
 
-Definition source_prog : gmap string ectx := {[ "mul2" := fun_to_ectx mul2_source]}.
-Definition target_prog : gmap string ectx := {[ "mul2" := fun_to_ectx mul2_target]}.
+Definition source_prog : gmap string ectx := <["inj1_enc" := inj1_enc]>(<[ "diverge" := diverge ]>{[ "mul2" := mul2_source ]}).
+Definition target_prog : gmap string ectx := <[ "diverge" := diverge ]>{[ "mul2" := mul2_target]}.
 
 (** We want to prove: *)
 
-Lemma sim_source_case e_t e_s1 e_s2 Φ v_s :
-  ⊢ (∀ v_s', ⌜v_s = InjLV v_s'⌝ -∗ e_t ⪯ Case (Val v_s) e_s1 e_s2 {{ Φ }}) -∗
-    (∀ v_s', ⌜v_s = InjRV v_s'⌝ -∗ e_t ⪯ Case (Val v_s) e_s1 e_s2 {{ Φ }}) -∗
-    e_t ⪯ Case (Val v_s) e_s1 e_s2 {{ Φ }}.
+Lemma sim_source_case e_t e_s1 e_s2 x1 x2 Φ v_s :
+  ⊢ (∀ v_s', ⌜v_s = InjLV v_s'⌝ -∗ e_t ⪯ Match (Val v_s) x1 e_s1 x2 e_s2 {{ Φ }}) -∗
+    (∀ v_s', ⌜v_s = InjRV v_s'⌝ -∗ e_t ⪯ Match (Val v_s) x1 e_s1 x2 e_s2 {{ Φ }}) -∗
+    e_t ⪯ Match (Val v_s) x1 e_s1 x2 e_s2 {{ Φ }}.
 Proof.
   iIntros "Hvl Hvr".
-  destruct v_s as [ l | | v1 v2 | v1 | v2 ].
-  - iApply source_stuck_sim. source_stuck_prim.
+  destruct v_s as [ l | v1 v2 | v1 | v2 ].
   - iApply source_stuck_sim. source_stuck_prim.
   - iApply source_stuck_sim. source_stuck_prim.
   - by iApply "Hvl".
@@ -75,11 +74,9 @@ Qed.
 
 Lemma mul2_sim:
   ⊢ ∀ v_t v_s, val_rel v_t v_s -∗
-    mul2_target (of_val v_t) ⪯ mul2_source (of_val v_s) {{ λ v_t' v_s', val_rel v_t' v_s' }}.
+    fill mul2_target (of_val v_t) ⪯ fill mul2_source (of_val v_s) {{ λ v_t' v_s', val_rel v_t' v_s' }}.
 Proof.
   iIntros (?? Hval). rewrite /mul2_target /mul2_source.
-  sim_pures.
-  rewrite /case_enc /case_prim.
   sim_pures.
   iApply sim_source_case.
   - iIntros (v_s') "->". inversion Hval; subst.
@@ -97,21 +94,17 @@ Proof.
 Qed.
 
 
-Definition source_client := (λ: "x", Call (of_fname "mul2") (InjL "x"))%V.
-Definition target_client := (λ: "x", Call (of_fname "mul2") (inj1_enc "x"))%V.
+Definition source_client := (λ: "x", Call (#f "mul2") (InjL "x"))%E.
+Definition target_client := (λ: "x", Call (#f "mul2") (Call (#f "inj1_enc") "x"))%E.
 
-(* TODO: adapt once we have eliminated beta red from simplang *)
 Lemma client_sim (n : Z) :
-  "target_client" @t (fun_to_ectx target_client) -∗
-  "source_client" @s (fun_to_ectx source_client) -∗
-  Call #(LitFn "target_client") #n ⪯ Call #(LitFn "source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
+  "target_client" @t target_client -∗
+  "source_client" @s source_client -∗
+  "inj1_enc" @t inj1_enc -∗
+  Call (#f "target_client") #n ⪯ Call (#f "source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
 Proof.
-  iIntros "Htarget Hsource".
-  target_call. source_call. to_sim.
-  rewrite /target_client /source_client.
-  sim_pures.
-  (*sim_bind (inj1_enc #n) (Val (InjLV #n)).*)
-  rewrite /inj1_enc. sim_pures.
+  iIntros "Htarget Hsource Hinj1_t".
+  target_call. target_call. source_call. sim_pures. 
   iApply sim_call; eauto.
 Qed.
 End fix_bi.

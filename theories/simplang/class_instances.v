@@ -4,26 +4,6 @@ From simuliris.simplang Require Import lang tactics.
 
 
 (** * Instances of the [PureExec] class *)
-(** The behavior of the various [wp_] tactics with regard to lambda differs in
-the following way:
-
-- [wp_pures] does *not* reduce lambdas/recs that are hidden behind a definition.
-- [wp_rec] and [wp_lam] reduce lambdas/recs that are hidden behind a definition.
-
-To realize this behavior, we define the class [AsRecV v f x erec], which takes a
-value [v] as its input, and turns it into a [RecV f x erec] via the instance
-[AsRecV_recv : AsRecV (RecV f x e) f x e]. We register this instance via
-[Hint Extern] so that it is only used if [v] is syntactically a lambda/rec, and
-not if [v] contains a lambda/rec that is hidden behind a definition.
-
-To make sure that [wp_rec] and [wp_lam] do reduce lambdas/recs that are hidden
-behind a definition, we activate [AsRecV_recv] by hand in these tactics. *)
-Class AsRecV (v : val) (f x : binder) (erec : expr) :=
-  as_recv : v = RecV f x erec.
-Global Hint Mode AsRecV ! - - - : typeclass_instances.
-Definition AsRecV_recv f x e : AsRecV (RecV f x e) f x e := eq_refl.
-Global Hint Extern 0 (AsRecV (RecV _ _ _) _ _ _) =>
-  apply AsRecV_recv : typeclass_instances.
 
 Section irreducible.
   Lemma language_to_val_eq e :
@@ -38,8 +18,8 @@ Section irreducible.
 
   (* TODO: the proofs of these lemmas are completely the same.
     Can we factor this into common LTac/nice lemmas? *)
-  Global Instance irreducible_case v e1 e2 :
-    PureIrreducible (¬ ∃ v', v = InjLV v' ∨ v = InjRV v') (Case (Val v) e1 e2).
+  Global Instance irreducible_match v x1 e1 x2 e2 :
+    PureIrreducible (¬ ∃ v', v = InjLV v' ∨ v = InjRV v') (Match (Val v) x1 e1 x2 e2).
   Proof.
     intros P_s σ_s ϕ e_s' σ_s' Hprim.
     eapply prim_head_step in Hprim as Hhead.
@@ -95,9 +75,6 @@ Section pure_exec.
     subst; intros ?; apply nsteps_once, pure_head_step_pure_step;
       constructor; [solve_exec_safe | solve_exec_puredet].
 
-  Global Instance pure_recc f x (erec : expr) :
-    PureExec True 1 (Rec f x erec) (Val $ RecV f x erec).
-  Proof. solve_pure_exec. Qed.
   Global Instance pure_pairc (v1 v2 : val) :
     PureExec True 1 (Pair (Val v1) (Val v2)) (Val $ PairV v1 v2).
   Proof. solve_pure_exec. Qed.
@@ -108,9 +85,9 @@ Section pure_exec.
     PureExec True 1 (InjR $ Val v) (Val $ InjRV v).
   Proof. solve_pure_exec. Qed.
 
-  Global Instance pure_beta f x (erec : expr) (v1 v2 : val) `{!AsRecV v1 f x erec} :
-    PureExec True 1 (App (Val v1) (Val v2)) (subst' x v2 (subst' f v1 erec)).
-  Proof. unfold AsRecV in *. solve_pure_exec. Qed.
+  Global Instance pure_iota x (e2 : expr) (v1 : val) :
+    PureExec True 1 (Let x (Val v1) e2) (subst' x v1 e2).
+  Proof. solve_pure_exec. Qed.
 
   Global Instance pure_unop op v v' :
     PureExec (un_op_eval op v = Some v') 1 (UnOp op (Val v)) (Val v').
@@ -145,10 +122,10 @@ Section pure_exec.
     PureExec True 1 (Snd (Val $ PairV v1 v2)) (Val v2).
   Proof. solve_pure_exec. Qed.
 
-  Global Instance pure_case_inl v e1 e2 :
-    PureExec True 1 (Case (Val $ InjLV v) e1 e2) (App e1 (Val v)).
+  Global Instance pure_match_inl v x1 e1 x2 e2 :
+    PureExec True 1 (Match (Val $ InjLV v) x1 e1 x2 e2) (subst' x1 v e1).
   Proof. solve_pure_exec. Qed.
-  Global Instance pure_case_inr v e1 e2 :
-    PureExec True 1 (Case (Val $ InjRV v) e1 e2) (App e2 (Val v)).
+  Global Instance pure_match_inr v x1 e1 x2 e2 :
+    PureExec True 1 (Match (Val $ InjRV v) x1 e1 x2 e2) (subst' x2 v e2).
   Proof. solve_pure_exec. Qed.
 End pure_exec.

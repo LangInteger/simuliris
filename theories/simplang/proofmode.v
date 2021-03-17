@@ -346,29 +346,37 @@ Ltac to_sim :=
   iStartProof;
   lazymatch goal with
   | |- envs_entails _ (sim _ _ _ _) => idtac
-  | |- envs_entails _ (target_red ?e_t _) =>
+  | |- envs_entails _ (target_red ?e_t (λ _, sim _ _ _ _ )) =>
       notypeclasses refine (tac_target_to_sim _ _ e_t _ _ _)
-  | |- envs_entails _ (source_red ?e_s _) =>
+  | |- envs_entails _ (source_red ?e_s (λ _ _ _, sim _ _ _ _)) =>
       notypeclasses refine (tac_source_to_sim _ _ _ e_s _ _)
   | _ => fail "not a target_red or source_red of suitable shape"
   end.
 
 Ltac to_target :=
   iStartProof;
-  to_sim;
-  lazymatch goal with
-  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
-      notypeclasses refine (tac_to_target  Ω _ e_t e_s Φ _)
-  | _ => fail "to_target: not a sim"
-  end.
+  lazymatch goal with 
+  | |- envs_entails _ (target_red _ _) => idtac 
+  | _ => 
+    to_sim;
+    lazymatch goal with
+    | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
+        notypeclasses refine (tac_to_target  Ω _ e_t e_s Φ _)
+    | _ => fail "to_target: not a sim"
+    end
+  end. 
 
 Ltac to_source :=
   iStartProof;
-  to_sim;
-  lazymatch goal with
-  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
-      notypeclasses refine (tac_to_source  Ω _ e_t e_s Φ _)
-  | _ => fail "to_source: not a sim"
+  lazymatch goal with 
+  | |- envs_entails _ (source_red _ _) => idtac
+  | _ =>
+    to_sim;
+    lazymatch goal with
+    | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
+        notypeclasses refine (tac_to_source  Ω _ e_t e_s Φ _)
+    | _ => fail "to_source: not a sim"
+    end
   end.
 
 (** ** simple automation for evaluation *)
