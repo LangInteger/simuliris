@@ -16,55 +16,132 @@ Section irreducible.
         [ by rewrite (to_class_val _ _ Heq') in Heq | done | done].
   Qed.
 
-  (* TODO: the proofs of these lemmas are completely the same.
-    Can we factor this into common LTac/nice lemmas? *)
+  (* slightly hacky proof tactic for irreducibility.
+    basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas *)
+  Ltac prove_irred :=
+    let P_s := fresh "P_s" in
+    let σ_s := fresh "σ_s" in
+    let ϕ := fresh "ϕ" in
+    let e_s' := fresh "e_s'" in
+    let σ_s' := fresh "σ_s'" in
+    let Hhead := fresh "Hhead" in
+    let K := fresh "K" in
+    let e' := fresh "e'" in
+    let Heq := fresh "Heq" in
+    let Hv := fresh "Hv" in
+    let IH := fresh "IH" in
+    let Ki := fresh "Ki" in
+    let Ki' := fresh "Ki'" in
+    intros P_s σ_s ϕ e_s' σ_s' Hhead%prim_head_step;
+    [inversion Hhead; subst; try by (apply ϕ; eauto)
+    | intros K e' Heq Hv; clear ϕ;
+      destruct K as [ | Ki K]; first (done);
+      exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
+      [destruct Ki; inversion Heq; subst; cbn in *; congruence
+      | eapply IH; first (by rewrite Heq);
+        rewrite language_to_val_eq; apply fill_item_val_none;
+        by rewrite -language_to_val_eq]
+    ].
+
   Global Instance irreducible_match v x1 e1 x2 e2 :
     PureIrreducible (¬ ∃ v', v = InjLV v' ∨ v = InjRV v') (Match (Val v) x1 e1 x2 e2).
-  Proof.
-    intros P_s σ_s ϕ e_s' σ_s' Hprim.
-    eapply prim_head_step in Hprim as Hhead.
-    { inversion Hhead; subst; apply ϕ; eauto. }
-    intros K e' Heq Hv. clear Hprim ϕ.
-    destruct K as [ | Ki K]; first done.
-    { exfalso. induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*.
-      - destruct Ki; inversion Heq; subst; cbn in *; congruence.
-      - eapply IH; first by rewrite Heq.
-        rewrite language_to_val_eq. apply fill_item_val_none.
-        by rewrite -language_to_val_eq.
-    }
-  Qed.
+  Proof. prove_irred. Qed.
 
-  Global Instance irreducible_binop v1 v2 o :
-    PureIrreducible (¬ (is_Some $ bin_op_eval o v1 v2)) (BinOp o (Val v1) (Val v2)).
+  (** for binary operators, we provide specialized instances for each operator.
+    (the full search space is otherwise too large when doing a case analysis over
+     the values on both sides to decide whether an expression is stuck or not)
+   *)
+  Ltac solve_binop v1 v2 :=
+    unfold bin_op_eval in *;
+    case_decide; try congruence;
+    destruct v1 as [[] | | |]; destruct v2 as [[] | | |]; cbn in *;
+        try congruence;
+        repeat match goal with
+        | H: _ ∨ _ |- _ => destruct H
+        | H : _ ∧ _ |- _ => destruct H
+        end; eauto 8.
+
+  Global Instance irreducible_plus v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp PlusOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_minus v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp MinusOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_rem v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp RemOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_mult v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp MultOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_quot v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp QuotOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+
+  Global Instance irreducible_and v1 v2 :
+    PureIrreducible (¬ (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b)))%V
+      (BinOp AndOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_or v1 v2 :
+    PureIrreducible (¬ (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b)))%V
+      (BinOp OrOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_xor v1 v2 :
+    PureIrreducible (¬ (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b)))%V
+      (BinOp XorOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+
+  Global Instance irreducible_shiftl v1 v2 :
+    PureIrreducible ((¬ (∃ n, v1 = LitV $ LitInt n)) ∨ (¬ (∃ n, v2 = LitV $ LitInt n)))%V
+      (BinOp ShiftLOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_shiftr v1 v2 :
+    PureIrreducible ((¬ (∃ n, v1 = LitV $ LitInt n)) ∨ (¬ (∃ n, v2 = LitV $ LitInt n)))%V
+      (BinOp ShiftROp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+
+  Global Instance irreducible_le v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp LeOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Global Instance irreducible_ge v1 v2 :
+    PureIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp LtOp (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+
+  Global Instance irreducible_offset v1 v2 :
+    PureIrreducible (¬ (∃ l, v1 = LitV $ LitLoc l) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V (BinOp OffsetOp  (Val v1) (Val v2)).
+  Proof. prove_irred. solve_binop v1 v2. Qed.
+
+  Global Instance irreducible_eq v1 v2 :
+    PureIrreducible (¬ vals_compare_safe v1 v2)%V
+      (BinOp EqOp (Val v1) (Val v2)).
   Proof.
-    intros P_s σ_s ϕ e_s' σ_s' Hprim.
-    eapply prim_head_step in Hprim as Hhead.
-    { inversion Hhead; subst; apply ϕ; eauto. }
-    intros K e' Heq Hv. clear Hprim ϕ.
-    destruct K as [ | Ki K]; first done.
-    { exfalso. induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*.
-      - destruct Ki; inversion Heq; subst; cbn in *; congruence.
-      - eapply IH; first by rewrite Heq.
-        rewrite language_to_val_eq. apply fill_item_val_none.
-        by rewrite -language_to_val_eq.
-    }
+    prove_irred.
+    unfold bin_op_eval in *;
+    case_decide; last congruence.
+    case_decide; congruence.
   Qed.
 
   Global Instance irreducible_unop v o :
     PureIrreducible (¬ (is_Some $ un_op_eval o v)) (UnOp o (Val v)).
-  Proof.
-    intros P_s σ_s ϕ e_s' σ_s' Hprim.
-    eapply prim_head_step in Hprim as Hhead.
-    { inversion Hhead; subst; apply ϕ; eauto. }
-    intros K e' Heq Hv. clear Hprim ϕ.
-    destruct K as [ | Ki K]; first done.
-    { exfalso. induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*.
-      - destruct Ki; inversion Heq; subst; cbn in *; congruence.
-      - eapply IH; first by rewrite Heq.
-        rewrite language_to_val_eq. apply fill_item_val_none.
-        by rewrite -language_to_val_eq.
-    }
-  Qed.
+  Proof. prove_irred. Qed.
+
+  Global Instance irreducible_var (x : string) :
+    PureIrreducible (True) (Var x).
+  Proof. prove_irred. Qed.
+
+  Global Instance irreducible_call v v2 :
+    PureIrreducible (¬ ∃ fn, v = LitV $ LitFn fn) (Call (Val v) (Val v2)).
+  Proof. prove_irred. Qed.
+
+  Global Instance irreducible_if v e1 e2 :
+    PureIrreducible (¬ ∃ b, v = LitV $ LitBool b) (If (Val v) e1 e2).
+  Proof. prove_irred. Qed.
+
+  Global Instance irreducible_fst v :
+    PureIrreducible (¬ ∃ v1 v2, v = PairV v1 v2) (Fst (Val v)).
+  Proof. prove_irred. Qed.
+  Global Instance irreducible_snd v :
+    PureIrreducible (¬ ∃ v1 v2, v = PairV v1 v2) (Snd (Val v)).
+  Proof. prove_irred. Qed.
 
 End irreducible.
 
