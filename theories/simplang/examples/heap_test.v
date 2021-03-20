@@ -9,6 +9,11 @@ From simuliris.simulation Require Import slsls lifting.
 
 Section fix_bi.
 Context `{sheapG Σ}.
+Instance : sheapRel Σ := {|
+  sheap_stateRel _ _ := ⌜True⌝%I;
+  sheap_progRel _ _ := ⌜True⌝%I;
+ |}.
+Ltac solve_state_sidecond ::= iPureIntro; exact I.
 
 Definition val_rel (v1 v2 : val) : iProp Σ := (⌜v1 = v2⌝)%I.
 
