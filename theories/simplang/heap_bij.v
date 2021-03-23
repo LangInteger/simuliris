@@ -25,31 +25,41 @@ Section fix_heap.
   Context {val_rel_pers : ∀ v_t v_s, Persistent (val_rel v_t v_s)}.
   Instance heap_bij_rel : sheapRel Σ := {|
     sheap_stateRel _ _ := gen_heap_bij_inv (λ ov_t ov_s,
-      (∃ v_t v_s, ⌜ov_t = Some v_t⌝ ∗ ⌜ov_s = Some v_s⌝ ∗ val_rel v_t v_s))%I;
+      (∃ v_t v_s, ⌜ov_t = Some v_t⌝ ∗ ⌜ov_s = Some v_s⌝ ∗ val_rel v_t v_s) ∨
+      (⌜ov_t = None⌝ ∗ ⌜ov_s = None⌝))%I;
     sheap_progRel _ _ := True%I;
   |}.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+
+  Lemma SIrreducible_irreducible P (e : expr) σ ϕ :
+    SIrreducible ϕ P e σ → ϕ → irreducible P e σ.
+  Proof. eauto. Qed.
 
   Lemma sim_bij_load l_t l_s Φ :
     l_t ↔h l_s -∗
     (∀ v_t v_s, val_rel v_t v_s -∗ Val v_t ⪯ Val v_s {{ Φ }}) -∗
     (Load (Val $ LitV $ LitLoc l_t)) ⪯ (Load (Val $ LitV $ LitLoc l_s)) {{ Φ }}.
   Proof using val_rel_pers.
-    iIntros "#Hbij Hsim". iApply sim_lift_head_step_both.
+    iIntros "#Hbij Hsim". iApply sim_lift_head_step_both_or_stuck.
     iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
     iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t' v_s') "(Hl_t & Hl_s & He & Hclose)".
-    iDestruct "He" as (v_t v_s) "(-> & -> & #Hv)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' σ_t') "%"; inv_head_step.
-    assert (head_step P_s (Load #l_s) σ_s (Val v_s) σ_s) as Hs.
-    { eauto with head_step. }
-    iModIntro. iExists (Val v_s), σ_s. iFrame.
-    iSplitR. { by iPureIntro. }
-    iSplitR "Hsim"; first last. { by iApply "Hsim". }
-    iApply ("Hclose" with "Hl_t Hl_s []"). eauto.
+    iDestruct "He" as "[He | [-> ->]]".
+    - iDestruct "He" as (v_t v_s) "(-> & -> & #Hv)".
+      iModIntro; iLeft; iSplit; first by eauto with head_step.
+      iIntros (e_t' σ_t') "%"; inv_head_step.
+      assert (head_step P_s (Load #l_s) σ_s (Val v_s) σ_s) as Hs.
+      { eauto with head_step. }
+      iModIntro. iExists (Val v_s), σ_s. iFrame.
+      iSplitR. { by iPureIntro. }
+      iSplitR "Hsim"; first last. { by iApply "Hsim". }
+      iApply ("Hclose" with "Hl_t Hl_s []"). iLeft; eauto.
+    - iRight. iModIntro. iPureIntro. split; first done.
+      (* TODO: make this nicer *)
+      eapply SIrreducible_irreducible. { apply _. }
+      source_stuck_sidecond_bt.
   Qed.
 
   Lemma sim_bij_store l_t l_s v_t v_s Φ :
@@ -58,37 +68,55 @@ Section fix_heap.
     #() ⪯ #() {{ Φ }} -∗
     Store (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯ Store (Val $ LitV (LitLoc l_s)) (Val v_s) {{ Φ }}.
   Proof.
-    iIntros "Hbij Hval Hsim". iApply sim_lift_head_step_both.
+    iIntros "Hbij Hval Hsim". iApply sim_lift_head_step_both_or_stuck.
     iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) !>".
     iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
-    iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
-    iSplitR; first by eauto with head_step.
-    iIntros (e_t' σ_t') "%"; inv_head_step.
-    assert (head_step P_s (#l_s <- v_s) σ_s #() (state_upd_heap <[l_s:=Some v_s]> σ_s)) as Hs.
-    { eauto with head_step. }
+    iDestruct "He" as "[He | [-> ->]]".
+    - iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
+      iLeft; iSplitR; first by eauto with head_step.
+      iIntros (e_t' σ_t') "%"; inv_head_step.
+      assert (head_step P_s (#l_s <- v_s) σ_s #() (state_upd_heap <[l_s:=Some v_s]> σ_s)) as Hs.
+      { eauto with head_step. }
 
-    iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
-    iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
-    iModIntro. iExists #(),(state_upd_heap <[l_s:=Some v_s]> σ_s).
-    iFrame. iSplitR; first by iPureIntro.
-    iApply ("Hclose" with "Hl_t Hl_s [Hval]"). eauto.
+      iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
+      iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
+      iModIntro. iExists #(),(state_upd_heap <[l_s:=Some v_s]> σ_s).
+      iFrame. iSplitR; first by iPureIntro.
+      iApply ("Hclose" with "Hl_t Hl_s [Hval]"). iLeft; eauto.
+    - iRight. iPureIntro. split; first done.
+      (* TODO: make this nicer *)
+      eapply SIrreducible_irreducible. { apply _. }
+      source_stuck_sidecond_bt.
   Qed.
 
-  Lemma sim_bij_free l_t l_s v_t v_s Φ :
+  Lemma sim_bij_free l_t l_s Φ :
     l_t ↔h l_s -∗
-    val_rel v_t v_s -∗
     #() ⪯ #() {{ Φ }} -∗
     Free (Val $ LitV $ LitLoc l_t) ⪯ Free (Val $ LitV $ LitLoc l_s) {{ Φ }}.
   Proof.
-    iIntros "Hbij Hval Hsim".
-    (* TODO: setup the bijection ghost state correctly to enable this *)
-    (*  maybe need some additional token to ensure that memory hasn't been freed yet?
-        (we cannot just deallocate in the bijection since its fragments need to be monotonic) *)
-    (* if we want to use the approach of also relating locations in the bijection if they both point to [None], then we will need some additional machinery regarding lifting lemmas to be able to inspect the state interpretation before deciding on whether we want to use source stuckness or take a step (e.g. for proving the load/store lemmas) *)
-  Abort.
+    iIntros "Hbij Hsim". iApply sim_lift_head_step_both_or_stuck.
+    iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
+    iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
+    iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
+    iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
+    iDestruct "He" as "[He | [-> ->]]".
+    - iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
+      iLeft; iSplitR; first by eauto with head_step. iModIntro.
+      iIntros (e_t' σ_t') "%"; inv_head_step.
+      assert (head_step P_s (Free #l_s) σ_s #() (state_upd_heap <[l_s:=None]> σ_s)) as Hs.
+      { eauto with head_step. }
 
+      iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
+      iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
+      iModIntro. iExists #(),(state_upd_heap <[l_s:=None]> σ_s).
+      iFrame. iSplitR; first by iPureIntro.
+      iApply ("Hclose" with "Hl_t Hl_s"). iRight; eauto.
+    - iRight. iPureIntro. split; first done.
+      eapply SIrreducible_irreducible. { apply _. }
+      source_stuck_sidecond_bt.
+  Qed.
 
   Lemma sim_bij_insert l_t l_s v_t v_s e_t e_s Φ :
     l_t ↦t v_t -∗
@@ -100,7 +128,7 @@ Section fix_heap.
     iIntros "Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
     iMod (gen_heap_bij_insert with "Hstate Hl_t Hl_s [Hval]") as "[Hb #Ha]";
-      first by eauto.
+      first by iLeft; eauto.
     iModIntro. iSplitR "Hsim"; last by iApply "Hsim".
     iFrame.
   Qed.
@@ -175,6 +203,21 @@ Section sim.
     iApply sim_value. by iApply Hi.
   Qed.
 
+  (* NOTE: we may want to actually keep the bijection assertion in context for some examples,
+    where we need to use source stuckness for some runs of the target that access a deallocated location?
+    In that case, change this lemma to not remove the fractional bijection assertion from the context.
+    *)
+  Lemma tac_bij_free Δ i K_t K_s b l_t l_s Φ :
+    envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
+    envs_entails (envs_delete true i b Δ) (sim val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
+    envs_entails Δ (sim val_rel (fill K_t (Free (LitV l_t))) (fill K_s (Free (LitV l_s))) Φ).
+  Proof.
+    rewrite envs_entails_eq => Hl HΔ.
+    rewrite -sim_bind. rewrite (envs_lookup_sound _ _ _ _ Hl).
+    iIntros "[#bij He]". iPoseProof (HΔ with "He") as "He". rewrite intuitionistically_if_elim.
+    iApply sim_bij_free; first done.
+    iApply sim_value. by iApply "He".
+  Qed.
 End sim.
 
 Tactic Notation "sim_load" ident(v_t) ident(v_s) "as" constr(H) :=
@@ -219,4 +262,22 @@ Tactic Notation "sim_store" :=
     | pm_reduce
     |pm_reduce; sim_finish]
   | _ => fail "sim_store: not a 'sim'"
+  end.
+
+Tactic Notation "sim_free" :=
+  to_sim;
+  let solve_bij _ :=
+    match goal with |- _ = Some (_, (?l_t ↔h ?l_s)%I) =>
+    iAssumptionCore || fail "sim_free: cannot find" l_t "↔h" l_s end in
+  sim_pures;
+  lazymatch goal with
+  | |- envs_entails _ (sim ?vrel ?e_t ?e_s ?Φ) =>
+    first
+      [reshape_expr e_t ltac:(fun K_t e_t' =>
+        reshape_expr e_s ltac:(fun K_s e_s' =>
+          eapply (tac_bij_free _ _ _ K_t K_s _ _ _ _)))
+      |fail 1 "sim_free: cannot find 'Free' in" e_t " or " e_s];
+    [solve_bij ()
+    |pm_reduce; sim_finish]
+  | _ => fail "sim_free: not a 'sim'"
   end.

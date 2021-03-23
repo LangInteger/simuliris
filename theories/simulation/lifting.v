@@ -63,9 +63,8 @@ Section lang.
     - intros P σ1 e2' σ2 ?%head_reducible_prim_step; eauto.
   Qed.
 
-  Class PureIrreducible (Φ : Prop) e :=
-    pure_irreducible (P : prog Λ) σ : Φ → ∀ e' σ', ¬ prim_step P (e, σ) (e', σ').
-
+  Class SIrreducible (Φ : Prop) (P : prog Λ) e σ  :=
+    sirreducible : Φ → ∀ e' σ', ¬ prim_step P (e, σ) (e', σ').
 End lang.
 
 Section fix_sim.
@@ -106,24 +105,6 @@ Section fix_sim.
     iIntros (????) "Hstate". iModIntro. iSplitR. { iPureIntro. apply Hstep. }
     iIntros (??) "%". iModIntro. apply Hstep in H as [-> ->]. iFrame.
   Qed.
-
-  (* Corollaries -- TODO: are these even useful ? *)
-  Lemma sim_pure_step_source Φ m e_t e_s1 e_s2 ϕ :
-    PureExec ϕ m e_s1 e_s2 →
-    ϕ → e_t ⪯ e_s2 {{ Φ }} -∗ e_t ⪯ e_s1 {{ Φ }}.
-  Proof.
-    intros Hp Hϕ. iIntros "Hsim". iApply source_red_sim. iApply source_red_lift_pure; first done.
-    iApply source_red_base; eauto.
-  Qed.
-
-  Lemma sim_pure_step_target Φ n e1 e2 e_s ϕ :
-    PureExec ϕ n e1 e2 →
-    ϕ → e2 ⪯ e_s {{ Φ }} -∗ e1 ⪯ e_s {{ Φ }}.
-  Proof.
-    intros Hp Hϕ. iIntros "Hsim". iApply target_red_sim. iApply target_red_lift_pure; first done.
-    iApply target_red_base; eauto.
-  Qed.
-
 
   (** Primitive reduction *)
   Lemma sim_prim_step_source_eval e_t e_s Φ:
@@ -223,8 +204,31 @@ Section fix_sim.
   Qed.
 
   (** Stuckness *)
+
+  (* this lemmas is useful when we need the SI to decide whether the source is stuck
+    or we can make a step. *)
+  Lemma sim_lift_head_step_both_or_stuck e_t e_s Φ:
+    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
+      (⌜head_reducible P_t e_t σ_t⌝ ∗
+      ∀ e_t' σ_t',
+        ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ ==∗
+          ∃ e_s' σ_s', ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗
+            state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯{Ω} e_s' {{ Φ }}) ∨
+      ⌜stuck P_s e_s σ_s⌝) -∗
+    e_t ⪯{Ω} e_s {{ Φ }}.
+  Proof.
+    iIntros "Hsim". rewrite sim_unfold.
+    iIntros (????) "[Hstate %]". iMod ("Hsim" with "Hstate") as "[(% & Hstep) | %]".
+    - iModIntro. iRight; iLeft. iSplitR. { iPureIntro. by eapply head_prim_reducible. }
+      iIntros (e_t' σ_t') "%". iMod ("Hstep" with "[]") as (e_s' σ_s') "(% & Hstate & Hsim)".
+      { iPureIntro. by eapply head_reducible_prim_step. }
+      iModIntro. iRight. iExists e_s', σ_s'. iFrame. iPureIntro.
+      econstructor; first by eapply head_prim_step.
+    - exfalso. apply H. rewrite /reach_stuck. exists e_s, σ_s. split; done.
+  Qed.
+
   Lemma source_stuck_prim ϕ e_s :
-    PureIrreducible ϕ e_s →
+    (∀ P_s σ_s, SIrreducible ϕ P_s e_s σ_s) →
     ϕ →
     to_val e_s = None →
     ⊢ source_stuck e_s.

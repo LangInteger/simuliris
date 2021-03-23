@@ -94,16 +94,21 @@ Module bij_test.
   Lemma test_bij_store (l_t l_s : loc) :
     l_t ↔h l_s -∗
     (#l_t <- #42)%E ⪯{val_rel} (#l_s <- #42)%E {{ val_rel }}.
-  Proof. 
+  Proof.
     iIntros "H". sim_store; first done. done.
   Qed.
-  
 
-  Lemma test_bij_load (l_t l_s : loc) : 
+  Lemma test_bij_load (l_t l_s : loc) :
     l_t ↔h l_s -∗
     ! #l_t ⪯{val_rel} ! #l_s {{ val_rel }}.
-  Proof. 
+  Proof.
     iIntros "H". sim_load v_t v_s as "Ha". done.
   Qed.
 
+  Lemma test_bij_free (l_t l_s : loc) :
+    l_t ↔h l_s -∗
+    Free #l_t ⪯{val_rel} Free #l_s {{ val_rel }}.
+  Proof.
+    iIntros "#H". sim_free. done.
+  Qed.
 End bij_test.
