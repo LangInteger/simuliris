@@ -23,6 +23,7 @@ theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
 theories/simplang/derived.v
+theories/simplang/heap_bij.v
 
 theories/simplang/examples/sum.v
 theories/simplang/examples/heap_test.v
@@ -30,5 +31,7 @@ theories/simplang/examples/heap_test.v
 
 theories/base_logic/gen_sim_heap.v
 theories/base_logic/gen_sim_prog.v
+theories/base_logic/gen_heap_bij.v
+
 
 
