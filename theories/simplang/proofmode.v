@@ -135,10 +135,10 @@ Qed.
 (** NOTE: currently, the sideconditions need to be proved without spatial hypotheses (to make the proofmode simpler).
   We may want to lift this restriction and allowing framing of hypotheses if needed.
 *)
-Lemma tac_target_red_allocN n v j K Ψ Δ :
+Lemma tac_target_red_allocN n v i j K Ψ Δ :
   (0 < n)%Z →
   (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel (state_init_heap l n v σ_t) σ_s)
     | None => False
@@ -162,10 +162,10 @@ Proof.
     rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma tac_source_red_allocN n v j K Ψ Δ :
+Lemma tac_source_red_allocN n v i j K Ψ Δ :
   (0 < n)%Z →
   (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel σ_t (state_init_heap l n v σ_s))
     | None => False
@@ -189,9 +189,9 @@ Proof.
     iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma tac_target_red_alloc v j K Ψ Δ :
+Lemma tac_target_red_alloc v i j K Ψ Δ :
   (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel (state_init_heap l 1 v σ_t) σ_s)
     | None => False
@@ -215,9 +215,9 @@ Proof.
     iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma tac_source_red_alloc v j K Ψ Δ :
+Lemma tac_source_red_alloc v i j K Ψ Δ :
   (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel σ_t (state_init_heap l 1 v σ_s))
     | None => False
@@ -250,9 +250,9 @@ Proof.
   iApply (Hf1 with "[HP] HQ' HW"). by iApply Hf2.
 Qed.
 
-Lemma tac_target_red_free l v i K Ψ Δ :
+Lemma tac_target_red_free l v i j K Ψ Δ :
   (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel (state_upd_heap <[l:=None]> σ_t) σ_s)
     | None => False
@@ -276,9 +276,9 @@ Proof.
     by rewrite wand_elim_r.
 Qed.
 
-Lemma tac_source_red_free l v i K Ψ Δ :
+Lemma tac_source_red_free l v i j K Ψ Δ :
   (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel σ_t (state_upd_heap <[l:=None]> σ_s) )
     | None => False
@@ -332,9 +332,9 @@ Proof.
     iApply source_red_base; eauto.
 Qed.
 
-Lemma tac_target_red_store Δ i K l v v' Ψ :
+Lemma tac_target_red_store Δ i j K l v v' Ψ :
   (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel (state_upd_heap <[l:=Some v']> σ_t) σ_s)
     | None => False
@@ -358,9 +358,9 @@ Proof.
     rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
 Qed.
 
-Lemma tac_source_red_store Δ i K l v v' Ψ :
+Lemma tac_source_red_store Δ i j K l v v' Ψ :
   (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
+    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
     | Some Δ' =>
        envs_entails Δ' (sheap_stateRel σ_t (state_upd_heap <[l:=Some v']> σ_s))
     | None => False
@@ -757,13 +757,13 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     let process_single _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp Htmp K _ _))
           |fail 1 "target_alloc: cannot find 'Alloc' in" e];
         [finish_sidecond () | finish ()]
     in
     let process_array _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp Htmp K _ _))
           |fail 1 "target_alloc: cannot find 'Alloc' in" e];
         [idtac|finish_sidecond ()|finish ()]
     in (process_single ()) || (process_array ())
@@ -792,13 +792,13 @@ Tactic Notation "source_alloc" ident(l) "as" constr(H) :=
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     let process_single _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp Htmp K _ _))
           |fail 1 "source_alloc: cannot find 'Alloc' in" e];
         [finish_sidecond () | finish ()]
     in
     let process_array _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp Htmp K _ _))
           |fail 1 "source_alloc: cannot find 'Alloc' in" e];
         [idtac|finish_sidecond ()|finish ()]
     in (process_single ()) || (process_array ())
@@ -810,6 +810,7 @@ Tactic Notation "source_alloc" ident(l) :=
 
 Tactic Notation "target_free" :=
   to_target;
+  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
@@ -817,7 +818,7 @@ Tactic Notation "target_free" :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ K _ _))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ Htmp K _ _))
       |fail 1 "target_free: cannot find 'Free' in" e];
     [intros ??; pm_reduce; solve_state_sidecond
     |solve_mapsto ()
@@ -827,6 +828,7 @@ Tactic Notation "target_free" :=
 
 Tactic Notation "source_free" :=
   to_source;
+  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
@@ -834,7 +836,7 @@ Tactic Notation "source_free" :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ K _ _))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ Htmp K _ _))
       |fail 1 "source_free: cannot find 'Free' in" e];
     [intros ??; pm_reduce; solve_state_sidecond
     |solve_mapsto ()
@@ -878,6 +880,7 @@ Tactic Notation "source_load" :=
 (* FIXME: error messages seem broken (already the eapply seems to fail when the pointsto-assumption is missing)*)
 Tactic Notation "target_store" :=
   to_target;
+  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in
@@ -885,7 +888,7 @@ Tactic Notation "target_store" :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ Ψ))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ Htmp K _ _ _ Ψ))
       |fail 1 "target_store: cannot find 'Store' in" e];
     [intros ??; pm_reduce; solve_state_sidecond
     |solve_mapsto ()
@@ -895,6 +898,7 @@ Tactic Notation "target_store" :=
 
 Tactic Notation "source_store" :=
   to_source;
+  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_store: cannot find" l "↦s ?" in
@@ -902,7 +906,7 @@ Tactic Notation "source_store" :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ K _ _ _ Ψ))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ Htmp K _ _ _ Ψ))
       |fail 1 "source_store: cannot find 'Store' in" e];
     [intros ??; pm_reduce; solve_state_sidecond
     |solve_mapsto ()

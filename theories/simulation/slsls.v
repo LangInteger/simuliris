@@ -566,6 +566,18 @@ Section fix_lang.
     e_t ⪯{Ω} e_s {{ Φ }} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯{Ω} e_s {{ Ψ }}.
   Proof. iIntros "[H Hv]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
 
+
+  (** Update the SI. Useful when we use the SI to encode invariants. *)
+  Definition update_si (P : PROP) :=
+    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ==∗ state_interp P_t σ_t P_s σ_s ∗ P)%I.
+  Lemma sim_update_si Ω e_t e_s Φ :
+    update_si (e_t ⪯{Ω} e_s {{ Φ }}) -∗ e_t ⪯{Ω} e_s {{ Φ }}.
+  Proof.
+    iIntros "Hupd". rewrite {2}(sim_unfold Ω Φ e_t e_s).
+    iIntros (????) "[Hstate Hnreach]". iMod ("Hupd" with "Hstate") as "[Hstate Hsim]".
+    rewrite {1}sim_unfold. iApply "Hsim". iFrame.
+  Qed.
+
   Lemma sim_stutter_source Ω e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
@@ -785,7 +797,7 @@ Section fix_lang.
       iExists (fill K_s e_s'), σ_s'. iFrame. iPureIntro.
       by apply fill_prim_step. }
     rewrite source_red_unfold.
-    iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto. 
+    iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto.
   Qed.
 
   Lemma source_stuck_bind e_s K_s :
