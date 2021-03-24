@@ -117,7 +117,7 @@ Section laws.
     - intros l_s' Hl_s'. apply Hext_t. by exists (l_t, l_s').
     - intros l_t' Hl_t'. apply Hext_s. by exists (l_t', l_s).
     - iModIntro. iSplitL; last done.
-      iExists ({[l_t, l_s]} ∪ L). iFrame.
+      iExists ({[(l_t, l_s)]} ∪ L)%I. iFrame.
       iApply big_sepS_insert. { contradict Hext_t. by exists (l_t, l_s). }
       iFrame. iExists v_t, v_s. iFrame.
   Qed.
