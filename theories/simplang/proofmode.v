@@ -536,6 +536,8 @@ Ltac target_value_head :=
       eapply tac_target_red_base_no_bupd
   | |- envs_entails _ (target_red (Val _) (λ _, sim _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
+  | |- envs_entails _ (target_red (Val _) (λ _, target_red _ _)) =>
+      eapply tac_target_red_base_no_bupd
   | |- envs_entails _ (target_red (Val _) _) =>
       eapply tac_target_red_base
   end.
@@ -558,9 +560,11 @@ Ltac source_expr_simpl := source_red_expr_eval simpl.
 Ltac source_value_head :=
   lazymatch goal with
   | |- envs_entails _ (source_red (Val _) (λ _, bupd _)) =>
-      eapply tac_source_red_base_no_bupd; try iIntros (_ _)
+      eapply tac_source_red_base_no_bupd
   | |- envs_entails _ (source_red (Val _) (λ _, sim _ _ _ _)) =>
-      eapply tac_source_red_base_no_bupd; try iIntros (_ _)
+      eapply tac_source_red_base_no_bupd
+  | |- envs_entails _ (source_red (Val _) (λ _, source_red _ _)) =>
+      eapply tac_source_red_base_no_bupd
   | |- envs_entails _ (source_red (Val _) _) =>
       eapply tac_source_red_base; try iIntros (_ _)
   end.
