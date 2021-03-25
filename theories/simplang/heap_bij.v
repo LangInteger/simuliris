@@ -32,23 +32,23 @@ Section fix_heap.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
-  Lemma SIrreducible_irreducible P (e : expr) σ ϕ :
-    SIrreducible ϕ P e σ → ϕ → irreducible P e σ.
-  Proof. eauto. Qed.
+  Lemma stuck_reach_stuck P (e : expr) σ:
+    stuck P e σ → reach_stuck P e σ.
+  Proof. intros Hs; exists e, σ. done. Qed.
 
   Lemma sim_bij_load l_t l_s Φ :
     l_t ↔h l_s -∗
     (∀ v_t v_s, val_rel v_t v_s -∗ Val v_t ⪯ Val v_s {{ Φ }}) -∗
     (Load (Val $ LitV $ LitLoc l_t)) ⪯ (Load (Val $ LitV $ LitLoc l_s)) {{ Φ }}.
   Proof using val_rel_pers.
-    iIntros "#Hbij Hsim". iApply sim_lift_head_step_both_or_stuck.
-    iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
+    iIntros "#Hbij Hsim". iApply sim_lift_head_step_both.
+    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) %Hnstuck]".
     iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t' v_s') "(Hl_t & Hl_s & He & Hclose)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
     iDestruct "He" as "[He | [-> ->]]".
     - iDestruct "He" as (v_t v_s) "(-> & -> & #Hv)".
-      iModIntro; iLeft; iSplit; first by eauto with head_step.
+      iModIntro; iSplit; first by eauto with head_step.
       iIntros (e_t' σ_t') "%"; inv_head_step.
       assert (head_step P_s (Load #l_s) σ_s (Val v_s) σ_s) as Hs.
       { eauto with head_step. }
@@ -56,10 +56,9 @@ Section fix_heap.
       iSplitR. { by iPureIntro. }
       iSplitR "Hsim"; first last. { by iApply "Hsim". }
       iApply ("Hclose" with "Hl_t Hl_s []"). iLeft; eauto.
-    - iRight. iModIntro. iPureIntro. split; first done.
-      (* TODO: make this nicer *)
-      eapply SIrreducible_irreducible. { apply _. }
-      source_stuck_sidecond_bt.
+    - exfalso; contradict Hnstuck.
+      apply stuck_reach_stuck. split; first done.
+      apply sirreducible. source_stuck_sidecond_bt.
   Qed.
 
   Lemma sim_bij_store l_t l_s v_t v_s Φ :
@@ -68,14 +67,14 @@ Section fix_heap.
     #() ⪯ #() {{ Φ }} -∗
     Store (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯ Store (Val $ LitV (LitLoc l_s)) (Val v_s) {{ Φ }}.
   Proof.
-    iIntros "Hbij Hval Hsim". iApply sim_lift_head_step_both_or_stuck.
-    iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) !>".
+    iIntros "Hbij Hval Hsim". iApply sim_lift_head_step_both.
+    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) %Hnstuck] !>".
     iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
     iDestruct "He" as "[He | [-> ->]]".
     - iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
-      iLeft; iSplitR; first by eauto with head_step.
+      iSplitR; first by eauto with head_step.
       iIntros (e_t' σ_t') "%"; inv_head_step.
       assert (head_step P_s (#l_s <- v_s) σ_s #() (state_upd_heap <[l_s:=Some v_s]> σ_s)) as Hs.
       { eauto with head_step. }
@@ -85,10 +84,9 @@ Section fix_heap.
       iModIntro. iExists #(),(state_upd_heap <[l_s:=Some v_s]> σ_s).
       iFrame. iSplitR; first by iPureIntro.
       iApply ("Hclose" with "Hl_t Hl_s [Hval]"). iLeft; eauto.
-    - iRight. iPureIntro. split; first done.
-      (* TODO: make this nicer *)
-      eapply SIrreducible_irreducible. { apply _. }
-      source_stuck_sidecond_bt.
+    - exfalso; contradict Hnstuck.
+      apply stuck_reach_stuck. split; first done.
+      apply sirreducible. source_stuck_sidecond_bt.
   Qed.
 
   Lemma sim_bij_free l_t l_s Φ :
@@ -96,14 +94,14 @@ Section fix_heap.
     #() ⪯ #() {{ Φ }} -∗
     Free (Val $ LitV $ LitLoc l_t) ⪯ Free (Val $ LitV $ LitLoc l_s) {{ Φ }}.
   Proof.
-    iIntros "Hbij Hsim". iApply sim_lift_head_step_both_or_stuck.
-    iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
+    iIntros "Hbij Hsim". iApply sim_lift_head_step_both.
+    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) %Hnstuck]".
     iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
     iDestruct "He" as "[He | [-> ->]]".
     - iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
-      iLeft; iSplitR; first by eauto with head_step. iModIntro.
+      iSplitR; first by eauto with head_step. iModIntro.
       iIntros (e_t' σ_t') "%"; inv_head_step.
       assert (head_step P_s (Free #l_s) σ_s #() (state_upd_heap <[l_s:=None]> σ_s)) as Hs.
       { eauto with head_step. }
@@ -113,9 +111,9 @@ Section fix_heap.
       iModIntro. iExists #(),(state_upd_heap <[l_s:=None]> σ_s).
       iFrame. iSplitR; first by iPureIntro.
       iApply ("Hclose" with "Hl_t Hl_s"). iRight; eauto.
-    - iRight. iPureIntro. split; first done.
-      eapply SIrreducible_irreducible. { apply _. }
-      source_stuck_sidecond_bt.
+    - exfalso; contradict Hnstuck.
+      apply stuck_reach_stuck. split; first done.
+      apply sirreducible. source_stuck_sidecond_bt.
   Qed.
 
   Lemma sim_bij_insert l_t l_s v_t v_s e_t e_s Φ :

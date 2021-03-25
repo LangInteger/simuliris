@@ -48,32 +48,8 @@ Definition mul2_target :=
         then (Snd "x") + #2
         else Call "diverge" #())%E.
 
-Definition insert_uncurry `{Insert K A M} '(k, v) (m : M) := insert (k : K) (v : A) m.
-Declare Scope hack_scope.
-Notation "a ::= b" := ((a, b)) (at level 100, only parsing) : hack_scope.
-Delimit Scope hack_scope with hacky.
-Notation "{[[ x ; .. ; z ]]}" :=
-  (insert_uncurry (x)%hacky .. (insert_uncurry (z)%hacky ∅) .. )
-  (at level 1) : stdpp_scope.
-Definition test_map : gmap string nat := {[["inj1_enc" ::= 1; "diverge" ::= 2 ]]}.
-
-Definition source_prog : gmap string ectx := {[[ "inj1_enc" ::= inj1_enc; "diverge" ::= diverge; "mul2" ::= mul2_source ]]}.
-Definition target_prog : gmap string ectx := {[[ "diverge" ::= diverge; "mul2" ::= mul2_target]]}.
-
-(** We want to prove: *)
-
-Lemma sim_source_case e_t e_s1 e_s2 x1 x2 Φ v_s :
-  ⊢ (∀ v_s', ⌜v_s = InjLV v_s'⌝ -∗ e_t ⪯ Match (Val v_s) x1 e_s1 x2 e_s2 {{ Φ }}) -∗
-    (∀ v_s', ⌜v_s = InjRV v_s'⌝ -∗ e_t ⪯ Match (Val v_s) x1 e_s1 x2 e_s2 {{ Φ }}) -∗
-    e_t ⪯ Match (Val v_s) x1 e_s1 x2 e_s2 {{ Φ }}.
-Proof.
-  iIntros "Hvl Hvr".
-  destruct v_s as [ l | v1 v2 | v1 | v2 ].
-  - iApply source_stuck_sim. source_stuck_prim.
-  - iApply source_stuck_sim. source_stuck_prim.
-  - by iApply "Hvl".
-  - by iApply "Hvr".
-Qed.
+Definition source_prog : gmap string ectx := {[ "inj1_enc" := inj1_enc; "diverge" := diverge; "mul2" := mul2_source ]}.
+Definition target_prog : gmap string ectx := {[ "diverge" := diverge; "mul2" := mul2_target]}.
 
 Lemma mul2_sim:
   ⊢ ∀ v_t v_s, val_rel v_t v_s -∗
@@ -81,21 +57,20 @@ Lemma mul2_sim:
 Proof.
   iIntros (?? Hval). rewrite /mul2_target /mul2_source.
   sim_pures.
-  iApply sim_source_case.
-  - iIntros (v_s') "->". inversion Hval; subst.
-    sim_pures. destruct H2.
-    { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
-      all: iApply source_stuck_sim; source_stuck_prim.
-    }
-    all: iApply source_stuck_sim; source_stuck_prim.
-  - iIntros (v_t') "->". inversion Hval; subst.
-    sim_pures. destruct H2.
-    { destruct l. { sim_pures. iModIntro. iPureIntro. constructor. }
-      all: iApply source_stuck_sim; source_stuck_prim.
-    }
-    all: iApply source_stuck_sim; source_stuck_prim.
+  (* generate additional conditions on the shape of the source expression *)
+  iApply sim_irred_unless; first done.
+  iIntros "%Ha"; destruct Ha as (v' & [-> | ->]).
+  - inversion Hval; subst.
+    sim_pures.
+    iApply sim_irred_unless; first done. iIntros "%Ha"; destruct Ha as [(n & ->) _].
+    inversion H2; subst.
+    by sim_pures.
+  - inversion Hval; subst.
+    sim_pures.
+    iApply sim_irred_unless; first done. iIntros "%Ha"; destruct Ha as [(n & ->) _].
+    inversion H2; subst.
+    by sim_pures.
 Qed.
-
 
 Definition source_client := (λ: "x", Call (#f "mul2") (InjL "x"))%E.
 Definition target_client := (λ: "x", Call (#f "mul2") (Call (#f "inj1_enc") "x"))%E.

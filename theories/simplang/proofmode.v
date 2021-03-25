@@ -69,15 +69,14 @@ Proof.
 Qed.
 
 Lemma tac_source_red_base e_s Ψ Δ :
-  envs_entails Δ (∀ P_s σ_s, |==> Ψ P_s e_s σ_s : iProp Σ) → envs_entails Δ (source_red e_s Ψ).
+  envs_entails Δ (|==> Ψ e_s : iProp Σ) → envs_entails Δ (source_red e_s Ψ).
 Proof.
-  rewrite envs_entails_eq => ->. iIntros "H". by iApply source_red_base.
+  rewrite envs_entails_eq => ->. by iApply source_red_base.
 Qed.
 Lemma tac_source_red_base_no_bupd e_s Ψ Δ :
-  envs_entails Δ (∀ P_s σ_s, Ψ P_s e_s σ_s : iProp Σ) → envs_entails Δ (source_red e_s Ψ).
+  envs_entails Δ (Ψ e_s : iProp Σ) → envs_entails Δ (source_red e_s Ψ).
 Proof.
-  rewrite envs_entails_eq => ->. iIntros "H". iApply source_red_base.
-  iIntros (??). iModIntro; eauto.
+  rewrite envs_entails_eq => ->. iIntros "H". by iApply source_red_base.
 Qed.
 
 Lemma tac_sim_value v_t v_s Φ Δ :
@@ -111,7 +110,7 @@ Qed.
 
 Lemma tac_source_red_bind K_s e_s f_s Ψ Δ :
   f_s = (λ e_s, fill K_s e_s) →
-  envs_entails Δ (source_red e_s (λ _ e_s' _, source_red (f_s e_s') Ψ) : iProp Σ) →
+  envs_entails Δ (source_red e_s (λ e_s', source_red (f_s e_s') Ψ) : iProp Σ) →
   envs_entails Δ (source_red (fill K_s e_s) Ψ).
 Proof.
   rewrite envs_entails_eq=> ->. intros Hs.
@@ -185,7 +184,7 @@ Proof.
     iApply HΔ0. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
   - iIntros (l) "Hl". specialize (HΔ l). clear HΔ0. iClear "Hint".
     destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    iApply source_red_base; iIntros (??). iModIntro.
+    iApply source_red_base. iModIntro.
     iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
@@ -237,7 +236,7 @@ Proof.
     iApply HΔ0. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
   - iIntros (l) "Hl". specialize (HΔ l). clear HΔ0. iClear "Hint".
     destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    iApply source_red_base; iIntros (??). iModIntro.
+    iApply source_red_base. iModIntro.
     iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
@@ -296,7 +295,7 @@ Proof.
     iApply HΔ. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
   - rewrite envs_lookup_split //; simpl.
     iIntros "H". iApply sep_mono_r.
-    { iIntros "H". iApply source_red_base; iIntros (??). iModIntro. iApply "H". }
+    { iIntros "H". iApply source_red_base. iModIntro. iApply "H". }
     rewrite -Hfin.
     rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
     by rewrite wand_elim_r.
@@ -326,7 +325,7 @@ Proof.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
-  * iIntros "[#$ He]". iIntros "_". iApply source_red_base; iIntros (??). iModIntro.
+  * iIntros "[#$ He]". iIntros "_". iApply source_red_base. iModIntro.
     iApply Hi. iApply "He". iFrame "#".
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Hs".
     iApply source_red_base; eauto.
@@ -408,7 +407,7 @@ Proof.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_call.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
-  * iIntros "[#$ He]". iApply source_red_base; iIntros (??). iModIntro.
+  * iIntros "[#$ He]". iApply source_red_base. iModIntro.
     iApply Hi. iApply "He". iFrame "#".
   * rewrite Hi. iIntros "[#Hf Hs]". iSplitR; first done.
     iApply source_red_base. iSpecialize ("Hs" with "Hf"); eauto.
@@ -421,7 +420,7 @@ Lemma tac_to_target Δ e_t e_s Φ :
 Proof. rewrite envs_entails_eq=> Hi. by rewrite -target_red_sim. Qed.
 
 Lemma tac_to_source Δ e_t e_s Φ :
-  envs_entails Δ (source_red e_s (λ _ e_s' _, e_t ⪯ e_s' {{ Φ }}))%I →
+  envs_entails Δ (source_red e_s (λ e_s', e_t ⪯ e_s' {{ Φ }}))%I →
   envs_entails Δ (e_t ⪯ e_s {{ Φ }}).
 Proof. rewrite envs_entails_eq=> Hi. by rewrite -source_red_sim. Qed.
 
@@ -436,10 +435,10 @@ Qed.
 
 Lemma tac_source_to_sim Δ e_t e_s Φ :
   envs_entails Δ (e_t ⪯ e_s {{ Φ }}) →
-  envs_entails Δ (source_red e_s (λ _ e_s' _, e_t ⪯ e_s' {{ Φ }}))%I.
+  envs_entails Δ (source_red e_s (λ e_s', e_t ⪯ e_s' {{ Φ }}))%I.
 Proof.
   rewrite envs_entails_eq=> Hi. rewrite -source_red_base.
-  iIntros "He" (??). iModIntro. by iApply Hi.
+  iIntros "He". iModIntro. by iApply Hi.
 Qed.
 End sim.
 
@@ -450,7 +449,7 @@ Ltac to_sim :=
   | |- envs_entails _ (sim _ _ _ _) => idtac
   | |- envs_entails _ (target_red ?e_t (λ _, sim _ _ _ _ )) =>
       notypeclasses refine (tac_target_to_sim _ _ e_t _ _ _)
-  | |- envs_entails _ (source_red ?e_s (λ _ _ _, sim _ _ _ _)) =>
+  | |- envs_entails _ (source_red ?e_s (λ _, sim _ _ _ _)) =>
       notypeclasses refine (tac_source_to_sim _ _ _ e_s _ _)
   | _ => fail "not a target_red or source_red of suitable shape"
   end.
@@ -556,12 +555,11 @@ Tactic Notation "source_red_expr_eval" tactic3(t) :=
   end.
 Ltac source_expr_simpl := source_red_expr_eval simpl.
 
-(* TODO: make more robust by using variant of source_red that takes predicates expr → iProp (instead of iIntros) *)
 Ltac source_value_head :=
   lazymatch goal with
-  | |- envs_entails _ (source_red (Val _) (λ _ _ _, bupd _)) =>
+  | |- envs_entails _ (source_red (Val _) (λ _, bupd _)) =>
       eapply tac_source_red_base_no_bupd; try iIntros (_ _)
-  | |- envs_entails _ (source_red (Val _) (λ _ _ _, sim _ _ _ _)) =>
+  | |- envs_entails _ (source_red (Val _) (λ _, sim _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd; try iIntros (_ _)
   | |- envs_entails _ (source_red (Val _) _) =>
       eapply tac_source_red_base; try iIntros (_ _)

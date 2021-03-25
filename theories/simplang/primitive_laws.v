@@ -186,8 +186,8 @@ Lemma source_red_allocN_seq n v Ψ :
     source_red (of_val #l) Ψ) -∗
   source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
-  iIntros (Hn) "Hrel Hloc".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
+  iIntros (Hn) "Hrel Hloc". iApply source_red_lift_head_step.
+  iIntros (P_s σ_s P_t σ_t) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) _]".
   assert (head_reducible P_s (AllocN #n v) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with lia head_step. }
   inv_head_step.
@@ -238,7 +238,7 @@ Lemma source_red_free v l Ψ :
   source_red (Free (Val $ LitV (LitLoc l))) Ψ.
 Proof.
   iIntros "Hrel Hl Hsim". iApply source_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
+  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) _]".
   iModIntro. iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (head_reducible P_s (Free #l) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -266,7 +266,7 @@ Lemma source_red_load l dq v Ψ :
   source_red (Load (Val $ LitV $ LitLoc l)) Ψ.
 Proof.
   iIntros "Hl Ht". iApply source_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
+  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) _]".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (head_reducible P_s (Load #l) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -297,7 +297,7 @@ Lemma source_red_store l v v' Ψ :
   source_red (Store (Val $ LitV (LitLoc l)) (Val v)) Ψ.
 Proof.
   iIntros "Hrel Hl Hsim". iApply source_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) !>".
+  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) _] !>".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (head_reducible P_s (Store (Val $ LitV (LitLoc l)) (Val v)) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -327,7 +327,7 @@ Lemma source_red_call f K_s v Ψ :
   source_red (Call (Val $ LitV $ LitFn f) (Val v)) Ψ.
 Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & ? & ?) !>".
+  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ? & ?) _] !>".
   iDestruct (gen_prog_valid with "HP_s Hf") as %?.
   assert (head_reducible P_s (Call (Val $ LitV $ LitFn f) (Val v)) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }

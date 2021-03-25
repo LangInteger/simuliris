@@ -16,8 +16,8 @@ Section irreducible.
         [ by rewrite (to_class_val _ _ Heq') in Heq | done | done].
   Qed.
 
-  (* slightly hacky proof tactic for irreducibility.
-    basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas *)
+  (* slightly hacky proof tactic for irreducibility, solving goals of the form [SIrreducible _ _ _ _].
+    Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
   Ltac prove_irred :=
     let P_s := fresh "P_s" in
     let σ_s := fresh "σ_s" in
@@ -33,7 +33,8 @@ Section irreducible.
     let Ki := fresh "Ki" in
     let Ki' := fresh "Ki'" in
     intros ϕ e_s' σ_s' Hhead%prim_head_step;
-    [inversion Hhead; subst; try by (apply ϕ; eauto)
+    [ (*this need not complete the proof and may generate a proof obligation *)
+      inversion Hhead; subst; try by (apply ϕ; eauto) 
     | intros K e' Heq Hv; clear ϕ;
       destruct K as [ | Ki K]; first (done);
       exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
@@ -43,9 +44,36 @@ Section irreducible.
         by rewrite -language_to_val_eq]
     ].
 
-  Global Instance irreducible_match v x1 e1 x2 e2 P σ :
-    SIrreducible (¬ ∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
-  Proof. prove_irred. Qed.
+  (** Tactic support for proving goals of the form [IrredUnless] by 
+    applying the lemma [irred_unless_irred_dec], using [prove_irred], 
+    and using ad-hoc automation for solving the [Decision] goal. *)
+  Ltac discr := 
+    repeat match goal with 
+           | H : ∃ _, _ |- _ => destruct H 
+           | H: _ ∨ _ |- _ => destruct H
+           | H : _ ∧ _ |- _ => destruct H
+           end; congruence.
+
+  Ltac decide_goal := 
+    repeat match goal with 
+           | |- Decision (_ ∧ _) => apply and_dec
+           | |- Decision (_ ∨ _) => apply or_dec 
+           | |- Decision (is_Some _) => apply is_Some_dec
+           | |- Decision False => apply False_dec
+           | |- Decision True => apply True_dec
+           end;
+    try match goal with 
+    | v : val |- _ => 
+        match goal with 
+        | |- context[v] => destruct v as [[] | | | ]
+        end
+    end; rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
+
+  Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | prove_irred].
+
+  Global Instance irred_unless_match v x1 e1 x2 e2 P σ : 
+    IrredUnless (∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
+  Proof. prove_irred_unless. Qed.
 
   (** for binary operators, we provide specialized instances for each operator.
     (the full search space is otherwise too large when doing a case analysis over
@@ -62,61 +90,62 @@ Section irreducible.
         end; eauto 8.
 
   Global Instance irreducible_plus v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp PlusOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp PlusOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless; solve_binop v1 v2. Qed.
   Global Instance irreducible_minus v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MinusOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MinusOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless; solve_binop v1 v2. Qed.
   Global Instance irreducible_rem v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp RemOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp RemOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_mult v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MultOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MultOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_quot v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp QuotOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp QuotOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
 
   Global Instance irreducible_and v1 v2 P σ :
-    SIrreducible (¬ (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b)))%V
+    IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
       P (BinOp AndOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_or v1 v2 P σ :
-    SIrreducible (¬ (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b)))%V
+    IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
       P (BinOp OrOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_xor v1 v2 P σ :
-    SIrreducible (¬ (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b)))%V
+    IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
       P (BinOp XorOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
 
   Global Instance irreducible_shiftl v1 v2 P σ :
-    SIrreducible ((¬ (∃ n, v1 = LitV $ LitInt n)) ∨ (¬ (∃ n, v2 = LitV $ LitInt n)))%V
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp ShiftLOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_shiftr v1 v2 P σ :
-    SIrreducible ((¬ (∃ n, v1 = LitV $ LitInt n)) ∨ (¬ (∃ n, v2 = LitV $ LitInt n)))%V
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp ShiftROp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
 
   Global Instance irreducible_le v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp LeOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_ge v1 v2 P σ :
-    SIrreducible (¬ (∃ n, v1 = LitV $ LitInt n) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp LtOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
 
   Global Instance irreducible_offset v1 v2 P σ :
-    SIrreducible (¬ (∃ l, v1 = LitV $ LitLoc l) ∨ ¬ (∃ n, v2 = LitV $ LitInt n))%V
+    IrredUnless ((∃ l, v1 = LitV $ LitLoc l) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp OffsetOp  (Val v1) (Val v2)) σ.
-  Proof. prove_irred. solve_binop v1 v2. Qed.
+  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
 
   Global Instance irreducible_eq v1 v2 P σ :
-    SIrreducible (¬ vals_compare_safe v1 v2)%V
+    IrredUnless (vals_compare_safe v1 v2)%V
       P (BinOp EqOp (Val v1) (Val v2)) σ.
   Proof.
+    apply irred_unless_irred_dec; first by apply _.
     prove_irred.
     unfold bin_op_eval in *;
     case_decide; last congruence.
@@ -124,37 +153,47 @@ Section irreducible.
   Qed.
 
   Global Instance irreducible_unop v o P σ :
-    SIrreducible (¬ (is_Some $ un_op_eval o v)) P (UnOp o (Val v)) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (is_Some $ un_op_eval o v) P (UnOp o (Val v)) σ.
+  Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_var (x : string) P σ :
-    SIrreducible (True) P (Var x) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless False P (Var x) σ.
+  Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_call v v2 P σ :
-    SIrreducible (¬ ∃ fn, v = LitV $ LitFn fn) P (Call (Val v) (Val v2)) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ fn, v = LitV $ LitFn fn) P (Call (Val v) (Val v2)) σ.
+  Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_if v e1 e2 P σ :
-    SIrreducible (¬ ∃ b, v = LitV $ LitBool b) P (If (Val v) e1 e2) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ b, v = LitV $ LitBool b) P (If (Val v) e1 e2) σ.
+  Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_fst v P σ :
-    SIrreducible (¬ ∃ v1 v2, v = PairV v1 v2) P (Fst (Val v)) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ v1 v2, v = PairV v1 v2) P (Fst (Val v)) σ.
+  Proof. prove_irred_unless. Qed.
   Global Instance irreducible_snd v P σ :
-    SIrreducible (¬ ∃ v1 v2, v = PairV v1 v2) P (Snd (Val v)) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ v1 v2, v = PairV v1 v2) P (Snd (Val v)) σ.
+  Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_load σ l P :
-    SIrreducible (¬ ∃ v, heap σ !! l = Some (Some v)) P (Load $ Val $ LitV $ LitLoc l) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ v, heap σ !! l = Some (Some v)) P (Load $ Val $ LitV $ LitLoc l) σ.
+  Proof. 
+    apply irred_unless_irred_dec; last by prove_irred.
+    destruct (heap σ !! l) as [ [] | ]; decide_goal. 
+  Qed.
+
   Global Instance irreducible_store σ l P (v : val) :
-    SIrreducible (¬ ∃ v, heap σ !! l = Some (Some v)) P (Store (Val $ LitV $ LitLoc l) (Val v)) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ v, heap σ !! l = Some (Some v)) P (Store (Val $ LitV $ LitLoc l) (Val v)) σ.
+  Proof. 
+    apply irred_unless_irred_dec; last by prove_irred.
+    destruct (heap σ !! l) as [ [] | ]; decide_goal. 
+  Qed.
   Global Instance irreducible_free σ l P :
-    SIrreducible (¬ ∃ v, heap σ !! l = Some (Some v)) P (Free $ Val $ LitV $ LitLoc l) σ.
-  Proof. prove_irred. Qed.
+    IrredUnless (∃ v, heap σ !! l = Some (Some v)) P (Free $ Val $ LitV $ LitLoc l) σ.
+  Proof. 
+    apply irred_unless_irred_dec; last by prove_irred.
+    destruct (heap σ !! l) as [ [] | ]; decide_goal. 
+  Qed.
 End irreducible.
 
 Section pure_exec.
