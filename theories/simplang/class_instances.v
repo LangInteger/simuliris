@@ -6,6 +6,8 @@ From simuliris.simplang Require Import lang tactics.
 (** * Instances of the [PureExec] class *)
 
 Section irreducible.
+  Implicit Types (e : expr) (v : val) (σ : state).
+
   Lemma language_to_val_eq e :
     language.to_val e = to_val e.
   Proof.
@@ -34,7 +36,7 @@ Section irreducible.
     let Ki' := fresh "Ki'" in
     intros ϕ e_s' σ_s' Hhead%prim_head_step;
     [ (*this need not complete the proof and may generate a proof obligation *)
-      inversion Hhead; subst; try by (apply ϕ; eauto) 
+      inversion Hhead; subst; try by (apply ϕ; eauto)
     | intros K e' Heq Hv; clear ϕ;
       destruct K as [ | Ki K]; first (done);
       exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
@@ -44,34 +46,34 @@ Section irreducible.
         by rewrite -language_to_val_eq]
     ].
 
-  (** Tactic support for proving goals of the form [IrredUnless] by 
-    applying the lemma [irred_unless_irred_dec], using [prove_irred], 
+  (** Tactic support for proving goals of the form [IrredUnless] by
+    applying the lemma [irred_unless_irred_dec], using [prove_irred],
     and using ad-hoc automation for solving the [Decision] goal. *)
-  Ltac discr := 
-    repeat match goal with 
-           | H : ∃ _, _ |- _ => destruct H 
+  Ltac discr :=
+    repeat match goal with
+           | H : ∃ _, _ |- _ => destruct H
            | H: _ ∨ _ |- _ => destruct H
            | H : _ ∧ _ |- _ => destruct H
            end; congruence.
 
-  Ltac decide_goal := 
-    repeat match goal with 
+  Ltac decide_goal :=
+    repeat match goal with
            | |- Decision (_ ∧ _) => apply and_dec
-           | |- Decision (_ ∨ _) => apply or_dec 
+           | |- Decision (_ ∨ _) => apply or_dec
            | |- Decision (is_Some _) => apply is_Some_dec
            | |- Decision False => apply False_dec
            | |- Decision True => apply True_dec
            end;
-    try match goal with 
-    | v : val |- _ => 
-        match goal with 
+    try match goal with
+    | v : val |- _ =>
+        match goal with
         | |- context[v] => destruct v as [[] | | | ]
         end
     end; rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
 
   Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | prove_irred].
 
-  Global Instance irred_unless_match v x1 e1 x2 e2 P σ : 
+  Global Instance irred_unless_match v x1 e1 x2 e2 P σ :
     IrredUnless (∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
   Proof. prove_irred_unless. Qed.
 
@@ -175,24 +177,50 @@ Section irreducible.
     IrredUnless (∃ v1 v2, v = PairV v1 v2) P (Snd (Val v)) σ.
   Proof. prove_irred_unless. Qed.
 
-  Global Instance irreducible_load σ l P :
-    IrredUnless (∃ v, heap σ !! l = Some (Some v)) P (Load $ Val $ LitV $ LitLoc l) σ.
-  Proof. 
+  Global Instance irreducible_load σ v_l P :
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some v)) P (Load $ Val v_l) σ.
+  Proof.
     apply irred_unless_irred_dec; last by prove_irred.
-    destruct (heap σ !! l) as [ [] | ]; decide_goal. 
+    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
+    destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
+  Qed.
+  Global Instance irreducible_store σ v_l P (v : val) :
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some v)) P (Store (Val $ v_l) (Val v)) σ.
+  Proof.
+    apply irred_unless_irred_dec; last by prove_irred.
+    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
+    destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
+  Qed.
+  Global Instance irreducible_free σ v_l P :
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some v)) P (Free $ Val $ v_l) σ.
+  Proof.
+    apply irred_unless_irred_dec; last by prove_irred.
+    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
+    destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
   Qed.
 
-  Global Instance irreducible_store σ l P (v : val) :
-    IrredUnless (∃ v, heap σ !! l = Some (Some v)) P (Store (Val $ LitV $ LitLoc l) (Val v)) σ.
-  Proof. 
-    apply irred_unless_irred_dec; last by prove_irred.
-    destruct (heap σ !! l) as [ [] | ]; decide_goal. 
+
+  (** for the usual use case with [sim_irred_unless], we will not actually have the state and program
+    in context, thus the application of the above instances will fail.
+    Therefore, we provide weaker instances for these cases.
+   *)
+  Global Instance irreducible_load_weak σ v_l P :
+    IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Load $ Val v_l) σ | 10.
+  Proof.
+    eapply irred_unless_weaken; last apply irreducible_load.
+    intros (l & v & ? & ?); eauto.
   Qed.
-  Global Instance irreducible_free σ l P :
-    IrredUnless (∃ v, heap σ !! l = Some (Some v)) P (Free $ Val $ LitV $ LitLoc l) σ.
-  Proof. 
-    apply irred_unless_irred_dec; last by prove_irred.
-    destruct (heap σ !! l) as [ [] | ]; decide_goal. 
+  Global Instance irreducible_store_weak σ v_l P (v : val) :
+    IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Store (Val $ v_l) (Val v)) σ | 10.
+  Proof.
+    eapply irred_unless_weaken; last apply irreducible_store.
+    intros (l & ? & ? & ?); eauto.
+  Qed.
+  Global Instance irreducible_free_weak σ v_l P :
+    IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Free $ Val $ v_l) σ | 10.
+  Proof.
+    eapply irred_unless_weaken; last apply irreducible_free.
+    intros (l & ? & ? & ?); eauto.
   Qed.
 End irreducible.
 

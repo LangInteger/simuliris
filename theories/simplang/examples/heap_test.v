@@ -10,11 +10,9 @@ From simuliris.simplang Require heap_bij.
 
 Module fix_bi.
 Context `{sheapG Σ}.
-Instance : sheapRel Σ := {|
-  sheap_stateRel _ _ := ⌜True⌝%I;
-  sheap_progRel _ _ := ⌜True⌝%I;
+Instance : sheapInv Σ := {|
+  sheap_inv  := ⌜True⌝%I;
  |}.
-Ltac solve_state_sidecond ::= iPureIntro; exact I.
 
 Definition val_rel (v1 v2 : val) : iProp Σ := (⌜v1 = v2⌝)%I.
 
@@ -62,7 +60,7 @@ Module bij_test.
     | LitV (LitLoc l_t), LitV (LitLoc l_s) => l_t ↔h l_s
     | _,_ => ⌜v_t = v_s⌝
     end)%I.
-  Instance : sheapRel Σ := heap_bij_rel val_rel.
+  Instance : sheapInv Σ := heap_bij_inv val_rel.
   Instance val_rel_pers v_t v_s : Persistent (val_rel v_t v_s).
   Proof. destruct v_t as [[] | | | ], v_s as [[] | | | ]; apply _. Qed.
 

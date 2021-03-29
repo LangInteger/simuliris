@@ -84,7 +84,19 @@ Section lang.
     intros [Hphi | Hnphi] Hirred Hnirred; first done.
     contradict Hnirred. by apply Hirred.
   Qed.
+
+  Lemma irred_unless_weaken P e σ (ϕ ψ : Prop)  :
+    (ϕ → ψ) →
+    IrredUnless ϕ P e σ → IrredUnless ψ P e σ.
+  Proof. intros Hw Hnirred Hirred. by apply Hw, Hnirred. Qed.
 End lang.
+
+#[export]
+Hint Mode SIrreducible - - - + - : core.
+#[export]
+Hint Mode IrredUnless - - - + - : core.
+#[export]
+Hint Mode PureExec - - - + - : core.
 
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.

@@ -11,7 +11,7 @@ From iris.prelude Require Import options.
 
 
 Section sim.
-Context `{!sheapG Σ} `{sheapRel Σ}.
+Context `{!sheapG Σ} `{sheapInv Σ}.
 Context (Ω : val → val → iProp Σ).
 Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
@@ -134,14 +134,8 @@ Qed.
 (** NOTE: currently, the sideconditions need to be proved without spatial hypotheses (to make the proofmode simpler).
   We may want to lift this restriction and allowing framing of hypotheses if needed.
 *)
-Lemma tac_target_red_allocN n v i j K Ψ Δ :
+Lemma tac_target_red_allocN n v j K Ψ Δ :
   (0 < n)%Z →
-  (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel (state_init_heap l n v σ_t) σ_s)
-    | None => False
-    end) →
   (∀ l,
     match envs_app false (Esnoc Enil j (array (hG:=gen_heap_inG_target) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
@@ -150,25 +144,16 @@ Lemma tac_target_red_allocN n v i j K Ψ Δ :
     end) →
   envs_entails Δ (target_red (fill K (AllocN (Val $ LitV $ LitInt n) (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? HΔ0 HΔ. rewrite of_envs_clone_intuitionistic. iIntros "[He #Hint]".
-  iApply target_red_bind. iApply (target_red_allocN); [done..| | ].
-  - iIntros (σ_t σ_s l) "Hl". specialize (HΔ0 σ_t σ_s l). clear HΔ.
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ0. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - iIntros (l) "Hl". specialize (HΔ l). clear HΔ0. iClear "Hint".
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    iApply target_red_base. iModIntro. iApply HΔ.
-    rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  rewrite envs_entails_eq=> ? HΔ. iIntros "He".
+  iApply target_red_bind. iApply (target_red_allocN); [done..| ].
+  iIntros (l) "Hl". specialize (HΔ l).
+  destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
+  iApply target_red_base. iModIntro. iApply HΔ.
+  rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma tac_source_red_allocN n v i j K Ψ Δ :
+Lemma tac_source_red_allocN n v j K Ψ Δ :
   (0 < n)%Z →
-  (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel σ_t (state_init_heap l n v σ_s))
-    | None => False
-    end) →
   (∀ l,
     match envs_app false (Esnoc Enil j (array (hG:=gen_heap_inG_source) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
@@ -177,24 +162,15 @@ Lemma tac_source_red_allocN n v i j K Ψ Δ :
     end) →
   envs_entails Δ (source_red (fill K (AllocN (Val $ LitV $ LitInt n) (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? HΔ0 HΔ. rewrite of_envs_clone_intuitionistic. iIntros "[He #Hint]".
-  iApply source_red_bind. iApply source_red_allocN; [done..| | ].
-  - iIntros (σ_t σ_s l) "Hl". specialize (HΔ0 σ_t σ_s l). clear HΔ.
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ0. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - iIntros (l) "Hl". specialize (HΔ l). clear HΔ0. iClear "Hint".
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    iApply source_red_base. iModIntro.
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  rewrite envs_entails_eq=> ? HΔ. iIntros "He".
+  iApply source_red_bind. iApply source_red_allocN; [done..| ].
+  iIntros (l) "Hl". specialize (HΔ l).
+  destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
+  iApply source_red_base. iModIntro.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma tac_target_red_alloc v i j K Ψ Δ :
-  (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel (state_init_heap l 1 v σ_t) σ_s)
-    | None => False
-    end) →
+Lemma tac_target_red_alloc v j K Ψ Δ :
   (∀ l,
     match envs_app false (Esnoc Enil j (l ↦t v)) Δ with
     | Some Δ' =>
@@ -203,24 +179,15 @@ Lemma tac_target_red_alloc v i j K Ψ Δ :
     end) →
   envs_entails Δ (target_red (fill K (Alloc (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ0 HΔ. rewrite of_envs_clone_intuitionistic. iIntros "[He #Hint]".
+  rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply target_red_bind. iApply target_red_alloc.
-  - iIntros (σ_t σ_s l) "Hl". specialize (HΔ0 σ_t σ_s l). clear HΔ.
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ0. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - iIntros (l) "Hl". specialize (HΔ l). clear HΔ0. iClear "Hint".
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    iApply target_red_base. iModIntro.
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iIntros (l) "Hl". specialize (HΔ l).
+  destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
+  iApply target_red_base. iModIntro.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma tac_source_red_alloc v i j K Ψ Δ :
-  (∀ σ_t σ_s l,
-    match envs_app false (Esnoc Enil i (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel σ_t (state_init_heap l 1 v σ_s))
-    | None => False
-    end) →
+Lemma tac_source_red_alloc v j K Ψ Δ :
   (∀ l,
     match envs_app false (Esnoc Enil j (l ↦s v)) Δ with
     | Some Δ' =>
@@ -229,76 +196,44 @@ Lemma tac_source_red_alloc v i j K Ψ Δ :
     end) →
   envs_entails Δ (source_red (fill K (Alloc (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ0 HΔ. rewrite of_envs_clone_intuitionistic. iIntros "[He #Hint]".
+  rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_alloc.
-  - iIntros (σ_t σ_s l) "Hl". specialize (HΔ0 σ_t σ_s l). clear HΔ.
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ0. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - iIntros (l) "Hl". specialize (HΔ l). clear HΔ0. iClear "Hint".
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    iApply source_red_base. iModIntro.
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iIntros (l) "Hl". specialize (HΔ l).
+  destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
+  iApply source_red_base. iModIntro.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
 Qed.
 
-Lemma frame_mono_2 P P' Q Q' W R :
-  (P' -∗ Q' -∗ W -∗ R) →
-  (P -∗ P') → (Q -∗ Q' ∗ W ) →
-  (P -∗ Q -∗ R : iProp Σ).
-Proof.
-  intros Hf1 Hf2 Hf3. iIntros "HP HQ". iPoseProof (Hf3 with "HQ") as "[HQ' HW]".
-  iApply (Hf1 with "[HP] HQ' HW"). by iApply Hf2.
-Qed.
-
-Lemma tac_target_red_free l v i j K Ψ Δ :
-  (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel (state_upd_heap <[l:=None]> σ_t) σ_s)
-    | None => False
-    end) →
+Lemma tac_target_red_free l v i K Ψ Δ :
   envs_lookup i Δ = Some (false, l ↦t v)%I →
   (let Δ' := envs_delete false i false Δ in
     envs_entails Δ' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (target_red (fill K (Free (LitV l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ Hlk Hfin. rewrite of_envs_clone_intuitionistic.
-  rewrite -target_red_bind. apply wand_elim_r'.
-  eapply frame_mono_2; first apply target_red_free.
-  - iIntros "Hint". iIntros (σ_t σ_s) "Hl". specialize (HΔ σ_t σ_s).
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - rewrite envs_lookup_split //; simpl.
-    iIntros "H". iApply sep_mono_r.
-    { iIntros "H". iApply target_red_base. iModIntro. iApply "H". }
-    rewrite -Hfin.
-    rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
-    by rewrite wand_elim_r.
+  rewrite envs_entails_eq=> Hlk Hfin.
+  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_free.
+  rewrite envs_lookup_split //; simpl.
+  iIntros "H". iApply sep_mono_r.
+  { iIntros "H". iApply target_red_base. iModIntro. iApply "H". }
+  rewrite -Hfin.
+  rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
+  by rewrite wand_elim_r.
 Qed.
 
-Lemma tac_source_red_free l v i j K Ψ Δ :
-  (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel σ_t (state_upd_heap <[l:=None]> σ_s) )
-    | None => False
-    end) →
+Lemma tac_source_red_free l v i K Ψ Δ :
   envs_lookup i Δ = Some (false, l ↦s v)%I →
   (let Δ' := envs_delete false i false Δ in
     envs_entails Δ' (source_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (source_red (fill K (Free (LitV l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ Hlk Hfin. rewrite of_envs_clone_intuitionistic.
-  rewrite -source_red_bind. apply wand_elim_r'.
-  eapply frame_mono_2; first apply source_red_free.
-  - iIntros "Hint". iIntros (σ_t σ_s) "Hl". specialize (HΔ σ_t σ_s).
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - rewrite envs_lookup_split //; simpl.
-    iIntros "H". iApply sep_mono_r.
-    { iIntros "H". iApply source_red_base. iModIntro. iApply "H". }
-    rewrite -Hfin.
-    rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
-    by rewrite wand_elim_r.
+  rewrite envs_entails_eq=> Hlk Hfin.
+  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_free.
+  rewrite envs_lookup_split //; simpl.
+  iIntros "H". iApply sep_mono_r.
+  { iIntros "H". iApply source_red_base. iModIntro. iApply "H". }
+  rewrite -Hfin.
+  rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
+  by rewrite wand_elim_r.
 Qed.
 
 Lemma tac_target_red_load Δ i K b l q v Ψ :
@@ -331,13 +266,7 @@ Proof.
     iApply source_red_base; eauto.
 Qed.
 
-Lemma tac_target_red_store Δ i j K l v v' Ψ :
-  (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel (state_upd_heap <[l:=Some v']> σ_t) σ_s)
-    | None => False
-    end) →
+Lemma tac_target_red_store Δ i K l v v' Ψ :
   envs_lookup i Δ = Some (false, l ↦t v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦t v')) Δ with
   | Some Δ' => envs_entails Δ' (target_red (fill K (Val $ LitV LitUnit)) Ψ)
@@ -345,25 +274,15 @@ Lemma tac_target_red_store Δ i j K l v v' Ψ :
   end →
   envs_entails Δ (target_red (fill K (Store (LitV l) (Val v'))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ ? Hi.
-  rewrite of_envs_clone_intuitionistic. rewrite -target_red_bind. apply wand_elim_r'.
-  eapply frame_mono_2; first apply target_red_store.
-  - iIntros "Hint". iIntros (σ_t σ_s) "Hl". specialize (HΔ σ_t σ_s).
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    rewrite envs_simple_replace_sound //; simpl.
-    rewrite right_id. apply sep_mono_r, wand_mono; first done.
-    rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
+  rewrite envs_entails_eq=> ? Hi.
+  destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
+  rewrite -target_red_bind. eapply wand_apply; first by eapply target_red_store.
+  rewrite envs_simple_replace_sound //; simpl.
+  rewrite right_id. apply sep_mono_r, wand_mono; first done.
+  rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
 Qed.
 
-Lemma tac_source_red_store Δ i j K l v v' Ψ :
-  (∀ σ_t σ_s,
-    match envs_app false (Esnoc Enil j (sheap_stateRel σ_t σ_s)) (envs_clear_spatial Δ) with
-    | Some Δ' =>
-       envs_entails Δ' (sheap_stateRel σ_t (state_upd_heap <[l:=Some v']> σ_s))
-    | None => False
-    end) →
+Lemma tac_source_red_store Δ i K l v v' Ψ :
   envs_lookup i Δ = Some (false, l ↦s v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦s v')) Δ with
   | Some Δ' => envs_entails Δ' (source_red (fill K (Val $ LitV LitUnit)) Ψ)
@@ -371,16 +290,12 @@ Lemma tac_source_red_store Δ i j K l v v' Ψ :
   end →
   envs_entails Δ (source_red (fill K (Store (LitV l) (Val v'))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ ? Hi.
-  rewrite of_envs_clone_intuitionistic. rewrite -source_red_bind. apply wand_elim_r'.
-  eapply frame_mono_2; first apply source_red_store.
-  - iIntros "Hint". iIntros (σ_t σ_s) "Hl". specialize (HΔ σ_t σ_s).
-    destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply HΔ. rewrite envs_app_sound //; simpl. iApply "Hint"; eauto.
-  - destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-    rewrite envs_simple_replace_sound //; simpl.
-    rewrite right_id. apply sep_mono_r, wand_mono; first done.
-    rewrite Hi. iIntros "Hs". iApply source_red_base; eauto.
+  rewrite envs_entails_eq=> ? Hi.
+  destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
+  rewrite -source_red_bind. eapply wand_apply; first by eapply source_red_store.
+  rewrite envs_simple_replace_sound //; simpl.
+  rewrite right_id. apply sep_mono_r, wand_mono; first done.
+  rewrite Hi. iIntros "Hs". iApply source_red_base; eauto.
 Qed.
 
 Lemma tac_target_red_call Δ i K b f v K_t Ψ :
@@ -729,9 +644,6 @@ Tactic Notation "source_call" :=
   end.
 
 (** ** Heap automation *)
-(* tactic that is used for the pure sideconditions on the state *)
-Ltac solve_state_sidecond := idtac.
-
 Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
   to_target;
   let Htmp := iFresh in
@@ -742,10 +654,6 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
     | |- False => fail 1 "target_alloc:" H "not fresh"
     | _ => iDestructHyp Htmp as H; target_finish
     end in
-  let finish_sidecond _ :=
-    first [intros ?? l | fail 1 "target_alloc:" l "not fresh"];
-    pm_reduce;
-    solve_state_sidecond in
   target_red_pures;
   (** The code first tries to use allocation lemma for a single reference,
      ie, [tac_target_red_alloc].
@@ -759,15 +667,15 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     let process_single _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp K _ _))
           |fail 1 "target_alloc: cannot find 'Alloc' in" e];
-        [finish_sidecond () | finish ()]
+        finish ()
     in
     let process_array _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp K _ _))
           |fail 1 "target_alloc: cannot find 'Alloc' in" e];
-        [idtac|finish_sidecond ()|finish ()]
+        [idtac|finish ()]
     in (process_single ()) || (process_array ())
   | _ => fail "target_alloc: not a 'target_red'"
   end.
@@ -785,24 +693,20 @@ Tactic Notation "source_alloc" ident(l) "as" constr(H) :=
     | |- False => fail 1 "source_alloc:" H "not fresh"
     | _ => iDestructHyp Htmp as H; source_finish
     end in
-  let finish_sidecond _ :=
-    first [intros ?? l | fail 1 "source_alloc:" l "not fresh"];
-    pm_reduce;
-    solve_state_sidecond in
   source_red_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     let process_single _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp K _ _))
           |fail 1 "source_alloc: cannot find 'Alloc' in" e];
-        [finish_sidecond () | finish ()]
+        finish ()
     in
     let process_array _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp K _ _))
           |fail 1 "source_alloc: cannot find 'Alloc' in" e];
-        [idtac|finish_sidecond ()|finish ()]
+        [idtac|finish ()]
     in (process_single ()) || (process_array ())
   | _ => fail "source_alloc: not a 'source_red'"
   end.
@@ -812,7 +716,6 @@ Tactic Notation "source_alloc" ident(l) :=
 
 Tactic Notation "target_free" :=
   to_target;
-  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
@@ -820,17 +723,15 @@ Tactic Notation "target_free" :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ Htmp K _ _))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ K _ _))
       |fail 1 "target_free: cannot find 'Free' in" e];
-    [intros ??; pm_reduce; solve_state_sidecond
-    |solve_mapsto ()
+    [solve_mapsto ()
     |pm_reduce; target_finish]
   | _ => fail "target_free: not a 'target_red'"
   end.
 
 Tactic Notation "source_free" :=
   to_source;
-  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
@@ -838,10 +739,9 @@ Tactic Notation "source_free" :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ Htmp K _ _))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ K _ _))
       |fail 1 "source_free: cannot find 'Free' in" e];
-    [intros ??; pm_reduce; solve_state_sidecond
-    |solve_mapsto ()
+    [solve_mapsto ()
     |pm_reduce; source_finish]
   | _ => fail "source_free: not a 'source_red'"
   end.
@@ -882,7 +782,6 @@ Tactic Notation "source_load" :=
 (* FIXME: error messages seem broken (already the eapply seems to fail when the pointsto-assumption is missing)*)
 Tactic Notation "target_store" :=
   to_target;
-  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in
@@ -890,17 +789,15 @@ Tactic Notation "target_store" :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ Htmp K _ _ _ Ψ))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ Ψ))
       |fail 1 "target_store: cannot find 'Store' in" e];
-    [intros ??; pm_reduce; solve_state_sidecond
-    |solve_mapsto ()
+    [solve_mapsto ()
     |pm_reduce; target_finish]
   | _ => fail "target_store: not a 'target_red'"
   end.
 
 Tactic Notation "source_store" :=
   to_source;
-  let Htmp := iFresh in
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_store: cannot find" l "↦s ?" in
@@ -908,10 +805,9 @@ Tactic Notation "source_store" :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ Htmp K _ _ _ Ψ))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ K _ _ _ Ψ))
       |fail 1 "source_store: cannot find 'Store' in" e];
-    [intros ??; pm_reduce; solve_state_sidecond
-    |solve_mapsto ()
+    [solve_mapsto ()
     |pm_reduce; source_finish]
   | _ => fail "source_store: not a 'source_red'"
   end.

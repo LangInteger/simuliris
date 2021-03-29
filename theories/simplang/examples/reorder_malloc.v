@@ -1,9 +1,8 @@
-From simuliris.simplang Require Import lang notation tactics class_instances proofmode.
+From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
 From iris Require Import bi.bi.
 Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import heap_bij.
 
 (** * Simple example for re-ordering two allocs and then passing the related locations to an external function. *)
 
@@ -12,21 +11,25 @@ Section reorder.
 
   Fixpoint val_rel (v_t v_s : val) {struct v_s} :=
     (match v_t, v_s with
-    | LitV (LitLoc l_t), LitV (LitLoc l_s) => l_t ↔h l_s
-    | LitV l_t, LitV l_s => ⌜l_t = l_s⌝
+    | LitV (LitLoc l_t), LitV (LitLoc l_s) =>
+        l_t ↔h l_s
+    | LitV l_t, LitV l_s =>
+        ⌜l_t = l_s⌝
     | PairV v1_t v2_t, PairV v1_s v2_s =>
         val_rel v1_t v1_s ∧ val_rel v2_t v2_s
-    | InjLV v_t, InjLV v_s => val_rel v_t v_s
-    | InjRV v_t, InjRV v_s => val_rel v_t v_s
+    | InjLV v_t, InjLV v_s =>
+        val_rel v_t v_s
+    | InjRV v_t, InjRV v_s =>
+        val_rel v_t v_s
     | _,_ => False
     end)%I.
-  Instance : sheapRel Σ := heap_bij_rel val_rel.
+  Instance : sheapInv Σ := heap_bij_inv val_rel.
   Instance val_rel_pers v_t v_s : Persistent (val_rel v_t v_s).
   Proof.
     induction v_s as [[] | | | ] in v_t |-*; destruct v_t as [ [] | | | ]; apply _.
   Qed.
 
-  Lemma val_rel_pair v_t v_s1 v_s2 :
+  Lemma val_rel_pair_source v_t v_s1 v_s2 :
     val_rel v_t (v_s1, v_s2) -∗
     ∃ v_t1 v_t2, ⌜v_t = PairV v_t1 v_t2⌝ ∗
       val_rel v_t1 v_s1 ∗
@@ -36,10 +39,18 @@ Section reorder.
     iExists v_t1, v_t2. iDestruct "H" as "[#H1 #H2]". eauto.
   Qed.
 
-  Lemma val_rel_litfn v_t fn_s :
+  Lemma val_rel_litfn_source v_t fn_s :
     val_rel v_t (LitV $ LitFn $ fn_s) -∗ ⌜v_t = LitV $ LitFn $ fn_s⌝.
   Proof.
     simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done.
+  Qed.
+
+  Lemma val_rel_loc_source v_t l_s :
+    val_rel v_t (LitV $ LitLoc l_s) -∗
+    ∃ l_t, ⌜v_t = LitV $ LitLoc l_t⌝ ∗ l_t ↔h l_s.
+  Proof.
+    destruct v_t as [[ | | | | l_t | ] | | | ]; simpl;
+        first [iIntros "%Ht"; congruence | iIntros "#Ht"; eauto].
   Qed.
 
 
@@ -70,12 +81,12 @@ Section reorder.
 
     source_red_bind (Fst v_s).
     iApply source_red_irred_unless; first done.
-    iIntros "%Ha"; destruct Ha as (v_s1 & v_s2' & ->).
+    iIntros ((v_s1 & v_s2' & ->)).
     sim_pures.
 
     source_red_bind (Fst v_s2').
     iApply source_red_irred_unless; first done.
-    iIntros "%Ha"; destruct Ha as (v_s2 & v_s_cont & ->).
+    iIntros ((v_s2 & v_s_cont & ->)).
     sim_pures.
 
     source_alloc l1_s as "Hl1_s".
@@ -84,11 +95,11 @@ Section reorder.
 
     iApply sim_irred_unless.
     { destruct v_s_cont as [[] | | | ]; done. }
-    iIntros "%Ha"; destruct Ha as (fcont & ->).
+    iIntros ((fcont & ->)).
 
-    iPoseProof (val_rel_pair with "Hrel") as (v_t1 v_t2') "(-> & #Hrel1 & Hrel2')".
-    iPoseProof (val_rel_pair with "Hrel2'") as (v_t2 v_t_cont) "(-> & #Hrel2 & #Hrel_cont)".
-    iPoseProof (val_rel_litfn with "Hrel_cont") as "->".
+    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2') "(-> & #Hrel1 & Hrel2')".
+    iPoseProof (val_rel_pair_source with "Hrel2'") as (v_t2 v_t_cont) "(-> & #Hrel2 & #Hrel_cont)".
+    iPoseProof (val_rel_litfn_source with "Hrel_cont") as "->".
     sim_pures.
 
     target_alloc l1_t as "Hl1_t".
@@ -101,4 +112,45 @@ Section reorder.
     iApply sim_call; [done | done | simpl; by eauto ].
   Qed.
 
+  Definition alloc2_use :=
+    (λ: "a", let: "l1" := Fst "a" in
+             let: "l2" := Snd "a" in
+             let: "v1" := ! "l1" in
+             let: "v2" := ! "l2" in
+             ("v1", "v2")
+    )%E.
+
+  Lemma use_related :
+    ⊢ sim_ectx val_rel alloc2_use alloc2_use val_rel.
+  Proof.
+    iIntros (v_t v_s) "Hrel". sim_pures.
+
+    source_red_bind (Fst v_s).
+    iApply source_red_irred_unless; first done.
+    iIntros ((v_s1 & v_s2 & ->)).
+    sim_pures.
+
+    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & Hrel1 & Hrel2)".
+    sim_pures.
+
+    source_red_bind (! v_s1)%E.
+    iApply source_red_irred_unless; first done.
+    iIntros ((l_s & ->)).
+    iApply source_red_base; iModIntro.
+    to_sim.
+    iPoseProof (val_rel_loc_source with "Hrel1") as (l_t) "(-> & #Hbij1)".
+    sim_load v_t1 v_s1 as "Hv1".
+    sim_pures.
+
+    source_red_bind (! v_s2)%E.
+    iApply source_red_irred_unless; first done.
+    iIntros ((l_s2 & ->)).
+    iApply source_red_base; iModIntro.
+    to_sim.
+    iPoseProof (val_rel_loc_source with "Hrel2") as (l_t2) "(-> & #Hbij2)".
+    sim_load v_t2 v_s2 as "Hv2".
+    sim_pures.
+
+    iModIntro; simpl. eauto.
+  Qed.
 End reorder.

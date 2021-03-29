@@ -2,14 +2,8 @@ From iris.proofmode Require Import tactics.
 From iris.bi.lib Require Import fractional.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog gen_heap_bij.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Export class_instances.
 From simuliris.simplang Require Import tactics notation primitive_laws.
-From simuliris.simplang Require Export primitive_laws proofmode.
-
-From iris.bi Require Import bi.
-Import bi.
-From iris.bi Require Import derived_laws.
-Import bi.
+From simuliris.simplang Require Export class_instances primitive_laws proofmode.
 
 From iris.prelude Require Import options.
 
@@ -23,11 +17,12 @@ Class sbijG (Σ : gFunctors) := SBijG {
 Section fix_heap.
   Context `{sbijG Σ} (val_rel : val → val → iProp Σ).
   Context {val_rel_pers : ∀ v_t v_s, Persistent (val_rel v_t v_s)}.
-  Instance heap_bij_rel : sheapRel Σ := {|
-    sheap_stateRel _ _ := gen_heap_bij_inv (λ ov_t ov_s,
-      (∃ v_t v_s, ⌜ov_t = Some v_t⌝ ∗ ⌜ov_s = Some v_s⌝ ∗ val_rel v_t v_s) ∨
-      (⌜ov_t = None⌝ ∗ ⌜ov_s = None⌝))%I;
-    sheap_progRel _ _ := True%I;
+
+  Definition oval_rel ov_t ov_s : iProp Σ :=
+    (∃ v_t v_s, ⌜ov_t = Some v_t⌝ ∗ ⌜ov_s = Some v_s⌝ ∗ val_rel v_t v_s) ∨
+    (⌜ov_t = None⌝ ∗ ⌜ov_s = None⌝).
+  Instance heap_bij_inv : sheapInv Σ := {|
+    sheap_inv := gen_heap_bij_inv oval_rel;
   |}.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
@@ -42,8 +37,8 @@ Section fix_heap.
     (Load (Val $ LitV $ LitLoc l_t)) ⪯ (Load (Val $ LitV $ LitLoc l_s)) {{ Φ }}.
   Proof using val_rel_pers.
     iIntros "#Hbij Hsim". iApply sim_lift_head_step_both.
-    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) %Hnstuck]".
-    iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t' v_s') "(Hl_t & Hl_s & He & Hclose)".
+    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck]".
+    iPoseProof (gen_heap_bij_access with "Hinv Hbij") as (v_t' v_s') "(Hl_t & Hl_s & He & Hclose)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
     iDestruct "He" as "[He | [-> ->]]".
@@ -68,8 +63,8 @@ Section fix_heap.
     Store (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯ Store (Val $ LitV (LitLoc l_s)) (Val v_s) {{ Φ }}.
   Proof.
     iIntros "Hbij Hval Hsim". iApply sim_lift_head_step_both.
-    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) %Hnstuck] !>".
-    iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
+    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck] !>".
+    iPoseProof (gen_heap_bij_access with "Hinv Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
     iDestruct "He" as "[He | [-> ->]]".
@@ -95,8 +90,8 @@ Section fix_heap.
     Free (Val $ LitV $ LitLoc l_t) ⪯ Free (Val $ LitV $ LitLoc l_s) {{ Φ }}.
   Proof.
     iIntros "Hbij Hsim". iApply sim_lift_head_step_both.
-    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog) %Hnstuck]".
-    iPoseProof (gen_heap_bij_access with "Hstate Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
+    iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck]".
+    iPoseProof (gen_heap_bij_access with "Hinv Hbij") as (v_t'' v_s'') "(Hl_t & Hl_s & He & Hclose)".
     iDestruct (gen_heap_valid with "Hσ_t Hl_t") as %?.
     iDestruct (gen_heap_valid with "Hσ_s Hl_s") as %?.
     iDestruct "He" as "[He | [-> ->]]".
@@ -124,8 +119,8 @@ Section fix_heap.
     e_t ⪯ e_s {{ Φ }}.
   Proof.
     iIntros "Hl_t Hl_s Hval Hsim". iApply sim_update_si.
-    iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hstate & Hprog)".
-    iMod (gen_heap_bij_insert with "Hstate Hl_t Hl_s [Hval]") as "[Hb #Ha]";
+    iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
+    iMod (gen_heap_bij_insert with "Hinv Hl_t Hl_s [Hval]") as "[Hb #Ha]";
       first by iLeft; eauto.
     iModIntro. iSplitR "Hsim"; last by iApply "Hsim".
     iFrame.
@@ -136,18 +131,20 @@ End fix_heap.
 (** ** Extension of the proofmode *)
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
+From iris.bi Require Import bi.
+Import bi.
+From iris.bi Require Import derived_laws.
+Import bi.
+
 From simuliris.simplang Require Export proofmode.
 
-
-(* the bij invariant isn't dependent on the parameters, so this is trivial. *)
-Ltac solve_state_sidecond ::= iAssumption.
 
 (** New lemmas for the new tactics *)
 
 Section sim.
   Context `{sbijG Σ} (val_rel : val → val → iProp Σ).
   Context {val_rel_pers : ∀ v_t v_s, Persistent (val_rel v_t v_s)}.
-  Instance : sheapRel Σ := heap_bij_rel val_rel.
+  Instance : sheapInv Σ := heap_bij_inv val_rel.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 

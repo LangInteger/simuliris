@@ -7,9 +7,8 @@ From simuliris.simulation Require Import slsls lifting.
 
 Section fix_bi.
 Context `{sheapG Σ}.
-Instance : sheapRel Σ := {|
-  sheap_stateRel _ _ := ⌜True⌝%I;
-  sheap_progRel _ _ := ⌜True⌝%I;
+Instance : sheapInv Σ := {|
+  sheap_inv := ⌜True⌝%I;
  |}.
 
 

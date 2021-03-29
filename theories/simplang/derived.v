@@ -51,23 +51,21 @@ Proof.
   setoid_rewrite <-loc_add_assoc. iApply "IH". done.
 Qed.
 
-Lemma target_red_allocN `{sheapG Σ} `{sheapRel Σ} v n Ψ :
+Lemma target_red_allocN `{sheapG Σ} `{sheapInv Σ} v n Ψ :
   (0 < n)%Z →
-  (∀ σ_t σ_s l, sheap_stateRel σ_t σ_s -∗ sheap_stateRel (state_init_heap l n v σ_t) σ_s) -∗
   (∀ l, l ↦t∗ replicate (Z.to_nat n) v -∗ target_red (of_val #l) Ψ) -∗
   target_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
-  iIntros (Hzs) "Hrel Ht". iApply (target_red_allocN_seq with "Hrel"); [done..|].
+  iIntros (Hzs) "Ht". iApply (target_red_allocN_seq); [done..|].
   iIntros (l) "Hlm". iApply "Ht". by iApply mapsto_seq_array.
 Qed.
 
-Lemma source_red_allocN `{sheapG Σ} `{sheapRel Σ} v n Ψ :
+Lemma source_red_allocN `{sheapG Σ} `{sheapInv Σ} v n Ψ :
   (0 < n)%Z →
-  (∀ σ_t σ_s l, sheap_stateRel σ_t σ_s -∗ sheap_stateRel σ_t (state_init_heap l n v σ_s)) -∗
   (∀ l, l ↦s∗ replicate (Z.to_nat n) v -∗ source_red (of_val #l) Ψ) -∗
   source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
-  iIntros (Hzs) "Hrel Ht". iApply (source_red_allocN_seq with "Hrel"); [done..|].
+  iIntros (Hzs) "Ht". iApply (source_red_allocN_seq); [done..|].
   iIntros (l) "Hlm". iApply "Ht". by iApply mapsto_seq_array.
 Qed.
 
