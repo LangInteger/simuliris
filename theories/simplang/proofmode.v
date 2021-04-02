@@ -93,11 +93,11 @@ Proof. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
 Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
-  envs_entails Δ (e_t ⪯ e_s [{ λ e_t' e_s', f_t e_t' ⪯ f_s e_s' [{ Φ }] }])%I →
+  envs_entails Δ (e_t ⪯ e_s {{ λ e_t' e_s', f_t e_t' ⪯ f_s e_s' [{ Φ }] }})%I →
   envs_entails Δ (fill K_t e_t ⪯ fill K_s e_s [{ Φ }]).
 Proof.
   rewrite envs_entails_eq=> -> ->. intros Hs.
-  iIntros "H". iApply (sim_expr_bind Ω e_t e_s K_t K_s Φ). by iApply Hs.
+  iIntros "H". iApply (sim_bind Ω e_t e_s K_t K_s Φ). by iApply Hs.
 Qed.
 
 Lemma tac_target_red_bind K_t e_t f_t Ψ Δ :

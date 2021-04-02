@@ -335,4 +335,25 @@ Proof.
   iSplitR; first done. iSplitR. { iPureIntro. constructor. }
   iIntros (v_t' v_s' ) "H". iApply sim_value. iApply "H".
 Qed.
+
+(** Coinduction support *)
+Lemma sim_while_while b_t b_s c_t c_s Inv Ψ :
+  Inv -∗ 
+  □ ((if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω} 
+    (if: c_s then b_s ;; while: c_s do b_s od else #())%E 
+      [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ Inv) }]) -∗
+  (while: c_t do b_t od ⪯{Ω} while: c_s do b_s od [{ Ψ }])%E.
+Proof. 
+  iIntros "Hinv_init #Hstep".
+  iApply (sim_lift_head_coind _ (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ Inv)%I with "[] [Hinv_init]"); first last.
+  { iFrame. eauto. } 
+  iModIntro. iIntros (?? ?? ??) "(-> & -> & Hinv) (Hstate & Hnreach)".
+  iModIntro. iSplitR; first by eauto with head_step.
+  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred). 
+  { eauto with head_step. }  
+  iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplitR; first by eauto with head_step.
+  iApply "Hstep".
+Qed.
+
 End lifting.

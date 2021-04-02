@@ -517,8 +517,8 @@ Section fix_lang.
   Qed.
 
   Lemma sim_bind Ω e_t e_s K_t K_s Φ :
-    e_t ⪯{Ω} e_s {{ λ v_t v_s, fill K_t (of_val v_t) ⪯{Ω} fill K_s (of_val v_s) {{ Φ }} }} -∗
-    fill K_t e_t ⪯{Ω} fill K_s e_s {{ Φ }}.
+    e_t ⪯{Ω} e_s {{ λ v_t v_s, fill K_t (of_val v_t) ⪯{Ω} fill K_s (of_val v_s) [{ Φ }] }} -∗
+    fill K_t e_t ⪯{Ω} fill K_s e_s [{ Φ }].
   Proof.
     iIntros "Ha". iApply sim_expr_bind.
     iApply (sim_expr_mono with "[] Ha").

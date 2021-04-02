@@ -279,9 +279,9 @@ Section fix_sim.
       target_red e_t Ψ.
   Proof.
     iIntros "Htarget". iApply target_red_step. iIntros (????) "Hstate".
-    iMod ("Htarget" with "Hstate") as "(% & Hstep)". rename H into Hred. iModIntro.
+    iMod ("Htarget" with "Hstate") as "(%Hred & Hstep)". iModIntro.
     iSplitR. { iPureIntro. by apply head_prim_reducible. }
-    iIntros (e_t' σ_t') "%". rename H into Hprim. iApply "Hstep".
+    iIntros (e_t' σ_t') "%Hprim". iApply "Hstep".
     iPureIntro. by apply head_reducible_prim_step.
   Qed.
 
@@ -386,4 +386,26 @@ Section fix_sim.
         iExists f, K_t, v_t, K_s, v_s, σ_s'. iFrame. iModIntro. iSplitR; first done.
         iIntros (??) "Ho"; cbn. iRight. rewrite sim_expr_eq. by iApply "Hs".
   Qed.
+
+  Lemma sim_lift_head_coind (Inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+    (□ ∀ e_t e_s P_t P_s σ_t σ_s,
+      Inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
+        ⌜head_reducible P_t e_t σ_t⌝ ∗
+        ∀ e_t' σ_t',
+          ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ ==∗
+          ∃ e_s' σ_s', ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗
+            state_interp P_t σ_t' P_s σ_s' ∗
+            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ Inv e_t'' e_s'' }]) -∗
+    Inv e_t e_s -∗
+    e_t ⪯{Ω} e_s [{ Φ }].
+  Proof.
+    iIntros "#Ha Hinv". iApply (sim_lift_coind with "[] Hinv").
+    iModIntro. iIntros (??????) "Hinv [Hstate %Hnreach]".
+    iMod ("Ha" with "Hinv [$Hstate//]") as "[%Hred Hs]". iModIntro.
+    iSplitR. { iPureIntro. by apply head_prim_reducible. }
+    iIntros (??) "%Hprim". iMod ("Hs" with "[]") as (e_s' σ_s') "(%Hhead & Hstate & Hs)".
+    { iPureIntro. by apply head_reducible_prim_step. }
+    iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
+  Qed.
+
 End fix_sim.

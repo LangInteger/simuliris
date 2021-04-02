@@ -28,6 +28,8 @@ theories/simplang/heap_bij.v
 theories/simplang/examples/sum.v
 theories/simplang/examples/heap_test.v
 theories/simplang/examples/reorder_malloc.v
+theories/simplang/examples/while.v
+
 
 
 
