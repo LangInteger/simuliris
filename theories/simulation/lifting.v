@@ -91,11 +91,11 @@ Section lang.
   Proof. intros Hw Hnirred Hirred. by apply Hw, Hnirred. Qed.
 End lang.
 
-#[export]
+#[global]
 Hint Mode SIrreducible - - - + - : core.
-#[export]
+#[global]
 Hint Mode IrredUnless - - - + - : core.
-#[export]
+#[global]
 Hint Mode PureExec - - - + - : core.
 
 Section fix_sim.
