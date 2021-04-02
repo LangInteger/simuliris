@@ -146,7 +146,6 @@ Section reorder.
     iApply source_red_irred_unless; first done.
     iIntros ((l_s2 & ->)).
     iApply source_red_base; iModIntro.
-    to_sim.
     iPoseProof (val_rel_loc_source with "Hrel2") as (l_t2) "(-> & #Hbij2)".
     sim_load v_t2 v_s2 as "Hv2".
     sim_pures.

@@ -70,7 +70,7 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 
 Context (Ω : val → val → iProp Σ).
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 
 (** Heap for target *)
@@ -329,7 +329,8 @@ Lemma sim_call e_t e_s v_t v_s f :
   ⊢ Ω v_t v_s -∗ Call (#f f) e_t ⪯{Ω} Call (#f f) e_s {{ Ω }}.
 Proof.
   intros <-%of_to_val <-%of_to_val.
-  iIntros "H". rewrite sim_unfold. iIntros (????) "[H1 H2]". iModIntro.
+  (* FIXME use lifting lemma for this *)
+  iIntros "H". rewrite /sim /sim_stutter /sim_def sim_expr_unfold. iIntros (????) "[H1 H2]". iModIntro.
   iRight; iRight. iExists f, empty_ectx, v_t, empty_ectx, v_s, σ_s. cbn. iFrame.
   iSplitR; first done. iSplitR. { iPureIntro. constructor. }
   iIntros (v_t' v_s' ) "H". iApply sim_value. iApply "H".

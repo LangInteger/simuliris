@@ -14,11 +14,12 @@ Section sim.
 Context `{!sheapG Σ} `{sheapInv Σ}.
 Context (Ω : val → val → iProp Σ).
 Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :
   (∀ (e_t'':=e_t'), e_t = e_t'') →
   (∀ (e_s'':=e_s'), e_s = e_s'') →
-  envs_entails Δ (e_t' ⪯ e_s' {{ Φ }}) → envs_entails Δ (e_t ⪯ e_s {{ Φ }}).
+  envs_entails Δ (e_t' ⪯ e_s' [{ Φ }]) → envs_entails Δ (e_t ⪯ e_s [{ Φ }]).
 Proof. by intros -> ->. Qed.
 
 Lemma tac_target_red_expr_eval Δ Ψ e_t e_t' :
@@ -92,11 +93,11 @@ Proof. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
 Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
-  envs_entails Δ (e_t ⪯ e_s {{ λ v_t v_s, f_t (Val v_t) ⪯ f_s (Val v_s) {{ Φ }} }})%I →
-  envs_entails Δ (fill K_t e_t ⪯ fill K_s e_s {{ Φ }}).
+  envs_entails Δ (e_t ⪯ e_s [{ λ e_t' e_s', f_t e_t' ⪯ f_s e_s' [{ Φ }] }])%I →
+  envs_entails Δ (fill K_t e_t ⪯ fill K_s e_s [{ Φ }]).
 Proof.
   rewrite envs_entails_eq=> -> ->. intros Hs.
-  iIntros "H". iApply (sim_bind Ω e_t e_s K_t K_s Φ). by iApply Hs.
+  iIntros "H". iApply (sim_expr_bind Ω e_t e_s K_t K_s Φ). by iApply Hs.
 Qed.
 
 Lemma tac_target_red_bind K_t e_t f_t Ψ Δ :
@@ -117,23 +118,6 @@ Proof.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
 
-Lemma of_envs_clone_intuitionistic Δ :
-  of_envs Δ -∗ of_envs Δ ∗ of_envs (envs_clear_spatial Δ) : iProp Σ.
-Proof.
-  rewrite of_envs_eq'. iIntros "(#H1 & H)". iFrame.
-  iSplitR; first by iFrame. rewrite of_envs_eq'; simpl.
-  iSplitR; last done.
-  iDestruct "H1" as "(% & H2)".
-  iSplit; last done. destruct Δ.
-  iPureIntro; constructor.
-  - apply H0.
-  - simpl. constructor.
-  - simpl. eauto.
-Qed.
-
-(** NOTE: currently, the sideconditions need to be proved without spatial hypotheses (to make the proofmode simpler).
-  We may want to lift this restriction and allowing framing of hypotheses if needed.
-*)
 Lemma tac_target_red_allocN n v j K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
@@ -330,41 +314,53 @@ Qed.
 
 
 Lemma tac_to_target Δ e_t e_s Φ :
-  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s {{ Φ }}))%I →
-  envs_entails Δ (e_t ⪯ e_s {{ Φ }}).
-Proof. rewrite envs_entails_eq=> Hi. by rewrite -target_red_sim. Qed.
+  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s [{ Φ }]))%I →
+  envs_entails Δ (e_t ⪯ e_s [{ Φ }]).
+Proof. rewrite envs_entails_eq=> Hi. by rewrite -target_red_sim_expr. Qed.
 
 Lemma tac_to_source Δ e_t e_s Φ :
-  envs_entails Δ (source_red e_s (λ e_s', e_t ⪯ e_s' {{ Φ }}))%I →
-  envs_entails Δ (e_t ⪯ e_s {{ Φ }}).
-Proof. rewrite envs_entails_eq=> Hi. by rewrite -source_red_sim. Qed.
-
+  envs_entails Δ (source_red e_s (λ e_s', e_t ⪯ e_s' [{ Φ }]))%I →
+  envs_entails Δ (e_t ⪯ e_s [{ Φ }]).
+Proof. rewrite envs_entails_eq=> Hi. by rewrite -source_red_sim_expr. Qed.
 
 Lemma tac_target_to_sim Δ e_t e_s Φ :
-  envs_entails Δ (e_t ⪯ e_s {{ Φ }}) →
-  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s {{ Φ }}))%I.
+  envs_entails Δ (e_t ⪯ e_s [{ Φ }]) →
+  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s [{ Φ }]))%I.
 Proof.
   rewrite envs_entails_eq=> Hi. rewrite -target_red_base.
   iIntros "He". iModIntro. by iApply Hi.
 Qed.
 
 Lemma tac_source_to_sim Δ e_t e_s Φ :
-  envs_entails Δ (e_t ⪯ e_s {{ Φ }}) →
-  envs_entails Δ (source_red e_s (λ e_s', e_t ⪯ e_s' {{ Φ }}))%I.
+  envs_entails Δ (e_t ⪯ e_s [{ Φ }]) →
+  envs_entails Δ (source_red e_s (λ e_s', e_t ⪯ e_s' [{ Φ }]))%I.
 Proof.
   rewrite envs_entails_eq=> Hi. rewrite -source_red_base.
   iIntros "He". iModIntro. by iApply Hi.
 Qed.
+
+Lemma tac_sim_expr_to_sim Δ e_t e_s Φ :
+  envs_entails Δ (e_t ⪯ e_s {{ Φ }}) →
+  envs_entails Δ (e_t ⪯ e_s [{ lift_post Φ }])%I.
+Proof. done. Qed.
+
+Lemma tac_sim_to_sim_expr Δ e_t e_s Φ :
+  envs_entails Δ (e_t ⪯ e_s [{ lift_post Φ }]) →
+  envs_entails Δ (e_t ⪯ e_s {{ Φ }})%I.
+Proof. done. Qed.
 End sim.
 
 (** ** automation for source_red and target_red *)
+(* the proofmode works with sim_expr, not sim *)
 Ltac to_sim :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim _ _ _ _) => idtac
-  | |- envs_entails _ (target_red ?e_t (λ _, sim _ _ _ _ )) =>
+  | |- envs_entails _ (sim_expr _ _ _ _) => idtac
+  | |- envs_entails _ (sim _ ?e_t ?e_s _) =>
+      notypeclasses refine (tac_sim_to_sim_expr _ _ e_t e_s _ _)
+  | |- envs_entails _ (target_red ?e_t (λ _, sim_expr _ _ _ _ )) =>
       notypeclasses refine (tac_target_to_sim _ _ e_t _ _ _)
-  | |- envs_entails _ (source_red ?e_s (λ _, sim _ _ _ _)) =>
+  | |- envs_entails _ (source_red ?e_s (λ _, sim_expr _ _ _ _)) =>
       notypeclasses refine (tac_source_to_sim _ _ _ e_s _ _)
   | _ => fail "not a target_red or source_red of suitable shape"
   end.
@@ -376,7 +372,7 @@ Ltac to_target :=
   | _ =>
     to_sim;
     lazymatch goal with
-    | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
+    | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Φ) =>
         notypeclasses refine (tac_to_target  Ω _ e_t e_s Φ _)
     | _ => fail "to_target: not a sim"
     end
@@ -389,7 +385,7 @@ Ltac to_source :=
   | _ =>
     to_sim;
     lazymatch goal with
-    | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
+    | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Φ) =>
         notypeclasses refine (tac_to_source  Ω _ e_t e_s Φ _)
     | _ => fail "to_source: not a sim"
     end
@@ -410,6 +406,8 @@ Ltac sim_value_head :=
   lazymatch goal with
   | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, bupd _)) =>
       eapply tac_sim_value_no_bupd
+  | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, sim_expr _ _ _ _)) =>
+      eapply tac_sim_value_no_bupd
   | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, sim _ _ _ _)) =>
       eapply tac_sim_value_no_bupd
   | |- envs_entails _ (sim _ (Val _) (Val _) _) =>
@@ -420,19 +418,25 @@ Ltac sim_value_head :=
 Tactic Notation "sim_expr_eval" tactic3(t) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Φ) =>
     notypeclasses refine (tac_sim_expr_eval Ω _ _ e_t _ e_s _ _ _ _);
       [let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl|let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl | ]
   | _ => fail "sim_expr_eval: not a 'sim"
   end.
 Ltac sim_expr_simpl := sim_expr_eval simpl.
 
+(* finish and switch back to a sim, if possible *)
 Ltac sim_finish :=
   (* TODO: can remove sim_expr_simpl if we do not use sim_finish anywhere explicitly *)
   sim_expr_simpl;      (* simplify occurences of subst/fill *)
+  match goal with 
+  | |- envs_entails _ (sim_expr _ ?e_t ?e_s (lift_post _)) => 
+      notypeclasses refine (tac_sim_expr_to_sim _ _ e_t e_s _ _)
+  | |- envs_entails _ (sim_expr _ _ _ _) => idtac
+  | |- envs_entails _ (sim _ _ _ _) => idtac
+  end;
   try sim_value_head;  (* in case we have reached a value, get rid of the WP *)
   pm_prettify.        (* prettify λs caused by wp_value *)
-
 
 (** target_red *)
 Tactic Notation "target_red_expr_eval" tactic3(t) :=
@@ -448,6 +452,8 @@ Ltac target_expr_simpl := target_red_expr_eval simpl.
 Ltac target_value_head :=
   lazymatch goal with
   | |- envs_entails _ (target_red (Val _) (λ _, bupd _)) =>
+      eapply tac_target_red_base_no_bupd
+  | |- envs_entails _ (target_red (Val _) (λ _, sim_expr _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
   | |- envs_entails _ (target_red (Val _) (λ _, sim _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
@@ -475,6 +481,8 @@ Ltac source_expr_simpl := source_red_expr_eval simpl.
 Ltac source_value_head :=
   lazymatch goal with
   | |- envs_entails _ (source_red (Val _) (λ _, bupd _)) =>
+      eapply tac_source_red_base_no_bupd
+  | |- envs_entails _ (source_red (Val _) (λ _, sim_expr _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd
   | |- envs_entails _ (source_red (Val _) (λ _, sim _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd
@@ -588,7 +596,8 @@ Ltac source_pures :=
         | source_finish (* In case source_red_pure never ran, make sure we do the usual cleanup.*)
         ].
 
-Ltac sim_pures := (try target_pures); (try source_pures); try to_sim.
+Ltac sim_pures_int := (try target_pures); (try source_pures); try to_sim.
+Ltac sim_pures := (try target_pures); (try source_pures); try (to_sim; sim_finish).
 
 
 
@@ -605,8 +614,9 @@ Ltac sim_bind_core K_t K_s :=
 
 Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
   iStartProof;
+  to_sim;
   lazymatch goal with
-  | |- envs_entails _ (sim ?Ω ?e_t ?e_s ?Q) =>
+  | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Q) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
                                     first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s; sim_bind_core K_t K_s)
                                            (* TODO: fix error handling *)
@@ -882,5 +892,3 @@ Ltac source_stuck_sidecond_bt :=
 
 Ltac source_stuck_prim :=
   iApply source_stuck_prim; [ source_stuck_sidecond_bt | reflexivity].
-
-

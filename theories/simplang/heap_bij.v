@@ -26,6 +26,7 @@ Section fix_heap.
   |}.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
   Lemma stuck_reach_stuck P (e : expr) σ:
     stuck P e σ → reach_stuck P e σ.
@@ -33,8 +34,8 @@ Section fix_heap.
 
   Lemma sim_bij_load l_t l_s Φ :
     l_t ↔h l_s -∗
-    (∀ v_t v_s, val_rel v_t v_s -∗ Val v_t ⪯ Val v_s {{ Φ }}) -∗
-    (Load (Val $ LitV $ LitLoc l_t)) ⪯ (Load (Val $ LitV $ LitLoc l_s)) {{ Φ }}.
+    (∀ v_t v_s, val_rel v_t v_s -∗ Val v_t ⪯ Val v_s [{ Φ }]) -∗
+    (Load (Val $ LitV $ LitLoc l_t)) ⪯ (Load (Val $ LitV $ LitLoc l_s)) [{ Φ }].
   Proof using val_rel_pers.
     iIntros "#Hbij Hsim". iApply sim_lift_head_step_both.
     iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck]".
@@ -59,8 +60,8 @@ Section fix_heap.
   Lemma sim_bij_store l_t l_s v_t v_s Φ :
     l_t ↔h l_s -∗
     val_rel v_t v_s -∗
-    #() ⪯ #() {{ Φ }} -∗
-    Store (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯ Store (Val $ LitV (LitLoc l_s)) (Val v_s) {{ Φ }}.
+    #() ⪯ #() [{ Φ }] -∗
+    Store (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯ Store (Val $ LitV (LitLoc l_s)) (Val v_s) [{ Φ }].
   Proof.
     iIntros "Hbij Hval Hsim". iApply sim_lift_head_step_both.
     iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck] !>".
@@ -86,8 +87,8 @@ Section fix_heap.
 
   Lemma sim_bij_free l_t l_s Φ :
     l_t ↔h l_s -∗
-    #() ⪯ #() {{ Φ }} -∗
-    Free (Val $ LitV $ LitLoc l_t) ⪯ Free (Val $ LitV $ LitLoc l_s) {{ Φ }}.
+    #() ⪯ #() [{ Φ }] -∗
+    Free (Val $ LitV $ LitLoc l_t) ⪯ Free (Val $ LitV $ LitLoc l_s) [{ Φ }].
   Proof.
     iIntros "Hbij Hsim". iApply sim_lift_head_step_both.
     iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck]".
@@ -115,10 +116,10 @@ Section fix_heap.
     l_t ↦t v_t -∗
     l_s ↦s v_s -∗
     val_rel v_t v_s -∗
-    (l_t ↔h l_s -∗ e_t ⪯ e_s {{ Φ }}) -∗
-    e_t ⪯ e_s {{ Φ }}.
+    (l_t ↔h l_s -∗ e_t ⪯ e_s [{ Φ }]) -∗
+    e_t ⪯ e_s [{ Φ }].
   Proof.
-    iIntros "Hl_t Hl_s Hval Hsim". iApply sim_update_si.
+    iIntros "Hl_t Hl_s Hval Hsim". iApply sim_expr_update_si.
     iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
     iMod (gen_heap_bij_insert with "Hinv Hl_t Hl_s [Hval]") as "[Hb #Ha]";
       first by iLeft; eauto.
@@ -165,37 +166,37 @@ Section sim.
     (∀ v_t v_s,
       match envs_app true (Esnoc Enil j (val_rel v_t v_s)) Δ with
       | Some Δ' =>
-          envs_entails Δ' (sim val_rel (fill K_t (Val v_t)) (fill K_s (Val v_s)) Φ)
+          envs_entails Δ' (sim_expr val_rel (fill K_t (Val v_t)) (fill K_s (Val v_s)) Φ)
       | None => False
       end) →
-    envs_entails Δ (sim val_rel (fill K_t (Load (LitV l_t))) (fill K_s (Load (LitV l_s))) Φ)%I.
+    envs_entails Δ (sim_expr val_rel (fill K_t (Load (LitV l_t))) (fill K_s (Load (LitV l_s))) Φ)%I.
   Proof using val_rel_pers.
     rewrite envs_entails_eq=> ? Hi.
-    rewrite -sim_bind. eapply wand_apply; first exact: sim_bij_load.
+    rewrite -sim_expr_bind. eapply wand_apply; first exact: sim_bij_load.
     rewrite envs_lookup_split //; simpl.
     iIntros "[#Ha He]". iSpecialize ("He" with "Ha").
     rewrite intuitionistically_if_elim. iSplitR; first done.
     iIntros (v_t' v_s') "#Hv". specialize (Hi v_t' v_s').
     destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction].
-    iApply sim_value.
+    iApply sim_expr_base.
     iApply Hi. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
   Qed.
 
   Lemma tac_bij_store Δ i K_t K_s b l_t l_s v_t' v_s' Φ :
     envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
     envs_entails Δ (val_rel v_t' v_s') →
-    envs_entails Δ (sim val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
-    envs_entails Δ (sim val_rel (fill K_t (Store (LitV l_t) (Val v_t'))) (fill K_s (Store (LitV l_s) (Val v_s'))) Φ).
+    envs_entails Δ (sim_expr val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
+    envs_entails Δ (sim_expr val_rel (fill K_t (Store (LitV l_t) (Val v_t'))) (fill K_s (Store (LitV l_s) (Val v_s'))) Φ).
   Proof using val_rel_pers.
     rewrite envs_entails_eq => HΔ.
     rewrite (persistent_persistently_2 (val_rel _ _)).
     intros Hv%persistently_entails_r Hi.
-    rewrite -sim_bind.
+    rewrite -sim_expr_bind.
     iIntros "He". iPoseProof (Hv with "He") as "[He #Hv]".
     rewrite (envs_lookup_split Δ i b _ HΔ). iDestruct "He" as "[#Hbij He]".
     iSpecialize ("He" with "Hbij").
     iApply sim_bij_store; [ | done | ]. { by rewrite intuitionistically_if_elim. }
-    iApply sim_value. by iApply Hi.
+    iApply sim_expr_base. by iApply Hi.
   Qed.
 
   (* NOTE: we may want to actually keep the bijection assertion in context for some examples,
@@ -204,14 +205,14 @@ Section sim.
     *)
   Lemma tac_bij_free Δ i K_t K_s b l_t l_s Φ :
     envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
-    envs_entails (envs_delete true i b Δ) (sim val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
-    envs_entails Δ (sim val_rel (fill K_t (Free (LitV l_t))) (fill K_s (Free (LitV l_s))) Φ).
+    envs_entails (envs_delete true i b Δ) (sim_expr val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
+    envs_entails Δ (sim_expr val_rel (fill K_t (Free (LitV l_t))) (fill K_s (Free (LitV l_s))) Φ).
   Proof.
     rewrite envs_entails_eq => Hl HΔ.
-    rewrite -sim_bind. rewrite (envs_lookup_sound _ _ _ _ Hl).
+    rewrite -sim_expr_bind. rewrite (envs_lookup_sound _ _ _ _ Hl).
     iIntros "[#bij He]". iPoseProof (HΔ with "He") as "He". rewrite intuitionistically_if_elim.
     iApply sim_bij_free; first done.
-    iApply sim_value. by iApply "He".
+    iApply sim_expr_base. by iApply "He".
   Qed.
 End sim.
 
@@ -224,9 +225,9 @@ Tactic Notation "sim_load" ident(v_t) ident(v_s) "as" constr(H) :=
   let finish _ :=
     first [intros v_t v_s | fail 1 "sim_load: " v_t " or " v_s " not fresh"];
     pm_reduce; sim_finish in
-  sim_pures;
+  sim_pures_int;
   lazymatch goal with
-  | |- envs_entails _ (sim ?vrel ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?vrel ?e_t ?e_s ?Φ) =>
     first
       [reshape_expr e_t ltac:(fun K_t e_t' =>
         reshape_expr e_s ltac:(fun K_s e_s' =>
@@ -245,9 +246,9 @@ Tactic Notation "sim_store" :=
   let solve_bij _ :=
     match goal with |- _ = Some (_, (?l_t ↔h ?l_s)%I) =>
     iAssumptionCore || fail "sim_store: cannot find" l_t "↔h" l_s end in
-  sim_pures;
+  sim_pures_int;
   lazymatch goal with
-  | |- envs_entails _ (sim ?vrel ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?vrel ?e_t ?e_s ?Φ) =>
     first
       [reshape_expr e_t ltac:(fun K_t e_t' =>
         reshape_expr e_s ltac:(fun K_s e_s' =>
@@ -264,9 +265,9 @@ Tactic Notation "sim_free" :=
   let solve_bij _ :=
     match goal with |- _ = Some (_, (?l_t ↔h ?l_s)%I) =>
     iAssumptionCore || fail "sim_free: cannot find" l_t "↔h" l_s end in
-  sim_pures;
+  sim_pures_int;
   lazymatch goal with
-  | |- envs_entails _ (sim ?vrel ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?vrel ?e_t ?e_s ?Φ) =>
     first
       [reshape_expr e_t ltac:(fun K_t e_t' =>
         reshape_expr e_s ltac:(fun K_s e_s' =>

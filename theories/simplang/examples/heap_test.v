@@ -85,8 +85,7 @@ Module bij_test.
   Proof.
     iIntros "H H1".
     iApply (sim_bij_insert val_rel with "H H1 [# ]"); first done; iIntros "Hb".
-    iApply (sim_bij_store with "Hb []"); last by sim_value_head.
-    done.
+    iApply (sim_bij_store with "Hb []"); first done. by sim_finish.
   Qed.
 
   Lemma test_bij_store (l_t l_s : loc) :
