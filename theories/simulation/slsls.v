@@ -185,39 +185,6 @@ Section fix_lang.
 
   Local Existing Instance least_step_mono.
   Local Existing Instance greatest_step_mono.
-  (* TODO: not sure yet if this lemma is useful. if not, remove *)
-  Lemma sim_strong_ind' Ω e_s Φ (Ψ : exprO → exprO → (val Λ → val Λ → PROP) → PROP):
-    Proper ((≡) ==> (≡) ==> (pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡))) ==> (≡)) Ψ →
-    ⊢ (□ ∀ e_t, least_step Ω Φ (uncurry (sim_def Ω Φ)) e_s
-            (λ e_t', Ψ e_t' e_s Φ ∧ least_def Ω Φ (uncurry (sim_def Ω Φ)) e_s e_t')
-          e_t -∗ Ψ e_t e_s Φ)
-      -∗ ∀ e_t : exprO, (e_t ⪯{Ω} e_s {{ Φ }}) -∗ Ψ e_t e_s Φ.
-  Proof.
-    iIntros (Hp) "#IH". iIntros (e_t).
-    rewrite sim_eq /sim_def.
-    rewrite greatest_fixpoint_unfold {2}/greatest_step /least_def.
-
-    change (bi_greatest_fixpoint (greatest_step Ω Φ)) with (sim_def Ω Φ).
-    set (g_rec := least_step Ω Φ (uncurry (sim_def Ω Φ)) e_s).
-
-    set (Ψ' := (λ e_t, Ψ e_t e_s Φ) : exprO → PROP).
-    iAssert ((□ (∀ e_t : exprO, g_rec (λ e_t' : exprO, Ψ' e_t' ∧ bi_least_fixpoint g_rec e_t') e_t -∗ Ψ' e_t)))%I as "#H".
-    { iModIntro. iApply "IH". }
-    iPoseProof (least_fixpoint_strong_ind g_rec Ψ' with "H") as "Htemp".
-    unfold Ψ'. iApply "Htemp".
-  Qed.
-
-  (* TODO: not sure yet if this lemma is useful. if not, remove *)
-  Lemma sim_ind' e_s Ω Φ (Ψ : exprO → exprO → (val Λ → val Λ → PROP) → PROP):
-    Proper ((≡) ==> (≡) ==> (pointwise_relation (val Λ) (pointwise_relation (val Λ) (≡))) ==> (≡)) Ψ →
-    ⊢ (□ ∀ e_t, least_step Ω Φ (uncurry (sim_def Ω Φ)) e_s (λ e_t', Ψ e_t' e_s Φ) e_t -∗ Ψ e_t e_s Φ)
-      -∗ ∀ e_t : exprO, e_t ⪯{Ω} e_s {{ Φ }} -∗ Ψ e_t e_s Φ.
-  Proof.
-    iIntros (Hp) "#IH". iApply sim_strong_ind'. iModIntro.
-    iIntros (e_t) "H". iApply "IH".
-    iApply least_step_mon. 3: iApply "H". 2: auto.
-    iModIntro. by iIntros (e) "[H _]".
-  Qed.
 
   Lemma sim_strong_ind greatest_rec e_s Ω Φ (Ψ : exprO → PROP):
     Proper ((≡) ==> (≡)) Ψ →
@@ -556,15 +523,15 @@ Section fix_lang.
 
   Lemma sim_wand Ω e_t e_s Φ Ψ :
     e_t ⪯{Ω} e_s {{ Φ }} -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯{Ω} e_s {{ Ψ }}.
-  Proof. iIntros "H Hv". iApply (sim_mono with "[Hv//] [H//]"). Qed.
+  Proof. iIntros "H Hv". iApply (sim_mono with "Hv H"). Qed.
 
   Lemma sim_wand_l Ω e_t e_s Φ Ψ :
     (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ∗ e_t ⪯{Ω} e_s {{ Φ }} ⊢ e_t ⪯{Ω} e_s {{ Ψ }}.
-  Proof. iIntros "[Hv H]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
+  Proof. iIntros "[Hv H]". iApply (sim_wand with "H Hv"). Qed.
 
   Lemma sim_wand_r Ω e_t e_s Φ Ψ :
     e_t ⪯{Ω} e_s {{ Φ }} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯{Ω} e_s {{ Ψ }}.
-  Proof. iIntros "[H Hv]". iApply (sim_wand with "[H//] [Hv//]"). Qed.
+  Proof. iIntros "[H Hv]". iApply (sim_wand with "H Hv"). Qed.
 
 
   (** Update the SI. Useful when we use the SI to encode invariants. *)
@@ -789,7 +756,7 @@ Section fix_lang.
     - iModIntro; iRight. iFrame.
   Qed.
 
-  Instance target_red_mono Ψ : BiMonoPred (target_red_rec Ψ).
+  Instance target_red_rec_mono Ψ : BiMonoPred (target_red_rec Ψ).
   Proof.
     constructor.
     - iIntros (l1 l2) "H". by iApply target_red_mon.
@@ -797,7 +764,7 @@ Section fix_lang.
   Qed.
 
   Definition target_red_def Ψ := bi_least_fixpoint (target_red_rec Ψ).
-  Lemma target_red_unfold Ψ e_t : target_red_def Ψ e_t ⊣⊢ target_red_rec Ψ (target_red_def Ψ) e_t.
+  Lemma target_red_def_unfold Ψ e_t : target_red_def Ψ e_t ⊣⊢ target_red_rec Ψ (target_red_def Ψ) e_t.
   Proof. by rewrite /target_red_def least_fixpoint_unfold. Qed.
 
   Definition target_red_aux : seal (flip target_red_def).
@@ -815,6 +782,14 @@ Section fix_lang.
     by iApply (@least_fixpoint_strong_ind _ _ (target_red_rec Ψ) _ Ψi).
   Qed.
 
+  Lemma target_red_unfold e_t Ψ :
+    target_red e_t Ψ ⊣⊢
+      ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+        (⌜ reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
+          state_interp P_t σ_t' P_s σ_s ∗ target_red e_t' Ψ)
+        ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ e_t).
+  Proof. rewrite target_red_eq; simpl. by rewrite target_red_def_unfold. Qed.
+
   Lemma target_red_ind Ψ (Ψi : expr Λ → PROP) :
     Proper ((≡) ==> (≡)) Ψi →
     □ (∀ e : exprO, target_red_rec Ψ Ψi e -∗ Ψi e) -∗
@@ -827,7 +802,7 @@ Section fix_lang.
   Lemma target_red_base Ψ e_t :
     (|==> Ψ e_t) -∗ target_red e_t Ψ.
   Proof.
-    iIntros "Hpsi". rewrite target_red_eq /flip target_red_unfold /target_red_rec.
+    iIntros "Hpsi". rewrite target_red_unfold.
     iIntros (P_s σ_s P_t σ_t) "Hstate". iRight. iMod ("Hpsi"). iModIntro. iFrame.
   Qed.
 
@@ -837,7 +812,7 @@ Section fix_lang.
         state_interp P_t σ_t' P_s σ_s ∗ target_red e_t' Ψ)) -∗
     target_red e_t Ψ .
   Proof.
-    iIntros "Hstep". rewrite target_red_eq /flip target_red_unfold /target_red_rec.
+    iIntros "Hstep". rewrite target_red_unfold.
     iIntros (P_s σ_s P_t σ_t) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro. iFrame.
   Qed.
 
@@ -862,14 +837,32 @@ Section fix_lang.
   Proof.
     iIntros "He".
     iApply (target_red_ind _ (λ e_t, target_red (fill K_t e_t) Ψ)%I); last by rewrite target_red_eq /flip.
-    iModIntro. clear e_t. iIntros (e_t) "IH". rewrite target_red_eq /flip target_red_unfold.
+    iModIntro. clear e_t. iIntros (e_t) "IH". rewrite target_red_eq /flip target_red_def_unfold.
     iIntros (????) "Hstate". iMod ("IH" with "Hstate") as "IH".
     iDestruct "IH" as "[[% Hstep] | [Hstate Hred]]"; first last.
-    - rewrite target_red_unfold.
+    - rewrite target_red_def_unfold.
       iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto.
     - rename H into Hred. iModIntro. iLeft. iSplitR; first by eauto using fill_reducible.
       iIntros (e_t' σ_t') "%". rename H into Hprim.
       eapply fill_reducible_prim_step in Hprim as (e_t'' & -> & H); last done.
       by iMod ("Hstep" with "[% //]").
   Qed.
+
+  Lemma target_red_mono Φ Ψ :
+    (∀ e_t, Φ e_t -∗ Ψ e_t) -∗
+    ∀ e_t, target_red e_t Φ -∗ target_red e_t Ψ.
+  Proof.
+    iIntros "Hw" (e_t) "Ht".
+    iApply (target_red_ind _ (λ e_t, (∀ e_t', Φ e_t' -∗ Ψ e_t') -∗ target_red e_t Ψ)%I with "[] [Ht] Hw"); last by rewrite target_red_eq /flip.
+    iModIntro. clear e_t. iIntros (e_t) "IH Hw".
+    rewrite target_red_unfold. iIntros (????) "Hstate".
+    iMod ("IH" with "Hstate") as "[[%Hred IH] | [Hstate Hphi]]"; iModIntro.
+    - iLeft; iSplitR; first done. iIntros (??) "Hprim".
+      iMod ("IH" with "Hprim") as "[?  IH]"; iModIntro; iFrame. by iApply "IH".
+    - iRight. iFrame. by iApply "Hw".
+  Qed.
+
+  Lemma target_red_wand Φ Ψ e_t :
+    target_red e_t Φ -∗ (∀ e_t', Φ e_t' -∗ Ψ e_t') -∗ target_red e_t Ψ.
+  Proof. iIntros "Ht Hw". iApply (target_red_mono with "Hw Ht"). Qed.
 End fix_lang.

@@ -488,6 +488,7 @@ Ltac source_finish :=
   source_expr_simpl;      (* simplify occurences of subst/fill *)
   first [source_value_head; try sim_finish | pm_prettify].
 
+
 (** ** Pure reduction *)
 
 (** The argument [efoc] can be used to specify the construct that should be
@@ -497,7 +498,7 @@ for an [EIf _ _ _] in the expression, and reduce it.
 The use of [open_constr] in this tactic is essential. It will convert all holes
 (i.e. [_]s) into evars, that later get unified when an occurences is found
 (see [unify e' efoc] in the code below). *)
-Tactic Notation "target_red_pure" open_constr(efoc) :=
+Tactic Notation "target_pure" open_constr(efoc) :=
   iStartProof;
   to_target;
   lazymatch goal with
@@ -515,7 +516,35 @@ Tactic Notation "target_red_pure" open_constr(efoc) :=
   | _ => fail "target_red_pure: not a 'target_red"
   end.
 
-Tactic Notation "source_red_pure" open_constr(efoc) :=
+(** We have not declared an instance for the reduction of while:
+  usually, we do not want to reduce it arbitrarily, but instead do an induction. *)
+Tactic Notation "target_while" :=
+  let Hwhile := fresh "H" in
+  pose (Hwhile := pure_while);
+  target_pure (While _ _);
+  clear Hwhile.
+
+Tactic Notation "target_if" := target_pure (If _ _ _).
+Tactic Notation "target_if_true" := target_pure (If (LitV (LitBool true)) _ _).
+Tactic Notation "target_if_false" := target_pure (If (LitV (LitBool false)) _ _).
+Tactic Notation "target_unop" := target_pure (UnOp _ _).
+Tactic Notation "target_binop" := target_pure (BinOp _ _ _).
+Tactic Notation "target_op" := target_unop || target_binop.
+Tactic Notation "target_let" := target_pure (Let (BNamed _) _ _).
+Tactic Notation "target_seq" := target_pure (Let BAnon _ _).
+Tactic Notation "target_proj" := target_pure (Fst _) || target_pure (Snd _).
+Tactic Notation "target_match" := target_pure (Match _ _ _ _ _).
+Tactic Notation "target_inj" := target_pure (InjL _) || target_pure (InjR _).
+Tactic Notation "target_pair" := target_pure (Pair _ _).
+
+Ltac target_pures :=
+  iStartProof;
+  first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
+          progress repeat (target_pure _; [])
+        | target_finish (* In case target_pure never ran, make sure we do the usual cleanup.*)
+        ].
+
+Tactic Notation "source_pure" open_constr(efoc) :=
   iStartProof;
   to_source;
   lazymatch goal with
@@ -533,21 +562,34 @@ Tactic Notation "source_red_pure" open_constr(efoc) :=
   | _ => fail "source_red_pure: not a 'sim'"
   end.
 
-Ltac target_red_pures :=
-  iStartProof;
-  first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
-          progress repeat (target_red_pure _; [])
-        | target_finish (* In case target_red_pure never ran, make sure we do the usual cleanup.*)
-        ].
+Tactic Notation "source_while" :=
+  let Hwhile := fresh "H" in
+  pose (Hwhile := pure_while);
+  source_pure (While _ _);
+  clear Hwhile.
 
-Ltac source_red_pures :=
+Tactic Notation "source_if" := source_pure (If _ _ _).
+Tactic Notation "source_if_true" := source_pure (If (LitV (LitBool true)) _ _).
+Tactic Notation "source_if_false" := source_pure (If (LitV (LitBool false)) _ _).
+Tactic Notation "source_unop" := source_pure (UnOp _ _).
+Tactic Notation "source_binop" := source_pure (BinOp _ _ _).
+Tactic Notation "source_op" := source_unop || source_binop.
+Tactic Notation "source_let" := source_pure (Let (BNamed _) _ _).
+Tactic Notation "source_seq" := source_pure (Let BAnon _ _).
+Tactic Notation "source_proj" := source_pure (Fst _) || source_pure (Snd _).
+Tactic Notation "source_match" := source_pure (Match _ _ _ _ _).
+Tactic Notation "source_inj" := source_pure (InjL _) || source_pure (InjR _).
+Tactic Notation "source_pair" := source_pure (Pair _ _).
+
+Ltac source_pures :=
   iStartProof;
   first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
-          progress repeat (source_red_pure _; [])
+          progress repeat (source_pure _; [])
         | source_finish (* In case source_red_pure never ran, make sure we do the usual cleanup.*)
         ].
 
-Ltac sim_pures := (try target_red_pures); (try source_red_pures); try to_sim.
+Ltac sim_pures := (try target_pures); (try source_pures); try to_sim.
+
 
 
 (** ** Bind tactics *)
@@ -574,40 +616,40 @@ Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
   | _ => fail "sim_bind: not a 'sim'"
   end.
 
-Ltac target_red_bind_core K_t :=
+Ltac target_bind_core K_t :=
   lazymatch eval hnf in K_t with
   | [] => idtac
   | _ => eapply (tac_target_red_bind K_t); [simpl; reflexivity| reduction.pm_prettify]
   end.
 
-Tactic Notation "target_red_bind" open_constr(efoc_t) :=
+Tactic Notation "target_bind" open_constr(efoc_t) :=
   iStartProof;
   to_target;
   lazymatch goal with
   | |- envs_entails _ (target_red ?e_t ?Ψ) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
-                                    target_red_bind_core K_t
+                                    target_bind_core K_t
                                   )
-          | fail 1 "target_red_bind: cannot find" efoc_t "in" e_t ]
-  | _ => fail "target_red_bind: not a 'target_red'"
+          | fail 1 "target_bind: cannot find" efoc_t "in" e_t ]
+  | _ => fail "target_bind: not a 'target_red'"
   end.
 
-Ltac source_red_bind_core K_s :=
+Ltac source_bind_core K_s :=
   lazymatch eval hnf in K_s with
   | [] => idtac
   | _ => eapply (tac_source_red_bind K_s); [simpl; reflexivity| reduction.pm_prettify]
   end.
 
-Tactic Notation "source_red_bind" open_constr(efoc_s) :=
+Tactic Notation "source_bind" open_constr(efoc_s) :=
   iStartProof;
   to_source;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e_s ?Ψ) =>
     first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s;
-                                    source_red_bind_core K_s
+                                    source_bind_core K_s
                                   )
-          | fail 1 "source_red_bind: cannot find" efoc_s "in" e_s ]
-  | _ => fail "source_red_bind: not a 'source_red'"
+          | fail 1 "source_bind: cannot find" efoc_s "in" e_s ]
+  | _ => fail "source_bind: not a 'source_red'"
   end.
 
 (** ** Call automation *)
@@ -616,7 +658,7 @@ Tactic Notation "target_call" :=
   let solve_hasfun _ :=
     let f := match goal with |- _ = Some (_, (?f @t _)%I) => f end in
     iAssumptionCore || fail "target_call: cannot find" f "@t ?" in
-  target_red_pures;
+  target_pures;
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
@@ -632,7 +674,7 @@ Tactic Notation "source_call" :=
   let solve_hasfun _ :=
     let f := match goal with |- _ = Some (_, (?f @s _)%I) => f end in
     iAssumptionCore || fail "source_call: cannot find" f "@s ?" in
-  source_red_pures;
+  source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
@@ -654,7 +696,7 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
     | |- False => fail 1 "target_alloc:" H "not fresh"
     | _ => iDestructHyp Htmp as H; target_finish
     end in
-  target_red_pures;
+  target_pures;
   (** The code first tries to use allocation lemma for a single reference,
      ie, [tac_target_red_alloc].
      If that fails, it tries to use the lemma [tac_target_red_allocN]
@@ -693,7 +735,7 @@ Tactic Notation "source_alloc" ident(l) "as" constr(H) :=
     | |- False => fail 1 "source_alloc:" H "not fresh"
     | _ => iDestructHyp Htmp as H; source_finish
     end in
-  source_red_pures;
+  source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     let process_single _ :=
@@ -719,7 +761,7 @@ Tactic Notation "target_free" :=
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
-  target_red_pures;
+  target_pures;
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
@@ -735,7 +777,7 @@ Tactic Notation "source_free" :=
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
-  source_red_pures;
+  source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
@@ -751,7 +793,7 @@ Tactic Notation "target_load" :=
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_load: cannot find" l "↦t ?" in
-  target_red_pures;
+  target_pures;
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
@@ -767,7 +809,7 @@ Tactic Notation "source_load" :=
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_load: cannot find" l "↦s ?" in
-  source_red_pures;
+  source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
@@ -785,7 +827,7 @@ Tactic Notation "target_store" :=
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
     iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in
-  target_red_pures;
+  target_pures;
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
@@ -801,7 +843,7 @@ Tactic Notation "source_store" :=
   let solve_mapsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
     iAssumptionCore || fail "source_store: cannot find" l "↦s ?" in
-  source_red_pures;
+  source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first

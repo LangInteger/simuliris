@@ -270,6 +270,9 @@ Section pure_exec.
   Global Instance pure_if_false e1 e2 :
     PureExec True 1 (If (Val $ LitV  $ LitBool false) e1 e2) e2.
   Proof. solve_pure_exec. Qed.
+  Lemma pure_while e0 e1 :
+    PureExec True 1 (While e0 e1) (If e0 (e1 ;; While e0 e1) (Val $ LitV $ LitUnit)).
+  Proof. solve_pure_exec. Qed.
 
   Global Instance pure_fst v1 v2 :
     PureExec True 1 (Fst (Val $ PairV v1 v2)) (Val v1).

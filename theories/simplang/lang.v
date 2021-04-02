@@ -48,7 +48,6 @@ Inductive bin_op : Set :=
   | LeOp | LtOp | EqOp (* Relations *)
   | OffsetOp. (* Pointer offset *)
 
-(*TODO: remove Rec ? *)
 Inductive expr :=
   (* Values *)
   | Val (v : val)
@@ -61,6 +60,7 @@ Inductive expr :=
   | UnOp (op : un_op) (e : expr)
   | BinOp (op : bin_op) (e1 e2 : expr)
   | If (e0 e1 e2 : expr)
+  | While (e0 e1 : expr)
   (* Products *)
   | Pair (e1 e2 : expr)
   | Fst (e : expr)
@@ -212,6 +212,8 @@ Proof.
         cast_if_and3 (decide (o = o')) (decide (e1 = e1')) (decide (e2 = e2'))
      | If e0 e1 e2, If e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
+     | While e0 e1, While e0' e1' =>
+        cast_if_and (decide (e0 = e0')) (decide (e1 = e1'))
      | Pair e1 e2, Pair e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | Fst e, Fst e' => cast_if (decide (e = e'))
@@ -310,6 +312,7 @@ Proof.
      | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
      | FAA e1 e2 => GenNode 18 [go e1; go e2]
      | Call e1 e2 => GenNode 19 [go e1; go e2]
+     | While e0 e1 => GenNode 20 [go e0; go e1]
      end
    with gov v :=
      match v with
@@ -342,6 +345,7 @@ Proof.
      | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
      | GenNode 18 [e1; e2] => FAA (go e1) (go e2)
      | GenNode 19 [e1; e2] => Call (go e1) (go e2)
+     | GenNode 20 [e0; e1] => While (go e0) (go e1)
      | _ => Val $ LitV LitUnit (* dummy *)
      end
    with gov v :=
@@ -355,7 +359,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -440,6 +444,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | UnOp op e => UnOp op (subst x v e)
   | BinOp op e1 e2 => BinOp op (subst x v e1) (subst x v e2)
   | If e0 e1 e2 => If (subst x v e0) (subst x v e1) (subst x v e2)
+  | While e0 e1 => While (subst x v e0) (subst x v e1)
   | Pair e1 e2 => Pair (subst x v e1) (subst x v e2)
   | Fst e => Fst (subst x v e)
   | Snd e => Snd (subst x v e)
@@ -587,6 +592,9 @@ Proof. apply foldl_app. Qed.
 (** Programs *)
 Definition prog := gmap fname ectx.
 
+Notation "e1 ;; e2" := (Let BAnon e1%E e2%E)
+  (at level 100, e2 at level 200,
+   format "'[' '[hv' '[' e1 ']' ;;  ']' '/' e2 ']'") : expr_scope.
 Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
   | PairS v1 v2 σ :
      head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ
@@ -607,6 +615,8 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      head_step P (If (Val $ LitV $ LitBool true) e1 e2) σ e1 σ
   | IfFalseS e1 e2 σ :
      head_step P (If (Val $ LitV $ LitBool false) e1 e2) σ e2 σ
+  | WhileS e0 e1 σ :
+      head_step P (While e0 e1) σ (If e0 (e1 ;; While e0 e1) (Val $ LitV $ LitUnit)) σ
   | FstS v1 v2 σ :
      head_step P (Fst (Val $ PairV v1 v2)) σ (Val v1) σ
   | SndS v1 v2 σ :

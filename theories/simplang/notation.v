@@ -81,6 +81,9 @@ Notation "~ e" := (UnOp NegOp e%E) (at level 75, right associativity) : expr_sco
 (* The unicode ← is already part of the notation "_ ← _; _" for bind. *)
 Notation "e1 <- e2" := (Store e1%E e2%E) (at level 80) : expr_scope.
 
+Notation "'while:' e1 'do' e2 'od'" := (While e1%E e2%E)
+  (at level 99, e1, e2 at level 200, format
+    "'while:'  e1  'do'  '[hv ' e2  'od'  ']'") : expr_scope.
 Notation "'if:' e1 'then' e2 'else' e3" := (If e1%E e2%E e3%E)
   (at level 200, e1, e2, e3 at level 200) : expr_scope.
 
@@ -90,6 +93,7 @@ by two spaces in case the whole λ: does not fit on a single line. *)
 Notation "λ: x , e" := ([LetCtx x%binder e%E])
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
+Bind Scope expr_scope with ectx.
 
 Notation "'let:' x := e1 'in' e2" := (Let x%binder e1%E e2%E)
   (at level 200, x at level 1, e1, e2 at level 200,

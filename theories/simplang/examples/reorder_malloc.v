@@ -79,12 +79,12 @@ Section reorder.
   Proof.
     iIntros (v_t v_s) "Hrel". sim_pures.
 
-    source_red_bind (Fst v_s).
+    source_bind (Fst v_s).
     iApply source_red_irred_unless; first done.
     iIntros ((v_s1 & v_s2' & ->)).
     sim_pures.
 
-    source_red_bind (Fst v_s2').
+    source_bind (Fst v_s2').
     iApply source_red_irred_unless; first done.
     iIntros ((v_s2 & v_s_cont & ->)).
     sim_pures.
@@ -125,7 +125,7 @@ Section reorder.
   Proof.
     iIntros (v_t v_s) "Hrel". sim_pures.
 
-    source_red_bind (Fst v_s).
+    source_bind (Fst v_s).
     iApply source_red_irred_unless; first done.
     iIntros ((v_s1 & v_s2 & ->)).
     sim_pures.
@@ -133,7 +133,7 @@ Section reorder.
     iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & Hrel1 & Hrel2)".
     sim_pures.
 
-    source_red_bind (! v_s1)%E.
+    source_bind (! v_s1)%E.
     iApply source_red_irred_unless; first done.
     iIntros ((l_s & ->)).
     iApply source_red_base; iModIntro.
@@ -142,7 +142,7 @@ Section reorder.
     sim_load v_t1 v_s1 as "Hv1".
     sim_pures.
 
-    source_red_bind (! v_s2)%E.
+    source_bind (! v_s2)%E.
     iApply source_red_irred_unless; first done.
     iIntros ((l_s2 & ->)).
     iApply source_red_base; iModIntro.
