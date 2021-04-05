@@ -111,6 +111,8 @@ Section fix_bi.
     destruct v_t as [[] | | | ]; simpl; try iIntros "%Hv"; inversion Hv. done.
   Qed.
 
+  Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
+
   Lemma input_sim :
     ⊢ input_loop ⪯ input_loop {{ val_rel }}.
   Proof.
@@ -121,9 +123,7 @@ Section fix_bi.
     iModIntro.
     sim_load v_t v_s as "Ha".
 
-    to_source.
-    iApply source_red_irred_unless; first done.
-    iIntros ((b & ->)); iPoseProof (val_rel_bool_source with "Ha") as "->"; sim_pures.
+    discr_source. iIntros ((b & ->)); iPoseProof (val_rel_bool_source with "Ha") as "->"; sim_pures.
     destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.
@@ -143,8 +143,19 @@ Section fix_bi.
     "rec" @s input_rec -∗
     input_loop ⪯ Call #f"rec" #true {{ val_rel }}.
   Proof.
-    iIntros "Hs".
-    (* TODO: add a general simulation lemma for this case *)
-  Abort.
+    iIntros "#Hs". rewrite /input_loop. target_alloc lc_t as "Hlc_t". sim_pures.
+    iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
+    { iExists #true. eauto. }
+    iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
+
+    discr_source.
+    iIntros ((b & ->)); iPoseProof (val_rel_bool_source with "Hv") as "->"; sim_pures.
+    target_load. destruct b; sim_pures.
+    - sim_bind (Call _ _) (Call _ _). 
+      iApply sim_wand; first by iApply sim_call.
+      iIntros (??) "Hv". target_store. sim_pures. iApply sim_expr_base.
+      iRight. iExists v_s. eauto.
+    - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
+  Qed.
 
 End fix_bi.
