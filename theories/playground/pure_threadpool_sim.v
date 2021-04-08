@@ -274,7 +274,7 @@ Section fair_termination_preservation.
 
   (* we define the pool simulation *)
   Definition all_values (O: gset nat) P :=
-    (∀ i e_t e_s, i ∈ O → P !! i = Some (e_t, e_s) → val e_t ∧ val e_s).
+    (∀ i , i ∈ O → ∃ e_t e_s, P !! i = Some (e_t, e_s) ∧ val e_t ∧ val e_s).
 
   Definition must_step (post: pool → Prop) (must_step: pool → gset nat → list nat → Prop) (P: pool) (O: gset nat) (D: delays) :=
     delays_for P.(tgt) D →
@@ -359,8 +359,7 @@ Proof using val_no_step.
   rewrite lfp_fixpoint {1}/must_step.
   intros Hdel. specialize (Hsim Hdel) as [Base|Step].
   - left. destruct Base as [Base ?]; split; last done.
-    intros i e_t e_s Hi. destruct (Hel _ Hi) as [?|(? & ? & Hlook & ? & ?)]; eauto.
-    intros Hlook'. rewrite Hlook in Hlook'. injection Hlook' as -> ->. eauto.
+    intros i Hi. destruct (Hel _ Hi) as [?|(? & ? & Hlook & ? & ?)]; eauto.
   - right. destruct Step as [? Step]; split; first done.
     intros T_t' D' i Hstep. destruct (Step T_t' D' i Hstep) as (P' & I & Heq & Hsteps & Hpost).
     exists P', I. split; first done. split; first done.
@@ -539,3 +538,66 @@ Proof using val_no_step.
               - intros ???; eapply Hsims; simpl; set_solver. }
             { eapply lookup_app_l_Some. by rewrite list_lookup_insert_ne. }
 Qed.
+
+
+Lemma threads_src_tgt P:
+  threads P.(tgt) = threads P.(src).
+Proof.
+  by rewrite /threads !fmap_length.
+Qed.
+
+
+CoInductive fair_div T D : Prop :=
+ | fair_div_step i T' D':
+    fair_pool_step T D i T' D' →
+    delays_for T D →
+    fair_div T' D' →
+    fair_div T D.
+
+Inductive val_or_step : list expr → gset nat → list expr → Prop :=
+  | val_or_step_values T O:
+    (∀ i, i ∈ O → ∃ e, T !! i = Some e ∧ val e) → val_or_step T O T
+  | val_or_step_step I O T T' T'':
+      pool_steps T I T' → val_or_step T' (O ∖ I) T'' → val_or_step T O T''.
+
+CoInductive safe_fair_div T : Prop :=
+  safe_fair_div_step T':
+  val_or_step T (threads T) T' →
+  safe_fair_div T' →
+  safe_fair_div T.
+
+Lemma sim_pool_val_or_step P D:
+  fair_div P.(tgt) D → sim_pool P →
+  ∃ P' D', sim_pool P' ∧ fair_div P'.(tgt) D' ∧ val_or_step P.(src) (threads P.(src)) P'.(src).
+Proof.
+  intros Hfair. rewrite /sim_pool.
+  rewrite {1}gfp_fixpoint. fold sim_pool. rewrite /sim_pool_body.
+  intros Hlfp; specialize (Hlfp D).
+  revert Hlfp. rewrite threads_src_tgt. generalize (threads P.(src)) as O.
+  intros O Hlfp. revert P O D Hlfp Hfair.
+  change (lfp (must_step sim_pool) ⪯
+    λ P O D, fair_div P.(tgt) D → ∃ P' D',
+      sim_pool P' ∧ fair_div P'.(tgt) D' ∧ val_or_step P.(src) O P'.(src)).
+  eapply lfp_least_pre_fixpoint; intros P O D MustStep Hfair.
+  destruct Hfair as [i T' D' Hstep Hdel Hfair].
+  destruct (MustStep Hdel) as [Values|[CanStep AllSteps]].
+  - destruct Values as [Hvalues Hsim]; exists P, D. split; first done.
+    split; first (econstructor; eauto).
+    left. intros j Hj. eapply Hvalues in Hj as (e_t & e_s & Hlook & Hval1 & Hval2).
+    exists e_s. rewrite list_lookup_fmap Hlook; split; done.
+  - specialize (AllSteps _ _ _ Hstep) as (P' & I & <- & Hpool & Post).
+    destruct (Post Hfair) as (P'' & D'' & Hpool' & Hfair' & Hvals').
+    exists P'', D''. split; first done.
+    split; first done. econstructor; eauto.
+Qed.
+
+Lemma sim_pool_preserves_fair_termination P D:
+  fair_div P.(tgt) D → sim_pool P → safe_fair_div P.(src).
+Proof.
+  revert P D; cofix IH. intros P D Hfair Hsim.
+  destruct (sim_pool_val_or_step _ _ Hfair Hsim) as (P' & D' & Hsim' & Hfair' & Hval).
+  econstructor; eauto.
+Qed.
+
+
+End fair_termination_preservation.
