@@ -9,8 +9,8 @@ Class Lattice (L: Type) (leq: relation L) `{!Equiv L} := {
   inf_is_lower_bound l (A: L → Prop): A l → leq (inf A) l;
   inf_is_greatest_lower_bound l (A: L → Prop):
     (∀ l', A l' → leq l l') → leq l (inf A);
-  anti_symm l l': leq l l' → leq l' l → l ≡ l';
-  leq_proper:> Proper (equiv ==> equiv ==> iff) leq;
+  lattice_anti_symm: AntiSymm equiv leq;
+  lattice_leq_proper:> Proper (equiv ==> equiv ==> iff) leq;
   lattice_preorder: PreOrder leq;
   lattice_equivalence: @Equivalence L equiv;
 }.
@@ -24,7 +24,7 @@ Global Hint Mode Mono - - - - + : typeclass_instances.
 Section lattice_properties.
   Context `{Lattice L leq}.
 
-  Existing Instances lattice_preorder lattice_equivalence.
+  Existing Instances lattice_anti_symm lattice_preorder lattice_equivalence.
   Infix "⪯" := leq (at level 60).
 
   Definition top := sup (λ _, True).
@@ -121,7 +121,7 @@ Section lattice_properties.
   Lemma gfp_fixpoint f `{!Mono f}:
     gfp f ≡ f (gfp f).
   Proof.
-    eapply anti_symm; eauto using gfp_post_fixpoint, gfp_pre_fixpoint.
+    apply: anti_symm; eauto using gfp_post_fixpoint, gfp_pre_fixpoint.
   Qed.
 
   Lemma gfp_strong_coind f `{!Mono f} l:
@@ -160,7 +160,7 @@ Section lattice_properties.
   Lemma lfp_fixpoint f `{!Mono f}:
     lfp f ≡ f (lfp f).
   Proof.
-    eapply anti_symm; eauto using lfp_post_fixpoint, lfp_pre_fixpoint.
+    apply: anti_symm; eauto using lfp_post_fixpoint, lfp_pre_fixpoint.
   Qed.
 
   Lemma lfp_strong_ind f `{!Mono f} l:
@@ -206,6 +206,7 @@ Next Obligation.
 Qed.
 
 
+Local Existing Instances lattice_anti_symm lattice_preorder lattice_equivalence.
 
 Global Instance pointwise_Preorder A B (R: relation B) `{!PreOrder R}: PreOrder (pointwise_relation A R).
 Proof.
@@ -219,7 +220,14 @@ Global Instance pointwise_equiv A `{Equiv B}: Equiv (A → B) := pointwise_relat
 Global Instance pointwise_equivalence A `{eq: Equiv B} `{!Equivalence eq}: @Equivalence (A → B) equiv.
 Proof. split; intuition. intros ????? a. etrans; eauto. Qed.
 
-Local Existing Instances lattice_preorder lattice_equivalence.
+Global Instance pointwise_anti_symm A B `{PreOrder B leq} `{eq: Equiv B} `{!Equivalence eq} `{AntiSymm B eq leq}: @AntiSymm (A → B) equiv (pointwise_relation A leq).
+Proof.
+  intros f g Hfg Hgf. intros a; apply: anti_symm.
+  - eapply Hfg.
+  - eapply Hgf.
+Qed.
+
+
 Global Program Instance pointwise_Lattice A `{Lattice B leq}: Lattice (A → B) (pointwise_relation A leq) :=
   {| sup F := λ a, sup (λ b, ∃ f, F f ∧ f a = b); inf F := λ a, inf (λ b, ∃ f, F f ∧ f a = b) |}.
 Next Obligation.
@@ -239,13 +247,8 @@ Next Obligation.
   intros b [g [Fg Hab]]. subst b. by eapply lower.
 Qed.
 Next Obligation.
-  intros A B leq equ Lat f g Hfg Hgf. intros a; eapply anti_symm.
-  - eapply Hfg.
-  - eapply Hgf.
-Qed.
-Next Obligation.
   intros A B leq equ Lat x x' Hx y y' Hy.
-  split; intros Hrel a; (eapply leq_proper; last apply Hrel); eauto.
+  split; intros Hrel a; (eapply lattice_leq_proper; last apply Hrel); eauto.
   - symmetry; eapply Hx.
   - symmetry; eapply Hy.
 Qed.
