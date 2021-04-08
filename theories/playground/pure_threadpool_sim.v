@@ -62,10 +62,11 @@ Section simulation.
 
   Inductive pool_steps : list expr → gset nat → list expr → Prop :=
     | pool_no_steps T: pool_steps T ∅ T
-    | pool_do_steps T T' T'' i I:
+    | pool_do_steps T T' T'' i I J:
       pool_step T i T' →
       pool_steps T' I T'' →
-      pool_steps T (I ∪ {[i]}) T''.
+      J ≡ I ∪ {[i]} →
+      pool_steps T J T''.
 
   Inductive fair_pool_step : list expr → list nat → nat → list expr → list nat → Prop :=
     take_fair_step i T T' D D':
@@ -91,26 +92,30 @@ Section simulation.
       eexists _, _. split; done.
   Qed.
 
+  Definition delays_for T D :=
+    ∀ i, i ∈ active_exprs T → is_Some (D !! i).
+
+  Notation "P '.(tgt)'" := (P.*1) (at level 5).
+  Notation "P '.(src)'" := (P.*2) (at level 5).
+
+
   (* we define the pool simulation *)
   Definition must_step (post: pool → Prop) (must_step: pool → gset nat → list nat → Prop) (P: pool) (O: gset nat) (D: delays) :=
-    (O ≡ ∅ ∧ post P) ∨
-    ((∃ T_t' i, pool_step (P.*1) i T_t') ∧
+    delays_for (P.(tgt)) D →
+    ((∀ i, i ∈ O → ∃ e_t e_s, P !! i = Some (e_t, e_s) ∧ val e_t ∧ val e_s) ∧ post P) ∨
+    ((∃ T_t' i, pool_step P.(tgt) i T_t') ∧
      (∀ T_t' D' i,
-        fair_pool_step (P.*1) D i T_t' D' →
-        ∃ P' I, P'.*1 = T_t' ∧
-        pool_steps (P.*2) I (P'.*2) ∧
+        fair_pool_step P.(tgt) D i T_t' D' →
+        ∃ P' I, P'.(tgt) = T_t' ∧
+        pool_steps P.(src) I P'.(src) ∧
         must_step P' (O ∖ I) D'
   )).
 
   Definition sim_pool_body (sim_pool: pool → Prop) (P: pool) :=
     (∀ e_t e_s, (e_t, e_s) ∈ P → val e_t → val e_s) ∧
-    ∀ D O,
-      O ⊆ active_exprs (P.*1) →
-      (∀ i, i ∈ O → is_Some (D !! i)) →
-      lfp (must_step sim_pool) P O D.
+    ∀ D O, O ⊆ active_exprs P.(tgt) → lfp (must_step sim_pool) P O D.
 
-  Definition sim_pool :=
-    gfp sim_pool_body.
+  Definition sim_pool := gfp sim_pool_body.
 
   Instance must_step_mono Φ: Mono (must_step Φ).
   Proof. Admitted.
@@ -159,6 +164,20 @@ Proof using val_no_step is_val.
   destruct Hstep as [Hstep _]. eapply val_no_step in Hstep; naive_solver.
 Qed.
 
+Lemma sim_expr_step e_s e_t e_t' T_t:
+  sim_expr e_t e_s → step e_t e_t' T_t →
+  T_t = [] ∧ sim_expr e_t' e_s ∨
+  ∃ e_s' T_s, step e_s e_s' T_s ∧ length T_t = length T_s ∧
+    ∀ e_t e_s, (e_t, e_s) ∈ zip (e_t' :: T_t) (e_s' :: T_s) → sim_expr e_t e_s.
+Proof using val_no_step is_val.
+  rewrite sim_expr_unfold sim_expr_body_unfold /sim_expr_inner.
+  intros [[Ht Hs]|Hstep] Htgt; first (exfalso; eapply val_no_step; [apply Ht|]; eauto).
+  destruct Hstep as [_ [Hstep|Hstep]].
+  - left. edestruct Hstep; eauto. split; first done.
+    by rewrite sim_expr_unfold. (* todo: include this in the unfold *)
+  - right. eauto.
+Qed.
+
 
 (* proof structure:
   co-induction on the outer fixpoint
@@ -180,11 +199,7 @@ Qed.
 *)
 
 Definition sim_expr_all P := (∀ e_t e_s, (e_t, e_s) ∈ P → sim_expr e_t e_s).
-Definition local_steps O P :=
-  ∀ D,
-  O ⊆ active_exprs (P.*1) →
-  (∀ i, i ∈ O → is_Some (D !! i)) →
-  lfp (must_step sim_expr_all) P O D.
+
 
 
 Lemma set_strong_ind (P: gset nat → Prop):
@@ -198,9 +213,6 @@ Proof.
   eapply IH. subst n. by eapply subset_size.
 Qed.
 
-
-Definition delays_for T D :=
-  ∀ i, i ∈ active_exprs T → is_Some (D !! i).
 
 Lemma pool_step_iff T i T':
   pool_step T i T' ↔
@@ -224,15 +236,95 @@ Proof.
     econstructor; auto.
 Qed.
 
+Definition local_all := lfp (must_step sim_expr_all).
+
+Lemma value_preservation e T i j T':
+  pool_step T j T' →
+  val e →
+  T !! i = Some e →
+  T' !! i = Some e.
+Proof using val_no_step.
+  rewrite pool_step_iff.
+  destruct 1 as (e1 & e2 & T_f & Hstep & Hpre & Hpost).
+  intros Hval Hlook. destruct (decide (i = j)); subst.
+  - naive_solver.
+  - eapply lookup_app_l_Some.
+    rewrite list_lookup_insert_ne; done.
+Qed.
+
+Lemma value_preservation_steps e T i J T':
+  pool_steps T J T' →
+  val e →
+  T !! i = Some e →
+  T' !! i = Some e.
+Proof using val_no_step.
+  induction 1; eauto using value_preservation.
+Qed.
+
+Definition local_steps O P :=
+  ∀ D,
+  O ⊆ active_exprs (P.*1) →
+  local_all P O D.
+
+
 Lemma fair_pool_step_inv T D i T' D':
   fair_pool_step T D i T' D' →
   ∃ e e' T_f, step e e' T_f ∧
   T !! i = Some e ∧
   T' = <[i := e']> T ++ T_f ∧
-  D !! i = Some 0.
+  D !! i = Some 0 ∧
+  (∀ j n, j ≠ i → D !! j = Some n → ∃ n', n = S n' ∧ D' !! j = Some n').
 Proof. Admitted.
 
 
+
+Lemma local_all_add_values P O O' D:
+  local_all P O D →
+  (∀ i, i ∈ O' → i ∈ O ∨ ∃ e_t e_s, P !! i = Some (e_t, e_s) ∧ val e_t ∧ val e_s) →
+  local_all P O' D.
+Proof using val_no_step.
+  intros Hall; revert P O D Hall O'.
+  change (local_all ⪯ λ P O D, ∀ O' : gset nat,
+    (∀ i : nat, i ∈ O' → i ∈ O ∨ (∃ e_t e_s, P !! i = Some (e_t, e_s) ∧ val e_t ∧ val e_s))
+    → local_all P O' D).
+  eapply lfp_least_pre_fixpoint; intros P O D Hsim O' Hel.
+  rewrite /local_all lfp_fixpoint {1}/must_step.
+  intros Hdel. specialize (Hsim Hdel) as [Base|Step].
+  - left. destruct Base as [Base ?]; split; last done.
+    intros i Hi. destruct (Hel _ Hi) as [?|]; by eauto.
+  - right. destruct Step as [? Step]; split; first done.
+    intros T_t' D' i Hstep. destruct (Step T_t' D' i Hstep) as (P' & I & Heq & Hsteps & Hpost).
+    exists P', I. split; first done. split; first done.
+    eapply Hpost. intros j Hj. eapply elem_of_difference in Hj as [Hj HI].
+    destruct (Hel _ Hj) as [?|Hvals].
+    { left; eapply elem_of_difference; eauto. }
+    right. destruct Hvals as (e_t & e_s & Hlook & val_t & val_s).
+    exists e_t, e_s; split; last eauto.
+    eapply value_preservation_steps in Hsteps; [|by apply val_s| by erewrite list_lookup_fmap, Hlook].
+    rewrite -Heq in Hstep. inversion Hstep as [????? Hstep' ?]; subst.
+    eapply value_preservation in Hstep'; [|by apply val_t| by erewrite list_lookup_fmap, Hlook].
+    revert Hsteps Hstep'. rewrite !list_lookup_fmap.
+    destruct (P' !! j) as [[??]|]; simpl; naive_solver.
+Qed.
+
+
+Lemma local_all_weaken P O O' D:
+  local_all P O D →
+  O' ⊆ O →
+  local_all P O' D.
+Proof using val_no_step.
+  intros H1 H2. eapply local_all_add_values; first done.
+  naive_solver.
+Qed.
+
+
+
+Lemma local_all_delay_for P O D:
+  (delays_for P.(tgt) D → local_all P O D) → local_all P O D.
+Proof.
+  rewrite /local_all lfp_fixpoint.
+  rewrite /must_step; intros Hstep Hdel; eapply (Hstep Hdel Hdel).
+Qed.
 
 
 (* TODO: we need to include information about D' *)
@@ -259,6 +351,48 @@ Proof. Admitted.
 Qed. *)
 
 
+Lemma sim_expr_all_insert P i e_t e_s:
+  sim_expr_all P → sim_expr e_t e_s → sim_expr_all (<[i:=(e_t, e_s)]> P).
+Proof.
+  intros Hall Hsim e_t' e_s' Hin.
+  eapply elem_of_list_lookup_1 in Hin as [j Hlook].
+  eapply list_lookup_insert_Some in Hlook as [(-> & Heq & _)|(Hne & Hlook)].
+  - naive_solver.
+  - by eapply Hall, elem_of_list_lookup_2.
+Qed.
+
+Lemma active_exprs_remove P i e O:
+  (O ⊆ active_exprs P.(tgt)) →
+  (O ∖ {[i]} ⊆ active_exprs (<[i:=e]> P.(tgt))).
+Proof using val_no_step.
+  intros Hsub j Hel. eapply elem_of_difference in Hel as [Hj Hne].
+  assert (j ≠ i) as Hne' by set_solver.
+  eapply active_expr_spec.
+  eapply Hsub in Hj. eapply active_expr_spec in Hj as (e' & Hlook & Hnval).
+  exists e'. rewrite list_lookup_insert_ne; last done. split; done.
+Qed.
+
+Lemma active_exprs_update T i e O:
+  (O ⊆ active_exprs T) →
+  ¬ val e →
+  O ⊆ active_exprs (<[i:=e]> T).
+Proof using val_no_step.
+  intros Hsub Hnval j Hel.
+  eapply active_expr_spec.
+  eapply Hsub in Hel. eapply active_expr_spec in Hel as (e' & Hlook & Hnval').
+  destruct (decide (i = j)).
+  - subst; exists e. split; last done.
+    eapply list_lookup_insert, lookup_lt_Some, Hlook.
+  - rewrite list_lookup_insert_ne; last done. exists e'. split; done.
+Qed.
+
+Lemma active_exprs_weaken T T':
+  active_exprs T ⊆ active_exprs (T ++ T').
+Proof using val_no_step.
+  intros j (e & Hlook & Hnval)%active_expr_spec.
+  eapply active_expr_spec. exists e. split; last done.
+  eapply lookup_app_l_Some, Hlook.
+Qed.
 
 Lemma sim_expr_to_pool P:
   sim_expr_all P → sim_pool P.
@@ -269,31 +403,35 @@ Proof.
   - intros D O; revert D. change (local_steps O P).
     revert P Hsim. induction O as [O IH] using set_strong_ind.
     destruct (decide (O ≡ ∅)) as [Empty|[i Hel]%set_choose].
-    + intros P Hsize Hall D Hsub. rewrite lfp_fixpoint /must_step.
-      left. eauto.
-    + intros P Hall D Hsub Hdom.
+    + intros P Hsize D Hsub. rewrite /local_all lfp_fixpoint {1}/must_step.
+      intros Hdel. left. split; last done.
+      intros i; set_solver.
+    + intros P Hall D Hsub.
       specialize (Hsub _ Hel) as Hactive.
       eapply active_expr_spec in Hactive as (e & Hlook & Hnval).
       eapply list_lookup_fmap_inv in Hlook as ([e_t e_s] & -> & Hlook).
       simpl in Hnval.
       assert (sim_expr e_t e_s) as Hsim by eapply Hall, elem_of_list_lookup_2, Hlook.
       revert Hsim; rewrite sim_expr_unfold /sim_expr_body; intros Hsim.
-      revert e_t e_s Hsim P Hall Hnval Hlook D Hsub Hdom.
+      revert e_t e_s Hsim P Hall Hnval Hlook D Hsub.
       change (lfp (sim_expr_inner sim_expr) ⪯
               λ e_t e_s, ∀ P,
                 sim_expr_all P →
                 ¬ val e_t →
                 P !! i = Some (e_t, e_s) →
                 local_steps O P).
-      eapply lfp_least_pre_fixpoint;
-        intros e_t e_s Hinner P Hall Hnval Hlook D Hsub Hdom.
+      eapply lfp_strong_ind; first apply _.
+      intros e_t e_s Hinner P Hall Hnval Hlook D Hsub.
       destruct Hinner as [Val|[CanStep AllSteps]].
       * naive_solver.
-      * pose proof (Hdom _ Hel) as [d HD].
-        revert D P HD Hdom Hsub Hall Hlook.
+      * eapply local_all_delay_for; intros Hdom.
+        destruct (Hdom i) as [d HD]; first apply Hsub, Hel.
+        clear Hdom.
+        revert D P HD Hsub Hall Hlook.
         induction d as [|d IHd].
-        -- intros D P HD Hdom Hsub Hall Hlook.
-           rewrite lfp_fixpoint {1}/must_step.
+        -- intros D P HD Hsub Hall Hlook.
+           rewrite /local_all lfp_fixpoint {1}/must_step.
+           intros Hdom.
            right. split.
            { destruct CanStep as (e' & T_f & Hstep).
              exists (<[i := e']> P.*1 ++ T_f), i.
@@ -302,42 +440,102 @@ Proof.
            intros T_t' D' j Hpool.
            (* eapply fair_pool_step_inv in Hpool as (e_t_dup & e_t' & T_f & Hstep & Hdup & Hupd & Hj). *)
            eapply fair_pool_step_zero_inv in Hpool; last done.
-           eapply (pool_step_lookup e_t) in Hpool as (e_t' & T_f & Hstep); last admit.
+           eapply (pool_step_iff) in Hpool as (e_t_dup & e_t' & T_f & Hstep & Hlook' & Hupd).
+           assert (e_t_dup = e_t) as ->; last clear Hlook'.
+           { revert Hlook'; rewrite list_lookup_fmap Hlook //=; naive_solver. }
            destruct AllSteps as [Stutter|NoStutter].
            ++ specialize (Stutter _ _ Hstep) as [-> Hcont].
+              exists (<[i := (e_t', e_s)]> P), ∅.
+              split. { by rewrite Hupd list_fmap_insert //= right_id. }
+              split.
+              { rewrite list_fmap_insert //= list_insert_id; first by constructor.
+                rewrite list_lookup_fmap Hlook //=. }
               destruct (decide (val e_t')).
-              ** admit. (* if the target has reached a value, we obtain the source as a value from the simulation *)
-
-              ** exists (<[i := (e_t', e_s)]> P), ∅.
-                 split; first admit.
-                 assert (local_steps O (<[i := (e_t', e_s)]> P)) as Hlocal.
-                 { eapply Hcont; admit. }
+              ** revert Hcont. rewrite meet_right.
+                 change (lfp (sim_expr_inner _) _ _) with (sim_expr_body sim_expr e_t' e_s).
+                 rewrite -sim_expr_unfold. intros sim.
+                 assert (val e_s) as v' by by eapply sim_expr_val.
+                 eapply (local_all_add_values _ (O ∖ {[i]})).
+                 { eapply IH.
+                   - eapply subset_difference_elem_of, Hel.
+                   - by eapply sim_expr_all_insert.
+                   - rewrite list_fmap_insert //=. by eapply active_exprs_remove.
+                 }
+                 { intros k Hk. eapply elem_of_difference in Hk as [Hk _].
+                   destruct (decide (i = k)); first subst.
+                   - right. exists e_t', e_s. repeat split; auto.
+                     eapply list_lookup_insert, lookup_lt_Some, Hlook.
+                   - left. set_solver.
+                 }
+              ** apply id in Hcont as Hcont'; revert Hcont Hcont'; rewrite {1}meet_left {1}meet_right; intros Hcont Hsim.
+               assert (local_steps O (<[i := (e_t', e_s)]> P)) as Hlocal.
+                 { eapply Hcont; [|done|].
+                   + eapply sim_expr_all_insert; first done.
+                     by rewrite sim_expr_unfold /sim_expr_body.
+                   + eapply list_lookup_insert, lookup_lt_Some, Hlook.
+                  }
                  feed pose proof (Hlocal D').
-                 { admit.  }
-                 { admit. }
-                 split; first admit.
-                 admit.
+                 { rewrite list_fmap_insert //=. eapply active_exprs_update; auto. }
+                 { eapply local_all_weaken; first done. set_solver. }
           ++ specialize (NoStutter _ _ Hstep) as (e_s' & T_s & Hstep_src & Hlen & Hsim).
              exists (<[i := (e_t', e_s')]> P ++ zip T_f T_s), {[i]}.
-             split; first admit.
-             split; first admit.
+             rewrite !fmap_app fst_zip; last lia.
+             rewrite snd_zip; last lia.
+             rewrite !list_fmap_insert.
+             split; first done.
+             split.
+             { simpl. econstructor; [|eapply pool_no_steps|by rewrite left_id].
+               eapply pool_step_iff. exists e_s, e_s', T_s.
+               repeat split; eauto. by rewrite list_lookup_fmap Hlook. }
              assert (local_steps (O ∖ {[i]}) (<[i := (e_t', e_s')]> P ++ zip T_f T_s)) as Hlocal.
-             { eapply IH; admit. }
+             { eapply IH; first by set_solver.
+               intros t s [Hin|Hin]%elem_of_app.
+               - eapply sim_expr_all_insert; [apply Hall| |apply Hin].
+                 eapply Hsim; simpl; set_solver.
+               - eapply Hsim; simpl; set_solver.
+             }
              eapply Hlocal.
-             { admit. }
-             { admit. }
-        -- intros D P HD Hdom Hsub Hall Hlook.
-           rewrite lfp_fixpoint {1}/must_step.
-           right. split; first admit. (* can step *)
+             { rewrite fmap_app. etrans; first by eapply active_exprs_remove.
+               rewrite list_fmap_insert. eapply active_exprs_weaken. }
+        -- intros D P HD Hsub Hall Hlook.
+           rewrite /local_all lfp_fixpoint {1}/must_step.
+           intros Hdel.
+           right. split.
+           { destruct CanStep as (e' & T_f & Hstep).
+             exists (<[i := e']> P.*1 ++ T_f), i.
+             eapply pool_step_iff. do 3 eexists; split; first eauto.
+             split; last done. by rewrite list_lookup_fmap Hlook. }
            intros T_t' D' j Hfair.
-           eexists _, ∅. split; first admit.
-           split; first admit.
-           (* the P needs to be the updated one *)
-           feed pose proof (IHd D' P).
-           { admit. }
-           { admit. }
-           { admit. (* we need a case analysis whether this has terminated in a value *) }
-           { admit. (* we can just unfold one of them for one step *) }
-           { admit. (* j stepped, so the result ist still the same *) }
-           admit. (* is exactly H *)
+           eapply fair_pool_step_inv in Hfair as (j_t & j_t' & T_f & Hstep & Hlook' & Hupd & HDj & Hdecr).
+           assert (i ≠ j) as Hij by congruence.
+           assert (∃ j_s, P !! j = Some (j_t, j_s)) as [j_s Hlook''].
+           { revert Hlook'. rewrite list_lookup_fmap.
+             destruct (P !! j) as [[]|]; simpl; naive_solver. }
+           clear Hlook'.
+           assert (sim_expr j_t j_s) as Hsim.
+           { eapply Hall, elem_of_list_lookup_2, Hlook''. }
+           eapply sim_expr_step in Hsim; last eauto.
+           destruct Hsim as [Stutter|NoStutter].
+           ++ exists (<[j := (j_t', j_s)]> P), ∅.
+              destruct Stutter as [-> Hsim].
+              rewrite !list_fmap_insert. subst T_t'.
+              split; first by rewrite right_id.
+              split.
+              { simpl; rewrite list_insert_id; eauto using pool_no_steps.
+                by rewrite list_lookup_fmap Hlook''. }
+              eapply Hdecr in HD as (x & Heq & HD'); last done.
+              assert (x = d) as -> by congruence; clear Heq.
+              eapply (local_all_weaken _ O); last set_solver.
+              eapply IHd; auto using sim_expr_all_insert; last first.
+              { rewrite list_lookup_insert_ne //. }
+              admit.
+              (* we have the same value distinction here as before,
+                 we should be able to remove the active_exprs assumption *)
+           ++ destruct NoStutter as (j_s' & T_s & Hsrc & Hlen & Hall').
+              exists (<[j := (j_t', j_s')]> P ++ zip T_f T_s), {[j]}.
+              (* analogous to the previous case:
+                 if j is still in O, then we have decreased O just now.
+                 if j is not in O, then the d has decreased for this O
+                 and we can use IHd. *)
+              admit.
 Admitted.
