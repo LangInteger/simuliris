@@ -139,6 +139,8 @@ Section fix_lang.
 
   Definition lift_post (Φ : val Λ → val Λ → PROP) :=
     (λ e_t e_s, ∃ v_t v_s, ⌜to_val e_t = Some v_t⌝ ∗ ⌜to_val e_s = Some v_s⌝ ∗ Φ v_t v_s)%I.
+  Lemma lift_post_val Φ v_t v_s : Φ v_t v_s -∗ lift_post Φ (of_val v_t) (of_val v_s). 
+  Proof. iIntros "?"; iExists v_t, v_s; eauto using to_of_val. Qed.
   Definition sim_def Ω e_t e_s (Φ : val Λ → val Λ → PROP) :=
     sim_expr Ω e_t e_s (lift_post Φ).
   Global Instance sim_stutter : Sim s := sim_def.
@@ -242,11 +244,6 @@ Section fix_lang.
     iIntros "Hv". iApply sim_expr_base.
     iExists v_t, v_s. iFrame; by rewrite !to_of_val.
   Qed.
-
-  (* FIXME(RJ) this lemma leaks implementation details? *)
-  Lemma sim_stutter_incl Ω Φ e_s e_t:
-    least_def Ω Φ (uncurry (sim_expr_def Ω Φ)) e_s e_t -∗ e_t ⪯{Ω} e_s [{ Φ }].
-  Proof. iIntros "H". by rewrite sim_expr_eq sim_expr_def_unfold /greatest_step. Qed.
 
   Lemma bupd_sim Ω Φ e_t e_s:
     ⊢ (|==> e_t ⪯{Ω} e_s [{ Φ }]) -∗ e_t ⪯{Ω} e_s [{ Φ }].
@@ -419,7 +416,8 @@ Section fix_lang.
           { iPureIntro. by apply fill_prim_step_tc. }
           cbn. iExists e_t', (fill K_s e_s'), empty_ectx, empty_ectx. rewrite !fill_empty.
           do 2 (iSplitR; first by auto).
-          iApply sim_expr_mono. 2: { iApply sim_stutter_incl. iApply "Hstutter". }
+          iApply sim_expr_mono; first last.
+          { rewrite sim_expr_eq sim_expr_def_unfold /greatest_step. iApply "Hstutter". }
           iIntros (v_t' v_s') "Hv". rewrite !fill_empty. by iApply sim_expr_base.
         }
       * iDestruct "Hstep" as (e_s'' σ_s'') "(%&Hstate& Hrec)". iRight.
@@ -583,7 +581,7 @@ Section fix_lang.
     (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ==∗ state_interp P_t σ_t P_s σ_s ∗ P)%I.
   Instance update_si_proper : Proper ((≡) ==> (≡)) update_si.
   Proof. solve_proper. Qed.
-  Lemma sim_expr_update_si Ω e_t e_s Φ :
+  Lemma sim_update_si Ω e_t e_s Φ :
     update_si (e_t ⪯{Ω} e_s [{ Φ }]) -∗ e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
     iIntros "Hupd". rewrite {2}(sim_expr_unfold Ω Φ e_t e_s).
@@ -591,7 +589,7 @@ Section fix_lang.
     rewrite {1}sim_expr_unfold. iApply "Hsim". iFrame.
   Qed.
 
-  Lemma sim_expr_step_source Ω e_t e_s Φ :
+  Lemma sim_step_source Ω e_t e_s Φ :
     (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s ⌝ ==∗ ∃ e_s' σ_s',
       ⌜rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t P_s σ_s' ∗
       e_t ⪯{Ω} e_s' [{ Φ }]) -∗
@@ -624,7 +622,7 @@ Section fix_lang.
   Qed.
 
   (* the step case of the simulation relation, but the two cases are combined into an rtc in the source *)
-  Lemma sim_expr_step_target Ω e_t e_s Φ:
+  Lemma sim_step_target Ω e_t e_s Φ:
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t',
@@ -739,7 +737,7 @@ Section fix_lang.
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
     iIntros "Hsource". iPoseProof (source_red_elim with "Hsource") as "Hsource".
-    iApply sim_expr_step_source. iIntros (????) "Hstate".
+    iApply sim_step_source. iIntros (????) "Hstate".
     iMod ("Hsource" with "Hstate") as (e_s' σ_s') "(?&?&?)".
     iModIntro. iExists e_s', σ_s'. iFrame.
   Qed.

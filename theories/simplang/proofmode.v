@@ -726,7 +726,7 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
     let process_array _ :=
         first
           [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp K _ _))
-          |fail 1 "target_alloc: cannot find 'Alloc' in" e];
+          |fail 1 "target_alloc: cannot find 'AllocN' in" e];
         [idtac|finish ()]
     in (process_single ()) || (process_array ())
   | _ => fail "target_alloc: not a 'target_red'"
@@ -891,4 +891,18 @@ Ltac source_stuck_sidecond_bt :=
   end.
 
 Ltac source_stuck_prim :=
-  iApply source_stuck_prim; [ source_stuck_sidecond_bt | reflexivity].
+  to_source; iApply source_stuck_prim; [ source_stuck_sidecond_bt | reflexivity].
+
+Ltac discr_source := 
+  let discr _ := 
+    iIntros "%";
+    repeat match goal with
+           | H : _ ∧ _ |- _ => destruct H
+           | H : _ ∨ _ |- _ => destruct H
+           | H : ∃ _, _ |- _ => destruct H
+           end; subst in 
+  match goal with 
+  | |- envs_entails _ (source_red _ _) => iApply source_red_irred_unless; [try done | discr ()]
+  | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  end.

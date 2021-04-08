@@ -135,23 +135,7 @@ Section fix_sim.
   Qed.
 
   (** Primitive reduction *)
-  Lemma sim_prim_step_source_red e_t e_s Φ:
-    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
-      ⌜reducible P_t e_t σ_t⌝ ∗
-      ∀ e_t' σ_t',
-        ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
-          state_interp P_t σ_t' P_s σ_s ∗
-          source_red e_s (λ e_s', e_t' ⪯{Ω} e_s' [{ Φ }])) -∗
-    e_t ⪯{Ω} e_s [{ Φ }].
-  Proof.
-    iIntros "Hev". iApply sim_expr_step_target. iIntros (????) "[Hstate %Hnreach]".
-    iMod ("Hev" with "[$Hstate//]") as "[Hred Hev]". iModIntro. iFrame.
-    iIntros (e_t' σ_t') "Htarget". iMod ("Hev" with "Htarget") as "[Hstate Hev]".
-    iMod (source_red_elim with "Hev [$Hstate//]") as (e_s' σ_s') "(?&?&?)".
-    iModIntro; iExists e_s', σ_s'. iFrame.
-  Qed.
-
-  Lemma sim_prim_step_target e_t e_s Φ :
+  Lemma sim_lift_prim_step_target e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t',
@@ -160,13 +144,14 @@ Section fix_sim.
           e_t' ⪯{Ω} e_s [{ Φ }]) -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Ha". iApply sim_prim_step_source_red. iIntros (????) "Hstate".
-    iMod ("Ha" with "Hstate") as "[Hred Hs]". iModIntro. iFrame.
-    iIntros (e_t' σ_t') "Hprim". iMod ("Hs" with "Hprim") as "[Hstate Hs]". iModIntro.
-    iFrame. iApply source_red_base; eauto.
+    iIntros "Ha".
+    iApply sim_step_target. iIntros (????) "[Hstate %Hnreach]".
+    iMod ("Ha" with "[$Hstate//]") as "[Hred Hev]". iModIntro. iFrame.
+    iIntros (e_t' σ_t') "Htarget". iMod ("Hev" with "Htarget") as "[Hstate Hev]".
+    iModIntro; iExists e_s, σ_s. iFrame. iPureIntro; constructor.
   Qed.
 
-  Lemma sim_prim_step_source e_t e_s Φ :
+  Lemma sim_lift_prim_step_source e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ∃ e_s' σ_s',
         ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
@@ -174,14 +159,14 @@ Section fix_sim.
           e_t ⪯{Ω} e_s' [{ Φ }]) -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hsource". iApply sim_expr_step_source.
+    iIntros "Hsource". iApply sim_step_source.
     iIntros (????) "[Hstate %Hnreach]".
     iMod ("Hsource" with "Hstate") as (e_s' σ_s') "[% Hstate]".
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by econstructor.
   Qed.
 
   (** Head reduction *)
-  Lemma sim_head_step_target e_t e_s Φ :
+  Lemma sim_lift_head_step_target e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
       ⌜head_reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t',
@@ -190,7 +175,7 @@ Section fix_sim.
           e_t' ⪯{Ω} e_s [{ Φ }]) -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Htarget". iApply sim_prim_step_target. iIntros (????) "[Hstate %Hnreach]".
+    iIntros "Htarget". iApply sim_lift_prim_step_target. iIntros (????) "[Hstate %Hnreach]".
     iMod ("Htarget" with "[$Hstate//]") as "(% & Hstep)". rename H into Hred. iModIntro.
     iSplitR. { iPureIntro. by apply head_prim_reducible. }
     iIntros (e_t' σ_t') "%". rename H into Hprim. iApply "Hstep".
@@ -198,7 +183,7 @@ Section fix_sim.
   Qed.
 
   (* for symmetry, in this lemma nothing actually happens *)
-  Lemma sim_head_step_source e_t e_s Φ :
+  Lemma sim_lift_head_step_source e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ==∗
       ∃ e_s' σ_s',
         ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗ |==>
@@ -206,7 +191,7 @@ Section fix_sim.
           e_t ⪯{Ω} e_s' [{ Φ }])) -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hsource". iApply sim_prim_step_source.
+    iIntros "Hsource". iApply sim_lift_prim_step_source.
     iIntros (????) "Hstate". iMod ("Hsource" with "Hstate") as (e_s' σ_s') "[% >Hstate]".
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
   Qed.
@@ -222,7 +207,7 @@ Section fix_sim.
             state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hsim". iApply sim_expr_step_target.
+    iIntros "Hsim". iApply sim_step_target.
     iIntros (????) "[Hstate %Hnreach]". iMod ("Hsim" with "[$Hstate//]") as "(% & Hstep)".
     iModIntro. iSplitR. { iPureIntro. by eapply head_prim_reducible. }
     iIntros (e_t' σ_t') "%". iMod ("Hstep" with "[]") as (e_s' σ_s') "(% & Hstate & Hsim)".
@@ -408,4 +393,28 @@ Section fix_sim.
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
   Qed.
 
+
+  (** The following lemma (which one might expect, given how cofix in Coq
+      and guarded recursion in Iris work) should not be provable:
+      It requires us to conjure up a proof that that any acceptable expressions by Inv
+      are in the simulation relation.
+      While we only get that after already having taken a step in source and target, thus justifying soundness, it still requires us to produce this proof without having seen the "full" co-inductive step, which should lead us to two expressions related by Inv again.
+      If we fix the statement such that we only get the full coinduction hypothesis after having shown the full step "to the next iteration", we exactly arrive at the above statement [sim_lift_coind].
+
+      (but I still think this should be a sound co-induction principle: we'd just need a way "to look into the future" to justify it).
+   *)
+  Lemma sim_lift_coind' (Inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+    (□ ∀ e_t e_s P_t P_s σ_t σ_s,
+      Inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
+        ⌜reducible P_t e_t σ_t⌝ ∗
+        ∀ e_t' σ_t',
+          ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
+          ∃ e_s' σ_s', ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
+            state_interp P_t σ_t' P_s σ_s' ∗
+            ((∀ e_t' e_s', Inv e_t' e_s' -∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
+            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' }])) -∗
+    Inv e_t e_s -∗
+    e_t ⪯{Ω} e_s [{ Φ }].
+  Proof.
+  Abort.
 End fix_sim.

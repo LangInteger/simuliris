@@ -3,31 +3,10 @@ From iris Require Import bi.bi.
 Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
+From simuliris.simplang Require Import heapbij_refl.
 
 Section fix_bi.
   Context `{sbijG Σ}.
-
-  Fixpoint val_rel (v_t v_s : val) {struct v_s} :=
-    (match v_t, v_s with
-    | LitV (LitLoc l_t), LitV (LitLoc l_s) =>
-        l_t ↔h l_s
-    | LitV l_t, LitV l_s =>
-        ⌜l_t = l_s⌝
-    | PairV v1_t v2_t, PairV v1_s v2_s =>
-        val_rel v1_t v1_s ∧ val_rel v2_t v2_s
-    | InjLV v_t, InjLV v_s =>
-        val_rel v_t v_s
-    | InjRV v_t, InjRV v_s =>
-        val_rel v_t v_s
-    | _,_ => False
-    end)%I.
-  Instance : sheapInv Σ := heap_bij_inv val_rel.
-  Instance val_rel_pers v_t v_s : Persistent (val_rel v_t v_s).
-  Proof.
-    induction v_s as [[] | | | ] in v_t |-*; destruct v_t as [ [] | | | ]; apply _.
-  Qed.
-
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
   Definition loop_test n : expr :=
     let: "n" := Alloc #n in
@@ -94,9 +73,7 @@ Section fix_bi.
   Lemma diverge_sim :
     ⊢ diverging_loop ⪯ diverging_loop {{ val_rel }}.
   Proof.
-    rewrite /diverging_loop.
-    iApply (sim_while_while _ _ _ _ _ True%I); first done.
-    iModIntro. sim_pures. iApply sim_expr_base. iRight; done.
+    iApply heap_bij_refl; done.
   Qed.
 
   Definition input_loop : expr :=
@@ -116,20 +93,7 @@ Section fix_bi.
   Lemma input_sim :
     ⊢ input_loop ⪯ input_loop {{ val_rel }}.
   Proof.
-    rewrite /input_loop. target_alloc lc_t as "Hlc_t". source_alloc lc_s as "Hlc_s".
-    sim_pures.
-    iApply (sim_bij_insert with "Hlc_t Hlc_s"); first done. iIntros "#Hrel".
-    iApply (sim_while_while _ _ _ _ _ (lc_t ↔h lc_s)%I); first done.
-    iModIntro.
-    sim_load v_t v_s as "Ha".
-
-    discr_source. iIntros ((b & ->)); iPoseProof (val_rel_bool_source with "Ha") as "->"; sim_pures.
-    destruct b; sim_pures.
-    - sim_bind (Call _ _) (Call _ _).
-      iApply sim_wand; first by iApply sim_call.
-      iIntros (v_t v_s) "Hv". sim_store; first done.
-      sim_pures. iApply sim_expr_base. iRight. eauto.
-    - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
+    iApply heap_bij_refl; done.
   Qed.
 
   Definition input_rec : ectx :=
@@ -151,7 +115,7 @@ Section fix_bi.
     discr_source.
     iIntros ((b & ->)); iPoseProof (val_rel_bool_source with "Hv") as "->"; sim_pures.
     target_load. destruct b; sim_pures.
-    - sim_bind (Call _ _) (Call _ _). 
+    - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.
       iIntros (??) "Hv". target_store. sim_pures. iApply sim_expr_base.
       iRight. iExists v_s. eauto.

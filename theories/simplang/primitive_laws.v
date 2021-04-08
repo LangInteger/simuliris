@@ -1,14 +1,13 @@
 (** This file proves the basic laws of the SimpLang program logic by applying
 the Iris lifting lemmas. *)
 
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Export tactics.
 From iris.bi.lib Require Import fractional.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
-From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Export class_instances.
-From simuliris.simplang Require Import tactics notation.
+From simuliris.simulation Require Export slsls.
+From simuliris.simulation Require Import lifting.
+From simuliris.simplang Require Export class_instances tactics notation.
 From iris.prelude Require Import options.
-
 
 Class sheapG (Σ: gFunctors) := SHeapG {
   sheapG_gen_heapG :> gen_sim_heapG loc loc (option val) (option val) Σ;
@@ -339,7 +338,8 @@ Qed.
 (** Coinduction support *)
 Lemma sim_while_while b_t b_s c_t c_s Inv Ψ :
   Inv -∗
-  □ ((if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω}
+  □ (Inv -∗
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω}
     (if: c_s then b_s ;; while: c_s do b_s od else #())%E
       [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ Inv) }]) -∗
   (while: c_t do b_t od ⪯{Ω} while: c_s do b_s od [{ Ψ }])%E.
@@ -353,7 +353,7 @@ Proof.
   assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplitR; first by eauto with head_step.
-  iApply "Hstep".
+  iApply "Hstep". iFrame.
 Qed.
 
 
@@ -395,10 +395,10 @@ Proof.
   iDestruct (gen_prog_valid with "HP_t Hrec") as %?.
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
-  iModIntro. 
+  iModIntro.
   assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
-  iExists e_s', σ_s'. inv_head_step. iFrame. iPureIntro. eauto with head_step. 
+  iExists e_s', σ_s'. inv_head_step. iFrame. iPureIntro. eauto with head_step.
 Qed.
 
 End lifting.

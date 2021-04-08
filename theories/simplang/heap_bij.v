@@ -2,7 +2,6 @@ From iris.proofmode Require Import tactics.
 From iris.bi.lib Require Import fractional.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog gen_heap_bij.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import tactics notation primitive_laws.
 From simuliris.simplang Require Export class_instances primitive_laws proofmode.
 
 From iris.prelude Require Import options.
@@ -119,7 +118,7 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯ e_s [{ Φ }]) -∗
     e_t ⪯ e_s [{ Φ }].
   Proof.
-    iIntros "Hl_t Hl_s Hval Hsim". iApply sim_expr_update_si.
+    iIntros "Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
     iMod (gen_heap_bij_insert with "Hinv Hl_t Hl_s [Hval]") as "[Hb #Ha]";
       first by iLeft; eauto.
@@ -128,6 +127,157 @@ Section fix_heap.
   Qed.
 End fix_heap.
 
+(** ** Default value relation *)
+Section val_rel.
+  Context `{sbijG Σ}.
+  Fixpoint val_rel (v_t v_s : val) {struct v_s} : iProp Σ :=
+    match v_t, v_s with
+    | LitV (LitLoc l_t), LitV (LitLoc l_s) =>
+        l_t ↔h l_s
+    | LitV l_t, LitV l_s =>
+        ⌜l_t = l_s⌝
+    | PairV v1_t v2_t, PairV v1_s v2_s =>
+        val_rel v1_t v1_s ∧ val_rel v2_t v2_s
+    | InjLV v_t, InjLV v_s =>
+        val_rel v_t v_s
+    | InjRV v_t, InjRV v_s =>
+        val_rel v_t v_s
+    | _,_ => False
+    end.
+  Global Instance : sheapInv Σ := heap_bij_inv val_rel.
+  Global Instance val_rel_pers v_t v_s : Persistent (val_rel v_t v_s).
+  Proof.
+    induction v_s as [[] | | | ] in v_t |-*; destruct v_t as [ [] | | | ]; apply _.
+  Qed.
+
+  Lemma val_rel_pair_source v_t v_s1 v_s2 :
+    val_rel v_t (v_s1, v_s2) -∗
+    ∃ v_t1 v_t2, ⌜v_t = PairV v_t1 v_t2⌝ ∗
+      val_rel v_t1 v_s1 ∗
+      val_rel v_t2 v_s2.
+  Proof.
+    simpl. iIntros "H". destruct v_t as [[] | v_t1 v_t2 | |]; simpl; try done.
+    iExists v_t1, v_t2. iDestruct "H" as "[#H1 #H2]". eauto.
+  Qed.
+  Lemma val_rel_injl_source v_t v_s :
+    val_rel v_t (InjLV v_s) -∗ ∃ v_t', ⌜v_t = InjLV v_t'⌝ ∗ val_rel v_t' v_s.
+  Proof. simpl. destruct v_t as [[] | | |]; (try by iIntros "%Hp"); eauto. Qed.
+  Lemma val_rel_injr_source v_t v_s :
+    val_rel v_t (InjRV v_s) -∗ ∃ v_t', ⌜v_t = InjRV v_t'⌝ ∗ val_rel v_t' v_s.
+  Proof. simpl. destruct v_t as [[] | | |]; (try by iIntros "%Hp"); eauto. Qed.
+
+
+  Lemma val_rel_litfn_source v_t fn_s :
+    val_rel v_t (LitV $ LitFn $ fn_s) -∗ ⌜v_t = LitV $ LitFn $ fn_s⌝.
+  Proof. simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litint_source v_t n :
+    val_rel v_t (LitV $ LitInt n) -∗ ⌜v_t = LitV $ LitInt $ n⌝.
+  Proof. simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litbool_source v_t b:
+    val_rel v_t (LitV $ LitBool b) -∗ ⌜v_t = LitV $ LitBool b⌝.
+  Proof. simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litunit_source v_t :
+    val_rel v_t (LitV $ LitUnit) -∗ ⌜v_t = LitV $ LitUnit⌝.
+  Proof. simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litpoison_source v_t :
+    val_rel v_t (LitV $ LitPoison) -∗ ⌜v_t = LitV $ LitPoison⌝.
+  Proof. simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_loc_source v_t l_s :
+    val_rel v_t (LitV $ LitLoc l_s) -∗
+    ∃ l_t, ⌜v_t = LitV $ LitLoc l_t⌝ ∗ l_t ↔h l_s.
+  Proof.
+    destruct v_t as [[ | | | | l_t | ] | | | ]; simpl;
+        first [iIntros "%Ht"; congruence | iIntros "#Ht"; eauto].
+  Qed.
+
+  Lemma val_rel_pair_target v_s v_t1 v_t2 :
+    val_rel (v_t1, v_t2) v_s -∗
+    ∃ v_s1 v_s2, ⌜v_s = PairV v_s1 v_s2⌝ ∗
+      val_rel v_t1 v_s1 ∗
+      val_rel v_t2 v_s2.
+  Proof.
+    simpl. iIntros "H". destruct v_s as [[] | v_s1 v_s2 | |]; simpl; try done.
+    iExists v_s1, v_s2. iDestruct "H" as "[#H1 #H2]". eauto.
+  Qed.
+  Lemma val_rel_injl_target v_t v_s :
+    val_rel (InjLV v_t) v_s -∗ ∃ v_s', ⌜v_s = InjLV v_s'⌝ ∗ val_rel v_t v_s'.
+  Proof. simpl. destruct v_s as [[] | | |]; (try by iIntros "%Hp"); eauto. Qed.
+  Lemma val_rel_injr_target v_t v_s :
+    val_rel (InjRV v_t) v_s -∗ ∃ v_s', ⌜v_s = InjRV v_s'⌝ ∗ val_rel v_t v_s'.
+  Proof. simpl. destruct v_s as [[] | | |]; (try by iIntros "%Hp"); eauto. Qed.
+  Lemma val_rel_litfn_target v_s fn_t :
+    val_rel (LitV $ LitFn $ fn_t) v_s -∗ ⌜v_s = LitV $ LitFn $ fn_t⌝.
+  Proof. simpl. destruct v_s as [[] | v_s1 v_s2 | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litint_target v_s n :
+    val_rel (LitV $ LitInt n) v_s -∗ ⌜v_s = LitV $ LitInt $ n⌝.
+  Proof. simpl. destruct v_s as [[] | | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litbool_target v_s b:
+    val_rel (LitV $ LitBool b) v_s -∗ ⌜v_s = LitV $ LitBool b⌝.
+  Proof. simpl. destruct v_s as [[] | | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litunit_target v_s :
+    val_rel (LitV $ LitUnit) v_s -∗ ⌜v_s = LitV $ LitUnit⌝.
+  Proof. simpl. destruct v_s as [[] | | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_litpoison_target v_s :
+    val_rel (LitV $ LitPoison) v_s -∗ ⌜v_s = LitV $ LitPoison⌝.
+  Proof. simpl. destruct v_s as [[] | | |]; iIntros "%Hp"; inversion Hp; subst; done. Qed.
+  Lemma val_rel_loc_target v_s l_t :
+    val_rel (LitV $ LitLoc l_t) v_s -∗
+    ∃ l_s, ⌜v_s = LitV $ LitLoc l_s⌝ ∗ l_t ↔h l_s.
+  Proof.
+    destruct v_s as [[ | | | | l_s | ] | | | ]; simpl;
+        first [iIntros "%Hs"; congruence | iIntros "#Hs"; eauto].
+  Qed.
+End val_rel.
+Tactic Notation "val_discr_source" constr(H) :=
+  first [iPoseProof (val_rel_litint_source with H) as "->" |
+         iPoseProof (val_rel_litbool_source with H) as "->" |
+         iPoseProof (val_rel_litfn_source with H) as "->" |
+         iPoseProof (val_rel_litunit_source with H) as "->" |
+         iPoseProof (val_rel_litpoison_source with H) as "->" |
+         idtac].
+Tactic Notation "val_discr_target" constr(H) :=
+  first [iPoseProof (val_rel_litint_target with H) as "->" |
+         iPoseProof (val_rel_litbool_target with H) as "->" |
+         iPoseProof (val_rel_litfn_target with H) as "->" |
+         iPoseProof (val_rel_litunit_target with H) as "->" |
+         iPoseProof (val_rel_litpoison_target with H) as "->" |
+         idtac].
+
+Lemma val_rel_func `{sbijG Σ} v1 v2 v3 : val_rel v1 v2 -∗ val_rel v1 v3 -∗ ⌜v2 = v3⌝.
+Proof.
+  iIntros "Hv1 Hv2". iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); val_discr_source "Hv1"; val_discr_target "Hv2"; try done.
+  - iPoseProof (val_rel_loc_source with "Hv1") as (?) "(-> & Hl1)".
+    iPoseProof (val_rel_loc_target with "Hv2") as (?) "(-> & Hl2)".
+    by iPoseProof (gen_heap_bij_func with "Hl1 Hl2") as "->".
+  - iPoseProof (val_rel_pair_source with "Hv1") as (??) "(-> & Hv1_1 & Hv1_2)".
+    iPoseProof (val_rel_pair_target with "Hv2") as (??) "(-> & Hv2_1 & Hv2_2)".
+    iPoseProof ("IH" with "Hv1_1 Hv2_1") as "->".
+    by iPoseProof ("IH1" with "Hv1_2 Hv2_2") as "->".
+  - iPoseProof (val_rel_injl_source with "Hv1") as (?) "(-> & Hv1)".
+    iPoseProof (val_rel_injl_target with "Hv2") as (?) "(-> & Hv2)".
+    by iPoseProof ("IH" with "Hv1 Hv2") as "->".
+  - iPoseProof (val_rel_injr_source with "Hv1") as (?) "(-> & Hv1)".
+    iPoseProof (val_rel_injr_target with "Hv2") as (?) "(-> & Hv2)".
+    by iPoseProof ("IH" with "Hv1 Hv2") as "->".
+Qed.
+Lemma val_rel_inj `{sbijG Σ} v1 v2 v3 : val_rel v2 v1 -∗ val_rel v3 v1 -∗ ⌜v2 = v3⌝.
+Proof.
+  iIntros "Hv1 Hv2". iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); val_discr_target "Hv1"; val_discr_source "Hv2"; try done.
+  - iPoseProof (val_rel_loc_target with "Hv1") as (?) "(-> & Hl1)".
+    iPoseProof (val_rel_loc_source with "Hv2") as (?) "(-> & Hl2)".
+    by iPoseProof (gen_heap_bij_inj with "Hl1 Hl2") as "->".
+  - iPoseProof (val_rel_pair_target with "Hv1") as (??) "(-> & Hv1_1 & Hv1_2)".
+    iPoseProof (val_rel_pair_source with "Hv2") as (??) "(-> & Hv2_1 & Hv2_2)".
+    iPoseProof ("IH" with "Hv1_1 Hv2_1") as "->".
+    by iPoseProof ("IH1" with "Hv1_2 Hv2_2") as "->".
+  - iPoseProof (val_rel_injl_target with "Hv1") as (?) "(-> & Hv1)".
+    iPoseProof (val_rel_injl_source with "Hv2") as (?) "(-> & Hv2)".
+    by iPoseProof ("IH" with "Hv1 Hv2") as "->".
+  - iPoseProof (val_rel_injr_target with "Hv1") as (?) "(-> & Hv1)".
+    iPoseProof (val_rel_injr_source with "Hv2") as (?) "(-> & Hv2)".
+    by iPoseProof ("IH" with "Hv1 Hv2") as "->".
+Qed.
+Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 (** ** Extension of the proofmode *)
 From iris.proofmode Require Import coq_tactics reduction.
@@ -136,12 +286,10 @@ From iris.bi Require Import bi.
 Import bi.
 From iris.bi Require Import derived_laws.
 Import bi.
-
 From simuliris.simplang Require Export proofmode.
 
 
 (** New lemmas for the new tactics *)
-
 Section sim.
   Context `{sbijG Σ} (val_rel : val → val → iProp Σ).
   Context {val_rel_pers : ∀ v_t v_s, Persistent (val_rel v_t v_s)}.

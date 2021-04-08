@@ -55,16 +55,6 @@ Module bij_test.
   Import heap_bij.
   Context `{sbijG Σ}.
 
-  Definition val_rel (v_t v_s : val) :=
-    (match v_t, v_s with
-    | LitV (LitLoc l_t), LitV (LitLoc l_s) => l_t ↔h l_s
-    | _,_ => ⌜v_t = v_s⌝
-    end)%I.
-  Instance : sheapInv Σ := heap_bij_inv val_rel.
-  Instance val_rel_pers v_t v_s : Persistent (val_rel v_t v_s).
-  Proof. destruct v_t as [[] | | | ], v_s as [[] | | | ]; apply _. Qed.
-
-
   Lemma test_load l l2 :
     l ↦t #4 -∗ l2 ↦s #4 -∗
     ((! #l)%E ⪯{val_rel} ! #l2 {{ val_rel }}).
