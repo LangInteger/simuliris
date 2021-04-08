@@ -1,30 +1,36 @@
-From iris.prelude Require Import options prelude.
+From iris.prelude Require Import prelude options.
 
-Class Lattice (L: Type) (le: relation L) `{!PreOrder le} `{!Equiv L} := {
+Class Lattice (L: Type) (leq: relation L) `{!Equiv L} := {
   sup: (L → Prop) → L;
   inf: (L → Prop) → L;
-  sup_is_upper_bound l (A: L → Prop): A l → le l (sup A);
+  sup_is_upper_bound l (A: L → Prop): A l → leq l (sup A);
   sup_is_least_upper_bound l (A: L → Prop):
-    (∀ l', A l' → le l' l) → le (sup A) l;
-  inf_is_lower_bound l (A: L → Prop): A l → le (inf A) l;
+    (∀ l', A l' → leq l' l) → leq (sup A) l;
+  inf_is_lower_bound l (A: L → Prop): A l → leq (inf A) l;
   inf_is_greatest_lower_bound l (A: L → Prop):
-    (∀ l', A l' → le l l') → le l (inf A);
-  anti_symm l l': le l l' → le l' l → l ≡ l'
+    (∀ l', A l' → leq l l') → leq l (inf A);
+  anti_symm l l': leq l l' → leq l' l → l ≡ l';
+  leq_proper:> Proper (equiv ==> equiv ==> iff) leq;
+  lattice_preorder: PreOrder leq;
+  lattice_equivalence: @Equivalence L equiv;
 }.
 
 Class Mono `{Lattice L leq} (f: L → L) := {
   mono l1 l2: leq l1 l2 → leq (f l1) (f l2)
 }.
 
-Global Hint Mode Mono - - - - - + : typeclass_instances.
+Global Hint Mode Mono - - - - + : typeclass_instances.
 
 Section lattice_properties.
   Context `{Lattice L leq}.
 
+  Existing Instances lattice_preorder lattice_equivalence.
   Infix "⪯" := leq (at level 60).
 
   Definition top := sup (λ _, True).
   Definition bot := inf (λ _, True).
+  Definition meet l1 l2 := inf (λ l, l ≡ l1 ∨ l ≡ l2).
+  Definition join l1 l2 := sup (λ l, l ≡ l1 ∨ l ≡ l2).
 
   Lemma top_upper_bound l: l ⪯ top.
   Proof.
@@ -34,6 +40,57 @@ Section lattice_properties.
   Lemma bot_lower_bound l: bot ⪯ l.
   Proof.
     by eapply inf_is_lower_bound.
+  Qed.
+
+  Lemma meet_spec l l1 l2:
+    l ⪯ meet l1 l2 ↔ l ⪯ l1 ∧ l ⪯ l2.
+  Proof.
+    split.
+    - intros Hle; split; trans (meet l1 l2); auto; eapply inf_is_lower_bound; eauto.
+    - intros [H1 H2]. eapply inf_is_greatest_lower_bound.
+      intros l' [H3|H3]; by rewrite H3.
+  Qed.
+
+  Lemma meet_left l1 l2:
+    meet l1 l2 ⪯ l1.
+  Proof.
+    edestruct meet_spec as [Hle _].
+    edestruct Hle as [H1 _]; last by eapply H1.
+    done.
+  Qed.
+
+  Lemma meet_right l1 l2:
+    meet l1 l2 ⪯ l2.
+  Proof.
+    edestruct meet_spec as [Hle _].
+    edestruct Hle as [_ H2]; last by eapply H2.
+    done.
+  Qed.
+
+
+  Lemma join_spec l l1 l2:
+    join l1 l2 ⪯ l ↔ l1 ⪯ l ∧ l2 ⪯ l.
+  Proof.
+    split.
+    - intros Hle; split; trans (join l1 l2); auto; eapply sup_is_upper_bound; eauto.
+    - intros [H1 H2]. eapply sup_is_least_upper_bound.
+      intros l' [H3|H3]; by rewrite H3.
+  Qed.
+
+  Lemma join_left l1 l2:
+    l1 ⪯ join l1 l2.
+  Proof.
+    edestruct join_spec as [Hle _].
+    edestruct Hle as [H1 _]; last by eapply H1.
+    done.
+  Qed.
+
+  Lemma join_right l1 l2:
+    l2 ⪯ join l1 l2.
+  Proof.
+    edestruct join_spec as [Hle _].
+    edestruct Hle as [_ H2]; last by eapply H2.
+    done.
   Qed.
 
   Definition gfp f := sup (λ x, x ⪯ f x).
@@ -67,6 +124,17 @@ Section lattice_properties.
     eapply anti_symm; eauto using gfp_post_fixpoint, gfp_pre_fixpoint.
   Qed.
 
+  Lemma gfp_strong_coind f `{!Mono f} l:
+    l ⪯ f (join l (gfp f)) → l ⪯ gfp f.
+  Proof.
+    intros Hle. trans (join l (gfp f)).
+    - eapply join_left.
+    - eapply gfp_greatest_post_fixpoint.
+      eapply join_spec; split; first done.
+      etrans; first apply gfp_post_fixpoint, _.
+      eapply mono. eapply join_right.
+  Qed.
+
   Lemma lfp_least_pre_fixpoint f l:
     f l ⪯ l → lfp f ⪯ l.
   Proof.
@@ -95,6 +163,18 @@ Section lattice_properties.
     eapply anti_symm; eauto using lfp_post_fixpoint, lfp_pre_fixpoint.
   Qed.
 
+  Lemma lfp_strong_ind f `{!Mono f} l:
+    f (meet l (lfp f)) ⪯ l → lfp f ⪯ l.
+  Proof.
+    intros Hle. trans (meet l (lfp f)).
+    - eapply lfp_least_pre_fixpoint.
+      eapply meet_spec; split; first done.
+      etrans; last apply lfp_pre_fixpoint, _.
+      eapply mono. eapply meet_right.
+    - eapply meet_left.
+  Qed.
+
+
 End lattice_properties.
 
 Global Instance Prop_Preorder: PreOrder impl.
@@ -102,7 +182,7 @@ Proof. split; unfold impl; eauto 10. Qed.
 
 Global Instance Prop_equiv: Equiv Prop := iff.
 
-Global Instance Prop_equivalence: Equivalence (@equiv Prop equiv).
+Global Instance Prop_equivalence: @Equivalence Prop equiv.
 Proof. split; intuition. intros ??? [][]. split; eauto. Qed.
 
 Global Program Instance Prop_Lattice: Lattice Prop impl :=
@@ -126,40 +206,48 @@ Next Obligation.
 Qed.
 
 
+
 Global Instance pointwise_Preorder A B (R: relation B) `{!PreOrder R}: PreOrder (pointwise_relation A R).
-Proof. split; unfold impl.
+Proof.
+  split; unfold impl.
   - intros ??. done.
   - intros ??? H1 H2 a. etrans; eauto.
 Qed.
 
 Global Instance pointwise_equiv A `{Equiv B}: Equiv (A → B) := pointwise_relation A equiv.
 
-Global Instance pointwise_equivalence A `{eq: Equiv B} `{!Equivalence eq}: Equivalence (@equiv (A → B) _).
+Global Instance pointwise_equivalence A `{eq: Equiv B} `{!Equivalence eq}: @Equivalence (A → B) equiv.
 Proof. split; intuition. intros ????? a. etrans; eauto. Qed.
 
-
-Global Program Instance  pointwise_Lattice A `{@Lattice B leq Pre equ}: @Lattice (A → B) (pointwise_relation A leq) (@pointwise_Preorder _ _ _ Pre) (@pointwise_equiv _ _ equ):=
+Local Existing Instances lattice_preorder lattice_equivalence.
+Global Program Instance pointwise_Lattice A `{Lattice B leq}: Lattice (A → B) (pointwise_relation A leq) :=
   {| sup F := λ a, sup (λ b, ∃ f, F f ∧ f a = b); inf F := λ a, inf (λ b, ∃ f, F f ∧ f a = b) |}.
 Next Obligation.
-  intros A B leq Pre equ Lat f F Ff a. eapply sup_is_upper_bound.
+  intros A B leq equ Lat f F Ff a. eapply sup_is_upper_bound.
   exists f. split; done.
 Qed.
 Next Obligation.
-  intros A B leq Pre equ Lat f F upper a. eapply sup_is_least_upper_bound.
+  intros A B leq equ Lat f F upper a. eapply sup_is_least_upper_bound.
   intros b [g [Fg Hab]]. subst b. by eapply upper.
 Qed.
 Next Obligation.
-  intros A B leq Pre equ Lat f F Ff a. eapply inf_is_lower_bound.
+  intros A B leq equ Lat f F Ff a. eapply inf_is_lower_bound.
   exists f. split; done.
 Qed.
 Next Obligation.
-  intros A B leq Pre equ Lat f F lower a. eapply inf_is_greatest_lower_bound.
+  intros A B leq equ Lat f F lower a. eapply inf_is_greatest_lower_bound.
   intros b [g [Fg Hab]]. subst b. by eapply lower.
 Qed.
 Next Obligation.
-  intros A B leq Pre equ Lat f g Hfg Hgf. intros a; eapply anti_symm.
+  intros A B leq equ Lat f g Hfg Hgf. intros a; eapply anti_symm.
   - eapply Hfg.
   - eapply Hgf.
+Qed.
+Next Obligation.
+  intros A B leq equ Lat x x' Hx y y' Hy.
+  split; intros Hrel a; (eapply leq_proper; last apply Hrel); eauto.
+  - symmetry; eapply Hx.
+  - symmetry; eapply Hy.
 Qed.
 
 
