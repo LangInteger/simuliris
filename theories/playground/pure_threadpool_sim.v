@@ -98,7 +98,6 @@ Section fair_termination_preservation.
   Inductive fair_pool_step : list expr → list nat → nat → list expr → list nat → Prop :=
     take_fair_step i T T' D D':
     pool_step T i T' →
-    D !! i = Some 0 →
     (∀ j n, j ≠ i → D !! j = Some n → ∃ n', n = S n' ∧ D' !! j = Some n') →
     fair_pool_step T D i T' D'.
 
@@ -165,25 +164,12 @@ Section fair_termination_preservation.
       ∃ e e' T_f, step e e' T_f ∧
       T !! i = Some e ∧
       T' = <[i := e']> T ++ T_f ∧
-      (* D !! i = Some 0 ∧ *)
       (∀ j n, j ≠ i → D !! j = Some n → ∃ n', n = S n' ∧ D' !! j = Some n').
   Proof.
-    destruct 1 as [i T T' D D' Pool HD Hdecr].
+    destruct 1 as [i T T' D D' Pool Hdecr].
     eapply pool_step_iff in Pool as (e & e' & T_f & Hstep & Hlook & Hupd).
     eauto 10.
   Qed.
-
-  Lemma fair_pool_step_zero_inv T D i j T' D':
-    fair_pool_step T D j T' D' →
-    D !! i = Some 0 →
-    pool_step T i T'.
-  Proof.
-    destruct 1 as [j T T' D D' Hstep Hzero Hdec]; intros HD.
-    destruct (decide (i = j)) as [|Hne]; last first.
-    { specialize (Hdec i 0 Hne HD) as [? [? ?]]; lia. }
-    subst j. done.
-  Qed.
-
 
   (* Per-Thread Simulation *)
 
@@ -206,11 +192,33 @@ Section fair_termination_preservation.
   Definition sim_expr_body outer := lfp (sim_expr_inner outer).
   Definition sim_expr := gfp sim_expr_body.
 
+  Lemma sim_expr_inner_strong_mono outer outer' inner inner':
+    outer ⪯ outer' → inner ⪯ inner' → sim_expr_inner outer inner ⪯ sim_expr_inner outer' inner'.
+  Proof.
+    intros Houter Hinner e_t e_s; rewrite /sim_expr_inner.
+    intros [Val|[CanStep AllSteps]]; first by eauto.
+    right; split; first done.
+    intros e_t' T_t Hstep.
+    destruct (AllSteps e_t' T_t Hstep) as [Stutter|NoStutter].
+    - left; destruct Stutter; split; first done.
+      by eapply Hinner.
+    - destruct NoStutter as (e_s' & T_s & Hstep' & Hlen & Hall).
+      right; exists e_s', T_s; repeat split; [by eauto..|].
+      intros ???. by eapply Houter, Hall.
+  Qed.
+
   Instance sim_expr_inner_mono outer: Mono (sim_expr_inner outer).
-  Admitted.
+  Proof.
+    split; intros sim sim' Hsim. by eapply sim_expr_inner_strong_mono.
+  Qed.
 
   Instance sim_expr_body_mono: Mono sim_expr_body.
-  Proof. Admitted.
+  Proof.
+    split; intros sim sim' Hsim.
+    rewrite /sim_expr_body.
+    eapply lfp_mono; first apply _.
+    intros inner; by eapply sim_expr_inner_strong_mono.
+  Qed.
 
   Lemma sim_expr_body_unfold sim e_t e_s:
     sim_expr_body sim e_t e_s ↔
@@ -228,6 +236,19 @@ Section fair_termination_preservation.
     eapply gfp_fixpoint, _.
   Qed.
 
+  Lemma sim_expr_fixpoint e_t e_s:
+    sim_expr e_t e_s ↔
+    sim_expr_inner sim_expr sim_expr e_t e_s.
+  Proof using is_val val_no_step.
+    rewrite sim_expr_unfold sim_expr_body_unfold.
+    revert e_t e_s; change (sim_expr_inner sim_expr (sim_expr_body sim_expr) ≡ sim_expr_inner sim_expr sim_expr).
+    eapply anti_symm; first apply lattice_anti_symm; eapply sim_expr_inner_strong_mono.
+    - reflexivity.
+    - intros ??; by rewrite sim_expr_unfold.
+    - reflexivity.
+    - intros ??; by rewrite sim_expr_unfold.
+  Qed.
+
   (* for the base case *)
   Lemma sim_expr_val e_s e_t: sim_expr e_t e_s → val e_t → val e_s.
   Proof using val_no_step is_val.
@@ -242,11 +263,10 @@ Section fair_termination_preservation.
     ∃ e_s' T_s, step e_s e_s' T_s ∧ length T_t = length T_s ∧
       ∀ e_t e_s, (e_t, e_s) ∈ zip (e_t' :: T_t) (e_s' :: T_s) → sim_expr e_t e_s.
   Proof using val_no_step is_val.
-    rewrite sim_expr_unfold sim_expr_body_unfold /sim_expr_inner.
+    rewrite sim_expr_fixpoint /sim_expr_inner.
     intros [[Ht Hs]|Hstep] Htgt; first (exfalso; eapply val_no_step; [apply Ht|]; eauto).
     destruct Hstep as [_ Hstep]. destruct (Hstep _ _ Htgt) as [[-> Hsim]|].
-    - left. split; first done.
-      by rewrite sim_expr_unfold. (* todo: include this in the unfold *)
+    - left. split; done.
     - right. eauto.
   Qed.
 
@@ -272,35 +292,54 @@ Section fair_termination_preservation.
 
   Definition sim_pool := gfp sim_pool_body.
 
-  Instance must_step_mono Φ: Mono (must_step Φ).
-  Proof. Admitted.
-
-  Lemma must_step_post_mono sim_pool sim_pool':
+  Lemma must_step_strong_mono (sim_pool sim_pool': pool → Prop) (rec rec': pool → gset nat → list nat → Prop):
     sim_pool ⪯ sim_pool' →
-    must_step sim_pool ⪯ must_step sim_pool'.
-  Proof. Admitted.
+    rec ⪯ rec' →
+    must_step sim_pool rec ⪯ must_step sim_pool' rec'.
+  Proof.
+    intros Hpool Hrec P O D; rewrite /must_step.
+    intros Hmust Hdel. destruct (Hmust Hdel) as [Values|Step].
+    - left; destruct Values; split; first eauto. by eapply Hpool.
+    - right. destruct Step as [? Step]; split; first done.
+      intros T_t' D' i Hstep.
+      destruct (Step T_t' D' i Hstep) as (P' & I & Heq & Hsteps & HP).
+      exists P', I. repeat split; auto.
+      by eapply Hrec.
+  Qed.
+
+  Instance must_step_mono Φ: Mono (must_step Φ).
+  Proof.
+    split; intros ???; by eapply must_step_strong_mono.
+  Qed.
 
   Instance sim_pool_mono: Mono sim_pool_body.
-  Proof. Admitted.
-
+  Proof.
+    split; intros sim_pool sim_pool' Hpool.
+    rewrite /sim_pool_body. intros P Hlfp D.
+    specialize (Hlfp D). revert Hlfp.
+    revert D. generalize (threads P.(tgt)) as O.
+    revert P. change (lfp (must_step sim_pool) ⪯ lfp (must_step sim_pool')).
+    eapply lfp_mono; first apply _.
+    intros rec. by eapply must_step_strong_mono.
+  Qed.
 
 (* proof structure:
   co-induction on the outer fixpoint
-  - base case trivial
-  - step-case: induction on the set of active expressions
+    we need to show that sim_expr_all is a post-fixpoint.
+    induction on the set of threads
     + base case trivial
-    + step case: let i be the new thread.
+    + step case: let i be the new thread and IH the inductive hypothesis.
       induction on the least fixpoint of i
-      * value case: we are done because thread i is active
+      * value case:
+          target and source are values, so we can remove i and we are done with IH
       * step case:
-        (we can step ∧ (we stuttered or we took a proper step))
-        induction on the delay unil thread i is stepped again
-        -- base case: next step is i
-           ++ if we stutter this step, we can use the lfp IH
-           ++ if we do not sutter this step, we make progress in the source.
-              we can remove the thread from the set of active exprs that need to be stepped
-              the set decreased so we can use the first IH
-        -- step case: after the next step, the delay has decreased and we can use the IH
+          (we can step ∧ (we stuttered or we took a proper step))
+          induction on the delay unil thread i is stepped again
+          let j be the next thread that steps
+          -- if j = i and we stuttered the source, then the claim follows from the lfp
+          -- if j = i and we did not stutter, we can remove i and the claim follows
+          -- if j ≠ i, then any step will decrease the delay of i.
+             The claim follows with the IH for d.
 *)
 
 Definition sim_expr_all P := (∀ e_t e_s, (e_t, e_s) ∈ P → sim_expr e_t e_s).
