@@ -687,7 +687,7 @@ Proof using val_no_step.
           rename e_j_t_ into e_j_t; simpl in Htgt.
           assert (sim_expr e_j_t e_j_s) as Hsim by eapply Hall, elem_of_list_lookup_2, Hlookj.
           eapply Hdecr in HD as (m & -> & HD'); last done.
-          eapply sim_expr_step in Hsim as [Stutter|NoStutter]; last done.
+          eapply sim_expr_inv_step in Hsim as [Stutter|NoStutter]; last done.
           -- destruct Stutter as [-> Hsim].
              eapply local_all_stuttered; [by rewrite right_id in Hupd|done|].
              eapply IHd; eauto using sim_expr_all_insert.
