@@ -169,6 +169,46 @@ Section fair_termination_preservation.
     induction 1; eauto using pool_step_value_preservation.
   Qed.
 
+  Lemma no_forks_pool_steps e e' e'' i T:
+    no_fork e e' →
+    no_forks e' e'' →
+    T !! i = Some e →
+    pool_steps T {[i]} (<[i := e'']> T).
+  Proof using val_no_step.
+    intros Hstep Hsteps.
+    revert e T Hstep.
+    induction Hsteps as [e'|e' e'' e''' Hstep' Hsteps IH]; intros e T Hstep Hlook.
+    - eapply pool_steps_single, pool_step_iff.
+      exists e, e', []; split; first done. split; first done.
+      by rewrite right_id.
+    - econstructor.
+      + eapply pool_step_iff. exists e, e', []; split; first done. split; first done.
+        rewrite right_id. reflexivity.
+      + rewrite -(list_insert_insert T i e''' e'). eapply IH; eauto.
+        eapply list_lookup_insert, lookup_lt_Some, Hlook.
+      + set_solver.
+  Qed.
+
+  Lemma pool_steps_set_morph T T' I J:
+    pool_steps T I T' →
+    I ≡ J →
+    pool_steps T J T'.
+  Proof.
+    by intros ? ->%leibniz_equiv.
+  Qed.
+
+  Lemma pool_steps_trans T T' T'' I I' J:
+    pool_steps T I T' →
+    pool_steps T' I' T'' →
+    I ∪ I' ≡ J →
+    pool_steps T J T''.
+  Proof using val_no_step.
+    induction 1 in J.
+    - intros Hsteps Heq; eapply pool_steps_set_morph; first apply Hsteps. set_solver.
+    - intros Hsteps Heq. econstructor; eauto. set_solver.
+  Qed.
+
+
   Lemma fair_pool_step_inv T D i T' D':
     fair_pool_step T D i T' D' →
       ∃ e e' T_f, step e e' T_f ∧
@@ -203,7 +243,9 @@ Section fair_termination_preservation.
   Definition sim_expr := gfp sim_expr_body.
 
   Lemma sim_expr_inner_strong_mono outer outer' inner inner':
-    outer ⪯ outer' → inner ⪯ inner' → sim_expr_inner outer inner ⪯ sim_expr_inner outer' inner'.
+    outer ⪯ outer' →
+    inner ⪯ inner' →
+    sim_expr_inner outer inner ⪯ sim_expr_inner outer' inner'.
   Proof.
     intros Houter Hinner e_t e_s; rewrite /sim_expr_inner.
     intros [Val|[CanStep AllSteps]]; first by eauto.
@@ -259,15 +301,18 @@ Section fair_termination_preservation.
     - intros ??; by rewrite sim_expr_unfold.
   Qed.
 
-  (* for the base case *)
-  Lemma sim_expr_val e_s e_t: sim_expr e_t e_s → val e_t → ∃ e_s', no_forks e_s e_s' ∧ val e_s'.
+  (* inversion lemmas *)
+  Lemma sim_expr_inv_val e_s e_t:
+    sim_expr e_t e_s →
+    val e_t →
+    ∃ e_s', no_forks e_s e_s' ∧ val e_s'.
   Proof using val_no_step is_val.
     rewrite sim_expr_unfold sim_expr_body_unfold /sim_expr_inner.
     intros [[Ht Hs]|Hstep] Hval; first done.
     destruct Hstep as [Hstep _]. eapply val_no_step in Hstep; naive_solver.
   Qed.
 
-  Lemma sim_expr_step e_s e_t e_t' T_t:
+  Lemma sim_expr_inv_step e_s e_t e_t' T_t:
     sim_expr e_t e_s → step e_t e_t' T_t →
     T_t = [] ∧ sim_expr e_t' e_s ∨
     ∃ e_s' e_s'' T_s,
@@ -283,9 +328,10 @@ Section fair_termination_preservation.
     - right. eauto.
   Qed.
 
-  (* the introduction lemmas --- we don't need them for adequacy, but they should hold *)
+  (* the introduction lemmas *)
   Lemma sim_expr_intro_vals e_s e_t:
-    val e_t → val e_s →
+    val e_t →
+    val e_s →
     sim_expr e_t e_s.
   Proof using is_val val_no_step.
     intros V1 V2.
@@ -350,7 +396,6 @@ Section fair_termination_preservation.
 
   (* Thread Pool Simulation *)
 
-  (* we define the pool simulation *)
   Definition all_values (O: gset nat) P :=
     (∀ i , i ∈ O → ∃ e_t e_s, P !! i = Some (e_t, e_s) ∧ val e_t ∧ val e_s).
 
@@ -414,7 +459,8 @@ Section fair_termination_preservation.
     + step case: let i be the new thread and IH the inductive hypothesis.
       induction on the least fixpoint of i
       * value case:
-          target and source are values, so we can remove i and we are done with IH
+          - target is a value, source steps to a value.
+            we can remove i and we are done with IH
       * step case:
           (we can step ∧ (we stuttered or we took a proper step))
           induction on the delay unil thread i is stepped again
@@ -490,7 +536,9 @@ Qed.
 
 
 Lemma sim_expr_all_insert P i e_t e_s:
-  sim_expr_all P → sim_expr e_t e_s → sim_expr_all (<[i:=(e_t, e_s)]> P).
+  sim_expr_all P →
+  sim_expr e_t e_s →
+  sim_expr_all (<[i:=(e_t, e_s)]> P).
 Proof.
   intros Hall Hsim e_t' e_s' Hin.
   eapply elem_of_list_lookup_1 in Hin as [j Hlook].
@@ -500,7 +548,9 @@ Proof.
 Qed.
 
 Lemma sim_expr_all_app P P' :
-  sim_expr_all P → sim_expr_all P' → sim_expr_all (P ++ P').
+  sim_expr_all P →
+  sim_expr_all P' →
+  sim_expr_all (P ++ P').
 Proof.
   intros HP HP' e_t e_s [|]%elem_of_app; eauto.
 Qed.
@@ -518,41 +568,6 @@ Proof using val_no_step.
   split; first constructor. eapply local_all_weaken; eauto. set_solver.
 Qed.
 
-
-
-Lemma no_forks_pool_steps e e' e'' i T:
-  no_fork e e' →
-  no_forks e' e'' →
-  T !! i = Some e →
-  pool_steps T {[i]} (<[i := e'']> T).
-Proof using val_no_step.
-  intros Hstep Hsteps.
-  revert e T Hstep.
-  induction Hsteps as [e'|e' e'' e''' Hstep' Hsteps IH]; intros e T Hstep Hlook.
-  - eapply pool_steps_single, pool_step_iff.
-    exists e, e', []; split; first done. split; first done.
-    by rewrite right_id.
-  - econstructor.
-    + eapply pool_step_iff. exists e, e', []; split; first done. split; first done.
-      rewrite right_id. reflexivity.
-    + rewrite -(list_insert_insert T i e''' e'). eapply IH; eauto.
-      eapply list_lookup_insert, lookup_lt_Some, Hlook.
-    + set_solver.
-Qed.
-
-Lemma pool_steps_set_morph T T' I J:
-  pool_steps T I T' → I ≡ J → pool_steps T J T'.
-Proof.
-  by intros ? ->%leibniz_equiv.
-Qed.
-
-Lemma pool_steps_trans T T' T'' I I' J:
-  pool_steps T I T' → pool_steps T' I' T'' → I ∪ I' ≡ J → pool_steps T J T''.
-Proof using val_no_step.
-  induction 1 in J.
-  - intros Hsteps Heq; eapply pool_steps_set_morph; first apply Hsteps. set_solver.
-  - intros Hsteps Heq. econstructor; eauto. set_solver.
-Qed.
 
 
 Lemma local_all_not_stuttered i e_t e_t' e_s e_s' e_s'' P O D' T_t' T_f_s T_f_t:
@@ -714,8 +729,11 @@ CoInductive safe_fair_div T : Prop :=
   safe_fair_div T.
 
 Lemma sim_pool_val_or_step P D:
-  fair_div P.(tgt) D → sim_pool P →
-  ∃ P' D', sim_pool P' ∧ fair_div P'.(tgt) D' ∧ val_or_step P.(src) (threads P.(src)) P'.(src).
+  fair_div P.(tgt) D →
+  sim_pool P →
+  ∃ P' D', sim_pool P' ∧
+           fair_div P'.(tgt) D' ∧
+           val_or_step P.(src) (threads P.(src)) P'.(src).
 Proof.
   intros Hfair. rewrite /sim_pool.
   rewrite {1}gfp_fixpoint. fold sim_pool. rewrite /sim_pool_body.
@@ -744,7 +762,9 @@ Proof.
 Qed.
 
 Lemma sim_pool_preserves_fair_termination P D:
-  fair_div P.(tgt) D → sim_pool P → safe_fair_div P.(src).
+  fair_div P.(tgt) D →
+  sim_pool P →
+  safe_fair_div P.(src).
 Proof.
   revert P D; cofix IH. intros P D Hfair Hsim.
   destruct (sim_pool_val_or_step _ _ Hfair Hsim) as (P' & D' & Hsim' & Hfair' & Hval).
