@@ -2,12 +2,6 @@ From iris.prelude Require Import options prelude.
 From simuliris.playground Require Import fixpoints.
 From stdpp Require Import gmap.
 
-Lemma set_strong_ind {K} `{!EqDecision K} `{!Countable K} (P: gset K → Prop):
-  (∀ O, (∀ O', O' ⊂ O → P O') → P O) → ∀ O, P O.
-Proof.
-  intros Step O; induction (set_wf O) as [O _ IH]; eauto.
-Qed.
-
 Section fair_termination_preservation.
 
   Context (expr: Type) (step: expr → expr → list expr → Prop)
@@ -603,7 +597,7 @@ Proof using val_no_step.
   revert P. change (sim_expr_all ⪯ sim_pool).
   eapply gfp_greatest_post_fixpoint. rewrite /sim_pool_body.
   enough (∀ O D P, sim_expr_all P → O ⊆ threads P.(tgt) → local_all P O D) by (intros ??; eauto).
-  induction O as [O IHO] using set_strong_ind.
+  intros O; induction (set_wf O) as [O _ IHO].
   intros D P Hall Hsub.
   destruct (decide (O ≡ ∅)) as [Empty|[i Hel]%set_choose].
   - rewrite lfp_fixpoint {1}/must_step. intros Hdel.
