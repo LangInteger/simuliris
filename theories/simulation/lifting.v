@@ -285,7 +285,7 @@ Section fix_sim.
   Qed.
 
   (** Coinduction *)
-  (** We have to give a "loop invariant" [Inv] (that may assert ownership or say that e_t, e_s
+  (** We have to give a "loop invariant" [inv] (that may assert ownership or say that e_t, e_s
       have a certain shape) that needs to be established initially and re-established each time
       we want to use the co-induction hypothesis.
    Alternatively, when we get to a point where [Φ] holds, we can break out of the co-induction.
@@ -296,23 +296,23 @@ Section fix_sim.
      Since we do not have any means to keep track of this in the simulation relation, this lemma
      requires to take steps in the beginning, before escaping to the simulation relation again.
   *)
-  Lemma sim_lift_coind (Inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s,
-      Inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
+      inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
         ⌜reducible P_t e_t σ_t⌝ ∗
         ∀ e_t' σ_t',
           ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
           ∃ e_s' σ_s', ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
             state_interp P_t σ_t' P_s σ_s' ∗
-            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ Inv e_t'' e_s'' }]) -∗
-    Inv e_t e_s -∗
+            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }]) -∗
+    inv e_t e_s -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
   (* FIXME: we have the same proof pattern here as for the bind lemma,
     where we need to repeat some parts of the proof for the nested leastfp induction.
     Surely there must be a way to capture this pattern and make the proofs more concise? *)
     iIntros "#Hstep Hinv".
-    iApply (sim_expr_coind _ _ (λ e_t' e_s', Inv e_t' e_s' ∨ e_t' ⪯{Ω} e_s' [{λ e_t'' e_s'', Φ e_t'' e_s'' ∨ Inv e_t'' e_s'' }])%I); last by eauto.
+    iApply (sim_expr_coind _ _ (λ e_t' e_s', inv e_t' e_s' ∨ e_t' ⪯{Ω} e_s' [{λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }])%I); last by eauto.
     iModIntro. clear e_t e_s. iIntros (e_t e_s) "[Hinv | Hs]".
     - rewrite /greatest_step least_def_unfold /least_step. iIntros (????) "[Hstate Hnreach]".
       iMod ("Hstep" with "Hinv [$Hstate $Hnreach ]") as "[Hred Hs]".
@@ -372,16 +372,16 @@ Section fix_sim.
         iIntros (??) "Ho"; cbn. iRight. rewrite sim_expr_eq. by iApply "Hs".
   Qed.
 
-  Lemma sim_lift_head_coind (Inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_head_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s,
-      Inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
+      inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
         ⌜head_reducible P_t e_t σ_t⌝ ∗
         ∀ e_t' σ_t',
           ⌜head_step P_t e_t σ_t e_t' σ_t'⌝ ==∗
           ∃ e_s' σ_s', ⌜head_step P_s e_s σ_s e_s' σ_s'⌝ ∗
             state_interp P_t σ_t' P_s σ_s' ∗
-            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ Inv e_t'' e_s'' }]) -∗
-    Inv e_t e_s -∗
+            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }]) -∗
+    inv e_t e_s -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
     iIntros "#Ha Hinv". iApply (sim_lift_coind with "[] Hinv").
@@ -396,24 +396,24 @@ Section fix_sim.
 
   (** The following lemma (which one might expect, given how cofix in Coq
       and guarded recursion in Iris work) should not be provable:
-      It requires us to conjure up a proof that that any acceptable expressions by Inv
+      It requires us to conjure up a proof that that any acceptable expressions by inv
       are in the simulation relation.
-      While we only get that after already having taken a step in source and target, thus justifying soundness, it still requires us to produce this proof without having seen the "full" co-inductive step, which should lead us to two expressions related by Inv again.
+      While we only get that after already having taken a step in source and target, thus justifying soundness, it still requires us to produce this proof without having seen the "full" co-inductive step, which should lead us to two expressions related by inv again.
       If we fix the statement such that we only get the full coinduction hypothesis after having shown the full step "to the next iteration", we exactly arrive at the above statement [sim_lift_coind].
 
       (but I still think this should be a sound co-induction principle: we'd just need a way "to look into the future" to justify it).
    *)
-  Lemma sim_lift_coind' (Inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s,
-      Inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
+      inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
         ⌜reducible P_t e_t σ_t⌝ ∗
         ∀ e_t' σ_t',
           ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ ==∗
           ∃ e_s' σ_s', ⌜prim_step P_s (e_s, σ_s) (e_s', σ_s')⌝ ∗
             state_interp P_t σ_t' P_s σ_s' ∗
-            ((∀ e_t' e_s', Inv e_t' e_s' -∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
+            ((∀ e_t' e_s', inv e_t' e_s' -∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
             e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' }])) -∗
-    Inv e_t e_s -∗
+    inv e_t e_s -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
   Abort.

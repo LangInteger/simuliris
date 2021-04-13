@@ -79,7 +79,7 @@ Section fix_bi.
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
     while: !"cont" do
-      "cont" <- Call #f "external" #()
+      "cont" <- Call ## "external" #()
     od.
 
   Lemma val_rel_bool_source v_t b :
@@ -99,13 +99,13 @@ Section fix_bi.
   Definition input_rec : ectx :=
     λ: "cont",
       if: "cont" then
-        let: "cont" := Call #f "external" #() in
-        Call #f "rec" "cont"
+        let: "cont" := Call ## "external" #() in
+        Call ## "rec" "cont"
       else #().
 
   Lemma loop_rec :
     "rec" @s input_rec -∗
-    input_loop ⪯ Call #f"rec" #true {{ val_rel }}.
+    input_loop ⪯ Call ##"rec" #true {{ val_rel }}.
   Proof.
     iIntros "#Hs". rewrite /input_loop. target_alloc lc_t as "Hlc_t". sim_pures.
     iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
