@@ -21,7 +21,7 @@ Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing).
 properly. *)
 Notation "# l" := (LitV l%Z%V%stdpp) (at level 8, format "# l").
 (* to avoid collisions with binders *)
-Notation "#f l" := (LitV (LitFn l%stdpp)) (at level 8, format "#f l").
+Notation "## l" := (LitV (LitFn l%stdpp)) (at level 8, format "## l").
 
 (** Syntax inspired by Coq/Ocaml. Constructions with higher precedence come
     first. *)
