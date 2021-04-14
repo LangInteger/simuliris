@@ -16,6 +16,7 @@ theories/simulation/stutter_adequacy.v
 theories/simulation/lifting.v
 
 theories/playground/fixpoints.v
+theories/playground/language.v
 theories/playground/pure_threadpool_sim.v
 
 theories/simplang/locations.v
