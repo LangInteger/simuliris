@@ -9,31 +9,6 @@ From iris.bi Require Import lib.fractional.
 From simuliris.simplang Require Export primitive_laws notation.
 From iris.prelude Require Import options.
 
-(** The [array] connective is a version of [mapsto] that works
-with lists of values. *)
-(* again parameterized over the ghost names *)
-Definition array `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option val) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) : iProp Σ :=
-  ([∗ list] i ↦ v ∈ vs, mapsto (hG:=hG) (l +ₗ i)  dq (Some v%V))%I.
-
-(** FIXME: Refactor these notations using custom entries once Coq bug #13654
-has been fixed. *)
-Notation "l ↦t∗{ dq } vs" := (array (hG:=gen_heap_inG_target) l dq vs)
-  (at level 20, format "l  ↦t∗{ dq }  vs") : bi_scope.
-Notation "l ↦t∗□ vs" := (array (hG:=gen_heap_inG_target) l DfracDiscarded vs)
-  (at level 20, format "l  ↦t∗□  vs") : bi_scope.
-Notation "l ↦t∗{# q } vs" := (array (hG:=gen_heap_inG_target) l (DfracOwn q) vs)
-  (at level 20, format "l  ↦t∗{# q }  vs") : bi_scope.
-Notation "l ↦t∗ vs" := (array (hG:=gen_heap_inG_target) l (DfracOwn 1) vs)
-  (at level 20, format "l  ↦t∗  vs") : bi_scope.
-
-Notation "l ↦s∗{ dq } vs" := (array (hG:=gen_heap_inG_source) l dq vs)
-  (at level 20, format "l  ↦s∗{ dq }  vs") : bi_scope.
-Notation "l ↦s∗□ vs" := (array (hG:=gen_heap_inG_source) l DfracDiscarded vs)
-  (at level 20, format "l  ↦s∗□  vs") : bi_scope.
-Notation "l ↦s∗{# q } vs" := (array (hG:=gen_heap_inG_source) l (DfracOwn q) vs)
-  (at level 20, format "l  ↦s∗{# q }  vs") : bi_scope.
-Notation "l ↦s∗ vs" := (array (hG:=gen_heap_inG_source) l (DfracOwn 1) vs)
-  (at level 20, format "l  ↦s∗  vs") : bi_scope.
 
 
 (** * Rules for allocation *)
@@ -50,7 +25,7 @@ Qed.
 
 Lemma target_red_allocN `{sheapG Σ} `{sheapInv Σ} v n Ψ :
   (0 < n)%Z →
-  (∀ l, l ↦t∗ replicate (Z.to_nat n) v -∗ target_red (of_val #l) Ψ) -∗
+  (∀ l, l ↦t∗ replicate (Z.to_nat n) v -∗ l ==>t (Z.to_nat n) -∗ target_red (of_val #l) Ψ) -∗
   target_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
   iIntros (Hzs) "Ht". iApply (target_red_allocN_seq); [done..|].
@@ -59,7 +34,7 @@ Qed.
 
 Lemma source_red_allocN `{sheapG Σ} `{sheapInv Σ} v n Ψ :
   (0 < n)%Z →
-  (∀ l, l ↦s∗ replicate (Z.to_nat n) v -∗ source_red (of_val #l) Ψ) -∗
+  (∀ l, l ↦s∗ replicate (Z.to_nat n) v -∗ l ==>s (Z.to_nat n) -∗ source_red (of_val #l) Ψ) -∗
   source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
   iIntros (Hzs) "Ht". iApply (source_red_allocN_seq); [done..|].

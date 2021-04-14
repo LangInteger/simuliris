@@ -579,6 +579,9 @@ Proof.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
+Definition free_chunk (l:positive) (σ:gmap loc (option val)) : gmap loc (option val) :=
+  filter (λ '(l', _), loc_chunk l' ≠ l) σ.
+
 (** Building actual evaluation contexts out of ectx_items *)
 Definition ectx := list ectx_item.
 Definition empty_ectx : ectx := [].
@@ -632,13 +635,14 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      head_step P (Fork e) σ (Val $ LitV LitUnit) σ
   | AllocNS n v σ l :
      (0 < n)%Z →
-     (∀ i, (0 ≤ i)%Z → (i < n)%Z → σ.(heap) !! (l +ₗ i) = None) →
+     (∃ b, l = Build_loc b 0) →
+     (∀ i, σ.(heap) !! (l +ₗ i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
                (Val $ LitV $ LitLoc l) (state_init_heap l n v σ)
   | FreeS l v σ :
      σ.(heap) !! l = Some $ Some v →
      head_step P (Free (Val $ LitV $ LitLoc l)) σ
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=None]> σ)
+               (Val $ LitV LitUnit) (state_upd_heap (free_chunk (loc_chunk l)) σ)
   | LoadS l v σ :
      σ.(heap) !! l = Some $ Some v →
      head_step P (Load (Val $ LitV $ LitLoc l)) σ (of_val v) σ
@@ -777,15 +781,12 @@ Proof.
 Qed.
 
 Lemma alloc_fresh P v n σ :
-  let l := fresh_locs (dom (gset loc) σ.(heap)) in
+  let l := {| loc_chunk := fresh_block σ.(heap); loc_idx := 0 |} in
   (0 < n)%Z →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
             (Val $ LitV $ LitLoc l) (state_init_heap l n v σ).
 Proof.
-  intros.
-  apply AllocNS; first done.
-  intros. apply (not_elem_of_dom (D := gset loc)).
-  by apply fresh_locs_fresh.
+  intros. apply AllocNS; first done; first by eauto. apply is_fresh_block.
 Qed.
 
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' :

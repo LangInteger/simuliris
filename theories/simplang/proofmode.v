@@ -118,10 +118,10 @@ Proof.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
 
-Lemma tac_target_red_allocN n v j K Ψ Δ :
+Lemma tac_target_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
-    match envs_app false (Esnoc Enil j (array (hG:=gen_heap_inG_target) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>t (Z.to_nat n))) j (array (hG:=gen_heap_inG_target) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -130,16 +130,16 @@ Lemma tac_target_red_allocN n v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> ? HΔ. iIntros "He".
   iApply target_red_bind. iApply (target_red_allocN); [done..| ].
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply target_red_base. iModIntro. iApply HΔ.
-  rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_allocN n v j K Ψ Δ :
+Lemma tac_source_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
-    match envs_app false (Esnoc Enil j (array (hG:=gen_heap_inG_source) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>s (Z.to_nat n))) j (array (hG:=gen_heap_inG_source) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -148,15 +148,15 @@ Lemma tac_source_red_allocN n v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> ? HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_allocN; [done..| ].
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply source_red_base. iModIntro.
-  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_alloc v j K Ψ Δ :
+Lemma tac_target_red_alloc v j i K Ψ Δ :
   (∀ l,
-    match envs_app false (Esnoc Enil j (l ↦t v)) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>t 1)) j (l ↦t v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -165,15 +165,15 @@ Lemma tac_target_red_alloc v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply target_red_bind. iApply target_red_alloc.
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply target_red_base. iModIntro.
-  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_alloc v j K Ψ Δ :
+Lemma tac_source_red_alloc v j i K Ψ Δ :
   (∀ l,
-    match envs_app false (Esnoc Enil j (l ↦s v)) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>s 1)) j (l ↦s v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -182,43 +182,54 @@ Lemma tac_source_red_alloc v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_alloc.
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply source_red_base. iModIntro.
-  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_free l v i K Ψ Δ :
+(* TODO: tacs for freeN *)
+
+Lemma tac_target_red_free l v i j K Ψ Δ :
   envs_lookup i Δ = Some (false, l ↦t v)%I →
+  envs_lookup j Δ = Some (false, l ==>s 1)%I →
   (let Δ' := envs_delete false i false Δ in
-    envs_entails Δ' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
+   let Δ'' := envs_delete false j false Δ' in 
+    envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (target_red (fill K (Free (LitV l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> Hlk Hfin.
-  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_free.
-  rewrite envs_lookup_split //; simpl.
-  iIntros "H". iApply sep_mono_r.
-  { iIntros "H". iApply target_red_base. iModIntro. iApply "H". }
-  rewrite -Hfin.
-  rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
-  by rewrite wand_elim_r.
-Qed.
+  rewrite envs_entails_eq=> Hlk Hn Hfin.
+  rewrite -target_red_bind. 
+  (*eapply wand_apply. first exact: target_red_free.*)
+  rewrite envs_lookup_split; [ | apply Hlk]; simpl.
+  (* TODO : need to lookup both at the same time *)
+  (*rewrite envs_lookup_split; [ | apply Hn]; simpl.*)
+  (*iIntros "H". iApply sep_mono_r.*)
+  (*{ iIntros "H". iApply target_red_base. iModIntro. iApply "H". }*)
+  (*rewrite -Hfin.*)
+  (*rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).*)
+  (*by rewrite wand_elim_r.*)
+(*Qed.*)
+Admitted.
 
-Lemma tac_source_red_free l v i K Ψ Δ :
+Lemma tac_source_red_free l v i j K Ψ Δ :
   envs_lookup i Δ = Some (false, l ↦s v)%I →
+  envs_lookup j Δ = Some (false, l ==>s 1)%I →
   (let Δ' := envs_delete false i false Δ in
-    envs_entails Δ' (source_red (fill K (Val $ LitV LitUnit)) Ψ)) →
+   let Δ'' := envs_delete false j false Δ' in
+    envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (source_red (fill K (Free (LitV l))) Ψ).
 Proof.
   rewrite envs_entails_eq=> Hlk Hfin.
-  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_free.
-  rewrite envs_lookup_split //; simpl.
-  iIntros "H". iApply sep_mono_r.
-  { iIntros "H". iApply source_red_base. iModIntro. iApply "H". }
-  rewrite -Hfin.
-  rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
-  by rewrite wand_elim_r.
-Qed.
+  (*rewrite -source_red_bind. eapply wand_apply; first exact: source_red_free.*)
+  (*rewrite envs_lookup_split //; simpl.*)
+  (*iIntros "H". iApply sep_mono_r.*)
+  (*{ iIntros "H". iApply source_red_base. iModIntro. iApply "H". }*)
+  (*rewrite -Hfin.*)
+  (*rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).*)
+  (*by rewrite wand_elim_r.*)
+(*Qed.*)
+Admitted.
 
 Lemma tac_target_red_load Δ i K b l q v Ψ :
   envs_lookup i Δ = Some (b, l ↦t{q} v)%I →
@@ -696,6 +707,7 @@ Tactic Notation "source_call" :=
   end.
 
 (** ** Heap automation *)
+(* TODO : adapt to different lemmas *)
 Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
   to_target;
   let Htmp := iFresh in
