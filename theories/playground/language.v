@@ -1,5 +1,6 @@
 From iris.prelude Require Import options prelude.
 From stdpp Require Import gmap.
+Require Import Coq.Logic.Epsilon.
 
 
 Class Language := {
@@ -454,7 +455,6 @@ Section language_setup.
     destruct 1 as [T' I Hstep Hsub Hfair]; eauto 10.
   Qed.
 
-  Require Import Coq.Logic.Epsilon.
   Lemma fair_div_alt_trace_strong T:
     fair_div_alt T → { I | ∃ T', ∅ ⊂ active_threads T ⊆ list_to_set I ∧ pool_steps T I T' ∧ fair_div_alt T' }.
   Proof.
