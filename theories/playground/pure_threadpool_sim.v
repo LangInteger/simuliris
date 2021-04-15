@@ -5,7 +5,7 @@ From stdpp Require Import gmap.
 Section fair_termination_preservation.
 
   Context `{Language}.
-  Implicit Types (e: expr) (T: list expr) (D: delays) (P: pool).
+  Implicit Types (e: expr) (T: list expr) (I: list nat) (O: gset nat) (D: delays) (P: pool).
 
   (* Per-Thread Simulation *)
   Definition sim_expr_inner (outer: relation expr) (inner: relation expr) (e_t e_s: expr) :=
@@ -184,18 +184,17 @@ Section fair_termination_preservation.
   Definition all_values (O: gset nat) P :=
     (∀ i , i ∈ O → ∃ e_t e_s, P !! i = Some (e_t, e_s) ∧ val e_t ∧ val e_s).
 
-  Definition must_step (post: pool → Prop) (must_step: pool → gset nat → list nat → Prop) (P: pool) (O: gset nat) (D: delays) :=
+  Definition must_step (post: pool → Prop) (must_step: pool → gset nat → delays → Prop) (P: pool) (O: gset nat) (D: delays) :=
     delays_for P.(tgt) D →
     (all_values O P ∧ post P) ∨
-    (* source stuttering *)
-    (∃ P' I, pool_steps P.(src) I P'.(src) ∧ P'.(tgt) = P.(tgt) ∧ must_step P' (O ∖ I) D) ∨
-    (* steps in target and source *)
+    (* steps in the source *)
+    (∃ P' I, pool_steps P.(src) I P'.(src) ∧ P'.(tgt) = P.(tgt) ∧ must_step P' (O ∖ list_to_set I) D) ∨
+    (* steps in the target and source *)
     ((∃ T_t' i, pool_step P.(tgt) i T_t') ∧
-     (∀ T_t' D' i,
-        fair_pool_step P.(tgt) D i T_t' D' →
-        ∃ P' I, P'.(tgt) = T_t' ∧
+     (∀ T_t' D' i, fair_pool_step P.(tgt) D i T_t' D' →
+      ∃ P' I, P'.(tgt) = T_t' ∧
         pool_steps P.(src) I P'.(src) ∧
-        must_step P' (O ∖ I) D'
+        must_step P' (O ∖ list_to_set I) D'
   )).
 
   Definition sim_pool_body (sim_pool: pool → Prop) (P: pool) :=
@@ -203,7 +202,7 @@ Section fair_termination_preservation.
 
   Definition sim_pool := gfp sim_pool_body.
 
-  Lemma must_step_strong_mono (sim_pool sim_pool': pool → Prop) (rec rec': pool → gset nat → list nat → Prop):
+  Lemma must_step_strong_mono (sim_pool sim_pool': pool → Prop) (rec rec': pool → gset nat → delays → Prop):
     sim_pool ⪯ sim_pool' →
     rec ⪯ rec' →
     must_step sim_pool rec ⪯ must_step sim_pool' rec'.
@@ -302,7 +301,6 @@ Proof.
     destruct (P' !! j) as [[??]|]; simpl; naive_solver.
 Qed.
 
-
 Lemma local_all_weaken P O O' D:
   local_all P O D →
   O' ⊆ O →
@@ -341,19 +339,115 @@ Proof.
 Qed.
 
 
-Lemma local_all_stuttered i e_t e_t' e_s P O D' T_t':
+Lemma local_all_intro_source P P' I O D:
+  pool_steps P.(src) I P'.(src) →
+  P'.(tgt) = P.(tgt) →
+  local_all P' (O ∖ list_to_set I) D →
+  local_all P O D.
+Proof.
+  intros Hsteps Heq Hlocal.
+  rewrite lfp_fixpoint {1}/must_step.
+  intros Hdel. right. left.
+  exists P', I. repeat split; done.
+Qed.
+
+Lemma local_all_intro_target_and_source P O D:
+  (∃ T_t' i, pool_step P.(tgt) i T_t') →
+  (∀ T_t' D' i,
+    delays_for P.(tgt) D →
+    fair_pool_step P.(tgt) D i T_t' D' →
+   ∃ P' I, P'.(tgt) = T_t' ∧
+   pool_steps P.(src) I P'.(src) ∧
+   local_all P' (O ∖ list_to_set I) D') →
+  local_all P O D.
+Proof.
+  intros CanStep Post.
+  rewrite lfp_fixpoint {1}/must_step.
+  intros Hdel. right. right. split; eauto.
+Qed.
+
+
+Lemma local_all_stutter_target P P' I O D:
+  pool_steps P.(src) I P'.(src) →
+  P'.(tgt) = P.(tgt) →
+  local_all P' O D →
+  local_all P O D.
+Proof.
+  intros Hsteps Heq Hlocal. eapply local_all_intro_source; eauto.
+  eapply local_all_weaken; first done. set_solver.
+Qed.
+
+
+Lemma local_all_stutter_target_no_fork P j e_t e_s e_s' O D:
+  P !! j = Some (e_t, e_s) →
+  no_fork e_s e_s' →
+  local_all (<[j := (e_t, e_s')]> P) (O ∖ {[j]}) D →
+  local_all P O D.
+Proof.
+  intros Hlook Hstep Hlocal.
+  eapply local_all_intro_source with (I := [j]) (P' := (<[j := (e_t, e_s')]> P)).
+  - rewrite list_fmap_insert //=. eapply pool_steps_single, pool_step_iff.
+    exists e_s, e_s', []. split; first done. split; first rewrite list_lookup_fmap Hlook //.
+    by rewrite right_id.
+  - rewrite list_fmap_insert //= list_insert_id // list_lookup_fmap Hlook //.
+  - eapply local_all_weaken; eauto. set_solver.
+Qed.
+
+
+Lemma local_all_stutter_target_no_forks P j e_t e_s e_s' O D:
+  P !! j = Some (e_t, e_s) →
+  no_forks e_s e_s' →
+  local_all (<[j := (e_t, e_s')]> P) O D →
+  local_all P O D.
+Proof.
+  intros Hlook Hsteps. revert P Hlook. induction Hsteps as [e_s|e_s e_s' e_s'' Hstep Hsteps IH]; intros P Hlook.
+  - rewrite list_insert_id //.
+  - intros Hlocal. eapply local_all_stutter_target_no_fork; eauto.
+    eapply local_all_weaken with (O := O); last set_solver.
+    eapply IH.
+    + eapply list_lookup_insert, lookup_lt_Some, Hlook.
+    + by rewrite list_insert_insert.
+Qed.
+
+
+
+Lemma local_all_stutter_source' i e_t e_t' e_s P O D' T_t':
   T_t' = <[i := e_t']> P.(tgt) →
   P !! i = Some (e_t, e_s) →
   local_all (<[i := (e_t', e_s)]> P) O D' →
-  ∃ P' (I : gset nat), P'.(tgt) = T_t' ∧ pool_steps P.(src) I P'.(src) ∧ local_all P' (O ∖ I) D'.
+  ∃ P' I, P'.(tgt) = T_t' ∧ pool_steps P.(src) I P'.(src) ∧ local_all P' (O ∖ list_to_set I) D'.
 Proof.
-  intros Hupd Hlook Hall; exists (<[i := (e_t', e_s)]> P), ∅.
+  intros Hupd Hlook Hall; exists (<[i := (e_t', e_s)]> P), [].
   rewrite !list_fmap_insert; split; first done.
   rewrite list_insert_id; last rewrite list_lookup_fmap Hlook //.
   split; first constructor. eapply local_all_weaken; eauto. set_solver.
 Qed.
 
 
+Lemma no_forks_pool_step e e' T j:
+  no_fork e e' →
+  T !! j = Some e →
+  pool_step T j (<[j := e']> T).
+Proof.
+  intros H1 H2; eapply pool_step_iff.
+  exists e, e', []; split; repeat split; eauto.
+  by rewrite right_id.
+Qed.
+
+
+Lemma no_forks_pool_steps e e' T j:
+  no_forks e e' →
+  T !! j = Some e →
+  ∃ I, pool_steps T I (<[j := e']> T).
+Proof.
+  induction 1 as [e|e e' e'' Hstep Hsteps IH] in T.
+  - intros Hlook. exists []. rewrite list_insert_id //. constructor.
+  - intros Hlook. eapply no_forks_pool_step in Hstep; last done.
+    destruct (IH (<[j := e']> T)) as (I & Hsteps').
+    { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+    exists (j :: I).  econstructor; eauto.
+    revert Hsteps'; by rewrite list_insert_insert.
+Qed.
 
 Lemma local_all_not_stuttered i e_t e_t' e_s e_s' e_s'' P O D' T_t' T_f_s T_f_t:
   T_t' = <[i := e_t']> P.(tgt) ++ T_f_t →
@@ -362,25 +456,21 @@ Lemma local_all_not_stuttered i e_t e_t' e_s e_s' e_s'' P O D' T_t' T_f_s T_f_t:
   step e_s' e_s'' T_f_s →
   length T_f_t = length T_f_s →
   local_all (<[i := (e_t', e_s'')]> P ++ zip T_f_t T_f_s) (O ∖ {[i]}) D' →
-  ∃ P' (I : gset nat), P'.(tgt) = T_t' ∧ pool_steps P.(src) I P'.(src) ∧ local_all P' (O ∖ I) D'.
+  ∃ P' I, P'.(tgt) = T_t' ∧ pool_steps P.(src) I P'.(src) ∧ local_all P' (O ∖ list_to_set I) D'.
 Proof.
-  intros Hupd Hlook Hfrk Hstep Hlen Hall; exists (<[i := (e_t', e_s'')]> P ++ zip T_f_t T_f_s), {[i]}.
+  intros Hupd Hlook Hfrk Hstep Hlen Hall.
+  eapply (no_forks_pool_steps _ _ P.(src) i) in Hfrk as (I & Hsteps); last first.
+  { rewrite list_lookup_fmap Hlook //=. }
+  exists (<[i := (e_t', e_s'')]> P ++ zip T_f_t T_f_s), (I ++ [i]).
   rewrite !fmap_app fst_zip ?Hlen // snd_zip ?Hlen // !list_fmap_insert Hupd.
   split; first done.
-  split; last done.
-  destruct Hfrk as [e_s|e_s e_s_mid e_s'].
-  - eapply pool_steps_single, pool_step_iff.
-    do 3 eexists; repeat split; first done.
-    rewrite list_lookup_fmap Hlook //=.
-  - eapply pool_steps_trans; first eapply (no_forks_pool_steps _ _ _ i); eauto.
-    + rewrite list_lookup_fmap Hlook //.
-    + eapply pool_steps_single, (pool_step_iff _ i).
-      exists e_s', e_s'', T_f_s. split; first done.
-      split; first (eapply list_lookup_insert, lookup_lt_Some; rewrite list_lookup_fmap Hlook //).
-      rewrite list_insert_insert. done.
-    + set_solver.
+  split; last (eapply local_all_weaken; [done|set_solver]).
+  eapply pool_steps_trans; first done.
+  eapply pool_steps_single, pool_step_iff.
+  exists e_s', e_s'', T_f_s.
+  rewrite list_insert_insert list_lookup_insert //.
+  eapply lookup_lt_Some; rewrite list_lookup_fmap Hlook //.
 Qed.
-
 
 Lemma sim_expr_to_pool P:
   sim_expr_all P → sim_pool P.
@@ -408,24 +498,14 @@ Proof.
     intros e_t e_s Hinner P Hall Hlook D Hsub.
     destruct Hinner as [Val|[CanStep AllSteps]].
     + destruct Val as (val_t & e_s' & Hsteps & val_s).
-      destruct Hsteps as [e_s|e_s e_s' e_s'' Hstep Hsteps].
-      * eapply (local_all_add_values _ (O∖{[i]})).
-        -- eapply IHO; auto; set_solver.
-        -- intros j Hj; destruct (decide (i = j)); subst; last set_solver.
-          right; do 2 eexists; done.
-      * rewrite lfp_fixpoint {1}/must_step. intros Hdel.
-        right. left. exists (<[i := (e_t, e_s'')]> P), {[i]}.
-        split.
-        { rewrite list_fmap_insert; eapply no_forks_pool_steps; eauto.
-          rewrite list_lookup_fmap Hlook //. }
-        split.
-        { rewrite list_fmap_insert //= list_insert_id // list_lookup_fmap Hlook //. }
-        eapply IHO.
-        -- set_solver.
-        -- eauto using sim_expr_all_insert, sim_expr_intro_vals.
-        -- rewrite list_fmap_insert.
-          etrans; last eapply threads_update.
-          etrans; set_solver.
+      eapply local_all_stutter_target_no_forks; eauto.
+      eapply (local_all_add_values _ (O∖{[i]})).
+      * eapply IHO; auto; first by set_solver.
+         { eauto using sim_expr_all_insert, sim_expr_intro_vals. }
+         { rewrite list_fmap_insert //=. etrans; last eapply threads_update. set_solver. }
+      * intros j Hj; destruct (decide (i = j)); subst; last set_solver.
+         right; exists e_t, e_s'. repeat split; eauto.
+         eapply list_lookup_insert, lookup_lt_Some, Hlook.
     + pose proof val_no_step. assert (¬ val e_t) as Hnval by naive_solver.
       eapply local_all_delay_for; intros Hdom.
       destruct (Hdom i) as [d HD]; last clear Hdom.
@@ -436,24 +516,23 @@ Proof.
       revert D P HD Hsub Hall Hlook.
       induction (lt_wf d) as [d _ IHd].
       intros D P HD Hsub Hall Hlook.
-      rewrite lfp_fixpoint {1}/must_step; intros Hdel.
-      right. right. split.
+      eapply local_all_intro_target_and_source.
       { destruct CanStep as (e' & T_f & Hstep).
         exists (<[i := e']> P.(tgt) ++ T_f), i.
         eapply pool_step_iff. do 3 eexists; split; first eauto.
         split; last done. by rewrite list_lookup_fmap Hlook. }
-      intros T_t' D' j Hpool.
+      intros T_t' D' j Hdel Hpool.
       eapply fair_pool_step_inv in Hpool as (e_j_t & e_j_t' & T_f  & Htgt & Hlookj & Hupd & Hdecr).
       destruct (decide (i = j)).
       * subst j. rewrite list_lookup_fmap Hlook //= in Hlookj.
         assert (e_j_t = e_t) as -> by congruence; clear Hlookj.
         rename e_j_t' into e_t'. destruct (AllSteps _ _ Htgt) as [[-> Steps]|NoStutter].
-        -- eapply local_all_stuttered; [by rewrite right_id in Hupd|done|].
-           eapply id in Steps as Steps'. (* FIXME: this step is not linear, but we should be able to make it linear *)
+        -- eapply id in Steps as Steps'. (* FIXME: this step is not linear, but we should be able to make it linear *)
            revert Steps Steps'; rewrite {1}meet_left meet_right.
-           intros IH Hsim.
-           change (lfp _ _ _) with (sim_expr_body sim_expr e_t' e_s) in Hsim.
+           intros IH Hsim. change (lfp _ _ _) with (sim_expr_body sim_expr e_t' e_s) in Hsim.
            revert Hsim; rewrite -sim_expr_unfold; intros Hsim.
+           rewrite right_id in Hupd.
+           eapply local_all_stutter_source'; eauto.
            eapply IH; eauto using sim_expr_all_insert, list_lookup_insert, lookup_lt_Some.
            etrans; first eapply Hsub.
            rewrite list_fmap_insert; eapply threads_update.
@@ -471,10 +550,11 @@ Proof.
         * eapply list_lookup_fmap_inv in Hlookj as ([e_j_t_ e_j_s] & -> & Hlookj).
           rename e_j_t_ into e_j_t; simpl in Htgt.
           assert (sim_expr e_j_t e_j_s) as Hsim by eapply Hall, elem_of_list_lookup_2, Hlookj.
-          eapply Hdecr in HD as (m & -> & HD'); last done.
+          eapply id in HD as HD'.
+          eapply Hdecr in HD' as (m & -> & HD'); last done.
           eapply sim_expr_inv_step in Hsim as [Stutter|NoStutter]; last done.
           -- destruct Stutter as [-> Hsim].
-             eapply local_all_stuttered; [by rewrite right_id in Hupd|done|].
+             eapply local_all_stutter_source'; [by rewrite right_id in Hupd|done|].
              eapply IHd; eauto using sim_expr_all_insert.
              { rewrite list_fmap_insert; by etrans; last eapply threads_update. }
              { rewrite list_lookup_insert_ne //. }
@@ -494,13 +574,52 @@ Proof.
 Qed.
 
 
+Lemma pool_steps_concat T I T' J T''':
+  pool_steps T I T' → pool_steps T' J T''' →  pool_steps T (I ++ J) T'''.
+Proof.
+induction 1 as [T|T T' T'' i I Hstep Hsteps IH]; simpl; eauto.
+intros Hsteps'%IH. econstructor; eauto.
+Qed.
 
-Lemma sim_pool_val_or_step P D:
+Lemma no_magic_values_step (i: nat) T j T':
+  pool_step T j T' →
+  i ∈ active_threads T →
+  i ∉ active_threads T' →
+  i = j.
+Proof.
+  intros (e & e' & T_f & Hstep & Hlook & ->)%pool_step_iff.
+  intros (e'' & Hlook' & Hnval)%active_threads_spec Hnact.
+  destruct (decide (i = j)); first eauto.
+  exfalso. eapply Hnact, active_threads_spec. exists e''.
+  split; last done. eapply lookup_app_l_Some.
+  rewrite list_lookup_insert_ne //.
+Qed.
+
+Lemma no_magic_values_steps (i: nat) T I T':
+  pool_steps T I T' →
+  i ∈ active_threads T →
+  i ∉ active_threads T' →
+  i ∈ (list_to_set I: gset nat).
+Proof.
+  induction 1 as [|T T' T'' j I Hstep Hsteps]; first naive_solver.
+  intros Hact Hnact. destruct (decide (i ∈ active_threads T')); first set_solver.
+  eapply no_magic_values_step in Hstep; eauto; subst; set_solver.
+Qed.
+
+Lemma lookup_pool P j e_t e_s:
+  P.(tgt) !! j = Some e_t → P.(src) !! j = Some e_s → P !! j = Some (e_t, e_s).
+Proof.
+  rewrite !list_lookup_fmap; destruct (P !! j) as [[]|]; simpl; naive_solver.
+Qed.
+
+Lemma sim_pool_unfold_fair_div P D:
   fair_div P.(tgt) D →
   sim_pool P →
-  ∃ P' D', sim_pool P' ∧
+  ∃ P' D' I, sim_pool P' ∧
            fair_div P'.(tgt) D' ∧
-           val_or_step P.(src) (threads P.(src)) P'.(src).
+           pool_steps P.(src) I P'.(src) ∧
+           (all_values (threads P.(src) ∖ list_to_set I) P') ∧
+           filter (λ i, i ∈ active_threads P.(src)) (threads P.(src)) ⊆ list_to_set I.
 Proof.
   intros Hfair. rewrite /sim_pool.
   rewrite {1}gfp_fixpoint. fold sim_pool. rewrite /sim_pool_body.
@@ -508,35 +627,129 @@ Proof.
   revert Hlfp. rewrite threads_src_tgt. generalize (threads P.(src)) as O.
   intros O Hlfp. revert P O D Hlfp Hfair.
   change (lfp (must_step sim_pool) ⪯
-    λ P O D, fair_div P.(tgt) D → ∃ P' D',
-      sim_pool P' ∧ fair_div P'.(tgt) D' ∧ val_or_step P.(src) O P'.(src)).
+    λ P O D, fair_div P.(tgt) D → ∃ P' D' I,
+        sim_pool P' ∧ fair_div P'.(tgt) D' ∧ pool_steps P.(src) I P'.(src) ∧
+        (all_values (O ∖ list_to_set I) P') ∧
+        filter (λ i : nat, i ∈ active_threads P.(src)) O ⊆ list_to_set I).
   eapply lfp_least_pre_fixpoint; intros P O D MustStep Hfair.
   destruct Hfair as [i T' D' Hstep Hdel Hfair].
-  destruct (MustStep Hdel) as [Values|[Stutter|[CanStep AllSteps]]].
-  - destruct Values as [Hvalues Hsim]; exists P, D. split; first done.
+  destruct (MustStep Hdel) as [Values|[Stutter|[CanStep AllSteps]]]; clear MustStep.
+  - destruct Values as [Hvalues Hsim]; exists P, D, []. split; first done.
     split; first (econstructor; eauto).
-    left. intros j Hj. eapply Hvalues in Hj as (e_t & e_s & Hlook & Hval1 & Hval2).
-    exists e_s. rewrite list_lookup_fmap Hlook; split; done.
+    split; first constructor. split.
+    + simpl. intros ??; eapply Hvalues. set_solver.
+    + intros j Hj. eapply elem_of_filter in Hj as [Hact HO].
+      eapply active_threads_spec in Hact as (e & Hlook & Hnval).
+      eapply Hvalues in HO as (e_t & e_s' & Hlook' & Hval1 & Hval2).
+      revert Hlook. rewrite list_lookup_fmap Hlook'; simpl; naive_solver.
   - destruct Stutter as (P' & I & Hsteps & Htgt & IH).
     rewrite Htgt in IH. assert (fair_div P.(tgt) D) as Hfair' by (econstructor; eauto).
-    destruct (IH Hfair') as (P'' & D'' & Hpool & Hfair'' & Hvalstep).
-    exists P'', D''; split; first done. split; first done.
-    econstructor; eauto.
+    destruct (IH Hfair') as (P'' & D'' & I' &  Hpool & Hfair'' & Hsteps' & Hvalues & Hfilter).
+    exists P'', D'', (I ++ I'); split; first done. split; first done.
+    split; first by eapply pool_steps_concat. split.
+    + intros j Hj. eapply Hvalues. set_solver.
+    + rewrite list_to_set_app.
+      intros j [Hact Hj]%elem_of_filter.
+      destruct (decide (j ∈ (list_to_set I: gset nat))); first by set_solver.
+      destruct (decide (j ∈ active_threads P'.*2)).
+      { eapply elem_of_union_r, Hfilter, elem_of_filter. set_solver. }
+      eapply elem_of_union_l, no_magic_values_steps; eauto.
   - specialize (AllSteps _ _ _ Hstep) as (P' & I & <- & Hpool & Post).
-    destruct (Post Hfair) as (P'' & D'' & Hpool' & Hfair' & Hvals').
-    exists P'', D''. split; first done.
-    split; first done. econstructor; eauto.
+    destruct (Post Hfair) as (P'' & D'' & I' & Hpool' & Hfair' & Hsteps & Hvalues & Hfilter).
+    exists P'', D'', (I ++ I'). split; first done.
+    split; first done.
+    split; first by eapply pool_steps_concat. split.
+    + intros ??; eapply Hvalues; set_solver.
+    + rewrite list_to_set_app.
+      intros j [Hact Hj]%elem_of_filter.
+      destruct (decide (j ∈ (list_to_set I: gset nat))); first by set_solver.
+      destruct (decide (j ∈ active_threads P'.*2)).
+      { eapply elem_of_union_r, Hfilter, elem_of_filter. set_solver. }
+      eapply elem_of_union_l, no_magic_values_steps; eauto.
 Qed.
 
-Lemma sim_pool_preserves_fair_termination P D:
+
+Lemma fair_div_must_take_steps P P' D I:
+  fair_div P'.(tgt) D →
+  pool_steps P.(src) I P'.(src) →
+  all_values (threads P.(src) ∖ list_to_set I) P' →
+  ∃ j, j ∈ I.
+Proof.
+  intros Hfair Hsteps Hvalues.
+  destruct I; last by set_solver.
+  inversion Hsteps as [T H1 H2 Heq|]; subst; clear H2.
+  destruct Hfair as [j T'' D'' Hstep Hdel Hfair'].
+  eapply fair_pool_step_inv in Hstep as (e & e' & T_f & Hstep & Hlook & -> & ?).
+  exfalso. eapply val_no_step; eauto.
+  destruct (Hvalues j) as (e_t & e_s & Hlook' & Hval1 & Hval2).
+  { rewrite Heq -threads_src_tgt //= difference_empty threads_spec; eauto. }
+  revert Hlook Hval1.
+  rewrite list_lookup_fmap Hlook' //=. naive_solver.
+Qed.
+
+
+Lemma fair_div_forces_active_source P P' D I:
+  fair_div P'.(tgt) D →
+  pool_steps P.(src) I P'.(src) →
+  all_values (threads P.(src) ∖ list_to_set I) P' →
+  ∃ j, j ∈ active_threads P.(src).
+Proof.
+  intros Hfair Hsteps Hvalues.
+  destruct (fair_div_must_take_steps P P' D I) as [i Hi]; eauto.
+  inversion Hsteps as [|T T' T'' j J Hstep Hsteps']; subst; first set_solver.
+  eapply pool_step_iff in Hstep as (e & e' & T_f & Hstep & Hlook & ->).
+  exists j. eapply active_threads_spec.
+  exists e; split; first done. intros ?; eapply val_no_step; eauto.
+Qed.
+
+
+Lemma sim_pool_val_or_step P D:
+  fair_div P.(tgt) D →
+  sim_pool P →
+  ∃ P' D' I, sim_pool P' ∧
+           fair_div P'.(tgt) D' ∧
+           pool_steps P.(src) I P'.(src) ∧
+           ∅ ⊂ active_threads P.(src) ⊆ list_to_set I.
+Proof.
+  intros Hfair Hpool.
+  edestruct (sim_pool_unfold_fair_div P D Hfair Hpool) as (P' & D' & I & Hpool' & Hdiv & Hsteps & Hvalues & Hfilter).
+  exists P', D', I. do 3 (split; first done).
+  revert Hfilter; assert (filter (λ i : nat, i ∈ active_threads P.*2) (threads P.*2) = active_threads P.(src)) as ->.
+  { eapply leibniz_equiv. intros j.
+    rewrite elem_of_filter threads_spec active_threads_spec.
+    naive_solver. }
+  intros Hsub; split; last done.
+  enough (∃ j, j ∈ active_threads P.(src)) as [j Hj] by set_solver.
+  by eapply fair_div_forces_active_source.
+Qed.
+
+Lemma sim_pool_fair_div_alt P D:
   fair_div P.(tgt) D →
   sim_pool P →
   fair_div_alt P.(src).
 Proof.
   revert P D; cofix IH. intros P D Hfair Hsim.
-  destruct (sim_pool_val_or_step _ _ Hfair Hsim) as (P' & D' & Hsim' & Hfair' & Hval).
+  destruct (sim_pool_val_or_step _ _ Hfair Hsim) as (P' & D' & I & Hsim' & Hfair' & Hsteps & Hsub).
   econstructor; eauto.
 Qed.
+
+
+Lemma sim_pool_preserves_fair_termination P D:
+  fair_div P.(tgt) D →
+  sim_pool P →
+  ∃ D, fair_div P.(src) D.
+Proof.
+  intros ??; by eapply fair_div_iff, sim_pool_fair_div_alt.
+Qed.
+
+Lemma sim_expr_all_preserves_fair_termination P D:
+  fair_div P.(tgt) D →
+  sim_expr_all P →
+  ∃ D, fair_div P.(src) D.
+Proof.
+  intros ??; by eapply sim_pool_preserves_fair_termination, sim_expr_to_pool.
+Qed.
+
 
 
 End fair_termination_preservation.

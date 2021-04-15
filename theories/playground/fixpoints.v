@@ -177,6 +177,9 @@ Section lattice_properties.
 
 End lattice_properties.
 
+Arguments gfp : simpl never.
+Arguments lfp : simpl never.
+
 Global Instance Prop_Preorder: PreOrder impl.
 Proof. split; unfold impl; eauto 10. Qed.
 
