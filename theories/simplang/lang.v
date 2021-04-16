@@ -167,9 +167,11 @@ Definition vals_compare_safe (vl v1 : val) : Prop :=
   val_is_unboxed vl ∨ val_is_unboxed v1.
 Global Arguments vals_compare_safe !_ !_ /.
 
-(** The state: heaps of [option val]s, with [None] representing deallocated locations. *)
+(** The state: heaps of [option (lock_state * val)]s, with [None] representing deallocated locations. *)
+Inductive lock_state :=
+| WSt | RSt (n : nat).
 Record state : Type := {
-  heap: gmap loc (option val);
+  heap: gmap loc (option (lock_state * val));
 }.
 
 (** Equality and other typeclass stuff *)
@@ -192,6 +194,8 @@ Proof.
   destruct e2 => //=. by intros [= <- <-].
 Qed.
 
+Global Instance lock_state_eq_dec : EqDecision lock_state.
+Proof. solve_decision. Defined.
 Global Instance base_lit_eq_dec : EqDecision base_lit.
 Proof. solve_decision. Defined.
 Global Instance un_op_eq_dec : EqDecision un_op.
@@ -252,6 +256,17 @@ Defined.
 Global Instance val_eq_dec : EqDecision val.
 Proof. solve_decision. Defined.
 
+
+Global Instance lock_state_countable : Countable lock_state.
+Proof.
+  refine (inj_countable' (λ st, match st with
+   | RSt n => inr n
+   | WSt => inl ()
+   end) (λ st, match st with
+   | (inl _) => WSt
+   | (inr n) => RSt n
+   end) _); by intros [].
+Qed.
 Global Instance base_lit_countable : Countable base_lit.
 Proof.
  refine (inj_countable' (λ l, match l with
@@ -525,22 +540,23 @@ Definition bin_op_eval (op : bin_op) (v1 v2 : val) : option val :=
     | _, _ => None
     end.
 
-Definition state_upd_heap (f: gmap loc (option val) → gmap loc (option val)) (σ: state) : state :=
+
+Definition state_upd_heap (f: gmap loc (option (lock_state * val)) → gmap loc (option (lock_state * val))) (σ: state) : state :=
   {| heap := f σ.(heap) |}.
 Global Arguments state_upd_heap _ !_ /.
 
-Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (option val) :=
+Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (option (lock_state * val)) :=
   match vs with
   | [] => ∅
-  | v :: vs' => {[l := Some v]} ∪ heap_array (l +ₗ 1) vs'
+  | v :: vs' => {[l := Some (RSt 0, v)]} ∪ heap_array (l +ₗ 1) vs'
   end.
 
-Lemma heap_array_singleton l v : heap_array l [v] = {[l := Some v]}.
+Lemma heap_array_singleton l v : heap_array l [v] = {[l := Some (RSt 0, v)]}.
 Proof. by rewrite /heap_array right_id. Qed.
 
 Lemma heap_array_lookup l vs ow k :
   heap_array l vs !! k = Some ow ↔
-  ∃ j w, (0 ≤ j)%Z ∧ k = l +ₗ j ∧ ow = Some w ∧ vs !! (Z.to_nat j) = Some w.
+  ∃ j w, (0 ≤ j)%Z ∧ k = l +ₗ j ∧ ow = Some (RSt 0, w) ∧ vs !! (Z.to_nat j) = Some w.
 Proof.
   revert k l; induction vs as [|v' vs IH]=> l' l /=.
   { rewrite lookup_empty. naive_solver lia. }
@@ -559,7 +575,7 @@ Proof.
     auto with lia.
 Qed.
 
-Lemma heap_array_map_disjoint (h : gmap loc (option val)) (l : loc) (vs : list val) :
+Lemma heap_array_map_disjoint (h : gmap loc (option (lock_state * val))) (l : loc) (vs : list val) :
   (∀ i, (0 ≤ i)%Z → (i < length vs)%Z → h !! (l +ₗ i) = None) →
   (heap_array l vs) ##ₘ h.
 Proof.
@@ -573,14 +589,24 @@ Definition state_init_heap (l : loc) (n : Z) (v : val) (σ : state) : state :=
   state_upd_heap (λ h, heap_array l (replicate (Z.to_nat n) v) ∪ h) σ.
 
 Lemma state_init_heap_singleton l v σ :
-  state_init_heap l 1 v σ = state_upd_heap <[l:=Some v]> σ.
+  state_init_heap l 1 v σ = state_upd_heap <[l:= Some (RSt 0, v)]> σ.
 Proof.
   destruct σ as [h]. rewrite /state_init_heap /=. f_equiv.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
-Definition free_chunk (l:positive) (σ:gmap loc (option val)) : gmap loc (option val) :=
-  filter (λ '(l', _), loc_chunk l' ≠ l) σ.
+Definition free_loc l '(l', w) : loc * option (lock_state * val) := 
+  if decide (loc_chunk l' = l) then (l', None) else (l', w).
+Definition free_chunk (l:positive) (σ:gmap loc (option (lock_state * val))) : gmap loc (option (lock_state * val)) :=
+  list_to_map (map (free_loc l) (map_to_list σ)).
+Lemma lookup_free_chunk_1 l b σ : 
+  loc_chunk l ≠ b → (free_chunk b σ) !! l = σ !! l.
+Proof. 
+Admitted.
+Lemma lookup_free_chunk_2 l b σ :
+  loc_chunk l = b → (free_chunk b σ) !! l = None ∨ (free_chunk b σ) !! l = Some None.
+Proof.
+Admitted.
 
 (** Building actual evaluation contexts out of ectx_items *)
 Definition ectx := list ectx_item.
@@ -630,37 +656,25 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
   | MatchRS v x1 e1 x2 e2 e' σ :
       e' = subst' x2 v e2 →
      head_step P (Match (Val $ InjRV v) x1 e1 x2 e2) σ e' σ
-  | ForkS e σ:
+  (*| ForkS e σ:*)
       (* TODO: for now, this is just a NOP -- maybe we want to change this later and add concurrency?*)
-     head_step P (Fork e) σ (Val $ LitV LitUnit) σ
-  | AllocNS n v σ l :
+     (*head_step P (Fork e) σ (Val $ LitV LitUnit) σ*)
+  | AllocNS n v σ b :
      (0 < n)%Z →
-     (∃ b, l = Build_loc b 0) →
-     (∀ i, σ.(heap) !! (l +ₗ i) = None) →
+     (∀ i, σ.(heap) !! (Build_loc b i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc l) (state_init_heap l n v σ)
-  | FreeS l v σ :
-     σ.(heap) !! l = Some $ Some v →
+               (Val $ LitV $ LitLoc (Build_loc b 0)) (state_init_heap (Build_loc b 0) n v σ)
+  | FreeS l v σ st :
+     σ.(heap) !! l = Some $ Some (st, v) →
      head_step P (Free (Val $ LitV $ LitLoc l)) σ
                (Val $ LitV LitUnit) (state_upd_heap (free_chunk (loc_chunk l)) σ)
-  | LoadS l v σ :
-     σ.(heap) !! l = Some $ Some v →
+  | LoadS l v σ st :
+     σ.(heap) !! l = Some $ Some (st, v) →
      head_step P (Load (Val $ LitV $ LitLoc l)) σ (of_val v) σ
-  | StoreS l v w σ :
-     σ.(heap) !! l = Some $ Some v →
+  | StoreS l v w σ st :
+     σ.(heap) !! l = Some $ Some (st, v) →
      head_step P (Store (Val $ LitV $ LitLoc l) (Val w)) σ
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some w]> σ)
-  | CmpXchgS l v1 v2 vl σ b :
-     σ.(heap) !! l = Some $ Some vl →
-     (* Crucially, this compares the same way as [EqOp]! *)
-     vals_compare_safe vl v1 →
-     b = bool_decide (vl = v1) →
-     head_step P (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ
-               (Val $ PairV vl (LitV $ LitBool b)) (if b then state_upd_heap <[l:=Some v2]> σ else σ)
-  | FaaS l i1 i2 σ :
-     σ.(heap) !! l = Some $ Some (LitV (LitInt i1)) →
-     head_step P (FAA (Val $ LitV $ LitLoc l) (Val $ LitV $ LitInt i2)) σ
-               (Val $ LitV $ LitInt i1) (state_upd_heap <[l:=Some $ LitV (LitInt (i1 + i2))]>σ)
+               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some (st, w)]> σ)
   | CallS f v K σ :
      P !! f = Some K →
      head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (fill K (Val v)) σ.
@@ -786,7 +800,7 @@ Lemma alloc_fresh P v n σ :
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
             (Val $ LitV $ LitLoc l) (state_init_heap l n v σ).
 Proof.
-  intros. apply AllocNS; first done; first by eauto. apply is_fresh_block.
+  intros. apply AllocNS; first done. apply is_fresh_block.
 Qed.
 
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' :

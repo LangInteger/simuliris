@@ -187,25 +187,25 @@ Section irreducible.
   Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_load σ v_l P :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some v)) P (Load $ Val v_l) σ.
+    IrredUnless (∃ l v st, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (st, v))) P (Load $ Val v_l) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[]| ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_store σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some v)) P (Store (Val $ v_l) (Val v)) σ.
+    IrredUnless (∃ l v st, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (st, v))) P (Store (Val $ v_l) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[]|] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_free σ v_l P :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some v)) P (Free $ Val $ v_l) σ.
+    IrredUnless (∃ l v st, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (st, v))) P (Free $ Val $ v_l) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[]|] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_allocN σ v_n v P :
     IrredUnless (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.
@@ -225,19 +225,19 @@ Section irreducible.
     IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Load $ Val v_l) σ | 10.
   Proof.
     eapply irred_unless_weaken; last apply irreducible_load.
-    intros (l & v & ? & ?); eauto.
+    intros (l & v & ? & ? &?); eauto.
   Qed.
   Global Instance irreducible_store_weak σ v_l P (v : val) :
     IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Store (Val $ v_l) (Val v)) σ | 10.
   Proof.
     eapply irred_unless_weaken; last apply irreducible_store.
-    intros (l & ? & ? & ?); eauto.
+    intros (l & ? & ? & ? &?); eauto.
   Qed.
   Global Instance irreducible_free_weak σ v_l P :
     IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Free $ Val $ v_l) σ | 10.
   Proof.
     eapply irred_unless_weaken; last apply irreducible_free.
-    intros (l & ? & ? & ?); eauto.
+    intros (l & ? & ? & ? &?); eauto.
   Qed.
 End irreducible.
 

@@ -1,7 +1,9 @@
 From iris.proofmode Require Import tactics.
 From iris.bi.lib Require Import fractional.
-From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog gen_heap_bij.
+From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
+From iris.algebra.lib Require Import gset_bij.
+From iris.base_logic.lib Require Import gset_bij.
 From simuliris.simplang Require Export class_instances primitive_laws proofmode.
 
 From iris.prelude Require Import options.
@@ -10,8 +12,109 @@ From iris.prelude Require Import options.
 
 Class sbijG (Σ : gFunctors) := SBijG {
   sbijG_sheapG :> sheapG Σ;
-  sbijG_bijG :> gen_heap_bijG (Σ:=Σ) (H1:=sheapG_gen_heapG);
+  sbijG_bijG :> gset_bijG Σ block block;
+  sbijG_bij_name : gname;
 }.
+
+Section definitions.
+  Context `{sbijG Σ}.
+
+  Definition heap_bij_auth (L : gset (block * block)) :=
+    gset_bij_own_auth sbijG_bij_name (DfracOwn 1) L.
+  Definition heap_bij_elem (l_t : block) (l_s : block) :=
+    gset_bij_own_elem sbijG_bij_name l_t l_s.
+
+  Definition heap_bij_inv (val_rel : val → val → iProp Σ) :=
+    (∃ L, heap_bij_auth L ∗
+      [∗ set] p ∈ L, 
+        let '(b_t, b_s) := p in 
+        ∃ (n : nat),
+        Build_loc b_t 0 ==>t n ∗ Build_loc b_s 0 ==>s n ∗ 
+        ([∗ list] i ∈ seq 0 n, ∃ v_t v_s, (Build_loc b_t (Z.of_nat i)) ↦t v_t ∗ (Build_loc b_s (Z.of_nat i)) ↦s v_s ∗ val_rel v_t v_s))%I. 
+End definitions.
+
+Notation "b_t '↔h' b_s" := (heap_bij_elem b_t b_s) (at level 30) : bi_scope.
+
+Section laws.
+  Context `{sbijG Σ}.
+
+  Global Instance gen_heap_bij_elem_persistent l_t l_s :
+    Persistent (l_t ↔h l_s).
+  Proof. apply _. Qed.
+
+  Lemma gen_heap_bij_agree l_t1 l_t2 l_s1 l_s2 :
+    l_t1 ↔h l_s1 -∗ l_t2 ↔h l_s2 -∗ ⌜l_t1 = l_t2 ↔ l_s1 = l_s2⌝.
+  Proof.
+    iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2").
+    apply gset_empty.
+  Qed.
+  Lemma gen_heap_bij_func l_t l_s1 l_s2 :
+    l_t ↔h l_s1 -∗ l_t ↔h l_s2 -∗ ⌜l_s1 = l_s2⌝.
+  Proof.
+    iIntros "H1 H2". iPoseProof (gen_heap_bij_agree with "H1 H2") as "<-"; done.
+  Qed.
+  Lemma gen_heap_bij_inj l_s l_t1 l_t2 :
+    l_t1 ↔h l_s -∗ l_t2 ↔h l_s -∗ ⌜l_t1 = l_t2⌝.
+  Proof.
+    iIntros "H1 H2". iPoseProof (gen_heap_bij_agree with "H1 H2") as "->"; done.
+  Qed.
+
+  Lemma gen_heap_bij_access val_rel l_t l_s :
+    gen_heap_bij_inv val_rel -∗
+    l_t ↔h l_s -∗
+    ∃ v_t v_s, l_t ↦t v_t ∗ l_s ↦s v_s ∗ val_rel v_t v_s ∗
+      (∀ v_t' v_s', l_t ↦t v_t' -∗
+        l_s ↦s v_s' -∗
+        val_rel v_t' v_s' -∗
+        gen_heap_bij_inv val_rel).
+  Proof.
+    iIntros "Hinv Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
+    iPoseProof (gset_bij_own_elem_auth_agree with "Hauth Hrel") as "%".
+    iPoseProof (big_sepS_delete with "Hheap") as "[He Hheap]"; first done.
+    iDestruct "He" as (v_t v_s) "(H_t & H_s & Hvrel)".
+    iExists v_t, v_s. iFrame.
+    iIntros (v_t' v_s') "H_t H_s Hvrel".
+    iExists L. iFrame. iApply big_sepS_delete; first done.
+    iFrame. iExists v_t', v_s'. iFrame.
+  Qed.
+
+  Lemma gen_heap_bij_insert val_rel l_t l_s v_t v_s :
+    gen_heap_bij_inv val_rel -∗
+    l_t ↦t v_t -∗
+    l_s ↦s v_s -∗
+    val_rel v_t v_s ==∗
+    gen_heap_bij_inv val_rel ∗ l_t ↔h l_s.
+  Proof.
+    iIntros "Hinv Ht Hs Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
+    iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_t = l_t') L⌝)%I) as "%Hext_t".
+    { iIntros "%". destruct H3 as ([l_t' l_s'] & Hin & <-).
+      iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(Hcon & _ & _)"; first by apply Hin.
+      iPoseProof (mapsto_valid_2  with "Ht Hcon") as "%Hcon"; exfalso.
+      destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
+    }
+    iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_s = l_s') L⌝)%I) as "%Hext_s".
+    { iIntros (([l_t' l_s'] & Hin & <-)).
+      iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(_ & Hcon & _)"; first by apply Hin.
+      iPoseProof (mapsto_valid_2 with "Hs Hcon") as "%Hcon"; exfalso.
+      destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
+    }
+
+    iMod ((gset_bij_own_extend l_t l_s) with "Hauth") as "[Hinv #Helem]".
+    - intros l_s' Hl_s'. apply Hext_t. by exists (l_t, l_s').
+    - intros l_t' Hl_t'. apply Hext_s. by exists (l_t', l_s).
+    - iModIntro. iSplitL; last done.
+      iExists ({[(l_t, l_s)]} ∪ L)%I. iFrame.
+      iApply big_sepS_insert. { contradict Hext_t. by exists (l_t, l_s). }
+      iFrame. iExists v_t, v_s. iFrame.
+  Qed.
+
+End laws.
+
+
+
+Section bij.
+
+End bij.
 
 Section fix_heap.
   Context `{sbijG Σ} (val_rel : val → val → iProp Σ).

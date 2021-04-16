@@ -38,7 +38,7 @@ Definition fresh_block {X} (σ : gmap loc X) : block :=
   let blockset : gset block := foldr (λ l, ({[loc_chunk l]} ∪.)) ∅ loclst in
   fresh blockset.
 
-Lemma is_fresh_block {X} (σ : gmap loc X) i :
+Lemma is_fresh_block {X} (σ : gmap loc X) i : 
   σ !! ({|loc_chunk := fresh_block σ; loc_idx := i |} : loc) = None.
 Proof.
   assert (∀ (l : loc) ls (S : gset block),

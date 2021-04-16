@@ -12,8 +12,8 @@ From iris.prelude Require Import options.
 
 
 (** * Rules for allocation *)
-Lemma mapsto_seq_array `{sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option val) Σ γh γm} l dq v n :
-  ([∗ list] i ∈ seq 0 n, mapsto (hG:=hG) (l +ₗ (i : nat)) dq (Some v)) -∗
+Lemma mapsto_seq_array `{sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} l dq v n :
+  ([∗ list] i ∈ seq 0 n, mapsto (hG:=hG) (l +ₗ (i : nat)) dq (Some (RSt 0, v))) -∗
   array (hG:=hG) l dq (replicate n v).
 Proof.
   rewrite /array. iInduction n as [|n'] "IH" forall (l); simpl.
