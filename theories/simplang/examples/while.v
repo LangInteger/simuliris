@@ -79,7 +79,7 @@ Section fix_bi.
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
     while: !"cont" do
-      "cont" <- Call ## "external" #()
+      "cont" <- Call ##"external" #()
     od.
 
   Lemma val_rel_bool_source v_t b :
@@ -99,10 +99,11 @@ Section fix_bi.
   Definition input_rec : ectx :=
     λ: "cont",
       if: "cont" then
-        let: "cont" := Call ## "external" #() in
-        Call ## "rec" "cont"
+        let: "cont" := Call ##"external" #() in
+        Call ##"rec" "cont"
       else #().
 
+  (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
     input_loop ⪯ Call ##"rec" #true {{ val_rel }}.
@@ -119,6 +120,28 @@ Section fix_bi.
       iApply sim_wand; first by iApply sim_call.
       iIntros (??) "Hv". target_store. sim_pures. iApply sim_expr_base.
       iRight. iExists v_s. eauto.
+    - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
+  Qed.
+
+  (* TODO: lemma for rec rec *)
+  (*JAR memory model compcert*)
+  Lemma loop_rec' :
+    "rec" @t input_rec -∗
+     Call ##"rec" #true ⪯ input_loop {{ val_rel }}.
+  Proof.
+    iIntros "#Hs". rewrite /input_loop. source_alloc lc_s as "Hlc_s". sim_pures.
+    iApply (sim_rec_while _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
+    { iExists #true. eauto. }
+    iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.
+
+    source_load.
+    discr_source.
+    iIntros ((b & ->)); iPoseProof (val_rel_bool_source with "Hv") as "->"; sim_pures.
+    destruct b; sim_pures.
+    - sim_bind (Call _ _) (Call _ _).
+      iApply sim_wand; first by iApply sim_call.
+      iIntros (??) "Hv". source_store. sim_pures. iApply sim_expr_base.
+      iRight. iExists v_t. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
 

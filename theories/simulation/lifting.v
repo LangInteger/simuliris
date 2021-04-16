@@ -296,6 +296,7 @@ Section fix_sim.
      Since we do not have any means to keep track of this in the simulation relation, this lemma
      requires to take steps in the beginning, before escaping to the simulation relation again.
   *)
+  (* TODO: differnt symbols for expr thing *)
   Lemma sim_lift_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
