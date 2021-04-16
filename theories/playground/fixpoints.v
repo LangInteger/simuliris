@@ -135,6 +135,30 @@ Section lattice_properties.
       eapply mono. eapply join_right.
   Qed.
 
+  Global Instance mono_paco l `{!Mono f}:
+    Mono (λ l', join l (f l')).
+  Proof.
+    split; intros l1 l2 Hle.
+    eapply join_spec; split; first by eapply join_left.
+    etrans; last eapply join_right. eapply mono, Hle.
+  Qed.
+
+  Lemma gfp_parametric_coind f `{!Mono f} l:
+    l ⪯ gfp f ↔ l ⪯ f (gfp (λ l', join l (f l'))).
+  Proof.
+    split.
+    - intros Hle. etrans; first eapply Hle.
+      rewrite gfp_fixpoint; eapply mono.
+      eapply gfp_greatest_post_fixpoint.
+      etrans; last eapply join_right.
+      eapply gfp_post_fixpoint, _.
+    - intros Hle. etrans; first eapply Hle.
+      etrans; last eapply gfp_pre_fixpoint, _.
+      eapply mono. eapply gfp_greatest_post_fixpoint.
+      etrans; first eapply gfp_post_fixpoint, _.
+      eapply join_spec; split; done.
+  Qed.
+
   Lemma lfp_least_pre_fixpoint f l:
     f l ⪯ l → lfp f ⪯ l.
   Proof.
@@ -174,6 +198,30 @@ Section lattice_properties.
     - eapply meet_left.
   Qed.
 
+  (* the dual version of paco for least fixpoints *)
+  Global Instance mono_copaco l `{!Mono f}:
+    Mono (λ l', meet l (f l')).
+  Proof.
+    split; intros l1 l2 Hle.
+    eapply meet_spec; split; first by eapply meet_left.
+    etrans; first eapply (meet_right l); eapply mono, Hle.
+  Qed.
+
+  Lemma lfp_parametric_ind f `{!Mono f} l:
+    lfp f ⪯ l ↔ f (lfp (λ l', meet l (f l'))) ⪯ l.
+  Proof.
+    split.
+    - intros Hle. etrans; last eapply Hle.
+      rewrite (lfp_fixpoint f); eapply mono.
+      eapply lfp_least_pre_fixpoint.
+      etrans; first eapply meet_right.
+      eapply lfp_pre_fixpoint, _.
+    - intros Hle. etrans; last eapply Hle.
+      etrans; first eapply lfp_post_fixpoint, _.
+      eapply mono. eapply lfp_least_pre_fixpoint.
+      etrans; last eapply lfp_pre_fixpoint, _.
+      eapply meet_spec; split; done.
+  Qed.
 
 End lattice_properties.
 
@@ -276,78 +324,3 @@ Proof.
   etrans; first eapply gfp_post_fixpoint, _.
   eapply Hle.
 Qed.
-
-
-
-
-
-(* small lockstep simulation example *)
-(* Section simulation.
-  Context (expr: Type) (step: expr → expr → Prop) (val: expr → Prop).
-
-  Definition sim :=
-    gfp (λ sim e_t e_s,
-      ((val e_t) ∧ (val e_s)) ∨
-      (∀ e_t', step e_t e_t' → ∃ e_s', step e_s e_s' ∧ sim e_t' e_s')).
-
-  Global Instance sim_func_mono :
-    Mono (λ sim e_t e_s,
-    ((val e_t) ∧ (val e_s)) ∨
-    (∀ e_t', step e_t e_t' → ∃ e_s', step e_s e_s' ∧ sim e_t' e_s')).
-  Proof.
-    split. intros sim sim' Himpl e_t e_s.
-    intros [|Hsim]; [eauto|right].
-    intros e_t' Hstep; destruct (Hsim e_t' Hstep) as [e_s' [Hstep' Hsim2]].
-    exists e_s'. split; first done. by eapply Himpl.
-  Qed.
-
-  Lemma sim_fixpoint e_t e_s:
-    sim e_t e_s ≡
-    (((val e_t) ∧ (val e_s)) ∨
-    (∀ e_t', step e_t e_t' → ∃ e_s', step e_s e_s' ∧ sim e_t' e_s')).
-  Proof.
-    rewrite {1}/sim. by rewrite {1}gfp_fixpoint.
-  Qed.
-
-  Lemma sim_coinduction (P : expr → expr → Prop):
-    (∀ e_t e_s, P e_t e_s →
-      val e_t ∧ val e_s
-      ∨ (∀ e_t' : expr,
-         step e_t e_t' → ∃ e_s' : expr, step e_s e_s' ∧ P e_t' e_s')) →
-    ∀ e_t e_s, P e_t e_s → sim e_t e_s.
-  Proof.
-    rewrite /sim. intros IH. change (lattice_leq P sim).
-    eapply gfp_greatest_post_fixpoint.
-    exact IH.
-  Qed.
-End simulation. *)
-
-
-
-(*
-(* coindutive inductive fairness *)
-Section fairness.
-  Context (expr: Type) (step: gmap nat expr → nat → gmap nat expr → Prop) (val: expr → Prop) (is_val: ∀ e, Decision (val e)).
-  Implicit Types (e: expr) (T: gmap nat expr) (O: gset nat).
-
-
-  Definition active_exprs T :=
-    dom (gset nat) (filter (λ '(i, e), ¬ val e) T).
-
-  Lemma active_expr_spec T i:
-    i ∈ active_exprs T ↔ ∃ e, T !! i = Some e ∧ ¬ val e.
-  Proof.
-    rewrite /active_exprs elem_of_dom. split.
-    - intros [e Hlook]. exists e. by eapply map_filter_lookup_Some in Hlook.
-    - intros [e H]. exists e. by eapply map_filter_lookup_Some.
-  Qed.
-
-  Definition fair_div :=
-    gfp (λ fair_div T,
-      lfp (λ steps T O,
-        (O ≡ ∅ ∧ fair_div T) ∨
-        (∃ T' i, step T i T' ∧ steps T' (O ∖ {[i]}))
-      ) T (active_exprs T)).
-
-
-End fairness. *)
