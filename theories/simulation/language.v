@@ -463,77 +463,10 @@ Section language.
     intros [Heq|([e1 σ1] & Hstep & Hrtc)] % rtc_inv; first naive_solver.
     exfalso; by eapply val_prim_step.
   Qed.
+*)
 
 
-  Section reach_stuck.
-
-  Definition reach_stuck (P : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    ∃ e' σ', rtc (prim_step P) (e, σ) (e', σ') ∧ stuck P e' σ'.
-
-  Lemma val_not_reach_stuck P v σ : ¬ reach_stuck P (of_val v) σ.
-  Proof.
-    intros (e'&σ'& H & Hstuck). apply val_prim_step_rtc in H as (->&->).
-    destruct Hstuck as [H _]. rewrite to_of_val in H; discriminate.
-  Qed.
-
-  Lemma fill_reach_stuck (P : prog Λ) (e : expr Λ) K (σ : state Λ) :
-    reach_stuck P e σ → reach_stuck P (fill K e) σ.
-  Proof.
-    intros (e' & σ' & [Hreach Hstuck]). exists (fill K e'), σ'. split.
-    - by apply fill_prim_step_rtc.
-    - by apply fill_stuck.
-  Qed.
-
-  Lemma prim_step_rtc_reach_stuck P e e' σ σ':
-    rtc (prim_step P) (e, σ) (e', σ') → reach_stuck P e' σ' → reach_stuck P e σ.
-  Proof.
-    intros H (e'' & σ'' & Hstep & Hstuck).
-    exists e'', σ''. split; last assumption. by etrans.
-  Qed.
-
-  Lemma not_reach_stuck_pres P e e' σ σ':
-    ¬ reach_stuck P e σ →
-    prim_step P (e, σ) (e', σ') →
-    ¬ reach_stuck P e' σ'.
-  Proof.
-    intros Hnstuck Hstep Hstuck; apply Hnstuck.
-    destruct Hstuck as (e_stuck & σ_stuck & Hsteps & Hstuck).
-    exists e_stuck, σ_stuck; split; last by eauto.
-    by econstructor.
-  Qed.
-
-  Lemma not_reach_stuck_pres_rtc P e e' σ σ':
-    ¬ reach_stuck P e σ →
-    rtc (prim_step P) (e, σ) (e', σ') →
-    ¬ reach_stuck P e' σ'.
-  Proof.
-    intros Hstuck Hrtc; remember (e, σ) as cfg; remember (e', σ') as cfg'.
-    revert e e' σ σ' Heqcfg Heqcfg' Hstuck.
-    induction Hrtc as [|? [e_mid σ_mid]]; first by naive_solver.
-    intros e e' σ σ' -> -> Hstuck; by eauto using not_reach_stuck_pres.
-  Qed.
-
-  Lemma not_reach_stuck_pres_tc P e e' σ σ':
-    ¬ reach_stuck P e σ →
-    tc (prim_step P) (e, σ) (e', σ') →
-    ¬ reach_stuck P e' σ'.
-  Proof.
-    eauto using not_reach_stuck_pres_rtc, tc_rtc.
-  Qed.
-
-  Lemma not_stuck_call_in_prg P f K e σ σ' v:
-    ¬ reach_stuck P e σ → rtc (prim_step P) (e, σ) (fill K (of_call f v), σ') → ∃ K, P !! f = Some K.
-  Proof.
-    destruct (P !! f) eqn: Hloook; eauto.
-    intros Hstuck Hsteps. exfalso; eapply Hstuck.
-    eexists _, _. split; eauto. unfold stuck; split.
-    - apply fill_not_val, to_val_of_call.
-    - intros e'' σ'' [K' [H _]] % prim_step_call_inv.
-      naive_solver.
-  Qed.
-  End reach_stuck. *)
-
-
+  (** Lifting of steps to thread pools *)
   Implicit Types (T: list (expr Λ)).  (* thread pools *)
   Implicit Types (I J: list nat).       (* traces *)
   Implicit Types (O: gset nat).       (* trace sets *)
@@ -610,6 +543,345 @@ Section language.
     pool_steps p T σ (I ++ J) T'' σ''.
   Proof.
     induction 1; simpl; eauto using pool_steps.
+  Qed.
+
+
+  (** Threads in a thread pool *)
+  Definition threads T :=
+    list_to_set (C := gset nat) (seq 0 (length T)).
+
+  Lemma threads_spec T i:
+    i ∈ threads T ↔ ∃ e, T !! i = Some e.
+  Proof.
+    rewrite elem_of_list_to_set elem_of_seq.
+    split.
+    - intros [_ Hlt]. eapply lookup_lt_is_Some_2. lia.
+    - intros ? % lookup_lt_is_Some_1. lia.
+  Qed.
+
+  Lemma threads_insert T i e:
+    threads T ⊆ threads (<[i:=e]> T).
+  Proof.
+    intros j [e' Hlook]%threads_spec.
+    eapply threads_spec.
+    destruct (decide (i = j)).
+    - subst; exists e.
+      eapply list_lookup_insert, lookup_lt_Some, Hlook.
+    - rewrite list_lookup_insert_ne; last done. by exists e'.
+  Qed.
+
+  Lemma threads_app T T':
+    threads T ⊆ threads (T ++ T').
+  Proof.
+    intros j (e & Hlook)%threads_spec.
+    eapply threads_spec. exists e.
+    eapply lookup_app_l_Some, Hlook.
+  Qed.
+
+  (* a prim_step does the following mutation to the thread pool *)
+  Lemma threads_prim_step e' T' i T :
+    threads T ⊆ threads (<[i := e']> T ++ T').
+  Proof.
+    etrans; last eapply threads_app.
+    eapply threads_insert.
+  Qed.
+
+  Lemma threads_pool_step p T σ i T' σ' :
+    pool_step p T σ i T' σ' →
+    threads T ⊆ threads T'.
+  Proof.
+    rewrite pool_step_iff; intros (e & e' & efs & Hstep & Hlook & ->).
+    eapply threads_prim_step.
+  Qed.
+
+  Lemma threads_pool_steps p T σ I T' σ' :
+    pool_steps p T σ I T' σ' →
+    threads T ⊆ threads T'.
+  Proof.
+    induction 1; first done.
+    etrans; first eapply threads_pool_step; eauto.
+  Qed.
+
+
+  Definition sub_pool T1 T2 := T1 ⊆+ T2.
+
+  Lemma sub_pool_insert T1 T2  i j  e e':
+    sub_pool T1 T2 →
+    T1 !! i = Some e →
+    T2 !! j = Some e →
+    sub_pool (<[i := e']> T1) (<[j := e']> T2).
+  Proof.
+    intros Hsub H1 H2.
+    eapply lookup_lt_Some in H1 as Hlt1.
+    eapply lookup_lt_Some in H2 as Hlt2.
+    eapply take_drop_middle in H1.
+    eapply take_drop_middle in H2.
+    rewrite -H1 -H2.
+    rewrite !insert_app_r_alt; [|(rewrite take_length; lia)..].
+    rewrite !take_length.
+    replace (i - i `min` length T1) with 0 by lia.
+    replace (j - j `min` length T2) with 0 by lia. simpl.
+    rewrite -H1 -H2 in Hsub. revert Hsub.
+    rewrite /sub_pool !cons_middle.
+    rewrite !(Permutation_app_comm [e]) !(Permutation_app_comm [e']).
+    rewrite !app_assoc.
+    intros ?%submseteq_app_inv_r; by eapply submseteq_skips_r.
+  Qed.
+
+  Lemma sub_pool_lookup T1 T2 i e:
+    sub_pool T1 T2 →
+    T1 !! i = Some e →
+    ∃ j, T2 !! j = Some e.
+  Proof.
+    intros Hsub Hlook. eapply elem_of_list_lookup_1, elem_of_submseteq;
+    eauto using elem_of_list_lookup_2.
+  Qed.
+
+  Lemma sub_pool_singleton e i T :
+    T !! i = Some e →
+    sub_pool [e] T.
+  Proof.
+    intros Hlook. rewrite /sub_pool.
+    eapply take_drop_middle in Hlook; rewrite -Hlook.
+    eapply submseteq_cons_middle, submseteq_nil_l.
+  Qed.
+
+
+
+
+
+  (* TODO: do we even need these definitions? *)
+  Definition reducible_pool p T σ := ∃ i T' σ', pool_step p T σ i T' σ'.
+  Definition irreducible_pool p T σ := ∀ i T' σ', ¬ pool_step p T σ i T' σ'.
+
+
+  Lemma reducible_pool_reducible p T σ:
+    reducible_pool p T σ ↔ (∃ i e, T !! i = Some e ∧ reducible p e σ).
+  Proof.
+    split.
+    - intros (i & T' & σ' & (e & e' & efs & Hstep & Hlook & Heq)%pool_step_iff).
+      subst T'; rewrite /reducible; eauto 10.
+    - intros (i & e & Hlook & (e' & σ' & efs & Hprim)); exists i, (<[i := e']> T ++ efs), σ'.
+      eapply pool_step_iff; eauto 10.
+  Qed.
+
+  Lemma irreducible_pool_irreducible p T σ:
+    irreducible_pool p T σ ↔ (∀ i e, T !! i = Some e → irreducible p e σ).
+  Proof.
+    split.
+    - intros Hirred i e Hlook e' σ' efs Hstep. eapply Hirred, pool_step_iff; eauto 10.
+    - intros Hirred i T' σ' (e & e' & efs & Hstep & Hlook & ->)%pool_step_iff.
+      eapply Hirred; eauto.
+  Qed.
+
+  (** Reaching Stuck States/Safety *)
+  (* a thread pool has undefined behavior, if one of its threads has undefined behavior. *)
+  Definition stuck_pool p T σ := (∃ e i, T !! i = Some e ∧ stuck p e σ).
+  Definition pool_reach_stuck p T σ :=
+    ∃ T' σ' I, pool_steps p T σ I T' σ' ∧ stuck_pool p T' σ'.
+  Definition pool_safe p T σ := ¬ pool_reach_stuck p T σ.
+
+
+  Lemma pool_step_sub_pool p T1 T1' σ i T2 σ' :
+    pool_step p T1 σ i T1' σ' →
+    sub_pool T1 T2 →
+    ∃ T2' j, sub_pool T1' T2' ∧ pool_step p T2 σ j T2' σ'.
+  Proof.
+    intros (e & e' & efs & Hstep & Hlook & ->)%pool_step_iff Hsub.
+    eapply sub_pool_lookup in Hsub as Hidx; last done.
+    destruct Hidx as (j & Hlook').
+    exists (<[j := e']> T2 ++ efs), j.
+    split; last (apply pool_step_iff; eauto 10).
+    eapply submseteq_app; last done.
+    eapply sub_pool_insert; eauto.
+  Qed.
+
+  Lemma pool_steps_sub_pool p T1 T1' σ I T2 σ' :
+    pool_steps p T1 σ I T1' σ' →
+    sub_pool T1 T2 →
+    ∃ T2' J, sub_pool T1' T2' ∧ pool_steps p T2 σ J T2' σ'.
+  Proof.
+    induction 1 as [|T1 T1' T1'' σ σ' σ'' i I Hstep Hsteps IH] in T2; first by eauto using pool_steps.
+    intros Hsub; eapply pool_step_sub_pool in Hstep as (T2' & j & Hpool & Hstep); last done.
+    edestruct IH as (? & ? & ? & ?); eauto 10 using pool_steps.
+  Qed.
+
+  Lemma pool_reach_stuck_subs p T1 T2 σ:
+    pool_reach_stuck p T1 σ →
+    sub_pool T1 T2 →
+    pool_reach_stuck p T2 σ.
+  Proof.
+    intros (T1' & σ' & I & Hsteps & Hstuck) Hsub.
+    eapply pool_steps_sub_pool in Hsteps as (T2' & J & Hsub' & Hsteps'); last done.
+    exists T2', σ', J; split; first done.
+    destruct Hstuck as (e & i & Hlook & Hstuck).
+    eapply sub_pool_lookup in Hsub' as (j & Hlook'); last done.
+    exists e, j; split; eauto.
+  Qed.
+
+
+  Lemma pool_step_singleton p e σ i σ' T:
+    pool_step p [e] σ i T σ' ↔
+    (∃ e' efs, prim_step p e σ e' σ' efs ∧ T = e' :: efs ∧ i = 0).
+  Proof.
+    rewrite pool_step_iff. destruct i; simpl; naive_solver.
+  Qed.
+
+  Lemma pool_step_fill_context p e K i j σ σ' T T':
+    pool_step p T σ j T' σ' →
+    T !! i = Some e →
+    ∃ e', T' !! i = Some e' ∧
+    pool_step p (<[i := fill K e]> T) σ j (<[i := fill K e']> T') σ'.
+  Proof.
+    rewrite pool_step_iff; intros (e1 & e2 & efs & Hprim & Hlook & Hupd) Hlook1.
+    destruct (decide (i = j)).
+    - subst. assert (<[j:=e2]> T !! j = Some e2) as Hlook2.
+      { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+      exists e2; split; first eapply lookup_app_l_Some, Hlook2.
+      rewrite insert_app_l; last by eapply lookup_lt_Some, Hlook2.
+      rewrite list_insert_insert. assert (e1 = e) as -> by naive_solver.
+      eapply pool_step_iff; exists (fill K e), (fill K e2), efs.
+      split; first by eapply fill_prim_step.
+      split; first eapply list_lookup_insert, lookup_lt_Some, Hlook.
+      by rewrite list_insert_insert.
+    - exists e. rewrite Hupd.
+      rewrite (lookup_app_l_Some _ _ _ e);
+        last by rewrite list_lookup_insert_ne //.
+      rewrite insert_app_l;
+        last (eapply lookup_lt_Some; rewrite list_lookup_insert_ne //).
+      split; first done.
+      rewrite list_insert_commute //.
+      eapply pool_step_iff; exists e1, e2, efs.
+      split; first done.
+      split; first rewrite list_lookup_insert_ne //.
+      done.
+  Qed.
+
+  Lemma pool_steps_fill_context p e K i I σ σ' T T':
+    pool_steps p T σ I T' σ' →
+    T !! i = Some e →
+    ∃ e', T' !! i = Some e' ∧
+    pool_steps p (<[i := fill K e]> T) σ I (<[i := fill K e']> T') σ'.
+  Proof.
+    induction 1 as [T σ|T T' T'' σ σ' σ'' j I Hstep Hsteps IH] in e.
+    - eauto 10 using pool_steps.
+    - intros Hlook.
+      eapply pool_step_fill_context in Hlook as (e' & Hlook' & Hstep'); last done.
+      eapply IH in Hlook' as (e'' & Hlook'' & Hstep'').
+      eauto 10 using pool_steps.
+  Qed.
+
+  Lemma fill_reach_stuck_pool p T i e σ K :
+    T !! i = Some e →
+    pool_reach_stuck p T σ →
+    pool_reach_stuck p (<[i := fill K e]> T) σ.
+  Proof.
+    intros Hlook (T' & σ' & I & Hsteps & Hstuck).
+    eapply pool_steps_fill_context with (K := K) in Hsteps as (e' & Hlook' & Hsteps); last done.
+    exists (<[i:=fill K e']> T'), σ', I; split; first done.
+    destruct Hstuck as (e'' & j & Hlook'' & Hstuck).
+    destruct (decide (i = j)).
+    - subst. exists (fill K e'), j. assert (e'' = e') as -> by naive_solver.
+      split; first eapply list_lookup_insert, lookup_lt_Some, Hlook'.
+      eapply fill_stuck, Hstuck.
+    - exists e'', j. rewrite list_lookup_insert_ne //.
+  Qed.
+
+  Lemma pool_steps_reach_stuck p T I T' σ σ':
+    pool_steps p T σ I T' σ' → pool_reach_stuck p T' σ' → pool_reach_stuck p T σ.
+  Proof.
+    intros H (e'' & σ'' & J & Hstep & Hstuck).
+    exists e'', σ'', (I ++ J). split; last assumption.
+    by eapply pool_steps_trans.
+  Qed.
+
+  Lemma pool_steps_safe p T I T' σ σ':
+    pool_steps p T σ I T' σ' → pool_safe p T σ → pool_safe p T' σ'.
+  Proof.
+    intros H1 H2 H3; by eapply H2, pool_steps_reach_stuck.
+  Qed.
+
+  Lemma pool_safe_call_in_prg p K T T' i I σ σ' f v:
+    pool_safe p T σ →
+    pool_steps p T σ I T' σ' →
+    T' !! i = Some (fill K (of_call f v)) →
+    ∃ K', p !! f = Some K'.
+  Proof.
+    destruct (p !! f) eqn: Hloook; eauto.
+    intros Hsafe Hsteps Hlook. exfalso; eapply Hsafe.
+    exists T', σ', I; split; first done.
+    exists (fill K (of_call f v)), i.
+    split; first done. eapply fill_stuck.
+    split; first eapply to_val_of_call.
+    intros  e'' σ'' efs Hstep.
+    pose proof (prim_step_call_inv p empty_ectx f v e'' σ' σ'' efs) as Hinv.
+    rewrite fill_empty in Hinv.
+    eapply Hinv in Hstep as (K_f & Hprg & _); naive_solver.
+  Qed.
+
+
+  (* we define the unary versions of the above pool notions and lemmas *)
+  Definition reach_stuck p e σ := pool_reach_stuck p [e] σ.
+  Definition safe p e σ := ¬ reach_stuck p e σ.
+  Definition no_fork p e σ e' σ' := prim_step p e σ e' σ' [].
+  Inductive no_forks (p: prog Λ): expr Λ → state Λ → expr Λ → state Λ → Prop :=
+    | no_forks_refl e σ: no_forks p e σ e σ
+    | no_forks_step e e' e'' σ σ' σ'':
+      no_fork p e σ e' σ' →
+      no_forks p e' σ' e'' σ'' →
+      no_forks p e σ e'' σ''.
+
+  Lemma pool_reach_stuck_reach_stuck p e σ i T:
+    reach_stuck p e σ →
+    T !! i = Some e →
+    pool_reach_stuck p T σ.
+  Proof.
+    intros Hstuck Hlook. eapply pool_reach_stuck_subs; first apply Hstuck.
+    by eapply sub_pool_singleton.
+  Qed.
+
+  Lemma pool_safe_threads_safe p T σ i e:
+    pool_safe p T σ →
+    T !! i = Some e →
+    safe p e σ.
+  Proof.
+    intros Hsafe Hlook Hstuck.
+    by eapply Hsafe, pool_reach_stuck_reach_stuck.
+  Qed.
+
+  Lemma val_safe p v σ : safe p (of_val v) σ.
+  Proof.
+    intros (T'&σ'& I & Hsteps & Hstuck).
+    assert (T' = [of_val v]) as ->.
+    - inversion Hsteps as [|???????? Hstep]; subst; eauto.
+      eapply pool_step_singleton in Hstep as (? & ? & ? & ?).
+      exfalso. by eapply val_prim_step.
+    - destruct Hstuck as (e & [] & Hlook & Hstuck); last naive_solver.
+      destruct Hstuck as [Hstuck _]; simpl in Hlook.
+      assert (e = of_val v) as -> by congruence.
+      rewrite to_of_val in Hstuck. naive_solver.
+  Qed.
+
+  Lemma fill_reach_stuck p e σ K :
+    reach_stuck p e σ → reach_stuck p (fill K e) σ.
+  Proof.
+    intros Hreach; eapply fill_reach_stuck_pool with (T := [e]) (i := 0); done.
+  Qed.
+
+  Lemma no_forks_pool_steps p e σ e' σ':
+    no_forks p e σ e' σ' →
+    (∃ I, pool_steps p [e] σ I [e'] σ').
+  Proof.
+    induction 1 as [|e e' e'' σ σ' σ'' no_fork _ IH]; eauto using pool_steps.
+    destruct IH as (I & Hsteps). exists (0 :: I).
+    econstructor; first eapply pool_step_singleton; eauto 10.
+  Qed.
+
+  Lemma safe_call_in_prg p K e σ σ' f v:
+    safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ K, p !! f = Some K.
+  Proof.
+    intros H1 (I & Hsteps)%no_forks_pool_steps.
+    eapply pool_safe_call_in_prg with (i := 0) in Hsteps; eauto.
   Qed.
 
 End language.
