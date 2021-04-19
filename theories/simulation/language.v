@@ -431,41 +431,6 @@ Section language.
     eexists. rewrite -fill_comp; by eauto using Prim_step'.
   Qed.
 
-
-
-  (* FIXME: the shape of these lemmas will depend on the proofs,
-     we can adjust them for concurrency once we know what that should look like. *)
-(*
-  Lemma fill_prim_step_rtc (P : prog Λ) (e e': expr Λ) σ σ' K :
-    rtc (prim_step P) (e, σ) (e', σ') → rtc (prim_step P) (fill K e, σ) (fill K e', σ').
-  Proof.
-    intros Hrtc. remember (e, σ) as c. remember (e', σ') as c'. revert e e' σ σ' Heqc Heqc'.
-    induction Hrtc as [[e σ] | [e1 σ1] [e2 σ2] [e3 σ3] H1 H2 IH];
-    intros ????; injection 1; injection 3; intros; subst.
-    - done.
-    - econstructor; last (by apply IH). by apply fill_prim_step.
-  Qed.
-
-  Lemma fill_prim_step_tc (P : prog Λ) (e e': expr Λ) σ σ' K :
-    tc (prim_step P) (e, σ) (e', σ') → tc (prim_step P) (fill K e, σ) (fill K e', σ').
-  Proof.
-    intros Htc. remember (e, σ) as c. remember (e', σ') as c'. revert e e' σ σ' Heqc Heqc'.
-    induction Htc as [[e1 σ1] [e2 σ2] | [e1 σ1] [e2 σ2] [e3 σ3] H1 H2 IH];
-    intros ????; injection 1; injection 3; intros; subst.
-    - constructor. by apply fill_prim_step.
-    - econstructor; last (by apply IH). by apply fill_prim_step.
-  Qed.
-
-
-  Lemma val_prim_step_rtc P v σ e' σ' :
-    rtc (prim_step P) (of_val v, σ) (e', σ') → e' = of_val v ∧ σ' = σ.
-  Proof.
-    intros [Heq|([e1 σ1] & Hstep & Hrtc)] % rtc_inv; first naive_solver.
-    exfalso; by eapply val_prim_step.
-  Qed.
-*)
-
-
   (** Lifting of steps to thread pools *)
   Implicit Types (T: list (expr Λ)).  (* thread pools *)
   Implicit Types (I J: list nat).       (* traces *)
@@ -727,6 +692,18 @@ Section language.
     rewrite pool_step_iff. destruct i; simpl; naive_solver.
   Qed.
 
+  Lemma pool_steps_values p T σ I T' σ' :
+    pool_steps p T σ I T' σ' →
+    (∀ e, e ∈ T → is_Some (to_val e)) →
+    T' = T ∧ σ = σ' ∧ I = [].
+  Proof.
+    destruct 1 as [|T T' T'' σ σ' σ'' i I Hstep Hsteps]; eauto.
+    intros Hvals.
+    eapply pool_step_iff in Hstep as (e & e' & efs & Hstep & Hlook & Hupd).
+    feed pose proof (Hvals e) as Irr; first by eapply elem_of_list_lookup_2.
+    exfalso; eapply val_irreducible; eauto.
+  Qed.
+
   Lemma pool_step_fill_context p e K i j σ σ' T T':
     pool_step p T σ j T' σ' →
     T !! i = Some e →
@@ -849,17 +826,16 @@ Section language.
     by eapply Hsafe, pool_reach_stuck_reach_stuck.
   Qed.
 
-  Lemma val_safe p v σ : safe p (of_val v) σ.
+  Lemma fill_no_fork p e e' σ σ' K :
+    no_fork p e σ e' σ' → no_fork p (fill K e) σ (fill K e') σ'.
   Proof.
-    intros (T'&σ'& I & Hsteps & Hstuck).
-    assert (T' = [of_val v]) as ->.
-    - inversion Hsteps as [|???????? Hstep]; subst; eauto.
-      eapply pool_step_singleton in Hstep as (? & ? & ? & ?).
-      exfalso. by eapply val_prim_step.
-    - destruct Hstuck as (e & [] & Hlook & Hstuck); last naive_solver.
-      destruct Hstuck as [Hstuck _]; simpl in Hlook.
-      assert (e = of_val v) as -> by congruence.
-      rewrite to_of_val in Hstuck. naive_solver.
+    intros ?; by eapply fill_prim_step.
+  Qed.
+
+  Lemma fill_no_forks p e e' σ σ' K :
+    no_forks p e σ e' σ' → no_forks p (fill K e) σ (fill K e') σ'.
+  Proof.
+    induction 1; eauto using no_forks, fill_no_fork.
   Qed.
 
   Lemma fill_reach_stuck p e σ K :
@@ -882,6 +858,27 @@ Section language.
   Proof.
     intros H1 (I & Hsteps)%no_forks_pool_steps.
     eapply pool_safe_call_in_prg with (i := 0) in Hsteps; eauto.
+  Qed.
+
+  Lemma no_forks_val p v σ e' σ' :
+    no_forks p (of_val v) σ e' σ' → e' = of_val v ∧ σ' = σ.
+  Proof.
+    intros (I & Hsteps)%no_forks_pool_steps.
+    eapply pool_steps_values in Hsteps; first naive_solver.
+    intros e Hel. assert (e = of_val v) as -> by set_solver.
+    rewrite to_of_val; eauto.
+  Qed.
+
+  Lemma val_safe p v σ : safe p (of_val v) σ.
+  Proof.
+    intros (T'&σ'& I & Hsteps & Hstuck).
+    eapply pool_steps_values in Hsteps as (-> & -> & ->); last first.
+    { intros e Hel. assert (e = of_val v) as -> by set_solver.
+      rewrite to_of_val; eauto. }
+    destruct Hstuck as (e & [] & Hlook & Hstuck); last naive_solver.
+    destruct Hstuck as [Hstuck _]; simpl in Hlook.
+    assert (e = of_val v) as -> by congruence.
+    rewrite to_of_val in Hstuck. naive_solver.
   Qed.
 
 End language.
