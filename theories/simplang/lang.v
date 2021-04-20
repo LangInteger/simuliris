@@ -73,7 +73,7 @@ Inductive expr :=
   | Fork (e : expr)
   (* Heap *)
   | AllocN (e1 e2 : expr) (* array length (positive number), initial value *)
-  | Free (e : expr)
+  | FreeN (e1 e2 : expr) (* number of cells to free, location *)
   | Load (e : expr)
   | Store (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
@@ -229,8 +229,8 @@ Proof.
      | Fork e, Fork e' => cast_if (decide (e = e'))
      | AllocN e1 e2, AllocN e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Free e, Free e' =>
-        cast_if (decide (e = e'))
+     | FreeN e1 e2, FreeN e1' e2' =>
+        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | Load e, Load e' => cast_if (decide (e = e'))
      | Store e1 e2, Store e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
@@ -321,7 +321,7 @@ Proof.
      | Match e0 x1 e1 x2 e2 => GenNode 11 [go e0; GenLeaf (inl (inr x1)); go e1; GenLeaf (inl (inr x2)); go e2]
      | Fork e => GenNode 12 [go e]
      | AllocN e1 e2 => GenNode 13 [go e1; go e2]
-     | Free e => GenNode 14 [go e]
+     | FreeN e1 e2 => GenNode 14 [go e1; go e2]
      | Load e => GenNode 15 [go e]
      | Store e1 e2 => GenNode 16 [go e1; go e2]
      | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
@@ -354,7 +354,7 @@ Proof.
      | GenNode 11 [e0; GenLeaf (inl (inr x1)); e1; GenLeaf (inl (inr x2)); e2] => Match (go e0) x1 (go e1) x2 (go e2)
      | GenNode 12 [e] => Fork (go e)
      | GenNode 13 [e1; e2] => AllocN (go e1) (go e2)
-     | GenNode 14 [e] => Free (go e)
+     | GenNode 14 [e1; e2] => FreeN (go e1) (go e2)
      | GenNode 15 [e] => Load (go e)
      | GenNode 16 [e1; e2] => Store (go e1) (go e2)
      | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
@@ -408,7 +408,8 @@ Inductive ectx_item :=
   | MatchCtx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
   | AllocNLCtx (v2 : val)
   | AllocNRCtx (e1 : expr)
-  | FreeCtx
+  | FreeNLCtx (v2 : val)
+  | FreeNRCtx (e1 : expr)
   | LoadCtx
   | StoreLCtx (v2 : val)
   | StoreRCtx (e1 : expr)
@@ -436,7 +437,8 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | MatchCtx x1 e1 x2 e2 => Match e x1 e1 x2 e2
   | AllocNLCtx v2 => AllocN e (Val v2)
   | AllocNRCtx e1 => AllocN e1 e
-  | FreeCtx => Free e
+  | FreeNLCtx v2 => FreeN e (Val v2)
+  | FreeNRCtx e1 => FreeN e1 e
   | LoadCtx => Load e
   | StoreLCtx v2 => Store e (Val v2)
   | StoreRCtx e1 => Store e1 e
@@ -469,7 +471,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
       x2 (if decide (BNamed x ≠ x2) then subst x v e2 else e2)
   | Fork e => Fork (subst x v e)
   | AllocN e1 e2 => AllocN (subst x v e1) (subst x v e2)
-  | Free e => Free (subst x v e)
+  | FreeN e1 e2 => FreeN (subst x v e1) (subst x v e2)
   | Load e => Load (subst x v e)
   | Store e1 e2 => Store (subst x v e1) (subst x v e2)
   | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
@@ -595,18 +597,44 @@ Proof.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
-Definition free_loc l '(l', w) : loc * option (lock_state * val) := 
-  if decide (loc_chunk l' = l) then (l', None) else (l', w).
-Definition free_chunk (l:positive) (σ:gmap loc (option (lock_state * val))) : gmap loc (option (lock_state * val)) :=
-  list_to_map (map (free_loc l) (map_to_list σ)).
-Lemma lookup_free_chunk_1 l b σ : 
-  loc_chunk l ≠ b → (free_chunk b σ) !! l = σ !! l.
-Proof. 
-Admitted.
-Lemma lookup_free_chunk_2 l b σ :
-  loc_chunk l = b → (free_chunk b σ) !! l = None ∨ (free_chunk b σ) !! l = Some None.
+Fixpoint free_mem (l : loc) (n : nat) (σ : gmap loc (option (lock_state * val)))
+  : gmap loc (option (lock_state * val)) :=
+  match n with
+  | O => σ
+  | S n => <[l := None]> (free_mem (l +ₗ 1) n σ)
+  end.
+Lemma lookup_free_mem_1 l l' n σ :
+  loc_chunk l ≠ loc_chunk l' → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
-Admitted.
+  induction n as [ | n IH] in l |-*; cbn; first done.
+  intros Hneq. rewrite lookup_insert_ne; last by congruence.
+  by apply IH.
+Qed.
+Lemma lookup_free_mem_2 l l' (n : nat) σ :
+  loc_chunk l = loc_chunk l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = Some None.
+Proof.
+  induction n as [ | n IH] in l |-*; cbn; first lia.
+  intros Hchunk Hi.
+  destruct (decide (loc_idx l = loc_idx l')) as [Heq | Hneq].
+  - rewrite lookup_insert_Some; left; split; last done. destruct l, l'; cbn in *; congruence.
+  - rewrite lookup_insert_ne; last congruence. apply IH; first done. destruct l, l'; cbn in *; lia.
+Qed.
+Lemma lookup_free_mem_3 l l' (n : nat) σ :
+  loc_chunk l = loc_chunk l' → (loc_idx l' < loc_idx l)%Z → (free_mem l n σ) !! l' = σ !! l'.
+Proof.
+  induction n as [ | n IH] in l |-*; cbn; first done.
+  intros Hchunk Hi. rewrite lookup_insert_ne.
+  - apply IH; first done. destruct l, l'; cbn in *; lia.
+  - destruct l, l'; cbn in *; intros [=]. lia.
+Qed.
+Lemma lookup_free_mem_4 l l' (n : nat) σ :
+  loc_chunk l = loc_chunk l' → (loc_idx l' >= loc_idx l + n)%Z → (free_mem l n σ) !! l' = σ !! l'.
+Proof.
+  induction n as [ | n IH] in l |-*; cbn; first done.
+  intros Hchunk Hi. rewrite lookup_insert_ne.
+  - apply IH; first done. destruct l, l'; cbn in *; lia.
+  - destruct l, l'; cbn in *; intros [=]. lia.
+Qed.
 
 (** Building actual evaluation contexts out of ectx_items *)
 Definition ectx := list ectx_item.
@@ -664,10 +692,12 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      (∀ i, σ.(heap) !! (Build_loc b i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
                (Val $ LitV $ LitLoc (Build_loc b 0)) (state_init_heap (Build_loc b 0) n v σ)
-  | FreeS l v σ st :
-     σ.(heap) !! l = Some $ Some (st, v) →
-     head_step P (Free (Val $ LitV $ LitLoc l)) σ
-               (Val $ LitV LitUnit) (state_upd_heap (free_chunk (loc_chunk l)) σ)
+  | FreeNS l σ n :
+     (0 < n)%Z →
+     (* always need to deallocate the full block *)
+     (∀ i, (0 ≤ i < n)%Z ↔ ∃ v, σ.(heap) !! (l +ₗ i) = Some $ Some (RSt 0, v)) →
+     head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
+               (Val $ LitV LitUnit) (state_upd_heap (free_mem l (Z.to_nat n)) σ)
   | LoadS l v σ st :
      σ.(heap) !! l = Some $ Some (st, v) →
      head_step P (Load (Val $ LitV $ LitLoc l)) σ (of_val v) σ

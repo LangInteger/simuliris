@@ -200,13 +200,25 @@ Section irreducible.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[]|] | ] eqn:Heq; decide_goal.
   Qed.
-  Global Instance irreducible_free σ v_l P :
-    IrredUnless (∃ l v st, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (st, v))) P (Free $ Val $ v_l) σ.
+  Global Instance irreducible_freeN σ v_l v_n P :
+  IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ (∀ i, (0 ≤ i < n)%Z ↔ ∃ v, heap σ !! (l +ₗ i) = Some (Some (RSt 0, v))))
+      P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; last (prove_irred; apply ϕ; eauto 8).
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[]|] | ] eqn:Heq; decide_goal.
-  Qed.
+    destruct v_n as [[n | | | | | ]  | | | ]; try decide_goal.
+    assert (∀ (m : nat) l, Decision (∀ i, (0 ≤ i < m)%Z ↔ (∃ v, heap σ !! (l +ₗ i) = Some (Some (RSt 0, v))))).
+    { intros n' l'.
+      (* TODO: use ugly stuff with the heap map to get the decision *)
+      admit.
+    }
+    destruct (decide (0 < n)%Z) as [Hlt | Hnlt]; last by decide_goal.
+    specialize (H (Z.to_nat n) l).
+    replace (Z.of_nat (Z.to_nat n)) with n in H; last lia.
+    destruct H as [H | H]; [left; by eauto 8 | right].
+    contradict H. destruct H as (? & ? & [=] & [=] & ? & ?); subst. done.
+  Admitted.
+
   Global Instance irreducible_allocN σ v_n v P :
     IrredUnless (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.
   Proof.
@@ -233,11 +245,11 @@ Section irreducible.
     eapply irred_unless_weaken; last apply irreducible_store.
     intros (l & ? & ? & ? &?); eauto.
   Qed.
-  Global Instance irreducible_free_weak σ v_l P :
-    IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Free $ Val $ v_l) σ | 10.
+  Global Instance irreducible_freeN_weak σ v_l v_n P :
+    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (FreeN (Val v_n) (Val v_l)) σ | 10.
   Proof.
-    eapply irred_unless_weaken; last apply irreducible_free.
-    intros (l & ? & ? & ? &?); eauto.
+    eapply irred_unless_weaken; last apply irreducible_freeN.
+    intros (l & ? & ? & ? &? &?); eauto.
   Qed.
 End irreducible.
 

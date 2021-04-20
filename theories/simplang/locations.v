@@ -33,6 +33,11 @@ Proof. destruct l; rewrite /loc_add /=; f_equal; lia. Qed.
 Global Instance loc_add_inj l : Inj eq eq (loc_add l).
 Proof. destruct l; rewrite /Inj /loc_add /=; intros; simplify_eq; lia. Qed.
 
+Lemma loc_eta l : (Build_loc (loc_chunk l) (loc_idx l)) = l.
+Proof.  by destruct l. Qed.
+Lemma Build_loc_add b i : Build_loc b 0 +ₗ i = Build_loc b i.
+Proof. rewrite /loc_add; cbn. by replace (0 + i)%Z with i%Z by lia. Qed.
+
 Definition fresh_block {X} (σ : gmap loc X) : block :=
   let loclst : list loc := elements (dom _ σ : gset loc) in
   let blockset : gset block := foldr (λ l, ({[loc_chunk l]} ∪.)) ∅ loclst in

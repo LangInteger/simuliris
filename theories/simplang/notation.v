@@ -14,6 +14,7 @@ Coercion Var : string >-> expr.
 Notation Seq e1 e2 := (Let BAnon e1 e2) (only parsing).
 Notation SeqCtx e2 := (LetCtx BAnon e2) (only parsing).
 Notation Alloc e := (AllocN (Val $ LitV $ LitInt 1) e) (only parsing).
+Notation Free e := (FreeN (Val $ LitV $ LitInt 1) e) (only parsing).
 (** Compare-and-set (CAS) returns just a boolean indicating success or failure. *)
 Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing).
 

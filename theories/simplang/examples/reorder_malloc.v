@@ -42,8 +42,8 @@ Section reorder.
     iIntros ((v_s2 & v_s_cont & ->)).
     sim_pures.
 
-    source_alloc l1_s as "Hl1_s".
-    source_alloc l2_s as "Hl2_s".
+    source_alloc l1_s as "Hl1_s" "Ha1_s".
+    source_alloc l2_s as "Hl2_s" "Ha2_s".
     sim_pures.
 
     iApply sim_irred_unless.
@@ -55,12 +55,12 @@ Section reorder.
     iPoseProof (val_rel_litfn_source with "Hrel_cont") as "->".
     sim_pures.
 
-    target_alloc l1_t as "Hl1_t".
-    target_alloc l2_t as "Hl2_t".
+    target_alloc l1_t as "Hl1_t" "Ha1_t".
+    target_alloc l2_t as "Hl2_t" "Ha2_t".
     sim_pures.
 
-    iApply (sim_bij_insert with "Hl1_t Hl2_s Hrel1"); iIntros "#Hbij_1".
-    iApply (sim_bij_insert with "Hl2_t Hl1_s Hrel2"); iIntros "#Hbij_2".
+    iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hrel1"); iIntros "#Hbij_1".
+    iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hrel2"); iIntros "#Hbij_2".
 
     iApply sim_call; [done | done | simpl; by eauto ].
   Qed.
@@ -103,6 +103,6 @@ Section reorder.
     sim_load v_t2 v_s2 as "Hv2".
     sim_pures.
 
-    iModIntro; simpl. eauto.
+    sim_val; iModIntro; simpl. eauto.
   Qed.
 End reorder.

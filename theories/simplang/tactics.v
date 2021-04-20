@@ -23,7 +23,8 @@ Ltac reshape_expr e tac :=
     | Match ?e0 ?x1 ?e1 ?x2 ?e2       => add_item (MatchCtx x1 e1 x2 e2) K e0
     | AllocN ?e (Val ?v)              => add_item (AllocNLCtx v) K e
     | AllocN ?e1 ?e2                  => add_item (AllocNRCtx e1) K e2
-    | Free ?e                         => add_item FreeCtx K e
+    | FreeN ?e1 (Val ?v)              => add_item (FreeNLCtx v) K e1
+    | FreeN ?e1 ?e2                   => add_item (FreeNRCtx e1) K e2
     | Load ?e                         => add_item LoadCtx K e
     | Store ?e (Val ?v)               => add_item (StoreLCtx v) K e
     | Store ?e1 ?e2                   => add_item (StoreRCtx e1) K e2
@@ -61,4 +62,4 @@ Global Hint Extern 0 (head_reducible _ _ _) => eexists _, _; simpl : head_step.
 (* [simpl apply] is too stupid, so we need extern hints here. *)
 Global Hint Extern 1 (head_step _ _ _ _ _) => econstructor : head_step.
 (*Global Hint Extern 0 (head_step _ (CmpXchg _ _ _) _ _ _) => eapply CmpXchgS : head_step.*)
-(*Global Hint Extern 0 (head_step _ (AllocN _ _) _ _ _) => apply alloc_fresh : head_step.*)
+Global Hint Extern 0 (head_step _ (AllocN _ _) _ _ _) => apply alloc_fresh : head_step.

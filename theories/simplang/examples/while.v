@@ -16,9 +16,9 @@ Section fix_bi.
     ⊢ loop_test n ⪯ #() {{ val_rel }}.
   Proof.
     rewrite /loop_test.
-    target_alloc l as "Hl". sim_pures.
+    target_alloc l as "Hl" "_". sim_pures.
     iInduction n as [ | ] "IH" forall "Hl".
-    - target_while. target_load. by sim_pures.
+    - target_while. target_load. by sim_pures; sim_val.
     - target_while. target_load. sim_pures. target_load. target_store. sim_pures.
       assert (Z.sub (Z.of_nat (S n)) (Zpos xH) = Z.of_nat n) as -> by lia.
       by iApply "IH".
@@ -55,7 +55,7 @@ Section fix_bi.
     ⊢ mul_loop #n #m ⪯ #n * #m {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
-    sim_pures. target_alloc l_n as "Hln". target_alloc l_acc as "Hlacc".
+    sim_pures. target_alloc l_n as "Hln" "Ha_n". target_alloc l_acc as "Hlacc" "Ha_acc".
     sim_pures.
     target_bind (While _ _).
     iApply (target_red_wand (λ e_t',⌜e_t' = Val #()⌝ ∗ l_n ↦t #0 ∗ l_acc ↦t #(n * m))%I with "[Hln Hlacc]"). {
@@ -64,7 +64,7 @@ Section fix_bi.
     }
     iIntros (e_t') "(-> & Hln & Hlacc)". sim_pures.
     target_load. sim_pures. target_free. target_free.
-    by sim_pures.
+    by sim_pures; sim_val.
   Qed.
 
   Definition diverging_loop : expr :=
@@ -107,7 +107,7 @@ Section fix_bi.
     "rec" @s input_rec -∗
     input_loop ⪯ Call ##"rec" #true {{ val_rel }}.
   Proof.
-    iIntros "#Hs". rewrite /input_loop. target_alloc lc_t as "Hlc_t". sim_pures.
+    iIntros "#Hs". rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
     iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.

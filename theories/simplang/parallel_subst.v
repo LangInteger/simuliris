@@ -22,7 +22,7 @@ Fixpoint subst_map (xs : gmap string val) (e : expr) : expr :=
       x2 (subst_map (binder_delete x2 xs) e2)
   | Fork e => Fork (subst_map xs e)
   | AllocN e1 e2 => AllocN (subst_map xs e1) (subst_map xs e2)
-  | Free e => Free (subst_map xs e)
+  | FreeN e1 e2 => FreeN (subst_map xs e1) (subst_map xs e2)
   | Load e => Load (subst_map xs e)
   | Store e1 e2 => Store (subst_map xs e1) (subst_map xs e2)
   | CmpXchg e0 e1 e2 => CmpXchg (subst_map xs e0) (subst_map xs e1) (subst_map xs e2)
