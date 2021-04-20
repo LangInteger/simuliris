@@ -1,7 +1,7 @@
 From stdpp Require Import gmap relations.
 From iris.prelude Require Import options.
 From simuliris.simulation Require Import language.
-From Coq.Logic Require Import Classical.
+From Coq.Logic Require Import Classical Epsilon.
 
 Section fairness.
 Context {Λ: language}.
@@ -185,10 +185,10 @@ Qed.
 
 
 
-
-
-
-
+(* we give an alternative characterization of fairness,
+  which applies if we know the thread pool is safe in
+  the current state.
+*)
 Section coinductive_inductive_fairness.
 
   CoInductive fair_div_coind p T σ : Prop :=
@@ -305,19 +305,20 @@ Section delay_based_fairness.
       fair_pool_steps p T D σ (i :: I) T'' D'' σ''.
 
   CoInductive fair_div_delay p T D σ : Prop :=
-  | fair_div_step i T' D' σ':
+  | fair_div_delay_step i T' D' σ':
     fair_pool_step p T D σ i T' D' σ' →
     delays_for T D →
     fair_div_delay p T' D' σ' →
     fair_div_delay p T D σ.
 
   CoInductive fair_div_delay_tc p T D σ : Prop :=
-  | fair_div_tc_step I T' σ' D':
+  | fair_div_delay_tc_step I T' σ' D':
     I ≠ [] →
     fair_pool_steps p T D σ I T' D' σ' →
     fair_div_delay_tc p T' D' σ' →
     fair_div_delay_tc p T D σ.
 
+  (* fair pool step lemmas *)
   Lemma fair_pool_step_iff p T D σ i T' D' σ':
     fair_pool_step p T D σ i T' D' σ' ↔
       pool_step p T σ i T' σ' ∧ step_decr i D D'.
@@ -335,6 +336,342 @@ Section delay_based_fairness.
     destruct 1 as [i T T' σ σ' D D' Pool Hdecr].
     eapply pool_step_iff in Pool as (e & e' & T_f & Hstep & Hlook & Hupd).
     eauto 10.
+  Qed.
+
+  Lemma fair_pool_steps_concat p T D σ I T' D' σ' J T''' D''' σ''':
+    fair_pool_steps p T D σ I T' D' σ' → fair_pool_steps p T' D' σ' J T''' D''' σ''' →  fair_pool_steps p T D σ (I ++ J) T''' D''' σ'''.
+  Proof.
+    induction 1 as [T σ|T T' T'' D D' D'' σ σ' σ'' i I Hdel Hstep Hsteps IH]; simpl; eauto.
+    intros Hsteps'%IH. econstructor; eauto.
+  Qed.
+
+  Lemma fair_pool_steps_delays_for_start p T D σ I T' D' σ':
+    fair_pool_steps p T D σ I T' D' σ' → delays_for T D.
+  Proof.
+    destruct 1; done.
+  Qed.
+
+  Lemma fair_pool_steps_delays_for_end p T D σ I T' D' σ':
+    fair_pool_steps p T D σ I T' D' σ' → delays_for T' D'.
+  Proof.
+    induction 1; eauto.
+  Qed.
+
+
+
+
+
+
+  (* we prove the transitive closure delay version and
+     the standard delay version equivalent *)
+  Lemma fair_div_delays_for p T D σ:
+     fair_div_delay p T D σ → delays_for T D.
+  Proof. by destruct 1. Qed.
+
+  (* TODO: do we need this: Lemma fair_div_delay_insert_steps p T D σ I T' D' σ':
+     fair_pool_steps p T D σ I T' D' σ' → fair_div_delay p T' D' σ' → fair_div_delay p T D σ.
+  Proof.
+    induction 1 as [T|T T' T'' D D' D'' σ σ' σ'' i I Hstep Hsteps IH]; eauto.
+    intros Hdiv; econstructor; eauto.
+  Qed. *)
+
+  Lemma fair_div_delay_tc_insert_steps p T D σ I T' D' σ':
+    fair_pool_steps p T D σ I T' D' σ' → fair_div_delay_tc p T' D' σ' → fair_div_delay_tc p T D σ.
+  Proof.
+    intros Hsteps; destruct 1 as [J T''' D''' Hne Hsteps'' Hdiv''].
+    econstructor; [|by eapply fair_pool_steps_concat|done].
+    destruct I; simpl; naive_solver.
+  Qed.
+
+  Lemma fair_div_delay_tc_fair_div_delay p T D σ:
+    fair_div_delay_tc p T D σ → fair_div_delay p T D σ.
+  Proof.
+    revert T D σ; cofix IH; intros T D σ.
+    destruct 1 as [I T' D' σ' Hne Hsteps Hdiv].
+    destruct Hsteps as [|T T' T'' D D' D'' σ σ' σ'' i I Hdel Hstep Hsteps]; first naive_solver.
+    econstructor; eauto. eapply IH, fair_div_delay_tc_insert_steps, Hdiv. done.
+  Qed.
+
+  Lemma fair_div_delay_fair_div_delay_tc p T D σ:
+    fair_div_delay p T D σ → fair_div_delay_tc p T D σ.
+  Proof.
+    revert T D σ; cofix IH; intros T D σ.
+    destruct 1 as [i T' D' σ' Hne Hsteps Hdiv].
+    eapply (fair_div_delay_tc_step p T D σ [i]); eauto.
+    econstructor; eauto. constructor; eapply fair_div_delays_for, Hdiv.
+  Qed.
+
+
+
+  (* we prove that every fair_div_delay implies fair_div_coind *)
+  Lemma fair_div_delay_active_threads_steps p T D σ:
+    fair_div_delay p T D σ → ∃ T' D' σ' I, active_threads T ⊆ list_to_set I ∧ fair_div_delay p T' D' σ' ∧ pool_steps p T σ I T' σ'.
+  Proof.
+    enough (∀ O T D σ, O ⊆ active_threads T → fair_div_delay p T D σ → ∃ T' D' σ' I, O ⊆ list_to_set I ∧ fair_div_delay p T' D' σ' ∧ pool_steps p T σ I T' σ') by eauto.
+    clear T D σ; intros O; induction (set_wf O) as [O _ IHO]; intros T D σ Hsub Hfair.
+    destruct (decide (O ≡ ∅)) as [->%leibniz_equiv|[i Hi]%set_choose].
+    - exists T, D, σ, []. do 2 (split; first done). constructor.
+    - assert (delays_for T D) as Hdel by by destruct Hfair.
+      assert (is_Some (D !! i)) as [d HD] by eapply Hdel, Hsub, Hi.
+      revert T D σ Hsub Hfair Hdel HD. induction (lt_wf d) as [d _ IHd].
+      intros T D σ Hsub Hfair Hdel HD. destruct Hfair as [j T' D' σ' Hstep _ Hfair].
+      eapply fair_pool_step_iff in Hstep as [Hpool Hdecr].
+      destruct (decide (j ∈ O)).
+      + edestruct (IHO (O ∖ {[j]})) as (T'' & D'' & σ'' & I & HI & Hfair' & Hsteps).
+        * by set_solver.
+        * etrans; last by eapply active_threads_step. set_solver.
+        * apply Hfair.
+        * exists T'', D'', σ'', (j :: I); split.
+         { intros k Hk; destruct (decide (k = j)); set_solver. }
+          split; first done.
+          econstructor; eauto.
+      + assert (j ≠ i) by set_solver.
+        edestruct Hdecr as (d' & Heq & HD'); eauto.
+        subst d. edestruct (IHd d') as (T'' & D'' & σ'' & I & HI & Hfair' & Hsteps).
+        * lia.
+        * etrans; last by eapply active_threads_step. set_solver.
+        * eauto.
+        * by eapply fair_div_delays_for.
+        * done.
+        * exists T'', D'', σ'', (j :: I); split.
+          { intros k Hk; destruct (decide (k = j)); set_solver. }
+          split; first done.
+          econstructor; eauto.
+  Qed.
+
+  Lemma fair_div_delay_has_active p T D σ:
+    fair_div_delay p T D σ → ∅ ⊂ active_threads T.
+  Proof.
+    destruct 1 as [j T' D' σ' Hfair Hdel ?].
+    enough (j ∈ active_threads T) by set_solver.
+    eapply fair_pool_step_inv in Hfair as (e & e' & T_f & Step & Hlook & Hinsert & Hdecr).
+    eapply active_threads_spec. exists e.
+    split; first done. by eapply val_stuck.
+  Qed.
+
+  Lemma fair_div_delay_fair_div_coind p T D σ:
+    fair_div_delay p T D σ → fair_div_coind p T σ.
+  Proof.
+    revert T D σ; cofix IH; intros T D σ Hfair.
+    eapply fair_div_delay_has_active in Hfair as Hact.
+    eapply fair_div_delay_active_threads_steps in Hfair as (T' & D' & σ' & I & Hsub & Hfair' & Hsteps).
+    apply (fair_div_coind_step p T σ T' σ' I); eauto.
+  Qed.
+
+
+  (* we prove that fair_div_coind implies fair_div_delay *)
+  Fixpoint delays_for_trace I D :=
+    match I with
+    | nil => D
+    | i :: I' => <[i := 0]> (S <$> delays_for_trace I' D)
+    end.
+
+  Definition active_only T D := filter (λ '(i, n), i ∈ active_threads T) D.
+
+  Notation trace_delays T I D := (active_only T (delays_for_trace I D)).
+
+  Lemma pool_step_to_fair_pool_step p T σ i T' σ' D:
+    pool_step p T σ i T' σ' → fair_pool_step p T (<[i:=0]> (S <$> D)) σ i T' D σ'.
+  Proof.
+    intros Hstep; eapply fair_pool_step_iff.
+    split; first done.
+    intros j n Hne. rewrite lookup_insert_ne // lookup_fmap.
+    destruct (D !! j); simpl; naive_solver.
+  Qed.
+
+
+  Lemma delays_for_trace_oblivious_single i I D1 D2:
+    i ∈ I → delays_for_trace I D1 !! i = delays_for_trace I D2 !! i.
+  Proof.
+    induction 1 as [i|i j I Hel IH]; simpl.
+    - by rewrite !lookup_insert.
+    - destruct (decide (i = j)); first (subst; by rewrite !lookup_insert).
+      by rewrite !lookup_insert_ne //= !lookup_fmap IH.
+  Qed.
+
+
+  Lemma delays_for_trace_oblivious T I D1 D2:
+    active_threads T ⊆ list_to_set I → trace_delays T I D1 = trace_delays T I D2.
+  Proof.
+    intros Hact; eapply map_filter_strong_ext.
+    intros i d.
+    split; intros [Hact' Hdel]; (split; first done);
+    erewrite delays_for_trace_oblivious_single; set_solver.
+  Qed.
+
+
+  Lemma delays_for_active_only T D:
+    delays_for T (active_only T D) ↔ delays_for T D.
+  Proof.
+    split; intros Hdel j Hj; destruct (Hdel j Hj) as [d HD];
+      exists d.
+    - eapply map_filter_lookup_Some_1_1, HD.
+    - eapply map_filter_lookup_Some; eauto.
+  Qed.
+
+  Lemma pool_step_delays_for_update p T σ i T' σ' D:
+    pool_step p T σ i T' σ' →
+    delays_for T' D →
+    delays_for T (<[i := 0]> (S <$> D)).
+  Proof.
+    intros Hstep Hdel. intros j Hj. destruct (decide (i = j)).
+    { subst; rewrite lookup_insert; eauto. }
+    rewrite lookup_insert_ne // lookup_fmap fmap_is_Some.
+    eapply Hdel, active_threads_step; eauto.
+    set_solver.
+  Qed.
+
+  Lemma pool_steps_delays_for_update p T σ I T' σ' D:
+    pool_steps p T σ I T' σ' →
+    delays_for T' D →
+    delays_for T (delays_for_trace I D).
+  Proof.
+    induction 1 as [T|T T' T'' σ σ' σ'' i I Hstep Hsteps IH];
+      simpl; eauto using pool_step_delays_for_update.
+  Qed.
+
+  Lemma pool_steps_to_fair_pool_steps p T σ I T' σ' D:
+    pool_steps p T σ I T' σ' →
+    delays_for T' D →
+    fair_pool_steps p T (delays_for_trace I D) σ I T' D σ'.
+  Proof.
+    induction 1 as [T|T T' T'' σ σ' σ'' i I Hstep Hsteps IH]; simpl.
+    - by constructor.
+    - econstructor; eauto using
+      pool_step_to_fair_pool_step, pool_step_delays_for_update, pool_steps_delays_for_update.
+  Qed.
+
+  Lemma fair_pool_active_only p T D σ i T' D' σ':
+    fair_pool_step p T D σ i T' D' σ' →
+    fair_pool_step p T (active_only T D) σ i T' (active_only T' D') σ'.
+  Proof.
+    destruct 1 as [i T T' D D' σ σ' Hstep Hdecr].
+    econstructor; first done.
+    intros j d Hne Hactive. eapply map_filter_lookup_Some in Hactive as [HD Hact].
+    destruct (Hdecr j d  Hne HD) as (d' & -> & HD').
+    exists d'; split; first done.
+    eapply map_filter_lookup_Some; split; first done.
+    eapply active_threads_step; eauto.
+    set_solver.
+  Qed.
+
+  Lemma fair_pool_steps_active_only p T D σ I T' D' σ':
+    fair_pool_steps p T D σ I T' D' σ' →
+    fair_pool_steps p T (active_only T D) σ I T' (active_only T' D') σ'.
+  Proof.
+    induction 1 as [T|T T' T'' D D' D'' σ σ' σ'' i I Hstep Hsteps IH]; simpl.
+    - constructor; by eapply delays_for_active_only.
+    - econstructor; eauto using fair_pool_active_only.
+      by eapply delays_for_active_only.
+  Qed.
+
+  Lemma fair_div_coind_trace p T σ:
+    fair_div_coind p T σ → ∃ I T' σ', ∅ ⊂ active_threads T ⊆ list_to_set I ∧ pool_steps p T σ I T' σ' ∧ fair_div_coind p T' σ'.
+  Proof.
+    destruct 1 as [T' σ' I Hstep Hsub Hfair]; eauto 10.
+  Qed.
+
+  Lemma fair_div_coind_trace_strong {p T σ} (Div: fair_div_coind p T σ) :
+    { I | ∃ T' σ', ∅ ⊂ active_threads T ⊆ list_to_set I ∧ pool_steps p T σ I T' σ' ∧ fair_div_coind p T' σ' }.
+  Proof.
+    eapply constructive_indefinite_description, fair_div_coind_trace, Div.
+  Qed.
+
+  Definition fair_div_coind_delays {p T σ} (Div: fair_div_coind p T σ) :=
+      active_only T (delays_for_trace (proj1_sig (fair_div_coind_trace_strong Div)) ∅).
+
+  Lemma delays_for_delays_for_trace p T σ T' σ' I D:
+    active_threads T ⊆ list_to_set I → pool_steps p T σ I T' σ' → delays_for T (delays_for_trace I D).
+  Proof.
+    intros Hsub Hsteps. eapply delays_for_active_only.
+    rewrite (delays_for_trace_oblivious _ _ _ (gset_to_gmap 0 (threads T'))); last done.
+    eapply delays_for_active_only, pool_steps_delays_for_update; first done.
+    intros j Hj. eapply active_threads_spec in Hj as (e & Hlook & _).
+    exists 0. eapply lookup_gset_to_gmap_Some; split; last done.
+    eapply threads_spec; eauto.
+  Qed.
+
+  Lemma fair_div_coind_unfold p T σ (Div: fair_div_coind p T σ):
+    ∃ T' σ' (Div': fair_div_coind p T' σ') I,
+      I ≠ [] ∧
+      fair_pool_steps p T (fair_div_coind_delays Div) σ I T' (fair_div_coind_delays Div') σ'.
+  Proof.
+    rewrite /fair_div_coind_delays.
+    destruct (fair_div_coind_trace_strong Div) as (I & T' & σ' & Hsub & Hsteps & Div'); simpl.
+    exists T', σ', Div', I. split.
+    - intros ->; set_solver.
+    - remember (delays_for_trace (proj1_sig (fair_div_coind_trace_strong Div')) ∅) as D'.
+      rewrite (delays_for_trace_oblivious _ _ ∅ D'); last apply Hsub.
+      eapply fair_pool_steps_active_only, pool_steps_to_fair_pool_steps; first done.
+      (* TODO: this part of the proof is odd, there should be better factoring *)
+      subst D'.
+      destruct (fair_div_coind_trace_strong Div') as (I' & T'' & σ'' & Hsub' & Hsteps' & Div''); simpl.
+      eapply delays_for_delays_for_trace; eauto. apply Hsub'.
+  Qed.
+
+  Lemma fair_div_coind_fair_div_delay_tc p T σ:
+    fair_div_coind p T σ → ∃ D, fair_div_delay_tc p T D σ.
+  Proof.
+    intros Div. exists (fair_div_coind_delays Div).
+    revert T σ Div; cofix IH; intros T σ Div.
+    destruct (fair_div_coind_unfold p T σ Div) as (T' & σ' & Div' & I & Hne & Hsteps).
+    destruct I as [|i I]; first naive_solver.
+    inversion Hsteps as [|? T_mid ?? D_mid ?? σ_mid ? ? ? Hdel Hstep Hsteps']; subst.
+    econstructor; eauto.
+  Qed.
+
+
+  (* we prove that the existence of a fair delay-based execution
+    implies the conventional notion of fairness. *)
+
+  Lemma fair_div_delay_step_inv p T D σ:
+    fair_div_delay p T D σ →
+    ∃ i T' D' σ', pool_step p T σ i T' σ' ∧ step_decr i D D' ∧ delays_for T D ∧ fair_div_delay p T' D' σ'.
+  Proof.
+    destruct 1 as [i T' D' σ' Hstep Hdel Hfair]; eapply fair_pool_step_iff in Hstep as [Hstep Hdecr]; eauto 10.
+  Qed.
+
+  Lemma fair_div_delay_step_inv_strong {p T D σ} (Fair: fair_div_delay p T D σ):
+    { '(T', σ', i, D') | fair_div_delay p T' D' σ' ∧ pool_step p T σ i T' σ' ∧ step_decr i D D' ∧ delays_for T D }.
+  Proof.
+    eapply fair_div_delay_step_inv in Fair.
+    eapply constructive_indefinite_description in Fair as [i Fair].
+    eapply constructive_indefinite_description in Fair as [T' Fair].
+    eapply constructive_indefinite_description in Fair as [D' Fair].
+    eapply constructive_indefinite_description in Fair as [σ' Fair].
+    exists (T', σ', i, D'). destruct Fair as (? & ? & ? & ?); eauto.
+  Qed.
+
+  Fixpoint fair_div_delay_to_exec {p T D σ} (Fair: fair_div_delay p T D σ) (n: nat) : list (expr Λ) * state Λ * nat :=
+    match n with
+    | 0 => fst (proj1_sig (fair_div_delay_step_inv_strong Fair))
+    | S m =>
+      match fair_div_delay_step_inv_strong Fair with
+      | exist _ (T', σ', i, D') H =>
+        fair_div_delay_to_exec (match H with conj Fair' _ => Fair' end) m
+      end
+    end.
+
+
+
+
+  (* we state the relationships between the fairness notions *)
+  Theorem fair_div_coind_delay_iff p T σ:
+    fair_div_coind p T σ ↔ (∃ D, fair_div_delay p T D σ).
+  Proof.
+    split.
+    - intros [D HD]%fair_div_coind_fair_div_delay_tc.
+      eapply fair_div_delay_tc_fair_div_delay in HD; by exists D.
+    - intros [D HD]. by eapply fair_div_delay_fair_div_coind.
+  Qed.
+
+
+  (* safety is only needed for traditional → coind *)
+  Corollary fair_div_traditional_coind p T σ:
+    pool_safe p T σ →
+    (fair_div p T σ ↔ fair_div_coind p T σ).
+  Proof.
+    intros ??; by eapply fair_div_to_fair_div_coind.
   Qed.
 
 
