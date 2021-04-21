@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import language lifting.
-
-From simuliris.simplang Require Import lang tactics.
+From simuliris.simplang Require Export lang.
+From simuliris.simplang Require Import tactics.
 
 
 (** * Instances of the [PureExec] class *)
@@ -77,14 +77,20 @@ Section irreducible.
     IrredUnless (∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
   Proof. prove_irred_unless. Qed.
 
-  (** for binary operators, we provide specialized instances for each operator.
-    (the full search space is otherwise too large when doing a case analysis over
-     the values on both sides to decide whether an expression is stuck or not)
-   *)
+  (** for operators, we provide specialized instances for each operator. *)
   Ltac solve_binop v1 v2 :=
     unfold bin_op_eval in *;
     case_decide; try congruence;
     destruct v1 as [[] | | |]; destruct v2 as [[] | | |]; cbn in *;
+        try congruence;
+        repeat match goal with
+        | H: _ ∨ _ |- _ => destruct H
+        | H : _ ∧ _ |- _ => destruct H
+        end; eauto 8.
+  Ltac solve_unop v :=
+    unfold un_op_eval in *;
+    try congruence;
+    destruct v as [[] | | |]; cbn in *;
         try congruence;
         repeat match goal with
         | H: _ ∨ _ |- _ => destruct H
@@ -154,9 +160,12 @@ Section irreducible.
     case_decide; congruence.
   Qed.
 
-  Global Instance irreducible_unop v o P σ :
-    IrredUnless (is_Some $ un_op_eval o v) P (UnOp o (Val v)) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_neg v P σ :
+    IrredUnless ((∃ n, v = LitV $ LitInt n) ∨ (∃ b, v = LitV $ LitBool b)) P (UnOp NegOp (Val v)) σ.
+  Proof. prove_irred_unless. solve_unop v. Qed.
+  Global Instance irreducible_un_minus v P σ :
+    IrredUnless (∃ n, v = LitV $ LitInt n) P (UnOp MinusUnOp (Val v)) σ.
+  Proof. prove_irred_unless. solve_unop v. Qed.
 
   Global Instance irreducible_var (x : string) P σ :
     IrredUnless False P (Var x) σ.
@@ -198,7 +207,15 @@ Section irreducible.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [] | ] eqn:Heq; decide_goal.
   Qed.
-
+  Global Instance irreducible_allocN σ v_n v P :
+    IrredUnless (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.
+  Proof.
+    apply irred_unless_irred_dec; last prove_irred.
+    destruct v_n as [[n | | | | | ] | | |]; try decide_goal.
+    assert (Decision (0 < n)%Z) as [ | ] by apply _.
+    - left. eauto.
+    - right. intros (n' & [= <-] & Hn'); lia.
+  Qed.
 
   (** for the usual use case with [sim_irred_unless], we will not actually have the state and program
     in context, thus the application of the above instances will fail.

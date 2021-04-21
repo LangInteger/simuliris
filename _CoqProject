@@ -28,10 +28,14 @@ theories/simplang/class_instances.v
 theories/simplang/proofmode.v
 theories/simplang/derived.v
 theories/simplang/heap_bij.v
+theories/simplang/parallel_subst.v
+theories/simplang/heapbij_refl.v
 
 theories/simplang/examples/sum.v
 theories/simplang/examples/heap_test.v
 theories/simplang/examples/reorder_malloc.v
+theories/simplang/examples/while.v
+
 
 
 

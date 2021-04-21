@@ -1,14 +1,13 @@
 (** This file proves the basic laws of the SimpLang program logic by applying
 the Iris lifting lemmas. *)
 
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Export tactics.
 From iris.bi.lib Require Import fractional.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
-From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Export class_instances.
-From simuliris.simplang Require Import tactics notation.
+From simuliris.simulation Require Export slsls.
+From simuliris.simulation Require Import lifting.
+From simuliris.simplang Require Export class_instances tactics notation.
 From iris.prelude Require Import options.
-
 
 Class sheapG (Σ: gFunctors) := SHeapG {
   sheapG_gen_heapG :> gen_sim_heapG loc loc (option val) (option val) Σ;
@@ -70,7 +69,7 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 
 Context (Ω : val → val → iProp Σ).
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 
 (** Heap for target *)
@@ -326,12 +325,80 @@ Qed.
 Lemma sim_call e_t e_s v_t v_s f :
   to_val e_t = Some v_t →
   to_val e_s = Some v_s →
-  ⊢ Ω v_t v_s -∗ Call (#f f) e_t ⪯{Ω} Call (#f f) e_s {{ Ω }}.
+  ⊢ Ω v_t v_s -∗ Call (## f) e_t ⪯{Ω} Call (## f) e_s {{ Ω }}.
 Proof.
   intros <-%of_to_val <-%of_to_val.
-  iIntros "H". rewrite sim_unfold. iIntros (????) "[H1 H2]". iModIntro.
+  (* FIXME use lifting lemma for this *)
+  iIntros "H". rewrite /sim /sim_stutter /sim_def sim_expr_unfold. iIntros (????) "[H1 H2]". iModIntro.
   iRight; iRight. iExists f, empty_ectx, v_t, empty_ectx, v_s, σ_s. cbn. iFrame.
   iSplitR; first done. iSplitR. { iPureIntro. constructor. }
   iIntros (v_t' v_s' ) "H". iApply sim_value. iApply "H".
 Qed.
+
+(** Coinduction support *)
+Lemma sim_while_while b_t b_s c_t c_s inv Ψ :
+  inv -∗
+  □ (inv -∗
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω}
+    (if: c_s then b_s ;; while: c_s do b_s od else #())%E
+      [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv) }]) -∗
+  (while: c_t do b_t od ⪯{Ω} while: c_s do b_s od [{ Ψ }])%E.
+Proof.
+  iIntros "Hinv_init #Hstep".
+  iApply (sim_lift_head_coind _ (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
+  { iFrame. eauto. }
+  iModIntro. iIntros (?? ?? ??) "(-> & -> & Hinv) (Hstate & Hnreach)".
+  iModIntro. iSplitR; first by eauto with head_step.
+  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred).
+  { eauto with head_step. }
+  iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplitR; first by eauto with head_step.
+  iApply "Hstep". iFrame.
+Qed.
+
+
+Lemma sim_while_rec b_t c_t v_s (K_s : ectx) (inv : val → iProp Σ) Ψ rec_n :
+  inv v_s -∗
+  rec_n @s K_s -∗
+  □ (∀ v_s', inv v_s' -∗
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω} (fill K_s v_s')%E
+    [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s') }]) -∗
+  (while: c_t do b_t od ⪯{Ω} Call ## rec_n v_s [{ Ψ }])%E.
+Proof.
+  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ (λ e_t e_s, (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s')%I)); first last.
+  { iExists v_s. eauto. }
+  iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
+  iSpecialize ("Hstep" with "Hinv").
+  iModIntro. iSplitR; first by eauto with head_step.
+  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  iModIntro. iExists (fill K_s v_s'), σ_s.
+
+  iDestruct "Hstate" as "(? & HP_s & ? & ? &?)".
+  iDestruct (gen_prog_valid with "HP_s Hrec") as %?.
+  iFrame. by eauto with head_step.
+Qed.
+
+Lemma sim_rec_while b_s c_s v_t (K_t : ectx) (inv : val → iProp Σ) Ψ rec_n :
+  inv v_t -∗
+  rec_n @t K_t -∗
+  □ (∀ v_t', inv v_t' -∗
+    (fill K_t v_t')%E ⪯{Ω}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
+    [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t') }]) -∗
+  ( Call ##rec_n v_t ⪯{Ω} while: c_s do b_s od [{ Ψ }])%E.
+Proof.
+  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ (λ e_t e_s, (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t'))%I); first last.
+  { iExists v_t. eauto. }
+  iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
+  iSpecialize ("Hstep" with "Hinv").
+
+  iDestruct "Hstate" as "(HP_t & ? & ? & ? &?)".
+  iDestruct (gen_prog_valid with "HP_t Hrec") as %?.
+  iModIntro. iSplitR; first by eauto with head_step.
+  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  iModIntro.
+  assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred).
+  { eauto with head_step. }
+  iExists e_s', σ_s'. inv_head_step. iFrame. iPureIntro. eauto with head_step.
+Qed.
+
 End lifting.

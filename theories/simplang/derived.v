@@ -6,10 +6,7 @@ For utility functions on arrays (e.g., freeing/copying an array), see
 
 From stdpp Require Import fin_maps.
 From iris.bi Require Import lib.fractional.
-From iris.proofmode Require Import tactics.
-From simuliris.simulation Require Export slsls.
-From simuliris.simplang Require Export primitive_laws.
-From simuliris.simplang Require Import tactics notation.
+From simuliris.simplang Require Export primitive_laws notation.
 From iris.prelude Require Import options.
 
 (** The [array] connective is a version of [mapsto] that works
