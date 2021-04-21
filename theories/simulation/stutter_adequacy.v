@@ -211,7 +211,7 @@ Section local_to_global.
       + iPureIntro. eapply tc_rtc_l; first by eauto.
         constructor. by apply fill_prim_step, head_prim_step, call_head_step_intro.
       + rewrite /uncurry. iPoseProof (sim_bind Ω _ _ K_t K_s with "[Hval Hcont]") as "HP"; last first.
-        { rewrite /Datatypes.curry /sim /sim_stutter /sim_def sim_expr_eq; iApply "HP". }
+        { cbn. rewrite /sim /sim_stutter /sim_def sim_expr_eq; iApply "HP". }
         iApply (sim_mono with "[Hcont] [Hval]").
         * rewrite /sim /sim_stutter /sim_def sim_expr_eq. iExact "Hcont".
         * rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hcont]".
