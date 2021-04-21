@@ -368,13 +368,6 @@ Section delay_based_fairness.
      fair_div_delay p T D σ → delays_for T D.
   Proof. by destruct 1. Qed.
 
-  (* TODO: do we need this: Lemma fair_div_delay_insert_steps p T D σ I T' D' σ':
-     fair_pool_steps p T D σ I T' D' σ' → fair_div_delay p T' D' σ' → fair_div_delay p T D σ.
-  Proof.
-    induction 1 as [T|T T' T'' D D' D'' σ σ' σ'' i I Hstep Hsteps IH]; eauto.
-    intros Hdiv; econstructor; eauto.
-  Qed. *)
-
   Lemma fair_div_delay_tc_insert_steps p T D σ I T' D' σ':
     fair_pool_steps p T D σ I T' D' σ' → fair_div_delay_tc p T' D' σ' → fair_div_delay_tc p T D σ.
   Proof.
