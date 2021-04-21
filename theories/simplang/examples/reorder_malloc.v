@@ -9,51 +9,6 @@ From simuliris.simulation Require Import slsls lifting.
 Section reorder.
   Context `{sbijG Σ}.
 
-  Fixpoint val_rel (v_t v_s : val) {struct v_s} :=
-    (match v_t, v_s with
-    | LitV (LitLoc l_t), LitV (LitLoc l_s) =>
-        l_t ↔h l_s
-    | LitV l_t, LitV l_s =>
-        ⌜l_t = l_s⌝
-    | PairV v1_t v2_t, PairV v1_s v2_s =>
-        val_rel v1_t v1_s ∧ val_rel v2_t v2_s
-    | InjLV v_t, InjLV v_s =>
-        val_rel v_t v_s
-    | InjRV v_t, InjRV v_s =>
-        val_rel v_t v_s
-    | _,_ => False
-    end)%I.
-  Instance : sheapInv Σ := heap_bij_inv val_rel.
-  Instance val_rel_pers v_t v_s : Persistent (val_rel v_t v_s).
-  Proof.
-    induction v_s as [[] | | | ] in v_t |-*; destruct v_t as [ [] | | | ]; apply _.
-  Qed.
-
-  Lemma val_rel_pair_source v_t v_s1 v_s2 :
-    val_rel v_t (v_s1, v_s2) -∗
-    ∃ v_t1 v_t2, ⌜v_t = PairV v_t1 v_t2⌝ ∗
-      val_rel v_t1 v_s1 ∗
-      val_rel v_t2 v_s2.
-  Proof.
-    simpl. iIntros "H". destruct v_t as [[] | v_t1 v_t2 | |]; simpl; try done.
-    iExists v_t1, v_t2. iDestruct "H" as "[#H1 #H2]". eauto.
-  Qed.
-
-  Lemma val_rel_litfn_source v_t fn_s :
-    val_rel v_t (LitV $ LitFn $ fn_s) -∗ ⌜v_t = LitV $ LitFn $ fn_s⌝.
-  Proof.
-    simpl. destruct v_t as [[] | v_t1 v_t2 | |]; iIntros "%Hp"; inversion Hp; subst; done.
-  Qed.
-
-  Lemma val_rel_loc_source v_t l_s :
-    val_rel v_t (LitV $ LitLoc l_s) -∗
-    ∃ l_t, ⌜v_t = LitV $ LitLoc l_t⌝ ∗ l_t ↔h l_s.
-  Proof.
-    destruct v_t as [[ | | | | l_t | ] | | | ]; simpl;
-        first [iIntros "%Ht"; congruence | iIntros "#Ht"; eauto].
-  Qed.
-
-
   Definition alloc2_and_cont :=
     (λ: "a", let: "v1" := Fst "a" in
              let: "v2" := Fst (Snd "a") in
@@ -71,8 +26,6 @@ Section reorder.
              let: "l2" := Alloc "v1" in
              Call "cont" ("l2", "l1")
     )%E.
-
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
   Lemma alloc2_reorder :
     ⊢ sim_ectx val_rel alloc2_and_cont alloc2_and_cont' val_rel.
@@ -146,7 +99,6 @@ Section reorder.
     iApply source_red_irred_unless; first done.
     iIntros ((l_s2 & ->)).
     iApply source_red_base; iModIntro.
-    to_sim.
     iPoseProof (val_rel_loc_source with "Hrel2") as (l_t2) "(-> & #Hbij2)".
     sim_load v_t2 v_s2 as "Hv2".
     sim_pures.

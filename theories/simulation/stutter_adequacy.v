@@ -182,12 +182,16 @@ Section local_to_global.
     iIntros "#Hloc #Hprog Hsim".
     iApply (gsim_coind Ω (λ e_t e_s, sim Ω e_t e_s Ω) with "[] Hsim"); clear e_t e_s.
     iModIntro. iIntros (e_t e_s).
-    rewrite /greatest_step sim_eq sim_def_unfold /slsls.greatest_step.
+    rewrite /greatest_step /sim /sim_stutter /sim_def sim_expr_eq sim_expr_def_unfold /slsls.greatest_step.
     iRevert (e_t). iApply sim_ind. iModIntro. iIntros (e_t).
     rewrite /slsls.least_step least_def_unfold /least_step.
     iIntros "Hsim" (P_t' σ_t P_s' σ_s) "[Hstate %]".
     rewrite /progs_are; iDestruct ("Hprog" with "Hstate") as "[% %]"; subst P_t' P_s'.
-    iMod ("Hsim" with "[$Hstate //]") as "[Hsim|[Hsim|Hsim]]"; iModIntro; [by eauto..|].
+    iMod ("Hsim" with "[$Hstate //]") as "[Hsim|[Hsim|Hsim]]"; iModIntro; [ | by eauto | ].
+    { iLeft. iDestruct "Hsim" as (e_s' σ_s') "(Hp & Hstate & Hv)".
+      iDestruct "Hv" as (v_t v_s) "(-> & %He_s' & ?)".
+      rewrite -(of_to_val _ _ He_s'). iExists v_t, v_s, σ_s'. iFrame. eauto.
+    }
     iDestruct "Hsim" as (f K_t v_t K_s v_s σ_s') "(% & % & Hval & Hstate & Hcont)".
     subst e_t. iRight.
 
@@ -207,9 +211,9 @@ Section local_to_global.
       + iPureIntro. eapply tc_rtc_l; first by eauto.
         constructor. by apply fill_prim_step, head_prim_step, call_head_step_intro.
       + rewrite /uncurry. iPoseProof (sim_bind Ω _ _ K_t K_s with "[Hval Hcont]") as "HP"; last first.
-        { rewrite sim_eq; iApply "HP". }
+        { cbn. rewrite /sim /sim_stutter /sim_def sim_expr_eq; iApply "HP". }
         iApply (sim_mono with "[Hcont] [Hval]").
-        * rewrite sim_eq. iExact "Hcont".
+        * rewrite /sim /sim_stutter /sim_def sim_expr_eq. iExact "Hcont".
         * rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hcont]".
           assert (K_f_t' = K_f_t) as -> by naive_solver.
           iSpecialize ("Hcont" with "Hval").

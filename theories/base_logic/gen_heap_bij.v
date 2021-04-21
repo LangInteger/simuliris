@@ -69,6 +69,23 @@ Section laws.
     Persistent (l_t ↔h l_s).
   Proof. apply _. Qed.
 
+  Lemma gen_heap_bij_agree l_t1 l_t2 l_s1 l_s2 :
+    l_t1 ↔h l_s1 -∗ l_t2 ↔h l_s2 -∗ ⌜l_t1 = l_t2 ↔ l_s1 = l_s2⌝.
+  Proof.
+    iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2").
+    apply gset_empty.
+  Qed.
+  Lemma gen_heap_bij_func l_t l_s1 l_s2 :
+    l_t ↔h l_s1 -∗ l_t ↔h l_s2 -∗ ⌜l_s1 = l_s2⌝.
+  Proof.
+    iIntros "H1 H2". iPoseProof (gen_heap_bij_agree with "H1 H2") as "<-"; done.
+  Qed.
+  Lemma gen_heap_bij_inj l_s l_t1 l_t2 :
+    l_t1 ↔h l_s -∗ l_t2 ↔h l_s -∗ ⌜l_t1 = l_t2⌝.
+  Proof.
+    iIntros "H1 H2". iPoseProof (gen_heap_bij_agree with "H1 H2") as "->"; done.
+  Qed.
+
   Lemma gen_heap_bij_access val_rel l_t l_s :
     gen_heap_bij_inv val_rel -∗
     l_t ↔h l_s -∗
@@ -96,22 +113,18 @@ Section laws.
     gen_heap_bij_inv val_rel ∗ l_t ↔h l_s.
   Proof.
     iIntros "Hinv Ht Hs Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
-    iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_t = l_t') L⌝)%I) as "%".
+    iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_t = l_t') L⌝)%I) as "%Hext_t".
     { iIntros "%". destruct H3 as ([l_t' l_s'] & Hin & <-).
       iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(Hcon & _ & _)"; first by apply Hin.
-      iPoseProof (mapsto_valid_2  with "Ht Hcon") as "%"; exfalso.
-      (* FIXME: names *)
-      destruct H3 as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
+      iPoseProof (mapsto_valid_2  with "Ht Hcon") as "%Hcon"; exfalso.
+      destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
     }
-    rename H3 into Hext_t.
-    iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_s = l_s') L⌝)%I) as "%".
-    { iIntros "%". destruct H3 as ([l_t' l_s'] & Hin & <-).
+    iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_s = l_s') L⌝)%I) as "%Hext_s".
+    { iIntros (([l_t' l_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(_ & Hcon & _)"; first by apply Hin.
-      iPoseProof (mapsto_valid_2 with "Hs Hcon") as "%"; exfalso.
-      (* FIXME: names *)
-      destruct H3 as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
+      iPoseProof (mapsto_valid_2 with "Hs Hcon") as "%Hcon"; exfalso.
+      destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
     }
-    rename H3 into Hext_s.
 
     iMod ((gset_bij_own_extend l_t l_s) with "Hauth") as "[Hinv #Helem]".
     - intros l_s' Hl_s'. apply Hext_t. by exists (l_t, l_s').
