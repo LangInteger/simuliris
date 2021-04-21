@@ -8,6 +8,7 @@
 theories/logic/satisfiable.v
 theories/simulation/relations.v
 theories/simulation/language.v
+theories/simulation/fairness.v
 theories/simulation/simulation.v
 theories/simulation/slsls.v
 theories/simulation/slsls_nostutter.v
