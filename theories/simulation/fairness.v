@@ -644,13 +644,87 @@ Section delay_based_fairness.
 
   Fixpoint fair_div_delay_to_exec {p T D σ} (Fair: fair_div_delay p T D σ) (n: nat) : list (expr Λ) * state Λ * nat :=
     match n with
-    | 0 => fst (proj1_sig (fair_div_delay_step_inv_strong Fair))
+    | 0 => (T, σ, (fst (proj1_sig (fair_div_delay_step_inv_strong Fair))).(id))
     | S m =>
       match fair_div_delay_step_inv_strong Fair with
       | exist _ (T', σ', i, D') H =>
         fair_div_delay_to_exec (match H with conj Fair' _ => Fair' end) m
       end
     end.
+
+  Lemma fair_div_delay_to_exec_succ {p T D σ} (Fair: fair_div_delay p T D σ) (n: nat) :
+    fair_div_delay_to_exec Fair (S n) =
+      match fair_div_delay_step_inv_strong Fair with
+      | exist _ (T', σ', i, D') H =>
+        fair_div_delay_to_exec (match H with conj Fair' _ => Fair' end) n
+      end.
+  Proof. reflexivity. Qed.
+
+  Lemma fair_div_delay_to_exec_step {p T D σ} (Fair: fair_div_delay p T D σ) n:
+    pool_step p (fair_div_delay_to_exec Fair n).(pool)
+      (fair_div_delay_to_exec Fair n).(state)
+      (fair_div_delay_to_exec Fair n).(id)
+      (fair_div_delay_to_exec Fair (S n)).(pool)
+      (fair_div_delay_to_exec Fair (S n)).(state).
+  Proof.
+    revert p T D σ Fair; induction n as [|n IH]; intros p T D σ Fair.
+    - simpl; destruct (fair_div_delay_step_inv_strong Fair) as ([[[T' σ'] i] D'] & Fair' & Hstep & Hdecr & Hdel); simpl; done.
+    - rewrite fair_div_delay_to_exec_succ. rewrite fair_div_delay_to_exec_succ.
+      destruct (fair_div_delay_step_inv_strong Fair) as ([[[T' σ'] i] D'] & Fair' & Hstep & Hdecr & Hdel).
+      eapply IH.
+  Qed.
+
+
+  Program Definition fair_div_delay_to_div_exec {p T D σ} (Fair: fair_div_delay p T D σ) : div_exec p T σ :=
+    {| the_exec n := fair_div_delay_to_exec Fair n |}.
+  Next Obligation.
+    intros p T D σ Fair. rewrite /diverges.
+    split; first done.
+    split; first done.
+    intros n; eapply fair_div_delay_to_exec_step.
+  Qed.
+
+  Lemma fair_div_delay_to_exec_steps {p T D σ} (Fair: fair_div_delay p T D σ) i n:
+    D !! i = Some n → ∃ m, m ≤ n ∧ (fair_div_delay_to_div_exec Fair m).(id) = i.
+  Proof.
+    revert T D σ Fair; induction n as [|n IH]; intros T D σ Fair Hlook.
+    - exists 0. split; first done. simpl.
+      destruct (fair_div_delay_step_inv_strong Fair) as ([[[T' σ'] j] D'] & Fair' & Hstep & Hdecr & Hdel); simpl.
+      destruct (decide (i = j)) as [|Hne]; first done.
+      destruct (Hdecr i _ Hne Hlook) as (? & ? & ?); naive_solver.
+    - destruct (fair_div_delay_step_inv_strong Fair) as ([[[T' σ'] j] D'] & Fair' & Hstep & Hdecr & Hdel) eqn: Heq.
+      destruct (decide (i = j)) as [|Hne].
+      { exists 0; split; first lia. simpl; rewrite Heq; simpl; done. }
+      destruct (Hdecr i _ Hne Hlook) as (n' & ? & Hlook').
+      assert (n' = n) as -> by naive_solver.
+      destruct (IH T' D' σ' Fair' Hlook') as (m & Hle & Hstep').
+      exists (S m). split; first lia. simpl; rewrite Heq //=.
+  Qed.
+
+  Lemma fair_div_delay_to_exec_advance {p T D σ} (Fair: fair_div_delay p T D σ) m:
+    ∃ T' D' σ' (Fair': fair_div_delay p T' D' σ'), ∀ n, fair_div_delay_to_div_exec Fair' n = fair_div_delay_to_div_exec Fair (m + n).
+  Proof.
+    revert T D σ Fair; induction m as [|m IH]; intros T D σ Fair; simpl; eauto.
+    destruct (fair_div_delay_step_inv_strong Fair) as ([[[T' σ'] j] D'] & Fair' & Hstep & Hdecr & Hdel) eqn: Heq.
+    eapply IH.
+  Qed.
+
+  Lemma fair_div_delay_to_exec_fair {p T D σ} (Fair: fair_div_delay p T D σ):
+    fair (fair_div_delay_to_div_exec Fair).
+  Proof.
+    intros i (n & Hen). intros m.
+    destruct (fair_div_delay_to_exec_advance Fair (m + n)) as (T' & D' & σ' & Fair' & Heq).
+    assert (is_Some (D' !! i)) as [k HD].
+    { eapply fair_div_delays_for in Fair' as Hdel. eapply Hdel.
+      eapply active_threads_spec. feed pose proof (Hen (m + n + 0)) as Hen; first lia.
+      rewrite -Heq in Hen; simpl in Hen; destruct Hen as (e & Hlook & Hred).
+      exists e. split; first done. destruct Hred as (e' & σ'' & efs & ?).
+      by eapply val_stuck. }
+    eapply (fair_div_delay_to_exec_steps Fair') in HD as (l & Hle & Hstep).
+    rewrite Heq in Hstep. exists (m + n + l). split; first lia.
+    done.
+  Qed.
+
 
 
 
@@ -665,15 +739,28 @@ Section delay_based_fairness.
     - intros [D HD]. by eapply fair_div_delay_fair_div_coind.
   Qed.
 
+  Theorem fair_div_delay_traditional p T D σ:
+    fair_div_delay p T D σ → fair_div p T σ.
+  Proof.
+    intros Fair. exists (fair_div_delay_to_div_exec Fair).
+    eapply fair_div_delay_to_exec_fair.
+  Qed.
 
-  (* safety is only needed for traditional → coind *)
+  Corollary fair_div_coind_traditional p T σ:
+    fair_div_coind p T σ → fair_div p T σ.
+  Proof.
+    rewrite fair_div_coind_delay_iff. intros [D Fair].
+    by eapply fair_div_delay_traditional.
+  Qed.
+
   Corollary fair_div_traditional_coind p T σ:
     pool_safe p T σ →
     (fair_div p T σ ↔ fair_div_coind p T σ).
   Proof.
-    intros ??; by eapply fair_div_to_fair_div_coind.
+    intros Hsafe; split.
+    - intros ?; by eapply fair_div_to_fair_div_coind.
+    - eapply fair_div_coind_traditional.
   Qed.
-
 
 
 End delay_based_fairness.
