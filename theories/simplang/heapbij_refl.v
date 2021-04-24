@@ -58,8 +58,8 @@ Section refl.
     | Fork e => False             (* currently not supported *)
     | AllocN e1 e2 => expr_wf e1 ∧ expr_wf e2
     | FreeN e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | Load e => expr_wf e
-    | Store e1 e2 => expr_wf e1 ∧ expr_wf e2
+    | Load o e => expr_wf e
+    | Store o e1 e2 => expr_wf e1 ∧ expr_wf e2
     | CmpXchg e1 e2 e3 => False   (* currently not supported *)
     | FAA e1 e2 => False          (* currently not supported *)
     end.

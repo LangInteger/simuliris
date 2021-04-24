@@ -16,7 +16,7 @@ Lemma mapsto_seq_array `{sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option
   ([∗ list] i ∈ seq 0 n, mapsto (hG:=hG) (l +ₗ (i : nat)) dq (Some (RSt 0, v))) -∗
   array (hG:=hG) l dq (replicate n v).
 Proof.
-  rewrite /array. iInduction n as [|n'] "IH" forall (l); simpl.
+  rewrite /array /array_st. iInduction n as [|n'] "IH" forall (l); simpl.
   { done. }
   iIntros "[$ Hl]". rewrite -fmap_S_seq big_sepL_fmap.
   setoid_rewrite Nat2Z.inj_succ. setoid_rewrite <-Z.add_1_l.

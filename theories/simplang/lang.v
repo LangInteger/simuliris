@@ -48,6 +48,10 @@ Inductive bin_op : Set :=
   | LeOp | LtOp | EqOp (* Relations *)
   | OffsetOp. (* Pointer offset *)
 
+(* ordering requirement on memory accesses *)
+Inductive order : Set :=
+  ScOrd | Na1Ord | Na2Ord.
+
 Inductive expr :=
   (* Values *)
   | Val (v : val)
@@ -74,8 +78,8 @@ Inductive expr :=
   (* Heap *)
   | AllocN (e1 e2 : expr) (* array length (positive number), initial value *)
   | FreeN (e1 e2 : expr) (* number of cells to free, location *)
-  | Load (e : expr)
-  | Store (e1 : expr) (e2 : expr)
+  | Load (o : order) (e : expr)
+  | Store (o : order) (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
 with val :=
@@ -202,6 +206,8 @@ Global Instance un_op_eq_dec : EqDecision un_op.
 Proof. solve_decision. Defined.
 Global Instance bin_op_eq_dec : EqDecision bin_op.
 Proof. solve_decision. Defined.
+Global Instance order_eq_dec : EqDecision order.
+Proof. solve_decision. Defined.
 Global Instance expr_eq_dec : EqDecision expr.
 Proof.
   refine (
@@ -231,9 +237,9 @@ Proof.
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | FreeN e1 e2, FreeN e1' e2' =>
         cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Load e, Load e' => cast_if (decide (e = e'))
-     | Store e1 e2, Store e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
+     | Load o e, Load o' e' => cast_if_and (decide (o = o')) (decide (e = e'))
+     | Store o e1 e2, Store o' e1' e2' =>
+        cast_if_and3 (decide (o = o')) (decide (e1 = e1')) (decide (e2 = e2'))
      | CmpXchg e0 e1 e2, CmpXchg e0' e1' e2' =>
         cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
      | FAA e1 e2, FAA e1' e2' =>
@@ -302,16 +308,29 @@ Proof.
   | 10 => LeOp | 11 => LtOp | 12 => EqOp | _ => OffsetOp
   end) _); by intros [].
 Qed.
+Global Instance order_countable : Countable order.
+Proof.
+  refine (inj_countable' (λ o, match o with
+   | ScOrd => 0
+   | Na1Ord => 1
+   | Na2Ord => 2
+  end) (λ n, match n with
+  | 0 => ScOrd
+  | 1 => Na1Ord
+  | _ => Na2Ord
+  end) _); by intros [].
+Qed.
 Global Instance expr_countable : Countable expr.
 Proof.
+  (* (string + binder) + (lit + ((un_op + bin_op)) + order) *)
  set (enc :=
    fix go e :=
      match e with
      | Val v => GenNode 0 [gov v]
      | Var x => GenLeaf (inl (inl x))
      | Let x e1 e2 => GenNode 1 [GenLeaf (inl (inr x)); go e1; go e2]
-     | UnOp op e => GenNode 3 [GenLeaf (inr (inr (inl op))); go e]
-     | BinOp op e1 e2 => GenNode 4 [GenLeaf (inr (inr (inr op))); go e1; go e2]
+     | UnOp op e => GenNode 3 [GenLeaf (inr (inr (inl (inl op)))); go e]
+     | BinOp op e1 e2 => GenNode 4 [GenLeaf (inr (inr (inl (inr op)))); go e1; go e2]
      | If e0 e1 e2 => GenNode 5 [go e0; go e1; go e2]
      | Pair e1 e2 => GenNode 6 [go e1; go e2]
      | Fst e => GenNode 7 [go e]
@@ -322,8 +341,8 @@ Proof.
      | Fork e => GenNode 12 [go e]
      | AllocN e1 e2 => GenNode 13 [go e1; go e2]
      | FreeN e1 e2 => GenNode 14 [go e1; go e2]
-     | Load e => GenNode 15 [go e]
-     | Store e1 e2 => GenNode 16 [go e1; go e2]
+     | Load o e => GenNode 15 [GenLeaf (inr (inr (inr o))); go e]
+     | Store o e1 e2 => GenNode 16 [GenLeaf (inr (inr (inr o))); go e1; go e2]
      | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
      | FAA e1 e2 => GenNode 18 [go e1; go e2]
      | Call e1 e2 => GenNode 19 [go e1; go e2]
@@ -343,8 +362,8 @@ Proof.
      | GenNode 0 [v] => Val (gov v)
      | GenLeaf (inl (inl x)) => Var x
      | GenNode 1 [GenLeaf (inl (inr x)); e1; e2] => Let x (go e1) (go e2)
-     | GenNode 3 [GenLeaf (inr (inr (inl op))); e] => UnOp op (go e)
-     | GenNode 4 [GenLeaf (inr (inr (inr op))); e1; e2] => BinOp op (go e1) (go e2)
+     | GenNode 3 [GenLeaf (inr (inr (inl (inl op)))); e] => UnOp op (go e)
+     | GenNode 4 [GenLeaf (inr (inr (inl (inr op)))); e1; e2] => BinOp op (go e1) (go e2)
      | GenNode 5 [e0; e1; e2] => If (go e0) (go e1) (go e2)
      | GenNode 6 [e1; e2] => Pair (go e1) (go e2)
      | GenNode 7 [e] => Fst (go e)
@@ -355,8 +374,8 @@ Proof.
      | GenNode 12 [e] => Fork (go e)
      | GenNode 13 [e1; e2] => AllocN (go e1) (go e2)
      | GenNode 14 [e1; e2] => FreeN (go e1) (go e2)
-     | GenNode 15 [e] => Load (go e)
-     | GenNode 16 [e1; e2] => Store (go e1) (go e2)
+     | GenNode 15 [GenLeaf (inr (inr (inr o))); e] => Load o (go e)
+     | GenNode 16 [GenLeaf (inr (inr (inr o))); e1; e2] => Store o (go e1) (go e2)
      | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
      | GenNode 18 [e1; e2] => FAA (go e1) (go e2)
      | GenNode 19 [e1; e2] => Call (go e1) (go e2)
@@ -381,6 +400,7 @@ Qed.
 Global Instance val_countable : Countable val.
 Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
 
+Global Instance : Inhabited lock_state := populate (RSt 0).
 Global Instance state_inhabited : Inhabited state :=
   populate {| heap := inhabitant |}.
 Global Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
@@ -410,9 +430,9 @@ Inductive ectx_item :=
   | AllocNRCtx (e1 : expr)
   | FreeNLCtx (v2 : val)
   | FreeNRCtx (e1 : expr)
-  | LoadCtx
-  | StoreLCtx (v2 : val)
-  | StoreRCtx (e1 : expr)
+  | LoadCtx (o : order)
+  | StoreLCtx (o : order) (v2 : val)
+  | StoreRCtx (o : order) (e1 : expr)
   | CmpXchgLCtx (v1 : val) (v2 : val)
   | CmpXchgMCtx (e0 : expr) (v2 : val)
   | CmpXchgRCtx (e0 : expr) (e1 : expr)
@@ -439,9 +459,9 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | AllocNRCtx e1 => AllocN e1 e
   | FreeNLCtx v2 => FreeN e (Val v2)
   | FreeNRCtx e1 => FreeN e1 e
-  | LoadCtx => Load e
-  | StoreLCtx v2 => Store e (Val v2)
-  | StoreRCtx e1 => Store e1 e
+  | LoadCtx o => Load o e
+  | StoreLCtx o v2 => Store o e (Val v2)
+  | StoreRCtx o e1 => Store o e1 e
   | CmpXchgLCtx v1 v2 => CmpXchg e (Val v1) (Val v2)
   | CmpXchgMCtx e0 v2 => CmpXchg e0 e (Val v2)
   | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
@@ -472,8 +492,8 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Fork e => Fork (subst x v e)
   | AllocN e1 e2 => AllocN (subst x v e1) (subst x v e2)
   | FreeN e1 e2 => FreeN (subst x v e1) (subst x v e2)
-  | Load e => Load (subst x v e)
-  | Store e1 e2 => Store (subst x v e1) (subst x v e2)
+  | Load o e => Load o (subst x v e)
+  | Store o e1 e2 => Store o (subst x v e1) (subst x v e2)
   | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
   | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
   | Call e1 e2 => Call (subst x v e1) (subst x v e2)
@@ -590,6 +610,13 @@ Qed.
 Definition state_init_heap (l : loc) (n : Z) (v : val) (σ : state) : state :=
   state_upd_heap (λ h, heap_array l (replicate (Z.to_nat n) v) ∪ h) σ.
 
+Lemma state_init_heap_empty l v σ :
+  state_init_heap l 0 v σ = σ.
+Proof.
+  destruct σ as [h]. rewrite /state_init_heap /=. f_equiv.
+  by rewrite left_id.
+Qed.
+
 Lemma state_init_heap_singleton l v σ :
   state_init_heap l 1 v σ = state_upd_heap <[l:= Some (RSt 0, v)]> σ.
 Proof.
@@ -689,22 +716,40 @@ Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
      (*head_step P (Fork e) σ (Val $ LitV LitUnit) σ*)
   | AllocNS n v σ b :
      (0 < n)%Z →
-     (∀ i, σ.(heap) !! (Build_loc b i) = None) →
+     (∀ i, σ.(heap) !! (mkloc b i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc (Build_loc b 0)) (state_init_heap (Build_loc b 0) n v σ)
+               (Val $ LitV $ LitLoc (mkloc b 0)) (state_init_heap (mkloc b 0) n v σ)
   | FreeNS l σ n :
      (0 < n)%Z →
      (* always need to deallocate the full block *)
-     (∀ i, (0 ≤ i < n)%Z ↔ ∃ v, σ.(heap) !! (l +ₗ i) = Some $ Some (RSt 0, v)) →
+     (∀ i, (∃ v st, σ.(heap) !! (l +ₗ i) = Some $ Some (st, v)) → (0 ≤ i < n)%Z) →
+     (* the blocks we deallocate need to be in RSt 0 *)
+     (∀ i, (0 ≤ i < n)%Z → ∃ v, σ.(heap) !! (l +ₗ i) = Some $ Some (RSt 0, v)) →
      head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
                (Val $ LitV LitUnit) (state_upd_heap (free_mem l (Z.to_nat n)) σ)
-  | LoadS l v σ st :
-     σ.(heap) !! l = Some $ Some (st, v) →
-     head_step P (Load (Val $ LitV $ LitLoc l)) σ (of_val v) σ
-  | StoreS l v w σ st :
-     σ.(heap) !! l = Some $ Some (st, v) →
-     head_step P (Store (Val $ LitV $ LitLoc l) (Val w)) σ
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some (st, w)]> σ)
+  | LoadScS l v σ n :
+     σ.(heap) !! l = Some $ Some (RSt n, v) →
+     head_step P (Load ScOrd (Val $ LitV $ LitLoc l)) σ (of_val v) σ
+  | StoreScS l v v' σ :
+     σ.(heap) !! l = Some $ Some (RSt 0, v) →
+     head_step P (Store ScOrd (Val $ LitV $ LitLoc l) (Val v')) σ
+               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some (RSt 0, v')]> σ)
+  | LoadNa1S l v σ n :
+      σ.(heap) !! l = Some $ Some (RSt n, v) →
+      head_step P (Load Na1Ord (Val $ LitV $ LitLoc l)) σ
+        (Load Na2Ord (Val $ LitV $ LitLoc l)) (state_upd_heap <[l := Some (RSt (S n), v)]> σ)
+  | LoadNa2S l v σ n :
+      σ.(heap) !! l = Some $ Some (RSt (S n), v) →
+      head_step P (Load Na2Ord (Val $ LitV $ LitLoc l)) σ
+                (of_val v) (state_upd_heap <[l := Some (RSt n, v)]> σ)
+  | StoreNa1S l v v' σ :
+      σ.(heap) !! l = Some $ Some (RSt 0, v) →
+      head_step P (Store Na1Ord (Val $ LitV $ LitLoc l) (Val v')) σ
+                (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) (state_upd_heap <[l:=Some (WSt, v)]> σ)
+  | StoreNa2S l v v' σ :
+      σ.(heap) !! l = Some $ Some (WSt, v) →
+      head_step P (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) σ
+                (Val $ LitV LitUnit) (state_upd_heap <[l:=Some (RSt 0, v')]> σ)
   | CallS f v K σ :
      P !! f = Some K →
      head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (fill K (Val v)) σ.
