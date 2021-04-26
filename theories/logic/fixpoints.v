@@ -6,7 +6,7 @@ Import bi.
 (** Least and greatest fixpoint of a monotone function, defined entirely inside
     the logic.  *)
 Class BiMonoPred {PROP : bi} {A : ofe} (F : (A → PROP) → (A → PROP)) := {
-  bi_mono_pred (Φ Ψ : A → PROP): NonExpansive Φ → NonExpansive Ψ → ⊢ <pers> (∀ x, Φ x -∗ Ψ x) → ∀ x, F Φ x -∗ F Ψ x;
+  bi_mono_pred (Φ Ψ : A → PROP): NonExpansive Φ → NonExpansive Ψ → ⊢ <pers> (∀ x, Φ x -∗ Ψ x) -∗ ∀ x, F Φ x -∗ F Ψ x;
   bi_mono_pred_ne Φ : NonExpansive Φ → NonExpansive (F Φ)
 }.
 Global Arguments bi_mono_pred {_ _ _ _} _ _ _ _.
@@ -129,4 +129,41 @@ Section greatest.
   Lemma greatest_fixpoint_coind (Φ : A → PROP) `{!NonExpansive Φ} :
     □ (∀ y, Φ y -∗ F Φ y) -∗ ∀ x, Φ x -∗ bi_greatest_fixpoint F x.
   Proof. iIntros "#HΦ" (x) "Hx". iExists (OfeMor Φ). auto. Qed.
+
+  Lemma greatest_fixpoint_strong_coind (Φ : A → PROP) `{!NonExpansive Φ} :
+    □ (∀ y, Φ y -∗ F (λ x, Φ x ∨ bi_greatest_fixpoint F x) y) -∗
+    ∀ x, Φ x -∗ bi_greatest_fixpoint F x.
+  Proof using Type*.
+    trans (∀ x, Φ x ∨ bi_greatest_fixpoint F x -∗ bi_greatest_fixpoint F x)%I; last first.
+    { iIntros "H" (x) "Φ". iApply "H". by iLeft. }
+    iIntros "#HΦ". iApply (greatest_fixpoint_coind  with "[]"); first solve_proper.
+    iIntros "!>" (y) "[H|H]"; first by iApply "HΦ".
+    iApply (bi_mono_pred (bi_greatest_fixpoint F) with "[#] [H]"); first solve_proper.
+      - iModIntro. iIntros (x) "H". iRight. iApply "H".
+      - by iApply greatest_fixpoint_unfold_1.
+  Qed.
+
 End greatest.
+
+
+
+Instance paco_mono {PROP : bi} `{!BiAffine PROP} {A : ofe} (F : (A → PROP) → (A → PROP)) `{!BiMonoPred F} Φ:
+  NonExpansive Φ →
+  BiMonoPred (λ (Ψ : A → PROP) (a : A), Φ a ∨ F Ψ a)%I.
+Proof.
+  split.
+  - intros Ψ Ψ' Hne Hne'. iIntros "#Mon" (x) "[H1|H2]"; first by iLeft.
+    iRight. iApply (bi_mono_pred with "[] H2"). by iModIntro.
+  - iIntros (Ψ Hne). solve_proper.
+Qed.
+
+Lemma greatest_fixpoint_paco {PROP : bi} `{!BiAffine PROP} {A : ofe} (F : (A → PROP) → (A → PROP)) `{!BiMonoPred F} (Φ : A → PROP) `{!NonExpansive Φ} :
+  □ (∀ y, Φ y -∗ F (bi_greatest_fixpoint (λ Ψ a, Φ a ∨ F Ψ a)) y) -∗
+  ∀ x, Φ x -∗ bi_greatest_fixpoint F x.
+Proof using Type*.
+  iIntros "#Hmon" (x) "HΦ". iDestruct ("Hmon" with "HΦ") as "HF".
+  rewrite greatest_fixpoint_unfold. iApply (bi_mono_pred with "[] HF").
+  iModIntro. iIntros (y) "HG". iApply (greatest_fixpoint_coind with "[] HG").
+  iModIntro. iIntros (z) "Hf". rewrite greatest_fixpoint_unfold.
+  iDestruct "Hf" as "[HΦ|$]". by iApply "Hmon".
+Qed.

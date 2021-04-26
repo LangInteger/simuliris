@@ -193,7 +193,7 @@ Section language.
     head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs →
     ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1 ∧ efs = [].
   Proof. eapply call_head_step. Qed.
-  Lemma call_head_step_intro p f v K σ1 efs :
+  Lemma call_head_step_intro p f v K σ1 :
     p !! f = Some K →
     head_step p (of_call f v) σ1 (fill K (of_val v)) σ1 [].
   Proof. intros ?. eapply call_head_step; eexists; eauto. Qed.
@@ -880,5 +880,33 @@ Section language.
     assert (e = of_val v) as -> by congruence.
     rewrite to_of_val in Hstuck. naive_solver.
   Qed.
+
+  Lemma reach_stuck_no_forks P e σ e' σ':
+    reach_stuck P e' σ' → no_forks P e σ e' σ' →  reach_stuck P e σ.
+  Proof.
+    intros (T'' & σ'' & I & Hsteps & Hstuck) (J & Hnfs)%no_forks_pool_steps.
+    exists T'', σ'', (J ++ I). split; last done.
+    by eapply pool_steps_trans.
+  Qed.
+
+  Lemma safe_no_forks P e σ e' σ':
+    safe P e σ → no_forks P e σ e' σ' → safe P e' σ'.
+  Proof.
+    intros Hsafe Hnfs Hreach; by eapply Hsafe, reach_stuck_no_forks.
+  Qed.
+
+  Lemma no_forks_trans P e σ e' σ' e'' σ'':
+    no_forks P e σ e' σ' → no_forks P e' σ' e'' σ'' → no_forks P e σ e'' σ''.
+  Proof.
+    induction 1; eauto using no_forks.
+  Qed.
+
+  Lemma no_forks_inv_r P e σ e' σ':
+    no_forks P e σ e' σ' → (e' = e ∧ σ' = σ) ∨ (∃ e'' σ'', no_forks P e σ e'' σ'' ∧ no_fork P e'' σ'' e' σ').
+  Proof.
+    induction 1 as [|e e' e'' σ σ' σ'' Hstep Hsteps IH]; first by eauto.
+    destruct IH as [(-> & ->)|(e''' & σ''' & Hnfs & Hnf)]; eauto 10 using no_forks.
+  Qed.
+
 
 End language.
