@@ -10,16 +10,6 @@ From simuliris.simulation Require Import lifting.
 From simuliris.simplang Require Export class_instances tactics notation.
 From iris.prelude Require Import options.
 
-
-Section lookup.
-Context `{FinMap K M}.
-Lemma lookup_union_l {A} (m1 m2 : M A) i :
-  m2 !! i = None → (m1 ∪ m2) !! i = m1 !! i.
-Proof using EqDecision0 H H0 H1 H2 H3 H4 H5 H6 K M. intros Hi. rewrite lookup_union Hi. destruct (m1 !! i); naive_solver. Qed.
-End lookup.
-
-
-
 Inductive alloc_state :=
   | DeallocSt
   | AllocSt (n : nat).
@@ -40,7 +30,7 @@ Class sheapInv (Σ : gFunctors) := SHeapRel {
   sheap_inv : iProp Σ;
 }.
 
-
+(** Allocation size control, serving as a tracker of the size of blocks and a deallocation permission for whole blocks *)
 Section alloc_size.
   Context `{ghost_mapG Σ block alloc_state}.
 
@@ -230,12 +220,12 @@ Notation "l '↦s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (
 Notation "l '↦{' st '}s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (st, v%V)))
   (at level 20, format "l  ↦{ st }s  v") : bi_scope.
 
-(** The [array] connective is a version of [mapsto] that works
-with lists of values. *)
+(** The [array] connective is a version of [mapsto] that works with lists of values. *)
+(** [array_st] is parameterized over the individual lock states *)
 (* again parameterized over the ghost names *)
 Definition array_st `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) (sts : list lock_state) : iProp Σ :=
   ([∗ list] i ↦ v; st ∈ vs; sts, mapsto (hG:=hG) (l +ₗ i) dq (Some (st, v%V)))%I.
-Definition array `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) : iProp Σ := array_st l dq vs (replicate (length vs) (RSt 0)). 
+Definition array `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) : iProp Σ := array_st l dq vs (replicate (length vs) (RSt 0)).
 
 Lemma array_st_length_inv `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) (sts : list lock_state) :
   array_st l dq vs sts -∗ ⌜ length vs = length sts⌝.
@@ -359,9 +349,9 @@ Lemma target_array_st_access vs sts (i : nat) v st l :
   sts !! i = Some st →
   l ↦{sts}t∗ vs -∗
   (l +ₗ i) ↦{st}t v ∗ (∀ v' st', (l +ₗ i) ↦{st'}t v' -∗ l ↦{<[i := st']> sts}t∗ <[i := v']>vs).
-Proof. 
-  iIntros (Hsome_v Hsome_st) "Hs". 
-  rewrite /array_st. iApply (big_sepL2_insert_acc _ _ _ i v st Hsome_v Hsome_st with "Hs"). 
+Proof.
+  iIntros (Hsome_v Hsome_st) "Hs".
+  rewrite /array_st. iApply (big_sepL2_insert_acc _ _ _ i v st Hsome_v Hsome_st with "Hs").
 Qed.
 
 Lemma source_array_st_access vs sts (i : nat) v st l :
@@ -369,20 +359,20 @@ Lemma source_array_st_access vs sts (i : nat) v st l :
   sts !! i = Some st →
   l ↦{sts}s∗ vs -∗
   (l +ₗ i) ↦{st}s v ∗ (∀ v' st', (l +ₗ i) ↦{st'}s v' -∗ l ↦{<[i := st']> sts}s∗ <[i := v']>vs).
-Proof. 
-  iIntros (Hsome_v Hsome_st) "Hs". 
-  rewrite /array_st. iApply (big_sepL2_insert_acc _ _ _ i v st Hsome_v Hsome_st with "Hs"). 
+Proof.
+  iIntros (Hsome_v Hsome_st) "Hs".
+  rewrite /array_st. iApply (big_sepL2_insert_acc _ _ _ i v st Hsome_v Hsome_st with "Hs").
 Qed.
 
 Lemma target_array_access vs (i : nat) v l :
   vs !! i = Some v →
   l ↦t∗ vs -∗
   (l +ₗ i) ↦t v ∗ (∀ v', (l +ₗ i) ↦t v' -∗ l ↦t∗ <[i := v']>vs).
-Proof. 
-  iIntros (Hsome) "Hs". rewrite /array. 
-  iPoseProof (target_array_st_access vs (replicate (length vs) (RSt 0)) i v (RSt 0) l with "Hs") as "[$ Ha]"; first done. 
+Proof.
+  iIntros (Hsome) "Hs". rewrite /array.
+  iPoseProof (target_array_st_access vs (replicate (length vs) (RSt 0)) i v (RSt 0) l with "Hs") as "[$ Ha]"; first done.
   { apply lookup_replicate; split; [done | ]. by eapply list_lookup_alt. }
-  iIntros (v') "Hv'". iSpecialize ("Ha" $! v' (RSt 0) with "Hv'"). 
+  iIntros (v') "Hv'". iSpecialize ("Ha" $! v' (RSt 0) with "Hv'").
   by rewrite insert_replicate insert_length.
 Qed.
 
@@ -390,18 +380,18 @@ Lemma source_array_access vs (i : nat) v l :
   vs !! i = Some v →
   l ↦s∗ vs -∗
   (l +ₗ i) ↦s v ∗ (∀ v', (l +ₗ i) ↦s v' -∗ l ↦s∗ <[i := v']>vs).
-Proof. 
-  iIntros (Hsome) "Hs". rewrite /array. 
-  iPoseProof (source_array_st_access vs (replicate (length vs) (RSt 0)) i v (RSt 0) l with "Hs") as "[$ Ha]"; first done. 
+Proof.
+  iIntros (Hsome) "Hs". rewrite /array.
+  iPoseProof (source_array_st_access vs (replicate (length vs) (RSt 0)) i v (RSt 0) l with "Hs") as "[$ Ha]"; first done.
   { apply lookup_replicate; split; [done | ]. by eapply list_lookup_alt. }
-  iIntros (v') "Hv'". iSpecialize ("Ha" $! v' (RSt 0) with "Hv'"). 
+  iIntros (v') "Hv'". iSpecialize ("Ha" $! v' (RSt 0) with "Hv'").
   by rewrite insert_replicate insert_length.
 Qed.
 
 Lemma source_array_st_access' vs sts l :
   (0 ≤ loc_idx l < length vs)%Z →
   (mkloc (loc_chunk l) 0) ↦{sts}s∗ vs -∗
-  l ↦{sts !!! Z.to_nat (loc_idx l)}s (vs !!! Z.to_nat (loc_idx l)) ∗ 
+  l ↦{sts !!! Z.to_nat (loc_idx l)}s (vs !!! Z.to_nat (loc_idx l)) ∗
   (∀ v' st', l ↦{st'}s v' -∗ (mkloc (loc_chunk l) 0) ↦{<[Z.to_nat (loc_idx l) := st']> sts}s∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
 Proof.
   iIntros (Hsome) "Hs".
@@ -416,7 +406,7 @@ Qed.
 Lemma target_array_st_access' vs sts l :
   (0 ≤ loc_idx l < length vs)%Z →
   (mkloc (loc_chunk l) 0) ↦{sts}t∗ vs -∗
-  l ↦{sts !!! Z.to_nat (loc_idx l)}t (vs !!! Z.to_nat (loc_idx l)) ∗ 
+  l ↦{sts !!! Z.to_nat (loc_idx l)}t (vs !!! Z.to_nat (loc_idx l)) ∗
   (∀ v' st', l ↦{st'}t v' -∗ (mkloc (loc_chunk l) 0) ↦{<[Z.to_nat (loc_idx l) := st']> sts}t∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
 Proof.
   iIntros (Hsome) "Hs".
@@ -647,14 +637,14 @@ Proof.
     iDestruct (gen_heap_valid with "Hσ Hl0") as "%Hs".
     iPoseProof ("IH" $! (Z.pred n) (l +ₗ 1) sts with "[] [] Hσ [Hlr]") as "%IH".
     + iPureIntro; cbn in Hlen. lia.
-    + iPureIntro. lia. 
+    + iPureIntro. lia.
     + iApply (big_sepL2_mono with "Hlr").
       intros k v st Hv Hst; simpl. rewrite loc_add_assoc. replace (Z.of_nat (S k)) with (1 + k)%Z; [done | lia].
     + iPureIntro. intros i Hi. destruct (decide (i = 0)) as [-> | ].
       { rewrite loc_add_0. eauto. }
       specialize (IH (Z.pred i) ltac:(lia)) as IH.
       rewrite !lookup_total_cons_ne_0; [ | lia | lia].
-      replace (Nat.pred (Z.to_nat i)) with (Z.to_nat (Z.pred i)) by lia. 
+      replace (Nat.pred (Z.to_nat i)) with (Z.to_nat (Z.pred i)) by lia.
       rewrite -IH. rewrite loc_add_assoc. by replace (1 + Z.pred i)%Z with i%Z by lia.
 Qed.
 
@@ -668,16 +658,6 @@ Proof.
   iPoseProof (heap_array_st_validN with "Hσ Hl") as "%Ha"; first done.
   iPureIntro. intros i Hi. rewrite (Ha i Hi).
   rewrite lookup_total_replicate_2; [done | lia].
-Qed.
-
-Lemma upd_free_mem σ l n o :
-  o > 0 →
-  <[l := None]> (free_mem (l +ₗ o) n σ.(heap)) = free_mem (l +ₗ o) n (<[l := None]> σ.(heap)).
-Proof.
-  intros HO.
-  induction n as [|n IH] in o, HO|-* => //=. rewrite insert_commute.
-  - rewrite loc_add_assoc. replace (Z.of_nat (o) + 1)%Z with (Z.of_nat (o + 1)); last lia. rewrite IH; [done | lia].
-  - destruct l; rewrite /loc_add; cbn; intros [=]; lia.
 Qed.
 
 Lemma heap_array_st_freeN {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} σ vs sts n l :
@@ -796,7 +776,7 @@ Proof.
   iModIntro. iFrame. by iApply "Ht".
 Qed.
 
-(** FIXME: this is not the theorem we like as the lock_state does currently not interact well with fractions *)
+(** FIXME: this is not the theorem we would like as the lock_state does currently not interact well with fractions *)
 Lemma target_red_load_na l v Ψ :
   l ↦t v -∗
   (l ↦t v -∗ target_red (of_val v) Ψ) -∗
@@ -835,7 +815,7 @@ Proof.
   iModIntro. iFrame. by iApply "Ht".
 Qed.
 
-(** FIXME: this is not the theorem we like as the lock_state does currently not interact well with fractions *)
+(** FIXME: this is not the theorem we would like as the lock_state does currently not interact well with fractions *)
 Lemma source_red_load_na l v Ψ :
   l ↦s v -∗
   (l ↦s v -∗ source_red (of_val v) Ψ) -∗
@@ -1052,6 +1032,29 @@ Proof.
   iExists e_s', σ_s'. inv_head_step. iFrame. iPureIntro. eauto with head_step.
 Qed.
 
-(* TODO rec-rec coinduction lemma *)
+Lemma sim_rec_rec v_t v_s (K_t K_s : ectx) (inv : val → val → iProp Σ) Ψ rec_t rec_s :
+  inv v_t v_s -∗
+  rec_t @t K_t -∗
+  rec_s @s K_s -∗
+  □ (∀ v_t' v_s', inv v_t' v_s' -∗
+    (fill K_t v_t')%E ⪯{Ω} (fill K_s v_s')%E
+    [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s') }]) -∗
+  ( Call ##rec_t v_t ⪯{Ω} Call ##rec_s v_s [{ Ψ }])%E.
+Proof.
+  iIntros "Hinv #Hrec_t #Hrec_s #Hstep".
+  iApply (sim_lift_head_coind _ (λ e_t e_s, (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s'))%I); first last.
+  { iExists v_t, v_s. eauto. }
+  iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_t' v_s') "(-> & -> & Hinv)".
+  iSpecialize ("Hstep" with "Hinv").
 
+  iDestruct "Hstate" as "(HP_t & HP_s & ? & ? &?)".
+  iDestruct (gen_prog_valid with "HP_t Hrec_t") as %?.
+  iDestruct (gen_prog_valid with "HP_s Hrec_s") as %?.
+  iModIntro. iSplitR; first by eauto with head_step.
+  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  iModIntro.
+  assert (head_reducible P_s (Call ##rec_s v_s') σ_s) as (e_s' & σ_s' & Hred).
+  { eauto with head_step. }
+  iExists e_s', σ_s'. inv_head_step. iFrame. iPureIntro. eauto with head_step.
+Qed.
 End lifting.

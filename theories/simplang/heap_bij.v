@@ -13,7 +13,7 @@ Section gset_bij.
   Context `{gset_bijG Σ A B}.
   Implicit Types (L : gset (A * B)) (a : A) (b : B).
 
-  (* TODO: maybe move into Iris?*)
+  (* TODO: use gset_bij_elem_of once we have updated Iris *)
   Lemma gset_bij_own_elem_auth_agree {γ q L} a b :
     gset_bij_own_auth γ q L -∗ gset_bij_own_elem γ a b -∗ ⌜(a, b) ∈ L⌝.
   Proof.
@@ -223,13 +223,6 @@ Section fix_heap.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
   Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
-
-  Lemma not_reach_stuck_irred P (e : expr) σ ϕ {Hirred: IrredUnless ϕ P e σ}:
-     to_val e = None → ¬ (reach_stuck P e σ) → ϕ.
-  Proof.
-    intros Hnval Hreach. apply Hirred. contradict Hreach. exists e, σ. split; [econstructor | split; [ | done]].
-    by rewrite language_to_val_eq.
-  Qed.
 
   (* TODO: the first part of the proof -- up to the array_st_access' -- is the same for all the load lemmas.
     Is there a good way to bundle these into a general lemma? *)

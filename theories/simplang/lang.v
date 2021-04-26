@@ -663,6 +663,16 @@ Proof.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
 
+Lemma upd_free_mem σ l n o :
+  o > 0 →
+  <[l := None]> (free_mem (l +ₗ o) n σ.(heap)) = free_mem (l +ₗ o) n (<[l := None]> σ.(heap)).
+Proof.
+  intros HO.
+  induction n as [|n IH] in o, HO|-* => //=. rewrite insert_commute.
+  - rewrite loc_add_assoc. replace (Z.of_nat (o) + 1)%Z with (Z.of_nat (o + 1)); last lia. rewrite IH; [done | lia].
+  - destruct l; rewrite /loc_add; cbn; intros [=]; lia.
+Qed.
+
 (** Building actual evaluation contexts out of ectx_items *)
 Definition ectx := list ectx_item.
 Definition empty_ectx : ectx := [].
