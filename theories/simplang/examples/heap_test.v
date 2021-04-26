@@ -50,6 +50,15 @@ Proof.
   iIntros "H1 H2 H3 H4".
   target_free. source_free. sim_val. eauto.
 Qed.
+
+(* FIXME: if we remove the parantheses around the first element, parsing is broken *)
+Lemma test_freeN l l2 :
+  l ↦t∗ [(#42); #99] -∗ l2 ↦s∗ [(#1337); #420; #666] -∗ l ==>t 2 -∗ l2 ==>s 3 -∗
+  FreeN #2 #l ⪯{val_rel} FreeN #3 #l2 {{ val_rel }}.
+Proof.
+  iIntros "H1 H2 H3 H4".
+  target_free; first done. source_free; first done. sim_val. eauto.
+Qed.
 End a.
 End fix_bi.
 
