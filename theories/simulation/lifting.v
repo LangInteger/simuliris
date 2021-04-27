@@ -329,71 +329,21 @@ Section fix_sim.
     inv e_t e_s -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    (*
-  (* FIXME: we have the same proof pattern here as for the bind lemma,
-    where we need to repeat some parts of the proof for the nested leastfp induction.
-    Surely there must be a way to capture this pattern and make the proofs more concise? *)
-    iIntros "#Hstep Hinv".
-    iApply (sim_expr_coind _ _ (λ e_t' e_s', inv e_t' e_s' ∨ e_t' ⪯{Ω} e_s' [{λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }])%I); last by eauto.
-    iModIntro. clear e_t e_s. iIntros (e_t e_s) "[Hinv | Hs]".
-    - rewrite /greatest_step least_def_unfold /least_step. iIntros (????) "[Hstate Hnreach]".
-      iMod ("Hstep" with "Hinv [$Hstate $Hnreach ]") as "[Hred Hs]".
-      iModIntro. iRight; iLeft. iFrame. iIntros (e_t' σ_t') "Hprim".
-      iMod ("Hs" with "Hprim") as (e_s' σ_s') "(%Hprim & Hstate & Hs)".
-      iModIntro. iRight. iExists e_s', σ_s'. iFrame. iPureIntro; by constructor.
-    - rewrite {2}sim_expr_eq sim_expr_def_unfold.
-      rewrite /greatest_step !least_def_unfold /least_step.
-      iIntros (????) "[Hstate %Hnreach]". iMod ("Hs" with "[$Hstate //]") as "[Hs | [Hs | Hs]]".
-      + (* when we have a "Red" there, we are really in the same situation again, so we take
-          a step again, instead of going into the base case *)
-        iDestruct "Hs" as (e_s' σ_s') "(%Hs_prim & Hstate & [Hbase | Hinv])".
-        { (* base case -- mirror that in the goal *)
-          iModIntro. iLeft. iExists e_s', σ_s'. by iFrame.
-        }
-        (* take a step using the hypothesis *)
-        iRight; iLeft.
-        iMod ("Hstep" with "Hinv [$Hstate]") as "[Hred Hs]".
-        { iPureIntro. by eapply not_reach_stuck_pres_rtc. }
-        iModIntro. iFrame. iIntros (e_t' σ_t') "Hprim".
-        iMod ("Hs" with "Hprim") as (e_s'' σ_s'') "(%Hs_prim' & Hstate & Hs)".
-        iModIntro. iRight. iExists e_s'', σ_s''. iFrame. iPureIntro.
-        eapply tc_rtc_l; first done. by constructor.
-      + iModIntro. iRight; iLeft. iDestruct "Hs" as "[Hred Hs]". iFrame "Hred".
-        iIntros (e_t' σ_t') "Hprim". iMod ("Hs" with "Hprim") as "[Hstutter | Htstep]"; first last.
-        { iModIntro. iRight. cbn. iDestruct "Htstep" as (e_s' σ_s') "(? & ? &?)".
-          iExists e_s', σ_s'. rewrite sim_expr_eq. iFrame.
-        }
-        iModIntro. iLeft. iDestruct "Hstutter" as "[Hstate Hsim]". iFrame.
-        iApply (sim_ind with "[] Hsim"). iModIntro. iIntros (e_t'').
-        iIntros "IH". rewrite least_def_unfold.
-        clear P_t σ_t e_t' σ_t' e_t Hnreach.
-        iIntros (????) "[Hstate %Hnreach]". iMod ("IH" with "[$Hstate //]") as "[IH | [IH | IH]]".
-        * (* same as above *)
-          iDestruct "IH" as (e_s' σ_s') "(%Hs_prim & Hstate & [Hbase | Hinv])".
-          { (* base case -- mirror that in the goal *)
-            iModIntro. iLeft. iExists e_s', σ_s'. by iFrame.
-          }
-          (* take a step using the hypothesis *)
-          iRight; iLeft.
-          iMod ("Hstep" with "Hinv [$Hstate]") as "[Hred Hs]".
-          { iPureIntro. by eapply not_reach_stuck_pres_rtc. }
-          iModIntro. iFrame. iIntros (e_t' σ_t') "Hprim".
-          iMod ("Hs" with "Hprim") as (e_s'' σ_s'') "(%Hs_prim' & Hstate & Hs)".
-          iModIntro. iRight. iExists e_s'', σ_s''. iFrame. iPureIntro.
-          eapply tc_rtc_l; first done. by constructor.
-        * iDestruct "IH" as "[Hred IH]". iModIntro; iRight; iLeft. iFrame.
-          iIntros (??) "Hprim". iMod ("IH" with "Hprim") as "[Hstutter | Htstep]".
-          { iModIntro; iLeft. iFrame. }
-          iModIntro; iRight. cbn. iDestruct "Htstep" as (e_s' σ_s') "(? & ? &?)".
-          iExists e_s', σ_s'. rewrite sim_expr_eq. iFrame.
-        * iRight; iRight. iDestruct "IH" as (f K_t v_t K_s v_s σ_s') "(-> & ? & ? & ? & Hs)".
-          iExists f, K_t, v_t, K_s, v_s, σ_s'. iFrame. iModIntro. iSplitR; first done.
-          iIntros (??) "Ho"; cbn. iRight. rewrite sim_expr_eq. by iApply "Hs".
-      + iRight; iRight. iDestruct "Hs" as (f K_t v_t K_s v_s σ_s') "(-> & ? & ? & ? & Hs)".
-        iExists f, K_t, v_t, K_s, v_s, σ_s'. iFrame. iModIntro. iSplitR; first done.
-        iIntros (??) "Ho"; cbn. iRight. rewrite sim_expr_eq. by iApply "Hs".
-*)
-  Admitted.
+    pose (F  := (λ Ψ e_t e_s, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) ∗ inv e_t e_s)%I).
+    iIntros "#H Inv". iApply (sim_expr_paco _ F).
+    { intros ??? Heq ??; rewrite /F. repeat f_equiv. by apply Heq. }
+    - iModIntro. clear. iIntros (Ψ e_t e_s) "[Himpl Hinv]".
+      rewrite /lock_step. iIntros (p_t σ_t p_s σ_s) "Hs".
+      iMod ("H" with "Hinv Hs") as "[$ Hcont]".
+      iModIntro. iIntros (e_t' σ_t' efs_t Hstep).
+      iMod ("Hcont" with "[//]") as (e_s' σ_s') "(H1 & H2 & H3 & H4)".
+      iModIntro. iExists e_s', σ_s'. iFrame. rewrite /join_expr /F.
+      iApply (sim_expr_mono with "[Himpl] H4").
+      clear. iIntros (e_t e_s) "[H1|H1]".
+      + iRight. by iApply "Himpl".
+      + iLeft. iFrame.
+    - rewrite /F. iFrame. clear. iIntros (e_t e_s) "$".
+  Qed.
 
   Lemma sim_lift_head_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s,
@@ -417,16 +367,8 @@ Section fix_sim.
   Qed.
 
 
-  (** The following lemma (which one might expect, given how cofix in Coq
-      and guarded recursion in Iris work) should not be provable:
-      It requires us to conjure up a proof that that any acceptable expressions by inv
-      are in the simulation relation.
-      While we only get that after already having taken a step in source and target, thus justifying soundness, it still requires us to produce this proof without having seen the "full" co-inductive step, which should lead us to two expressions related by inv again.
-      If we fix the statement such that we only get the full coinduction hypothesis after having shown the full step "to the next iteration", we exactly arrive at the above statement [sim_lift_coind].
 
-      (but I still think this should be a sound co-induction principle: we'd just need a way "to look into the future" to justify it).
-   *)
-  Lemma sim_lift_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  (* TODO: Lemma sim_lift_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
         ⌜reducible P_t e_t σ_t⌝ ∗
@@ -434,10 +376,13 @@ Section fix_sim.
           ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜prim_step P_s e_s σ_s e_s' σ_s' []⌝ ∗
             state_interp P_t σ_t' P_s σ_s' ∗
-            ((∀ e_t' e_s', inv e_t' e_s' -∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
-            e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' }])) -∗
+            (
+            ∀ Ψ,
+            □ (∀ e_t e_s, inv e_t e_s -∗ Ψ e_t e_s) -∗
+            □ (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗
+            e_t' ⪯{Ω} e_s' [{ Ψ }])) -∗
     inv e_t e_s -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-  Abort.
+  Abort. *)
 End fix_sim.
