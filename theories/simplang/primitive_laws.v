@@ -166,12 +166,12 @@ Proof.
   iIntros (Hn) "Hloc". iApply target_red_lift_head_step.
   iIntros (P_s σ_s P_t σ_t) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)". iModIntro.
   iSplitR. { iPureIntro. eauto with lia head_step. }
-  iIntros (e_t' σ_t') "%"; inv_head_step.
+  iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
   iMod (gen_heap_alloc_big _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ_t")
     as "(Hσ_t & Hl & Hm)".
   { apply heap_array_map_disjoint. rewrite replicate_length Z2Nat.id; auto with lia. }
   iPoseProof (heap_array_to_seq_mapsto with "Hl") as "Hmap".
-  iModIntro. iFrame. by iApply "Hloc".
+  iModIntro. iFrame. iSplitR; [done|]. by iApply "Hloc".
 Qed.
 
 Lemma source_red_allocN_seq n v Ψ :
@@ -182,7 +182,7 @@ Lemma source_red_allocN_seq n v Ψ :
 Proof.
   iIntros (Hn) "Hloc". iApply source_red_lift_head_step.
   iIntros (P_s σ_s P_t σ_t) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) _]".
-  assert (head_reducible P_s (AllocN #n v) σ_s) as (e_s' & σ_s' & Hred).
+  assert (head_reducible P_s (AllocN #n v) σ_s) as (e_s' & σ_s' & efs & Hred).
   { eauto with lia head_step. }
   inv_head_step.
   iMod (gen_heap_alloc_big _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ_s")
@@ -218,9 +218,9 @@ Proof.
   iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iModIntro. iSplitR; first by eauto with head_step.
-  iIntros (e_t' σ_t') "%"; inv_head_step.
+  iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
   iMod (gen_heap_update with "Hσ_t Hl") as "[$ Hl]".
-  iModIntro. iFrame.
+  iModIntro. by iFrame.
 Qed.
 
 Lemma source_red_free v l Ψ :
@@ -230,7 +230,7 @@ Proof.
   iIntros "Hl Hsim". iApply source_red_lift_head_step.
   iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) _]".
   iModIntro. iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
-  assert (head_reducible P_s (Free #l) σ_s) as (e_s' & σ_s' & Hred).
+  assert (∃ e_s' σ_s', head_step P_s (Free #l) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iExists e_s', σ_s'. iSplitR; first done.
   inv_head_step. iMod (gen_heap_update with "Hσ_s Hl") as "[$ Hl]".
@@ -246,8 +246,8 @@ Proof.
   iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?. iModIntro.
   iSplit; first by eauto with head_step.
-  iIntros (?? Hstep); inv_head_step.
-  iModIntro. iFrame. by iApply "Ht".
+  iIntros (??? Hstep); inv_head_step.
+  iModIntro. iFrame. iSplit;[done|]. by iApply "Ht".
 Qed.
 
 Lemma source_red_load l dq v Ψ :
@@ -258,7 +258,7 @@ Proof.
   iIntros "Hl Ht". iApply source_red_lift_head_step.
   iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) _]".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
-  assert (head_reducible P_s (Load #l) σ_s) as (e_s' & σ_s' & Hred).
+  assert (∃ e_s' σ_s', head_step P_s (Load #l) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iModIntro; iExists e_s', σ_s'. iSplit; first by eauto. inv_head_step.
   iModIntro. iFrame. by iApply "Ht".
@@ -273,9 +273,9 @@ Proof.
   iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) !>".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iSplitR; first by eauto with head_step.
-  iIntros (e_t' σ_t') "%"; inv_head_step.
+  iIntros (e_t' efs σ_t') "%"; inv_head_step.
   iMod (gen_heap_update with "Hσ_t Hl") as "[$ Hl]".
-  iModIntro. iFrame. by iApply "Hsim".
+  iModIntro. iFrame. iSplit;[done|]. by iApply "Hsim".
 Qed.
 
 Lemma source_red_store l v v' Ψ :
@@ -286,7 +286,8 @@ Proof.
   iIntros "Hl Hsim". iApply source_red_lift_head_step.
   iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) _] !>".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
-  assert (head_reducible P_s (Store (Val $ LitV (LitLoc l)) (Val v)) σ_s) as (e_s' & σ_s' & Hred).
+  assert (∃ e_s' σ_s', head_step P_s (Store (Val $ LitV (LitLoc l)) (Val v)) σ_s e_s' σ_s' [])
+    as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iExists e_s', σ_s'. iSplitR; first done. inv_head_step.
   iMod (gen_heap_update with "Hσ_s Hl") as "[$ Hl]".
@@ -303,8 +304,8 @@ Proof.
   iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & ?) !>".
   iDestruct (gen_prog_valid with "HP_t Hf") as %?.
   iSplitR; first by eauto with head_step.
-  iIntros (e_t' σ_t') "%"; inv_head_step.
-  iModIntro. iFrame.
+  iIntros (e_t' efs σ_t') "%"; inv_head_step.
+  iModIntro. by iFrame.
 Qed.
 
 Lemma source_red_call f K_s v Ψ :
@@ -315,7 +316,8 @@ Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.
   iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) _] !>".
   iDestruct (gen_prog_valid with "HP_s Hf") as %?.
-  assert (head_reducible P_s (Call (Val $ LitV $ LitFn f) (Val v)) σ_s) as (e_s' & σ_s' & Hred).
+  assert (∃ e_s' σ_s', head_step P_s (Call (Val $ LitV $ LitFn f) (Val v)) σ_s e_s' σ_s' [])
+    as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iExists e_s', σ_s'. iSplitR; first done. inv_head_step.
   iModIntro. iFrame.
@@ -349,11 +351,11 @@ Proof.
   { iFrame. eauto. }
   iModIntro. iIntros (?? ?? ??) "(-> & -> & Hinv) (Hstate & Hnreach)".
   iModIntro. iSplitR; first by eauto with head_step.
-  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
-  assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred).
+  iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
+  assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
-  iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplitR; first by eauto with head_step.
-  iApply "Hstep". iFrame.
+  iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplit;[done|].
+  iSplitR; first by eauto with head_step. iApply "Hstep". iFrame.
 Qed.
 
 
@@ -370,7 +372,7 @@ Proof.
   iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
   iModIntro. iSplitR; first by eauto with head_step.
-  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   iModIntro. iExists (fill K_s v_s'), σ_s.
 
   iDestruct "Hstate" as "(? & HP_s & ? & ? &?)".
@@ -394,9 +396,9 @@ Proof.
   iDestruct "Hstate" as "(HP_t & ? & ? & ? &?)".
   iDestruct (gen_prog_valid with "HP_t Hrec") as %?.
   iModIntro. iSplitR; first by eauto with head_step.
-  iIntros (e_t' σ_t') "%Hhead"; inv_head_step.
+  iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   iModIntro.
-  assert (head_reducible P_s (while: c_s do b_s od ) σ_s) as (e_s' & σ_s' & Hred).
+  assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
   iExists e_s', σ_s'. inv_head_step. iFrame. iPureIntro. eauto with head_step.
 Qed.

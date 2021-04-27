@@ -34,7 +34,7 @@ Section irreducible.
     let IH := fresh "IH" in
     let Ki := fresh "Ki" in
     let Ki' := fresh "Ki'" in
-    intros ϕ e_s' σ_s' Hhead%prim_head_step;
+    intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
     [ (*this need not complete the proof and may generate a proof obligation *)
       inversion Hhead; subst; try by (apply ϕ; eauto)
     | intros K e' Heq Hv; clear ϕ;
@@ -242,7 +242,7 @@ Section irreducible.
 End irreducible.
 
 Section pure_exec.
-  Local Ltac solve_exec_safe := intros; subst; do 2 eexists; econstructor; eauto.
+  Local Ltac solve_exec_safe := intros; subst; do 3 eexists; econstructor; eauto.
   Local Ltac solve_exec_puredet := simpl; intros; by inv_head_step.
   Local Ltac solve_pure_exec :=
     subst; intros ?; apply nsteps_once, pure_head_step_pure_step;

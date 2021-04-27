@@ -595,71 +595,70 @@ Definition prog := gmap fname ectx.
 Notation "e1 ;; e2" := (Let BAnon e1%E e2%E)
   (at level 100, e2 at level 200,
    format "'[' '[hv' '[' e1 ']' ;;  ']' '/' e2 ']'") : expr_scope.
-Inductive head_step (P : prog) : expr → state → expr → state → Prop :=
+Inductive head_step (P : prog) : expr → state → expr → state → list expr → Prop :=
   | PairS v1 v2 σ :
-     head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ
+     head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ []
   | InjLS v σ :
-     head_step P (InjL $ Val v) σ (Val $ InjLV v) σ
+     head_step P (InjL $ Val v) σ (Val $ InjLV v) σ []
   | InjRS v σ :
-     head_step P (InjR $ Val v) σ (Val $ InjRV v) σ
+     head_step P (InjR $ Val v) σ (Val $ InjRV v) σ []
   | LetS x v1 e2 e' σ :
      e' = subst' x v1 e2 →
-     head_step P (Let x (Val $ v1) e2) σ e' σ
+     head_step P (Let x (Val $ v1) e2) σ e' σ []
   | UnOpS op v v' σ :
      un_op_eval op v = Some v' →
-     head_step P (UnOp op (Val v)) σ (Val v') σ
+     head_step P (UnOp op (Val v)) σ (Val v') σ []
   | BinOpS op v1 v2 v' σ :
      bin_op_eval op v1 v2 = Some v' →
-     head_step P (BinOp op (Val v1) (Val v2)) σ (Val v') σ
+     head_step P (BinOp op (Val v1) (Val v2)) σ (Val v') σ []
   | IfTrueS e1 e2 σ :
-     head_step P (If (Val $ LitV $ LitBool true) e1 e2) σ e1 σ
+     head_step P (If (Val $ LitV $ LitBool true) e1 e2) σ e1 σ []
   | IfFalseS e1 e2 σ :
-     head_step P (If (Val $ LitV $ LitBool false) e1 e2) σ e2 σ
+     head_step P (If (Val $ LitV $ LitBool false) e1 e2) σ e2 σ []
   | WhileS e0 e1 σ :
-      head_step P (While e0 e1) σ (If e0 (e1 ;; While e0 e1) (Val $ LitV $ LitUnit)) σ
+      head_step P (While e0 e1) σ (If e0 (e1 ;; While e0 e1) (Val $ LitV $ LitUnit)) σ []
   | FstS v1 v2 σ :
-     head_step P (Fst (Val $ PairV v1 v2)) σ (Val v1) σ
+     head_step P (Fst (Val $ PairV v1 v2)) σ (Val v1) σ []
   | SndS v1 v2 σ :
-     head_step P (Snd (Val $ PairV v1 v2)) σ (Val v2) σ
+     head_step P (Snd (Val $ PairV v1 v2)) σ (Val v2) σ []
   | MatchLS v x1 e1 x2 e2 e' σ :
       e' = subst' x1 v e1 →
-     head_step P (Match (Val $ InjLV v) x1 e1 x2 e2) σ e' σ
+     head_step P (Match (Val $ InjLV v) x1 e1 x2 e2) σ e' σ []
   | MatchRS v x1 e1 x2 e2 e' σ :
       e' = subst' x2 v e2 →
-     head_step P (Match (Val $ InjRV v) x1 e1 x2 e2) σ e' σ
+     head_step P (Match (Val $ InjRV v) x1 e1 x2 e2) σ e' σ []
   | ForkS e σ:
-      (* TODO: for now, this is just a NOP -- maybe we want to change this later and add concurrency?*)
-     head_step P (Fork e) σ (Val $ LitV LitUnit) σ
+     head_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
   | AllocNS n v σ l :
      (0 < n)%Z →
      (∀ i, (0 ≤ i)%Z → (i < n)%Z → σ.(heap) !! (l +ₗ i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc l) (state_init_heap l n v σ)
+               (Val $ LitV $ LitLoc l) (state_init_heap l n v σ) []
   | FreeS l v σ :
      σ.(heap) !! l = Some $ Some v →
      head_step P (Free (Val $ LitV $ LitLoc l)) σ
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=None]> σ)
+               (Val $ LitV LitUnit) (state_upd_heap <[l:=None]> σ) []
   | LoadS l v σ :
      σ.(heap) !! l = Some $ Some v →
-     head_step P (Load (Val $ LitV $ LitLoc l)) σ (of_val v) σ
+     head_step P (Load (Val $ LitV $ LitLoc l)) σ (of_val v) σ []
   | StoreS l v w σ :
      σ.(heap) !! l = Some $ Some v →
      head_step P (Store (Val $ LitV $ LitLoc l) (Val w)) σ
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some w]> σ)
+               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some w]> σ) []
   | CmpXchgS l v1 v2 vl σ b :
      σ.(heap) !! l = Some $ Some vl →
      (* Crucially, this compares the same way as [EqOp]! *)
      vals_compare_safe vl v1 →
      b = bool_decide (vl = v1) →
      head_step P (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ
-               (Val $ PairV vl (LitV $ LitBool b)) (if b then state_upd_heap <[l:=Some v2]> σ else σ)
+               (Val $ PairV vl (LitV $ LitBool b)) (if b then state_upd_heap <[l:=Some v2]> σ else σ) []
   | FaaS l i1 i2 σ :
      σ.(heap) !! l = Some $ Some (LitV (LitInt i1)) →
      head_step P (FAA (Val $ LitV $ LitLoc l) (Val $ LitV $ LitInt i2)) σ
-               (Val $ LitV $ LitInt i1) (state_upd_heap <[l:=Some $ LitV (LitInt (i1 + i2))]>σ)
+               (Val $ LitV $ LitInt i1) (state_upd_heap <[l:=Some $ LitV (LitInt (i1 + i2))]>σ) []
   | CallS f v K σ :
      P !! f = Some K →
-     head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (fill K (Val v)) σ.
+     head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (fill K (Val v)) σ [].
 
 
 Definition of_class (m : mixin_expr_class val) : expr :=
@@ -744,15 +743,15 @@ Proof.
   - done.
 Qed.
 
-Lemma val_head_stuck P e1 σ1 e2 σ2 : head_step P e1 σ1 e2 σ2 → to_val e1 = None.
+Lemma val_head_stuck P e1 σ1 e2 σ2 efs : head_step P e1 σ1 e2 σ2 efs → to_val e1 = None.
 Proof. destruct 1; naive_solver. Qed.
 
-Lemma head_ctx_step_val P Ki e σ1 e2 σ2 :
-  head_step P (fill_item Ki e) σ1 e2 σ2 → is_Some (to_val e).
+Lemma head_ctx_step_val P Ki e σ1 e2 σ2 efs :
+  head_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_val e).
 Proof. revert e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
 
-Lemma head_step_fill_no_val P Ki K e σ1 e2 σ2 :
-  head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 → is_Some (to_val e).
+Lemma head_step_fill_no_val P Ki K e σ1 e2 σ2 efs:
+  head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 efs → is_Some (to_val e).
 Proof.
   revert e Ki.
   induction K as [ | Ki' K IH]; simpl; intros e Ki.
@@ -760,8 +759,8 @@ Proof.
   - intros H. eapply IH in H. by eapply fill_item_val.
 Qed.
 
-Lemma head_ectx_step_val P K e σ1 e2 σ2 :
-  to_val e = None → head_step P (fill K e) σ1 e2 σ2 → K = empty_ectx.
+Lemma head_ectx_step_val P K e σ1 e2 σ2 efs:
+  to_val e = None → head_step P (fill K e) σ1 e2 σ2 efs → K = empty_ectx.
 Proof.
   intros Hnoval H.
   destruct K as [ | Ki K]; first reflexivity.
@@ -780,7 +779,7 @@ Lemma alloc_fresh P v n σ :
   let l := fresh_locs (dom (gset loc) σ.(heap)) in
   (0 < n)%Z →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
-            (Val $ LitV $ LitLoc l) (state_init_heap l n v σ).
+            (Val $ LitV $ LitLoc l) (state_init_heap l n v σ) [].
 Proof.
   intros.
   apply AllocNS; first done.
@@ -788,9 +787,9 @@ Proof.
   by apply fresh_locs_fresh.
 Qed.
 
-Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' :
+Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:
   to_val e1 = None →
-  head_step P e1' σ1 e2 σ2 →
+  head_step P e1' σ1 e2 σ2 efs →
   fill K e1 = fill K' e1' →
   ∃ K'', K' = ectx_compose K K''.
 Proof.
@@ -814,10 +813,10 @@ Proof.
   constructor.
   - apply to_of_class.
   - apply of_to_class.
-  - intros p v ??? H%val_head_stuck. cbn in H. congruence.
+  - intros p v ???? H%val_head_stuck. cbn in H. congruence.
   - intros p f v ???. split.
     + cbn. inversion 1; subst. exists K. eauto.
-    + intros (K & ? & -> & ->). cbn. by constructor.
+    + intros (K & ? & -> & -> & ->). cbn. by constructor.
   - done.
   - intros ???. by rewrite -fill_app.
   - apply fill_inj.
@@ -839,7 +838,7 @@ Proof.
       }
       rewrite Heq in H. destruct K; first done.
       enough (Some (fn_name, arg) = None) by congruence. by apply H.
-  - intros p K K' e1' e1_redex σ1 e2 σ2 H. destruct to_class as [ [] | ] eqn:Heq; first done.
+  - intros p K K' e1' e1_redex σ1 e2 σ2 efs H. destruct to_class as [ [] | ] eqn:Heq; first done.
     + intros _ Hstep.
       eapply fill_eq; [ | apply Hstep | apply H].
       rewrite <-(of_to_class _ _ Heq). reflexivity.

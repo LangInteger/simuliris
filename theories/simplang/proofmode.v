@@ -356,7 +356,7 @@ Ltac to_sim :=
   iStartProof;
   lazymatch goal with
   | |- envs_entails _ (sim_expr _ _ _ _) => idtac
-  | |- envs_entails _ (sim _ ?e_t ?e_s _) =>
+  | |- envs_entails _ (sim _ _ ?e_t ?e_s) =>
       notypeclasses refine (tac_sim_to_sim_expr _ _ e_t e_s _ _)
   | |- envs_entails _ (target_red ?e_t (λ _, sim_expr _ _ _ _ )) =>
       notypeclasses refine (tac_target_to_sim _ _ e_t _ _ _)
@@ -372,7 +372,7 @@ Ltac to_target :=
   | _ =>
     to_sim;
     lazymatch goal with
-    | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Φ) =>
+    | |- envs_entails _ (sim_expr ?Ω ?Φ ?e_t ?e_s) =>
         notypeclasses refine (tac_to_target  Ω _ e_t e_s Φ _)
     | _ => fail "to_target: not a sim"
     end
@@ -385,7 +385,7 @@ Ltac to_source :=
   | _ =>
     to_sim;
     lazymatch goal with
-    | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Φ) =>
+    | |- envs_entails _ (sim_expr ?Ω ?Φ ?e_t ?e_s) =>
         notypeclasses refine (tac_to_source  Ω _ e_t e_s Φ _)
     | _ => fail "to_source: not a sim"
     end
@@ -404,13 +404,13 @@ Ltac solve_vals_compare_safe :=
   here are bidirectional, so we never will make a goal unprovable. *)
 Ltac sim_value_head :=
   lazymatch goal with
-  | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, bupd _)) =>
+  | |- envs_entails _ (sim _ (λ _ _, bupd _) (Val _) (Val _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, sim_expr _ _ _ _)) =>
+  | |- envs_entails _ (sim _ (λ _ _, sim_expr _ _ _ _) (Val _) (Val _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim _ (Val _) (Val _) (λ _ _, sim _ _ _ _)) =>
+  | |- envs_entails _ (sim _ (λ _ _, sim _ _ _ _) (Val _) (Val _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim _ (Val _) (Val _) _) =>
+  | |- envs_entails _ (sim _ _ (Val _) (Val _)) =>
       eapply tac_sim_value
   end.
 
@@ -418,7 +418,7 @@ Ltac sim_value_head :=
 Tactic Notation "sim_expr_eval" tactic3(t) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?Ω ?Φ ?e_t ?e_s) =>
     notypeclasses refine (tac_sim_expr_eval Ω _ _ e_t _ e_s _ _ _ _);
       [let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl|let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl | ]
   | _ => fail "sim_expr_eval: not a 'sim"
@@ -429,8 +429,8 @@ Ltac sim_expr_simpl := sim_expr_eval simpl.
 Ltac sim_finish :=
   (* TODO: can remove sim_expr_simpl if we do not use sim_finish anywhere explicitly *)
   sim_expr_simpl;      (* simplify occurences of subst/fill *)
-  match goal with 
-  | |- envs_entails _ (sim_expr _ ?e_t ?e_s (lift_post _)) => 
+  match goal with
+  | |- envs_entails _ (sim_expr _ (lift_post _) ?e_t ?e_s) =>
       notypeclasses refine (tac_sim_expr_to_sim _ _ e_t e_s _ _)
   | |- envs_entails _ (sim_expr _ _ _ _) => idtac
   | |- envs_entails _ (sim _ _ _ _) => idtac
@@ -616,7 +616,7 @@ Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
   iStartProof;
   to_sim;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?Ω ?e_t ?e_s ?Q) =>
+  | |- envs_entails _ (sim_expr ?Ω ?Q ?e_t ?e_s) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
                                     first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s; sim_bind_core K_t K_s)
                                            (* TODO: fix error handling *)
@@ -893,15 +893,15 @@ Ltac source_stuck_sidecond_bt :=
 Ltac source_stuck_prim :=
   to_source; iApply source_stuck_prim; [ source_stuck_sidecond_bt | reflexivity].
 
-Ltac discr_source := 
-  let discr _ := 
+Ltac discr_source :=
+  let discr _ :=
     iIntros "%";
     repeat match goal with
            | H : _ ∧ _ |- _ => destruct H
            | H : _ ∨ _ |- _ => destruct H
            | H : ∃ _, _ |- _ => destruct H
-           end; subst in 
-  match goal with 
+           end; subst in
+  match goal with
   | |- envs_entails _ (source_red _ _) => iApply source_red_irred_unless; [try done | discr ()]
   | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
   | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]

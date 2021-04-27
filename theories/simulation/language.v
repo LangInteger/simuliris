@@ -826,6 +826,10 @@ Section language.
     by eapply Hsafe, pool_reach_stuck_reach_stuck.
   Qed.
 
+  Lemma stuck_reach_stuck P e σ:
+    stuck P e σ → reach_stuck P e σ.
+  Proof. intros Hs; exists [e], σ, []. split; [constructor|]. by eexists _, 0. Qed.
+
   Lemma fill_no_fork p e e' σ σ' K :
     no_fork p e σ e' σ' → no_fork p (fill K e) σ (fill K e') σ'.
   Proof.
