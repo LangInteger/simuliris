@@ -93,7 +93,9 @@ Section lang.
   Lemma not_reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
      to_val e = None → ¬ (reach_stuck P e σ) → ϕ.
   Proof.
-    intros Hnval Hreach. apply Hirred. contradict Hreach. exists e, σ. split; [econstructor | split; [ | done]]; done.
+    intros Hnval Hreach. apply Hirred. contradict Hreach. exists [e], σ, [].
+    split; [econstructor | ].
+    exists e, 0. repeat split; done.
   Qed.
 End lang.
 
