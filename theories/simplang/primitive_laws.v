@@ -10,9 +10,11 @@ From simuliris.simulation Require Import lifting.
 From simuliris.simplang Require Export class_instances tactics notation.
 From iris.prelude Require Import options.
 
+(** Allocation state for each block: either deallocated or allocated with total size n*)
 Inductive alloc_state :=
   | DeallocSt
   | AllocSt (n : nat).
+
 Class sheapG (Σ: gFunctors) := SHeapG {
   sheapG_gen_heapG :> gen_sim_heapG loc loc (option (lock_state * val)) (option (lock_state * val)) Σ;
   sheapG_gen_progG :> gen_sim_progG string ectx ectx Σ;
@@ -35,9 +37,15 @@ Section alloc_size.
   Context `{ghost_mapG Σ block alloc_state}.
 
   Definition heap_alloc_rel (M : gmap block alloc_state) (σ : gmap loc (option (lock_state * val))) :=
+      (* allocations have a positive size *)
       (∀ b l, M !! b = Some (AllocSt l) → l > 0) ∧
+      (* l is the full length of the allocation *)
       (∀ b l, M !! b = Some (AllocSt l) → (∀ i, (∃ v, σ !! (mkloc b i) = Some (Some v)) ↔ (0 ≤ i < Z.of_nat l)%Z)) ∧
-      (∀ b, M !! b = Some DeallocSt → (∀ i, σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some (None)) ∧ σ !! (mkloc b 0) = Some None).
+      (* deallocated*)
+      (∀ b, M !! b = Some DeallocSt → (∀ i, σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some (None)) 
+        (* but we need to make sure that at least one location, at offset 0, was allocated at some point before, 
+           to make the bijection on heap locations work (having [Some None] allows us to use stuckness) *)
+        ∧ σ !! (mkloc b 0) = Some None).
   Definition alloc_size_interp (γ : gname) (σ : gmap loc (option (lock_state * val))) : iProp Σ :=
     ∃ M, ghost_map_auth γ 1 M ∗ ⌜heap_alloc_rel M σ⌝.
 

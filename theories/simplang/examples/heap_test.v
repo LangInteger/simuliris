@@ -84,7 +84,6 @@ Module bij_test.
     l ↦t #4 -∗ l2 ↦s #4 -∗ l ==>t 1 -∗ l2 ==>s 1 -∗
     ((#l <- #42)%E ⪯{val_rel} #l2 <- #42 {{ val_rel }}).
   Proof.
-    Set Printing All.
     iIntros "H H1 H2 H3".
     iApply (sim_bij_insert _ l l2 with "H2 H3 H H1 "); first done; iIntros "Hb".
     iApply (sim_bij_store with "Hb []"); first done. by sim_val.
