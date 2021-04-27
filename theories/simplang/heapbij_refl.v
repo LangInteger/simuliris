@@ -57,9 +57,9 @@ Section refl.
     | Match e x1 e1 x2 e2 => expr_wf e ∧ expr_wf e1 ∧ expr_wf e2
     | Fork e => expr_wf e
     | AllocN e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | Free e => expr_wf e
-    | Load e => expr_wf e
-    | Store e1 e2 => expr_wf e1 ∧ expr_wf e2
+    | FreeN e1 e2 => expr_wf e1 ∧ expr_wf e2
+    | Load o e => expr_wf e
+    | Store o e1 e2 => expr_wf e1 ∧ expr_wf e2
     | CmpXchg e1 e2 e3 => False   (* currently not supported *)
     | FAA e1 e2 => False          (* currently not supported *)
     end.
@@ -126,22 +126,15 @@ Section refl.
       + by iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
   Qed.
 
-  (** TODO: we need to fix the handling of AllocN in the bijection for this:
-        one option is that we make "blocks of allocation" explicit in the semantics of
-          SimpLang and enforce that all locations in one block are added together.
-        pointer arithmetic beyond the last location in the block would then be UB in the source.
-
-        alternatively: remove pointer arithmetic and allocation of blocks of size > 1
-   *)
   Lemma expr_wf_sound e : ⊢ expr_wf e → sem_wf e e.
   Proof.
     iIntros "Hwf". iInduction e as [ ] "IH" forall "Hwf"; iIntros (xs) "#Hs"; simpl.
     - (* Val *)
-      sim_pures. iModIntro; by iApply val_wf_sound.
+      sim_pures; sim_val. iModIntro; by iApply val_wf_sound.
     - (* Var *)
       iSpecialize ("Hs" $! x).
       rewrite !lookup_fmap. destruct (xs !! x) as [[v_t v_s] | ] eqn:Heq; simpl.
-      { sim_pures; iModIntro. by iApply ("Hs" $! (v_t, v_s)). }
+      { sim_pures; sim_val; iModIntro. by iApply ("Hs" $! (v_t, v_s)). }
       source_stuck_prim.
     - (* Let *)
       iDestruct "Hwf" as "[Hwf1 Hwf2]".
@@ -166,7 +159,7 @@ Section refl.
     - (* UnOp *)
       iSpecialize ("IH" with "Hwf Hs").
       sim_bind (subst_map _ e) (subst_map _ e). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "#Hv". destruct op; sim_pures; discr_source; val_discr_source "Hv"; by sim_pures.
+      iIntros (v_t v_s) "#Hv". destruct op; sim_pures; discr_source; val_discr_source "Hv"; by sim_pures; sim_val.
     - (* BinOp *)
       iDestruct "Hwf" as "[Hwf1 Hwf2]".
       iSpecialize ("IH1" with "Hwf2 Hs").
@@ -175,7 +168,7 @@ Section refl.
       iSpecialize ("IH" with "Hwf1 Hs").
       sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
       iIntros (v_t1 v_s1) "Hv1".
-      destruct op; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [done .. | | ].
+      destruct op; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [sim_val; done .. | | ].
       + iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
         { iPoseProof (val_rel_val_is_unboxed with "Hv1") as "%".
           iPoseProof (val_rel_val_is_unboxed with "Hv2") as "%".
@@ -183,13 +176,12 @@ Section refl.
         }
         case_bool_decide; subst.
         * iPoseProof (val_rel_inj with "Hv1 Hv2") as "->".
-          sim_pures. case_bool_decide; done.
-        * sim_pures. case_bool_decide; subst; last done.
+          sim_pures; sim_val. case_bool_decide; done.
+        * sim_pures; sim_val. case_bool_decide; subst; last done.
           by iPoseProof (val_rel_func with "Hv1 Hv2") as "->".
-      + iPoseProof (val_rel_loc_source with "Hv1") as (l_t) "(-> & Hl)". admit.
-        (** TODO: bijection might need compatibility with pointer arithmetic? -- or rather, that should be a requirement of the induction?
-          problem: need notion of valid offsets starting from a base pointer. Only things allocated together should be subject to the compatibility.
-        *)
+      + iPoseProof (val_rel_loc_source with "Hv1") as (l_t) "(-> & Hl)".
+        sim_pures. sim_val. iModIntro; cbn.
+        by iApply heap_bij_loc_shift.
     - (* If *)
       iDestruct "Hwf" as "(Hwf1 & Hwf2 & Hwf3)".
       iSpecialize ("IH" with "Hwf1 Hs").
@@ -217,21 +209,21 @@ Section refl.
       iApply (sim_wand with "IH1"). iIntros (v_t2 v_s2) "Hv2".
       sim_bind (subst_map _ e1) (subst_map _ e1).
       iApply (sim_wand with "IH"). iIntros (v_t1 v_s1) "Hv1".
-      sim_pures. iModIntro; iSplit; eauto.
+      sim_pures; sim_val. iModIntro; iSplit; eauto.
     - (* Fst *)
       sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
       iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv".
-      discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures.
+      discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
     - (* Snd *)
       sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
       iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv".
-      discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures.
+      discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
     - (* InjL *)
       sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv"; by sim_pures.
+      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
     - (* InjR *)
       sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv"; by sim_pures.
+      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
     - (* Match *)
       iDestruct "Hwf" as "(Hwf1 & Hwf2 & Hwf3)".
       iSpecialize ("IH" with "Hwf1 Hs").
@@ -250,12 +242,11 @@ Section refl.
         rewrite -(binder_insert_fmap snd (v_t', x)).
         iApply ("IH2" with "Hwf3"). by iApply subst_map_rel_insert.
     - (* Fork *)
-      iApply sim_fork; first by sim_pures.
+      iApply sim_fork; first by sim_pures; sim_val. sim_pures.
       iSpecialize ("IH" with "Hwf Hs").
       iApply (sim_wand with "IH").
       by iIntros (v_t v_s) "Hv".
     - (* AllocN *)
-      (** TODO: fix this: see notes above about adding allocations of length > 1 into the bijection *)
       iDestruct "Hwf" as "(Hwf1 & Hwf2)".
       iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
       sim_bind (subst_map _ e2) (subst_map _ e2).
@@ -263,20 +254,28 @@ Section refl.
       sim_bind (subst_map _ e1) (subst_map _ e1).
       iApply (sim_wand with "IH"). iIntros (v_t' v_s') "Hv'".
       discr_source. val_discr_source "Hv'".
-      target_alloc l_t as "Hl_t"; first done.
-      source_alloc l_s as "Hl_s"; first done.
-      (** TODO: insert into the bijection once handling of alloc blocks is fixed *)
-      admit.
+      target_alloc l_t as "Hl_t" "Ha_t"; first done.
+      source_alloc l_s as "Hl_s" "Ha_s"; first done.
+      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
+      { iDestruct "Hv" as "#Hv". rewrite /vrel_list.
+        rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
+        generalize (Z.to_nat x) => n.
+        iInduction n as [] "IH"; cbn; first done. iFrame "Hv IH".
+      }
+      iIntros "Hv". sim_pures. sim_val. done.
     - (* Free *)
-      iSpecialize ("IH" with "Hwf Hs").
-      sim_bind (subst_map _ e) (subst_map _ e). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "Hv". discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
-      by sim_free.
+      iDestruct "Hwf" as "(Hwf1 & Hwf2)".
+      iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
+      sim_bind (subst_map _ e2) (subst_map _ e2). iApply (sim_wand with "IH1"). iIntros (v_t v_s) "Hv".
+      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH"). iIntros (v_t' v_s') "Hv'".
+      discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
+      iPoseProof (val_rel_litint_source with "Hv'") as "->".
+      by sim_free; sim_val.
     - (* Load *)
       iSpecialize ("IH" with "Hwf Hs").
       sim_bind (subst_map _ e) (subst_map _ e). iApply (sim_wand with "IH").
       iIntros (v_t v_s) "Hv". discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
-      by sim_load v_t v_s as "Hv".
+      by sim_load v_t v_s as "Hv"; sim_val.
     - (* Store *)
       iDestruct "Hwf" as "(Hwf1 & Hwf2)".
       iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
@@ -285,11 +284,10 @@ Section refl.
       sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
       iIntros (v_t' v_s') "Hv'".
       discr_source. iPoseProof (val_rel_loc_source with "Hv'") as (l_t) "(-> & Hrel)".
-      by sim_store.
+      by sim_store; [done | sim_val].
     - done.
     - done.
-  Admitted.
-
+  Qed.
 
   Theorem heap_bij_refl e : expr_wf e -∗ e ⪯ e {{ val_rel }}.
   Proof.

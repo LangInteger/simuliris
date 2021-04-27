@@ -63,12 +63,12 @@ Proof.
     sim_pures.
     iApply sim_irred_unless; first done. iIntros "%Ha"; destruct Ha as [(n & ->) _].
     inversion H2; subst.
-    by sim_pures.
+    by sim_pures; sim_val.
   - inversion Hval; subst.
     sim_pures.
     iApply sim_irred_unless; first done. iIntros "%Ha"; destruct Ha as [(n & ->) _].
     inversion H2; subst.
-    by sim_pures.
+    by sim_pures; sim_val.
 Qed.
 
 Definition source_client := (λ: "x", Call (##"mul2") (InjL "x"))%E.

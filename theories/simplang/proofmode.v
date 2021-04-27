@@ -118,10 +118,10 @@ Proof.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
 
-Lemma tac_target_red_allocN n v j K Ψ Δ :
+Lemma tac_target_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
-    match envs_app false (Esnoc Enil j (array (hG:=gen_heap_inG_target) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>t (Z.to_nat n))) j (array (hG:=gen_heap_inG_target) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -130,16 +130,16 @@ Lemma tac_target_red_allocN n v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> ? HΔ. iIntros "He".
   iApply target_red_bind. iApply (target_red_allocN); [done..| ].
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply target_red_base. iModIntro. iApply HΔ.
-  rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_allocN n v j K Ψ Δ :
+Lemma tac_source_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
-    match envs_app false (Esnoc Enil j (array (hG:=gen_heap_inG_source) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>s (Z.to_nat n))) j (array (hG:=gen_heap_inG_source) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -148,15 +148,15 @@ Lemma tac_source_red_allocN n v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> ? HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_allocN; [done..| ].
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply source_red_base. iModIntro.
-  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_alloc v j K Ψ Δ :
+Lemma tac_target_red_alloc v j i K Ψ Δ :
   (∀ l,
-    match envs_app false (Esnoc Enil j (l ↦t v)) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>t 1)) j (l ↦t v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -165,15 +165,15 @@ Lemma tac_target_red_alloc v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply target_red_bind. iApply target_red_alloc.
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply target_red_base. iModIntro.
-  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_alloc v j K Ψ Δ :
+Lemma tac_source_red_alloc v j i K Ψ Δ :
   (∀ l,
-    match envs_app false (Esnoc Enil j (l ↦s v)) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (l ==>s 1)) j (l ↦s v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -182,51 +182,99 @@ Lemma tac_source_red_alloc v j K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_alloc.
-  iIntros (l) "Hl". specialize (HΔ l).
+  iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply source_red_base. iModIntro.
-  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; eauto.
+  iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_free l v i K Ψ Δ :
-  envs_lookup i Δ = Some (false, l ↦t v)%I →
-  (let Δ' := envs_delete false i false Δ in
-    envs_entails Δ' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
-  envs_entails Δ (target_red (fill K (Free (LitV l))) Ψ).
+Lemma tac_target_red_free l v i j K Ψ Δ Δ' :
+  envs_lookup_delete false i Δ = Some (false, l ↦t v, Δ')%I →
+  envs_lookup j Δ' = Some (false, l ==>t 1)%I →
+  (let Δ'' := envs_delete false j false Δ' in
+    envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
+  envs_entails Δ (target_red (fill K (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV $ LitLoc l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> Hlk Hfin.
-  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_free.
-  rewrite envs_lookup_split //; simpl.
-  iIntros "H". iApply sep_mono_r.
-  { iIntros "H". iApply target_red_base. iModIntro. iApply "H". }
-  rewrite -Hfin.
-  rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
-  by rewrite wand_elim_r.
+  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros [Hlk ->] Hn Hfin.
+  rewrite -target_red_bind.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
+  rewrite Hfin.
+  iIntros "(Hv & Ha & Hs)". iApply (target_red_free with "Hv Ha").
+  by iApply target_red_base. 
 Qed.
 
-Lemma tac_source_red_free l v i K Ψ Δ :
-  envs_lookup i Δ = Some (false, l ↦s v)%I →
-  (let Δ' := envs_delete false i false Δ in
-    envs_entails Δ' (source_red (fill K (Val $ LitV LitUnit)) Ψ)) →
-  envs_entails Δ (source_red (fill K (Free (LitV l))) Ψ).
+Lemma tac_source_red_free l v i j K Ψ Δ Δ' :
+  envs_lookup_delete false i Δ = Some (false, l ↦s v, Δ')%I →
+  envs_lookup j Δ' = Some (false, l ==>s 1)%I →
+  (let Δ'' := envs_delete false j false Δ' in
+    envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) Ψ)) →
+  envs_entails Δ (source_red (fill K (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV $ LitLoc l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> Hlk Hfin.
-  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_free.
-  rewrite envs_lookup_split //; simpl.
-  iIntros "H". iApply sep_mono_r.
-  { iIntros "H". iApply source_red_base. iModIntro. iApply "H". }
-  rewrite -Hfin.
-  rewrite (envs_lookup_sound' _ _ _ _ _ Hlk).
-  by rewrite wand_elim_r.
+  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros [Hlk ->] Hn Hfin.
+  rewrite -source_red_bind.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
+  rewrite Hfin.
+  iIntros "(Hv & Ha & Hs)". iApply (source_red_free with "Hv Ha").
+  by iApply source_red_base. 
 Qed.
 
-Lemma tac_target_red_load Δ i K b l q v Ψ :
+Lemma tac_target_red_freeN l n vs i j K Ψ Δ Δ' :
+  length vs = Z.to_nat n →
+  envs_lookup_delete false i Δ = Some (false, l ↦t∗ vs, Δ')%I →
+  envs_lookup j Δ' = Some (false, l ==>t (Z.to_nat n))%I →
+  (let Δ'' := envs_delete false j false Δ' in
+    envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
+  envs_entails Δ (target_red (fill K (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l))) Ψ).
+Proof.
+  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros Heq [Hlk ->] Hn Hfin.
+  rewrite -target_red_bind.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
+  rewrite Hfin.
+  iIntros "(Hv & Ha & Hs)". iApply (target_red_freeN with "Hv Ha"); first done.
+  by iApply target_red_base. 
+Qed.
+
+Lemma tac_source_red_freeN l n vs i j K Ψ Δ Δ' :
+  length vs = Z.to_nat n →
+  envs_lookup_delete false i Δ = Some (false, l ↦s∗ vs, Δ')%I →
+  envs_lookup j Δ' = Some (false, l ==>s (Z.to_nat n))%I →
+  (let Δ'' := envs_delete false j false Δ' in
+    envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) Ψ)) →
+  envs_entails Δ (source_red (fill K (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l))) Ψ).
+Proof.
+  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros Heq [Hlk ->] Hn Hfin.
+  rewrite -source_red_bind.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
+  rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
+  rewrite Hfin.
+  iIntros "(Hv & Ha & Hs)". iApply (source_red_freeN with "Hv Ha"); first done.
+  by iApply source_red_base. 
+Qed.
+
+Lemma tac_target_red_loadsc Δ i K b l q v Ψ :
   envs_lookup i Δ = Some (b, l ↦t{q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
-  envs_entails Δ (target_red (fill K (Load (LitV l))) Ψ).
+  envs_entails Δ (target_red (fill K (Load ScOrd (LitV l))) Ψ).
 Proof.
   rewrite envs_entails_eq=> ? Hi.
-  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load.
+  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load_sc.
+  rewrite envs_lookup_split //; simpl.
+  destruct b; simpl.
+  * iIntros "[#$ He]". iIntros "_". iApply target_red_base. iModIntro.
+    iApply Hi. iApply "He". iFrame "#".
+  * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Ht".
+    iApply target_red_base; eauto.
+Qed.
+Lemma tac_target_red_loadna Δ i K b l v Ψ :
+  envs_lookup i Δ = Some (b, l ↦t v)%I →
+  envs_entails Δ (target_red (fill K (Val v)) Ψ) →
+  envs_entails Δ (target_red (fill K (Load Na1Ord (LitV l))) Ψ).
+Proof.
+  rewrite envs_entails_eq=> ? Hi.
+  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load_na.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iIntros "_". iApply target_red_base. iModIntro.
@@ -235,13 +283,27 @@ Proof.
     iApply target_red_base; eauto.
 Qed.
 
-Lemma tac_source_red_load Δ i K b l q v Ψ :
+Lemma tac_source_red_loadsc Δ i K b l q v Ψ :
   envs_lookup i Δ = Some (b, l ↦s{q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) Ψ) →
-  envs_entails Δ (source_red (fill K (Load (LitV l))) Ψ).
+  envs_entails Δ (source_red (fill K (Load ScOrd (LitV l))) Ψ).
 Proof.
   rewrite envs_entails_eq=> ? Hi.
-  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load.
+  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load_sc.
+  rewrite envs_lookup_split //; simpl.
+  destruct b; simpl.
+  * iIntros "[#$ He]". iIntros "_". iApply source_red_base. iModIntro.
+    iApply Hi. iApply "He". iFrame "#".
+  * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Hs".
+    iApply source_red_base; eauto.
+Qed.
+Lemma tac_source_red_loadna Δ i K b l v Ψ :
+  envs_lookup i Δ = Some (b, l ↦s v)%I →
+  envs_entails Δ (source_red (fill K (Val v)) Ψ) →
+  envs_entails Δ (source_red (fill K (Load Na1Ord (LitV l))) Ψ).
+Proof.
+  rewrite envs_entails_eq=> ? Hi.
+  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load_na.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iIntros "_". iApply source_red_base. iModIntro.
@@ -250,15 +312,23 @@ Proof.
     iApply source_red_base; eauto.
 Qed.
 
-Lemma tac_target_red_store Δ i K l v v' Ψ :
+
+Lemma target_red_store l v v' o Ψ :
+  o = ScOrd ∨ o = Na1Ord →
+  l ↦t v' -∗
+  (l ↦t v -∗ target_red (of_val #()) Ψ) -∗
+  target_red (Store o (Val $ LitV (LitLoc l)) (Val v)) Ψ.
+Proof. intros [-> | ->]; [iApply target_red_store_sc | iApply target_red_store_na]. Qed.
+Lemma tac_target_red_store Δ i K l v v' o Ψ :
+  o = ScOrd ∨ o = Na1Ord →
   envs_lookup i Δ = Some (false, l ↦t v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦t v')) Δ with
   | Some Δ' => envs_entails Δ' (target_red (fill K (Val $ LitV LitUnit)) Ψ)
   | None => False
   end →
-  envs_entails Δ (target_red (fill K (Store (LitV l) (Val v'))) Ψ).
+  envs_entails Δ (target_red (fill K (Store o (LitV l) (Val v'))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_eq=> Ho ? Hi.
   destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   rewrite -target_red_bind. eapply wand_apply; first by eapply target_red_store.
   rewrite envs_simple_replace_sound //; simpl.
@@ -266,15 +336,22 @@ Proof.
   rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
 Qed.
 
-Lemma tac_source_red_store Δ i K l v v' Ψ :
+Lemma source_red_store l v v' o Ψ :
+  o = ScOrd ∨ o = Na1Ord →
+  l ↦s v' -∗
+  (l ↦s v -∗ source_red (of_val #()) Ψ) -∗
+  source_red (Store o (Val $ LitV (LitLoc l)) (Val v)) Ψ.
+Proof. intros [-> | ->]; [iApply source_red_store_sc | iApply source_red_store_na]. Qed.
+Lemma tac_source_red_store Δ i K l v v' o Ψ :
+  o = ScOrd ∨ o = Na1Ord →
   envs_lookup i Δ = Some (false, l ↦s v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦s v')) Δ with
   | Some Δ' => envs_entails Δ' (source_red (fill K (Val $ LitV LitUnit)) Ψ)
   | None => False
   end →
-  envs_entails Δ (source_red (fill K (Store (LitV l) (Val v'))) Ψ).
+  envs_entails Δ (source_red (fill K (Store o (LitV l) (Val v'))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_eq=> Ho ? Hi.
   destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   rewrite -source_red_bind. eapply wand_apply; first by eapply source_red_store.
   rewrite envs_simple_replace_sound //; simpl.
@@ -427,15 +504,13 @@ Ltac sim_expr_simpl := sim_expr_eval simpl.
 
 (* finish and switch back to a sim, if possible *)
 Ltac sim_finish :=
-  (* TODO: can remove sim_expr_simpl if we do not use sim_finish anywhere explicitly *)
-  sim_expr_simpl;      (* simplify occurences of subst/fill *)
+  try sim_expr_simpl;      (* simplify occurences of subst/fill *)
   match goal with
   | |- envs_entails _ (sim_expr _ (lift_post _) ?e_t ?e_s) =>
       notypeclasses refine (tac_sim_expr_to_sim _ _ e_t e_s _ _)
   | |- envs_entails _ (sim_expr _ _ _ _) => idtac
   | |- envs_entails _ (sim _ _ _ _) => idtac
   end;
-  try sim_value_head;  (* in case we have reached a value, get rid of the WP *)
   pm_prettify.        (* prettify λs caused by wp_value *)
 
 (** target_red *)
@@ -496,6 +571,11 @@ Ltac source_finish :=
   source_expr_simpl;      (* simplify occurences of subst/fill *)
   first [source_value_head; try sim_finish | pm_prettify].
 
+(* Note: this is not called automatically by the sim_finish tactical because
+   that would make it impossible to do things that need access to the SI (like updating the heap bijection).
+  NOTE: alternatively, have some fancier update modality that wraps an [update_si]?
+ *)
+Ltac sim_val := sim_finish; sim_value_head.
 
 (** ** Pure reduction *)
 
@@ -696,15 +776,16 @@ Tactic Notation "source_call" :=
   end.
 
 (** ** Heap automation *)
-Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
+Tactic Notation "target_alloc" ident(l) "as" constr(H) constr(H2) :=
   to_target;
   let Htmp := iFresh in
+  let Htmp2 := iFresh in
   let finish _ :=
     first [intros l | fail 1 "target_alloc:" l "not fresh"];
     pm_reduce;
     lazymatch goal with
-    | |- False => fail 1 "target_alloc:" H "not fresh"
-    | _ => iDestructHyp Htmp as H; target_finish
+    | |- False => fail 1 "target_alloc:" H " or " H2 "not fresh"
+    | _ => iDestructHyp Htmp as H; iDestructHyp Htmp2 as H2; target_finish
     end in
   target_pures;
   (** The code first tries to use allocation lemma for a single reference,
@@ -719,13 +800,13 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     let process_single _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_alloc _ Htmp Htmp2 K _ _))
           |fail 1 "target_alloc: cannot find 'Alloc' in" e];
         finish ()
     in
     let process_array _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_allocN _ _ Htmp Htmp2 K _ _))
           |fail 1 "target_alloc: cannot find 'AllocN' in" e];
         [idtac|finish ()]
     in (process_single ()) || (process_array ())
@@ -733,30 +814,31 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) :=
   end.
 
 Tactic Notation "target_alloc" ident(l) :=
-  target_alloc l as "?".
+  target_alloc l as "?" "?".
 
-Tactic Notation "source_alloc" ident(l) "as" constr(H) :=
+Tactic Notation "source_alloc" ident(l) "as" constr(H) constr(H2) :=
   to_source;
   let Htmp := iFresh in
+  let Htmp2 := iFresh in
   let finish _ :=
     first [intros l | fail 1 "source_alloc:" l "not fresh"];
     pm_reduce;
     lazymatch goal with
-    | |- False => fail 1 "source_alloc:" H "not fresh"
-    | _ => iDestructHyp Htmp as H; source_finish
+    | |- False => fail 1 "source_alloc:" H " or " H2 "not fresh"
+    | _ => iDestructHyp Htmp as H; iDestructHyp Htmp2 as H2; source_finish
     end in
   source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     let process_single _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_alloc _ Htmp Htmp2 K _ _))
           |fail 1 "source_alloc: cannot find 'Alloc' in" e];
         finish ()
     in
     let process_array _ :=
         first
-          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp K _ _))
+          [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_allocN _ _ Htmp Htmp2 K _ _))
           |fail 1 "source_alloc: cannot find 'Alloc' in" e];
         [idtac|finish ()]
     in (process_single ()) || (process_array ())
@@ -764,37 +846,63 @@ Tactic Notation "source_alloc" ident(l) "as" constr(H) :=
   end.
 
 Tactic Notation "source_alloc" ident(l) :=
-  source_alloc l as "?".
+  source_alloc l as "?" "?".
 
 Tactic Notation "target_free" :=
   to_target;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I, _) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
+  let solve_mapstoN _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦t∗{_} _)%I, _) => l end in
+    iAssumptionCore || fail "target_free: cannot find" l "↦t∗ ?" in
+  let solve_perm _ :=
+    let l := match goal with |- _ = Some (_, (?l ==>t _)%I) => l end in
+    iAssumptionCore || fail "target_free: cannot find" l "==>t ?" in
   target_pures;
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
-    first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ K _ _))
-      |fail 1 "target_free: cannot find 'Free' in" e];
-    [solve_mapsto ()
-    |pm_reduce; target_finish]
+    let process_single _ :=
+      first
+        [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ _ K _ _ _))
+        |fail 1 "target_free: cannot find 'Free' in" e];
+      [solve_mapsto () | solve_perm () | pm_reduce; target_finish]
+    in
+    let process_array _ :=
+      first
+        [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_freeN _ _ _ _ _ K _ _ _))
+        |fail 1 "target_free: cannot find 'FreeN' in" e];
+      [ | solve_mapstoN () | solve_perm () | pm_reduce; target_finish]
+    in (process_single ()) || (process_array ())
   | _ => fail "target_free: not a 'target_red'"
   end.
 
 Tactic Notation "source_free" :=
   to_source;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I, _) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
+  let solve_mapstoN _ :=
+    let l := match goal with |- _ = Some (_, (?l ↦s∗{_} _)%I, _) => l end in
+    iAssumptionCore || fail "source_free: cannot find" l "↦s∗ ?" in
+  let solve_perm _ :=
+    let l := match goal with |- _ = Some (_, (?l ==>s _)%I) => l end in
+    iAssumptionCore || fail "source_free: cannot find" l "==>s ?" in
   source_pures;
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
-    first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ K _ _))
-      |fail 1 "source_free: cannot find 'Free' in" e];
-    [solve_mapsto ()
-    |pm_reduce; source_finish]
+    let process_single _ :=
+      first
+        [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ _ K _ _ _))
+        |fail 1 "source_free: cannot find 'Free' in" e];
+      [solve_mapsto () | solve_perm () | pm_reduce; source_finish]
+    in
+    let process_array _ :=
+      first
+        [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_freeN _ _ _ _ _ K _ _ _))
+        |fail 1 "source_free: cannot find 'FreeN' in" e];
+      [idtac| solve_mapstoN () | solve_perm () | pm_reduce; source_finish]
+    in (process_single ()) || (process_array ())
   | _ => fail "source_free: not a 'source_red'"
   end.
 
@@ -807,7 +915,8 @@ Tactic Notation "target_load" :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_load _ _ K _ _ _ _ _))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_loadsc _ _ K _ _ _ _ _))
+      |reshape_expr e ltac:(fun K e' => eapply (tac_target_red_loadna _ _ K _ _ _ _))
       |fail 1 "target_load: cannot find 'Load' in" e];
     [ solve_mapsto ()
     |target_finish]
@@ -823,7 +932,8 @@ Tactic Notation "source_load" :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_load _ _ K _ _ _ _ _))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_loadsc _ _ K _ _ _ _ _))
+      |reshape_expr e ltac:(fun K e' => eapply (tac_source_red_loadna _ _ K _ _ _ _))
       |fail 1 "source_load: cannot find 'Load' in" e];
     [ solve_mapsto ()
     |source_finish]
@@ -841,9 +951,10 @@ Tactic Notation "target_store" :=
   lazymatch goal with
   | |- envs_entails _ (target_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ Ψ))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ _ Ψ))
       |fail 1 "target_store: cannot find 'Store' in" e];
-    [solve_mapsto ()
+    [first [left; reflexivity | right; reflexivity ]
+    |solve_mapsto ()
     |pm_reduce; target_finish]
   | _ => fail "target_store: not a 'target_red'"
   end.
@@ -857,9 +968,10 @@ Tactic Notation "source_store" :=
   lazymatch goal with
   | |- envs_entails _ (source_red ?e ?Ψ) =>
     first
-      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ K _ _ _ Ψ))
+      [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ K _ _ _ _ Ψ))
       |fail 1 "source_store: cannot find 'Store' in" e];
-    [solve_mapsto ()
+    [first [left; reflexivity | right; reflexivity]
+    |solve_mapsto ()
     |pm_reduce; source_finish]
   | _ => fail "source_store: not a 'source_red'"
   end.

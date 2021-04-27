@@ -89,6 +89,12 @@ Section lang.
     (ϕ → ψ) →
     IrredUnless ϕ P e σ → IrredUnless ψ P e σ.
   Proof. intros Hw Hnirred Hirred. by apply Hw, Hnirred. Qed.
+
+  Lemma not_reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
+     to_val e = None → ¬ (reach_stuck P e σ) → ϕ.
+  Proof.
+    intros Hnval Hreach. apply Hirred. contradict Hreach. exists e, σ. split; [econstructor | split; [ | done]]; done.
+  Qed.
 End lang.
 
 #[global]

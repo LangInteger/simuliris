@@ -14,6 +14,7 @@ Coercion Var : string >-> expr.
 Notation Seq e1 e2 := (Let BAnon e1 e2) (only parsing).
 Notation SeqCtx e2 := (LetCtx BAnon e2) (only parsing).
 Notation Alloc e := (AllocN (Val $ LitV $ LitInt 1) e) (only parsing).
+Notation Free e := (FreeN (Val $ LitV $ LitInt 1) e) (only parsing).
 (** Compare-and-set (CAS) returns just a boolean indicating success or failure. *)
 Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing).
 
@@ -59,7 +60,8 @@ Notation "'match:' e0 'with' 'InjR' x1 => e1 | 'InjL' x2 => e2 'end'" :=
   (e0, x1, e1, x2, e2 at level 200, only parsing) : expr_scope.
 
 Notation "()" := LitUnit : val_scope.
-Notation "! e" := (Load e%E) (at level 9, right associativity) : expr_scope.
+Notation "! e" := (Load Na1Ord e%E) (at level 9, right associativity) : expr_scope.
+Notation "!ˢᶜ e" := (Load ScOrd e%E) (at level 9, right associativity) : expr_scope.
 Notation "'ref' e" := (Alloc e%E) (at level 10) : expr_scope.
 Notation "- e" := (UnOp MinusUnOp e%E) : expr_scope.
 
@@ -79,7 +81,8 @@ Notation "e1 ≠ e2" := (UnOp NegOp (BinOp EqOp e1%E e2%E)) : expr_scope.
 
 Notation "~ e" := (UnOp NegOp e%E) (at level 75, right associativity) : expr_scope.
 (* The unicode ← is already part of the notation "_ ← _; _" for bind. *)
-Notation "e1 <- e2" := (Store e1%E e2%E) (at level 80) : expr_scope.
+Notation "e1 <- e2" := (Store Na1Ord e1%E e2%E) (at level 80) : expr_scope.
+Notation "e1 <-ˢᶜ e2" := (Store ScOrd e1%E e2%E) (at level 80) : expr_scope.
 
 Notation "'while:' e1 'do' e2 'od'" := (While e1%E e2%E)
   (at level 99, e1, e2 at level 200, format
