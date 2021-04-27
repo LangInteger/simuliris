@@ -55,7 +55,7 @@ Section refl.
     | InjL e => expr_wf e
     | InjR e => expr_wf e
     | Match e x1 e1 x2 e2 => expr_wf e ∧ expr_wf e1 ∧ expr_wf e2
-    | Fork e => False             (* currently not supported *)
+    | Fork e => expr_wf e
     | AllocN e1 e2 => expr_wf e1 ∧ expr_wf e2
     | Free e => expr_wf e
     | Load e => expr_wf e
@@ -107,27 +107,27 @@ Section refl.
   Qed.
 
   Lemma val_rel_val_is_unboxed v_t v_s : val_rel v_t v_s -∗ ⌜val_is_unboxed v_t ↔ val_is_unboxed v_s⌝.
-  Proof. 
-    iIntros "Hv". 
-    destruct v_s as [[] | | | ]; val_discr_source "Hv"; [ done .. | |done | | |]. 
-    - by iPoseProof (val_rel_loc_source with "Hv") as (?) "(-> & _)". 
+  Proof.
+    iIntros "Hv".
+    destruct v_s as [[] | | | ]; val_discr_source "Hv"; [ done .. | |done | | |].
+    - by iPoseProof (val_rel_loc_source with "Hv") as (?) "(-> & _)".
     - by iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
     - iPoseProof (val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
       destruct v_s as [[] | | | ]; val_discr_source "Hv"; [done.. | | done | | |].
       + by iPoseProof (val_rel_loc_source with "Hv") as (?) "(-> & _)".
       + by iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
-      + by iPoseProof (val_rel_injl_source with "Hv") as (?) "(-> & Hv)". 
-      + by iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)". 
+      + by iPoseProof (val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
+      + by iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
     - iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
       destruct v_s as [[] | | | ]; val_discr_source "Hv"; [done.. | | done | | |].
       + by iPoseProof (val_rel_loc_source with "Hv") as (?) "(-> & _)".
       + by iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
-      + by iPoseProof (val_rel_injl_source with "Hv") as (?) "(-> & Hv)". 
-      + by iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)". 
+      + by iPoseProof (val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
+      + by iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
   Qed.
 
   (** TODO: we need to fix the handling of AllocN in the bijection for this:
-        one option is that we make "blocks of allocation" explicit in the semantics of 
+        one option is that we make "blocks of allocation" explicit in the semantics of
           SimpLang and enforce that all locations in one block are added together.
         pointer arithmetic beyond the last location in the block would then be UB in the source.
 
@@ -177,11 +177,11 @@ Section refl.
       iIntros (v_t1 v_s1) "Hv1".
       destruct op; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [done .. | | ].
       + iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
-        { iPoseProof (val_rel_val_is_unboxed with "Hv1") as "%". 
-          iPoseProof (val_rel_val_is_unboxed with "Hv2") as "%". 
+        { iPoseProof (val_rel_val_is_unboxed with "Hv1") as "%".
+          iPoseProof (val_rel_val_is_unboxed with "Hv2") as "%".
           iPureIntro. by rewrite /vals_compare_safe H1 H2.
         }
-        case_bool_decide; subst. 
+        case_bool_decide; subst.
         * iPoseProof (val_rel_inj with "Hv1 Hv2") as "->".
           sim_pures. case_bool_decide; done.
         * sim_pures. case_bool_decide; subst; last done.
@@ -249,7 +249,11 @@ Section refl.
         rewrite -(binder_insert_fmap fst (v_t', x)).
         rewrite -(binder_insert_fmap snd (v_t', x)).
         iApply ("IH2" with "Hwf3"). by iApply subst_map_rel_insert.
-    - done.
+    - (* Fork *)
+      iApply sim_fork; first by sim_pures.
+      iSpecialize ("IH" with "Hwf Hs").
+      iApply (sim_wand with "IH").
+      by iIntros (v_t v_s) "Hv".
     - (* AllocN *)
       (** TODO: fix this: see notes above about adding allocations of length > 1 into the bijection *)
       iDestruct "Hwf" as "(Hwf1 & Hwf2)".
@@ -288,10 +292,10 @@ Section refl.
 
 
   Theorem heap_bij_refl e : expr_wf e -∗ e ⪯ e {{ val_rel }}.
-  Proof. 
+  Proof.
     iIntros "Hwf". iPoseProof (expr_wf_sound with "Hwf") as "Hwf".
     iSpecialize ("Hwf" $! ∅). setoid_rewrite fmap_empty.
-    rewrite !subst_map_empty. iApply "Hwf". rewrite /subst_map_rel. 
+    rewrite !subst_map_empty. iApply "Hwf". rewrite /subst_map_rel.
     by rewrite -map_ForallI_empty.
   Qed.
 End refl.

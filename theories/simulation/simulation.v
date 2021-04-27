@@ -27,23 +27,23 @@ Proof. rewrite /progs_are; apply _. Qed.
 (** Typeclass for the simulation relation so we can use the definitions with
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
 Class Sim {PROP : bi} {Λ : language} (s : SimulLang PROP Λ) :=
-  sim : (val Λ → val Λ → PROP) → expr Λ → expr Λ → (val Λ → val Λ → PROP) → PROP.
+  sim : (val Λ → val Λ → PROP) → (val Λ → val Λ → PROP) → expr Λ → expr Λ → PROP.
 #[global]
 Hint Mode Sim - - - : typeclass_instances.
 
 Class SimE {PROP : bi} {Λ : language} (s : SimulLang PROP Λ) :=
-  sim_expr : (val Λ → val Λ → PROP) → expr Λ → expr Λ → (expr Λ → expr Λ → PROP) → PROP.
+  sim_expr : (val Λ → val Λ → PROP) → (expr Λ → expr Λ → PROP) → expr Λ → expr Λ → PROP.
 #[global]
 Hint Mode SimE - - - : typeclass_instances.
 
 (* FIXME what are good levels for et, es? *)
-Notation "et '⪯{' Ω '}' es {{ Φ }}" := (sim Ω et es Φ) (at level 40, Φ at level 200,
+Notation "et '⪯{' Ω '}' es {{ Φ }}" := (sim Ω Φ et es) (at level 40, Φ at level 200,
   format "et  '⪯{' Ω '}'  es  {{  Φ  }}") : bi_scope.
 
 (* FIXME: the notation with binder doesn't work; left-factoring seems to fail.
 Notation "et  '⪯'  es  {{  v_t  v_s ,  P  }}" := (sim et es (λ v_t v_s, P)) (at level 40, v_t, v_s at level 200, P at level 200) : bi_scope. *)
 
-Notation "et '⪯{' Ω '}' es [{ Φ }]" := (sim_expr Ω et es Φ) (at level 40, Φ at level 200,
+Notation "et '⪯{' Ω '}' es [{ Φ }]" := (sim_expr Ω Φ et es) (at level 40, Φ at level 200,
   format "et  '⪯{' Ω '}'  es  [{  Φ  }]") : bi_scope.
 
 
@@ -65,8 +65,8 @@ Section fix_lang.
   Implicit Types (e_s e_t e: expr Λ).
 
   Definition sim_ectx `{!Sim s} K_t K_s Φ :=
-    (∀ v_t v_s, Ω v_t v_s -∗ sim Ω (fill K_t (of_val v_t)) (fill K_s (of_val v_s)) Φ)%I.
+    (∀ v_t v_s, Ω v_t v_s -∗ sim Ω Φ (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
   Definition sim_expr_ectx `{!SimE s} K_t K_s Φ :=
-    (∀ v_t v_s, Ω v_t v_s -∗ sim_expr Ω (fill K_t (of_val v_t)) (fill K_s (of_val v_s)) Φ)%I.
+    (∀ v_t v_s, Ω v_t v_s -∗ sim_expr Ω Φ (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
 End fix_lang.
 

@@ -27,10 +27,6 @@ Section fix_heap.
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
   Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
-  Lemma stuck_reach_stuck P (e : expr) σ:
-    stuck P e σ → reach_stuck P e σ.
-  Proof. intros Hs; exists e, σ. done. Qed.
-
   Lemma sim_bij_load l_t l_s Φ :
     l_t ↔h l_s -∗
     (∀ v_t v_s, val_rel v_t v_s -∗ Val v_t ⪯ Val v_s [{ Φ }]) -∗
@@ -44,12 +40,12 @@ Section fix_heap.
     iDestruct "He" as "[He | [-> ->]]".
     - iDestruct "He" as (v_t v_s) "(-> & -> & #Hv)".
       iModIntro; iSplit; first by eauto with head_step.
-      iIntros (e_t' σ_t') "%"; inv_head_step.
-      assert (head_step P_s (Load #l_s) σ_s (Val v_s) σ_s) as Hs.
+      iIntros (e_t' efs σ_t') "%"; inv_head_step.
+      assert (head_step P_s (Load #l_s) σ_s (Val v_s) σ_s []) as Hs.
       { eauto with head_step. }
-      iModIntro. iExists (Val v_s), σ_s. iFrame.
+      iModIntro. iExists (Val v_s), [], σ_s. iFrame.
       iSplitR. { by iPureIntro. }
-      iSplitR "Hsim"; first last. { by iApply "Hsim". }
+      iSplitR "Hsim"; first last. { rewrite /= right_id. by iApply "Hsim". }
       iApply ("Hclose" with "Hl_t Hl_s []"). iLeft; eauto.
     - exfalso; contradict Hnstuck.
       apply stuck_reach_stuck. split; first done.
@@ -70,14 +66,14 @@ Section fix_heap.
     iDestruct "He" as "[He | [-> ->]]".
     - iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
       iSplitR; first by eauto with head_step.
-      iIntros (e_t' σ_t') "%"; inv_head_step.
-      assert (head_step P_s (#l_s <- v_s) σ_s #() (state_upd_heap <[l_s:=Some v_s]> σ_s)) as Hs.
+      iIntros (e_t' efs σ_t') "%"; inv_head_step.
+      assert (head_step P_s (#l_s <- v_s) σ_s #() (state_upd_heap <[l_s:=Some v_s]> σ_s) []) as Hs.
       { eauto with head_step. }
 
       iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
       iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
-      iModIntro. iExists #(),(state_upd_heap <[l_s:=Some v_s]> σ_s).
-      iFrame. iSplitR; first by iPureIntro.
+      iModIntro. iExists #(), [],(state_upd_heap <[l_s:=Some v_s]> σ_s).
+      iFrame. iSplitR; first by iPureIntro. rewrite /= right_id.
       iApply ("Hclose" with "Hl_t Hl_s [Hval]"). iLeft; eauto.
     - exfalso; contradict Hnstuck.
       apply stuck_reach_stuck. split; first done.
@@ -97,14 +93,14 @@ Section fix_heap.
     iDestruct "He" as "[He | [-> ->]]".
     - iDestruct "He" as (v_t' v_s') "(-> & -> & Hval')".
       iSplitR; first by eauto with head_step. iModIntro.
-      iIntros (e_t' σ_t') "%"; inv_head_step.
-      assert (head_step P_s (Free #l_s) σ_s #() (state_upd_heap <[l_s:=None]> σ_s)) as Hs.
+      iIntros (e_t' efs σ_t') "%"; inv_head_step.
+      assert (head_step P_s (Free #l_s) σ_s #() (state_upd_heap <[l_s:=None]> σ_s) []) as Hs.
       { eauto with head_step. }
 
       iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
       iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
-      iModIntro. iExists #(),(state_upd_heap <[l_s:=None]> σ_s).
-      iFrame. iSplitR; first by iPureIntro.
+      iModIntro. iExists #(), [],(state_upd_heap <[l_s:=None]> σ_s).
+      iFrame. iSplitR; first by iPureIntro. rewrite /= right_id.
       iApply ("Hclose" with "Hl_t Hl_s"). iRight; eauto.
     - exfalso; contradict Hnstuck.
       apply stuck_reach_stuck. split; first done.
@@ -314,10 +310,10 @@ Section sim.
     (∀ v_t v_s,
       match envs_app true (Esnoc Enil j (val_rel v_t v_s)) Δ with
       | Some Δ' =>
-          envs_entails Δ' (sim_expr val_rel (fill K_t (Val v_t)) (fill K_s (Val v_s)) Φ)
+          envs_entails Δ' (sim_expr val_rel Φ (fill K_t (Val v_t)) (fill K_s (Val v_s)))
       | None => False
       end) →
-    envs_entails Δ (sim_expr val_rel (fill K_t (Load (LitV l_t))) (fill K_s (Load (LitV l_s))) Φ)%I.
+    envs_entails Δ (sim_expr val_rel Φ (fill K_t (Load (LitV l_t))) (fill K_s (Load (LitV l_s))))%I.
   Proof using val_rel_pers.
     rewrite envs_entails_eq=> ? Hi.
     rewrite -sim_expr_bind. eapply wand_apply; first exact: sim_bij_load.
@@ -333,8 +329,8 @@ Section sim.
   Lemma tac_bij_store Δ i K_t K_s b l_t l_s v_t' v_s' Φ :
     envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
     envs_entails Δ (val_rel v_t' v_s') →
-    envs_entails Δ (sim_expr val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
-    envs_entails Δ (sim_expr val_rel (fill K_t (Store (LitV l_t) (Val v_t'))) (fill K_s (Store (LitV l_s) (Val v_s'))) Φ).
+    envs_entails Δ (sim_expr val_rel Φ (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
+    envs_entails Δ (sim_expr val_rel Φ (fill K_t (Store (LitV l_t) (Val v_t'))) (fill K_s (Store (LitV l_s) (Val v_s')))).
   Proof using val_rel_pers.
     rewrite envs_entails_eq => HΔ.
     rewrite (persistent_persistently_2 (val_rel _ _)).
@@ -353,8 +349,8 @@ Section sim.
     *)
   Lemma tac_bij_free Δ i K_t K_s b l_t l_s Φ :
     envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
-    envs_entails (envs_delete true i b Δ) (sim_expr val_rel (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit)) Φ) →
-    envs_entails Δ (sim_expr val_rel (fill K_t (Free (LitV l_t))) (fill K_s (Free (LitV l_s))) Φ).
+    envs_entails (envs_delete true i b Δ) (sim_expr val_rel Φ (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
+    envs_entails Δ (sim_expr val_rel Φ (fill K_t (Free (LitV l_t))) (fill K_s (Free (LitV l_s)))).
   Proof.
     rewrite envs_entails_eq => Hl HΔ.
     rewrite -sim_expr_bind. rewrite (envs_lookup_sound _ _ _ _ Hl).
@@ -375,7 +371,7 @@ Tactic Notation "sim_load" ident(v_t) ident(v_s) "as" constr(H) :=
     pm_reduce; sim_finish in
   sim_pures_int;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?vrel ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?vrel ?Φ ?e_t ?e_s) =>
     first
       [reshape_expr e_t ltac:(fun K_t e_t' =>
         reshape_expr e_s ltac:(fun K_s e_s' =>
@@ -396,7 +392,7 @@ Tactic Notation "sim_store" :=
     iAssumptionCore || fail "sim_store: cannot find" l_t "↔h" l_s end in
   sim_pures_int;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?vrel ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?vrel ?Φ ?e_t ?e_s) =>
     first
       [reshape_expr e_t ltac:(fun K_t e_t' =>
         reshape_expr e_s ltac:(fun K_s e_s' =>
@@ -415,7 +411,7 @@ Tactic Notation "sim_free" :=
     iAssumptionCore || fail "sim_free: cannot find" l_t "↔h" l_s end in
   sim_pures_int;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?vrel ?e_t ?e_s ?Φ) =>
+  | |- envs_entails _ (sim_expr ?vrel ?Φ ?e_t ?e_s) =>
     first
       [reshape_expr e_t ltac:(fun K_t e_t' =>
         reshape_expr e_s ltac:(fun K_s e_s' =>

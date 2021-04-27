@@ -232,7 +232,7 @@ Section language_setup.
   Qed.
 
 
-
+  (* assumption about target *)
   CoInductive fair_div T D : Prop :=
   | fair_div_step i T' D':
     fair_pool_step T D i T' D' →
@@ -248,7 +248,7 @@ Section language_setup.
     fair_div_tc T' D' →
     fair_div_tc T D.
 
-
+  (* obligation to prove in the source *)
   CoInductive fair_div_alt T : Prop :=
     fair_div_alt_step T' I:
     pool_steps T I T' →
