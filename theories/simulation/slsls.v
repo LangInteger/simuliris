@@ -318,6 +318,7 @@ Section fix_lang.
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
           ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
+          (* TODO: This length constraint is unnecessary as it is implied by the big_sepL2. *)
           ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' ∗ sim_expr Ω Φ e_t' e_s'' ∗ [∗ list] e_t; e_s ∈ efs_t; efs_s, sim_expr Ω (lift_post Ω) e_t e_s))
 

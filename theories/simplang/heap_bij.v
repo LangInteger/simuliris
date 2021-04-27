@@ -43,10 +43,9 @@ Section fix_heap.
       iIntros (e_t' efs σ_t') "%"; inv_head_step.
       assert (head_step P_s (Load #l_s) σ_s (Val v_s) σ_s []) as Hs.
       { eauto with head_step. }
-      iModIntro. iExists (Val v_s), σ_s. iFrame.
+      iModIntro. iExists (Val v_s), [], σ_s. iFrame.
       iSplitR. { by iPureIntro. }
-      iSplitR. { by iPureIntro. }
-      iSplitR "Hsim"; first last. { by iApply "Hsim". }
+      iSplitR "Hsim"; first last. { rewrite /= right_id. by iApply "Hsim". }
       iApply ("Hclose" with "Hl_t Hl_s []"). iLeft; eauto.
     - exfalso; contradict Hnstuck.
       apply stuck_reach_stuck. split; first done.
@@ -73,8 +72,8 @@ Section fix_heap.
 
       iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
       iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
-      iModIntro. iExists #(),(state_upd_heap <[l_s:=Some v_s]> σ_s).
-      iFrame. iSplitR; first by iPureIntro. iSplitR; first by iPureIntro.
+      iModIntro. iExists #(), [],(state_upd_heap <[l_s:=Some v_s]> σ_s).
+      iFrame. iSplitR; first by iPureIntro. rewrite /= right_id.
       iApply ("Hclose" with "Hl_t Hl_s [Hval]"). iLeft; eauto.
     - exfalso; contradict Hnstuck.
       apply stuck_reach_stuck. split; first done.
@@ -100,8 +99,8 @@ Section fix_heap.
 
       iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
       iMod (gen_heap_update with "Hσ_s Hl_s") as "[Ha Hl_s]".
-      iModIntro. iExists #(),(state_upd_heap <[l_s:=None]> σ_s).
-      iFrame. iSplitR; first by iPureIntro. iSplitR; first by iPureIntro.
+      iModIntro. iExists #(), [],(state_upd_heap <[l_s:=None]> σ_s).
+      iFrame. iSplitR; first by iPureIntro. rewrite /= right_id.
       iApply ("Hclose" with "Hl_t Hl_s"). iRight; eauto.
     - exfalso; contradict Hnstuck.
       apply stuck_reach_stuck. split; first done.

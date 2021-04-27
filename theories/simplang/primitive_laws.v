@@ -140,6 +140,20 @@ Proof. apply hasfun_agree. Qed.
 Lemma hasfun_source_agree f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
 Proof. apply hasfun_agree. Qed.
 
+(** fork *)
+Lemma sim_fork e_t e_s Ψ :
+  #() ⪯ #() [{ Ψ }] -∗
+  e_t ⪯ e_s [{ lift_post Ω }] -∗
+  Fork e_t ⪯ Fork e_s [{ Ψ }].
+Proof.
+  iIntros "Hval Hsim". iApply sim_lift_head_step_both.
+  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck] !>".
+  iSplitR. { eauto with head_step. }
+  iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
+  iModIntro. iExists _, _, _. iSplitR. { eauto with head_step. }
+  simpl. iFrame.
+Qed.
+
 (** operational heap lemmas *)
 Lemma heap_array_to_seq_mapsto l v (n : nat) γh γm (hG : gen_heapPreNameG loc (option val) Σ γh γm) :
   ([∗ map] l' ↦ ov ∈ heap_array l (replicate n v), gen_sim_heap.mapsto (hG:=hG) l' (DfracOwn 1) ov) -∗

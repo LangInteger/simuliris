@@ -135,6 +135,25 @@ Section fix_sim.
   Qed.
 
   (** Primitive reduction *)
+  Lemma sim_lift_prim_step_both e_t e_s Φ:
+    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
+      ⌜reducible P_t e_t σ_t⌝ ∗
+      ∀ e_t' efs_t σ_t',
+        ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
+          ∃ e_s' efs_s σ_s', ⌜prim_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
+            state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯{Ω} e_s' [{ Φ }] ∗
+            ([∗ list] e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯ e_s0 [{lift_post Ω}])) -∗
+    e_t ⪯{Ω} e_s [{ Φ }].
+  Proof.
+    iIntros "Hsim".
+    rewrite sim_expr_unfold. iIntros (????) "[Hstate %]".
+    iMod ("Hsim" with "[$Hstate ]") as "[Hred Hsim]"; first done. iModIntro. iRight; iLeft.
+    iFrame. iIntros (e_t' efs_t σ_t') "Hstep".
+    iMod ("Hsim" with "Hstep") as (e_s' efs_s σ_s') "(Hs & ? & ? & Hefs)".
+    iRight. iModIntro. iExists _, _, _, _, _.
+    iDestruct (big_sepL2_length with "Hefs") as "#$". iFrame. iPureIntro. constructor.
+  Qed.
+
   Lemma sim_lift_prim_step_target e_t e_s Φ :
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
@@ -199,24 +218,22 @@ Section fix_sim.
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
   Qed.
 
-  (* this lemma is useful because it only requires to re-establish the SI after
-    stepping both in the target and the source *)
   Lemma sim_lift_head_step_both e_t e_s Φ:
     (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ ==∗
       ⌜head_reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' efs_t σ_t',
         ⌜head_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-          ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜head_step P_s e_s σ_s e_s' σ_s' []⌝ ∗
-            state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
+          ∃ e_s' efs_s σ_s', ⌜head_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
+          state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯{Ω} e_s' [{ Φ }] ∗
+          ([∗ list] e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯ e_s0 [{lift_post Ω}])) -∗
     e_t ⪯{Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hsim". iApply sim_step_target.
-    iIntros (????) "[Hstate %Hnreach]". iMod ("Hsim" with "[$Hstate//]") as "(% & Hstep)".
+    iIntros "Hsim". iApply sim_lift_prim_step_both. iIntros (????) "[Hstate %Hnreach]".
+    iMod ("Hsim" with "[$Hstate//]") as "(% & Hstep)".
     iModIntro. iSplitR. { iPureIntro. by eapply head_prim_reducible. }
-    iIntros (e_t' efs_t σ_t') "%". iMod ("Hstep" with "[]") as (e_s' σ_s') "(% & % & Hstate & Hsim)".
+    iIntros (e_t' efs_t σ_t') "%". iMod ("Hstep" with "[]") as (e_s' efs_s σ_s') "(% & Hstate & Hsim)".
     { iPureIntro. by eapply head_reducible_prim_step. }
-    iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. split; [done|].
-    econstructor; first by eapply head_prim_step. constructor.
+    iModIntro. iExists e_s', efs_s, σ_s'. iFrame. iPureIntro. by eapply head_prim_step.
   Qed.
 
   (** Stuckness *)
