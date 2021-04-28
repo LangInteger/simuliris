@@ -43,6 +43,8 @@ Notation "et '⪯{' Ω '}' es {{ Φ }}" := (sim Ω Φ et es) (at level 40, Φ at
 (* FIXME: the notation with binder doesn't work; left-factoring seems to fail.
 Notation "et  '⪯'  es  {{  v_t  v_s ,  P  }}" := (sim et es (λ v_t v_s, P)) (at level 40, v_t, v_s at level 200, P at level 200) : bi_scope. *)
 
+
+(* TODO: different symbols (no brackets) for expr thing *)
 Notation "et '⪯{' Ω '}' es [{ Φ }]" := (sim_expr Ω Φ et es) (at level 40, Φ at level 200,
   format "et  '⪯{' Ω '}'  es  [{  Φ  }]") : bi_scope.
 
