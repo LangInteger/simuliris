@@ -626,7 +626,67 @@ Section fix_lang.
   Qed.
 
 
+  (* we show that the local simulation for all functions in the program implies the global simulation *)
+  Definition local_rel Ω P_t P_s : PROP :=
+    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx Ω K_t K_s Ω)%I.
+  Typeclasses Opaque local_rel.
+
+  Global Instance local_rel_persistent Ω P_s P_t : Persistent (local_rel Ω P_s P_t).
+  Proof. rewrite /local_rel; apply _. Qed.
+
+  Lemma local_to_global Ω P_t P_s Φ e_t e_s:
+    local_rel Ω P_t P_s -∗
+    progs_are P_t P_s -∗
+    sim_expr Ω Φ e_t e_s -∗
+    gsim_expr Ω Φ e_t e_s.
+  Proof.
+    rewrite /local_rel; iIntros "#Hloc #Hprog Hsim".
+    iApply (gsim_expr_coind Ω (sim_expr Ω) with "[] Hsim"); clear Φ e_t e_s.
+    iModIntro. iIntros (Φ e_t e_s).
+    rewrite {1}sim_expr_eq greatest_def_unfold.
+    iIntros "H". iApply (least_def_ind _ (global_least_def Ω (sim_expr Ω)) with "[] H"); clear Φ e_t e_s.
+    iModIntro. iIntros (Φ e_t e_s) "Hsim".
+    rewrite global_least_def_unfold.
+    iIntros (P_t' σ_t P_s' σ_s) "[Hstate %Hsafe]".
+    rewrite /progs_are; iDestruct ("Hprog" with "Hstate") as "[% %]"; subst P_t' P_s'.
+    iMod ("Hsim" with "[$Hstate //]") as "[Hsim|[Hsim|Hsim]]"; iModIntro; [ eauto | rewrite sim_expr_eq; eauto | ].
+    iDestruct "Hsim" as (f K_t v_t K_s v_s σ_s') "(% & %Hnfs & Hval & Hstate & Hcont)".
+    subst e_t. iRight.
+    (* the function is in the source table *)
+    edestruct (@safe_call_in_prg Λ) as [K_f_s Hdef_s]; [by eauto..|].
+
+    (* we prove reducibility and the step case *)
+    iSplit.
+    - iAssert (∃ K_f_t, ⌜P_t !! f = Some K_f_t⌝)%I as (K_f_t) "%".
+      { iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t) "[% _]"; by eauto. }
+      iPureIntro. eexists _, _, _.
+      by apply fill_prim_step, head_prim_step, call_head_step_intro.
+    - iIntros (e_t' efs_t σ_t' Hstep).
+      apply prim_step_call_inv in Hstep as (K_f_t & Hdef & -> & -> & ->).
+      iModIntro. iRight. iExists (fill K_s (of_call f v_s)), (fill K_s (fill K_f_s (of_val v_s))), σ_s', σ_s', [].
+      iFrame. iSplit; first done. iSplit.
+      { iPureIntro. by apply fill_prim_step, head_prim_step, call_head_step_intro. }
+      iSplit; first done. simpl; iSplit; last done.
+      iApply sim_expr_bind. iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hectx]".
+      replace K_f_t' with K_f_t by naive_solver. rewrite /sim_ectx.
+      iApply (sim_expr_mono with "[-Hval] [Hval]"); last by iApply "Hectx".
+      iIntros (e_t' e_s'). iDestruct 1 as (v_t' v_s' -> ->) "Hval".
+      rewrite sim_expr_eq. by iApply "Hcont".
+  Qed.
 
 
-
+  Lemma local_to_global_call Ω P_t P_s f v_t v_s:
+    is_Some (P_s !! f) →
+    local_rel Ω P_t P_s -∗
+    progs_are P_t P_s -∗
+    Ω v_t v_s -∗
+    gsim_expr Ω (lift_post Ω) (of_call f v_t) (of_call f v_s).
+  Proof.
+    iIntros ([K_s Hlook]) "#Hloc #Hprogs Hval".
+    iApply (local_to_global with "Hloc Hprogs").
+    rewrite /local_rel.
+    iDestruct "Hloc" as "#Hloc".
+    iDestruct ("Hloc" $! _ _ Hlook) as (K_t) "[% Hsim]".
+    iApply sim_call_inline; last (iFrame; iSplit; first done); eauto.
+  Qed.
 End fix_lang.
