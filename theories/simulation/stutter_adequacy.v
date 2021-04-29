@@ -1,229 +1,10 @@
-From iris Require Import bi.bi bi.lib.fixpoint.
-Import bi.
+From iris.bi Require Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
-From simuliris.simulation Require Import relations language slsls.
+From simuliris.simulation Require Import
+  fairness relations language global_sim fairness_adequacy.
+Import bi.
 
-
-(* The adequacy proof proceeds in three steps:
-   1. We combine all local simulations to one global simulation in Iris
-   2. We obtain a meta level simultation by using satisfiability
-   3. We prove that the meta level simultation implies a behavioral refinement
-*)
-
-Section fix_lang.
-  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-
-  Context {Λ : language}.
-  Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ }.
-
-  Implicit Types
-    (e_s e_t e : expr Λ)
-    (P_s P_t P : prog Λ)
-    (σ_s σ_t σ : state Λ)
-    (Φ Ψ : val Λ → val Λ → PROP).
-
-  Local Existing Instance sim_stutter.
-
-Section global.
-
-  Definition least_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO → exprO → PROP) (e_s : exprO) (least_rec : exprO → PROP) (e_t : exprO) :=
-    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
-      (* value case *)
-      (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
-        state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
-
-      ∨ (* step case *)
-      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
-        (* stuttering *)
-        (state_interp P_t σ_t' P_s σ_s ∗ least_rec e_t') ∨
-        (* take a step *)
-        (∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ greatest_rec e_s' e_t'))
-    )%I.
-
-  Lemma least_step_mon Φ l1 l2 g1 g2 e_s:
-    ⊢ <pers> (∀ e, l1 e -∗ l2 e)
-    → <pers> (∀ e_s e_t, g1 e_s e_t -∗ g2 e_s e_t)
-    → ∀ e, least_step Φ g1 e_s l1 e -∗ least_step Φ g2 e_s l2 e.
-  Proof.
-    iIntros "#H #H0" (e) "Hl". rewrite /least_step. iIntros (P_t σ_t P_s σ_s) "Ha".
-    iMod ("Hl" with "Ha") as "[Hval | Hstep]"; iModIntro.
-    + iLeft. iApply "Hval".
-    + iRight. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
-      iIntros (e_t' σ_t') "Hstep". iMod ("Hr" with "Hstep") as "[Hstay | Hstep]"; iModIntro.
-      { iLeft. iDestruct "Hstay" as "[$ H1]". by iApply "H". }
-      iRight. iDestruct "Hstep" as (e_s' σ_s') "(H1& H2 &H3)".
-      iExists (e_s'), (σ_s'). iFrame. by iApply "H0".
-  Qed.
-
-  Instance least_step_mono (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO → exprO → PROP) (e_s : exprO) :
-    BiMonoPred (least_step Φ greatest_rec e_s).
-  Proof.
-    constructor.
-    - intros l1 l2. iIntros "H". iApply (least_step_mon Φ l1 l2 greatest_rec greatest_rec e_s with "H").
-      eauto.
-    - intros l Hne n e1 e2 Heq.
-      apply discrete_iff in Heq as ->. reflexivity. apply _.
-  Qed.
-
-  Definition least_def (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO → exprO → PROP) (e_s : exprO) :=
-    bi_least_fixpoint (least_step Φ greatest_rec e_s).
-
-  Lemma least_def_ind greatest_rec (e_s : exprO) Φ (Ψ : exprO → PROP):
-    Proper ((≡) ==> (≡)) Ψ →
-    ⊢ (□ ∀ e_t, least_step Φ greatest_rec e_s Ψ e_t -∗ Ψ e_t)
-      -∗ ∀ e_t : exprO, least_def Φ greatest_rec e_s e_t -∗ Ψ e_t.
-  Proof. iIntros (Hp) "#H". iApply least_fixpoint_ind. iModIntro. iIntros (e_t) "IH". by iApply "H". Qed.
-
-
-  Lemma least_def_unfold (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO → exprO → PROP) (e_s : exprO) e_t:
-    least_def Φ greatest_rec e_s e_t ⊣⊢ least_step Φ greatest_rec e_s (least_def Φ greatest_rec e_s) e_t.
-  Proof. by rewrite /least_def least_fixpoint_unfold. Qed.
-
-  Definition greatest_step (Φ : val Λ → val Λ → PROP) (greatest_rec : exprO * exprO → PROP) '(e_s, e_t) :=
-    least_def Φ (uncurry greatest_rec) e_s e_t.
-
-  Instance greatest_step_proper Φ greatest_rec:
-    Proper ((≡) ==> (≡)) (greatest_step Φ greatest_rec).
-  Proof. solve_proper. Qed.
-
-  Lemma least_def_mon Φ g1 g2 e_s:
-    ⊢ <pers> (∀ p, g1 p -∗ g2 p) → ∀ e, least_def Φ (uncurry g1) e_s e -∗ least_def Φ (uncurry g2) e_s e.
-  Proof.
-    iIntros "#H".
-    rewrite /least_def.
-    iApply (least_fixpoint_ind (least_step Φ (uncurry g1) e_s) (bi_least_fixpoint (least_step Φ (uncurry g2) e_s))).
-    iModIntro. iIntros (e).
-    rewrite least_fixpoint_unfold. iIntros "H0". iApply (least_step_mon Φ _ _ (uncurry g1) (uncurry g2) e_s).
-    - eauto.
-    - iModIntro. iIntros (? ?). rewrite /uncurry. by iApply "H".
-    - iApply "H0".
-  Qed.
-
-  Instance greatest_step_mono (Φ : val Λ → val Λ → PROP) :
-    BiMonoPred (greatest_step Φ).
-  Proof.
-    constructor.
-  - intros g1 g2.
-    iIntros "#H" ([e_s e_t]) "Hg". rewrite /greatest_step. iApply least_def_mon; eauto.
-  - intros g Hne n [e_s e_t] [e_s' e_t'] Heq. apply discrete_iff in Heq as [-> ->].
-    reflexivity. apply _.
-  Qed.
-
-  Definition gsim_def (Φ : val Λ → val Λ → PROP) :=
-    bi_greatest_fixpoint (greatest_step Φ).
-
-  Lemma gsim_def_unfold Φ e_s e_t:
-    gsim_def Φ (e_s, e_t) ⊣⊢ greatest_step Φ (gsim_def Φ) (e_s, e_t).
-  Proof. by rewrite /gsim_def greatest_fixpoint_unfold. Qed.
-
-  Lemma gsim_def_least_def_unfold Φ e_s e_t :
-    gsim_def Φ (e_s, e_t) ⊣⊢ least_def Φ (uncurry (gsim_def Φ)) e_s e_t.
-  Proof. by rewrite gsim_def_unfold. Qed.
-
-  Definition gsim_aux : seal (λ e_t e_s Φ, @gsim_def Φ (e_s, e_t)). by eexists. Qed.
-  Definition gsim := ((gsim_aux).(unseal)).
-  Definition gsim_eq : gsim = λ e_t e_s Φ, @gsim_def Φ (e_s, e_t). by rewrite <- (gsim_aux).(seal_eq). Defined.
-
-  Lemma gsim_unfold Φ e_t e_s:
-    gsim e_t e_s Φ ⊣⊢
-    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜¬ reach_stuck P_s e_s σ_s⌝ -∗ |==>
-      (* value case *)
-        (∃ v_t v_s σ_s', ⌜to_val e_t = Some v_t⌝ ∗ ⌜rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')⌝ ∗
-          state_interp P_t σ_t P_s σ_s' ∗ Φ v_t v_s)
-
-      ∨ (* step case *)
-      (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t', ⌜prim_step P_t (e_t, σ_t) (e_t', σ_t')⌝ -∗ |==>
-        (state_interp P_t σ_t' P_s σ_s ∗ gsim e_t' e_s Φ) ∨
-        (∃ e_s' σ_s', ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗
-        gsim e_t' e_s' Φ))
-    )%I.
-  Proof.
-    rewrite !gsim_eq /uncurry gsim_def_unfold /greatest_step.
-    rewrite least_def_unfold /least_step.
-    by setoid_rewrite <-gsim_def_least_def_unfold.
-  Qed.
-End global.
-
-Section local_to_global.
-
-  Definition local_rel P_t P_s : PROP :=
-    (□ ∀ f K_s, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx Ω K_t K_s Ω)%I.
-  Typeclasses Opaque local_rel.
-
-  Global Instance local_rel_persistent P_s P_t : Persistent (local_rel P_s P_t).
-  Proof. rewrite /local_rel; apply _. Qed.
-
-  Lemma gsim_coind Φ (Ψ : exprO → exprO → PROP):
-    Proper ((≡) ==> (≡) ==> (≡)) Ψ →
-    ⊢ (□ ∀ e_t e_s, Ψ e_t e_s -∗ greatest_step Φ (λ '(e_s, e_t), Ψ e_t e_s) (e_s, e_t))
-      -∗ ∀ e_t e_s, Ψ e_t e_s -∗ gsim e_t e_s Φ.
-  Proof.
-    iIntros (Hp) "#H". iIntros (e_t e_s) "H0".
-    rewrite gsim_eq /gsim_def.
-
-    set (Ψ_curry := (λ '(e_t, e_s), Ψ e_s e_t)).
-    assert (NonExpansive Ψ_curry) as Hne.
-    { intros ? [e1 e2] [e1' e2'] [H1 H2]. rewrite /Ψ_curry. cbn in H1, H2.
-      apply equiv_dist, Hp. now apply discrete_iff in H1. now apply discrete_iff in H2.
-    }
-    iApply (greatest_fixpoint_coind (greatest_step Φ) Ψ_curry).
-    { iModIntro. iIntros ([e_s' e_t']). iApply "H". }
-    iApply "H0".
-  Qed.
-
-  Lemma local_to_global P_t P_s e_t e_s:
-    local_rel P_t P_s -∗
-    progs_are P_t P_s  -∗
-    sim Ω e_t e_s Ω -∗
-    gsim e_t e_s Ω.
-  Proof.
-    iIntros "#Hloc #Hprog Hsim".
-    iApply (gsim_coind Ω (λ e_t e_s, sim Ω e_t e_s Ω) with "[] Hsim"); clear e_t e_s.
-    iModIntro. iIntros (e_t e_s).
-    rewrite /greatest_step /sim /sim_stutter /sim_def sim_expr_eq sim_expr_def_unfold /slsls.greatest_step.
-    iRevert (e_t). iApply sim_ind. iModIntro. iIntros (e_t).
-    rewrite /slsls.least_step least_def_unfold /least_step.
-    iIntros "Hsim" (P_t' σ_t P_s' σ_s) "[Hstate %]".
-    rewrite /progs_are; iDestruct ("Hprog" with "Hstate") as "[% %]"; subst P_t' P_s'.
-    iMod ("Hsim" with "[$Hstate //]") as "[Hsim|[Hsim|Hsim]]"; iModIntro; [ | by eauto | ].
-    { iLeft. iDestruct "Hsim" as (e_s' σ_s') "(Hp & Hstate & Hv)".
-      iDestruct "Hv" as (v_t v_s) "(-> & %He_s' & ?)".
-      rewrite -(of_to_val _ _ He_s'). iExists v_t, v_s, σ_s'. iFrame. eauto.
-    }
-    iDestruct "Hsim" as (f K_t v_t K_s v_s σ_s') "(% & % & Hval & Hstate & Hcont)".
-    subst e_t. iRight.
-
-    (* the function is in the source table *)
-    edestruct (@not_stuck_call_in_prg Λ) as [K_f_s Hdef_s]; [by eauto..|].
-
-    (* we prove reducibility and the step relation *)
-    iSplit.
-    - iAssert (∃ K_f_t, ⌜P_t !! f = Some K_f_t⌝)%I as (K_f_t) "%".
-      { rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t) "[% _]"; by eauto. }
-      iPureIntro. eexists _, _.
-      by apply fill_prim_step, head_prim_step, call_head_step_intro.
-    - iIntros (e_t' σ_t' Hstep).
-      apply prim_step_call_inv in Hstep as (K_f_t & Hdef & -> & ->).
-      iModIntro. iRight. iExists (fill K_s (fill K_f_s (of_val v_s))), σ_s'.
-      iFrame. iSplit.
-      + iPureIntro. eapply tc_rtc_l; first by eauto.
-        constructor. by apply fill_prim_step, head_prim_step, call_head_step_intro.
-      + rewrite /uncurry. iPoseProof (sim_bind Ω _ _ K_t K_s with "[Hval Hcont]") as "HP"; last first.
-        { cbn. rewrite /sim /sim_stutter /sim_def sim_expr_eq; iApply "HP". }
-        iApply (sim_mono with "[Hcont] [Hval]").
-        * rewrite /sim /sim_stutter /sim_def sim_expr_eq. iExact "Hcont".
-        * rewrite /local_rel; iDestruct ("Hloc" $! _ _ Hdef_s) as (K_f_t') "[% Hcont]".
-          assert (K_f_t' = K_f_t) as -> by naive_solver.
-          iSpecialize ("Hcont" with "Hval").
-          by iApply "Hcont".
-  Qed.
-
-End local_to_global.
-
-End fix_lang.
-Typeclasses Opaque local_rel.
 
 
 Section meta_level_simulation.
@@ -234,218 +15,282 @@ Section meta_level_simulation.
   Context {s : SimulLang PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
+  Context {PROP_forall : BiPureForall PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
-  Variable (P_t P_s: prog Λ).
+  Context (p_t p_s: prog Λ).
 
-  (* we pull out the simulation to a meta-level simulation *)
-  Definition msim (e_t: expr Λ) (σ_t: state Λ) (e_s: expr Λ) (σ_s: state Λ) :=
-    sat (state_interp P_t σ_t P_s σ_s ∗ gsim e_t e_s Ω).
+  (* we pull out the simulation to a meta-level simulation,
+     the set V tracks which threads are already values in both target and source *)
+  Definition msim (T_t: list (expr Λ)) (σ_t: state Λ)  (T_s: list (expr Λ)) (σ_s: state Λ) (V: gset nat) :=
+    sat (state_interp p_t σ_t p_s σ_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post Ω) e_t e_s).
 
-  (* unfolding of the first case *)
-  Lemma msim_val (v_t: val Λ) (e_s: expr Λ) (σ_t σ_s: state Λ):
-    msim (of_val v_t) σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s') ∧ sat (state_interp P_t σ_t P_s σ_s' ∗ Ω v_t v_s).
+  Lemma msim_length T_t T_s σ_t σ_s V:
+    msim T_t σ_t T_s σ_s V → length T_t = length T_s.
   Proof.
-    rewrite /msim gsim_unfold; intros Hsat Hreach.
-    eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
-    { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
-    eapply sat_bupd in Hsat.
-    eapply sat_or in Hsat as [Hsat|Hsat]; last first.
-    { eapply sat_sep in Hsat as [Hsat _].
-      eapply sat_elim in Hsat as [e [σ [] % val_prim_step]]. }
-    eapply sat_exists in Hsat as [v_t' Hsat].
-    eapply sat_exists in Hsat as [v_s Hsat].
-    eapply sat_exists in Hsat as [σ_s' Hsat].
-    eapply sat_sep in Hsat as [Heq % sat_elim Hsat].
-    eapply sat_sep in Hsat as [Hrtc % sat_elim Hsat].
-    rewrite to_of_val in Heq; injection Heq as <-.
-    exists v_s, σ_s'; split; auto.
+    intros Hsim. eapply sat_elim, sat_mono, Hsim.
+    iIntros "(_ & _ & Hsims)". rewrite big_sepL2_alt.
+    iDestruct "Hsims" as "[$ _]".
   Qed.
 
-  (* unfolding of the second case, ignoring lfp *)
-  Lemma msim_step (e_t e_t' e_s: expr Λ) (σ_t σ_t' σ_s: state Λ):
-    msim e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    prim_step P_t (e_t, σ_t) (e_t', σ_t') →
-    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ msim e_t' σ_t' e_s' σ_s'.
+  Lemma msim_add_val (v_t: val Λ) (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    T_t !! i = Some (of_val v_t) →
+    ∃ T_s' σ_s' I, pool_steps p_s T_s σ_s I T_s' σ_s' ∧ msim T_t σ_t T_s' σ_s' (V ∪ {[i]}).
   Proof.
-    rewrite /msim gsim_unfold; intros Hsat Hreach Hstep.
-    eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
-    { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
-    eapply sat_bupd in Hsat.
-    eapply sat_or in Hsat as [Hsat|Hsat].
-    { eapply sat_exists in Hsat as [v_t' Hsat].
-      eapply sat_exists in Hsat as [v_s Hsat].
-      eapply sat_exists in Hsat as [σ_s' Hsat].
-      eapply sat_sep in Hsat as [Heq % sat_elim _].
-      exfalso; eapply val_prim_step.
-      by rewrite -(of_to_val _ _ Heq) in Hstep. }
-    eapply sat_sep in Hsat as [_ Hsat].
-    do 2 eapply sat_forall in Hsat.
-    eapply sat_wand in Hsat; last by iPureIntro.
-    eapply sat_bupd in Hsat.
-    eapply sat_or in Hsat as [Hsat|Hsat].
-    - eauto using rtc_refl.
-    - eapply sat_exists in Hsat as [e_s' Hsat].
-      eapply sat_exists in Hsat as [σ_s' Hsat].
-      eapply sat_sep in Hsat as [Htc % sat_elim Hsat].
-      exists e_s', σ_s'; split; auto using tc_rtc.
+    intros Hsim Hsafe Hlook. eapply msim_length in Hsim as Hlen.
+    assert (is_Some (T_s !! i)) as [e_s Hlook'].
+    { eapply lookup_lt_is_Some; rewrite -Hlen; eapply lookup_lt_is_Some; eauto. }
+    rewrite /msim in Hsim. eapply sat_mono in Hsim.
+    - eapply sat_bupd in Hsim.
+      eapply sat_exists in Hsim as [T_s' Hsim]; exists T_s'.
+      eapply sat_exists in Hsim as [σ_s' Hsim]; exists σ_s'.
+      eapply sat_exists in Hsim as [I Hsim]; exists I.
+      eapply sat_sep in Hsim as [Hdone Hsim].
+      eapply sat_elim in Hdone. split; [exact Hdone|exact Hsim].
+    - simpl; clear Hsim. iIntros "(SI & %Hvals & Hsims)".
+      iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
+      rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+      + iPureIntro. by eapply pool_safe_threads_safe.
+      + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
+        iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
+        eapply of_val_inj in Heq1 as <-. subst e_s'.
+        eapply no_forks_pool_steps in Hnfs as (I & Hpool & _); last done.
+        iModIntro. iExists (<[i := (of_val v_s)]> T_s), σ_s', I.
+        iSplit; first done. iFrame. iSplit.
+        * iPureIntro. intros j. destruct (decide (j = i)) as [->|Hne].
+          { exists v_t, v_s. split; first done.
+            eapply list_lookup_insert, lookup_lt_Some, Hlook'. }
+          intros Hj; assert (j ∈ V) as Hj' by set_solver.
+          rewrite list_lookup_insert_ne //. eauto.
+        * rewrite -{2}(list_insert_id T_t i (of_val v_t)) //. iApply "Hpost".
+          iApply gsim_expr_base. iExists v_t, v_s. by iFrame.
+      + iDestruct "Step" as "[%Hred _]".
+        destruct Hred as (e_t' & σ_t' & efs & Hprim).
+        exfalso. by eapply val_prim_step.
   Qed.
 
-  (* we don't have a proof for the extraction of the least fixpoint itself *)
-  Lemma msim_src_step (e_t e_s: expr Λ) (σ_t σ_s: state Λ):
-    msim e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    ex_loop (prim_step P_t) (e_t, σ_t) →
-    ∃ e_t' σ_t' e_s' σ_s', tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧
-    ex_loop (prim_step P_t) (e_t', σ_t') ∧ msim e_t' σ_t' e_s' σ_s'.
+  Lemma msim_proj_val (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
+    i ∈ V →
+    msim T_t σ_t T_s σ_s V →
+    ∃ v_t v_s,
+      T_t !! i = Some (of_val v_t) ∧
+      T_s !! i = Some (of_val v_s) ∧
+      sat (state_interp p_t σ_t p_s σ_s ∗ Ω v_t v_s).
   Proof.
-    rewrite /msim; intros Hsat Hreach Hstep.
-    enough (sat (∃ (e_t' : expr Λ) (σ_t' : state Λ) (e_s' : expr Λ) (σ_s' : state Λ),
-      ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝ ∗
-      ⌜ex_loop (prim_step P_t) (e_t', σ_t')⌝ ∗
-      state_interp P_t σ_t' P_s σ_s' ∗ gsim e_t' e_s' Ω
-    )) as Hsat'.
-    { do 4 eapply sat_exists in Hsat' as [? Hsat'].
-      do 2 eapply sat_sep in Hsat' as [? % sat_elim Hsat'].
-      eauto 10.
-    }
-    eapply sat_bupd, sat_mono, Hsat.
-    iIntros "[Hσ Hsim]". rewrite {1}gsim_eq gsim_def_unfold /greatest_step.
-    clear Hsat. iRevert (σ_t Hstep) "Hσ".
-    (* the strengthened induction *)
-    iApply (least_def_ind _ _ _ (λ e_t, ∀ a : state Λ,
-          ⌜ex_loop (prim_step P_t) (e_t, a)⌝
-          → state_interp P_t a P_s σ_s
-          -∗ |==> ∃ (e_t' : expr Λ) (σ_t' : state Λ) (e_s' : expr Λ)  (σ_s' : state Λ),
-              ⌜tc (prim_step P_s) (e_s, σ_s) (e_s', σ_s')⌝
-            ∗ ⌜ex_loop (prim_step P_t) (e_t', σ_t')⌝
-            ∗ state_interp P_t σ_t' P_s σ_s' ∗ gsim e_t' e_s' Ω)%I with "[] Hsim"); clear e_t.
-    iModIntro. rewrite /least_step. iIntros (e_t) "Hsim". iIntros (σ_t Hdiv) "SI".
-    iMod ("Hsim" with "[$SI //]") as "[Hsim|Hsim]".
-    - iExFalso. iDestruct "Hsim" as (v_t v_s σ_s' Hval) "_".
-      apply ex_loop_pair_inv in Hdiv as (e_t' & σ_t' & Hstep & _).
-      exfalso; eapply val_prim_step.
-      by rewrite -(of_to_val _ _ Hval) in Hstep.
-    - iDestruct "Hsim" as "[_ Hsim]".
-      apply ex_loop_pair_inv in Hdiv as (e_t' & σ_t' & Hstep & Hdiv).
-      iMod ("Hsim" $! _ _ Hstep) as "[Hsim|Hsim]".
-      + iDestruct "Hsim" as "[SI IH]".
-        by iMod ("IH" with "[//] SI").
-      + iDestruct "Hsim" as (e_s' σ_s' Htc) "[SI Hsim]".
-        iModIntro; iExists _, _, _, _; iFrame; iSplit; first by eauto.
-        iSplit; first by eauto. rewrite gsim_eq. iApply "Hsim".
+    intros Hel Hsim. rewrite /msim in Hsim. eapply sat_mono in Hsim.
+    - eapply sat_bupd in Hsim.
+      eapply sat_exists in Hsim as [v_t Hsim]; exists v_t.
+      eapply sat_exists in Hsim as [v_s Hsim]; exists v_s.
+      eapply sat_sep in Hsim as [Hlook1%sat_elim Hsim].
+      split; first exact Hlook1.
+      eapply sat_sep in Hsim as [Hlook2%sat_elim Hsim].
+      split; first exact Hlook2.
+      exact Hsim.
+    - simpl. iIntros "(SI & %Vals & Hsims)".
+      destruct (Vals i Hel) as (v_t & v_s & Hlook1 & Hlook2).
+      iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim _]"; eauto.
+      rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+      + iPureIntro. eapply val_safe.
+      + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Hpost]".
+        iModIntro. iExists v_t, v_s.
+        do 2 (iSplit; first done).
+        inversion Hnfs; subst.
+        * iFrame. iDestruct "Hpost" as (v_t' v_s' ->%of_val_inj ->%of_val_inj) "$".
+        * exfalso. by eapply val_prim_step.
+      + iDestruct "Step" as "[%Hred _]". destruct Hred as (e_t' & σ_t' & efs & Hstep).
+        exfalso. by eapply val_prim_step.
   Qed.
 
-  (* progress *)
-  Lemma msim_progress (e_t e_s: expr Λ) (σ_t σ_s: state Λ):
-    msim e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    ¬ stuck P_t e_t σ_t.
+
+  Lemma msim_step (T_t T_t' T_s: list (expr Λ)) (σ_t σ_t' σ_s: state Λ) i V:
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    pool_step p_t T_t σ_t i T_t' σ_t' →
+    ∃ T_s' σ_s' J, pool_steps p_s T_s σ_s J T_s' σ_s' ∧ msim T_t' σ_t' T_s' σ_s' V.
   Proof.
-    rewrite /msim gsim_unfold; intros Hsat Hreach Hstuck.
-    eapply sat_mono with (Q:= (|==> _)%I) in Hsat; last first.
-    { iIntros "[Hσ Hsim]". iMod ("Hsim" with "[$Hσ //]") as "Hsim". iExact "Hsim". }
-    eapply sat_bupd in Hsat.
-    eapply sat_or in Hsat as [Hsat|Hsat].
-    { eapply sat_exists in Hsat as [v_t' Hsat].
-      eapply sat_exists in Hsat as [v_s Hsat].
-      eapply sat_exists in Hsat as [σ_s' Hsat].
-      eapply sat_sep in Hsat as [Heq % sat_elim _].
-      unfold stuck in *; naive_solver. }
-    eapply sat_sep in Hsat as [Hred % sat_elim _].
-    by destruct Hstuck as [Hval Hirr % not_reducible].
+    intros Hsim Hsafe Hstep. eapply pool_step_iff in Hstep as Hstep'.
+    destruct Hstep' as (e_t & e_t' & efs & Hprim & Hlook & Hupd).
+    eapply msim_length in Hsim as Hlen.
+    assert (is_Some (T_s !! i)) as [e_s Hlook'].
+    { eapply lookup_lt_is_Some; rewrite -Hlen; eapply lookup_lt_is_Some; eauto. }
+    rewrite /msim in Hsim. eapply sat_mono in Hsim.
+    - eapply sat_bupd in Hsim.
+      eapply sat_exists in Hsim as [T_s' Hsim]; exists T_s'.
+      eapply sat_exists in Hsim as [σ_s' Hsim]; exists σ_s'.
+      eapply sat_exists in Hsim as [J Hsim]; exists J.
+      eapply sat_sep in Hsim as [Hdone Hsim].
+      eapply sat_elim in Hdone. split; [exact Hdone|exact Hsim].
+    - simpl; clear Hsim. iIntros "(SI & %Hvals & Hsims)".
+      iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
+      rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+      + iPureIntro. by eapply pool_safe_threads_safe.
+      + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
+        iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
+        subst e_t. exfalso. by eapply val_prim_step.
+      + iDestruct "Step" as "[_ Step]".
+        iMod ("Step" with "[//]") as "[(-> & SI & Hsim) | NoStutter]".
+        * iModIntro. iExists T_s, σ_s, [].
+          iSplit; first by iPureIntro; constructor.
+          iFrame. rewrite Hupd right_id. iSplit.
+          { iPureIntro. intros j Hj. eapply Hvals in Hj as (v_t & v_s & Hlook1 & Hlook2).
+            exists v_t, v_s. split; last done. eapply pool_step_value_preservation, Hlook1.
+            rewrite Hupd right_id in Hstep. done. }
+          iSpecialize ("Hpost" $! e_t' e_s with "Hsim").
+          rewrite (list_insert_id T_s) //.
+        * iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim' Hlen') "(SI & Hsim & Hforks)".
+          eapply no_forks_then_prim_step_pool_steps in Hnfs as (J & Hsteps & _); eauto.
+          iModIntro. iExists _, _, _; iSplit; first done.
+          iFrame. iSplit.
+          { iPureIntro. intros j Hj. eapply Hvals in Hj as (v_t & v_s & Hlook1 & Hlook2).
+            exists v_t, v_s. split; eauto using pool_step_value_preservation, pool_steps_value_preservation. }
+          iSpecialize ("Hpost" $! e_t' e_s'' with "Hsim").
+          rewrite Hupd. iApply (big_sepL2_app with "Hpost Hforks").
+  Qed.
+
+  Lemma msim_not_stuck (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) V i e_t :
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    T_t !! i = Some e_t →
+    ¬ stuck p_t e_t σ_t.
+  Proof.
+    intros Hsim Hreach Hstuck. eapply sat_elim, sat_bupd, sat_mono, Hsim.
+    eapply msim_length in Hsim as Hlen.
+    assert (is_Some (T_s !! i)) as [e_s Hlook'].
+    { eapply lookup_lt_is_Some; rewrite -Hlen; eapply lookup_lt_is_Some; eauto. }
+    iIntros "(SI & _ & Hsims)".
+    iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
+    rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+    + iPureIntro. by eapply pool_safe_threads_safe.
+    + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
+      iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
+      iModIntro. iPureIntro. intros [Heq _].
+      rewrite Heq1 to_of_val in Heq. naive_solver.
+    + iDestruct "Step" as "[%Hred _]".
+      iModIntro. iPureIntro. intros [_ Hirr].
+      by apply not_reducible in Hred.
+  Qed.
+
+  Lemma msim_sim_pool T_t σ_t T_s σ_s V:
+    msim T_t σ_t T_s σ_s V →
+    sat (state_interp p_t σ_t p_s σ_s ∗ sim_pool (zip T_t T_s)).
+  Proof.
+    intros Hsim.
+    eapply sat_mono, Hsim. iIntros "($ & _ & Hsims)".
+    rewrite big_sepL2_alt. iDestruct "Hsims" as "[_ Hsims]".
+    iApply gsim_expr_to_pool. done.
+  Qed.
+
+  (* derived lemmas *)
+  Lemma msim_steps T_t T_s σ_t σ_s T_t' σ_t' I V:
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    pool_steps p_t T_t σ_t I T_t' σ_t' →
+    ∃ T_s' σ_s' J, pool_steps p_s T_s σ_s J T_s' σ_s' ∧
+    msim T_t' σ_t' T_s' σ_s' V.
+  Proof.
+    intros Hsim Hsafe; induction 1 as [T_t σ_t|T_t T_t' T_t'' σ_t σ_t' σ_t'' i I Hstep Hsteps IH] in T_s, σ_s, Hsim, Hsafe.
+    - exists T_s, σ_s, []. eauto using Pool_steps_refl.
+    - eapply msim_step in Hstep as (T_s' & σ_s' & J1 & Hsteps_src & Hsim'); [|by eauto..].
+      eapply IH in Hsim' as (T_s'' & σ_s'' & J2 & Hsteps_src' & Hsim''); last by eapply pool_steps_safe.
+      exists T_s'', σ_s'', (J1 ++ J2). split; last done.
+      by eapply pool_steps_trans.
+  Qed.
+
+  Lemma msim_safety T_t T_s σ_t σ_s V:
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    pool_safe p_t T_t σ_t.
+  Proof.
+    intros Hsim Hsafe (T_t' & σ_t' & I & Hsteps & Hstuck).
+    eapply msim_steps in Hsteps as (T_s' & σ_s' & J & Hsteps_src & Hsim'); [|eauto..].
+    destruct Hstuck as (e_t & i & Hlook & Hstuck).
+    eapply msim_not_stuck; eauto using pool_steps_safe.
+  Qed.
+
+  Lemma msim_fair_divergence T_t T_s σ_t σ_s V:
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    fair_div p_t T_t σ_t →
+    fair_div p_s T_s σ_s.
+  Proof.
+    intros Hsim Hsafe Hfair.
+    eapply msim_length in Hsim as Hlen.
+    eapply fair_div_traditional_coind in Hfair;
+    last by eapply msim_safety.
+    eapply fair_div_coind_delay_iff in Hfair as [D Hfair].
+    eapply msim_sim_pool in Hsim as Hpool.
+    eapply sim_pool_preserves_fair_termination in Hpool.
+    - eapply fair_div_coind_traditional.
+      revert Hpool; rewrite snd_zip // Hlen //.
+    - rewrite fst_zip // Hlen //.
+    - rewrite snd_zip // Hlen //.
+  Qed.
+
+  Lemma msim_finish_source (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) U V:
+    (∀ i, i ∈ U → ∃ v_t, T_t !! i = Some (of_val v_t)) →
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    ∃ T_s' σ_s' I, pool_steps p_s T_s σ_s I T_s' σ_s' ∧ msim T_t σ_t T_s' σ_s' (V ∪ U).
+  Proof.
+    intros Hsub. revert V T_s σ_t σ_s.
+    induction (set_wf U) as [U _ IH]; intros V T_s σ_t σ_s Hsim Hsafe.
+    destruct (decide (U ≡ ∅)) as [->%leibniz_equiv|[i Hi]%set_choose].
+    - exists T_s, σ_s, []. split; first constructor.
+      by replace (V ∪ ∅) with V by set_solver.
+    - eapply Hsub in Hi as Hx; destruct Hx as [v_t Hlook].
+      eapply msim_add_val in Hsim as (T_s' & σ_s' & I & Hsteps & Hsim); [|eauto..].
+      eapply (IH (U ∖ {[i]})) in Hsim as (T_s'' & σ_s'' & J & Hsteps'' & Hsim); first last.
+      + by eapply pool_steps_safe.
+      + set_solver.
+      + set_solver.
+      + exists T_s'', σ_s'', (I ++ J). split; first by eapply pool_steps_trans.
+        revert Hsim.
+        replace (V ∪ {[i]} ∪ (U ∖ {[i]})) with (V ∪ U); first done.
+        eapply leibniz_equiv. rewrite -union_assoc. f_equiv.
+        rewrite union_comm difference_union. set_solver.
+  Qed.
+
+  Lemma msim_return T_t T_t' T_s σ_t σ_s σ_t' I V:
+    msim T_t σ_t T_s σ_s V →
+    pool_safe p_s T_s σ_s →
+    pool_steps p_t T_t σ_t I T_t' σ_t' →
+    ∃ T_s' σ_s' J U,
+      pool_steps p_s T_s σ_s J T_s' σ_s' ∧
+      msim T_t' σ_t' T_s' σ_s' U ∧
+      (∀ i v_t, T_t' !! i = Some (of_val v_t) →
+      ∃ v_s, T_s' !! i = Some (of_val v_s) ∧ sat (state_interp p_t σ_t' p_s σ_s' ∗ Ω v_t v_s)).
+  Proof.
+    (* first we exectute the simulation to v_t *)
+    intros Hsim Hstuck Htgt; eapply msim_steps in Hsim as (T_s' & σ_s' & J1 & Hsrc & Hsim); [|eauto..].
+    (* then we add finish all the threads where the target has been evaluated to a value *)
+    eapply msim_finish_source with (U := threads T_t' ∖ active_threads T_t') in Hsim as (T_s'' & σ_s'' & J2 & Hsrc' & Hsim); first last.
+    - by eapply pool_steps_safe.
+    - intros i [Ht Hact]%elem_of_difference.
+      eapply threads_spec in Ht as [e Hlook].
+      destruct (to_val e) as [v_t|] eqn: He.
+      + eapply of_to_val in He. exists v_t. by subst.
+      + exfalso. eapply Hact, active_threads_spec; eauto.
+    - exists T_s'', σ_s'', (J1 ++ J2), (V ∪ threads T_t' ∖ active_threads T_t').
+      repeat split; eauto using pool_steps_trans.
+      intros i v_t Hlook.
+      eapply msim_proj_val with (i := i) in Hsim as (v_t' & v_s & Hlook1 & Hlook2 & Hsat).
+      { exists v_s. split; first done. rewrite Hlook1 in Hlook.
+        by eapply Some_inj, of_val_inj in Hlook as ->. }
+      eapply elem_of_union_r. eapply elem_of_difference.
+      rewrite threads_spec active_threads_spec. split; first eauto.
+      intros (e & Hlook' & Hnval). rewrite Hlook' in Hlook.
+      eapply Some_inj in Hlook. rewrite Hlook in Hnval.
+      rewrite to_of_val in Hnval. naive_solver.
   Qed.
 
 End meta_level_simulation.
 
 
-Section simulation_behaviorally_related.
-
-  Context {PROP : bi}.
-  Context {Λ : language}.
-  Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
-  Context {PROP_bupd : BiBUpd PROP}.
-  Context {PROP_affine : BiAffine PROP}.
-  Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
-
-  Variable (P_t P_s: prog Λ).
-
-  (* divergent case *)
-  Lemma msim_diverge' e_t e_s σ_t σ_s:
-    msim (sat := sat) Ω P_t P_s e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    ex_loop (prim_step P_t) (e_t, σ_t) →
-    ex_loop (tc (prim_step P_s)) (e_s, σ_s).
-  Proof.
-    revert e_t e_s σ_t σ_s; cofix IH.
-    intros e_s σ_s e_t σ_t Hsim Hstuck Hdiv.
-    eapply msim_src_step in Hsim as (e_t' & σ_t' & e_s' & σ_s' & Hsteps & Hloop & Hsim'); [|by auto..].
-    econstructor; first apply Hsteps.
-    eapply IH; eauto.
-    eapply not_reach_stuck_pres_tc; eauto.
-  Qed.
-
-  Lemma msim_diverge e_t e_s σ_t σ_s:
-    msim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    ex_loop (prim_step P_t) (e_t, σ_t) →
-    ex_loop (prim_step P_s) (e_s, σ_s).
-  Proof.
-    eauto using msim_diverge', ex_loop_tc.
-  Qed.
 
 
-  (* return value case *)
-  Lemma msim_steps e_t e_s σ_t σ_s e_t' σ_t':
-    msim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    rtc (prim_step P_t) (e_t, σ_t) (e_t', σ_t') →
-    ∃ e_s' σ_s', rtc (prim_step P_s) (e_s, σ_s) (e_s', σ_s') ∧ msim (sat:=sat) Ω P_t P_s e_t' σ_t' e_s' σ_s'.
-  Proof.
-    intros Hsim Hstuck Hrtc; remember (e_t, σ_t) as tgt; remember (e_t', σ_t') as src.
-    revert e_t e_t' e_s σ_t σ_t' σ_s Heqtgt Heqsrc Hsim Hstuck; induction Hrtc as [|? [e_t_mid σ_t_mid] ? Hstep ? IH];
-    intros e_t e_t' e_s σ_t σ_t' σ_s Heqtgt Heqsrc Hsim Hstuck; subst.
-    - exists e_s, σ_s; split; first reflexivity.
-      naive_solver.
-    - eapply msim_step in Hsim as (e_s_mid & σ_s_mid & Htc & Hsim); [|by eauto..].
-      edestruct IH as (e_s' & σ_s' & Hrtc' & Hsim'); [by eauto using not_reach_stuck_pres_rtc..|].
-      eexists _, _; split; last done. etrans; eauto.
-  Qed.
-
-  Lemma msim_return e_t e_s σ_t σ_s v_t σ_t':
-    msim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    rtc (prim_step P_t) (e_t, σ_t) (of_val v_t, σ_t') →
-    ∃ v_s σ_s', rtc (prim_step P_s) (e_s, σ_s) (of_val v_s, σ_s')
-    ∧ sat (state_interp P_t σ_t' P_s σ_s' ∗ Ω v_t v_s).
-  Proof.
-    (* first we exectute the simulation to v_t *)
-    intros Hsim Hstuck Htgt; eapply msim_steps in Htgt as (e_s' & σ_s' & Hsrc & Hsim'); [|eauto..].
-    (* then we use the value case to extract the source value *)
-    eapply msim_val in Hsim' as (v_s & σ_s'' & Hsteps & Hsat); last (by eauto using not_reach_stuck_pres_rtc);
-      [ | by eauto | by eauto].
-    eexists _, _; split; eauto using rtc_transitive.
-  Qed.
-
-  (* undefined behavior *)
-  Lemma msim_safety e_t e_s σ_t σ_s:
-    msim (sat:=sat) Ω P_t P_s e_t σ_t e_s σ_s →
-    ¬ reach_stuck P_s e_s σ_s →
-    ¬ reach_stuck P_t e_t σ_t.
-  Proof.
-    intros Hsim Hnstuck (e_t' & σ_t' & Hrtc & Hstuck).
-    eapply msim_steps in Hsim as (e_s' & σ_s' & Hsteps & Hsim); [|by eauto..].
-    eapply msim_progress; eauto using not_reach_stuck_pres_rtc.
-  Qed.
-
-
-End simulation_behaviorally_related.
 
 
 
@@ -462,42 +307,45 @@ Section adequacy_statement.
   Variable (O: val Λ → val Λ → Prop).
   Variable (main: string) (u: val Λ).
 
-  Definition B (P_t P_s: prog Λ) :=
-    ∀ σ_t σ_s, I σ_t σ_s ∧ ¬ reach_stuck P_s (of_call main u) σ_s →
+  Definition B (p_t p_s: prog Λ) :=
+    ∀ σ_t σ_s, I σ_t σ_s ∧ safe p_s (of_call main u) σ_s →
     (* divergent case *)
-    (ex_loop (prim_step P_t) (of_call main u, σ_t) → ex_loop (prim_step P_s) (of_call main u, σ_s)) ∧
+    (fair_div p_t [(of_call main u)] σ_t → fair_div p_s [(of_call main u)] σ_s) ∧
     (* convergent case *)
-    (∀ v_t σ_t', rtc (prim_step P_t) (of_call main u, σ_t) (of_val v_t, σ_t') →
-    ∃ v_s σ_s', rtc (prim_step P_s) (of_call main u, σ_s) (of_val v_s, σ_s') ∧ O v_t v_s) ∧
+    (∀ T_t σ_t' I, pool_steps p_t [of_call main u] σ_t I T_t σ_t' →
+     ∃ T_s σ_s' J, pool_steps p_s [of_call main u] σ_s J T_s σ_s' ∧
+    (∀ i v_t, T_t !! i = Some (of_val v_t) → ∃ v_s, T_s !! i = Some (of_val v_s) ∧ O v_t v_s)) ∧
     (* safety *)
-    (¬ reach_stuck P_t (of_call main u) σ_t).
+    (safe p_t (of_call main u) σ_t).
 
-  Lemma adequacy P_t P_s:
+  Lemma adequacy p_t p_s:
     (* pre *)
-    sat (local_rel (s := s) Ω P_t P_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
-      progs_are P_t P_s ∗
+    sat (local_rel Ω p_t p_s ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s) ∗
+      progs_are p_t p_s ∗
       Ω u u) →
     (* post *)
-    (∀ v_t v_s σ_t σ_s, sat (state_interp P_t σ_t P_s σ_s ∗ Ω v_t v_s) → O v_t v_s) →
-    B P_t P_s.
+    (∀ v_t v_s σ_t σ_s, sat (state_interp p_t σ_t p_s σ_s ∗ Ω v_t v_s) → O v_t v_s) →
+    B p_t p_s.
   Proof.
-    intros Hpre Hpost σ_t σ_s [HI Hstuck].
-    edestruct (not_stuck_call_in_prg P_s main empty_ectx) as [K_s Hsrc]; first done.
-    { by rewrite fill_empty. }
-    eapply sat_mono with (Q := (state_interp P_t σ_t P_s σ_s ∗ gsim (of_call main u) (of_call main u) Ω)%I) in Hpre;
-      first fold (msim (sat:=sat) Ω P_t P_s (of_call main u) σ_t (of_call main u) σ_s) in Hpre; last first.
-    - iIntros "(#HL & HI & #Hprogs & Hval)".
-      iSplitL "HI"; first by iApply "HI".
-      iApply (local_to_global with "HL Hprogs").
-      unfold local_rel; iDestruct ("HL" $! _ _ Hsrc) as (K_tgt Htgt) "Hsim'".
-      iPoseProof (intuitionistically_elim with "Hsim'") as "Hsim".
-      iApply sim_call_inline; last iFrame "Hsim Hval Hprogs"; by auto.
-    - split; [|split].
-      + by unshelve eapply msim_diverge.
-      + intros v_t σ_t' Hsteps_tgt.
-        edestruct (msim_return (PROP:=PROP) (Λ:=Λ)) as (v_s & σ_s' & Hsteps_src & Hsat); by eauto.
-      + by eapply msim_safety.
+    intros Hpre Hpost σ_t σ_s [HI Hsafe].
+    eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
+    destruct Hlook as [K_s Hlook].
+    assert (msim (sat:=sat) Ω p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.
+    { rewrite /msim. eapply sat_mono, Hpre.
+      iIntros "(Hloc & SI & Hprogs & Hunit)".
+      iSpecialize ("SI" with "[//]"). iFrame.
+      iSplit; first by iPureIntro; intros ??; set_solver.
+      simpl. iSplit; last done.
+      iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }
+    split; last split.
+    - intros Hfair. eapply msim_fair_divergence; eauto.
+    - intros T_t σ_t' J Hsteps.
+      eapply msim_return in Hsim as (T_s & σ_s' & J' & U & Hsteps' & _ & Hvals); eauto.
+      exists T_s, σ_s', J'. split; first done.
+      intros i v_t Hlook'. eapply Hvals in Hlook' as (v_s & Hlook' & Hsat).
+      eapply Hpost in Hsat. eauto.
+    - by eapply msim_safety.
   Qed.
 
 End adequacy_statement.
@@ -515,13 +363,13 @@ Section adequacy_statement_alt.
   Variable (O: val Λ → val Λ → Prop).
   Variable (main: string) (u: val Λ).
 
-  Lemma adequacy_alt P_t P_s:
-    sat (local_rel (s := s) Ω P_t P_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp P_t σ_t P_s σ_s) ∗
-      progs_are P_t P_s ∗
+  Lemma adequacy_alt p_t p_s:
+    sat (local_rel Ω p_t p_s ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s) ∗
+      progs_are p_t p_s ∗
       Ω u u ∗
       ∀ v_s v_t, Ω v_t v_s -∗ ⌜O v_t v_s⌝) →
-    B I O main u P_t P_s.
+    B I O main u p_t p_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
