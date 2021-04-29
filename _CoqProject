@@ -47,3 +47,13 @@ theories/base_logic/gen_heap_bij.v
 
 
 
+
+
+theories/stacked_borrows/helpers.v
+theories/stacked_borrows/type.v
+theories/stacked_borrows/locations.v
+theories/stacked_borrows/lang_base.v
+theories/stacked_borrows/notation.v
+theories/stacked_borrows/expr_semantics.v
+theories/stacked_borrows/bor_semantics.v
+theories/stacked_borrows/lang.v
