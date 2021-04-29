@@ -848,7 +848,7 @@ Section language.
     intros Hreach; eapply fill_reach_stuck_pool with (T := [e]) (i := 0); done.
   Qed.
 
-  Lemma no_forks_pool_steps p e σ e' σ':
+  Lemma no_forks_pool_steps_single_thread p e σ e' σ':
     no_forks p e σ e' σ' →
     (∃ I, pool_steps p [e] σ I [e'] σ').
   Proof.
@@ -857,17 +857,67 @@ Section language.
     econstructor; first eapply pool_step_singleton; eauto 10.
   Qed.
 
+
+  Lemma prim_step_pool_step T i p e σ e' σ' efs :
+    prim_step p e σ e' σ' efs →
+    T !! i = Some e →
+    pool_step p T σ i (<[i := e']> T ++ efs) σ'.
+  Proof.
+    intros ??. eapply pool_step_iff. eauto 10.
+  Qed.
+
+  Lemma no_fork_pool_step T i p e σ e' σ' :
+    no_fork p e σ e' σ' →
+    T !! i = Some e →
+    pool_step p T σ i (<[i := e']> T) σ'.
+  Proof.
+    intros Hnf Hlook. eapply prim_step_pool_step in Hnf; eauto.
+    by rewrite right_id in Hnf.
+  Qed.
+
+  Lemma no_forks_pool_steps T i p e σ e' σ':
+    no_forks p e σ e' σ' →
+    T !! i = Some e →
+    ∃ I, pool_steps p T σ I (<[i := e']> T) σ' ∧ ((list_to_set I: gset nat) ⊆ {[i]}).
+  Proof.
+    induction 1 as [|e e' e'' σ σ' σ'' Hstep Hsteps IH] in T; intros Hlook.
+    - exists []. rewrite list_insert_id //. split; first constructor.
+      set_solver.
+    - eapply no_fork_pool_step in Hstep; last done.
+      destruct (IH (<[i := e']> T)) as (I & Hsteps' & Hsub').
+      { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+      exists (i :: I). split; last set_solver.
+      rewrite list_insert_insert in Hsteps'.
+      econstructor; done.
+  Qed.
+
+
+  Lemma no_forks_then_prim_step_pool_steps T i p e σ e' σ' e'' σ'' efs:
+    no_forks p e σ e' σ' →
+    prim_step p e' σ' e'' σ'' efs →
+    T !! i = Some e →
+    ∃ I, pool_steps p T σ I (<[i := e'']> T ++ efs) σ'' ∧ ((list_to_set I: gset nat) = {[i]}).
+  Proof.
+    intros Hnfs Hprim Hlook. eapply no_forks_pool_steps in Hnfs as (I & Hsteps & Hsub); last done.
+    exists (I ++ [i]); split; last set_solver.
+    eapply pool_steps_trans; eauto. eapply pool_steps_single.
+    rewrite -(list_insert_insert T i e'' e').
+    eapply prim_step_pool_step; first done.
+    eapply list_lookup_insert, lookup_lt_Some, Hlook.
+  Qed.
+
+
   Lemma safe_call_in_prg p K e σ σ' f v:
     safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ K, p !! f = Some K.
   Proof.
-    intros H1 (I & Hsteps)%no_forks_pool_steps.
+    intros H1 (I & Hsteps)%no_forks_pool_steps_single_thread.
     eapply pool_safe_call_in_prg with (i := 0) in Hsteps; eauto.
   Qed.
 
   Lemma no_forks_val p v σ e' σ' :
     no_forks p (of_val v) σ e' σ' → e' = of_val v ∧ σ' = σ.
   Proof.
-    intros (I & Hsteps)%no_forks_pool_steps.
+    intros (I & Hsteps)%no_forks_pool_steps_single_thread.
     eapply pool_steps_values in Hsteps; first naive_solver.
     intros e Hel. assert (e = of_val v) as -> by set_solver.
     rewrite to_of_val; eauto.
@@ -888,7 +938,7 @@ Section language.
   Lemma reach_stuck_no_forks P e σ e' σ':
     reach_stuck P e' σ' → no_forks P e σ e' σ' →  reach_stuck P e σ.
   Proof.
-    intros (T'' & σ'' & I & Hsteps & Hstuck) (J & Hnfs)%no_forks_pool_steps.
+    intros (T'' & σ'' & I & Hsteps & Hstuck) (J & Hnfs)%no_forks_pool_steps_single_thread.
     exists T'', σ'', (J ++ I). split; last done.
     by eapply pool_steps_trans.
   Qed.
