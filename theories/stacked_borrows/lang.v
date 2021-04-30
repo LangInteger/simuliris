@@ -88,18 +88,16 @@ Instance scalar_countable : Countable scalar.
 Proof.
   refine (inj_countable
           (λ v, match v with
-              | ScPoison => inl $ inl (inl ())
-              | ScPtr l bor => inl $ inl (inr (l,bor))
-              | ScInt n => inl $ inr (inl n)
-              | ScFnPtr n => inl $ inr (inr n)
-              | ScCallId c => inr c
+              | ScPoison => inl (inl ())
+              | ScPtr l bor => inl (inr (l,bor))
+              | ScInt n => inr (inl n)
+              | ScFnPtr n =>  inr (inr n)
               end)
           (λ s, match s with
-              | inl (inl (inl ())) => Some ScPoison
-              | inl (inl (inr (l,bor))) => Some $ ScPtr l bor
-              | inl (inr (inl n)) => Some $ ScInt n
-              | inl (inr (inr n)) => Some $ ScFnPtr n
-              | inr c => Some $ ScCallId c
+              | (inl (inl ())) => Some ScPoison
+              | (inl (inr (l,bor))) => Some $ ScPtr l bor
+              | (inr (inl n)) => Some $ ScInt n
+              | (inr (inr n)) => Some $ ScFnPtr n
               end) _); by intros [].
 Qed.
 
@@ -148,7 +146,7 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
      bool_decide (pk = pk') && bool_decide (T = T') &&
      bool_decide (kind = kind') && expr_beq e e'
   | Copy e, Copy e' | Ref e, Ref e'
-  (* | AtomRead e, AtomRead e' *) | EndCall e, EndCall e' => expr_beq e e'
+  (* | AtomRead e, AtomRead e' *) => expr_beq e e'
   | Let x e1 e2, Let x' e1' e2' =>
     bool_decide (x = x') && expr_beq e1 e1' && expr_beq e2 e2'
   | Proj e1 e2, Proj e1' e2' | Conc e1 e2, Conc e1' e2'
@@ -160,7 +158,7 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
   (* | Fork e, Fork e' => expr_beq e e' *)
   | Alloc T, Alloc T' => bool_decide (T = T')
   | Free e, Free e' => expr_beq e e'
-  | InitCall, InitCall => true
+  | InitCall, InitCall | EndCall, EndCall => true
   (* | SysCall id, SysCall id' => bool_decide (id = id') *)
   | _, _ => false
   end.
@@ -194,7 +192,7 @@ Proof.
       | App e el => GenNode 3 (go e :: (go <$> el)) *)
       | Call e1 e2 => GenNode 2 [go e1; go e2]
       | InitCall => GenNode 3 []
-      | EndCall e => GenNode 4 [go e]
+      | EndCall => GenNode 4 []
       | BinOp op e1 e2 => GenNode 5 [GenLeaf $ inl $ inl $ inr $ inl op;
                                      go e1; go e2]
       | Proj e1 e2 => GenNode 6 [go e1; go e2]
@@ -223,7 +221,7 @@ Proof.
      | GenNode 1 [GenLeaf (inl (inl (inl (inr v))))] => Val v
      | GenNode 2 [e1; e2] => Call (go e1) (go e2)
      | GenNode 3 [] => InitCall
-     | GenNode 4 [e] => EndCall (go e)
+     | GenNode 4 [] => EndCall
      (* | GenNode 2 [GenLeaf (inl (inl (inr (inl f))));
                   GenLeaf (inl (inl (inr (inr xl)))); e] => Rec f xl (go e)
      | GenNode 3 (e :: el) => App (go e) (go <$> el) *)
@@ -316,8 +314,8 @@ Lemma fill_item_no_result_inj Ki1 Ki2 e1 e2 :
   to_result e1 = None → to_result e2 = None →
   fill_item Ki1 e1 = fill_item Ki2 e2 → Ki1 = Ki2.
 Proof.
-  destruct Ki1 as [| | | | | | | | | | | | (* | *) | | | | |],
-           Ki2 as [| | | | | | | | | | | | (* | *) | | | | |];
+  destruct Ki1 as [| | | | | | | | | | | | (* | *) | | | | ],
+           Ki2 as [| | | | | | | | | | | | (* | *) | | | |];
   intros He1 He2 EQ; try discriminate; simplify_eq/=;
     repeat match goal with
     | H : to_result (of_result _) = None |- _ => by rewrite to_of_result in H
@@ -345,7 +343,7 @@ Section head_step.
 
 Inductive head_step (P : prog) :
   expr → state → expr → state → list expr → Prop :=
-  | HeadPureS σ e e' 
+  | HeadPureS σ e e'
       (ExprStep: pure_expr_step P σ.(shp) e e')
     : head_step P e σ e' σ []
   | HeadImpureS σ e e' ev h' α' cids' nxtp' nxtc'
@@ -362,7 +360,7 @@ Lemma head_ctx_step_result P Ki e σ1 e2 σ2 efs :
   head_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_result e).
 Proof.
   destruct Ki; inversion_clear 1; inversion_clear ExprStep;
-    simplify_option_eq; eauto.
+    simplify_option_eq; eauto using is_Some_to_value_result.
 Qed.
 
 Lemma head_step_fill_result P Ki K e σ1 e2 σ2 efs:
@@ -395,15 +393,15 @@ Definition to_class (e : expr) : option (mixin_expr_class result) :=
   end.
 
 Lemma to_of_class m : to_class (of_class m) = Some m.
-Proof. 
-  destruct m. 
-  - cbn. rewrite /to_class to_of_result; done. 
+Proof.
+  destruct m.
+  - cbn. rewrite /to_class to_of_result; done.
   - cbn. rewrite to_of_result; done.
 Qed.
 Lemma of_to_class e m : to_class e = Some m → of_class m = e.
 Proof.
   destruct m.
-  + rewrite /to_class. 
+  + rewrite /to_class.
     destruct e; try discriminate 1; first by inversion 1.
     - cbn. destruct to_fname; cbn; last done. destruct to_result; cbn; done.
     - cbn. inversion 1; done.
@@ -411,7 +409,7 @@ Proof.
     destruct e1; simpl.
     { destruct v as [ | [] [ | ]]; simpl; try congruence.
       destruct e2; try discriminate 1; cbn; by inversion 1.
-    } 
+    }
     all: congruence.
 Qed.
 
@@ -519,3 +517,12 @@ Definition retag_place
   (* read the current pointer stored in the place [p] *)
   (* retag and update [p] with the pointer with new tag *)
   "p" <- Retag (Copy "p") pk T kind.
+
+(* The breaking point '/  ' makes sure that the body of the λ: is indented
+by two spaces in case the whole λ: does not fit on a single line. *)
+(* Note: this is a context for use with the function call mechanism of SimpLang. *)
+Notation "λ: x , e" := ([LetCtx x%binder e%E])
+  (at level 200, x at level 1, e at level 200,
+   format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
+
+

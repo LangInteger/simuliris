@@ -57,3 +57,8 @@ theories/stacked_borrows/notation.v
 theories/stacked_borrows/expr_semantics.v
 theories/stacked_borrows/bor_semantics.v
 theories/stacked_borrows/lang.v
+theories/stacked_borrows/tactics.v
+theories/stacked_borrows/class_instances.v
+theories/stacked_borrows/primitive_laws.v
+theories/stacked_borrows/proofmode.v
+

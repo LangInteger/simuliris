@@ -12,7 +12,7 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Val v => Val v
   | Call e1 e2 => Call (subst x es e1) (subst x es e2)
   | InitCall => InitCall
-  | EndCall e => EndCall (subst x es e)
+  | EndCall => EndCall
   | Place l tag T => Place l tag T
   | BinOp op e1 e2 => BinOp op (subst x es e1) (subst x es e2)
   | Proj e1 e2 => Proj (subst x es e1) (subst x es e2)
@@ -80,7 +80,6 @@ Qed.
 Inductive ectx_item :=
 | CallLCtx (r2 : result)
 | CallRCtx (e1 : expr)
-| EndCallCtx
 | BinOpRCtx (op : bin_op) (e1 : expr)
 | BinOpLCtx (op : bin_op) (r2 : result)
 | ProjRCtx (e1 : expr)
@@ -101,8 +100,7 @@ Inductive ectx_item :=
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
   | CallLCtx r2 => Call e (of_result r2)
-  | CallRCtx e1 => Call e1 e 
-  | EndCallCtx => EndCall e
+  | CallRCtx e1 => Call e1 e
   | BinOpRCtx op e1 => BinOp op e1 e
   | BinOpLCtx op r2 => BinOp op e (of_result r2)
   | ProjRCtx e1 => Proj e1 e
@@ -232,9 +230,9 @@ Fixpoint write_mem l (v: value) h: mem :=
   end.
 
 Fixpoint read_mem_go (l : loc) (n : nat) (h : mem) (oacc : option value) {struct n} : option value :=
-    match n with 
+    match n with
     | O => oacc
-    | S n => 
+    | S n =>
           acc ← oacc ;
           v ← h !! l;
           read_mem_go (l +ₗ 1) n h (Some (acc ++ [v]))
@@ -303,17 +301,14 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → Prop :=
 (* TODO: initcall should generate a call id explicitly, endcall should take one and end it;
   semantics should have a set of active call_ids.
    ghost state for owning call ids (like heap) -- similar to bijection.
+
+  @LG: should it really? why not just keep following the stack discipline and do not mention the call ids at all in the expr semantics?
 *)
 Inductive mem_expr_step (h: mem) : expr → event → mem → expr → Prop :=
-  (* TODO: can we remove call_id here?*)
-| InitCallBS (c: call_id):
-    mem_expr_step
-              h InitCall
-              (InitCallEvt c)
-              h (Val(cons (ScCallId c) nil))
-| EndCallBS (call: call_id) e v :
-    to_result e = Some (ValR v) →
-    mem_expr_step h (EndCall e) (EndCallEvt call) h #v
+| InitCallBS :
+    mem_expr_step h InitCall InitCallEvt h #[☠]
+| EndCallBS :
+    mem_expr_step h EndCall EndCallEvt h #[☠]
 | CopyBS l lbor T (v: value)
     (READ: read_mem l (tsize T) h = Some v)
     (* (LEN: length v = tsize T) : true by read_mem_values *)

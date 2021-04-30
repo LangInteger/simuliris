@@ -43,10 +43,10 @@ Definition find_granting (stk: stack) (access: access_kind) (bor: tag) :
 
 Definition is_active (cids: call_id_stack) (c: call_id) : bool :=
   bool_decide (c ∈ cids).
-(* FIXME: this one should exclude protectors of Disabled items *)
+(* FIXME: this one should exclude protectors of Disabled items. @LG fixed this*)
 Definition is_active_protector cids (it: item) :=
   match it.(protector) with
-  | Some c => Is_true (is_active cids c)
+  | Some c => Is_true (is_active cids c) ∧ it.(perm) ≠ Disabled
   | _ => False
   end.
 Instance is_active_protector_dec cids it : Decision (is_active_protector cids it).
@@ -78,6 +78,7 @@ Definition find_first_write_incompatible
   | SharedReadOnly | Disabled => None
   end.
 
+(* Check if `it` has an active protector -- if so, return false, otherwise true. *)
 Definition check_protector cids (it: item) : bool :=
   match it.(protector) with
   | None => true
@@ -97,7 +98,7 @@ Fixpoint remove_check cids (stk: stack) (idx: nat) : option stack :=
   end.
 
 (* Replace any Unique permission with Disabled, starting from the top of the
-  stack. Check that replaced item do not have active protectors *)
+  stack. Check that replaced item do not have active protectors. *)
 Fixpoint replace_check' cids (acc stk : stack) : option stack :=
   match stk with
   | [] => Some acc
@@ -119,7 +120,7 @@ Definition access1 (stk: stack) (access: access_kind) (tg: tag) cids
   : option (nat * stack) :=
   (* Step 1: Find granting item. *)
   idx_p ← find_granting stk access tg;
-  (* Step 2: Remove incompatiable items. *)
+  (* Step 2: Remove incompatible items. *)
   match access with
   | AccessWrite =>
       (* Remove everything above the write-compatible items, like a proper stack. *)
@@ -376,7 +377,7 @@ Infix "<<t" := tag_values_included (at level 60, no associativity).
 
 (** Instrumented step for the stacked borrows *)
 (* This ignores CAS for now. *)
-Inductive bor_step α (cids: call_id_stack) (nxtp: ptr_id) (nxtc: call_id):
+Inductive bor_step (α : stacks) (cids: call_id_stack) (nxtp: ptr_id) (nxtc: call_id):
   event → stacks → call_id_stack → ptr_id → call_id → Prop :=
 (* | SysCallIS id :
     bor_step h α β nxtp (SysCallEvt id) h α β nxtp *)
@@ -404,10 +405,10 @@ Inductive bor_step α (cids: call_id_stack) (nxtp: ptr_id) (nxtc: call_id):
     (ACC: memory_deallocated α cids l lbor (tsize T) = Some α') :
     bor_step α cids nxtp nxtc (DeallocEvt l lbor T) α' cids nxtp nxtc
 | InitCallIS :
-    bor_step α cids nxtp nxtc (InitCallEvt nxtc) α (nxtc :: cids) nxtp (S nxtc)
+    bor_step α cids nxtp nxtc InitCallEvt α (nxtc :: cids) nxtp (S nxtc)
 | EndCallIS c cids'
     (TOP: cids = c :: cids') :
-    bor_step α cids nxtp nxtc (EndCallEvt c) α cids' nxtp nxtc
+    bor_step α cids nxtp nxtc EndCallEvt α cids' nxtp nxtc
 | RetagIS α' nxtp' l otag ntag T kind pkind c cids'
     (TOP: cids = c :: cids')
     (RETAG: retag α nxtp cids c l otag kind pkind T = Some (ntag, α', nxtp')) :
