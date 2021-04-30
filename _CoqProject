@@ -12,9 +12,9 @@ theories/simulation/language.v
 theories/simulation/fairness.v
 theories/simulation/simulation.v
 theories/simulation/slsls.v
-#theories/simulation/slsls_nostutter.v
-#theories/simulation/nostutter_adequacy.v
-#theories/simulation/stutter_adequacy.v
+theories/simulation/global_sim.v
+theories/simulation/fairness_adequacy.v
+theories/simulation/stutter_adequacy.v
 theories/simulation/lifting.v
 
 theories/playground/fixpoints.v

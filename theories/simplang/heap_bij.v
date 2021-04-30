@@ -8,26 +8,6 @@ From simuliris.simplang Require Export class_instances primitive_laws.
 
 From iris.prelude Require Import options.
 
-
-Section gset_bij.
-  Context `{gset_bijG Σ A B}.
-  Implicit Types (L : gset (A * B)) (a : A) (b : B).
-
-  (* TODO: use gset_bij_elem_of once we have updated Iris *)
-  Lemma gset_bij_own_elem_auth_agree {γ q L} a b :
-    gset_bij_own_auth γ q L -∗ gset_bij_own_elem γ a b -∗ ⌜(a, b) ∈ L⌝.
-  Proof.
-    iIntros "Hauth Helem". rewrite gset_bij_own_auth_eq gset_bij_own_elem_eq.
-    (* TODO: is there a more elegant way to do this? *)
-    iPoseProof (own_op with "[$Hauth $Helem]") as "Ha".
-    iPoseProof (own_valid_r with "Ha") as "[Ha %]".
-    iPoseProof (own_op with "Ha") as "[Hauth Helem]".
-    iFrame. iPureIntro. revert H2. rewrite bij_both_dfrac_valid.
-    intros (_ & _ & ?); done.
-  Qed.
-End gset_bij.
-
-
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap. *)
 
 Class sbijG (Σ : gFunctors) := SBijG {
@@ -114,7 +94,6 @@ Section laws.
     b_t1 ⇔h b_s1 -∗ b_t2 ⇔h b_s2 -∗ ⌜b_t1 = b_t2 ↔ b_s1 = b_s2⌝.
   Proof.
     iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2").
-    apply gset_empty.
   Qed.
   Lemma heap_bij_loc_agree l_t1 l_t2 l_s1 l_s2 :
     l_t1 ↔h l_s1 -∗ l_t2 ↔h l_s2 -∗ ⌜l_t1 = l_t2 ↔ l_s1 = l_s2⌝.
@@ -159,7 +138,7 @@ Section laws.
     (alloc_alive_rel val_rel b_t b_s ∨ alloc_dead_rel b_t b_s -∗ heap_bij_interp val_rel).
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
-    iPoseProof (gset_bij_own_elem_auth_agree with "Hauth Hrel") as "%".
+    iPoseProof (gset_bij_elem_of with "Hauth Hrel") as "%".
     iPoseProof (big_sepS_delete with "Hheap") as "[He Hheap]"; first done.
     iFrame.
     iIntros "He". iExists L. iFrame.
@@ -323,7 +302,7 @@ Section fix_heap.
     iModIntro; iSplit; first by eauto with head_step.
     iIntros (e_t' efs σ_t') "%"; inv_head_step.
     set (v_s := vs_s !!! (Z.to_nat (loc_idx l_s))).
-    assert (head_step P_s (Load Na2Ord #l_s) σ_s (Val (vs_s !!! Z.to_nat (loc_idx l_s))) 
+    assert (head_step P_s (Load Na2Ord #l_s) σ_s (Val (vs_s !!! Z.to_nat (loc_idx l_s)))
         (state_upd_heap <[l_s:= Some (RSt m, v_s )]> σ_s) []) as Hs.
     { eauto with head_step. }
     iMod (gen_heap_update with "Hσ_t Hl_t") as "[$ Hl_t]".
@@ -588,8 +567,8 @@ Section fix_heap.
     iModIntro. iExists (Store Na2Ord #l_s v_s), [], (state_upd_heap <[l_s:=Some (WSt, v_s0)]> σ_s).
     iFrame. iSplitR; first by iPureIntro; eauto with head_step.
 
-    iSplitR "Hsim Hval"; first last. 
-    { iSplitL; last by iApply big_sepL2_nil. 
+    iSplitR "Hsim Hval"; first last.
+    { iSplitL; last by iApply big_sepL2_nil.
       iApply (sim_bij_store_na2 with "[] Hval"); last done.
       iSplit; [iApply "Hbij" | by iPureIntro].
     }

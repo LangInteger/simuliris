@@ -33,7 +33,7 @@ Class sheapInv (Σ : gFunctors) := SHeapRel {
 }.
 
 (** Allocation size control, serving as a tracker of the size of blocks and a deallocation permission for whole blocks *)
-Section alloc_size.
+Section alloc_size_def.
   Context `{ghost_mapG Σ block alloc_state}.
 
   Definition heap_alloc_rel (M : gmap block alloc_state) (σ : gmap loc (option (lock_state * val))) :=
@@ -48,7 +48,99 @@ Section alloc_size.
         ∧ σ !! (mkloc b 0) = Some None).
   Definition alloc_size_interp (γ : gname) (σ : gmap loc (option (lock_state * val))) : iProp Σ :=
     ∃ M, ghost_map_auth γ 1 M ∗ ⌜heap_alloc_rel M σ⌝.
+End alloc_size_def. 
 
+Global Instance sheapG_SimulLang `{!sheapG Σ} `{!sheapInv Σ} : SimulLang (iPropI Σ) simp_lang := {
+  state_interp P_t σ_t P_s σ_s :=
+    (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
+     gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
+     gen_heap_interp (hG := gen_heap_inG_target) σ_t.(heap) ∗
+     gen_heap_interp (hG := gen_heap_inG_source) σ_s.(heap) ∗
+     alloc_size_interp sheapG_allocN_target σ_t.(heap) ∗
+     alloc_size_interp sheapG_allocN_source σ_s.(heap) ∗
+     sheap_inv
+    )%I;
+}.
+
+(** Since we use an [option val] instance of [gen_heap], we need to overwrite
+the notations.  That also helps for scopes and coercions. *)
+(** FIXME: Refactor these notations using custom entries once Coq bug #13654
+has been fixed. *)
+Notation "l '↦t{' dq } v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l dq (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦t{ dq }  v") : bi_scope.
+Notation "l '↦t□' v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l DfracDiscarded (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦t□  v") : bi_scope.
+Notation "l '↦t{#' q } v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn q) (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦t{# q }  v") : bi_scope.
+Notation "l '↦t' v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦t  v") : bi_scope.
+Notation "l '↦{' st '}t' v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (st, v%V)))
+  (at level 20, format "l  ↦{ st }t  v") : bi_scope.
+
+Notation "l '↦s{' dq } v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l dq (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦s{ dq }  v") : bi_scope.
+Notation "l '↦s□' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l DfracDiscarded (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦s□  v") : bi_scope.
+Notation "l '↦s{#' q } v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn q) (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦s{# q }  v") : bi_scope.
+Notation "l '↦s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (RSt 0, v%V)))
+  (at level 20, format "l  ↦s  v") : bi_scope.
+Notation "l '↦{' st '}s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (st, v%V)))
+  (at level 20, format "l  ↦{ st }s  v") : bi_scope.
+
+(** The [array] connective is a version of [mapsto] that works with lists of values. *)
+(** [array_st] is parameterized over the individual lock states *)
+(* again parameterized over the ghost names *)
+Definition array_st `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) (sts : list lock_state) : iProp Σ :=
+  ([∗ list] i ↦ v; st ∈ vs; sts, mapsto (hG:=hG) (l +ₗ i) dq (Some (st, v%V)))%I.
+Definition array `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) : iProp Σ := array_st l dq vs (replicate (length vs) (RSt 0)).
+
+Lemma array_st_length_inv `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) (sts : list lock_state) :
+  array_st l dq vs sts -∗ ⌜ length vs = length sts⌝.
+Proof. iApply big_sepL2_length. Qed.
+
+(** FIXME: Refactor these notations using custom entries once Coq bug #13654
+has been fixed. *)
+Notation "l ↦t∗{ dq } vs" := (array (hG:=gen_heap_inG_target) l dq vs)
+  (at level 20, format "l  ↦t∗{ dq }  vs") : bi_scope.
+Notation "l ↦t∗□ vs" := (array (hG:=gen_heap_inG_target) l DfracDiscarded vs)
+  (at level 20, format "l  ↦t∗□  vs") : bi_scope.
+Notation "l ↦t∗{# q } vs" := (array (hG:=gen_heap_inG_target) l (DfracOwn q) vs)
+  (at level 20, format "l  ↦t∗{# q }  vs") : bi_scope.
+Notation "l ↦t∗ vs" := (array (hG:=gen_heap_inG_target) l (DfracOwn 1) vs)
+  (at level 20, format "l  ↦t∗  vs") : bi_scope.
+Notation "l '↦{' sts '}t∗' vs" := (array_st (hG:=gen_heap_inG_target) l (DfracOwn 1) vs sts)
+  (at level 20, format "l  '↦{' sts '}t∗'  vs") : bi_scope.
+
+Notation "l ↦s∗{ dq } vs" := (array (hG:=gen_heap_inG_source) l dq vs)
+  (at level 20, format "l  ↦s∗{ dq }  vs") : bi_scope.
+Notation "l ↦s∗□ vs" := (array (hG:=gen_heap_inG_source) l DfracDiscarded vs)
+  (at level 20, format "l  ↦s∗□  vs") : bi_scope.
+Notation "l ↦s∗{# q } vs" := (array (hG:=gen_heap_inG_source) l (DfracOwn q) vs)
+  (at level 20, format "l  ↦s∗{# q }  vs") : bi_scope.
+Notation "l ↦s∗ vs" := (array (hG:=gen_heap_inG_source) l (DfracOwn 1) vs)
+  (at level 20, format "l  ↦s∗  vs") : bi_scope.
+Notation "l '↦{' sts '}s∗' vs" := (array_st (hG:=gen_heap_inG_source) l (DfracOwn 1) vs sts)
+  (at level 20, format "l  '↦{' sts '}s∗'  vs") : bi_scope.
+
+(** Program assertions *)
+Notation "f '@t' Kt" := (hasfun (hG:=gen_prog_inG_target) f Kt)
+  (at level 20, format "f  @t  Kt") : bi_scope.
+Notation "f '@s' Ks" := (hasfun (hG:=gen_prog_inG_source) f Ks)
+  (at level 20, format "f  @s  Ks") : bi_scope.
+
+(** Allocation size notation *)
+Notation "l '==>s' n" := (ghost_map_elem sheapG_allocN_source (loc_chunk l) (DfracOwn 1) (AllocSt n))
+  (at level 20, format "l  ==>s  n") : bi_scope.
+Notation "l '==>t' n" := (ghost_map_elem sheapG_allocN_target (loc_chunk l) (DfracOwn 1) (AllocSt n))
+  (at level 20, format "l  ==>t  n") : bi_scope.
+Notation "'†s' l" := (ghost_map_elem sheapG_allocN_source (loc_chunk l) (DfracOwn 1) DeallocSt)
+  (at level 20, format "†s  l") : bi_scope.
+Notation "'†t' l" := (ghost_map_elem sheapG_allocN_target (loc_chunk l) (DfracOwn 1) DeallocSt)
+  (at level 20, format "†t  l") : bi_scope.
+
+Section alloc_size_laws.
+  Context `{ghost_mapG Σ block alloc_state}.
   Lemma alloc_size_update γ (l : loc) v v' (σ : gmap loc (option (lock_state * val))) :
     σ !! l = Some (Some v) →
     alloc_size_interp γ σ -∗
@@ -184,100 +276,8 @@ Section alloc_size.
     iModIntro. iExists (<[b := AllocSt (length ls)]> M). iFrame "Hauth". iPureIntro.
     by apply heap_alloc_rel_allocN.
   Qed.
+End alloc_size_laws.
 
-End alloc_size.
-Section heap.
-
-End heap.
-
-Global Instance sheapG_SimulLang `{!sheapG Σ} `{!sheapInv Σ} : SimulLang (iPropI Σ) simp_lang := {
-  state_interp P_t σ_t P_s σ_s :=
-    (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
-     gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
-     gen_heap_interp (hG := gen_heap_inG_target) σ_t.(heap) ∗
-     gen_heap_interp (hG := gen_heap_inG_source) σ_s.(heap) ∗
-     alloc_size_interp sheapG_allocN_target σ_t.(heap) ∗
-     alloc_size_interp sheapG_allocN_source σ_s.(heap) ∗
-     sheap_inv
-    )%I;
-}.
-
-(** Since we use an [option val] instance of [gen_heap], we need to overwrite
-the notations.  That also helps for scopes and coercions. *)
-(** FIXME: Refactor these notations using custom entries once Coq bug #13654
-has been fixed. *)
-Notation "l '↦t{' dq } v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l dq (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦t{ dq }  v") : bi_scope.
-Notation "l '↦t□' v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l DfracDiscarded (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦t□  v") : bi_scope.
-Notation "l '↦t{#' q } v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn q) (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦t{# q }  v") : bi_scope.
-Notation "l '↦t' v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦t  v") : bi_scope.
-Notation "l '↦{' st '}t' v" := (mapsto (hG:=gen_heap_inG_target) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (st, v%V)))
-  (at level 20, format "l  ↦{ st }t  v") : bi_scope.
-
-Notation "l '↦s{' dq } v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l dq (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦s{ dq }  v") : bi_scope.
-Notation "l '↦s□' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l DfracDiscarded (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦s□  v") : bi_scope.
-Notation "l '↦s{#' q } v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn q) (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦s{# q }  v") : bi_scope.
-Notation "l '↦s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (RSt 0, v%V)))
-  (at level 20, format "l  ↦s  v") : bi_scope.
-Notation "l '↦{' st '}s' v" := (mapsto (hG:=gen_heap_inG_source) (L:=loc) (V:=option (lock_state * val)) l (DfracOwn 1) (Some (st, v%V)))
-  (at level 20, format "l  ↦{ st }s  v") : bi_scope.
-
-(** The [array] connective is a version of [mapsto] that works with lists of values. *)
-(** [array_st] is parameterized over the individual lock states *)
-(* again parameterized over the ghost names *)
-Definition array_st `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) (sts : list lock_state) : iProp Σ :=
-  ([∗ list] i ↦ v; st ∈ vs; sts, mapsto (hG:=hG) (l +ₗ i) dq (Some (st, v%V)))%I.
-Definition array `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) : iProp Σ := array_st l dq vs (replicate (length vs) (RSt 0)).
-
-Lemma array_st_length_inv `{!sheapG Σ} {γh γm} {hG : gen_heapPreNameG loc (option (lock_state * val)) Σ γh γm} (l : loc) (dq : dfrac) (vs : list val) (sts : list lock_state) :
-  array_st l dq vs sts -∗ ⌜ length vs = length sts⌝.
-Proof. iApply big_sepL2_length. Qed.
-
-(** FIXME: Refactor these notations using custom entries once Coq bug #13654
-has been fixed. *)
-Notation "l ↦t∗{ dq } vs" := (array (hG:=gen_heap_inG_target) l dq vs)
-  (at level 20, format "l  ↦t∗{ dq }  vs") : bi_scope.
-Notation "l ↦t∗□ vs" := (array (hG:=gen_heap_inG_target) l DfracDiscarded vs)
-  (at level 20, format "l  ↦t∗□  vs") : bi_scope.
-Notation "l ↦t∗{# q } vs" := (array (hG:=gen_heap_inG_target) l (DfracOwn q) vs)
-  (at level 20, format "l  ↦t∗{# q }  vs") : bi_scope.
-Notation "l ↦t∗ vs" := (array (hG:=gen_heap_inG_target) l (DfracOwn 1) vs)
-  (at level 20, format "l  ↦t∗  vs") : bi_scope.
-Notation "l '↦{' sts '}t∗' vs" := (array_st (hG:=gen_heap_inG_target) l (DfracOwn 1) vs sts)
-  (at level 20, format "l  '↦{' sts '}t∗'  vs") : bi_scope.
-
-Notation "l ↦s∗{ dq } vs" := (array (hG:=gen_heap_inG_source) l dq vs)
-  (at level 20, format "l  ↦s∗{ dq }  vs") : bi_scope.
-Notation "l ↦s∗□ vs" := (array (hG:=gen_heap_inG_source) l DfracDiscarded vs)
-  (at level 20, format "l  ↦s∗□  vs") : bi_scope.
-Notation "l ↦s∗{# q } vs" := (array (hG:=gen_heap_inG_source) l (DfracOwn q) vs)
-  (at level 20, format "l  ↦s∗{# q }  vs") : bi_scope.
-Notation "l ↦s∗ vs" := (array (hG:=gen_heap_inG_source) l (DfracOwn 1) vs)
-  (at level 20, format "l  ↦s∗  vs") : bi_scope.
-Notation "l '↦{' sts '}s∗' vs" := (array_st (hG:=gen_heap_inG_source) l (DfracOwn 1) vs sts)
-  (at level 20, format "l  '↦{' sts '}s∗'  vs") : bi_scope.
-
-(** Program assertions *)
-Notation "f '@t' Kt" := (hasfun (hG:=gen_prog_inG_target) f Kt)
-  (at level 20, format "f  @t  Kt") : bi_scope.
-Notation "f '@s' Ks" := (hasfun (hG:=gen_prog_inG_source) f Ks)
-  (at level 20, format "f  @s  Ks") : bi_scope.
-
-(** Allocation size notation *)
-Notation "l '==>s' n" := (ghost_map_elem sheapG_allocN_source (loc_chunk l) (DfracOwn 1) (AllocSt n))
-  (at level 20, format "l  ==>s  n") : bi_scope.
-Notation "l '==>t' n" := (ghost_map_elem sheapG_allocN_target (loc_chunk l) (DfracOwn 1) (AllocSt n))
-  (at level 20, format "l  ==>t  n") : bi_scope.
-Notation "'†s' l" := (ghost_map_elem sheapG_allocN_source (loc_chunk l) (DfracOwn 1) DeallocSt)
-  (at level 20, format "†s  l") : bi_scope.
-Notation "'†t' l" := (ghost_map_elem sheapG_allocN_target (loc_chunk l) (DfracOwn 1) DeallocSt)
-  (at level 20, format "†t  l") : bi_scope.
 
 Section lifting.
 Context `{!sheapG Σ} `{!sheapInv Σ}.
@@ -992,6 +992,7 @@ Proof.
 Qed.
 
 (** Coinduction support *)
+
 Lemma sim_while_while b_t b_s c_t c_s inv Ψ :
   inv -∗
   □ (inv -∗

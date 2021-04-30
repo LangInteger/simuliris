@@ -737,10 +737,10 @@ Section fix_lang.
   Lemma sim_call_inline Ω P_t P_s v_t v_s K_t K_s f Φ :
     P_t !! f = Some K_t →
     P_s !! f = Some K_s →
-    ⊢ progs_are P_t P_s ∗ Ω v_t v_s ∗ sim_ectx Ω K_t K_s Φ -∗ (of_call f v_t) ⪯{Ω} (of_call f v_s) {{Φ}}.
+    ⊢ progs_are P_t P_s ∗ Ω v_t v_s ∗ sim_expr_ectx Ω K_t K_s Φ -∗ (of_call f v_t) ⪯{Ω} (of_call f v_s) [{ Φ }].
   Proof.
     intros Htgt Hsrc. iIntros "(#Prog & Val & Sim)".
-    rewrite /sim /sim_stutter /sim_def sim_expr_unfold. iIntros (P_t' σ_t P_s' σ_s) "[SI %]".
+    rewrite sim_expr_unfold. iIntros (P_t' σ_t P_s' σ_s) "[SI %]".
     iModIntro. iRight. iLeft.
     rewrite /progs_are; iDestruct ("Prog" with "SI") as "[% %]"; subst P_t' P_s'; iClear "Prog".
     iSplit.
