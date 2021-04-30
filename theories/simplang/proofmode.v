@@ -390,6 +390,7 @@ Proof.
 Qed.
 
 
+(** Switching between judgments *)
 Lemma tac_to_target Δ e_t e_s Φ :
   envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s [{ Φ }]))%I →
   envs_entails Δ (e_t ⪯ e_s [{ Φ }]).

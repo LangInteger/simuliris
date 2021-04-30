@@ -2,8 +2,7 @@ From simuliris.simulation Require Import language lifting.
 From simuliris.simplang Require Export lang.
 From simuliris.simplang Require Import tactics.
 
-
-(** * Instances of the [PureExec] class *)
+(** * Instances of the [IrredUnless] class *)
 
 Section irreducible.
   Implicit Types (e : expr) (v : val) (σ : state).
@@ -294,6 +293,8 @@ Section irreducible.
   Qed.
 End irreducible.
 
+
+(** * Instances of the [PureExec] class *)
 Section pure_exec.
   Local Ltac solve_exec_safe := intros; subst; do 3 eexists; econstructor; eauto.
   Local Ltac solve_exec_puredet := simpl; intros; by inv_head_step.

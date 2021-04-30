@@ -853,7 +853,7 @@ Lemma head_ctx_step_val P Ki e σ1 e2 σ2 efs :
   head_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_val e).
 Proof. revert e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
 
-Lemma head_step_fill_no_val P Ki K e σ1 e2 σ2 efs:
+Lemma head_step_fill_val P Ki K e σ1 e2 σ2 efs:
   head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 efs → is_Some (to_val e).
 Proof.
   revert e Ki.
@@ -862,12 +862,12 @@ Proof.
   - intros H. eapply IH in H. by eapply fill_item_val.
 Qed.
 
-Lemma head_ectx_step_val P K e σ1 e2 σ2 efs:
+Lemma head_ectx_step_no_val P K e σ1 e2 σ2 efs:
   to_val e = None → head_step P (fill K e) σ1 e2 σ2 efs → K = empty_ectx.
 Proof.
   intros Hnoval H.
   destruct K as [ | Ki K]; first reflexivity.
-  exfalso. apply head_step_fill_no_val in H.
+  exfalso. apply head_step_fill_val in H.
   eapply is_Some_None; by rewrite <-Hnoval.
 Qed.
 
@@ -946,7 +946,7 @@ Proof.
       destruct to_val eqn:Hval; last done. apply to_val_class in Hval; congruence.
   - intros ?????? H.
     destruct (to_val e) eqn:Heq. { right. exists v. by apply to_val_class. }
-    left. by eapply head_ectx_step_val.
+    left. by eapply head_ectx_step_no_val.
 Qed.
 End simp_lang.
 
