@@ -12,7 +12,7 @@ Section meta_level_simulation.
   Context {PROP : bi}.
   Context {Λ : language}.
   Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {PROP_forall : BiPureForall PROP}.
@@ -299,7 +299,7 @@ Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
   Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -355,7 +355,7 @@ Section adequacy_statement_alt.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
   Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 

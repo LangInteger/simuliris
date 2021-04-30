@@ -54,7 +54,7 @@ Qed.
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
 
   Set Default Proof Using "Type*".
 

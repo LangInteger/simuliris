@@ -50,7 +50,7 @@ Section alloc_size_def.
     ∃ M, ghost_map_auth γ 1 M ∗ ⌜heap_alloc_rel M σ⌝.
 End alloc_size_def. 
 
-Global Instance sheapG_SimulLang `{!sheapG Σ} `{!sheapInv Σ} : SimulLang (iPropI Σ) simp_lang := {
+Global Instance sheapG_simulirisG `{!sheapG Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
   state_interp P_t σ_t P_s σ_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s ∗

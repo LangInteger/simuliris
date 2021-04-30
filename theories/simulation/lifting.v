@@ -108,7 +108,7 @@ Hint Mode PureExec - - - + - : core.
 
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-  Context {Λ : language} {s : SimulLang PROP Λ}.
+  Context {Λ : language} {s : simulirisG PROP Λ}.
   Context (Ω : val Λ → val Λ → PROP).
 
   Implicit Types
