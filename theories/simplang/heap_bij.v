@@ -8,26 +8,6 @@ From simuliris.simplang Require Export class_instances primitive_laws.
 
 From iris.prelude Require Import options.
 
-
-Section gset_bij.
-  Context `{gset_bijG Σ A B}.
-  Implicit Types (L : gset (A * B)) (a : A) (b : B).
-
-  (* TODO: use gset_bij_elem_of once we have updated Iris *)
-  Lemma gset_bij_own_elem_auth_agree {γ q L} a b :
-    gset_bij_own_auth γ q L -∗ gset_bij_own_elem γ a b -∗ ⌜(a, b) ∈ L⌝.
-  Proof.
-    iIntros "Hauth Helem". rewrite gset_bij_own_auth_eq gset_bij_own_elem_eq.
-    (* TODO: is there a more elegant way to do this? *)
-    iPoseProof (own_op with "[$Hauth $Helem]") as "Ha".
-    iPoseProof (own_valid_r with "Ha") as "[Ha %]".
-    iPoseProof (own_op with "Ha") as "[Hauth Helem]".
-    iFrame. iPureIntro. revert H2. rewrite bij_both_dfrac_valid.
-    intros (_ & _ & ?); done.
-  Qed.
-End gset_bij.
-
-
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap. *)
 
 Class sbijG (Σ : gFunctors) := SBijG {
@@ -158,7 +138,7 @@ Section laws.
     (alloc_alive_rel val_rel b_t b_s ∨ alloc_dead_rel b_t b_s -∗ heap_bij_interp val_rel).
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
-    iPoseProof (gset_bij_own_elem_auth_agree with "Hauth Hrel") as "%".
+    iPoseProof (gset_bij_elem_of with "Hauth Hrel") as "%".
     iPoseProof (big_sepS_delete with "Hheap") as "[He Hheap]"; first done.
     iFrame.
     iIntros "He". iExists L. iFrame.
