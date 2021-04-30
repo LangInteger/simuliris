@@ -23,23 +23,21 @@ Section map_Forall.
   Qed.
 End map_Forall.
 
-(** We will only be able to show reflexivity for "well-formed" terms.
-  Namely, all literal locations should already be in the heap bijection.
-*)
+(** We will only be able to show reflexivity for "well-formed" terms. *)
 
 Section refl.
   Context `{sbijG Σ}.
 
-  Fixpoint val_wf (v : val) : iProp Σ :=
+  Fixpoint val_wf (v : val) : Prop :=
     match v with
-    | LitV (LitLoc l) => l ↔h l
+    | LitV (LitLoc l) => False (* no literal locations allowed :( *)
     | LitV _ => True
     | PairV v1 v2 => val_wf v1 ∧ val_wf v2
     | InjLV v => val_wf v
     | InjRV v => val_wf v
     end.
 
-  Fixpoint expr_wf (e : expr) : iProp Σ :=
+  Fixpoint expr_wf (e : expr) : Prop :=
     match e with
     | Val v => val_wf v
     | Var x => True
@@ -63,11 +61,6 @@ Section refl.
     | CmpXchg e1 e2 e3 => False   (* currently not supported *)
     | FAA e1 e2 => False          (* currently not supported *)
     end.
-
-  Instance val_wf_pers v : Persistent (val_wf v).
-  Proof. induction v as [[] | | | ]; apply _. Qed.
-  Instance expr_wf_pers e : Persistent (expr_wf e).
-  Proof. induction e; apply _. Qed.
 
   (** Well-formed substitutions in source and target*)
 
@@ -93,11 +86,11 @@ Section refl.
     ∀ (map : gmap string (val * val)),
       subst_map_rel map -∗ subst_map (fst <$> map) e_t ⪯ subst_map (snd <$> map) e_s {{ val_rel }}.
 
-  Lemma val_wf_sound v : ⊢ val_wf v → val_rel v v.
+  Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
   Proof.
-    iIntros "H".
+    intros Hv.
     iInduction v as [[] | | | ] "IH"; try by (simpl; try iApply "IH").
-    simpl. iDestruct "H" as "[H1 H2]". iSplit; [by iApply "IH" | by iApply "IH1"].
+    simpl. destruct Hv as [H1 H2]. iSplit; [by iApply "IH" | by iApply "IH1"].
   Qed.
 
   Lemma call_not_val v1 v2 : language.to_val (Call v1 v2) = None.
@@ -126,172 +119,250 @@ Section refl.
       + by iPoseProof (val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
   Qed.
 
-  Lemma expr_wf_sound e : ⊢ expr_wf e → sem_wf e e.
-  Proof.
-    iIntros "Hwf". iInduction e as [ ] "IH" forall "Hwf"; iIntros (xs) "#Hs"; simpl.
-    - (* Val *)
-      sim_pures; sim_val. iModIntro; by iApply val_wf_sound.
-    - (* Var *)
-      iSpecialize ("Hs" $! x).
-      rewrite !lookup_fmap. destruct (xs !! x) as [[v_t v_s] | ] eqn:Heq; simpl.
-      { sim_pures; sim_val; iModIntro. by iApply ("Hs" $! (v_t, v_s)). }
-      source_stuck_prim.
-    - (* Let *)
-      iDestruct "Hwf" as "[Hwf1 Hwf2]".
-      iSpecialize ("IH" with "Hwf1 Hs").
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "#Hv". sim_pures. rewrite !subst'_subst_map.
-      rewrite -(binder_insert_fmap fst (v_t, v_s)).
-      rewrite -(binder_insert_fmap snd (v_t, v_s)).
-      iApply ("IH1" with "Hwf2").
-      by iApply (subst_map_rel_insert with "Hv").
-    - (* Call *)
-      iDestruct "Hwf" as "[Hwf1 Hwf2]".
-      iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e2) (subst_map _ e2). iApply (sim_wand with "IH1").
-      iIntros (v_t1 v_s1) "#Hv1".
-      iSpecialize ("IH" with "Hwf1 Hs").
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t2 v_s2) "#Hv2".
-      iApply sim_irred_unless; first by apply call_not_val.
-      iIntros ((fn_s & ->)). iPoseProof (val_rel_litfn_source with "Hv2") as "->".
-      iApply sim_call; done.
-    - (* UnOp *)
-      iSpecialize ("IH" with "Hwf Hs").
-      sim_bind (subst_map _ e) (subst_map _ e). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "#Hv". destruct op; sim_pures; discr_source; val_discr_source "Hv"; by sim_pures; sim_val.
-    - (* BinOp *)
-      iDestruct "Hwf" as "[Hwf1 Hwf2]".
-      iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e2) (subst_map _ e2). iApply (sim_wand with "IH1").
-      iIntros (v_t2 v_s2) "Hv2".
-      iSpecialize ("IH" with "Hwf1 Hs").
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t1 v_s1) "Hv1".
-      destruct op; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [sim_val; done .. | | ].
-      + iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
-        { iPoseProof (val_rel_val_is_unboxed with "Hv1") as "%".
-          iPoseProof (val_rel_val_is_unboxed with "Hv2") as "%".
-          iPureIntro. by rewrite /vals_compare_safe H1 H2.
-        }
-        case_bool_decide; subst.
-        * iPoseProof (val_rel_inj with "Hv1 Hv2") as "->".
-          sim_pures; sim_val. case_bool_decide; done.
-        * sim_pures; sim_val. case_bool_decide; subst; last done.
-          by iPoseProof (val_rel_func with "Hv1 Hv2") as "->".
-      + iPoseProof (val_rel_loc_source with "Hv1") as (l_t) "(-> & Hl)".
-        sim_pures. sim_val. iModIntro; cbn.
-        by iApply heap_bij_loc_shift.
-    - (* If *)
-      iDestruct "Hwf" as "(Hwf1 & Hwf2 & Hwf3)".
-      iSpecialize ("IH" with "Hwf1 Hs").
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "Hv".
-      discr_source. val_discr_source "Hv". destruct x; sim_pures.
-      + iApply ("IH1" with "Hwf2 Hs").
-      + iApply ("IH2" with "Hwf3 Hs").
-    - (* While *)
-      iDestruct "Hwf" as "(#Hwf1 & #Hwf2)".
-      iApply (sim_while_while _ _ _ _ _ (True)%I with "[//]").
-      iModIntro; iIntros "_".
-      iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "Hv".
-      discr_source. val_discr_source "Hv". destruct x; sim_pures.
-      + sim_bind (subst_map _ e2) (subst_map _ e2).
-        iApply (sim_wand with "IH1").
-        iIntros (? ?) "_"; sim_pures. iApply sim_expr_base. iRight. by eauto.
-      + iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
-    - (* Pairs *)
-      iDestruct "Hwf" as "(Hwf1 & Hwf2)".
-      iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e2) (subst_map _ e2).
-      iApply (sim_wand with "IH1"). iIntros (v_t2 v_s2) "Hv2".
-      sim_bind (subst_map _ e1) (subst_map _ e1).
-      iApply (sim_wand with "IH"). iIntros (v_t1 v_s1) "Hv1".
-      sim_pures; sim_val. iModIntro; iSplit; eauto.
-    - (* Fst *)
-      sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv".
-      discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
-    - (* Snd *)
-      sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv".
-      discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
-    - (* InjL *)
-      sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
-    - (* InjR *)
-      sim_bind (subst_map _ e) (subst_map _ e). iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH"). iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
-    - (* Match *)
-      iDestruct "Hwf" as "(Hwf1 & Hwf2 & Hwf3)".
-      iSpecialize ("IH" with "Hwf1 Hs").
+  (* pull out compatibility lemmas as Iris entailment *)
 
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "#Hv".
-      discr_source.
-      + iPoseProof (val_rel_injl_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
-        rewrite !subst'_subst_map.
-        rewrite -(binder_insert_fmap fst (v_t', x)).
-        rewrite -(binder_insert_fmap snd (v_t', x)).
-        iApply ("IH1" with "Hwf2"). by iApply subst_map_rel_insert.
-      + iPoseProof (val_rel_injr_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
-        rewrite !subst'_subst_map.
-        rewrite -(binder_insert_fmap fst (v_t', x)).
-        rewrite -(binder_insert_fmap snd (v_t', x)).
-        iApply ("IH2" with "Hwf3"). by iApply subst_map_rel_insert.
-    - (* Fork *)
-      iApply sim_fork; first by sim_pures; sim_val. sim_pures.
-      iSpecialize ("IH" with "Hwf Hs").
-      iApply (sim_wand with "IH").
-      by iIntros (v_t v_s) "Hv".
-    - (* AllocN *)
-      iDestruct "Hwf" as "(Hwf1 & Hwf2)".
-      iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e2) (subst_map _ e2).
-      iApply (sim_wand with "IH1"). iIntros (v_t v_s) "Hv".
-      sim_bind (subst_map _ e1) (subst_map _ e1).
-      iApply (sim_wand with "IH"). iIntros (v_t' v_s') "Hv'".
-      discr_source. val_discr_source "Hv'".
-      target_alloc l_t as "Hl_t" "Ha_t"; first done.
-      source_alloc l_s as "Hl_s" "Ha_s"; first done.
-      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
-      { iDestruct "Hv" as "#Hv". rewrite /vrel_list.
-        rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
-        generalize (Z.to_nat x) => n.
-        iInduction n as [] "IH"; cbn; first done. iFrame "Hv IH".
+  Local Tactic Notation "smart_sim_bind" uconstr(ctx_t) uconstr(ctx_s) uconstr(Hp) :=
+    sim_bind ctx_t ctx_s;
+    iApply (sim_wand with Hp).
+
+  Lemma sem_wf_var x : ⊢ sem_wf (Var x) (Var x).
+  Proof.
+    iIntros (xs) "#Hs"; simpl.
+    rewrite !lookup_fmap. destruct (xs !! x) as [[v_t v_s] | ] eqn:Heq; simpl.
+    { sim_pures; sim_val; iModIntro. by iApply ("Hs" $! x (v_t, v_s)). }
+    source_stuck_prim.
+  Qed.
+
+  Lemma sem_wf_let x e1 e2 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (Let x e1 e2) (Let x e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t v_s) "#Hv". sim_pures. rewrite !subst'_subst_map.
+    rewrite -(binder_insert_fmap fst (v_t, v_s)).
+    rewrite -(binder_insert_fmap snd (v_t, v_s)).
+    iApply "IH2". by iApply (subst_map_rel_insert with "Hv").
+  Qed.
+
+  Lemma sem_wf_call e1 e2 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (Call e1 e2) (Call e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)".
+    iIntros (v_t1 v_s1) "#Hv1".
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t2 v_s2) "#Hv2".
+    discr_source; first by apply call_not_val. val_discr_source "Hv2".
+    iApply sim_call; done.
+  Qed.
+
+  Lemma sem_wf_unop e o :
+    sem_wf e e -∗ sem_wf (UnOp o e) (UnOp o e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e) "(IH Hs)".
+    iIntros (v_t v_s) "#Hv". destruct o; sim_pures; discr_source; val_discr_source "Hv"; by sim_pures; sim_val.
+  Qed.
+
+  Lemma sem_wf_binop e1 e2 o :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (BinOp o e1 e2) (BinOp o e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)".
+    iIntros (v_t2 v_s2) "Hv2".
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t1 v_s1) "Hv1".
+    destruct o; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [sim_val; done .. | | ].
+    - iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
+      { iPoseProof (val_rel_val_is_unboxed with "Hv1") as "%".
+        iPoseProof (val_rel_val_is_unboxed with "Hv2") as "%".
+        iPureIntro. by rewrite /vals_compare_safe H1 H2.
       }
-      iIntros "Hv". sim_pures. sim_val. done.
-    - (* Free *)
-      iDestruct "Hwf" as "(Hwf1 & Hwf2)".
-      iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e2) (subst_map _ e2). iApply (sim_wand with "IH1"). iIntros (v_t v_s) "Hv".
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH"). iIntros (v_t' v_s') "Hv'".
-      discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
-      iPoseProof (val_rel_litint_source with "Hv'") as "->".
-      by sim_free; sim_val.
-    - (* Load *)
-      iSpecialize ("IH" with "Hwf Hs").
-      sim_bind (subst_map _ e) (subst_map _ e). iApply (sim_wand with "IH").
-      iIntros (v_t v_s) "Hv". discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
-      by sim_load v_t v_s as "Hv"; sim_val.
-    - (* Store *)
-      iDestruct "Hwf" as "(Hwf1 & Hwf2)".
-      iSpecialize ("IH" with "Hwf1 Hs"). iSpecialize ("IH1" with "Hwf2 Hs").
-      sim_bind (subst_map _ e2) (subst_map _ e2). iApply (sim_wand with "IH1").
-      iIntros (v_t v_s) "Hv". (* FIXME: fix printing *)
-      sim_bind (subst_map _ e1) (subst_map _ e1). iApply (sim_wand with "IH").
-      iIntros (v_t' v_s') "Hv'".
-      discr_source. iPoseProof (val_rel_loc_source with "Hv'") as (l_t) "(-> & Hrel)".
-      by sim_store; [done | sim_val].
+      case_bool_decide; subst.
+      * iPoseProof (val_rel_inj with "Hv1 Hv2") as "->".
+        sim_pures; sim_val. case_bool_decide; done.
+      * sim_pures; sim_val. case_bool_decide; subst; last done.
+        by iPoseProof (val_rel_func with "Hv1 Hv2") as "->".
+    - iPoseProof (val_rel_loc_source with "Hv1") as (l_t) "(-> & Hl)".
+      sim_pures. sim_val. iModIntro; cbn.
+      by iApply heap_bij_loc_shift.
+  Qed.
+
+  Lemma sem_wf_if e1 e2 e3 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf e3 e3 -∗ sem_wf (If e1 e2 e3) (If e1 e2 e3).
+  Proof.
+    iIntros "IH1 IH2 IH3" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t v_s) "Hv".
+    discr_source. val_discr_source "Hv". destruct x; sim_pures.
+    + iApply ("IH2" with "Hs").
+    + iApply ("IH3" with "Hs").
+  Qed.
+
+  Lemma sem_wf_while e1 e2 :
+    (□ sem_wf e1 e1) -∗ (□ sem_wf e2 e2) -∗ sem_wf (While e1 e2) (While e1 e2).
+  Proof.
+    iIntros "#IH1 #IH2" (xs) "#Hs"; simpl.
+    iApply (sim_while_while _ _ _ _ _ (True)%I with "[//]").
+    iModIntro; iIntros "_".
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t v_s) "Hv".
+    discr_source. val_discr_source "Hv". destruct x; sim_pures.
+    + smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)".
+      iIntros (? ?) "_"; sim_pures. iApply sim_expr_base. iRight. by eauto.
+    + iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
+  Qed.
+
+  Lemma sem_wf_pair e1 e2 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (Pair e1 e2) (Pair e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)".
+    iIntros (v_t2 v_s2) "Hv2".
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t1 v_s1) "Hv1".
+    sim_pures; sim_val. iModIntro; iSplit; eauto.
+  Qed.
+
+  Lemma sem_wf_fst e :
+    sem_wf e e -∗ sem_wf (Fst e) (Fst e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e) "(IH Hs)".
+    iIntros (v_t v_s) "Hv".
+    discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
+  Qed.
+  Lemma sem_wf_snd e :
+    sem_wf e e -∗ sem_wf (Snd e) (Snd e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e) "(IH Hs)".
+    iIntros (v_t v_s) "Hv".
+    discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
+  Qed.
+
+  Lemma sem_wf_injl e :
+    sem_wf e e -∗ sem_wf (InjL e) (InjL e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e) "(IH Hs)".
+    iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
+  Qed.
+  Lemma sem_wf_injr e :
+    sem_wf e e -∗ sem_wf (InjR e) (InjR e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e) "(IH Hs)".
+    iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
+  Qed.
+
+  Lemma sem_wf_match e e1 e2 x1 x2 :
+    sem_wf e e -∗ sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (Match e x1 e1 x2 e2) (Match e x1 e1 x2 e2).
+  Proof.
+    iIntros "IH IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e)  "(IH Hs)".
+    iIntros (v_t v_s) "#Hv".
+    discr_source.
+    + iPoseProof (val_rel_injl_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
+      rewrite !subst'_subst_map.
+      rewrite -(binder_insert_fmap fst (v_t', x)).
+      rewrite -(binder_insert_fmap snd (v_t', x)).
+      iApply "IH1". by iApply subst_map_rel_insert.
+    + iPoseProof (val_rel_injr_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
+      rewrite !subst'_subst_map.
+      rewrite -(binder_insert_fmap fst (v_t', x)).
+      rewrite -(binder_insert_fmap snd (v_t', x)).
+      iApply "IH2". by iApply subst_map_rel_insert.
+  Qed.
+
+  Lemma sem_wf_fork e :
+    sem_wf e e -∗ sem_wf (Fork e) (Fork e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    iApply sim_fork; first by sim_pures; sim_val. sim_pures.
+    iApply (sim_wand with "(IH Hs)"). eauto.
+  Qed.
+
+  Lemma sem_wf_allocN e1 e2 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (AllocN e1 e2) (AllocN e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)". iIntros (v_t v_s) "Hv".
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)". iIntros (v_t' v_s') "Hv'".
+    discr_source. val_discr_source "Hv'".
+    target_alloc l_t as "Hl_t" "Ha_t"; first done.
+    source_alloc l_s as "Hl_s" "Ha_s"; first done.
+    iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
+    { iDestruct "Hv" as "#Hv". rewrite /vrel_list.
+      rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
+      generalize (Z.to_nat x) => n.
+      iInduction n as [] "IHn"; cbn; first done. iFrame "Hv IHn".
+    }
+    iIntros "Hv". sim_pures. sim_val. done.
+  Qed.
+
+  Lemma sem_wf_freeN e1 e2 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (FreeN e1 e2) (FreeN e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)". iIntros (v_t v_s) "Hv".
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)". iIntros (v_t' v_s') "Hv'".
+    discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
+    iPoseProof (val_rel_litint_source with "Hv'") as "->".
+    by sim_free; sim_val.
+  Qed.
+
+  Lemma sem_wf_load o e :
+    sem_wf e e -∗ sem_wf (Load o e) (Load o e).
+  Proof.
+    iIntros "IH" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e) (subst_map _ e) "(IH Hs)".
+    iIntros (v_t v_s) "Hv". discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
+    by sim_load v_t v_s as "Hv"; sim_val.
+  Qed.
+
+  Lemma sem_wf_store o e1 e2 :
+    sem_wf e1 e1 -∗ sem_wf e2 e2 -∗ sem_wf (Store o e1 e2) (Store o e1 e2).
+  Proof.
+    iIntros "IH1 IH2" (xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2) (subst_map _ e2) "(IH2 Hs)".
+    iIntros (v_t v_s) "Hv". (* FIXME: fix printing *)
+    smart_sim_bind (subst_map _ e1) (subst_map _ e1) "(IH1 Hs)".
+    iIntros (v_t' v_s') "Hv'".
+    discr_source. iPoseProof (val_rel_loc_source with "Hv'") as (l_t) "(-> & Hrel)".
+    by sim_store; [done | sim_val].
+  Qed.
+
+  Lemma expr_wf_sound e : expr_wf e → ⊢ sem_wf e e.
+  Proof.
+    intros Hwf. iInduction e as [ ] "IH" forall (Hwf); iIntros (xs) "#Hs"; simpl.
+    - (* Val *) sim_pures; sim_val. iModIntro; by iApply val_wf_sound.
+    - (* Var *) by iApply sem_wf_var.
+    - (* Let *) destruct Hwf as [Hwf1 Hwf2]. by iApply (sem_wf_let with "(IH [//]) (IH1 [//])").
+    - (* Call *) destruct Hwf as [Hwf1 Hwf2]. by iApply (sem_wf_call with "(IH [//]) (IH1 [//])").
+    - (* UnOp *) by iApply (sem_wf_unop with "(IH [//])").
+    - (* BinOp *) destruct Hwf as [Hwf1 Hwf2]. by iApply (sem_wf_binop with "(IH [//]) (IH1 [//])").
+    - (* If *) destruct Hwf as (Hwf1 & Hwf2 & Hwf3). by iApply (sem_wf_if with "(IH [//]) (IH1 [//]) (IH2 [//])").
+    - (* While *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_while with "(IH [//]) (IH1 [//])").
+    - (* Pairs *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_pair with "(IH [//]) (IH1 [//])").
+    - (* Fst *) by iApply (sem_wf_fst with "(IH [//])").
+    - (* Snd *) by iApply (sem_wf_snd with "(IH [//])").
+    - (* InjL *) by iApply (sem_wf_injl with "(IH [//])").
+    - (* InjR *) by iApply (sem_wf_injr with "(IH [//])").
+    - (* Match *) destruct Hwf as (Hwf1 & Hwf2 & Hwf3).
+      by iApply (sem_wf_match with "(IH [//]) (IH1 [//]) (IH2 [//])").
+    - (* Fork *) by iApply (sem_wf_fork with "(IH [//])").
+    - (* AllocN *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_allocN with "(IH [//]) (IH1 [//])").
+    - (* Free *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_freeN with "(IH [//]) (IH1 [//])").
+    - (* Load *) by iApply (sem_wf_load with "(IH [//])").
+    - (* Store *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_store with "(IH [//]) (IH1 [//])").
     - done.
     - done.
   Qed.
 
-  Theorem heap_bij_refl e : expr_wf e -∗ e ⪯ e {{ val_rel }}.
+  Theorem heap_bij_refl e : expr_wf e → ⊢ e ⪯ e {{ val_rel }}.
   Proof.
-    iIntros "Hwf". iPoseProof (expr_wf_sound with "Hwf") as "Hwf".
+    intros Hwf. iPoseProof (expr_wf_sound _ Hwf) as "Hwf".
     iSpecialize ("Hwf" $! ∅). setoid_rewrite fmap_empty.
     rewrite !subst_map_empty. iApply "Hwf". rewrite /subst_map_rel.
     by rewrite -map_ForallI_empty.

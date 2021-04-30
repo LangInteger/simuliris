@@ -743,6 +743,81 @@ Tactic Notation "source_bind" open_constr(efoc_s) :=
   | _ => fail "source_bind: not a 'source_red'"
   end.
 
+(** ** [apply] tactics *)
+
+(** The tactic [target_apply_core lem tac_suc tac_fail] evaluates [lem] to a
+hypothesis [H] that can be applied, and then runs [target_bind_core K; tac_suc H]
+for every possible evaluation context [K].
+
+- The tactic [tac_suc] should do [iApplyHyp H] to actually apply the hypothesis,
+  but can perform other operations in addition (see [target_apply] 
+  below).
+- The tactic [tac_fail cont] is called when [tac_suc H] fails for all evaluation
+  contexts [K], and can perform further operations before invoking [cont] to
+  try again.
+
+TC resolution of [lem] premises happens *after* [tac_suc H] got executed. *)
+Ltac target_apply_core lem tac_suc tac_fail := first
+  [iPoseProofCore lem as false (fun H =>
+     lazymatch goal with
+     | |- envs_entails _ (target_red ?e ?Q) =>
+       reshape_expr e ltac:(fun K e' =>
+         target_bind_core K; tac_suc H)
+     | _ => fail 1 "target_apply: not a 'target_red"
+     end)
+  |tac_fail ltac:(fun _ => target_apply_core lem tac_suc tac_fail)
+  |let P := type of lem in
+   fail "target_apply: cannot apply" lem ":" P ].
+
+Tactic Notation "target_apply" open_constr(lem) :=
+  target_apply_core lem ltac:(fun H => iApplyHyp H; try target_expr_simpl)
+                        ltac:(fun cont => fail).
+Tactic Notation "target_smart_apply" open_constr(lem) :=
+  target_apply_core lem ltac:(fun H => iApplyHyp H; try target_expr_simpl)
+                        ltac:(fun cont => target_pure _; []; cont ()).
+
+Ltac source_apply_core lem tac_suc tac_fail := first
+  [iPoseProofCore lem as false (fun H =>
+     lazymatch goal with
+     | |- envs_entails _ (source_red ?e ?Q) =>
+       reshape_expr e ltac:(fun K e' =>
+         source_bind_core K; tac_suc H)
+     | _ => fail 1 "source_apply: not a 'source_red"
+     end)
+  |tac_fail ltac:(fun _ => source_apply_core lem tac_suc tac_fail)
+  |let P := type of lem in
+   fail "source_apply: cannot apply" lem ":" P ].
+
+Tactic Notation "source_apply" open_constr(lem) :=
+  source_apply_core lem ltac:(fun H => iApplyHyp H; try source_expr_simpl)
+                        ltac:(fun cont => fail).
+Tactic Notation "source_smart_apply" open_constr(lem) :=
+  source_apply_core lem ltac:(fun H => iApplyHyp H; try source_expr_simpl)
+                        ltac:(fun cont => source_pure _; []; cont ()).
+
+Ltac sim_apply_core lem tac_suc tac_fail := 
+  iStartProof;
+  to_sim;
+  first
+  [iPoseProofCore lem as false (fun H =>
+     lazymatch goal with
+     | |- envs_entails _ (sim_expr _ ?e_t ?e_s ?Q) =>
+       reshape_expr e_t ltac:(fun K_t e_t' =>
+          reshape_expr e_s ltac:(fun K_s e_s' =>
+            sim_bind_core K_t K_s; tac_suc H))
+     | _ => fail 1 "sim_apply: not a 'sim_expr'"
+     end)
+  |tac_fail ltac:(fun _ => sim_apply_core lem tac_suc tac_fail)
+  |let P := type of lem in
+   fail "sim_apply: cannot apply" lem ":" P ].
+
+Tactic Notation "sim_apply" open_constr(lem) :=
+  sim_apply_core lem ltac:(fun H => iApplyHyp H; try sim_expr_simpl)
+                     ltac:(fun cont => fail).
+Tactic Notation "sim_smart_apply" open_constr(lem) :=
+  sim_apply_core lem ltac:(fun H => iApplyHyp H; try sim_expr_simpl)
+                     ltac:(fun cont => sim_pures; []; cont ()).
+
 (** ** Call automation *)
 Tactic Notation "target_call" :=
   to_target;
@@ -775,6 +850,9 @@ Tactic Notation "source_call" :=
     |source_finish]
   | _ => fail "source_call: not a 'source_red'"
   end.
+
+
+
 
 (** ** Heap automation *)
 Tactic Notation "target_alloc" ident(l) "as" constr(H) constr(H2) :=
