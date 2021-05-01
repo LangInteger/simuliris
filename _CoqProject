@@ -62,3 +62,5 @@ theories/stacked_borrows/class_instances.v
 theories/stacked_borrows/primitive_laws.v
 theories/stacked_borrows/proofmode.v
 
+theories/stacked_borrows/examples/pure.v
+

@@ -88,16 +88,18 @@ Instance scalar_countable : Countable scalar.
 Proof.
   refine (inj_countable
           (λ v, match v with
-              | ScPoison => inl (inl ())
-              | ScPtr l bor => inl (inr (l,bor))
-              | ScInt n => inr (inl n)
-              | ScFnPtr n =>  inr (inr n)
+              | ScPoison => inl $ inl (inl ())
+              | ScPtr l bor => inl $ inl (inr (l,bor))
+              | ScInt n => inl $ inr (inl n)
+              | ScFnPtr n => inl $ inr (inr n)
+              | ScCallId c => inr c
               end)
           (λ s, match s with
-              | (inl (inl ())) => Some ScPoison
-              | (inl (inr (l,bor))) => Some $ ScPtr l bor
-              | (inr (inl n)) => Some $ ScInt n
-              | (inr (inr n)) => Some $ ScFnPtr n
+              | inl (inl (inl ())) => Some ScPoison
+              | inl (inl (inr (l,bor))) => Some $ ScPtr l bor
+              | inl (inr (inl n)) => Some $ ScInt n
+              | inl (inr (inr n)) => Some $ ScFnPtr n
+              | inr c => Some $ ScCallId c
               end) _); by intros [].
 Qed.
 
@@ -157,8 +159,8 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
       expr_beq e0 e0' && expr_beq e1 e1' && expr_beq e2 e2' *)
   (* | Fork e, Fork e' => expr_beq e e' *)
   | Alloc T, Alloc T' => bool_decide (T = T')
-  | Free e, Free e' => expr_beq e e'
-  | InitCall, InitCall | EndCall, EndCall => true
+  | Free e, Free e' | EndCall e, EndCall e' => expr_beq e e'
+  | InitCall, InitCall => true
   (* | SysCall id, SysCall id' => bool_decide (id = id') *)
   | _, _ => false
   end.
@@ -192,7 +194,7 @@ Proof.
       | App e el => GenNode 3 (go e :: (go <$> el)) *)
       | Call e1 e2 => GenNode 2 [go e1; go e2]
       | InitCall => GenNode 3 []
-      | EndCall => GenNode 4 []
+      | EndCall e => GenNode 4 [go e]
       | BinOp op e1 e2 => GenNode 5 [GenLeaf $ inl $ inl $ inr $ inl op;
                                      go e1; go e2]
       | Proj e1 e2 => GenNode 6 [go e1; go e2]
@@ -221,7 +223,7 @@ Proof.
      | GenNode 1 [GenLeaf (inl (inl (inl (inr v))))] => Val v
      | GenNode 2 [e1; e2] => Call (go e1) (go e2)
      | GenNode 3 [] => InitCall
-     | GenNode 4 [] => EndCall
+     | GenNode 4 [e] => EndCall (go e)
      (* | GenNode 2 [GenLeaf (inl (inl (inr (inl f))));
                   GenLeaf (inl (inl (inr (inr xl)))); e] => Rec f xl (go e)
      | GenNode 3 (e :: el) => App (go e) (go <$> el) *)
@@ -314,8 +316,8 @@ Lemma fill_item_no_result_inj Ki1 Ki2 e1 e2 :
   to_result e1 = None → to_result e2 = None →
   fill_item Ki1 e1 = fill_item Ki2 e2 → Ki1 = Ki2.
 Proof.
-  destruct Ki1 as [| | | | | | | | | | | | (* | *) | | | | ],
-           Ki2 as [| | | | | | | | | | | | (* | *) | | | |];
+  destruct Ki1 as [| | | | | | | | | | | | | (* | *) | | | | ],
+           Ki2 as [| | | | | | | | | | | | | (* | *) | | | |];
   intros He1 He2 EQ; try discriminate; simplify_eq/=;
     repeat match goal with
     | H : to_result (of_result _) = None |- _ => by rewrite to_of_result in H

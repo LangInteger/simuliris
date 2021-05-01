@@ -375,6 +375,18 @@ Definition tag_values_included (v: value) nxtp :=
   ∀ l tg, ScPtr l tg ∈ v → tg <t nxtp.
 Infix "<<t" := tag_values_included (at level 60, no associativity).
 
+Instance tag_included_dec tg nxtp : Decision (tag_included tg nxtp).
+Proof. destruct tg; cbn; apply _. Qed.
+Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp). 
+Proof.
+  rewrite /tag_values_included. induction v as [ | sc v IH].
+  - left; intros l tg Ha. exfalso. by eapply not_elem_of_nil. 
+  - destruct sc.
+    1,2,4,5: destruct IH as [IH | IH]; [left | right]; setoid_rewrite elem_of_cons; [intros ?? [ [=] | ]| contradict IH]; eauto.
+    destruct (decide (tg <t nxtp)) as [Hd | Hd]; destruct IH as [IH | IH]; [left | right | right | right]; setoid_rewrite elem_of_cons; [ | by eauto..].
+    intros ?? [[= -> ->] | He]; [done | by eapply IH].
+Qed.
+
 (** Instrumented step for the stacked borrows *)
 (* This ignores CAS for now. *)
 Inductive bor_step (α : stacks) (cids: call_id_stack) (nxtp: ptr_id) (nxtc: call_id):
@@ -405,10 +417,10 @@ Inductive bor_step (α : stacks) (cids: call_id_stack) (nxtp: ptr_id) (nxtc: cal
     (ACC: memory_deallocated α cids l lbor (tsize T) = Some α') :
     bor_step α cids nxtp nxtc (DeallocEvt l lbor T) α' cids nxtp nxtc
 | InitCallIS :
-    bor_step α cids nxtp nxtc InitCallEvt α (nxtc :: cids) nxtp (S nxtc)
+    bor_step α cids nxtp nxtc (InitCallEvt nxtc) α (nxtc :: cids) nxtp (S nxtc)
 | EndCallIS c cids'
     (TOP: cids = c :: cids') :
-    bor_step α cids nxtp nxtc EndCallEvt α cids' nxtp nxtc
+    bor_step α cids nxtp nxtc (EndCallEvt c) α cids' nxtp nxtc
 | RetagIS α' nxtp' l otag ntag T kind pkind c cids'
     (TOP: cids = c :: cids')
     (RETAG: retag α nxtp cids c l otag kind pkind T = Some (ntag, α', nxtp')) :

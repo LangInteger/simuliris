@@ -12,11 +12,12 @@ Ltac reshape_expr e tac :=
     | Call ?e (Val ?v)                => add_item (CallLCtx (ValR v)) K e
     | Call ?e (Place ?l ?t ?T)        => add_item (CallLCtx (PlaceR l t T)) K e
     | Call ?e1 ?e2                    => add_item (CallRCtx e1) K e2
+    | EndCall ?e                      => add_item (EndCallCtx) K e
     | Proj ?e1 (Val ?v)               => add_item (ProjLCtx (ValR v)) K e1
     | Proj ?e1 (Place ?l ?t ?T)       => add_item (ProjLCtx (PlaceR l t T)) K e1
     | Proj ?e1 ?e2                    => add_item (ProjRCtx e1) K e2
     | Conc ?e1 (Val ?v)               => add_item (ProjLCtx (ValR v)) K e1
-    | Conc ?e1 (Place ?l ?t ?T)       => add_item (ProjLCtx (PlaceR l t T)) K e1
+    | Conc ?e1 (Place ?l ?t ?T)       => add_item (ProjLCtx (PlaceR l t T)) K e1 
     | Conc ?e1 ?e2                    => add_item (ConcRCtx e1) K e2
     | BinOp ?op ?e (Val ?v)           => add_item (BinOpLCtx op (ValR v)) K e
     | BinOp ?op ?e (Place ?l ?t ?T)   => add_item (BinOpLCtx op (PlaceR l t T)) K e
@@ -26,11 +27,11 @@ Ltac reshape_expr e tac :=
     | Copy ?e                         => add_item CopyCtx K e
     | Write ?e (Val ?v)               => add_item (WriteLCtx (ValR v)) K e
     | Write ?e (Place ?l ?t ?T)       => add_item (WriteLCtx (PlaceR l t T)) K e
-    | Write ?e1 ?e2                   => add_item (WriteRCtx e1) K e2
+    | Write ?e1 ?e2                   => add_item (WriteRCtx e1) K e2 
     | Free ?e                         => add_item FreeCtx K e
     | Retag ?e ?pk ?T ?rk             => add_item (RetagCtx pk T rk) K e
     | Let ?x ?e1 ?e2                  => add_item (LetCtx x e2) K e1
-    | Case ?e ?el                     => add_item (CaseCtx el) K e
+    | Case ?e ?el                     => add_item (CaseCtx el) K e 
     end
   with add_item Ki K e :=
       go (Ki :: K) e

@@ -21,13 +21,26 @@ Section pure_exec.
     PureExec True 1 (Let x (Place l t T) e2) (subst' x (PlaceR l t T) e2).
   Proof. solve_pure_exec. Qed.
 
-  (* TODO: binop evaluation is not pure, due to the semantics of comparing unallocated heap locations.
-    What is the reason why the semantics was chosen that way?
-    Can we make that nicer? (BinOp evaluation should really be pure... it's absurd that that needs to access the heap)
-  *)
-  (*Global Instance pure_binop h op l1 l2 l' :*)
-    (*PureExec (bin_op_eval h op l1 l2 l') 1 (BinOp op (Val [l1]) (Val [l2])) (Val [l']) | 10.*)
-  (*Proof. solve_pure_exec. Qed.*)
+  (* We do not have a general instance for BinOp as evaluation of EqOp for locations is not pure *)
+  Global Instance pure_add z1 z2  :
+    PureExec True 1 (BinOp AddOp (#[ScInt z1]) (#[ScInt z2])) (#[ScInt (z1 + z2)]).
+  Proof. solve_pure_exec. Qed.
+  Global Instance pure_sub z1 z2  :
+    PureExec True 1 (BinOp SubOp (#[ScInt z1]) (#[ScInt z2])) (#[ScInt (z1 - z2)]).
+  Proof. solve_pure_exec. Qed.
+  Global Instance pure_le z1 z2 :
+    PureExec True 1 (BinOp LeOp (#[ScInt z1]) (#[ScInt z2])) (#[bool_decide (z1 ≤ z2)]).
+  Proof. solve_pure_exec. Qed.
+  Global Instance pure_lt z1 z2 :
+    PureExec True 1 (BinOp LtOp (#[ScInt z1]) (#[ScInt z2])) (#[bool_decide (z1 < z2)]).
+  Proof. solve_pure_exec. Qed.
+  Global Instance pure_offset l t z :
+    PureExec True 1 (BinOp OffsetOp (#[ScPtr l t]) (#[ScInt z])) (#[ScPtr (l +ₗ z) t]).
+  Proof. solve_pure_exec. Qed.
+
+  (* TODO: figure out something useful for EqOp *)
+  (*Global Instance pure_eq_refl sc1 sc2 :*)
+    (*PureExec 1 (BinOp EqOp (#[sc1]) (#[sc2])) (#[false]).*)
 
   Global Instance pure_proj v i s :
     PureExec (0 ≤ i ∧ v !! (Z.to_nat i) = Some s) 1 (Proj (Val (v : list scalar)) (#[ScInt i])) (#[s]).
@@ -80,7 +93,7 @@ Section irreducible.
     let Ki' := fresh "Ki'" in
     intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
     [ (*this need not complete the proof and may generate a proof obligation *)
-      inv_head_step; try by (apply ϕ; eauto)
+      inv_head_step; try by (apply ϕ; eauto 8)
     | intros K e' Heq Hv; clear ϕ;
       destruct K as [ | Ki K]; first (done);
       exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
@@ -100,7 +113,7 @@ Section irreducible.
            | H : _ ∧ _ |- _ => destruct H
            end; congruence.
 
-  Ltac finish_decision := rewrite /Decision; try first [left; by eauto | right; intros ?; discr ].
+  Ltac finish_decision := rewrite /Decision; try first [left; by eauto 8 | right; intros ?; discr ].
   Ltac decide_goal :=
     repeat match goal with
            | |- Decision (_ ∧ _) => apply and_dec
@@ -146,15 +159,25 @@ Section irreducible.
   Global Instance irred_unless_le v1 v2 P σ :
     IrredUnless (∃ z1 z2, v1 = [ScInt z1] ∧ v2 = [ScInt z2]) P (BinOp LeOp (Val v1) (Val v2)) σ.
   Proof. prove_irred_unless. Qed.
-
-  (* TODO: EqOp, OffsetOp *)
+  Global Instance irred_unless_offset v1 v2 P σ :
+    IrredUnless (∃ l t z, v1 = [ScPtr l t] ∧ v2 = [ScInt z]) P (BinOp OffsetOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irred_unless_eq v1 v2 P σ :
+    IrredUnless (∃ sc1 sc2, v1 = [sc1] ∧ v2 = [sc2] ∧ (scalar_eq σ.(shp) sc1 sc2 ∨ scalar_neq sc1 sc2)) P (BinOp EqOp (Val v1) (Val v2)) σ.
+  Proof.
+    apply irred_unless_irred_dec; [ | prove_irred].
+    destruct v1 as [ | sc1 []]; try finish_decision.
+    destruct v2 as [ | sc2 []]; try finish_decision.
+    destruct (decide (scalar_eq σ.(shp) sc1 sc2)); first by eauto 8.
+    destruct (decide (scalar_neq sc1 sc2)); finish_decision.
+  Qed.
 
   Global Instance irred_proj v v2 P σ :
     IrredUnless (∃ i s, v2 = [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj (Val v) (Val v2)) σ.
   Proof.
     apply irred_unless_irred_dec; [| prove_irred].
     destruct v2 as [ | s2 []]; [ decide_goal | | decide_goal].
-    destruct s2 as [ | i | | ]; [ decide_goal | | decide_goal..].
+    destruct s2 as [ | i | | | ]; [ decide_goal | | decide_goal..].
     destruct (decide (0 ≤ i)) as [Hi | Hi]; first last.
     { right; intros (? & ? & [= ->] & ? & ?); lia. }
     destruct (decide (i < length v)) as [H1 | H1].
@@ -180,15 +203,71 @@ Section irreducible.
   Proof. prove_irred_unless. Qed.
 
 
-  Global Instance irreducible_endcall P σ :
-    IrredUnless (∃ c, head σ.(scs) = Some c) P EndCall σ.
+  Global Instance irreducible_endcall P σ v :
+    IrredUnless (∃ c, v = [ScCallId c] ∧ head σ.(scs) = Some c) P (EndCall (Val v)) σ.
   Proof.
-    prove_irred_unless. 2: { apply ϕ; rewrite TOP; exists c; eauto. }
-    destruct (hd_error σ.(scs)); by finish_decision.
+    prove_irred_unless.
+    { destruct (hd_error σ.(scs)) as [ c' | ]; first destruct (decide (c' = c));
+        [ finish_decision | | finish_decision ].
+      right. by intros (c'' & [= ->] & [= ->]).
+    }
+    apply ϕ. rewrite TOP; eauto.
   Qed.
 
-  (* TODO: heap operations and retagging *)
+  Global Instance irreducible_retag P σ v pk T rk :
+    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ head σ.(scs) = Some c ∧
+      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag (Val v) pk T rk) σ.
+  Proof.
+    prove_irred_unless.
+    - destruct (hd_error σ.(scs)) as [ c | ]; last finish_decision.
+      destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
+      + left. eauto 8.
+      + right. intros (c' & ot & l' & [= -> ->] & [= ->] & (? & ?)); congruence.
+    - apply ϕ. exists c, otag, l. rewrite RETAG TOP. eauto.
+  Qed.
+  Global Instance irreducible_retag_place P σ l t T T' pk rk :
+    IrredUnless False P (Retag (Place l t T) pk T' rk) σ.
+  Proof. prove_irred_unless. Qed.
+
+  Global Instance irreducible_copy_val P σ v :
+    IrredUnless False P (Copy (Val v)) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_copy_place P σ l t T :
+    IrredUnless (∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp)) P (Copy (Place l t T)) σ.
+  Proof.
+    prove_irred_unless.
+    destruct (read_mem l (tsize T) σ.(shp)) eqn:Heq1; last finish_decision.
+    destruct (memory_read _ _ _ _ _) eqn:Heq2.
+    2: { right; intros (v' & [= ->] & (? & [=]) & _). }
+    destruct (decide (v <<t σ.(snp))); finish_decision.
+  Qed.
+
+  Global Instance irreducible_write_val_left1 P σ v v' :
+    IrredUnless False P (Write (Val v) (Val v')) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_write_val_left2 P σ v l t T :
+    IrredUnless False P (Write (Val v) (Place l t T)) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_write_place_right P σ l' t' T' l t T :
+    IrredUnless False P (Write (Place l' t' T') (Place l t T)) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_write P σ l t T v :
+    IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp)) P (Write (Place l t T) (Val v)) σ.
+  Proof.
+    apply irred_unless_irred_dec; [ | prove_irred].
+    (* TODO*)
+  Admitted.
+
+  Global Instance irreducible_free_val P σ v :
+    IrredUnless False P (Free (Val v)) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_free P σ l t T :
+    IrredUnless ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
+  Proof.
+    prove_irred_unless.
+    (* TODO: use some stuff on maps *)
+  Admitted.
+
+  (* TODO: "weak" instances that do not talk about the heap *)
 
 End irreducible.
-
-

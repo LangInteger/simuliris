@@ -104,7 +104,7 @@ Inductive bin_op :=
 (** Base values *)
 Notation fname := string (only parsing).
 Inductive scalar :=
-  ScPoison | ScInt (n: Z) | ScPtr (l: loc) (tg: tag) | ScFnPtr (fn: fname).
+  ScPoison | ScInt (n: Z) | ScPtr (l: loc) (tg: tag) | ScFnPtr (fn: fname) | ScCallId (c : call_id).
 Bind Scope sc_scope with scalar.
 Definition value := list scalar.
 Bind Scope val_scope with value.
@@ -117,8 +117,8 @@ Inductive expr :=
 | Var (x : string)
 (* function calls *)
 | Call (e1 : expr) (e2 : expr)  (* Call a function through a FnPtr `e1` with argument `e2` *)
-| InitCall                      (* Initializing a stack frame *)
-| EndCall                       (* End the current call  *)
+| InitCall                      (* Initializing a stack frame and return the ID *)
+| EndCall (e : expr)               (* End the current call with ID `e` *)
 (* operations on value *)
 | Proj (e1 e2 : expr)             (* Projection out sub value *)
 | Conc (e1 e2 : expr)             (* concatenate lists of scalars *)
@@ -163,6 +163,7 @@ Arguments Val _%E.
 (* Arguments App _%E _%E. *)
 Arguments BinOp _ _%E _%E.
 Arguments Call _%E _%E.
+Arguments EndCall _%E.
 Arguments Proj _%E _%E.
 Arguments Conc _%E _%E.
 Arguments Deref _%E _%T.
@@ -183,7 +184,7 @@ Arguments Case _%E _%E.
 (** Closedness *)
 Fixpoint is_closed (X : list string) (e : expr) : bool :=
   match e with
-  | Val _ | Place _ _ _ | Alloc _ | InitCall | EndCall (* | SysCall _ *) => true
+  | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
   | BinOp _ e1 e2 | (* AtomWrite e1 e2 | *) Write e1 e2
       | Conc e1 e2 | Proj e1 e2 | Call e1 e2 => is_closed X e1 && is_closed X e2
@@ -191,7 +192,7 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
   | Copy e | Retag e _ _ _ | Deref e _ | Ref e (* | Field e _ *)
-      | Free e  (* | AtomRead e | Fork e *)
+      | Free e | EndCall e (* | AtomRead e | Fork e *)
       => is_closed X e
   (* | CAS e0 e1 e2 => is_closed X e0 && is_closed X e1 && is_closed X e2 *)
   end.
@@ -281,8 +282,8 @@ Inductive event :=
 | DeallocEvt (l : loc) (lbor: tag) (T : type)
 | CopyEvt (l : loc) (lbor : tag) (T : type) (v : value)
 | WriteEvt (l : loc) (lbor : tag) (T : type) (v : value)
-| InitCallEvt
-| EndCallEvt
+| InitCallEvt (c : call_id)
+| EndCallEvt (c : call_id)
 | RetagEvt (l : loc) (otag ntag : tag) (pk : pointer_kind) (T : type) (kind : retag_kind)
 (* | SysCallEvt (id: nat) *)
 | SilentEvt.
