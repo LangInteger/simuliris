@@ -3,6 +3,8 @@ From iris.prelude Require Export prelude.
 From iris.prelude Require Import options.
 From simuliris.simulation Require Import relations.
 
+Definition thread_id := nat.
+
 Section language_mixin.
   Context {expr val ectx state : Type}.
 
@@ -906,6 +908,16 @@ Section language.
     eapply list_lookup_insert, lookup_lt_Some, Hlook.
   Qed.
 
+  Lemma pool_safe_no_forks p T e σ i e' σ':
+    pool_safe p T σ →
+    T !! i = Some e →
+    no_forks p e σ e' σ' →
+    pool_safe p (<[i := e']>T) σ'.
+  Proof.
+    intros Hsafe HT Hnfs.
+    pose proof no_forks_pool_steps _ _ _ _ _ _ _ Hnfs HT as [? [??]].
+    by apply: pool_steps_safe.
+  Qed.
 
   Lemma safe_call_in_prg p K e σ σ' f v:
     safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ K, p !! f = Some K.
@@ -942,6 +954,10 @@ Section language.
     exists T'', σ'', (J ++ I). split; last done.
     by eapply pool_steps_trans.
   Qed.
+
+  Lemma fill_safe P e σ K:
+    safe P (fill K e) σ → safe P e σ.
+  Proof. intros Hsafe ?. apply Hsafe. by apply fill_reach_stuck. Qed.
 
   Lemma safe_no_forks P e σ e' σ':
     safe P e σ → no_forks P e σ e' σ' → safe P e' σ'.

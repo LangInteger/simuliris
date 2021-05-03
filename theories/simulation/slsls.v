@@ -38,17 +38,35 @@ Proof.
   reflexivity.
 Qed.
 
-
-Lemma big_sepL2_persistent_wand  {PROP : bi}  {A B} (Φ Ψ: A → B → PROP) L R:
-  ([∗ list] l;r ∈ L;R, Φ l r) -∗ □ (∀ l r, Φ l r -∗ Ψ l r) -∗ ([∗ list] l;r ∈ L;R, Ψ l r).
+Global Instance uncurry4_ne {A B C D E: ofe} (G: prodO (prodO (prodO A B) C) D -d> E) `{Hne: !NonExpansive G}:
+  NonExpansive (uncurry4 G: A -d> B -d> C -d> D -d> E).
 Proof.
-  iIntros "H #Hmon". iRevert (R) "H".
-  iInduction L as [|l L] "IH"; iIntros (R); destruct R as [|r R]; simpl; auto.
-  iIntros "[H1 H2]". iSplitL "H1"; first by iApply "Hmon".
-  by iApply "IH".
+  solve_proper.
+Qed.
+
+Global Instance curry4_ne {A B C D E: ofe} (G: A -d> B -d> C -d> D -d> E):
+  (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) G) →
+  NonExpansive (curry4 G: prodO (prodO (prodO A B) C) D -d> E).
+Proof.
+  intros Hne ? [[[??]?]?] [[[??]?]?] [[[??]?]?]; simpl.
+  eapply Hne; done.
+Qed.
+
+Lemma curry4_uncurry4 {W X Y Z A: ofe} (f: W * X * Y * Z -> A) (x: prodO (prodO (prodO W X) Y) Z):
+  f x ≡ curry4 (uncurry4 f) x.
+Proof.
+  destruct x as [[[w x] y] z]; reflexivity.
+Qed.
+
+Lemma uncurry4_curry4 {W X Y Z A: ofe} (f: W -d> X -d> Y -d> Z -d> A) :
+  f = uncurry4 (curry4 f).
+Proof.
+  reflexivity.
 Qed.
 
 
+Notation NonExpansive3 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) f).
+Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) f).
 
 
 Section fix_lang.
@@ -65,10 +83,10 @@ Section fix_lang.
 
   Notation expr_rel := (@exprO Λ -d> @exprO Λ -d> PROP).
 
-  Global Instance expr_rel_func_ne (F: expr_rel → expr_rel) `{Hne: !NonExpansive F}:
-    (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) F).
+  Global Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
+    (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) F).
   Proof.
-    intros n Φ Φ' HΦ e_t e_t' ->%discrete_iff%leibniz_equiv e_s e_s' ->%discrete_iff%leibniz_equiv; [|apply _..].
+    intros n Φ Φ' HΦ π π' ->%discrete_iff%leibniz_equiv e_t e_t' ->%discrete_iff%leibniz_equiv e_s e_s' ->%discrete_iff%leibniz_equiv; [|apply _..].
     eapply Hne, HΦ.
   Qed.
 
@@ -81,39 +99,46 @@ Section fix_lang.
 
   Section sim_def.
   Context (val_rel : val Λ → val Λ → PROP).
-  Definition sim_expr_inner (greatest_rec : expr_rel -d> expr_rel) (least_rec : expr_rel -d> expr_rel) : expr_rel -d> expr_rel :=
-    λ Φ e_t e_s,
-    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ -∗ |==>
+
+  (* Thread id must come after postcondition as otherwise NonExpansive
+  applies to the thread id instead of the post-condition. *)
+  Definition sim_expr_inner (greatest_rec :  expr_rel -d> thread_id -d> expr_rel) (least_rec : expr_rel -d> thread_id -d> expr_rel) : expr_rel -d> thread_id -d> expr_rel :=
+    λ Φ π e_t e_s,
+    (∀ P_t σ_t P_s σ_s T_s K_s,
+        state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ -∗ |==>
       (* base case *)
       (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
-        state_interp P_t σ_t P_s σ_s' ∗ Φ e_t e_s')
+        state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t e_s')
 
       ∨ (* step case *)
       (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' efs_t σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ -∗ |==>
         (* stuttering *)
-        (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s ∗ least_rec Φ e_t' e_s) ∨
+        (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ least_rec Φ π e_t' e_s) ∨
         (* take a step *)
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
           ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           ⌜length efs_t = length efs_s⌝ ∗
-          state_interp P_t σ_t' P_s σ_s'' ∗ greatest_rec Φ e_t' e_s'' ∗ [∗ list] e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post val_rel) e_t e_s))
+          state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗ greatest_rec Φ π e_t' e_s'' ∗
+          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post val_rel) (length T_s + π') e_t e_s))
 
       ∨ (* call case *)
-      (∃ f K_t v_t K_s v_s σ_s',
+      (∃ f K_t v_t K_s' v_s σ_s',
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-        ⌜no_forks P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
-        val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
-        (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec Φ (fill K_t (of_val v_t)) (fill K_s (of_val v_s)) ))
+        ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
+        val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
+        (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec Φ π (fill K_t (of_val v_t)) (fill K_s' (of_val v_s)) ))
     )%I.
 
+
   Lemma sim_expr_inner_mono l1 l2 g1 g2:
-    ⊢ □ (∀ Φ e_t e_s, l1 Φ e_t e_s -∗ l2 Φ e_t e_s)
-    → □ (∀ Φ e_t e_s, g1 Φ e_t e_s -∗ g2 Φ e_t e_s)
-    → ∀ Φ e_t e_s, sim_expr_inner g1 l1 Φ e_t e_s -∗ sim_expr_inner g2 l2 Φ e_t e_s.
+    ⊢ □ (∀ Φ π e_t e_s, l1 Φ π e_t e_s -∗ l2 Φ π e_t e_s)
+    → □ (∀ Φ π e_t e_s, g1 Φ π e_t e_s -∗ g2 Φ π e_t e_s)
+    → ∀ Φ π e_t e_s, sim_expr_inner g1 l1 Φ π e_t e_s -∗ sim_expr_inner g2 l2 Φ π e_t e_s.
   Proof.
-    iIntros "#Hleast #Hgreatest" (Φ e_t e_s) "Hsim".
-    rewrite /sim_expr_inner. iIntros (P_t σ_t P_s σ_s) "Ha".
+    iIntros "#Hleast #Hgreatest" (Φ π e_t e_s) "Hsim".
+    rewrite /sim_expr_inner. iIntros (P_t σ_t P_s σ_s T_s K_s) "Ha".
     iMod ("Hsim" with "Ha") as "[Hval | [Hstep | Hcall]]"; iModIntro.
     + iLeft. iApply "Hval".
     + iRight; iLeft. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
@@ -122,25 +147,21 @@ Section fix_lang.
       iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & %Hlen & H4 & H5 & H6)".
       iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame. iSplit; first done.
       iSplitL "H5"; first by iApply "Hgreatest".
-      iApply (big_sepL2_wand with "H6 []"); simpl.
-      iRevert (efs_s Hlen); clear; iInduction efs_t as [|e_t efs_t] "IHt";
-      iIntros (efs_s Hlen); destruct efs_s as [|e_s efs_s]; simpl; [naive_solver..|].
-      iSplitL ""; first iApply "Hgreatest".
-      assert (length efs_t = length efs_s) as Hlen' by naive_solver.
-      iSpecialize ("IHt" $! efs_s Hlen'). done.
-    + iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s') "(H1& H2& H3& H4&H5)".
-      iExists (f), (K_t), (v_t), (K_s), (v_s), (σ_s'). iFrame.
+      iApply (big_sepL2_impl with "H6 []"); simpl.
+      iIntros "!>" (?????). by iApply "Hgreatest".
+    + iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s' v_s σ_s') "(H1& H2& H3& H4&H5)".
+      iExists (f), (K_t), (v_t), (K_s'), (v_s), (σ_s'). iFrame.
       iIntros (? ?) "H1". iApply "Hgreatest". by iApply "H5".
   Qed.
 
   (* the strongest monotonicity lemma we can prove, allows for changing the post condition and recursive occurrences *)
   Lemma sim_expr_inner_strong_mono l1 l2 g1 g2:
-    ⊢ □ (∀ Φ Ψ, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ ∀ e_t e_s, l1 Φ e_t e_s -∗ l2 Ψ e_t e_s)
-    → □ (∀ Φ Ψ, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ ∀ e_t e_s, g1 Φ e_t e_s -∗ g2 Ψ e_t e_s)
-    → ∀ Φ Ψ, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ ∀ e_t e_s, sim_expr_inner g1 l1 Φ e_t e_s -∗ sim_expr_inner g2 l2 Ψ e_t e_s.
+    ⊢ □ (∀ Φ π Ψ, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ ∀ e_t e_s, l1 Φ π e_t e_s -∗ l2 Ψ π e_t e_s)
+    → □ (∀ Φ π Ψ, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ ∀ e_t e_s, g1 Φ π e_t e_s -∗ g2 Ψ π e_t e_s)
+    → ∀ Φ π Ψ, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ ∀ e_t e_s, sim_expr_inner g1 l1 Φ π e_t e_s -∗ sim_expr_inner g2 l2 Ψ π e_t e_s.
   Proof.
-    iIntros "#Hleast #Hgreatest" (Φ Ψ) "HΦΨ". iIntros (e_t e_s) "Hsim".
-    rewrite /sim_expr_inner. iIntros (P_t σ_t P_s σ_s) "Ha".
+    iIntros "#Hleast #Hgreatest" (Φ π Ψ) "HΦΨ". iIntros (e_t e_s) "Hsim".
+    rewrite /sim_expr_inner. iIntros (P_t σ_t P_s σ_s T_s K_s) "Ha".
     iMod ("Hsim" with "Ha") as "[Hval | [Hstep | Hcall]]"; iModIntro.
     + iLeft. iDestruct "Hval" as (e_s' σ_s') "(Hnf & SI & HΦ)".
       iExists e_s', σ_s'. iFrame. by iApply "HΦΨ".
@@ -150,135 +171,130 @@ Section fix_lang.
       iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & %Hlen & H4 & H5 & H6)".
       iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame. iSplit; first done.
       iSplitL "H5 HΦΨ"; first by iApply ("Hgreatest" with "HΦΨ H5").
-      iApply (big_sepL2_wand with "H6 []"); simpl.
-      iRevert (efs_s Hlen); clear; iInduction efs_t as [|e_t efs_t] "IHt";
-      iIntros (efs_s Hlen); destruct efs_s as [|e_s efs_s]; simpl; [naive_solver..|].
-      iSplitL "".
-      { iApply ("Hgreatest" $! (lift_post val_rel) (lift_post val_rel) with "[]").
-        iIntros (e_t' e_s') "$". }
-      assert (length efs_t = length efs_s) as Hlen' by naive_solver.
-      iSpecialize ("IHt" $! efs_s Hlen'). done.
-    + iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s') "(H1& H2& H3& H4&H5)".
-      iExists (f), (K_t), (v_t), (K_s), (v_s), (σ_s'). iFrame.
+      iApply (big_sepL2_impl with "H6 []"); simpl.
+      iIntros "!>" (?????) "Hg". iApply ("Hgreatest" with "[] Hg").
+      by iIntros (??) "?".
+    + iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s' v_s σ_s') "(H1& H2& H3& H4&H5)".
+      iExists (f), (K_t), (v_t), (K_s'), (v_s), (σ_s'). iFrame.
       iIntros (? ?) "H1". iApply ("Hgreatest" with "HΦΨ [H5 H1]").
       by iApply "H5".
   Qed.
 
   Instance sim_expr_inner_ne:
-    ∀n, Proper ((dist n ==> dist n) ==> (dist n ==> dist n) ==> dist n ==> dist n ==> dist n ==> dist n) sim_expr_inner.
+    ∀n, Proper ((dist n ==> dist n ==> dist n) ==> (dist n ==> dist n ==> dist n) ==> dist n ==> dist n ==> dist n ==> dist n ==> dist n) sim_expr_inner.
   Proof.
-    intros n G1 G2 HG L1 L2 HL Φ Ψ HΦΨ e_t e_t' Ht%discrete_iff%leibniz_equiv e_s e_s' Hs%discrete_iff%leibniz_equiv; [|apply _..].
+    intros n G1 G2 HG L1 L2 HL Φ Ψ HΦΨ π π' Hπ%discrete_iff%leibniz_equiv e_t e_t' Ht%discrete_iff%leibniz_equiv e_s e_s' Hs%discrete_iff%leibniz_equiv; [|apply _..].
     subst; rewrite /sim_expr_inner.
-    repeat (f_equiv || apply HΦΨ || eapply HL || eapply HG).
+    repeat (f_equiv || apply HΦΨ || eapply HL || eapply HG || reflexivity).
   Qed.
 
   Instance sim_expr_inner_proper:
-    Proper ((equiv ==> equiv) ==> (equiv ==> equiv) ==> equiv ==> equiv ==> equiv ==> equiv) sim_expr_inner.
+    Proper ((equiv ==> equiv ==> equiv) ==> (equiv ==> equiv ==> equiv) ==> equiv ==> equiv ==> equiv ==> equiv ==> equiv) sim_expr_inner.
   Proof.
-    intros G1 G2 HG L1 L2 HL Φ Ψ HΦΨ e_t e_t' Ht%leibniz_equiv e_s e_s' Hs%leibniz_equiv.
+    intros G1 G2 HG L1 L2 HL Φ Ψ HΦΨ π π' Hπ%leibniz_equiv e_t e_t' Ht%leibniz_equiv e_s e_s' Hs%leibniz_equiv.
     subst; rewrite /sim_expr_inner.
-    repeat (f_equiv || apply HΦΨ || eapply HL || eapply HG).
+    repeat (f_equiv || apply HΦΨ || eapply HL || eapply HG || reflexivity).
   Qed.
 
-  Local Instance least_def_body_mono greatest_rec :
+  Local Instance least_def_body_mono (greatest_rec : (expr_rel -d> thread_id -d> expr_rel)) :
     NonExpansive (greatest_rec) →
-    BiMonoPred (λ (least_rec: prodO (prodO (exprO -d> exprO -d> PROP) exprO) exprO -d> PROP), curry3 (sim_expr_inner greatest_rec (uncurry3 least_rec))).
+    BiMonoPred (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO -d> PROP), curry4 (sim_expr_inner greatest_rec (uncurry4 least_rec))).
   Proof.
     intros Hg; constructor.
     - intros L1 L2 HL1 HL2. iIntros "#H" (x).
-      destruct x as ((Φ & e_t) & e_s); simpl.
+      destruct x as (((Φ & π) & e_t) & e_s); simpl.
       iApply (sim_expr_inner_mono with "[] []"); iModIntro; clear.
-      { iIntros (G e_t e_s); unfold uncurry3; iApply "H". }
-      iIntros (G e_t e_s) "$".
+      { iIntros (G π e_t e_s); unfold uncurry4; iApply "H". }
+      iIntros (G π e_t e_s) "$".
     - intros l Hne n x y Heq.
-      destruct x as ((Φ & e_t) & e_s); simpl.
-      destruct y as ((Ψ & e_t') & e_s'); simpl.
-      destruct Heq as [[Heq1 Heq2] Heq3]; simpl in Heq1, Heq2, Heq3.
+      destruct x as (((Φ & π) & e_t) & e_s); simpl.
+      destruct y as (((Ψ & π') & e_t') & e_s'); simpl.
+      destruct Heq as [[[Heq1 Heq2] Heq3] Heq4]; simpl in Heq1, Heq2, Heq3, Heq4.
       eapply sim_expr_inner_ne; eauto.
-      + eapply Hg.
-      + intros ?????; rewrite /uncurry3. eapply Hne.
+      + intros ?????->%leibniz_equiv. by eapply Hg.
+      + intros ????????; rewrite /uncurry4. eapply Hne.
         repeat split; simpl; done.
   Qed.
 
-  Definition least_def (greatest_rec : expr_rel -d> expr_rel) : expr_rel -d> expr_rel :=
-    uncurry3 (bi_least_fixpoint (λ (least_rec: prodO (prodO (exprO -d> exprO -d> PROP) exprO) exprO → PROP), curry3 (sim_expr_inner greatest_rec (uncurry3 least_rec)))).
+  Definition least_def (greatest_rec : expr_rel -d> thread_id -d> expr_rel) : expr_rel -d> thread_id -d> expr_rel :=
+    uncurry4 (bi_least_fixpoint (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (sim_expr_inner greatest_rec (uncurry4 least_rec)))).
 
 
   Global Instance least_def_ne :
-    NonExpansive2 least_def.
+    NonExpansive4 least_def.
   Proof.
-    rewrite /least_def; intros n x y Heq ?????.
-    rewrite {1 3}/uncurry3. apply least_fixpoint_ne; last by repeat split.
-    intros ? [[] ?]; simpl.
+    rewrite /least_def; intros n x y Heq ??????????.
+    rewrite {1 3}/uncurry4. apply least_fixpoint_ne; last by repeat split.
+    intros ? [[[??]?] ?]; simpl.
     rewrite /sim_expr_inner. repeat f_equiv; apply Heq.
   Qed.
 
-  Lemma least_def_mono R R' Φ e_t e_s:
-    NonExpansive (R': expr_rel -d> expr_rel) →
-    <pers> (∀ Φ e_t e_s, R Φ e_t e_s -∗ R' Φ e_t e_s) -∗
-    least_def R Φ e_t e_s -∗ least_def R' Φ e_t e_s.
+  Lemma least_def_mono R R' π Φ e_t e_s:
+    NonExpansive (R': expr_rel -d> thread_id -d> expr_rel) →
+    <pers> (∀ Φ π e_t e_s, R Φ π e_t e_s -∗ R' Φ π e_t e_s) -∗
+    least_def R Φ π e_t e_s -∗ least_def R' Φ π e_t e_s.
   Proof.
-    iIntros (Hne) "#Hmon". rewrite /least_def {1 3}/uncurry3.
-    iIntros "Hleast". iApply (least_fixpoint_ind with "[] Hleast"); clear Φ e_t e_s.
-    iModIntro. iIntros ([[Φ e_t] e_s]).
+    iIntros (Hne) "#Hmon". rewrite /least_def {1 3}/uncurry4.
+    iIntros "Hleast". iApply (least_fixpoint_ind with "[] Hleast"); clear Φ π e_t e_s.
+    iModIntro. iIntros ([[[Φ π] e_t] e_s]).
     erewrite least_fixpoint_unfold; last first.
     { eapply least_def_body_mono, _. }
-    rewrite {1 3}/curry3.
+    rewrite {1 3}/curry4.
     iApply (sim_expr_inner_mono with "[] []").
-    { iModIntro. iIntros (Φ' e_t' e_s') "$". }
-      iModIntro; iIntros (Φ' e_t' e_s'); by iApply "Hmon".
+    { iModIntro. iIntros (Φ' π' e_t' e_s') "$". }
+      iModIntro; iIntros (Φ' π' e_t' e_s'); by iApply "Hmon".
   Qed.
 
-  Lemma least_def_unfold G Φ e_t e_s:
+  Lemma least_def_unfold G π Φ e_t e_s:
     NonExpansive G →
-    least_def G Φ e_t e_s ≡ sim_expr_inner G (least_def G) Φ e_t e_s.
+    least_def G Φ π e_t e_s ≡ sim_expr_inner G (least_def G) Φ π e_t e_s.
   Proof.
-    intros ?; rewrite {1}/least_def {1}/uncurry3 least_fixpoint_unfold {1}/curry3 //=.
+    intros ?; rewrite {1}/least_def {1}/uncurry4 least_fixpoint_unfold {1}/curry4 //=.
   Qed.
 
   Instance greatest_def_body_mono :
-    BiMonoPred (λ (greatest_rec: prodO (prodO (exprO -d> exprO -d> PROP) exprO) exprO → PROP), curry3 (least_def (uncurry3 greatest_rec))).
+    BiMonoPred (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (least_def (uncurry4 greatest_rec))).
   Proof.
     constructor.
     - intros G1 G2 HG1 HG2. iIntros "#H" (x).
-      destruct x as [[Φ e_t] e_s]; rewrite /curry3.
+      destruct x as [[[Φ π] e_t] e_s]; rewrite /curry4.
       iApply least_def_mono. iModIntro.
-      iIntros (Φ' e_t' e_s'); iApply "H".
-    - intros G Hne n x y Heq. rewrite /least_def -!curry3_uncurry3.
+      iIntros (Φ' π' e_t' e_s'); iApply "H".
+    - intros G Hne n x y Heq. rewrite /least_def -!curry4_uncurry4.
       eapply least_fixpoint_ne'; last done.
-      intros L HL m [[Φ e_t] e_s] [[Ψ e_t'] e_s'] Heq'; simpl.
+      intros L HL m [[[Φ π] e_t] e_s] [[[Ψ π'] e_t'] e_s'] Heq'; simpl.
       eapply sim_expr_inner_ne; [| |eapply Heq'..].
-      + eapply uncurry3_ne, Hne.
-      + eapply uncurry3_ne, HL.
+      + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply Hne | done].
+      + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply HL | done].
   Qed.
 
-  Definition greatest_def : expr_rel -d> expr_rel :=
-    uncurry3 (bi_greatest_fixpoint (λ (greatest_rec: prodO (prodO (exprO -d> exprO -d> PROP) exprO) exprO → PROP), curry3 (least_def (uncurry3 greatest_rec)))).
+  Definition greatest_def : expr_rel -d> thread_id -d> expr_rel :=
+    uncurry4 (bi_greatest_fixpoint (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (least_def (uncurry4 greatest_rec)))).
 
-  Lemma greatest_def_unfold Φ e_t e_s:
-    greatest_def Φ e_t e_s ≡ least_def greatest_def Φ e_t e_s.
+  Lemma greatest_def_unfold Φ π e_t e_s:
+    greatest_def Φ π e_t e_s ≡ least_def greatest_def Φ π e_t e_s.
   Proof.
-    rewrite {1}/greatest_def {1}/uncurry3 greatest_fixpoint_unfold {1}/curry3 //=.
+    rewrite {1}/greatest_def {1}/uncurry4 greatest_fixpoint_unfold {1}/curry4 //=.
   Qed.
 
   Global Instance greatest_def_ne: NonExpansive greatest_def.
-  Proof. eapply @uncurry3_ne. solve_proper. Qed.
+  Proof. eapply @uncurry4_ne. solve_proper. Qed.
 
-  Global Instance greatest_def_proper: Proper (equiv ==> equiv ==> equiv ==> equiv) greatest_def.
+  Global Instance greatest_def_proper: Proper (equiv ==> equiv ==> equiv ==> equiv ==> equiv) greatest_def.
   Proof.
-    intros Φ Ψ Heq e_t e_t' <-%leibniz_equiv e_s e_s' <-%leibniz_equiv.
-    revert e_t e_s. change (greatest_def Φ ≡ greatest_def Ψ).
+    intros Φ Ψ Heq π π' <-%leibniz_equiv e_t e_t' <-%leibniz_equiv e_s e_s' <-%leibniz_equiv.
+    revert π e_t e_s. change (greatest_def Φ ≡ greatest_def Ψ).
     eapply ne_proper; first apply _. done.
   Qed.
 
-  Lemma greatest_def_fixpoint Φ e_t e_s:
-    greatest_def Φ e_t e_s ≡ sim_expr_inner greatest_def greatest_def Φ e_t e_s.
+  Lemma greatest_def_fixpoint Φ π e_t e_s:
+    greatest_def Φ π e_t e_s ≡ sim_expr_inner greatest_def greatest_def Φ π e_t e_s.
   Proof.
     rewrite greatest_def_unfold least_def_unfold.
     eapply sim_expr_inner_proper; eauto.
     - solve_proper.
-    - intros Φ' Ψ' Heq. intros ??. rewrite -greatest_def_unfold.
-      f_equiv. done.
+    - intros Φ' Ψ' Heq. intros ??? ??. rewrite -greatest_def_unfold.
+      f_equiv; done.
   Qed.
 
   End sim_def.
@@ -288,148 +304,151 @@ Section fix_lang.
   Definition sim_expr_aux : seal (λ Ω, greatest_def Ω).
   Proof. by eexists. Qed.
   Global Instance sim_expr_stutter : SimE s := (sim_expr_aux).(unseal).
-  Lemma sim_expr_eq : sim_expr = λ Ω Φ e_t e_s, @greatest_def Ω Φ e_t e_s.
+  Lemma sim_expr_eq : sim_expr = λ Ω Φ π e_t e_s, @greatest_def Ω Φ π e_t e_s.
   Proof. rewrite -sim_expr_aux.(seal_eq) //. Qed.
 
   Lemma lift_post_val Φ v_t v_s : Φ v_t v_s -∗ lift_post Φ (of_val v_t) (of_val v_s).
   Proof. iIntros "?"; iExists v_t, v_s; eauto using to_of_val. Qed.
-  Definition sim_def Ω (Φ : val Λ → val Λ → PROP) e_t e_s  :=
-    sim_expr Ω (lift_post Φ) e_t e_s.
+  Definition sim_def Ω (Φ : val Λ → val Λ → PROP) π e_t e_s  :=
+    sim_expr Ω (lift_post Φ) π e_t e_s.
   Global Instance sim_stutter : Sim s := sim_def.
 
-  Lemma sim_expr_fixpoint Ω Φ e_t e_s:
-    sim_expr Ω Φ e_t e_s ⊣⊢ sim_expr_inner Ω (sim_expr Ω) (sim_expr Ω) Φ e_t e_s.
+  Lemma sim_expr_fixpoint Ω Φ π e_t e_s:
+    sim_expr Ω Φ π e_t e_s ⊣⊢ sim_expr_inner Ω (sim_expr Ω) (sim_expr Ω) Φ π e_t e_s.
   Proof.
     rewrite sim_expr_eq greatest_def_fixpoint //.
   Qed.
 
-  Lemma sim_expr_unfold Ω Φ e_t e_s:
-    sim_expr Ω Φ e_t e_s ⊣⊢
-    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ -∗ |==>
+  Lemma sim_expr_unfold Ω Φ π e_t e_s:
+    sim_expr Ω Φ π e_t e_s ⊣⊢
+    (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ -∗ |==>
       (* base case *)
       (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
-        state_interp P_t σ_t P_s σ_s' ∗ Φ e_t e_s')
+        state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t e_s')
 
       ∨ (* step case *)
       (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' efs_t σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ -∗ |==>
         (* stuttering *)
-        (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s ∗ sim_expr Ω Φ e_t' e_s) ∨
+        (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ sim_expr Ω Φ π e_t' e_s) ∨
         (* take a step *)
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
           ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           (* TODO: This length constraint is unnecessary as it is implied by the big_sepL2. *)
           ⌜length efs_t = length efs_s⌝ ∗
-          state_interp P_t σ_t' P_s σ_s'' ∗ sim_expr Ω Φ e_t' e_s'' ∗ [∗ list] e_t; e_s ∈ efs_t; efs_s, sim_expr Ω (lift_post Ω) e_t e_s))
+          state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗
+          sim_expr Ω Φ π e_t' e_s'' ∗
+          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, sim_expr Ω (lift_post Ω) (length T_s + π') e_t e_s))
 
       ∨ (* call case *)
-      (∃ f K_t v_t K_s v_s σ_s',
+      (∃ f K_t v_t K_s' v_s σ_s',
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-        ⌜no_forks P_s e_s σ_s (fill K_s (of_call f v_s)) σ_s'⌝ ∗
-        Ω v_t v_s ∗ state_interp P_t σ_t P_s σ_s' ∗
-        sim_expr_ectx Ω K_t K_s Φ)
+        ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
+        Ω v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
+        sim_expr_ectx Ω π K_t K_s' Φ)
     )%I.
   Proof.
     rewrite /sim_expr_ectx sim_expr_fixpoint /sim_expr_inner //.
   Qed.
 
   Global Instance sim_expr_ne Ω:
-    NonExpansive (sim_expr Ω: expr_rel → expr_rel).
+    NonExpansive4 (sim_expr Ω: expr_rel → thread_id → expr_rel).
   Proof. rewrite sim_expr_eq. apply _. Qed.
 
   Global Instance sim_expr_proper Ω:
-    Proper ((pointwise_relation (expr Λ) (pointwise_relation (expr Λ) (≡))) ==> eq ==> eq ==> (≡)) (sim_expr Ω).
+    Proper ((pointwise_relation (expr Λ) (pointwise_relation (expr Λ) (≡))) ==> eq ==> eq ==> eq ==> (≡)) (sim_expr Ω).
   Proof.
-    intros p1 p2 Heq2 e e' -> e1 e1' ->.
+    intros p1 p2 Heq2 π π' -> e e' -> e1 e1' ->.
     rewrite !sim_expr_eq. eapply greatest_def_proper; done.
   Qed.
 
 
   Existing Instances least_def_body_mono greatest_def_body_mono.
   (* any post-fixed point is included in the gfp *)
-  Lemma sim_expr_strong_coind Ω (F : expr_rel → expr_rel) :
+  Lemma sim_expr_strong_coind Ω (F : expr_rel → thread_id -d> expr_rel) :
     NonExpansive F →
-    ⊢ (□ ∀ Φ e_t e_s, F Φ e_t e_s -∗ least_def Ω (λ Φ e_t e_s, F Φ e_t e_s ∨ sim_expr Ω Φ e_t e_s) Φ e_t e_s)
-      -∗ ∀ Φ e_t e_s, F Φ e_t e_s -∗ sim_expr Ω Φ e_t e_s.
+    ⊢ (□ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ least_def Ω (λ Φ π e_t e_s, F Φ π e_t e_s ∨ sim_expr Ω Φ π e_t e_s) Φ π e_t e_s)
+      -∗ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ sim_expr Ω Φ π e_t e_s.
   Proof.
-    iIntros (Hprop) "#HPre". iIntros (Φ e_t e_s) "HF".
-    rewrite sim_expr_eq /greatest_def {3}/uncurry3.
-    set (F_curry := curry3 F).
-    assert (NonExpansive F_curry) as Hne by eapply @curry3_ne, _.
-    change (F Φ e_t e_s) with (F_curry (Φ, e_t, e_s)).
-    remember (Φ, e_t, e_s) as p. rewrite -Heqp; clear Φ e_t e_s Heqp.
+    iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
+    rewrite sim_expr_eq /greatest_def {3}/uncurry4.
+    set (F_curry := curry4 F).
+    assert (NonExpansive F_curry) as Hne; first by eapply @curry4_ne, _.
+    change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
+    remember (Φ, π, e_t, e_s) as p. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (greatest_fixpoint_strong_coind _ F_curry with "[] HF").
-    iModIntro. iIntros ([[Φ e_t] e_s]); simpl.
+    iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry.
-    iApply ("HPre" $! Φ e_t e_s).
+    iApply ("HPre" $! Φ π e_t e_s).
   Qed.
 
-  Lemma sim_expr_coind Ω (F : expr_rel → expr_rel) :
+  Lemma sim_expr_coind Ω (F : expr_rel → thread_id -d> expr_rel) :
     NonExpansive F →
-    ⊢ (□ ∀ Φ e_t e_s, F Φ e_t e_s -∗ least_def Ω F Φ e_t e_s)
-      -∗ ∀ Φ e_t e_s, F Φ e_t e_s -∗ sim_expr Ω Φ e_t e_s.
+    ⊢ (□ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ least_def Ω F Φ π e_t e_s)
+      -∗ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ sim_expr Ω Φ π e_t e_s.
   Proof.
-    iIntros (Hprop) "#HPre". iIntros (Φ e_t e_s) "HF".
-    iApply (sim_expr_strong_coind with "[] HF"); clear Φ e_t e_s.
-    iModIntro; iIntros (Φ e_t e_s) "HF".
+    iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
+    iApply (sim_expr_strong_coind with "[] HF"); clear Φ π e_t e_s.
+    iModIntro; iIntros (Φ π e_t e_s) "HF".
     iDestruct ("HPre" with "HF") as "HF".
     iApply (least_def_mono with "[] HF"); first by solve_proper.
-    iModIntro. clear Φ e_t e_s. iIntros (Φ e_t e_s) "HF". by iLeft.
+    iModIntro. clear Φ π e_t e_s. iIntros (Φ π e_t e_s) "HF". by iLeft.
   Qed.
 
-  Lemma least_def_strong_ind Ω (F R: expr_rel → expr_rel):
+  Lemma least_def_strong_ind Ω (F R: expr_rel → thread_id -d> expr_rel):
     NonExpansive R →
     NonExpansive F →
-    ⊢ (□ ∀ Φ e_t e_s, sim_expr_inner Ω R (λ Ψ e_t e_s, F Ψ e_t e_s ∧ least_def Ω R Ψ e_t e_s) Φ e_t e_s -∗ F Φ e_t e_s)
-      -∗ ∀ Φ e_t e_s, least_def Ω R Φ e_t e_s -∗ F Φ e_t e_s.
+    ⊢ (□ ∀ Φ π e_t e_s, sim_expr_inner Ω R (λ Ψ π e_t e_s, F Ψ π e_t e_s ∧ least_def Ω R Ψ π e_t e_s) Φ π e_t e_s -∗ F Φ π e_t e_s)
+      -∗ ∀ Φ π e_t e_s, least_def Ω R Φ π e_t e_s -∗ F Φ π e_t e_s.
   Proof.
-    iIntros (Hne1 Hne2) "#HPre". iIntros (Φ e_t e_s) "HF".
-    rewrite {2}/least_def {1}/uncurry3.
-    set (F_curry := curry3 F).
-    assert (NonExpansive F_curry) by eapply @curry3_ne, _.
-    change (F Φ e_t e_s) with (F_curry (Φ, e_t, e_s)).
-    remember (Φ, e_t, e_s) as p. rewrite -Heqp; clear Φ e_t e_s Heqp.
+    iIntros (Hne1 Hne2) "#HPre". iIntros (Φ π e_t e_s) "HF".
+    rewrite {2}/least_def {1}/uncurry4.
+    set (F_curry := curry4 F).
+    assert (NonExpansive F_curry); first by eapply @curry4_ne, _.
+    change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
+    remember (Φ, π, e_t, e_s) as p. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (least_fixpoint_strong_ind _ F_curry with "[] HF").
-    iModIntro. iIntros ([[Φ e_t] e_s]); simpl.
-    rewrite /F_curry {1}/uncurry3 {1}/curry3.
+    iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
+    rewrite /F_curry {1}/uncurry4 {1}/curry4.
     iIntros "H". iApply "HPre". iExact "H".
   Qed.
 
-  Lemma least_def_ind Ω (F R: expr_rel → expr_rel):
+  Lemma least_def_ind Ω (F R: expr_rel → thread_id -d> expr_rel):
     NonExpansive R →
     NonExpansive F →
-    ⊢ (□ ∀ Φ e_t e_s, sim_expr_inner Ω R F Φ e_t e_s -∗ F Φ e_t e_s)
-      -∗ ∀ Φ e_t e_s, least_def Ω R Φ e_t e_s -∗ F Φ e_t e_s.
+    ⊢ (□ ∀ Φ π e_t e_s, sim_expr_inner Ω R F Φ π e_t e_s -∗ F Φ π e_t e_s)
+      -∗ ∀ Φ π e_t e_s, least_def Ω R Φ π e_t e_s -∗ F Φ π e_t e_s.
   Proof.
     iIntros (Hne1 Hne2) "#HPre". iApply least_def_strong_ind.
-    iModIntro. iIntros (Φ e_t e_s) "Hsim".
+    iModIntro. iIntros (Φ π e_t e_s) "Hsim".
     iApply "HPre". iApply (sim_expr_inner_mono with "[] [] Hsim"); last by auto.
-    iModIntro. iIntros (Φ' e_t' e_s') "H". iApply bi.and_elim_l. iApply "H".
+    iModIntro. iIntros (Φ' π' e_t' e_s') "H". iApply bi.and_elim_l. iApply "H".
   Qed.
 
   (* we change the predicate beause at every recursive ocurrence,
      we give back ownership of the monotonicity assumption *)
-  Lemma least_def_strong_mono Ω rec Φ Φ' e_t e_s:
+  Lemma least_def_strong_mono Ω (rec : expr_rel → thread_idO -d> expr_rel) Φ Φ' π e_t e_s:
     NonExpansive rec →
      (∀ e_t e_s, Φ e_t e_s ==∗ Φ' e_t e_s) -∗
-     least_def Ω rec Φ e_t e_s -∗
-     least_def Ω (λ Ψ e_t e_s, rec Φ e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ e_t e_s) Φ' e_t e_s.
+     least_def Ω rec Φ π e_t e_s -∗
+     least_def Ω (λ Ψ π e_t e_s, rec Φ π e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ π e_t e_s) Φ' π e_t e_s.
   Proof.
     iIntros (Hne) "Hmon Hleast". iRevert (Φ') "Hmon".
-    pose (rec' := (λ Φ Ψ e_t e_s, rec Φ e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ e_t e_s)%I).
-    pose (F_ind := (λ Φ e_t e_s, ∀ Φ', (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ least_def Ω (rec' Φ) Φ' e_t e_s)%I).
-    assert (NonExpansive2 (rec': expr_rel -d> expr_rel -d> expr_rel)) as Rne.
-    { intros m Φ' Φ'' Heq1 Ψ Ψ' Heq2 ??; rewrite /rec'.
+    pose (rec' := (λ Φ Ψ π e_t e_s, rec Φ π e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ π e_t e_s)%I).
+    pose (F_ind := (λ Φ π e_t e_s, ∀ Φ', (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ least_def Ω (rec' Φ) Φ' π e_t e_s)%I).
+    assert (NonExpansive2 (rec': expr_rel -d> expr_rel -d> thread_idO -d> expr_rel)) as Rne.
+    { intros m Φ' Φ'' Heq1 Ψ Ψ' Heq2 ???; rewrite /rec'.
       solve_proper_core ltac:(fun x => f_equiv || apply Heq1 || apply Heq2). }
-    assert (NonExpansive (F_ind: expr_rel -d> expr_rel)).
-    { clear Φ e_t e_s. intros n Φ Ψ Heq e_t e_s.
+    assert (NonExpansive (F_ind: expr_rel -d> thread_idO -d> expr_rel)).
+    { clear Φ π e_t e_s. intros n Φ Ψ Heq π e_t e_s.
       rewrite /F_ind; do 3 f_equiv; first (repeat f_equiv; by apply Heq).
-      eapply least_def_ne; last done. intros ?. eapply (Rne n Φ Ψ Heq). done. }
-    iApply (least_def_ind Ω F_ind rec with "[] Hleast"); clear Φ e_t e_s.
-    iModIntro. iIntros (Φ e_t e_s) "Hrec". iIntros (Φ') "Hmon".
+      eapply least_def_ne; [ |done..]. intros ?. eapply (Rne n Φ Ψ Heq). done. }
+    iApply (least_def_ind Ω F_ind rec with "[] Hleast"); clear Φ π e_t e_s.
+    iModIntro. iIntros (Φ π e_t e_s) "Hrec". iIntros (Φ') "Hmon".
     rewrite least_def_unfold /sim_expr_inner.
 
-    iIntros (P_t σ_t P_s σ_s) "Ha".
+    iIntros (P_t σ_t P_s σ_s T_s K_s) "Ha".
     iMod ("Hrec" with "Ha") as "[Hval | [Hstep | Hcall]]".
     + iLeft. iDestruct "Hval" as (e_s' σ_s') "(Hnf & SI & HΦ)".
       iExists e_s', σ_s'. iFrame. by iApply "Hmon".
@@ -439,47 +458,47 @@ Section fix_lang.
       iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & %Hlen & H4 & H5 & H6)".
       iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame. iSplit; first done.
       iSplitL "H5 Hmon"; first by rewrite /rec'; iLeft; iFrame.
-      iApply (big_sepL2_persistent_wand with "H6 []").
-      iModIntro. iIntros (? ?) "?"; by iRight.
-    + iModIntro; iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s') "(H1& H2& H3& H4&H5)".
-      iExists (f), (K_t), (v_t), (K_s), (v_s), (σ_s'). iFrame.
+      iApply (big_sepL2_impl with "H6").
+      iIntros "!>" (?????) "?"; by iRight.
+    + iModIntro; iRight; iRight. iDestruct "Hcall" as (f K_t v_t K_s' v_s σ_s') "(H1& H2& H3& H4&H5)".
+      iExists (f), (K_t), (v_t), (K_s'), (v_s), (σ_s'). iFrame.
       iIntros (? ?) "H1". iLeft. iFrame. iApply ("H5" with "H1").
   Qed.
 
-  Lemma sim_expr_bupd_mono Ω Φ Φ' e_t e_s:
-    (∀ e_t e_s, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ e_t ⪯{Ω} e_s [{ Φ }] -∗ e_t ⪯{Ω} e_s [{ Φ' }].
+  Lemma sim_expr_bupd_mono Ω Φ Φ' π e_t e_s:
+    (∀ e_t e_s, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ e_t ⪯{π, Ω} e_s [{ Φ }] -∗ e_t ⪯{π, Ω} e_s [{ Φ' }].
   Proof.
     iIntros "Ha Hmon".
-    iApply (sim_expr_strong_coind Ω (λ Ψ e_t e_s, e_t ⪯{Ω} e_s [{ Φ }] ∗ (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Ψ e_t e_s))%I); last by iFrame.
-    { intros n Ψ Ψ' Heq e_t' e_s'. repeat f_equiv. by eapply Heq. }
-    iModIntro. clear Φ' e_t e_s. iIntros (Φ' e_t e_s) "[Ha Hmon]".
+    iApply (sim_expr_strong_coind Ω (λ Ψ π e_t e_s, e_t ⪯{π, Ω} e_s [{ Φ }] ∗ (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Ψ e_t e_s))%I); last by iFrame.
+    { intros n Ψ Ψ' Heq π' e_t' e_s'. repeat f_equiv. by eapply Heq. }
+    iModIntro. clear Φ' π e_t e_s. iIntros (Φ' π e_t e_s) "[Ha Hmon]".
     rewrite sim_expr_eq greatest_def_unfold.
     iApply (least_def_strong_mono with "Hmon Ha").
   Qed.
 
-  Lemma sim_expr_mono Ω Φ Φ' e_t e_s:
-    (∀ e_t e_s, Φ e_t e_s -∗ Φ' e_t e_s) -∗ e_t ⪯{Ω} e_s [{ Φ }] -∗ e_t ⪯{Ω} e_s [{ Φ' }].
+  Lemma sim_expr_mono Ω Φ Φ' π e_t e_s:
+    (∀ e_t e_s, Φ e_t e_s -∗ Φ' e_t e_s) -∗ e_t ⪯{π, Ω} e_s [{ Φ }] -∗ e_t ⪯{π, Ω} e_s [{ Φ' }].
   Proof.
     iIntros "Hmon Ha". iApply (sim_expr_bupd_mono with "[Hmon] Ha").
     iIntros (??) "?". iModIntro. by iApply "Hmon".
   Qed.
 
 
-  Lemma sim_expr_inner_base Ω G L Φ e_t e_s :
-    ⊢ (Φ e_t e_s) -∗ sim_expr_inner Ω G L Φ e_t e_s.
+  Lemma sim_expr_inner_base Ω G L Φ π e_t e_s :
+    ⊢ (Φ e_t e_s) -∗ sim_expr_inner Ω G L Φ π e_t e_s.
   Proof.
-    iIntros "He". rewrite /sim_expr. iIntros (????) "[Hstate Hreach]".
-    iModIntro. iLeft. iExists e_s, σ_s. iFrame. iPureIntro. constructor.
+    iIntros "He". rewrite /sim_expr. iIntros (??????) "[Hstate [% %]]".
+    iModIntro. iLeft. iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro. constructor.
   Qed.
 
-  Lemma sim_expr_base Ω Φ e_t e_s :
-    ⊢ (Φ e_t e_s) -∗ sim_expr Ω Φ e_t e_s.
+  Lemma sim_expr_base Ω Φ e_t e_s π :
+    ⊢ (Φ e_t e_s) -∗ sim_expr Ω Φ π e_t e_s.
   Proof.
     iIntros "He". iApply sim_expr_fixpoint. by iApply sim_expr_inner_base.
   Qed.
 
-  Lemma sim_expr_bupd Ω Φ e_t e_s:
-    (e_t ⪯{Ω} e_s [{ λ e_t' e_s', |==> Φ e_t' e_s' }]) -∗ e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma sim_expr_bupd Ω Φ π e_t e_s:
+    (e_t ⪯{π, Ω} e_s [{ λ e_t' e_s', |==> Φ e_t' e_s' }]) -∗ e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros "H". iApply (sim_expr_bupd_mono with "[] H").
     iIntros (??) "$".
@@ -488,82 +507,86 @@ Section fix_lang.
 
   (* Bind Lemma *)
   Local Definition bind_coind_pred Ω :=
-    (λ Φ e_t e_s, (∃ e_t' e_s' (K_t K_s : ectx Λ),
+    (λ Φ π e_t e_s, (∃ e_t' e_s' (K_t K_s : ectx Λ),
      ⌜e_t = fill K_t e_t'⌝ ∗ ⌜e_s = fill K_s e_s'⌝ ∗
-     e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', fill K_t e_t'' ⪯{Ω} fill K_s e_s'' [{ Φ }] }]))%I.
+     e_t' ⪯{π, Ω} e_s' [{ λ e_t'' e_s'', fill K_t e_t'' ⪯{π, Ω} fill K_s e_s'' [{ Φ }] }]))%I.
 
   Local Definition bind_coind_rec Ω :=
-    (λ Φ e_t e_s, (∃ e_t' e_s' (K_t K_s : ectx Λ),
+    (λ Φ π e_t e_s, (∃ e_t' e_s' (K_t K_s : ectx Λ),
       ⌜e_t = fill K_t e_t'⌝ ∗ ⌜e_s = fill K_s e_s'⌝ ∗
-      e_t' ⪯{Ω} e_s' [{ λ e_t'' e_s'', fill K_t e_t'' ⪯{Ω} fill K_s e_s'' [{ Φ }] }]) ∨ sim_expr Ω Φ e_t e_s)%I.
+      e_t' ⪯{π, Ω} e_s' [{ λ e_t'' e_s'', fill K_t e_t'' ⪯{π, Ω} fill K_s e_s'' [{ Φ }] }]) ∨ sim_expr Ω Φ π e_t e_s)%I.
 
-  Local Instance bind_coind_pred_ne Ω: NonExpansive (bind_coind_pred Ω: expr_rel → expr_rel).
+  Local Instance bind_coind_pred_ne Ω: NonExpansive (bind_coind_pred Ω: expr_rel → thread_idO -d> expr_rel).
   Proof.
     rewrite /bind_coind_pred. solve_proper_prepare; repeat f_equiv.
-    intros ??; by f_equiv.
+    intros ??. by f_equiv.
   Qed.
 
-  Local Instance bind_coind_rec_ne Ω: NonExpansive (bind_coind_rec Ω: expr_rel → expr_rel).
+  Local Instance bind_coind_rec_ne Ω: NonExpansive (bind_coind_rec Ω: expr_rel → thread_idO -d> expr_rel).
   Proof.
-    rewrite /bind_coind_pred. solve_proper_prepare; repeat f_equiv; last done.
-    intros ??; by f_equiv.
+    rewrite /bind_coind_pred. solve_proper_prepare; repeat f_equiv; [ | done..].
+    intros ??. by f_equiv.
   Qed.
 
-
-  Lemma sim_expr_bind Ω K_t K_s e_t e_s Φ :
-    e_t ⪯{Ω} e_s [{ λ e_t' e_s', fill K_t e_t' ⪯{Ω} fill K_s e_s' [{ Φ }] }] -∗
-    fill K_t e_t ⪯{Ω} fill K_s e_s [{ Φ }].
+  Lemma sim_expr_bind Ω K_t K_s e_t e_s Φ π :
+    e_t ⪯{π, Ω} e_s [{ λ e_t' e_s', fill K_t e_t' ⪯{π, Ω} fill K_s e_s' [{ Φ }] }] -∗
+    fill K_t e_t ⪯{π, Ω} fill K_s e_s [{ Φ }].
   Proof.
     iIntros "H".
     iApply (sim_expr_strong_coind Ω (bind_coind_pred Ω)%I); last first.
     { iExists e_t, e_s, K_t, K_s; iFrame; iSplit; by iPureIntro. }
-    iModIntro. clear Φ e_t e_s K_t K_s.
-    iIntros (Φ e_t' e_s') "IH". change (least_def Ω _ Φ e_t' e_s') with (least_def Ω (bind_coind_rec Ω) Φ e_t' e_s').
+    iModIntro. clear Φ π e_t e_s K_t K_s.
+    iIntros (Φ π e_t' e_s') "IH". change (least_def Ω _ Φ π e_t' e_s') with (least_def Ω (bind_coind_rec Ω) Φ π e_t' e_s').
     iDestruct "IH" as (e_t e_s K_t K_s) "[-> [-> H]]".
     rewrite {1}sim_expr_eq greatest_def_unfold.
-    pose (F := (λ Ψ e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ sim_expr Ω Φ (fill K_t e_t) (fill K_s e_s)) -∗ least_def Ω (bind_coind_rec Ω) Φ (fill K_t e_t) (fill K_s e_s))%I).
-    assert (NonExpansive (F: expr_rel → expr_rel)).
-    { rewrite /F. intros n x y Heq ??. repeat f_equiv. apply Heq. }
-    iAssert (∀ Ψ e_t e_s, least_def Ω (greatest_def Ω) Ψ e_t e_s -∗ F Ψ e_t e_s)%I as "Hgen"; last first.
+    pose (F := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ sim_expr Ω Φ π (fill K_t e_t) (fill K_s e_s)) -∗ least_def Ω (bind_coind_rec Ω) Φ π (fill K_t e_t) (fill K_s e_s))%I).
+    assert (NonExpansive (F: expr_rel → thread_idO -d> expr_rel)).
+    { rewrite /F. intros n x y Heq ???. repeat f_equiv. apply Heq. }
+    iAssert (∀ Ψ π e_t e_s, least_def Ω (greatest_def Ω) Ψ π e_t e_s -∗ F Ψ π e_t e_s)%I as "Hgen"; last first.
     { iApply ("Hgen" with "H"). iIntros (??) "$". }
-    clear Φ e_t e_s. iIntros (Ψ e_t e_s) "HL".
-    iApply (least_def_ind with "[] HL"); clear Ψ e_t e_s.
-    iModIntro. iIntros (Ψ e_t e_s) "Hinner".
+    clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "HL".
+    iApply (least_def_ind with "[] HL"); clear Ψ π e_t e_s.
+    iModIntro. iIntros (Ψ π e_t e_s) "Hinner".
     iIntros (Φ) "Hcont".
     rewrite least_def_unfold. rewrite /sim_expr_inner.
-    iIntros (P_t σ_t P_s σ_s) "[Hs %Hnreach]". iMod ("Hinner" with "[Hs]") as "H".
-    { iFrame. iPureIntro. intros Hreach. apply Hnreach. by apply fill_reach_stuck. }
+    iIntros (P_t σ_t P_s σ_s T_s K_s') "[Hs [%HT %Hnreach]]". iMod ("Hinner" with "[Hs]") as "H".
+    { iFrame. iPureIntro. split; [|done]. by rewrite fill_comp in HT. }
     iDestruct "H" as "[Hval | [Hstep | Hcall]]".
     - iDestruct "Hval" as (e_s' σ_s') "(%Hstutter & Hstate & Hpost)".
       (* we prove that we can stutter the source and still end up at the right place *)
       iSpecialize ("Hcont" with "Hpost"). rewrite sim_expr_unfold.
       iMod ("Hcont" with "[$Hstate]") as "[Val|[Step|Call]]".
-      + iPureIntro. by eapply safe_no_forks, fill_no_forks.
+      + iPureIntro. rewrite -fill_comp list_lookup_insert; [ | by apply: lookup_lt_Some].
+        split; [done|]. apply: pool_safe_no_forks; [done..|].
+        apply fill_no_forks. by apply fill_no_forks.
       + iModIntro. iLeft. iDestruct "Val" as (e_s'' σ_s'' Hnf') "[SI HΦ]".
-        iExists e_s'', σ_s''. iFrame. iPureIntro. eapply no_forks_trans, Hnf'.
+        iExists e_s'', σ_s''. rewrite list_insert_insert. iFrame. iPureIntro. eapply no_forks_trans, Hnf'.
         by eapply fill_no_forks.
       + iModIntro. iRight. iLeft.
         iDestruct "Step" as "($ & Step)".
         iIntros (e_t' efs_t σ_t' Hprim_t).
         iMod ("Step" with "[//]") as "[(-> & SI & Sim)|Step]".
         * destruct (no_forks_inv_r _ _ _ _ _ Hstutter) as [(-> & ->)|(e_s'' & σ_s'' & Hsteps & Hstep)].
-          -- iModIntro. iLeft. iFrame. iSplit; first done.
+          -- iModIntro. iLeft. rewrite -fill_comp list_insert_id //.
+             iFrame. iSplit; first done.
              rewrite sim_expr_eq greatest_def_unfold.
              iApply (least_def_mono with "[] Sim").
-             clear; iModIntro. iIntros (Φ e_t e_s) "Hrec". iRight.
+             clear; iModIntro. iIntros (Φ π e_t e_s) "Hrec". iRight.
              by rewrite sim_expr_eq.
-          -- iModIntro. iRight.
-             iExists (fill K_s e_s''), (fill K_s e_s'), σ_s'', σ_s', [].
+          -- iModIntro. iRight. rewrite -fill_comp.
+             iExists (fill K_s e_s''), (fill K_s e_s'), σ_s'', σ_s', []. rewrite app_nil_r.
              iSplit; first by iPureIntro; eapply fill_no_forks.
              iSplit; first by iPureIntro; eapply fill_prim_step, Hstep.
              iSplit; first done. by iFrame.
         * iDestruct "Step" as (e_s'' e_s''' σ_s'' σ_s''' efs_s Hforks) "(Hprim & Hlen & SI & Hsim & Hforks)".
-          iModIntro. iRight. iExists e_s'', e_s''', σ_s'', σ_s''', efs_s. iFrame.
+          iModIntro. iRight. iExists e_s'', e_s''', σ_s'', σ_s''', efs_s.
+          rewrite list_insert_insert. iFrame.
           iSplit; first by iPureIntro; eauto using no_forks_trans, fill_no_forks.
-          iApply (big_sepL2_persistent_wand with "Hforks"). iModIntro.
-          clear. iIntros (e_t e_s) "H". by iRight.
-      + iModIntro. iRight. iRight. iDestruct "Call" as (f K_t' v_t K_s' v_s σ_s'' Hfill Hnf) "(HΩ & SI & Hsim)".
-        iExists f, K_t', v_t, K_s', v_s, σ_s''. iFrame.
+          iApply (big_sepL2_impl with "Hforks"). clear.
+          iIntros "!>" (π' e_t e_s ??) "H". rewrite insert_length. by iRight.
+      + iModIntro. iRight. iRight. iDestruct "Call" as (f K_t' v_t K_s'' v_s σ_s'' Hfill Hnf) "(HΩ & SI & Hsim)".
+        iExists f, K_t', v_t, K_s'', v_s, σ_s''.
+        rewrite list_insert_insert. iFrame.
         iSplit; first by iPureIntro.
         iSplit; first by iPureIntro; eauto using no_forks_trans, fill_no_forks.
         clear. iIntros (v_t v_s) "HΩ". iRight. by iApply "Hsim".
@@ -575,7 +598,8 @@ Section fix_lang.
       iModIntro. iDestruct "Hstep" as "[(Hnf & Hstate & Hstutter) | Hstep]".
       + iLeft. iFrame. by iApply "Hstutter".
       + iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs') "(%Hnf & %Hstep'' & %Hlen & Hstate & Hrec & Hfrk)".
-        iExists (fill K_s e_s'), (fill K_s e_s''), σ_s', σ_s'', efs'. iFrame.
+        iExists (fill K_s e_s'), (fill K_s e_s''), σ_s', σ_s'', efs'.
+        rewrite -fill_comp. iFrame.
         iSplitR. { iPureIntro. by apply fill_no_forks. }
         iSplitR. { iPureIntro. by apply fill_prim_step. }
         iSplitR. { done. }
@@ -583,25 +607,25 @@ Section fix_lang.
         { iLeft. iExists e_t'', e_s'', K_t, K_s.
           do 2 (iSplitR; first done).
           iApply (sim_expr_mono with "Hcont"); by rewrite sim_expr_eq. }
-        { iApply (big_sepL2_persistent_wand with "Hfrk").
-          iModIntro. iIntros (??) "?". iRight. by rewrite sim_expr_eq. }
+        { iApply (big_sepL2_impl with "Hfrk").
+          iIntros "!>" (?????) "?". iRight. by rewrite sim_expr_eq. }
     - iModIntro. iRight; iRight.
-      iDestruct "Hcall" as (f K_t' v_t K_s' v_s σ_s') "(-> & % & Hval & Hstate & Hrec)".
-      iExists f, (comp_ectx K_t K_t'), v_t, (comp_ectx K_s K_s'), v_s, σ_s'.
-      iFrame.
-      iSplitR; first by rewrite fill_comp.
-      iSplitR. { iPureIntro. rewrite -fill_comp. by apply fill_no_forks. }
+      iDestruct "Hcall" as (f K_t' v_t K_s'' v_s σ_s') "(-> & % & Hval & Hstate & Hrec)".
+      iExists f, (comp_ectx K_t K_t'), v_t, (comp_ectx K_s K_s''), v_s, σ_s'.
+      rewrite -!fill_comp. iFrame.
+      iSplitR; first done.
+      iSplitR. { iPureIntro. by apply fill_no_forks. }
       iIntros (v_t' v_s') "Hv". iSpecialize ("Hrec" with "Hv"). iLeft.
-      iExists (fill K_t' (of_val v_t')), (fill K_s' (of_val v_s')), K_t, K_s.
-      iSplitR; first by rewrite -fill_comp. iSplitR; first by rewrite -fill_comp.
+      iExists (fill K_t' (of_val v_t')), (fill K_s'' (of_val v_s')), K_t, K_s.
+      rewrite -!fill_comp. iSplitR; first done. iSplitR; first done.
       iApply (sim_expr_mono with "Hcont").
       by rewrite sim_expr_eq.
   Qed.
 
-  Lemma sim_expr_decompose Ω e_t e_s Φ Ψ:
-    e_t ⪯{Ω} e_s [{ Ψ }] -∗
-    (∀ e_t e_s, Ψ e_t e_s -∗ e_t ⪯{Ω} e_s [{ Φ }]) -∗
-    e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma sim_expr_decompose Ω e_t e_s Φ Ψ π:
+    e_t ⪯{π, Ω} e_s [{ Ψ }] -∗
+    (∀ e_t e_s, Ψ e_t e_s -∗ e_t ⪯{π, Ω} e_s [{ Φ }]) -∗
+    e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros "H1 H2".
     replace e_t with (fill empty_ectx e_t) at 2; last apply fill_empty.
@@ -612,55 +636,58 @@ Section fix_lang.
   Qed.
 
 
-  Definition join_expr Ω (F: expr_rel -d> expr_rel) : expr_rel -d> expr_rel :=
-    λ Φ, sim_expr Ω (λ e_t e_s, F Φ e_t e_s ∨ Φ e_t e_s)%I.
+  Definition join_expr Ω (F: expr_rel -d> thread_idO -d> expr_rel) : expr_rel -d> thread_idO -d> expr_rel :=
+    λ Φ π, sim_expr Ω (λ e_t e_s, F Φ π e_t e_s ∨ Φ e_t e_s)%I π.
 
   Global Instance join_expr_ne Ω F:
     NonExpansive F →
     NonExpansive (join_expr Ω F).
   Proof.
-    intros ???? Heq. rewrite /join_expr. f_equiv.
-    intros ??. repeat f_equiv; by apply Heq.
+    intros HF ??? Heq ???. rewrite /join_expr. f_equiv.
+    intros ??. repeat f_equiv; [done | apply Heq].
   Qed.
 
-  Definition lock_step (Φ: expr_rel) e_t e_s :=
-    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
+  Definition lock_step (Φ: expr_rel) π e_t e_s :=
+    (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
       ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
-      state_interp P_t σ_t' P_s σ_s' ∗ Φ e_t' e_s')%I.
+      state_interp P_t σ_t' P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t' e_s')%I.
 
-  Lemma sim_expr_paco Ω F Φ e_t e_s:
-    NonExpansive (F: expr_rel → expr_rel) →
-    □ (∀ Φ e_t e_s, F Φ e_t e_s -∗ lock_step (join_expr Ω F Φ) e_t e_s) -∗
-    F Φ e_t e_s -∗ e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma sim_expr_paco Ω F Φ π e_t e_s:
+    NonExpansive (F: expr_rel → thread_idO -d> expr_rel) →
+    □ (∀ Φ π e_t e_s, F Φ π e_t e_s -∗ lock_step (join_expr Ω F Φ π) π e_t e_s) -∗
+    F Φ π e_t e_s -∗ e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros (Hne) "#Hlock_step HF".
     iApply (sim_expr_strong_coind _ (join_expr Ω F)%I); last first.
     { rewrite /join_expr. iApply sim_expr_base. by iLeft. }
-    iModIntro. clear Φ e_t e_s. iIntros (Φ e_t e_s) "Hs".
+    iModIntro. clear Φ π e_t e_s. iIntros (Φ π e_t e_s) "Hs".
     rewrite {2}/join_expr sim_expr_eq greatest_def_unfold.
-    pose (rec := (λ Φ e_t e_s, join_expr Ω F Φ e_t e_s ∨ greatest_def Ω Φ e_t e_s)%I).
-    assert (NonExpansive (rec: expr_rel → expr_rel)).
-    { intros ??? Heq ??. solve_proper. }
-    pose (Rec := (λ Ψ e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ F Φ e_t e_s ∨ Φ e_t e_s) -∗ least_def Ω rec Φ e_t e_s)%I).
-    assert (NonExpansive (Rec: expr_rel → expr_rel)).
-    { intros ??? Heq ??. rewrite /Rec. repeat f_equiv. by eapply Heq. }
+    pose (rec := (λ Φ π e_t e_s, join_expr Ω F Φ π e_t e_s ∨ greatest_def Ω Φ π e_t e_s)%I).
+    assert (NonExpansive (rec: expr_rel → thread_idO -d> expr_rel)).
+    { intros ??? Heq ???. solve_proper. }
+    pose (Rec := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ F Φ π e_t e_s ∨ Φ e_t e_s) -∗ least_def Ω rec Φ π e_t e_s)%I).
+    assert (NonExpansive (Rec: expr_rel → thread_idO -d> expr_rel)).
+    { intros ??? Heq ???. rewrite /Rec. repeat f_equiv. by eapply Heq. }
     iApply (least_def_ind _ Rec with "[] Hs []"); last auto.
-    iModIntro. clear Φ e_t e_s. iIntros (Ψ e_t e_s) "Hinner".
+    iModIntro. clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "Hinner".
     iIntros (Φ) "Hmon". rewrite least_def_unfold.
     rewrite /sim_expr_inner.
-    iIntros (P_t σ_t P_s σ_s) "[Hs %Hsafe]". iMod ("Hinner" with "[$Hs //]") as "H".
+    iIntros (P_t σ_t P_s σ_s T_s K_s) "[Hs [%HT %Hsafe]]". iMod ("Hinner" with "[$Hs //]") as "H".
     iDestruct "H" as "[Hval | [Hstep | Hcall]]".
     - iDestruct "Hval" as (e_s' σ_s') "(%Hstutter & Hstate & Hpost)".
       (* we prove that we can stutter the source and still end up at the right place *)
       iDestruct ("Hmon" with "Hpost") as "[HF|Hpost]"; last first.
       { iModIntro. iLeft. iExists _, _. iFrame. by iPureIntro. }
       iMod ("Hlock_step" with "HF [$Hstate ]") as "[Hred Hstep]".
-      { iPureIntro. by eapply safe_no_forks. }
+      { iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
+        apply: pool_safe_no_forks; [done..|]. by apply fill_no_forks. }
       iModIntro. iRight. iLeft. iFrame.
       iIntros (e_t' efs_t σ_t' Hprim_t). iMod ("Hstep" with "[//]") as (e_s'' σ_s'' -> Hnfs) "[SI Hjoin]".
-      iModIntro. iRight. iExists e_s', e_s'', σ_s', σ_s'', []; simpl; iFrame.
+      iModIntro. iRight. rewrite list_insert_insert. iExists e_s', e_s'', σ_s', σ_s'', []; simpl.
+      rewrite app_nil_r. iFrame.
       by iPureIntro.
     - iModIntro. iRight; iLeft. iDestruct "Hstep" as "[%Hred Hstep]".
       iSplitR; first done.
@@ -671,8 +698,8 @@ Section fix_lang.
         repeat (iSplit; first done).
         iSplitL "Hmon Hrec'".
         { iLeft. iApply (sim_expr_mono with "Hmon [Hrec']"); by rewrite sim_expr_eq. }
-        iApply (big_sepL2_persistent_wand with "Hfrk").
-        iModIntro. iIntros (??) "?". by iRight.
+        iApply (big_sepL2_impl with "Hfrk").
+        iIntros "!>" (?????) "?". by iRight.
     - iModIntro. iRight. iRight.
       iDestruct "Hcall" as (f K_t' v_t K_s' v_s σ_s') "(-> & % & Hval & Hstate & Hrec')".
       iExists f, K_t', v_t, K_s', v_s, σ_s'.
@@ -683,17 +710,17 @@ Section fix_lang.
   Qed.
 
   (* derived things about sim *)
-  Lemma sim_value Ω Φ v_t v_s:
-    ⊢ Φ v_t v_s -∗ of_val v_t ⪯{Ω} of_val v_s {{ Φ }}.
+  Lemma sim_value Ω Φ π v_t v_s:
+    ⊢ Φ v_t v_s -∗ of_val v_t ⪯{π, Ω} of_val v_s {{ Φ }}.
   Proof.
     iIntros "Hv". iApply sim_expr_base.
     iExists v_t, v_s. iFrame. iSplit; done.
   Qed.
 
-  Lemma bupd_sim Ω Φ e_t e_s:
-    ⊢ (|==> e_t ⪯{Ω} e_s [{ Φ }]) -∗ e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma bupd_sim Ω Φ π e_t e_s:
+    ⊢ (|==> e_t ⪯{π, Ω} e_s [{ Φ }]) -∗ e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hv". rewrite sim_expr_unfold. iIntros (????) "H". iMod "Hv". iApply ("Hv" with "H").
+    iIntros "Hv". rewrite sim_expr_unfold. iIntros (??????) "H". iMod "Hv". iApply ("Hv" with "H").
   Qed.
 
 
@@ -705,16 +732,16 @@ Section fix_lang.
     by iApply "Hmon".
   Qed.
 
-  Lemma sim_mono Ω Φ Φ' :
+  Lemma sim_mono Ω Φ Φ' π :
     (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
-    ∀ e_s e_t : exprO, e_t ⪯{Ω} e_s {{ Φ }} -∗ e_t ⪯{Ω} e_s {{ Φ' }}.
+    ∀ e_s e_t : exprO, e_t ⪯{π, Ω} e_s {{ Φ }} -∗ e_t ⪯{π, Ω} e_s {{ Φ' }}.
   Proof.
     iIntros "Hmon" (e_s e_t) "Ha". iApply (sim_expr_mono with "[Hmon] Ha").
     by iApply lift_post_mon.
   Qed.
 
-  Lemma sim_bupd Ω Φ e_t e_s:
-    (e_t ⪯{Ω} e_s {{ λ v_t v_s, |==> Φ v_t v_s }}) -∗ e_t ⪯{Ω} e_s {{ Φ }}.
+  Lemma sim_bupd Ω Φ π e_t e_s :
+    (e_t ⪯{π, Ω} e_s {{ λ v_t v_s, |==> Φ v_t v_s }}) -∗ e_t ⪯{π, Ω} e_s {{ Φ }}.
   Proof.
     iIntros "Hv". iApply sim_expr_bupd.
     iApply (sim_expr_mono with "[] Hv").
@@ -723,9 +750,9 @@ Section fix_lang.
     iExists v_t, v_s. iFrame. iSplit; done.
   Qed.
 
-  Lemma sim_bind Ω e_t e_s K_t K_s Φ :
-    e_t ⪯{Ω} e_s {{ λ v_t v_s, fill K_t (of_val v_t) ⪯{Ω} fill K_s (of_val v_s) [{ Φ }] }} -∗
-    fill K_t e_t ⪯{Ω} fill K_s e_s [{ Φ }].
+  Lemma sim_bind Ω e_t e_s K_t K_s Φ π :
+    e_t ⪯{π, Ω} e_s {{ λ v_t v_s, fill K_t (of_val v_t) ⪯{π, Ω} fill K_s (of_val v_s) [{ Φ }] }} -∗
+    fill K_t e_t ⪯{π, Ω} fill K_s e_s [{ Φ }].
   Proof.
     iIntros "Ha". iApply sim_expr_bind.
     iApply (sim_expr_mono with "[] Ha").
@@ -734,270 +761,294 @@ Section fix_lang.
   Qed.
 
   (** Corollaries *)
-  Lemma sim_call_inline Ω P_t P_s v_t v_s K_t K_s f Φ :
+  Lemma sim_call_inline Ω P_t P_s v_t v_s K_t K_s f Φ π :
     P_t !! f = Some K_t →
     P_s !! f = Some K_s →
-    ⊢ progs_are P_t P_s ∗ Ω v_t v_s ∗ sim_expr_ectx Ω K_t K_s Φ -∗ (of_call f v_t) ⪯{Ω} (of_call f v_s) [{ Φ }].
+    ⊢ progs_are P_t P_s ∗ Ω v_t v_s ∗ sim_expr_ectx Ω π K_t K_s Φ -∗ (of_call f v_t) ⪯{π, Ω} (of_call f v_s) [{ Φ }].
   Proof.
     intros Htgt Hsrc. iIntros "(#Prog & Val & Sim)".
-    rewrite sim_expr_unfold. iIntros (P_t' σ_t P_s' σ_s) "[SI %]".
+    rewrite sim_expr_unfold. iIntros (P_t' σ_t P_s' σ_s T_s K_s') "[SI [% %]]".
     iModIntro. iRight. iLeft.
     rewrite /progs_are; iDestruct ("Prog" with "SI") as "[% %]"; subst P_t' P_s'; iClear "Prog".
     iSplit.
     - iPureIntro. eapply head_prim_reducible. eexists _, _, _.
       by eapply call_head_step_intro.
     - iIntros (e_t' efs σ_t' Hstep). iModIntro.
-      pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t') as (K_t' & Heq & -> & -> & ->);
+      pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t' efs) as (K_t' & Heq & -> & -> & ->);
         first by rewrite fill_empty.
       rewrite fill_empty in Hstep. iRight.
-      iExists _, _, _, _, _; iFrame. iSplit; last iSplit; last iSplit.
+      iExists _, _, _, _, _. iSplit; last iSplit; last iSplit; last iSplitL "SI".
       + iPureIntro. eapply no_forks_refl.
       + iPureIntro. eapply head_prim_step, call_head_step_intro, Hsrc.
       + done.
+      + rewrite app_nil_r. iApply (state_interp_pure_prim_step with "SI"); [done|]. intros ?.
+        eapply fill_prim_step. eapply head_prim_step, call_head_step_intro, Hsrc.
       + rewrite fill_empty; assert (K_t' = K_t) as -> by naive_solver.
         iSpecialize ("Sim" with "Val"). simpl. iFrame.
   Qed.
 
-  Lemma sim_frame_r Ω e_t e_s R Φ :
-    e_t ⪯{Ω} e_s {{ Φ }} ∗ R ⊢ e_t ⪯{Ω} e_s {{λ v_t v_s, Φ v_t v_s ∗ R}}.
+  Lemma sim_frame_r Ω e_t e_s R Φ π :
+    e_t ⪯{π, Ω} e_s {{ Φ }} ∗ R ⊢ e_t ⪯{π, Ω} e_s {{λ v_t v_s, Φ v_t v_s ∗ R}}.
   Proof.
     iIntros "[Hsim HR]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame.
   Qed.
 
-  Lemma sim_frame_l Ω e_t e_s R Φ :
-    R ∗ e_t ⪯{Ω} e_s {{ Φ }} ⊢ e_t ⪯{Ω} e_s {{λ v_t v_s, R ∗ Φ v_t v_s}}.
+  Lemma sim_frame_l Ω e_t e_s R Φ π :
+    R ∗ e_t ⪯{π, Ω} e_s {{ Φ }} ⊢ e_t ⪯{π, Ω} e_s {{λ v_t v_s, R ∗ Φ v_t v_s}}.
   Proof.
     iIntros "[HR Hsim]". iApply (sim_mono with "[HR] [Hsim//]"). iIntros (v_t v_s) "H". iFrame.
   Qed.
 
-  Lemma sim_wand Ω e_t e_s Φ Ψ :
-    e_t ⪯{Ω} e_s {{ Φ }} -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯{Ω} e_s {{ Ψ }}.
+  Lemma sim_wand Ω e_t e_s Φ Ψ π:
+    e_t ⪯{π, Ω} e_s {{ Φ }} -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯{π, Ω} e_s {{ Ψ }}.
   Proof. iIntros "H Hv". iApply (sim_mono with "Hv H"). Qed.
 
-  Lemma sim_wand_l Ω e_t e_s Φ Ψ :
-    (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ∗ e_t ⪯{Ω} e_s {{ Φ }} ⊢ e_t ⪯{Ω} e_s {{ Ψ }}.
+  Lemma sim_wand_l Ω e_t e_s Φ Ψ π:
+    (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ∗ e_t ⪯{π, Ω} e_s {{ Φ }} ⊢ e_t ⪯{π, Ω} e_s {{ Ψ }}.
   Proof. iIntros "[Hv H]". iApply (sim_wand with "H Hv"). Qed.
 
-  Lemma sim_wand_r Ω e_t e_s Φ Ψ :
-    e_t ⪯{Ω} e_s {{ Φ }} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯{Ω} e_s {{ Ψ }}.
+  Lemma sim_wand_r Ω e_t e_s Φ Ψ π:
+    e_t ⪯{π, Ω} e_s {{ Φ }} ∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) ⊢ e_t ⪯{π, Ω} e_s {{ Ψ }}.
   Proof. iIntros "[H Hv]". iApply (sim_wand with "H Hv"). Qed.
 
-  Lemma sim_expr_wand Ω e_t e_s Φ Ψ :
-    e_t ⪯{Ω} e_s [{ Φ }] -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯{Ω} e_s [{ Ψ }].
+  Lemma sim_expr_wand Ω e_t e_s Φ Ψ π :
+    e_t ⪯{π, Ω} e_s [{ Φ }] -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯{π, Ω} e_s [{ Ψ }].
   Proof. iIntros "H Hv". iApply (sim_expr_mono with "Hv H"). Qed.
 
   (** Update the SI. Useful when we use the SI to encode invariants. *)
   Definition update_si (P : PROP) :=
-    (∀ P_t σ_t P_s σ_s, state_interp P_t σ_t P_s σ_s ==∗ state_interp P_t σ_t P_s σ_s ∗ P)%I.
+    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ state_interp P_t σ_t P_s σ_s T_s ∗ P)%I.
   Instance update_si_proper : Proper ((≡) ==> (≡)) update_si.
   Proof. solve_proper. Qed.
-  Lemma sim_update_si Ω e_t e_s Φ :
-    update_si (e_t ⪯{Ω} e_s [{ Φ }]) -∗ e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma sim_update_si Ω e_t e_s Φ π :
+    update_si (e_t ⪯{π, Ω} e_s [{ Φ }]) -∗ e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hupd". rewrite {2}(sim_expr_unfold Ω Φ e_t e_s).
-    iIntros (????) "[Hstate Hnreach]". iMod ("Hupd" with "Hstate") as "[Hstate Hsim]".
+    iIntros "Hupd". rewrite {2}(sim_expr_unfold Ω Φ π e_t e_s).
+    iIntros (??????) "[Hstate Hnreach]". iMod ("Hupd" with "Hstate") as "[Hstate Hsim]".
     rewrite {1}sim_expr_unfold. iApply "Hsim". iFrame.
   Qed.
 
-  Lemma sim_step_source Ω e_t e_s Φ :
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s ⌝ ==∗
-      ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t P_s σ_s' ∗ e_t ⪯{Ω} e_s' [{ Φ }]) -∗
-    e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma sim_step_source Ω e_t e_s Φ π :
+    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ ==∗
+         ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+                       state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ e_t ⪯{π, Ω} e_s' [{ Φ }]) -∗
+    e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
-    rewrite sim_expr_unfold. iIntros "Hsource" (P_t σ_t P_s σ_s) "[Hstate %Hsafe]".
+    rewrite sim_expr_unfold. iIntros "Hsource" (P_t σ_t P_s σ_s T_s K_s) "[Hstate [%HT %Hsafe]]".
     iMod ("Hsource" with "[$Hstate //]") as (e_s' σ_s') "(%Hexec & Hstate & Hsim)".
     rewrite {1}sim_expr_unfold.
     iMod ("Hsim" with "[Hstate]") as "Hsim".
-    { iFrame. iPureIntro. by eapply safe_no_forks. }
+    { iFrame. iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
+        apply: pool_safe_no_forks; [done..|]. by apply fill_no_forks. }
     iModIntro. iDestruct "Hsim" as "[Hval | [Hstep | Hcall]]".
     - iLeft. iDestruct "Hval" as (e_s'' σ_s'') "(% & Hstate & Hphi)".
-      iExists e_s'', σ_s''. iFrame. iPureIntro. by eapply no_forks_trans.
+      rewrite list_insert_insert. iExists e_s'', σ_s''. iFrame. iPureIntro. by eapply no_forks_trans.
     - iDestruct "Hstep" as "(%&Hstep)". iRight; iLeft.
       iSplitR; first by iPureIntro.
       iIntros (e_t' efs_t σ_t') "Hprim". iMod ("Hstep" with "Hprim") as "[Hstutter | Hred]"; iModIntro.
       + (* which path we want to take depends on the rtc we have *)
         eapply no_forks_inv_r in Hexec as [(-> & ->)|(e_s'' & σ_s'' & Hnfs & Hnf)].
-        { (* no step, just mirror the stuttering *) iLeft. iFrame. }
+        { (* no step, just mirror the stuttering *) iLeft. by rewrite list_insert_id. }
         (* we have actually taken a source step *)
-        iRight. iExists e_s'', e_s', σ_s'', σ_s', [].
+        iRight. iExists e_s'', e_s', σ_s'', σ_s', []. rewrite app_nil_r.
         iDestruct "Hstutter" as "(-> & SI & Hsim)"; simpl; iFrame.
         by iPureIntro.
       + iRight. iDestruct "Hred" as (e_s'' e_s''' σ_s'' σ_s''' efs_s) "(%Hnfs & Hstep & Hlen & Hstate & Hsim & Hfrks)".
+        rewrite list_insert_insert insert_length.
         iExists e_s'', e_s''', σ_s'', σ_s''', efs_s. iFrame. iPureIntro.
         by eapply no_forks_trans.
-    - iDestruct "Hcall" as (f K_t v_t K_s v_s σ_s'') "(-> & % & Hv & Hstate & Hsim)".
-      iRight; iRight. iExists f, K_t, v_t, K_s, v_s, σ_s''. iFrame.
+    - iDestruct "Hcall" as (f K_t v_t K_s' v_s σ_s'') "(-> & % & Hv & Hstate & Hsim)".
+      iRight; iRight. iExists f, K_t, v_t, K_s', v_s, σ_s''. rewrite list_insert_insert. iFrame.
       iPureIntro. split; first done.
       by eapply no_forks_trans.
   Qed.
 
   (* the step case of the simulation relation, but the two cases are combined into an rtc in the source *)
-  Lemma sim_step_target Ω e_t e_s Φ:
-    (∀ P_t P_s σ_t σ_s, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
+  Lemma sim_step_target Ω e_t e_s Φ π:
+    (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' efs_t σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' ∗ e_t' ⪯{Ω} e_s' [{ Φ }]) -∗
-    e_t ⪯{Ω} e_s [{ Φ }].
+      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+        state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s) ∗ e_t' ⪯{π, Ω} e_s' [{ Φ }]) -∗
+    e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hsim". rewrite sim_expr_unfold. iIntros (????) "[Hstate %]".
+    iIntros "Hsim". rewrite sim_expr_unfold. iIntros (??????) "[Hstate [% %]]".
     iMod ("Hsim" with "[$Hstate ]") as "[Hred Hsim]"; first done. iModIntro. iRight; iLeft.
     iFrame. iIntros (e_t' efs_t σ_t') "Hstep". iMod ("Hsim" with "Hstep") as (e_s' σ_s') "(-> & %Hs & ? & ?)".
     apply no_forks_inv_r in Hs as [ [-> ->] | (e_s'' & σ_s'' & Hstep & Hsteps)].
-    - iLeft. by iFrame.
-    - iRight; iExists e_s'', e_s', σ_s'', σ_s', []. iModIntro; simpl; iFrame.
+    - iLeft. rewrite list_insert_id //. by iFrame.
+    - iRight; iExists e_s'', e_s', σ_s'', σ_s', []. rewrite app_nil_r. iModIntro; simpl; iFrame.
       by iPureIntro.
   Qed.
 
   (** ** source_red judgment *)
   (** source_red allows to focus the reasoning on the source value
     (while being able to switch back and forth to the full simulation at any point) *)
-  Definition source_red_rec (Ψ : expr Λ → PROP) (rec : exprO → PROP) e_s :=
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
+  Definition source_red_rec (Ψ : expr Λ → PROP) π (rec : exprO → PROP) e_s :=
+    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ ==∗
       (∃ e_s' σ_s', ⌜no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
-        state_interp P_t σ_t P_s σ_s' ∗ rec e_s')
-      ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ e_s))%I.
+        state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ rec e_s')
+      ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_s))%I.
 
-  Lemma source_red_mon Ψ l1 l2 :
-    □ (∀ e, l1 e -∗ l2 e) -∗ ∀ e, source_red_rec Ψ  l1 e -∗ source_red_rec Ψ l2 e.
+  Lemma source_red_mon Ψ l1 l2 π:
+    □ (∀ e, l1 e -∗ l2 e) -∗ ∀ e, source_red_rec Ψ π l1 e -∗ source_red_rec Ψ π l2 e.
   Proof.
     iIntros "Hmon" (e) "Hl1". rewrite /source_red_rec.
-    iIntros (????) "Hstate". iMod ("Hl1" with "Hstate") as "[Hstep | Hstuck]".
+    iIntros (??????) "Hstate". iMod ("Hl1" with "Hstate") as "[Hstep | Hstuck]".
     - iDestruct "Hstep" as (e_s' σ_s') "(?&?&?)". iModIntro. iLeft.
       iExists e_s', σ_s'. iFrame. by iApply "Hmon".
     - iModIntro; iRight. iFrame.
   Qed.
 
-  Instance source_red_mono Ψ : BiMonoPred (source_red_rec Ψ).
+  Instance source_red_mono Ψ π : BiMonoPred (source_red_rec Ψ π).
   Proof.
     constructor.
     - iIntros (l1 l2 Hne Hne') "H". by iApply source_red_mon.
     - intros l Hne n e1 e2 Heq. apply (discrete_iff _ _) in Heq as ->. done.
   Qed.
 
-  Definition source_red_def Ψ := bi_least_fixpoint (source_red_rec Ψ).
-  Lemma source_red_unfold Ψ e_s : source_red_def Ψ e_s ⊣⊢ source_red_rec Ψ (source_red_def Ψ) e_s.
+  Definition source_red_def Ψ π := bi_least_fixpoint (source_red_rec Ψ π).
+  Lemma source_red_unfold Ψ π e_s : source_red_def Ψ π e_s ⊣⊢ source_red_rec Ψ π (source_red_def Ψ π) e_s.
   Proof. by rewrite /source_red_def least_fixpoint_unfold. Qed.
 
-  Definition source_red_aux : seal (flip source_red_def).
+  Definition source_red_aux : seal (λ e π Ψ, source_red_def Ψ π e).
   Proof. by eexists. Qed.
   Definition source_red := source_red_aux.(unseal).
-  Lemma source_red_eq : source_red = flip source_red_def.
+  Lemma source_red_eq : source_red = (λ e π Ψ, source_red_def Ψ π e).
   Proof. rewrite -source_red_aux.(seal_eq) //. Qed.
 
-  Lemma source_red_strong_ind Ψ (Ψi : expr Λ → PROP) :
+  Lemma source_red_strong_ind Ψ (Ψi : expr Λ → PROP) π :
     Proper ((≡) ==> (≡)) Ψi →
-    □ (∀ e : exprO, source_red_rec Ψ (λ e', Ψi e' ∧ source_red_def Ψ e') e -∗ Ψi e) -∗
-    ∀ e : exprO, source_red_def Ψ e -∗ Ψi e.
+    □ (∀ e : exprO, source_red_rec Ψ π (λ e', Ψi e' ∧ source_red_def Ψ π e') e -∗ Ψi e) -∗
+    ∀ e : exprO, source_red_def Ψ π e -∗ Ψi e.
   Proof.
     iIntros (Hproper) "H". rewrite /source_red_def.
-    by iApply (@least_fixpoint_strong_ind _ _ (source_red_rec Ψ) _ Ψi).
+    by iApply (@least_fixpoint_strong_ind _ _ (source_red_rec Ψ π) _ Ψi).
   Qed.
 
-  Lemma source_red_ind Ψ (Ψi : expr Λ → PROP) :
+  Lemma source_red_ind Ψ (Ψi : expr Λ → PROP) π :
     Proper ((≡) ==> (≡)) Ψi →
-    □ (∀ e : exprO, source_red_rec Ψ Ψi e -∗ Ψi e) -∗
-    ∀ e : exprO, source_red_def Ψ e -∗ Ψi e.
+    □ (∀ e : exprO, source_red_rec Ψ π Ψi e -∗ Ψi e) -∗
+    ∀ e : exprO, source_red_def Ψ π e -∗ Ψi e.
   Proof.
     iIntros (Hproper) "H". rewrite /source_red_def.
-    by iApply (@least_fixpoint_ind _ _ (source_red_rec Ψ) Ψi).
+    by iApply (@least_fixpoint_ind _ _ (source_red_rec Ψ π) Ψi).
   Qed.
 
-  Lemma source_red_elim Ψ e_s :
-    source_red e_s Ψ -∗
-    ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
-      ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s'.
+  Lemma source_red_elim Ψ π e_s :
+    source_red e_s π Ψ -∗
+    ∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ ==∗
+      ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s).
   Proof.
     iIntros "H". rewrite source_red_eq.
-    iApply (source_red_ind _ (λ e_s, ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
-        ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s')%I);
-    last by rewrite /flip.
-    clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_s σ_s P_t σ_t) "[HSI %]".
+    iApply (source_red_ind _ (λ e_s, ∀ P_s σ_s P_t σ_t T_s K_s,
+       state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝ ==∗
+        ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s))%I);
+    last done.
+    clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_s σ_s P_t σ_t T_s K_s) "[HSI [% %]]".
     rewrite /source_red_rec.
     iMod ("IH" with "[$HSI //]") as "IH".
     iDestruct "IH" as "[Hstep | [Hstate Hp]]"; first last.
-    { iModIntro. iExists e_s, σ_s. iFrame. iPureIntro. eapply no_forks_refl. }
+    { iModIntro. iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro. eapply no_forks_refl. }
     iDestruct "Hstep" as (e_s' σ_s') "(% & Hstate & IH)".
     iMod ("IH" with "[$Hstate]") as (e_s'' σ_s'') "(% & Hp & Hs)".
-    { iPureIntro. eapply safe_no_forks; eauto using no_forks_step, no_forks_refl. }
-    iModIntro. iExists e_s'', σ_s''; iFrame. iPureIntro. econstructor; eauto.
+    { iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
+      apply: pool_safe_no_forks; [done..|]. apply fill_no_forks. eauto using no_forks_step, no_forks_refl. }
+    iModIntro. rewrite list_insert_insert.
+    iExists e_s'', σ_s''; iFrame. iPureIntro. econstructor; eauto.
   Qed.
 
-  Lemma source_red_base Ψ e_s :
-    (|==> Ψ e_s) -∗ source_red e_s Ψ.
+  Lemma source_red_base Ψ e_s π:
+    (|==> Ψ e_s) -∗ source_red e_s π Ψ.
   Proof.
-    iIntros "Hpsi". rewrite source_red_eq /flip source_red_unfold /source_red_rec.
-    iIntros (P_s σ_s P_t σ_t) "[Hstate %]". iRight. iMod ("Hpsi"). iModIntro. iFrame.
+    iIntros "Hpsi". rewrite source_red_eq source_red_unfold /source_red_rec.
+    iIntros (P_s σ_s P_t σ_t T_s K_s) "[Hstate %]". iRight. iMod ("Hpsi"). iModIntro. iFrame.
   Qed.
 
-  Lemma source_red_step Ψ e_s :
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
+  Lemma source_red_step Ψ e_s π :
+    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+        ∧ pool_safe P_s T_s σ_s⌝ ==∗
       (∃ e_s' σ_s', ⌜no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
-        state_interp P_t σ_t P_s σ_s' ∗ source_red e_s' Ψ)) -∗
-    source_red e_s Ψ.
+        state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)) -∗
+    source_red e_s π Ψ.
   Proof.
-    iIntros "Hstep". rewrite source_red_eq /flip source_red_unfold /source_red_rec.
-    iIntros (P_s σ_s P_t σ_t) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro.
+    iIntros "Hstep". rewrite source_red_eq source_red_unfold /source_red_rec.
+    iIntros (P_s σ_s P_t σ_t T_s K_s) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro.
     iFrame.
   Qed.
 
-  Lemma source_red_sim_expr Ω e_s e_t Φ :
-    (source_red e_s (λ e_s', e_t ⪯{Ω} e_s' [{ Φ }])) -∗
-    e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma source_red_sim_expr Ω e_s e_t Φ π :
+    (source_red e_s π (λ e_s', e_t ⪯{π, Ω} e_s' [{ Φ }])) -∗
+    e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros "Hsource". iPoseProof (source_red_elim with "Hsource") as "Hsource".
-    iApply sim_step_source. iIntros (????) "Hstate".
+    iApply sim_step_source. iIntros (??????) "Hstate".
     iMod ("Hsource" with "Hstate") as (e_s' σ_s') "(?&?&?)".
     iModIntro. iExists e_s', σ_s'. iFrame.
   Qed.
 
-  Lemma source_red_reach_stuck e_s Ψ :
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗ ⌜reach_stuck P_s e_s σ_s⌝) -∗
-    source_red e_s Ψ.
+  Lemma source_red_pool_reach_stuck e_s π Ψ :
+    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s -∗ ⌜T_s !! π = Some (fill K_s e_s)⌝ ==∗
+        ⌜pool_reach_stuck P_s T_s σ_s⌝) -∗
+    source_red e_s π Ψ.
   Proof.
-    iIntros "Hstuck". rewrite source_red_eq /flip source_red_unfold /source_red_rec.
-    iIntros (????) "[Hstate %Hsafe]". iMod ("Hstuck" with "Hstate") as "%".
+    iIntros "Hstuck". rewrite source_red_eq source_red_unfold /source_red_rec.
+    iIntros (??????) "[Hstate [% %Hsafe]]". iMod ("Hstuck" with "Hstate [//]") as "%".
     exfalso; by apply Hsafe.
   Qed.
 
-  Lemma source_red_stuck e_s Ψ :
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗ ⌜stuck P_s e_s σ_s⌝) -∗
-    source_red e_s Ψ.
+  Lemma source_red_reach_stuck e_s π Ψ :
+    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜reach_stuck P_s e_s σ_s⌝) -∗
+    source_red e_s π Ψ.
+  Proof.
+    iIntros "Hstuck". iApply source_red_pool_reach_stuck.
+    iIntros (??????) "Hstate %HT". iMod ("Hstuck" with "Hstate") as "%". iPureIntro.
+    apply: pool_reach_stuck_reach_stuck; [by apply: fill_reach_stuck| done].
+  Qed.
+
+  Lemma source_red_stuck e_s π Ψ :
+    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜stuck P_s e_s σ_s⌝) -∗
+    source_red e_s π Ψ.
   Proof.
     iIntros "Hstuck". iApply source_red_reach_stuck.
-    iIntros (????) "SI". iMod ("Hstuck" with "SI") as "%Hstuck". iModIntro.
+    iIntros (?????) "SI". iMod ("Hstuck" with "SI") as "%Hstuck". iModIntro.
     iPureIntro. exists [e_s], σ_s, []. split; eauto using Pool_steps_refl.
     exists e_s, 0. split; done.
   Qed.
 
-  Lemma source_red_bind e_s K_s Ψ :
-    source_red e_s (λ e_s', source_red (fill K_s e_s') Ψ) -∗
-    source_red (fill K_s e_s) Ψ.
+  Lemma source_red_bind e_s K_s π Ψ :
+    source_red e_s π (λ e_s', source_red (fill K_s e_s') π Ψ) -∗
+    source_red (fill K_s e_s) π Ψ.
   Proof.
     iIntros "He".
-    iApply (source_red_ind _ (λ e_s, source_red (fill K_s e_s) Ψ)%I); last by rewrite source_red_eq /flip .
-    iModIntro. clear e_s. iIntros (e_s) "IH". rewrite source_red_eq /flip source_red_unfold.
-    iIntros (????) "[Hstate %Hsafe]". iMod ("IH" with "[$Hstate]") as "IH".
-    { iPureIntro. intros ?. by eapply Hsafe, fill_reach_stuck. }
+    iApply (source_red_ind _ (λ e_s, source_red (fill K_s e_s) π Ψ)%I); last by rewrite source_red_eq.
+    iModIntro. clear e_s. iIntros (e_s) "IH". rewrite source_red_eq source_red_unfold.
+    iIntros (??????) "[Hstate [%HT %Hsafe]]". rewrite fill_comp in HT. iMod ("IH" with "[$Hstate]") as "IH".
+    { done. }
     iDestruct "IH" as "[Hstep | [Hstate Hred]]".
     { iModIntro. iDestruct "Hstep" as (e_s' σ_s') "(%&?&?)". iLeft.
-      iExists (fill K_s e_s'), σ_s'. iFrame. iPureIntro.
+      iExists (fill K_s e_s'), σ_s'. rewrite fill_comp. iFrame. iPureIntro.
       by apply fill_prim_step. }
-    rewrite source_red_unfold.
+    rewrite source_red_unfold. rewrite -fill_comp in HT.
     iMod ("Hred" with "[$Hstate//]") as "[Hstep | Hred]"; iModIntro; eauto.
   Qed.
 
   (** ** same thing for target *)
   Definition target_red_rec (Ψ : expr Λ → PROP) (rec : exprO → PROP) e_t :=
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
       (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-        ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s ∗ rec e_t')
-      ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ e_t))%I.
+        ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ rec e_t')
+      ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_t))%I.
 
   Lemma target_red_mon Ψ l1 l2 :
     □ (∀ e, l1 e -∗ l2 e) -∗ ∀ e, target_red_rec Ψ l1 e -∗ target_red_rec Ψ l2 e.
   Proof.
     iIntros "Hmon" (e) "Hl1". rewrite /source_red_rec.
-    iIntros (????) "Hstate". iMod ("Hl1" with "Hstate") as "[[Hred Hstep] | Hstuck]".
+    iIntros (?????) "Hstate". iMod ("Hl1" with "Hstate") as "[[Hred Hstep] | Hstuck]".
     - iModIntro. iLeft. iFrame.
       iIntros (e_t' σ_t' efs_t) "Hprim". iMod ("Hstep" with "Hprim") as "(Hnfs & Hstate & Hprim)".
       iModIntro. iFrame. by iApply "Hmon".
@@ -1032,10 +1083,10 @@ Section fix_lang.
 
   Lemma target_red_unfold e_t Ψ :
     target_red e_t Ψ ⊣⊢
-      ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+      ∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
         (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-          ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s ∗ target_red e_t' Ψ)
-        ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ e_t).
+          ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ target_red e_t' Ψ)
+        ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_t).
   Proof. rewrite target_red_eq; simpl. by rewrite target_red_def_unfold. Qed.
 
   Lemma target_red_ind Ψ (Ψi : expr Λ → PROP) :
@@ -1051,27 +1102,27 @@ Section fix_lang.
     (|==> Ψ e_t) -∗ target_red e_t Ψ.
   Proof.
     iIntros "Hpsi". rewrite target_red_unfold.
-    iIntros (P_s σ_s P_t σ_t) "Hstate". iRight. iMod ("Hpsi"). iModIntro. iFrame.
+    iIntros (P_s σ_s P_t σ_t T_s) "Hstate". iRight. iMod ("Hpsi"). iModIntro. iFrame.
   Qed.
 
   Lemma target_red_step Ψ e_t :
-    (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗
+    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
       (⌜ reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-        ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s ∗ target_red e_t' Ψ)) -∗
+        ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ target_red e_t' Ψ)) -∗
     target_red e_t Ψ .
   Proof.
     iIntros "Hstep". rewrite target_red_unfold.
-    iIntros (P_s σ_s P_t σ_t) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro. iFrame.
+    iIntros (P_s σ_s P_t σ_t T_s) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro. iFrame.
   Qed.
 
-  Lemma target_red_sim_expr Ω e_s e_t Φ :
-    (target_red e_t (λ e_t', e_t' ⪯{Ω} e_s [{ Φ }])) -∗
-    e_t ⪯{Ω} e_s [{ Φ }].
+  Lemma target_red_sim_expr Ω e_s e_t Φ π:
+    (target_red e_t (λ e_t', e_t' ⪯{π, Ω} e_s [{ Φ }])) -∗
+    e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros "Htarget". rewrite target_red_eq.
-    iApply (target_red_ind _ (λ e_t, e_t ⪯{Ω} e_s [{ Φ }])%I); last by rewrite /flip.
+    iApply (target_red_ind _ (λ e_t, e_t ⪯{π, Ω} e_s [{ Φ }])%I); last by rewrite /flip.
     iModIntro. clear e_t. iIntros (e_t) "Htarget".
-    rewrite sim_expr_unfold. iIntros (????) "[Hstate Hnreach]".
+    rewrite sim_expr_unfold. iIntros (??????) "[Hstate Hnreach]".
     iMod ("Htarget" with "Hstate") as "[[Hred Hstep] | (Hstate & Hsim)]".
     - iModIntro. iRight; iLeft. iFrame. iIntros (e_t' efs_t σ_t') "Hprim".
       (* stuttering step *) iLeft.
@@ -1086,7 +1137,7 @@ Section fix_lang.
     iIntros "He".
     iApply (target_red_ind _ (λ e_t, target_red (fill K_t e_t) Ψ)%I); last by rewrite target_red_eq /flip.
     iModIntro. clear e_t. iIntros (e_t) "IH". rewrite target_red_eq /flip target_red_def_unfold.
-    iIntros (????) "Hstate". iMod ("IH" with "Hstate") as "IH".
+    iIntros (?????) "Hstate". iMod ("IH" with "Hstate") as "IH".
     iDestruct "IH" as "[[% Hstep] | [Hstate Hred]]"; first last.
     - rewrite target_red_def_unfold.
       iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto.
@@ -1103,7 +1154,7 @@ Section fix_lang.
     iIntros "Hw" (e_t) "Ht".
     iApply (target_red_ind _ (λ e_t, (∀ e_t', Φ e_t' -∗ Ψ e_t') -∗ target_red e_t Ψ)%I with "[] [Ht] Hw"); last by rewrite target_red_eq /flip.
     iModIntro. clear e_t. iIntros (e_t) "IH Hw".
-    rewrite target_red_unfold. iIntros (????) "Hstate".
+    rewrite target_red_unfold. iIntros (?????) "Hstate".
     iMod ("IH" with "Hstate") as "[[%Hred IH] | [Hstate Hphi]]"; iModIntro.
     - iLeft; iSplitR; first done. iIntros (???) "Hprim".
       iMod ("IH" with "Hprim") as "(? & ? & IH)"; iModIntro; iFrame. by iApply "IH".

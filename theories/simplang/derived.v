@@ -32,10 +32,10 @@ Proof.
   iIntros (l) "Hlm". iApply "Ht". by iApply mapsto_seq_array.
 Qed.
 
-Lemma source_red_allocN `{sheapG Σ} `{sheapInv Σ} v n Ψ :
+Lemma source_red_allocN `{sheapG Σ} `{sheapInv Σ} v n Ψ π :
   (0 < n)%Z →
-  (∀ l, l ↦s∗ replicate (Z.to_nat n) v -∗ l ==>s (Z.to_nat n) -∗ source_red (of_val #l) Ψ) -∗
-  source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
+  (∀ l, l ↦s∗ replicate (Z.to_nat n) v -∗ l ==>s (Z.to_nat n) -∗ source_red (of_val #l) π Ψ) -∗
+  source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) π Ψ.
 Proof.
   iIntros (Hzs) "Ht". iApply (source_red_allocN_seq); [done..|].
   iIntros (l) "Hlm". iApply "Ht". by iApply mapsto_seq_array.
