@@ -27,8 +27,8 @@ Section reorder.
              Call "cont" ("l2", "l1")
     )%E.
 
-  Lemma alloc2_reorder :
-    ⊢ sim_ectx val_rel alloc2_and_cont alloc2_and_cont' val_rel.
+  Lemma alloc2_reorder π:
+    ⊢ sim_ectx val_rel π alloc2_and_cont alloc2_and_cont' val_rel.
   Proof.
     iIntros (v_t v_s) "Hrel". sim_pures.
 
@@ -73,7 +73,7 @@ Section reorder.
              ("v1", "v2")
     )%E.
 
-  Lemma use_related :
-    ⊢ sim_ectx val_rel alloc2_use alloc2_use val_rel.
+  Lemma use_related π :
+    ⊢ sim_ectx val_rel π alloc2_use alloc2_use val_rel.
   Proof. iApply heap_bij_ectx_refl. done. Qed.
 End reorder.
