@@ -37,6 +37,7 @@ theories/simplang/examples/sum.v
 theories/simplang/examples/heap_test.v
 theories/simplang/examples/reorder_malloc.v
 theories/simplang/examples/while.v
+theories/simplang/examples/data_races.v
 
 
 
@@ -44,6 +45,3 @@ theories/simplang/examples/while.v
 theories/base_logic/gen_sim_heap.v
 theories/base_logic/gen_sim_prog.v
 theories/base_logic/gen_heap_bij.v
-
-
-
