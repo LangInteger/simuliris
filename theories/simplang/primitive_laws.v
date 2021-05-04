@@ -42,16 +42,16 @@ Section alloc_size_def.
       (* l is the full length of the allocation *)
       (∀ b l, M !! b = Some (AllocSt l) → (∀ i, (∃ v, σ !! (mkloc b i) = Some (Some v)) ↔ (0 ≤ i < Z.of_nat l)%Z)) ∧
       (* deallocated*)
-      (∀ b, M !! b = Some DeallocSt → (∀ i, σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some (None)) 
-        (* but we need to make sure that at least one location, at offset 0, was allocated at some point before, 
+      (∀ b, M !! b = Some DeallocSt → (∀ i, σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some (None))
+        (* but we need to make sure that at least one location, at offset 0, was allocated at some point before,
            to make the bijection on heap locations work (having [Some None] allows us to use stuckness) *)
         ∧ σ !! (mkloc b 0) = Some None).
   Definition alloc_size_interp (γ : gname) (σ : gmap loc (option (lock_state * val))) : iProp Σ :=
     ∃ M, ghost_map_auth γ 1 M ∗ ⌜heap_alloc_rel M σ⌝.
-End alloc_size_def. 
+End alloc_size_def.
 
-Global Instance sheapG_simulirisG `{!sheapG Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
-  state_interp P_t σ_t P_s σ_s :=
+Global Program Instance sheapG_simulirisG `{!sheapG Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
+  state_interp P_t σ_t P_s σ_s T_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
      gen_heap_interp (hG := gen_heap_inG_target) σ_t.(heap) ∗
@@ -61,6 +61,7 @@ Global Instance sheapG_simulirisG `{!sheapG Σ} `{!sheapInv Σ} : simulirisG (iP
      sheap_inv
     )%I;
 }.
+Next Obligation. done. Qed.
 
 (** Since we use an [option val] instance of [gen_heap], we need to overwrite
 the notations.  That also helps for scopes and coercions. *)
@@ -287,9 +288,10 @@ Implicit Types σ σ_s σ_t : state.
 Implicit Types v v_s v_t : val.
 Implicit Types l : loc.
 Implicit Types f : fname.
+Implicit Types π : thread_id.
 
-Context (Ω : val → val → iProp Σ).
-Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+Context (Ω : val → val → iProp Σ) (π : thread_id).
+Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 
 (** Heap for target *)
@@ -577,7 +579,7 @@ Lemma target_red_allocN_seq n v Ψ :
   target_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
   iIntros (Hn) "Hloc". iApply target_red_lift_head_step.
-  iIntros (P_s σ_s P_t σ_t) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)". iModIntro.
+  iIntros (P_s σ_s P_t σ_t T_s) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)". iModIntro.
   iSplitR. { eauto using alloc_fresh with head_step. }
   iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
   set (l := mkloc b 0).
@@ -592,14 +594,14 @@ Proof.
   rewrite replicate_length. iApply ("Hloc" with "Hmap Hn").
 Qed.
 
-Lemma source_red_allocN_seq n v Ψ :
+Lemma source_red_allocN_seq n v Ψ:
   (0 < n)%Z →
   (∀ l, ([∗ list] i ∈ seq 0 (Z.to_nat n), (l +ₗ (i : nat)) ↦s v) -∗
-  l ==>s (Z.to_nat n) -∗ source_red (of_val #l) Ψ) -∗
-  source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
+  l ==>s (Z.to_nat n) -∗ source_red (of_val #l) π Ψ) -∗
+  source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) π Ψ.
 Proof.
   iIntros (Hn) "Hloc". iApply source_red_lift_head_step.
-  iIntros (P_s σ_s P_t σ_t) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
+  iIntros (P_s σ_s P_t σ_t T_s K_s) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
   assert (head_reducible P_s (AllocN #n v) σ_s) as (e_s' & σ_s' & efs & Hred).
   { eauto using alloc_fresh with lia head_step. }
   inv_head_step. (set l := mkloc b 0).
@@ -624,8 +626,8 @@ Proof.
 Qed.
 
 Lemma source_red_alloc v Ψ :
-  (∀ l, l ↦s v -∗ l ==>s 1 -∗ source_red (of_val #l) Ψ) -∗
-  source_red (Alloc (Val v)) Ψ.
+  (∀ l, l ↦s v -∗ l ==>s 1 -∗ source_red (of_val #l) π Ψ) -∗
+  source_red (Alloc (Val v)) π Ψ.
 Proof.
   iIntros "Ht". iApply (source_red_allocN_seq); first lia.
   iIntros (l) "[Hl _]". iApply "Ht". by rewrite loc_add_0.
@@ -695,7 +697,7 @@ Lemma target_red_freeN vs l n Ψ :
   target_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) Ψ.
 Proof.
   iIntros (Hn) "Hl Hn Hsim". iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)".
   iPoseProof (alloc_size_lookup_alloc with "Hn Ha_t") as "%Halloc".
   iPoseProof (alloc_target_lt with "Ha_t Hn") as "%Hlt".
   iPoseProof (alloc_target_seq_start with "Ha_t Hσ_t Hn Hl") as "%Hidx_lt"; first done.
@@ -733,11 +735,11 @@ Lemma source_red_freeN vs l n Ψ :
   length vs = (Z.to_nat n) →
   l ↦s∗ vs -∗
   l ==>s (Z.to_nat n) -∗
-  source_red (of_val #()) Ψ -∗
-  source_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) Ψ.
+  source_red (of_val #()) π Ψ -∗
+  source_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) π Ψ.
 Proof.
   iIntros (Hn) "Hl Hn Hsim". iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
   iPoseProof (alloc_size_lookup_alloc with "Hn Ha_s") as "%Halloc".
   iPoseProof (alloc_source_lt with "Ha_s Hn") as "%Hlt".
   iPoseProof (alloc_source_seq_start with "Ha_s Hσ_s Hn Hl") as "%Hidx_lt"; first done.
@@ -764,8 +766,8 @@ Qed.
 Lemma source_red_free v l Ψ :
   l ↦s v -∗
   l ==>s 1 -∗
-  source_red (of_val #()) Ψ -∗
-  source_red (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV (LitLoc l))) Ψ.
+  source_red (of_val #()) π Ψ -∗
+  source_red (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV (LitLoc l))) π Ψ.
 Proof.
   iIntros "Hl Hn". replace (1) with (Z.to_nat 1) by lia.
   iApply (source_red_freeN [v] with "[Hl] Hn"); first done.
@@ -778,7 +780,7 @@ Lemma target_red_load_sc l dq v Ψ :
   target_red (Load ScOrd (Val $ LitV $ LitLoc l)) Ψ.
 Proof.
   iIntros "Hl Ht". iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?. iModIntro.
   iSplit; first by eauto with head_step.
   iIntros (??? Hstep); inv_head_step.
@@ -792,7 +794,7 @@ Lemma target_red_load_na l v Ψ :
   target_red (Load Na1Ord (Val $ LitV $ LitLoc l)) Ψ.
 Proof.
   iIntros "Hl Ht". iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?. iModIntro.
   iSplit; first by eauto with head_step.
   iIntros (??? Hstep); inv_head_step.
@@ -801,7 +803,7 @@ Proof.
   iModIntro. iFrame. iSplitR; first done.
 
   iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?. iModIntro.
   iSplit; first by eauto with head_step.
   iIntros (??? Hstep); inv_head_step.
@@ -812,11 +814,11 @@ Qed.
 
 Lemma source_red_load_sc l dq v Ψ :
   l ↦s{dq} v -∗
-  (l ↦s{dq} v -∗ source_red (of_val v) Ψ) -∗
-  source_red (Load ScOrd (Val $ LitV $ LitLoc l)) Ψ.
+  (l ↦s{dq} v -∗ source_red (of_val v) π Ψ) -∗
+  source_red (Load ScOrd (Val $ LitV $ LitLoc l)) π Ψ.
 Proof.
   iIntros "Hl Ht". iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) _]".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) _]".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s (Load ScOrd #l) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -827,11 +829,11 @@ Qed.
 (** FIXME: this is not the theorem we would like as the lock_state does currently not interact well with fractions *)
 Lemma source_red_load_na l v Ψ :
   l ↦s v -∗
-  (l ↦s v -∗ source_red (of_val v) Ψ) -∗
-  source_red (Load Na1Ord (Val $ LitV $ LitLoc l)) Ψ.
+  (l ↦s v -∗ source_red (of_val v) π Ψ) -∗
+  source_red (Load Na1Ord (Val $ LitV $ LitLoc l)) π Ψ.
 Proof.
   iIntros "Hl Ht". iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s (Load Na1Ord #l) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -841,7 +843,7 @@ Proof.
   iModIntro. iFrame.
 
   iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s0 (Load Na2Ord #l) σ_s0 e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with lia head_step. }
@@ -858,7 +860,7 @@ Lemma target_red_store_sc l v v' Ψ :
   target_red (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) Ψ.
 Proof.
   iIntros "Hl Hsim". iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) !>".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) !>".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%"; inv_head_step.
@@ -873,7 +875,7 @@ Lemma target_red_store_na l v v' Ψ :
   target_red (Store Na1Ord (Val $ LitV (LitLoc l)) (Val v)) Ψ.
 Proof.
   iIntros "Hl Hsim". iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) !>".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) !>".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%"; inv_head_step.
@@ -882,7 +884,7 @@ Proof.
   iModIntro. iSplitR; first done.
 
   iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) !>".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) !>".
   iDestruct (gen_heap_valid with "Hσ_t Hl") as %?.
   iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%"; inv_head_step.
@@ -893,11 +895,11 @@ Qed.
 
 Lemma source_red_store_sc l v v' Ψ :
   l ↦s v' -∗
-  (l ↦s v -∗ source_red (of_val #()) Ψ) -∗
-  source_red (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) Ψ.
+  (l ↦s v -∗ source_red (of_val #()) π Ψ) -∗
+  source_red (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
 Proof.
   iIntros "Hl Hsim". iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _] !>".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _] !>".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -909,11 +911,11 @@ Qed.
 
 Lemma source_red_store_na l v v' Ψ :
   l ↦s v' -∗
-  (l ↦s v -∗ source_red (of_val #()) Ψ) -∗
-  source_red (Store Na1Ord (Val $ LitV (LitLoc l)) (Val v)) Ψ.
+  (l ↦s v -∗ source_red (of_val #()) π Ψ) -∗
+  source_red (Store Na1Ord (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
 Proof.
   iIntros "Hl Hsim". iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _] !>".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _] !>".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s (Store Na1Ord (Val $ LitV (LitLoc l)) (Val v)) σ_s e_s' σ_s' [])
     as (e_s' & σ_s' & Hred).
@@ -924,7 +926,7 @@ Proof.
   iModIntro.
 
   iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _] !>".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _] !>".
   iDestruct (gen_heap_valid with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s0 (Store Na2Ord (Val $ LitV (LitLoc l)) (Val v)) σ_s0 e_s' σ_s' []) as (e_s' & σ_s' & Hred).
   { eauto with head_step. }
@@ -941,7 +943,7 @@ Lemma target_red_call f K_t v Ψ :
   target_red (Call (Val $ LitV $ LitFn f) (Val v)) Ψ.
 Proof.
   iIntros "Hf Hred". iApply target_red_lift_head_step.
-  iIntros (????) "(HP_t & HP_s & Hσ_t & Hσ_s & ?) !>".
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & ?) !>".
   iDestruct (gen_prog_valid with "HP_t Hf") as %?.
   iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%"; inv_head_step.
@@ -950,11 +952,11 @@ Qed.
 
 Lemma source_red_call f K_s v Ψ :
   f @s K_s -∗
-  source_red (fill K_s (Val v)) Ψ -∗
-  source_red (Call (Val $ LitV $ LitFn f) (Val v)) Ψ.
+  source_red (fill K_s (Val v)) π Ψ -∗
+  source_red (Call (Val $ LitV $ LitFn f) (Val v)) π Ψ.
 Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) _] !>".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) _] !>".
   iDestruct (gen_prog_valid with "HP_s Hf") as %?.
   assert (∃ e_s' σ_s', head_step P_s (Call (Val $ LitV $ LitFn f) (Val v)) σ_s e_s' σ_s' [])
     as (e_s' & σ_s' & Hred).
@@ -967,11 +969,11 @@ Qed.
 Lemma sim_call e_t e_s v_t v_s f :
   to_val e_t = Some v_t →
   to_val e_s = Some v_s →
-  ⊢ Ω v_t v_s -∗ Call (## f) e_t ⪯{Ω} Call (## f) e_s {{ Ω }}.
+  ⊢ Ω v_t v_s -∗ Call (## f) e_t ⪯{π, Ω} Call (## f) e_s {{ Ω }}.
 Proof.
   intros <-%of_to_val <-%of_to_val.
   (* FIXME use lifting lemma for this *)
-  iIntros "H". rewrite /sim /sim_stutter /sim_def sim_expr_unfold. iIntros (????) "[H1 H2]". iModIntro.
+  iIntros "H". rewrite /sim /sim_stutter /sim_def sim_expr_unfold. iIntros (??????) "[H1 H2]". iModIntro.
   iRight; iRight. iExists f, empty_ectx, v_t, empty_ectx, v_s, σ_s. cbn. iFrame.
   iSplitR; first done. iSplitR. { iPureIntro. constructor. }
   iIntros (v_t' v_s' ) "H". iApply sim_value. iApply "H".
@@ -980,15 +982,15 @@ Qed.
 (** fork *)
 Lemma sim_fork e_t e_s Ψ :
   #() ⪯ #() [{ Ψ }] -∗
-  e_t ⪯ e_s [{ lift_post Ω }] -∗
+  (∀ π', e_t ⪯{π', Ω} e_s [{ lift_post Ω }]) -∗
   Fork e_t ⪯ Fork e_s [{ Ψ }].
 Proof.
   iIntros "Hval Hsim". iApply sim_lift_head_step_both.
-  iIntros (????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck] !>".
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) %Hnstuck] !>".
   iSplitR. { eauto with head_step. }
   iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
   iModIntro. iExists _, _, _. iSplitR. { eauto with head_step. }
-  simpl. iFrame.
+  simpl. iFrame. iSplitL; [|done]. iApply "Hsim".
 Qed.
 
 (** Coinduction support *)
@@ -996,15 +998,15 @@ Qed.
 Lemma sim_while_while b_t b_s c_t c_s inv Ψ :
   inv -∗
   □ (inv -∗
-    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω}
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π, Ω}
     (if: c_s then b_s ;; while: c_s do b_s od else #())%E
       [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv) }]) -∗
-  (while: c_t do b_t od ⪯{Ω} while: c_s do b_s od [{ Ψ }])%E.
+  (while: c_t do b_t od ⪯{π, Ω} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
   iIntros "Hinv_init #Hstep".
-  iApply (sim_lift_head_coind _ (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
+  iApply (sim_lift_head_coind _ _ (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
   { iFrame. eauto. }
-  iModIntro. iIntros (?? ?? ??) "(-> & -> & Hinv) (Hstate & Hnreach)".
+  iModIntro. iIntros (?? ?? ?? ??) "(-> & -> & Hinv) (Hstate & Hnreach)".
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
@@ -1018,13 +1020,13 @@ Lemma sim_while_rec b_t c_t v_s (K_s : ectx) (inv : val → iProp Σ) Ψ rec_n :
   inv v_s -∗
   rec_n @s K_s -∗
   □ (∀ v_s', inv v_s' -∗
-    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{Ω} (fill K_s v_s')%E
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π, Ω} (fill K_s v_s')%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s') }]) -∗
-  (while: c_t do b_t od ⪯{Ω} Call ## rec_n v_s [{ Ψ }])%E.
+  (while: c_t do b_t od ⪯{π, Ω} Call ## rec_n v_s [{ Ψ }])%E.
 Proof.
-  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ (λ e_t e_s, (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s')%I)); first last.
+  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ _ (λ e_t e_s, (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s')%I)); first last.
   { iExists v_s. eauto. }
-  iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
+  iModIntro. iIntros (?? ?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
@@ -1039,13 +1041,13 @@ Lemma sim_rec_while b_s c_s v_t (K_t : ectx) (inv : val → iProp Σ) Ψ rec_n :
   inv v_t -∗
   rec_n @t K_t -∗
   □ (∀ v_t', inv v_t' -∗
-    (fill K_t v_t')%E ⪯{Ω}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
+    (fill K_t v_t')%E ⪯{π, Ω}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t') }]) -∗
-  ( Call ##rec_n v_t ⪯{Ω} while: c_s do b_s od [{ Ψ }])%E.
+  ( Call ##rec_n v_t ⪯{π, Ω} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
-  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ (λ e_t e_s, (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t'))%I); first last.
+  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ _ (λ e_t e_s, (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t'))%I); first last.
   { iExists v_t. eauto. }
-  iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
+  iModIntro. iIntros (?? ?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
 
   iDestruct "Hstate" as "(HP_t & ? & ? & ? &?)".
@@ -1063,14 +1065,14 @@ Lemma sim_rec_rec v_t v_s (K_t K_s : ectx) (inv : val → val → iProp Σ) Ψ r
   rec_t @t K_t -∗
   rec_s @s K_s -∗
   □ (∀ v_t' v_s', inv v_t' v_s' -∗
-    (fill K_t v_t')%E ⪯{Ω} (fill K_s v_s')%E
+    (fill K_t v_t')%E ⪯{π, Ω} (fill K_s v_s')%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s') }]) -∗
-  ( Call ##rec_t v_t ⪯{Ω} Call ##rec_s v_s [{ Ψ }])%E.
+  ( Call ##rec_t v_t ⪯{π, Ω} Call ##rec_s v_s [{ Ψ }])%E.
 Proof.
   iIntros "Hinv #Hrec_t #Hrec_s #Hstep".
-  iApply (sim_lift_head_coind _ (λ e_t e_s, (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s'))%I); first last.
+  iApply (sim_lift_head_coind _ _ (λ e_t e_s, (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s'))%I); first last.
   { iExists v_t, v_s. eauto. }
-  iModIntro. iIntros (?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_t' v_s') "(-> & -> & Hinv)".
+  iModIntro. iIntros (?? ?? ?? ??) "He (Hstate & Hnreach)". iDestruct "He" as (v_t' v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
 
   iDestruct "Hstate" as "(HP_t & HP_s & ? & ? &?)".

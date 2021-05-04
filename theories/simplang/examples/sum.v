@@ -6,7 +6,7 @@ From simuliris.simulation Require Import slsls lifting.
 
 
 Section fix_bi.
-Context `{sheapG Σ}.
+Context `{sheapG Σ} (π : thread_id).
 Instance : sheapInv Σ := {|
   sheap_inv := ⌜True⌝%I;
  |}.
@@ -31,7 +31,7 @@ Inductive val_rel_pure : val → val → Prop :=
 Local Hint Constructors val_rel_pure : core.
 Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
 
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 Definition mul2_source :=
   (λ: "x",
