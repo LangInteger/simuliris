@@ -1,4 +1,4 @@
-From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
+From simuliris.simplang Require Import lang notation tactics class_instances heap_bij heapbij_refl.
 From iris Require Import bi.bi.
 Import bi.
 From iris.proofmode Require Import tactics.
@@ -75,34 +75,5 @@ Section reorder.
 
   Lemma use_related :
     ⊢ sim_ectx val_rel alloc2_use alloc2_use val_rel.
-  Proof.
-    iIntros (v_t v_s) "Hrel". sim_pures.
-
-    source_bind (Fst v_s).
-    iApply source_red_irred_unless; first done.
-    iIntros ((v_s1 & v_s2 & ->)).
-    sim_pures.
-
-    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & Hrel1 & Hrel2)".
-    sim_pures.
-
-    source_bind (! v_s1)%E.
-    iApply source_red_irred_unless; first done.
-    iIntros ((l_s & ->)).
-    iApply source_red_base; iModIntro.
-    to_sim.
-    iPoseProof (val_rel_loc_source with "Hrel1") as (l_t) "(-> & #Hbij1)".
-    sim_load v_t1 v_s1 as "Hv1".
-    sim_pures.
-
-    source_bind (! v_s2)%E.
-    iApply source_red_irred_unless; first done.
-    iIntros ((l_s2 & ->)).
-    iApply source_red_base; iModIntro.
-    iPoseProof (val_rel_loc_source with "Hrel2") as (l_t2) "(-> & #Hbij2)".
-    sim_load v_t2 v_s2 as "Hv2".
-    sim_pures.
-
-    sim_val; iModIntro; simpl. eauto.
-  Qed.
+  Proof. iApply heap_bij_ectx_refl. done. Qed.
 End reorder.
