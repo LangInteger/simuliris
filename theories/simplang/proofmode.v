@@ -121,7 +121,7 @@ Qed.
 Lemma tac_target_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
-    match envs_app false (Esnoc (Esnoc Enil i (l ==>t (Z.to_nat n))) j (array (hG:=gen_heap_inG_target) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i († l …t Z.to_nat n)) j (l ↦t∗ (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -139,7 +139,7 @@ Qed.
 Lemma tac_source_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
-    match envs_app false (Esnoc (Esnoc Enil i (l ==>s (Z.to_nat n))) j (array (hG:=gen_heap_inG_source) l (DfracOwn 1) (replicate (Z.to_nat n) v))) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (†l …s Z.to_nat n)) j (l ↦s∗ (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) π Ψ)
     | None => False
@@ -156,7 +156,7 @@ Qed.
 
 Lemma tac_target_red_alloc v j i K Ψ Δ :
   (∀ l,
-    match envs_app false (Esnoc (Esnoc Enil i (l ==>t 1)) j (l ↦t v)) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (†l …t 1)) j (l ↦t v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
     | None => False
@@ -173,7 +173,7 @@ Qed.
 
 Lemma tac_source_red_alloc v j i K Ψ Δ :
   (∀ l,
-    match envs_app false (Esnoc (Esnoc Enil i (l ==>s 1)) j (l ↦s v)) Δ with
+    match envs_app false (Esnoc (Esnoc Enil i (†l …s 1)) j (l ↦s v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) π Ψ)
     | None => False
@@ -190,7 +190,7 @@ Qed.
 
 Lemma tac_target_red_free l v i j K Ψ Δ Δ' :
   envs_lookup_delete false i Δ = Some (false, l ↦t v, Δ')%I →
-  envs_lookup j Δ' = Some (false, l ==>t 1)%I →
+  envs_lookup j Δ' = Some (false, †l …t 1)%I →
   (let Δ'' := envs_delete false j false Δ' in
     envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (target_red (fill K (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV $ LitLoc l))) Ψ).
@@ -201,12 +201,13 @@ Proof.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
   rewrite Hfin.
   iIntros "(Hv & Ha & Hs)". iApply (target_red_free with "Hv Ha").
+  iIntros "_". (* TODO: DON'T DROP THIS! *)
   by iApply target_red_base.
 Qed.
 
 Lemma tac_source_red_free l v i j K Ψ Δ Δ' :
   envs_lookup_delete false i Δ = Some (false, l ↦s v, Δ')%I →
-  envs_lookup j Δ' = Some (false, l ==>s 1)%I →
+  envs_lookup j Δ' = Some (false, †l …s 1)%I →
   (let Δ'' := envs_delete false j false Δ' in
     envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) π Ψ)) →
   envs_entails Δ (source_red (fill K (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV $ LitLoc l))) π Ψ).
@@ -217,13 +218,14 @@ Proof.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
   rewrite Hfin.
   iIntros "(Hv & Ha & Hs)". iApply (source_red_free with "Hv Ha").
+  iIntros "_". (* TODO: DON'T DROP THIS! *)
   by iApply source_red_base.
 Qed.
 
-Lemma tac_target_red_freeN l n vs i j K Ψ Δ Δ' :
-  length vs = Z.to_nat n →
+Lemma tac_target_red_freeN l (n : Z) vs i j K Ψ Δ Δ' :
+  n = length vs →
   envs_lookup_delete false i Δ = Some (false, l ↦t∗ vs, Δ')%I →
-  envs_lookup j Δ' = Some (false, l ==>t (Z.to_nat n))%I →
+  envs_lookup j Δ' = Some (false, †l …t Z.to_nat n)%I →
   (let Δ'' := envs_delete false j false Δ' in
     envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (target_red (fill K (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l))) Ψ).
@@ -234,13 +236,14 @@ Proof.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
   rewrite Hfin.
   iIntros "(Hv & Ha & Hs)". iApply (target_red_freeN with "Hv Ha"); first done.
+  iIntros "_". (* TODO: DON'T DROP THIS! *)
   by iApply target_red_base.
 Qed.
 
-Lemma tac_source_red_freeN l n vs i j K Ψ Δ Δ' :
-  length vs = Z.to_nat n →
+Lemma tac_source_red_freeN l (n : Z) vs i j K Ψ Δ Δ' :
+  n = length vs →
   envs_lookup_delete false i Δ = Some (false, l ↦s∗ vs, Δ')%I →
-  envs_lookup j Δ' = Some (false, l ==>s (Z.to_nat n))%I →
+  envs_lookup j Δ' = Some (false, †l …s Z.to_nat n)%I →
   (let Δ'' := envs_delete false j false Δ' in
     envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) π Ψ)) →
   envs_entails Δ (source_red (fill K (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l))) π Ψ).
@@ -251,11 +254,12 @@ Proof.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
   rewrite Hfin.
   iIntros "(Hv & Ha & Hs)". iApply (source_red_freeN with "Hv Ha"); first done.
+  iIntros "_". (* TODO: DON'T DROP THIS! *)
   by iApply source_red_base.
 Qed.
 
 Lemma tac_target_red_loadsc Δ i K b l q v Ψ :
-  envs_lookup i Δ = Some (b, l ↦t{q} v)%I →
+  envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load ScOrd (LitV l))) Ψ).
 Proof.
@@ -268,8 +272,8 @@ Proof.
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Ht".
     iApply target_red_base; eauto.
 Qed.
-Lemma tac_target_red_loadna Δ i K b l v Ψ :
-  envs_lookup i Δ = Some (b, l ↦t v)%I →
+Lemma tac_target_red_loadna Δ i K b l v Ψ q:
+  envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load Na1Ord (LitV l))) Ψ).
 Proof.
@@ -284,7 +288,7 @@ Proof.
 Qed.
 
 Lemma tac_source_red_loadsc Δ i K b l q v Ψ :
-  envs_lookup i Δ = Some (b, l ↦s{q} v)%I →
+  envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load ScOrd (LitV l))) π Ψ).
 Proof.
@@ -297,8 +301,8 @@ Proof.
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Hs".
     iApply source_red_base; eauto.
 Qed.
-Lemma tac_source_red_loadna Δ i K b l v Ψ :
-  envs_lookup i Δ = Some (b, l ↦s v)%I →
+Lemma tac_source_red_loadna Δ i K b l v Ψ q:
+  envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load Na1Ord (LitV l))) π Ψ).
 Proof.
@@ -930,13 +934,13 @@ Tactic Notation "source_alloc" ident(l) :=
 Tactic Notation "target_free" :=
   to_target;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I, _) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I, _) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
   let solve_mapstoN _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦t∗{_} _)%I, _) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦t∗{#_} _)%I, _) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t∗ ?" in
   let solve_perm _ :=
-    let l := match goal with |- _ = Some (_, (?l ==>t _)%I) => l end in
+    let l := match goal with |- _ = Some (_, († ?l …?t _)%I) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "==>t ?" in
   target_pures;
   lazymatch goal with
@@ -959,13 +963,13 @@ Tactic Notation "target_free" :=
 Tactic Notation "source_free" :=
   to_source;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I, _) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I, _) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
   let solve_mapstoN _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦s∗{_} _)%I, _) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦s∗{#_} _)%I, _) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s∗ ?" in
   let solve_perm _ :=
-    let l := match goal with |- _ = Some (_, (?l ==>s _)%I) => l end in
+    let l := match goal with |- _ = Some (_, († ?l …?s _)%I) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "==>s ?" in
   source_pures;
   lazymatch goal with
@@ -988,7 +992,7 @@ Tactic Notation "source_free" :=
 Tactic Notation "target_load" :=
   to_target;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I) => l end in
     iAssumptionCore || fail "target_load: cannot find" l "↦t ?" in
   target_pures;
   lazymatch goal with
@@ -1005,7 +1009,7 @@ Tactic Notation "target_load" :=
 Tactic Notation "source_load" :=
   to_source;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I) => l end in
     iAssumptionCore || fail "source_load: cannot find" l "↦s ?" in
   source_pures;
   lazymatch goal with
@@ -1024,7 +1028,7 @@ Tactic Notation "source_load" :=
 Tactic Notation "target_store" :=
   to_target;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦t{_} _)%I) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I) => l end in
     iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in
   target_pures;
   lazymatch goal with
@@ -1041,7 +1045,7 @@ Tactic Notation "target_store" :=
 Tactic Notation "source_store" :=
   to_source;
   let solve_mapsto _ :=
-    let l := match goal with |- _ = Some (_, (?l ↦s{_} _)%I) => l end in
+    let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I) => l end in
     iAssumptionCore || fail "source_store: cannot find" l "↦s ?" in
   source_pures;
   lazymatch goal with

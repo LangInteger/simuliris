@@ -23,6 +23,7 @@ theories/playground/pure_threadpool_sim.v
 
 theories/simplang/locations.v
 theories/simplang/lang.v
+theories/simplang/ghost_state.v
 theories/simplang/primitive_laws.v
 theories/simplang/notation.v
 theories/simplang/tactics.v

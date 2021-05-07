@@ -44,7 +44,7 @@ Proof.
 Qed.
 
 Lemma test_free l l2 π :
-  l ↦t #42 -∗ l2 ↦s #1337 -∗ l ==>t 1 -∗ l2 ==>s 1 -∗
+  l ↦t #42 -∗ l2 ↦s #1337 -∗ †l …t 1 -∗ †l2 …s 1 -∗
   Free #l ⪯{π, val_rel} Free #l2 {{ val_rel }}.
 Proof.
   iIntros "H1 H2 H3 H4".
@@ -53,7 +53,7 @@ Qed.
 
 (* FIXME: if we remove the parantheses around the first element, parsing is broken *)
 Lemma test_freeN l l2 π :
-  l ↦t∗ [(#42); #99] -∗ l2 ↦s∗ [(#1337); #420; #666] -∗ l ==>t 2 -∗ l2 ==>s 3 -∗
+  l ↦t∗ [(#42); #99] -∗ l2 ↦s∗ [(#1337); #420; #666] -∗ †l …t 2 -∗ †l2 …s 3 -∗
   FreeN #2 #l ⪯{π, val_rel} FreeN #3 #l2 {{ val_rel }}.
 Proof.
   iIntros "H1 H2 H3 H4".
@@ -81,7 +81,7 @@ Module bij_test.
   Qed.
 
   Lemma test_insert l l2 π:
-    l ↦t #4 -∗ l2 ↦s #4 -∗ l ==>t 1 -∗ l2 ==>s 1 -∗
+    l ↦t #4 -∗ l2 ↦s #4 -∗ †l …t 1 -∗ †l2 …s 1 -∗
     ((#l <- #42)%E ⪯{π, val_rel} #l2 <- #42 {{ val_rel }}).
   Proof.
     iIntros "H H1 H2 H3".
