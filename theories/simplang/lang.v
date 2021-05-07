@@ -725,9 +725,9 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
      head_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
   | AllocNS n v σ b :
      (0 < n)%Z →
-     (∀ i, σ.(heap) !! (mkloc b i) = None) →
+     (∀ i, σ.(heap) !! (Loc b i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc (mkloc b 0)) (state_init_heap (mkloc b 0) n v σ) []
+               (Val $ LitV $ LitLoc (Loc b 0)) (state_init_heap (Loc b 0) n v σ) []
   | FreeNS l σ n :
      (0 < n)%Z →
      (* always need to deallocate the full block *)

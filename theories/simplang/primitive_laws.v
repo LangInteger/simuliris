@@ -40,12 +40,12 @@ Section alloc_size_def.
       (* allocations have a positive size *)
       (∀ b l, M !! b = Some (AllocSt l) → l > 0) ∧
       (* l is the full length of the allocation *)
-      (∀ b l, M !! b = Some (AllocSt l) → (∀ i, (∃ v, σ !! (mkloc b i) = Some (Some v)) ↔ (0 ≤ i < Z.of_nat l)%Z)) ∧
+      (∀ b l, M !! b = Some (AllocSt l) → (∀ i, (∃ v, σ !! (Loc b i) = Some (Some v)) ↔ (0 ≤ i < Z.of_nat l)%Z)) ∧
       (* deallocated*)
-      (∀ b, M !! b = Some DeallocSt → (∀ i, σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some (None))
+      (∀ b, M !! b = Some DeallocSt → (∀ i, σ !! (Loc b i) = None ∨ σ !! (Loc b i) = Some (None))
         (* but we need to make sure that at least one location, at offset 0, was allocated at some point before,
            to make the bijection on heap locations work (having [Some None] allows us to use stuckness) *)
-        ∧ σ !! (mkloc b 0) = Some None).
+        ∧ σ !! (Loc b 0) = Some None).
   Definition alloc_size_interp (γ : gname) (σ : gmap loc (option (lock_state * val))) : iProp Σ :=
     ∃ M, ghost_map_auth γ 1 M ∗ ⌜heap_alloc_rel M σ⌝.
 End alloc_size_def.
@@ -152,27 +152,27 @@ Section alloc_size_laws.
     destruct Hrel as (Hgt & Hequiv & Hdealloc). split; first done. split.
     - intros b l' Hml i. specialize (Hequiv _ _ Hml). rewrite -Hequiv.
       split; intros (w & Hl).
-      + destruct (decide (l = mkloc b i)) as [-> | Hneq].
+      + destruct (decide (l = Loc b i)) as [-> | Hneq].
         * eauto.
         * apply lookup_insert_Some in Hl as [(Heq' & [= ->]) |[_ ?] ]; [congruence | eauto].
-      + destruct (decide (l = mkloc b i)) as [-> | Hneq].
+      + destruct (decide (l = Loc b i)) as [-> | Hneq].
         * exists v'. apply lookup_insert_Some; by left.
         * exists w. apply lookup_insert_Some; by right.
     - intros b Hml; split.
       + intros i; specialize (proj1 (Hdealloc _ Hml) i) as [Hdealloc' | Hdealloc'].
-        * left. destruct (decide (l = mkloc b i)) as [-> | Hneq]; first congruence.
+        * left. destruct (decide (l = Loc b i)) as [-> | Hneq]; first congruence.
           apply lookup_insert_None; eauto.
-        * right. destruct (decide (l = mkloc b i)) as [-> | Hneq]; first congruence.
+        * right. destruct (decide (l = Loc b i)) as [-> | Hneq]; first congruence.
           apply lookup_insert_Some; by right.
       + specialize (proj2 (Hdealloc _ Hml) ) as Hdealloc'.
-        destruct (decide (l = mkloc b 0)) as [-> | Hneq]; first congruence.
+        destruct (decide (l = Loc b 0)) as [-> | Hneq]; first congruence.
         apply lookup_insert_Some; by right.
   Qed.
 
   Lemma alloc_size_lookup_alloc γ b σ n :
     ghost_map_elem γ b (DfracOwn 1) (AllocSt n) -∗
     alloc_size_interp γ σ -∗
-    ⌜(∀ i, (∃ v, σ !! (mkloc b i) = Some (Some v)) ↔ (0 ≤ i < Z.of_nat n)%Z) ∧ n > 0⌝.
+    ⌜(∀ i, (∃ v, σ !! (Loc b i) = Some (Some v)) ↔ (0 ≤ i < Z.of_nat n)%Z) ∧ n > 0⌝.
   Proof.
     iIntros "Helem Hauth". iDestruct "Hauth" as (M) "[Hauth %Hrel]".
     iDestruct (ghost_map_lookup with "Hauth Helem") as "%He". iPureIntro. split; by eapply Hrel.
@@ -181,7 +181,7 @@ Section alloc_size_laws.
   Lemma alloc_size_lookup_dealloc γ b σ :
     ghost_map_elem γ b (DfracOwn 1) DeallocSt -∗
     alloc_size_interp γ σ -∗
-    ⌜∀ i, σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some None⌝.
+    ⌜∀ i, σ !! (Loc b i) = None ∨ σ !! (Loc b i) = Some None⌝.
   Proof.
     iIntros "Helem Hauth". iDestruct "Hauth" as (M) "[Hauth %Hrel]".
     iDestruct (ghost_map_lookup with "Hauth Helem") as "%He". iPureIntro. by eapply Hrel.
@@ -190,7 +190,7 @@ Section alloc_size_laws.
   Lemma alloc_size_free γ b σ (n : nat) :
     ghost_map_elem γ b (DfracOwn 1) (AllocSt n) -∗
     alloc_size_interp γ σ ==∗
-    alloc_size_interp γ (free_mem (mkloc b 0) n σ) ∗ ghost_map_elem γ b (DfracOwn 1) DeallocSt.
+    alloc_size_interp γ (free_mem (Loc b 0) n σ) ∗ ghost_map_elem γ b (DfracOwn 1) DeallocSt.
   Proof.
     iIntros "Helem Hauth". iDestruct (alloc_size_lookup_alloc with "Helem Hauth") as "%Hl_prev".
     iDestruct "Hauth" as (M) "[Hauth %Hrel]".
@@ -205,7 +205,7 @@ Section alloc_size_laws.
         rewrite lookup_free_mem_1; [done | intros [=]; congruence].
     - intros b' Hl. destruct (decide (b = b')) as [<- | Hneq].
       + split.
-        * assert (∀ i, ¬ (0 ≤ i < n)%Z → σ !! (mkloc b i) = None ∨ σ !! (mkloc b i) = Some None) as Hi.
+        * assert (∀ i, ¬ (0 ≤ i < n)%Z → σ !! (Loc b i) = None ∨ σ !! (Loc b i) = Some None) as Hi.
           { intros i Hni. destruct (σ !! _) as [[] | ] eqn:Hi; [ | by eauto..].
             contradict Hni. apply Hl_prev. eauto. }
           intros i.
@@ -222,12 +222,12 @@ Section alloc_size_laws.
 
   Lemma heap_alloc_rel_allocN M b σ ls :
     length ls > 0 →
-    (∀ i, σ !! (mkloc b i) = None) →
+    (∀ i, σ !! (Loc b i) = None) →
     heap_alloc_rel M σ →
-    heap_alloc_rel (<[b := AllocSt (length ls)]> M) (heap_array (mkloc b 0) ls ∪ σ).
+    heap_alloc_rel (<[b := AllocSt (length ls)]> M) (heap_array (Loc b 0) ls ∪ σ).
   Proof.
     intros Hl Hd (Hsize & Hm &Hdealloc).
-    assert (heap_array (mkloc b 0) ls ##ₘ σ) as Hdisj.
+    assert (heap_array (Loc b 0) ls ##ₘ σ) as Hdisj.
     { apply heap_array_map_disjoint. intros i Hi Hi'. apply Hd. }
     split.
     { intros b' n [[<- [= <-]] | [_ Hs]]%lookup_insert_Some; first done. by eapply Hsize. }
@@ -262,9 +262,9 @@ Section alloc_size_laws.
 
   Lemma alloc_size_allocN γ b σ ls :
     length ls > 0 →
-    (∀ i, σ !! (mkloc b i) = None) →
+    (∀ i, σ !! (Loc b i) = None) →
     alloc_size_interp γ σ ==∗
-    alloc_size_interp γ (heap_array (mkloc b 0) ls ∪ σ) ∗
+    alloc_size_interp γ (heap_array (Loc b 0) ls ∪ σ) ∗
     ghost_map_elem γ b (DfracOwn 1) (AllocSt (length ls)).
   Proof.
     iIntros (Hl Hd) "Hi". iDestruct "Hi" as (M) "(Hauth & %Hsize & %Hm & %Hdealloc)".
@@ -400,55 +400,55 @@ Qed.
 
 Lemma source_array_st_access' vs sts l :
   (0 ≤ loc_idx l < length vs)%Z →
-  (mkloc (loc_chunk l) 0) ↦{sts}s∗ vs -∗
+  (Loc (loc_chunk l) 0) ↦{sts}s∗ vs -∗
   l ↦{sts !!! Z.to_nat (loc_idx l)}s (vs !!! Z.to_nat (loc_idx l)) ∗
-  (∀ v' st', l ↦{st'}s v' -∗ (mkloc (loc_chunk l) 0) ↦{<[Z.to_nat (loc_idx l) := st']> sts}s∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
+  (∀ v' st', l ↦{st'}s v' -∗ (Loc (loc_chunk l) 0) ↦{<[Z.to_nat (loc_idx l) := st']> sts}s∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
 Proof.
   iIntros (Hsome) "Hs".
   iPoseProof (array_st_length_inv with "Hs") as "%Hl".
   iPoseProof (source_array_st_access _ _ (Z.to_nat (loc_idx l)) with "Hs") as "[Hl_s Hclose_s]".
   { apply list_lookup_alt. split; last reflexivity. lia. }
   { apply list_lookup_alt. split; last reflexivity. lia. }
-  rewrite mkloc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
+  rewrite Loc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
   iFrame.
 Qed.
 
 Lemma target_array_st_access' vs sts l :
   (0 ≤ loc_idx l < length vs)%Z →
-  (mkloc (loc_chunk l) 0) ↦{sts}t∗ vs -∗
+  (Loc (loc_chunk l) 0) ↦{sts}t∗ vs -∗
   l ↦{sts !!! Z.to_nat (loc_idx l)}t (vs !!! Z.to_nat (loc_idx l)) ∗
-  (∀ v' st', l ↦{st'}t v' -∗ (mkloc (loc_chunk l) 0) ↦{<[Z.to_nat (loc_idx l) := st']> sts}t∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
+  (∀ v' st', l ↦{st'}t v' -∗ (Loc (loc_chunk l) 0) ↦{<[Z.to_nat (loc_idx l) := st']> sts}t∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
 Proof.
   iIntros (Hsome) "Hs".
   iPoseProof (array_st_length_inv with "Hs") as "%Hl".
   iPoseProof (target_array_st_access _ _ (Z.to_nat (loc_idx l)) with "Hs") as "[Hl_s Hclose_s]".
   { apply list_lookup_alt. split; last reflexivity. lia. }
   { apply list_lookup_alt. split; last reflexivity. lia. }
-  rewrite mkloc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
+  rewrite Loc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
   iFrame.
 Qed.
 
 Lemma source_array_access' vs l :
   (0 ≤ loc_idx l < length vs)%Z →
-  (mkloc (loc_chunk l) 0) ↦s∗ vs -∗
-  l ↦s (vs !!! Z.to_nat (loc_idx l)) ∗ (∀ v', l ↦s v' -∗ (mkloc (loc_chunk l) 0) ↦s∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
+  (Loc (loc_chunk l) 0) ↦s∗ vs -∗
+  l ↦s (vs !!! Z.to_nat (loc_idx l)) ∗ (∀ v', l ↦s v' -∗ (Loc (loc_chunk l) 0) ↦s∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
 Proof.
   iIntros (Hsome) "Hs".
   iPoseProof (source_array_access _ (Z.to_nat (loc_idx l)) with "Hs") as "[Hl_s Hclose_s]".
   { apply list_lookup_alt. split; last reflexivity. lia. }
-  rewrite mkloc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
+  rewrite Loc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
   iFrame.
 Qed.
 
 Lemma target_array_access' vs l :
   (0 ≤ loc_idx l < length vs)%Z →
-  (mkloc (loc_chunk l) 0) ↦t∗ vs -∗
-  l ↦t (vs !!! Z.to_nat (loc_idx l)) ∗ (∀ v', l ↦t v' -∗ (mkloc (loc_chunk l) 0) ↦t∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
+  (Loc (loc_chunk l) 0) ↦t∗ vs -∗
+  l ↦t (vs !!! Z.to_nat (loc_idx l)) ∗ (∀ v', l ↦t v' -∗ (Loc (loc_chunk l) 0) ↦t∗ (<[Z.to_nat (loc_idx l) := v']> vs)).
 Proof.
   iIntros (Hsome) "Hs".
   iPoseProof (target_array_access _ (Z.to_nat (loc_idx l)) with "Hs") as "[Hl_s Hclose_s]".
   { apply list_lookup_alt. split; last reflexivity. lia. }
-  rewrite mkloc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
+  rewrite Loc_add. assert (Z.of_nat (Z.to_nat (loc_idx l))= loc_idx l) as -> by lia. rewrite loc_eta.
   iFrame.
 Qed.
 
@@ -582,7 +582,7 @@ Proof.
   iIntros (P_s σ_s P_t σ_t T_s) "(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv)". iModIntro.
   iSplitR. { eauto using alloc_fresh with head_step. }
   iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
-  set (l := mkloc b 0).
+  set (l := Loc b 0).
   iMod (gen_heap_alloc_big _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ_t")
     as "(Hσ_t & Hl & _)".
   { apply heap_array_map_disjoint. rewrite replicate_length Z2Nat.id; rewrite /loc_add; auto with lia.  }
@@ -604,7 +604,7 @@ Proof.
   iIntros (P_s σ_s P_t σ_t T_s K_s) "[(HP_t & HP_s & Hσ_t & Hσ_s & Ha_t & Ha_s & Hinv) _]".
   assert (head_reducible P_s (AllocN #n v) σ_s) as (e_s' & σ_s' & efs & Hred).
   { eauto using alloc_fresh with lia head_step. }
-  inv_head_step. (set l := mkloc b 0).
+  inv_head_step. (set l := Loc b 0).
   iMod (gen_heap_alloc_big _ (heap_array l (replicate (Z.to_nat n) v)) with "Hσ_s")
     as "(Hσ_s & Hl & Hm)".
   { apply heap_array_map_disjoint. rewrite replicate_length Z2Nat.id /loc_add; auto with lia. }
@@ -715,7 +715,7 @@ Proof.
   iMod (alloc_size_free with "Hn Ha_t") as "[Ha_t Hn]". iFrame.
   iMod (heap_array_st_freeN with "Hσ_t Hl") as "$"; first done.
   iModIntro. iSplitR; first done.
-  assert (mkloc (loc_chunk l) 0 = l) as ->.
+  assert (Loc (loc_chunk l) 0 = l) as ->.
   { destruct l; cbn in *; rewrite Hidx_lt. replace 0%Z with (Z.of_nat 0); done. }
   done.
 Qed.
@@ -758,7 +758,7 @@ Proof.
   iMod (alloc_size_free with "Hn Ha_s") as "[Ha_s Hn]". iFrame.
   iMod (heap_array_st_freeN with "Hσ_s Hl") as "$"; first done.
   iModIntro.
-  assert (mkloc (loc_chunk l) 0 = l) as ->.
+  assert (Loc (loc_chunk l) 0 = l) as ->.
   { destruct l; cbn in *; rewrite Hidx_lt. replace 0%Z with (Z.of_nat 0); done. }
   done.
 Qed.

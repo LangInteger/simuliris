@@ -61,13 +61,13 @@ Section definitions.
   (** We require the [lock_state]s to be the same, pointwise *)
   Definition alloc_alive_rel val_rel b_t b_s : iProp Σ :=
     (∃ (n : nat) sts vs_t vs_s,
-      (mkloc b_t 0) ↦{sts}t∗ vs_t ∗
-      (mkloc b_s 0) ↦{sts}s∗ vs_s ∗
+      (Loc b_t 0) ↦{sts}t∗ vs_t ∗
+      (Loc b_s 0) ↦{sts}s∗ vs_s ∗
       vrel_list val_rel vs_t vs_s ∗
       ⌜length vs_t = n ∧ length vs_s = n⌝ ∗
-      mkloc b_t 0 ==>t n ∗
-      mkloc b_s 0 ==>s n).
-  Definition alloc_dead_rel b_t b_s : iProp Σ := (†t (mkloc b_t 0) ∗ †s (mkloc b_s 0)).
+      Loc b_t 0 ==>t n ∗
+      Loc b_s 0 ==>s n).
+  Definition alloc_dead_rel b_t b_s : iProp Σ := (†t (Loc b_t 0) ∗ †s (Loc b_s 0)).
 
   Definition heap_bij_interp (val_rel : val → val → iProp Σ) :=
     (∃ L, heap_bij_auth L ∗
@@ -675,13 +675,13 @@ Section fix_heap.
     {
       intros i Hi. specialize (Hv_t i Hi).
       enough (sts !!! Z.to_nat i = RSt 0) as <-.
-      { rewrite mkloc_add in Hv_t. destruct l_t; cbn in *; rewrite Hidx Hidx_eq mkloc_add. eauto. }
+      { rewrite Loc_add in Hv_t. destruct l_t; cbn in *; rewrite Hidx Hidx_eq Loc_add. eauto. }
       specialize (Hv_s i Hi). specialize (Hsome i Hi) as (v & Hsome).
-      destruct l_s; cbn in *. rewrite Hidx_eq mkloc_add in Hsome. rewrite Hsome in Hv_s. congruence.
+      destruct l_s; cbn in *. rewrite Hidx_eq Loc_add in Hsome. rewrite Hsome in Hv_s. congruence.
     }
     assert (∀ i, (∃ v st, heap σ_t !! (l_t +ₗ i) = Some (Some (st, v))) → (0 ≤ i < m)%Z).
     { intros i (v & st & ?); apply Halloc_t; destruct l_t. cbn in *. rewrite Hidx Hidx_eq in H2.
-      rewrite mkloc_add in H2. eauto.
+      rewrite Loc_add in H2. eauto.
     }
 
     iSplitR; first by eauto with lia head_step. iModIntro.
@@ -695,9 +695,9 @@ Section fix_heap.
     iMod (heap_array_st_freeN with "Hσ_t Hp_t") as "Hp_t"; first done.
     iModIntro. iExists e_s', [], σ_s'. iSplitR; first done.
     iFrame. inv_head_step.
-    replace (mkloc (loc_chunk l_t) 0) with l_t; first last.
+    replace (Loc (loc_chunk l_t) 0) with l_t; first last.
     { destruct l_t; cbn in *. rewrite Hidx Hidx_eq. by replace (Z.of_nat 0%nat)%Z with 0%Z by lia. }
-    replace (mkloc (loc_chunk l_s) 0) with l_s; first last.
+    replace (Loc (loc_chunk l_s) 0) with l_s; first last.
     { destruct l_s; cbn in *. rewrite Hidx_eq. by replace (Z.of_nat 0%nat)%Z with 0%Z by lia. }
     replace (Z.to_nat (Z.of_nat (length vs_t))) with (length vs_t) by lia.
     iFrame. rewrite Hlen_s. iFrame.
