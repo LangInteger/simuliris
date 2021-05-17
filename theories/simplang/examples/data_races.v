@@ -66,6 +66,8 @@ Section data_race.
        "x" <- #1;;
        "x" <- #2;;
        "res" <- !"x";;
+       (* Should not access x (e.g. because it does not access the
+       heap) and should not do synchronization. *)
        Call ##f !"res";;
        "refn" <- !"refn" - #1
      od;;
@@ -82,6 +84,57 @@ Section data_race.
     iIntros ((v_s1 & v_s2 & ->)).
     iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
     sim_pures.
+    sim_pures.
+
+  Abort.
+
+  Definition hoist_load_opt :=
+    (λ: "a",
+     let: "n" := Fst "a" in
+     let: "m" := Fst (Snd "a") in
+     let: "x" := Snd (Snd "a") in
+     let: "refi" := ref #0 in
+     if: "n" < #1 then
+       #0
+     else
+       let: "mval" := !"m" in
+       while: ! "refi" < "n" do
+         "x" <- "mval";;
+         "refi" <- !"refi" + #1
+       od;;
+       #0
+    )%E.
+
+  Definition hoist_load :=
+    (λ: "a",
+     let: "n" := Fst "a" in
+     let: "m" := Fst (Snd "a") in
+     let: "x" := Snd (Snd "a") in
+     let: "refi" := ref #0 in
+     while: ! "refi" < "n" do
+       "x" <- !"m";;
+       "refi" <- !"refi" + #1
+     od;;
+       #0
+    )%E.
+
+  Lemma hoist_load_sim π:
+    ⊢ sim_ectx val_rel π hoist_load_opt hoist_load val_rel.
+  Proof.
+    iIntros (v_t v_s) "Hrel". sim_pures.
+
+    source_bind (Fst v_s).
+    iApply source_red_irred_unless; first done.
+    iIntros ((v_s1 & v_s2' & ->)).
+    sim_pures.
+
+    source_bind (Fst v_s2').
+    iApply source_red_irred_unless; first done.
+    iIntros ((v_s2 & v_s3 & ->)).
+    sim_pures.
+
+    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2') "(-> & #Hrel1 & Hrel2')".
+    iPoseProof (val_rel_pair_source with "Hrel2'") as (v_t2 v_t3) "(-> & #Hrel2 & Hrel3)".
     sim_pures.
 
   Abort.
