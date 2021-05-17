@@ -97,6 +97,14 @@ Section lang.
     split; [econstructor | ].
     exists e, 0. repeat split; done.
   Qed.
+
+  Lemma pool_safe_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ} T π K:
+    pool_safe P T σ → T !! π = Some (fill K e) → to_val e = None → ϕ.
+  Proof.
+    intros Hsafe ??. apply: not_reach_stuck_irred; [done|].
+    unfold pool_safe in Hsafe. contradict Hsafe. apply: pool_reach_stuck_reach_stuck; [|done].
+    by apply fill_reach_stuck.
+  Qed.
 End lang.
 
 #[global]
