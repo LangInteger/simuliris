@@ -7,10 +7,12 @@ From simuliris.simulation Require Import slsls lifting.
 
 Section fix_bi.
 Context `{sheapG Σ} (π : thread_id).
-Instance : sheapInv Σ := {|
-  sheap_inv := ⌜True⌝%I;
+Program Instance : sheapInv Σ := {|
+  sheap_inv _ _ _ _ _ := ⌜True⌝%I;
  |}.
-
+Next Obligation. done. Qed.
+Global Instance : sheapInvConst.
+Proof. done. Qed.
 
 (* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
 

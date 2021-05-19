@@ -11,9 +11,12 @@ From simuliris.simplang Require heap_bij.
 Module fix_bi.
 Section a.
 Context `{sheapG Σ}.
-Instance : sheapInv Σ := {|
-  sheap_inv  := ⌜True⌝%I;
- |}.
+Program Instance : sheapInv Σ := {|
+  sheap_inv _ _ _ _ _ := ⌜True⌝%I;
+|}.
+Next Obligation. done. Qed.
+Global Instance : sheapInvConst.
+Proof. done. Qed.
 
 Definition val_rel (v1 v2 : val) : iProp Σ := (⌜v1 = v2⌝)%I.
 

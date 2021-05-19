@@ -14,7 +14,6 @@ Class simulirisG (PROP : bi) (Λ : language) := {
     (∀ σ_s, prim_step P_s e_s σ_s e_s' σ_s []) →
     state_interp P_t σ_t P_s σ_s T -∗
     state_interp P_t σ_t P_s σ_s (<[π:=e_s']>T)
-
 }.
 #[global]
 Hint Mode simulirisG + - : typeclass_instances.

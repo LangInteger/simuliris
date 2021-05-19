@@ -246,9 +246,12 @@ Section fix_heap.
   Context `{sbijG Σ} (val_rel : val → val → iProp Σ) (π : thread_id).
   Context {val_rel_pers : ∀ v_t v_s, Persistent (val_rel v_t v_s)}.
 
-  Instance heap_bij_inv : sheapInv Σ := {|
-    sheap_inv := heap_bij_interp val_rel;
+  Program Instance heap_bij_inv : sheapInv Σ := {|
+    sheap_inv _ _ _ _ _:= heap_bij_interp val_rel;
   |}.
+  Next Obligation. done. Qed.
+  Global Instance : sheapInvConst.
+  Proof. done. Qed.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
   Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
