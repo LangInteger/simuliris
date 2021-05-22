@@ -29,7 +29,9 @@ Ltac reshape_expr e tac :=
     | Write ?e (Place ?l ?t ?T)       => add_item (WriteLCtx (PlaceR l t T)) K e
     | Write ?e1 ?e2                   => add_item (WriteRCtx e1) K e2 
     | Free ?e                         => add_item FreeCtx K e
-    | Retag ?e ?pk ?T ?rk             => add_item (RetagCtx pk T rk) K e
+    | Retag ?e (Val ?v) ?pk ?T ?rk    => add_item (RetagLCtx (ValR v) pk T rk) K e
+    | Retag ?e (Place ?l ?t ?T) ?pk ?T ?rk    => add_item (RetagLCtx (PlaceR l t T) pk T rk) K e
+    | Retag ?e1 ?e2 ?pk ?T ?rk        => add_item (RetagRCtx e1 pk T rk) K e2
     | Let ?x ?e1 ?e2                  => add_item (LetCtx x e2) K e1
     | Case ?e ?el                     => add_item (CaseCtx el) K e 
     end

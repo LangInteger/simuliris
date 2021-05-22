@@ -18,8 +18,8 @@ Open Scope Z_scope.
 
 (** Id to track calls *)
 Notation call_id := nat (only parsing).
-(* Stack of active call ids *)
-Definition call_id_stack := list call_id.
+(* Set of active call ids *)
+Definition call_id_set := gset call_id.
 
 (** Tags for pointers *)
 Notation ptr_id := nat (only parsing).
@@ -144,9 +144,9 @@ Inductive expr :=
 (* | CAS (e0 e1 e2 : expr) *)     (* CAS the value `e2` for `e1` to the place `e0` *)
 (* | AtomWrite (e1 e2: expr) *)
 (* | AtomRead (e: expr) *)
-(* retag *) (* Retag the memory pointed to by `e` of type (Reference pk T) with
-  retag kind `kind`. *)
-| Retag (e : expr) (pk : pointer_kind) (T : type) (kind : retag_kind)
+(* retag *) (* Retag the memory pointed to by `e1` of type (Reference pk T) with
+  retag kind `kind`, for call_id `e2`. *)
+| Retag (e1 : expr) (e2 : expr) (pk : pointer_kind) (T : type) (kind : retag_kind)
 (* let binding *)
 | Let (x : binder) (e1 e2: expr)
 (* case *)
@@ -176,7 +176,7 @@ Arguments Free _%E.
 (* Arguments CAS _%E _%E _%E. *)
 (* Arguments AtomWrite _%E _%E. *)
 (* Arguments AtomRead _%E. *)
-Arguments Retag _%E _ _ _.
+Arguments Retag _%E _%E _ _ _.
 Arguments Let _%binder _%E _%E.
 Arguments Case _%E _%E.
 (* Arguments Fork _%E. *)
@@ -187,11 +187,11 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
   | BinOp _ e1 e2 | (* AtomWrite e1 e2 | *) Write e1 e2
-      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 => is_closed X e1 && is_closed X e2
+      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
-  | Copy e | Retag e _ _ _ | Deref e _ | Ref e (* | Field e _ *)
+  | Copy e  | Deref e _ | Ref e (* | Field e _ *)
       | Free e | EndCall e (* | AtomRead e | Fork e *)
       => is_closed X e
   (* | CAS e0 e1 e2 => is_closed X e0 && is_closed X e1 && is_closed X e2 *)
@@ -284,6 +284,6 @@ Inductive event :=
 | WriteEvt (l : loc) (lbor : tag) (T : type) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
-| RetagEvt (l : loc) (otag ntag : tag) (pk : pointer_kind) (T : type) (kind : retag_kind)
+| RetagEvt (l : loc) (otag ntag : tag) (pk : pointer_kind) (T : type) (kind : retag_kind) (c : call_id)
 (* | SysCallEvt (id: nat) *)
 | SilentEvt.

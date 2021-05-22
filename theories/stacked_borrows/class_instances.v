@@ -204,29 +204,30 @@ Section irreducible.
 
 
   Global Instance irreducible_endcall P σ v :
-    IrredUnless (∃ c, v = [ScCallId c] ∧ head σ.(scs) = Some c) P (EndCall (Val v)) σ.
+    IrredUnless (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs)) P (EndCall (Val v)) σ.
   Proof.
     prove_irred_unless.
-    { destruct (hd_error σ.(scs)) as [ c' | ]; first destruct (decide (c' = c));
-        [ finish_decision | | finish_decision ].
-      right. by intros (c'' & [= ->] & [= ->]).
-    }
-    apply ϕ. rewrite TOP; eauto.
+    destruct (decide (c ∈ σ.(scs))); finish_decision.
   Qed.
 
-  Global Instance irreducible_retag P σ v pk T rk :
-    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ head σ.(scs) = Some c ∧
-      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag (Val v) pk T rk) σ.
+  Global Instance irreducible_retag P σ v v' pk T rk :
+    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
+      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag (Val v) (Val v') pk T rk) σ.
   Proof.
     prove_irred_unless.
-    - destruct (hd_error σ.(scs)) as [ c | ]; last finish_decision.
-      destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
-      + left. eauto 8.
-      + right. intros (c' & ot & l' & [= -> ->] & [= ->] & (? & ?)); congruence.
-    - apply ϕ. exists c, otag, l. rewrite RETAG TOP. eauto.
+    destruct (decide (c ∈ σ.(scs))); last finish_decision. 
+    destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
+    + left. eauto 8.
+    + right. intros (c' & ot & l' & [= -> ->] & [= ->] & ? &? & ?); congruence.
   Qed.
-  Global Instance irreducible_retag_place P σ l t T T' pk rk :
-    IrredUnless False P (Retag (Place l t T) pk T' rk) σ.
+  Global Instance irreducible_retag_place_l P σ l t T T' v pk rk :
+    IrredUnless False P (Retag (Place l t T) (Val v) pk T' rk) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_retag_place_r P σ l t T T' v pk rk :
+    IrredUnless False P (Retag (Val v) (Place l t T) pk T' rk) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_retag_place_r2 P σ l t T T' l' t' T'' pk rk :
+    IrredUnless False P (Retag (Place l' t' T'') (Place l t T) pk T' rk) σ.
   Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_copy_val P σ v :

@@ -41,7 +41,7 @@ Definition find_granting (stk: stack) (access: access_kind) (bor: tag) :
   option (nat * permission) :=
   (λ nit, (nit.1, nit.2.(perm))) <$> (list_find (matched_grant access bor) stk).
 
-Definition is_active (cids: call_id_stack) (c: call_id) : bool :=
+Definition is_active (cids: call_id_set) (c: call_id) : bool :=
   bool_decide (c ∈ cids).
 (* FIXME: this one should exclude protectors of Disabled items. @LG fixed this*)
 Definition is_active_protector cids (it: item) :=
@@ -342,7 +342,7 @@ Definition adding_protector (kind: retag_kind) (c: call_id) : option call_id :=
 
 (* This *partly* implements EvalContextExt::retag *)
 (* Assumption: ct ∈ cids *)
-Definition retag α (nxtp: ptr_id) (cids: call_id_stack) (ct: call_id)
+Definition retag α (nxtp: ptr_id) (cids: call_id_set) (ct: call_id)
   (l: loc) (otag: tag) (kind: retag_kind) pk Tr :
   option (tag * stacks * ptr_id) :=
     let qualify : option (ref_kind * option call_id) :=
@@ -389,8 +389,8 @@ Qed.
 
 (** Instrumented step for the stacked borrows *)
 (* This ignores CAS for now. *)
-Inductive bor_step (α : stacks) (cids: call_id_stack) (nxtp: ptr_id) (nxtc: call_id):
-  event → stacks → call_id_stack → ptr_id → call_id → Prop :=
+Inductive bor_step (α : stacks) (cids: gset call_id) (nxtp: ptr_id) (nxtc: call_id):
+  event → stacks → call_id_set → ptr_id → call_id → Prop :=
 (* | SysCallIS id :
     bor_step h α β nxtp (SysCallEvt id) h α β nxtp *)
 (* This implements EvalContextExt::new_allocation. *)
@@ -417,12 +417,12 @@ Inductive bor_step (α : stacks) (cids: call_id_stack) (nxtp: ptr_id) (nxtc: cal
     (ACC: memory_deallocated α cids l lbor (tsize T) = Some α') :
     bor_step α cids nxtp nxtc (DeallocEvt l lbor T) α' cids nxtp nxtc
 | InitCallIS :
-    bor_step α cids nxtp nxtc (InitCallEvt nxtc) α (nxtc :: cids) nxtp (S nxtc)
-| EndCallIS c cids'
-    (TOP: cids = c :: cids') :
-    bor_step α cids nxtp nxtc (EndCallEvt c) α cids' nxtp nxtc
-| RetagIS α' nxtp' l otag ntag T kind pkind c cids'
-    (TOP: cids = c :: cids')
+    bor_step α cids nxtp nxtc (InitCallEvt nxtc) α ({[nxtc]} ∪ cids) nxtp (S nxtc)
+| EndCallIS c 
+    (EL: c ∈ cids) :
+    bor_step α cids nxtp nxtc (EndCallEvt c) α (cids ∖ {[c]}) nxtp nxtc
+| RetagIS α' nxtp' l otag ntag T kind pkind c
+    (EL: c ∈ cids)
     (RETAG: retag α nxtp cids c l otag kind pkind T = Some (ntag, α', nxtp')) :
-    bor_step α cids nxtp nxtc (RetagEvt l otag ntag pkind T kind) α' cids nxtp' nxtc.
+    bor_step α cids nxtp nxtc (RetagEvt l otag ntag pkind T kind c) α' cids nxtp' nxtc.
 

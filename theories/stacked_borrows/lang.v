@@ -14,8 +14,8 @@ Record state := mkState {
   shp : mem;
   (* Stacked borrows for the heap *)
   sst : stacks;
-  (* Stack of active call ids *)
-  scs : call_id_stack;
+  (* Set of active call ids *)
+  scs : call_id_set;
   (* Counter for pointer tag generation *)
   snp : ptr_id;
   (* Counter for call id generation *)
@@ -144,9 +144,9 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
       bool_decide (l = l') && bool_decide (bor = bor') && bool_decide (T = T')
   | Deref e T, Deref e' T' =>
       bool_decide (T = T') && expr_beq e e'
-  | Retag e pk T kind, Retag e' pk' T' kind' =>
+  | Retag e1 e2 pk T kind, Retag e1' e2' pk' T' kind' =>
      bool_decide (pk = pk') && bool_decide (T = T') &&
-     bool_decide (kind = kind') && expr_beq e e'
+     bool_decide (kind = kind') && expr_beq e1 e1' && expr_beq e2 e2'
   | Copy e, Copy e' | Ref e, Ref e'
   (* | AtomRead e, AtomRead e' *) => expr_beq e e'
   | Let x e1 e2, Let x' e1' e2' =>
@@ -209,10 +209,10 @@ Proof.
       | Deref e T => GenNode 13 [GenLeaf $ inl $ inr $ inr $ inr T; go e]
       | Ref e => GenNode 14 [go e]
       (* | Field e path => GenNode 15 [GenLeaf $ inr $ inl $ inl (* $ inl *) path; go e] *)
-      | Retag e pk T kind =>
+      | Retag e1 e2 pk T kind =>
           GenNode 15 [GenLeaf $ inr $ inl $ inl pk;
                       GenLeaf $ inr $ inl $ inr T;
-                      GenLeaf $ inr $ inr $ inl kind; go e]
+                      GenLeaf $ inr $ inr $ inl kind; go e1; go e2]
       | Let x e1 e2 => GenNode 16 [GenLeaf$ inr $ inr $ inr x; go e1; go e2]
       | Case e el => GenNode 17 (go e :: (go <$> el))
       (* | Fork e => GenNode 23 [go e]
@@ -242,8 +242,8 @@ Proof.
      (* | GenNode 15 [GenLeaf (inr (inl (inl (*  (inl *) path(* ) *)))); e] => Field (go e) path *)
      | GenNode 15 [GenLeaf (inr (inl (inl pk)));
                    GenLeaf (inr (inl (inr T)));
-                   GenLeaf (inr (inr (inl kind))); e] =>
-        Retag (go e) pk T kind
+                   GenLeaf (inr (inr (inl kind))); e1; e2] =>
+        Retag (go e1) (go e2) pk T kind
      | GenNode 16 [GenLeaf (inr (inr (inr x))); e1; e2] => Let x (go e1) (go e2)
      | GenNode 17 (e :: el) => Case (go e) (go <$> el)
      (* | GenNode 23 [e] => Fork (go e)
@@ -316,8 +316,8 @@ Lemma fill_item_no_result_inj Ki1 Ki2 e1 e2 :
   to_result e1 = None → to_result e2 = None →
   fill_item Ki1 e1 = fill_item Ki2 e2 → Ki1 = Ki2.
 Proof.
-  destruct Ki1 as [| | | | | | | | | | | | | (* | *) | | | | ],
-           Ki2 as [| | | | | | | | | | | | | (* | *) | | | |];
+  destruct Ki1 as [| | | | | | | | | | | | | | (* | *) | | | | ],
+           Ki2 as [| | | | | | | | | | | | | | (* | *) | | | |];
   intros He1 He2 EQ; try discriminate; simplify_eq/=;
     repeat match goal with
     | H : to_result (of_result _) = None |- _ => by rewrite to_of_result in H
@@ -512,13 +512,13 @@ Definition new_place T (v: expr) : expr :=
   let: "x" := Alloc T in "x" <- v ;; "x".
 
 (* Retag a place [p] that is a pointer of kind [pk] to a region of type [T],
-  with retag [kind] *)
+  with retag [kind] and call_id [c] *)
 Definition retag_place
-  (p: expr) (pk: pointer_kind) (T: type) (kind: retag_kind) : expr :=
+  (p: expr) (pk: pointer_kind) (T: type) (kind: retag_kind) (c : expr) : expr :=
   let: "p" := p in
   (* read the current pointer stored in the place [p] *)
   (* retag and update [p] with the pointer with new tag *)
-  "p" <- Retag (Copy "p") pk T kind.
+  "p" <- Retag (Copy "p") c pk T kind.
 
 (* The breaking point '/  ' makes sure that the body of the λ: is indented
 by two spaces in case the whole λ: does not fit on a single line. *)
@@ -526,5 +526,6 @@ by two spaces in case the whole λ: does not fit on a single line. *)
 Notation "λ: x , e" := ([LetCtx x%binder e%E])
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
+Bind Scope expr_scope with ectx.
 
 

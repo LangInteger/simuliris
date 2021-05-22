@@ -1,4 +1,4 @@
-(** This file proves the basic laws of the BoringLang program logic by applying
+(** This file proves the basic laws of the BorIngLang program logic by applying
 the Simuliris lifting lemmas. *)
 
 From iris.proofmode Require Export tactics.
@@ -14,7 +14,7 @@ Class sborG (Σ: gFunctors) := SBorG {
   sborG_gen_progG :> gen_sim_progG string ectx ectx Σ;
 }.
 
-Global Instance sheapG_SimulLang `{!sborG Σ} : SimulLang (iPropI Σ) bor_lang := {
+Global Instance sborG_SimulLang `{!sborG Σ} : SimulLang (iPropI Σ) bor_lang := {
   state_interp P_t σ_t P_s σ_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s

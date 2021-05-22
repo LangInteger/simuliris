@@ -27,7 +27,7 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Deref e T => Deref (subst x es e) T
   | Ref e => Ref (subst x es e)
   (* | Field e path => Field (subst x es e) path *)
-  | Retag e pkind T kind => Retag (subst x es e) pkind T kind
+  | Retag e1 e2 pkind T kind => Retag (subst x es e1) (subst x es e2) pkind T kind
   | Let x1 e1 e2 =>
       Let x1 (subst x es e1)
                  (if bool_decide (BNamed x ≠ x1) then subst x es e2 else e2)
@@ -94,7 +94,8 @@ Inductive ectx_item :=
 | DerefCtx (T : type)
 | RefCtx
 (* | FieldCtx (path : list nat) *)
-| RetagCtx (pkind : pointer_kind) (T : type) (kind : retag_kind)
+| RetagRCtx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+| RetagLCtx (r2 : result) (pkind : pointer_kind) (T : type) (kind : retag_kind)
 | LetCtx (x : binder) (e2 : expr)
 | CaseCtx (el : list expr).
 
@@ -116,7 +117,8 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | DerefCtx T => Deref e T
   | RefCtx => Ref e
   (* | FieldCtx path => Field e path *)
-  | RetagCtx pk T kind => Retag e pk T kind
+  | RetagLCtx r2 pk T kind => Retag e (of_result r2) pk T kind
+  | RetagRCtx e1 pk T kind => Retag e1 e pk T kind
   | LetCtx x e2 => Let x e e2
   | CaseCtx el => Case e el
   end.
@@ -364,10 +366,10 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → Prop :=
               h (Free (Place l lbor T))
               (DeallocEvt l lbor T)
               (free_mem l (tsize T) h) #[☠]
-| RetagBS l otag ntag pkind T kind :
+| RetagBS l otag ntag pkind T kind c :
     mem_expr_step
-              h (Retag #[ScPtr l otag] pkind T kind)
-              (RetagEvt l otag ntag pkind T kind)
+              h (Retag #[ScPtr l otag] #[ScCallId c] pkind T kind)
+              (RetagEvt l otag ntag pkind T kind c)
               h #[ScPtr l ntag]
 (* | ForkBS e h:
     expr_step (Fork e) h SilentEvt (Lit LitPoison) h [e] *)
