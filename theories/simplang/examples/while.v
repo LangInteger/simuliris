@@ -52,7 +52,7 @@ Section fix_bi.
   Qed.
 
   Lemma mul_sim (n m : nat) :
-    ⊢ mul_loop #n #m ⪯ #n * #m {{ val_rel }}.
+    ⊢ mul_loop #n #m ⪯ #(n * m) {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
     sim_pures. target_alloc l_n as "Hln" "Ha_n". target_alloc l_acc as "Hlacc" "Ha_acc".
@@ -64,6 +64,39 @@ Section fix_bi.
     }
     iIntros (e_t') "(-> & Hln & Hlacc)". sim_pures.
     target_load. sim_pures. target_free. target_free.
+    by sim_pures; sim_val.
+  Qed.
+
+  Lemma loop_lem' (n0 n m : nat) (l_acc l_n : loc) :
+    l_n ↦s #n -∗
+    l_acc ↦s #((n0 - n) * m) -∗
+    source_red (while: #0 < !#l_n do #l_acc <- !#l_acc + #m;; #l_n <- !#l_n - #1 od)%E
+      (λ e_s', ⌜e_s' = #()⌝ ∗ l_n ↦s #0 ∗ l_acc ↦s #(n0 * m)).
+  Proof.
+    iIntros "Hn Hm". iInduction n as [ | ] "IH" forall "Hn Hm".
+    - source_while. sim_pures. source_load. sim_pures.
+      assert (n0 - 0%nat = n0)%Z as -> by lia.
+      iModIntro. by iFrame.
+    - source_while. source_load. sim_pures. source_load.
+      source_store. source_load. source_store. sim_pures.
+      iApply ("IH" with "[Hn] [Hm]").
+      + by assert ((S n) - 1 = n)%Z as -> by lia.
+      + by assert ((n0 - S n) * m + m = (n0 - n) * m)%Z as -> by lia.
+  Qed.
+
+  Lemma mul_sim' (n m : nat) :
+    ⊢ #(n * m) ⪯ mul_loop #n #m  {{ val_rel }}.
+  Proof.
+    rewrite /mul_loop.
+    sim_pures. source_alloc l_n as "Hln" "Ha_n". source_alloc l_acc as "Hlacc" "Ha_acc".
+    sim_pures.
+    source_bind (While _ _).
+    iApply (source_red_wand (λ e_t',⌜e_t' = Val #()⌝ ∗ l_n ↦s #0 ∗ l_acc ↦s #(n * m))%I with "[Hln Hlacc]"). {
+      (* generalize over n for the ind, but fix n0 *)
+      iApply (loop_lem' with "Hln [Hlacc]"). by assert ((n - n) * m = 0)%Z as -> by lia.
+    }
+    iIntros (e_s') "(-> & Hln & Hlacc)". sim_pures.
+    source_load. sim_pures. source_free. source_free.
     by sim_pures; sim_val.
   Qed.
 

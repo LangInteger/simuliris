@@ -857,7 +857,7 @@ Section fix_lang.
         state_interp P_t σ_t P_s σ_s' ∗ rec e_s')
       ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ e_s))%I.
 
-  Lemma source_red_mon Ψ l1 l2 :
+  Lemma source_red_rec_mono Ψ l1 l2 :
     □ (∀ e, l1 e -∗ l2 e) -∗ ∀ e, source_red_rec Ψ  l1 e -∗ source_red_rec Ψ l2 e.
   Proof.
     iIntros "Hmon" (e) "Hl1". rewrite /source_red_rec.
@@ -867,15 +867,15 @@ Section fix_lang.
     - iModIntro; iRight. iFrame.
   Qed.
 
-  Instance source_red_mono Ψ : BiMonoPred (source_red_rec Ψ).
+  Instance source_red_mon Ψ : BiMonoPred (source_red_rec Ψ).
   Proof.
     constructor.
-    - iIntros (l1 l2 Hne Hne') "H". by iApply source_red_mon.
+    - iIntros (l1 l2 Hne Hne') "H". by iApply source_red_rec_mono.
     - intros l Hne n e1 e2 Heq. apply (discrete_iff _ _) in Heq as ->. done.
   Qed.
 
   Definition source_red_def Ψ := bi_least_fixpoint (source_red_rec Ψ).
-  Lemma source_red_unfold Ψ e_s : source_red_def Ψ e_s ⊣⊢ source_red_rec Ψ (source_red_def Ψ) e_s.
+  Lemma source_red_def_unfold Ψ e_s : source_red_def Ψ e_s ⊣⊢ source_red_rec Ψ (source_red_def Ψ) e_s.
   Proof. by rewrite /source_red_def least_fixpoint_unfold. Qed.
 
   Definition source_red_aux : seal (flip source_red_def).
@@ -902,6 +902,13 @@ Section fix_lang.
     by iApply (@least_fixpoint_ind _ _ (source_red_rec Ψ) Ψi).
   Qed.
 
+  Lemma source_red_unfold e_s Ψ :
+    source_red e_s Ψ ⊣⊢
+      ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
+        (∃ e_s' σ_s', ⌜prim_step P_s e_s σ_s e_s' σ_s' []⌝ ∗ state_interp P_t σ_t P_s σ_s' ∗ source_red e_s' Ψ)
+        ∨ (state_interp P_t σ_t P_s σ_s ∗ Ψ e_s).
+  Proof. rewrite source_red_eq /= source_red_def_unfold //. Qed.
+
   Lemma source_red_elim Ψ e_s :
     source_red e_s Ψ -∗
     ∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ∗ ⌜safe P_s e_s σ_s⌝ ==∗
@@ -925,7 +932,7 @@ Section fix_lang.
   Lemma source_red_base Ψ e_s :
     (|==> Ψ e_s) -∗ source_red e_s Ψ.
   Proof.
-    iIntros "Hpsi". rewrite source_red_eq /flip source_red_unfold /source_red_rec.
+    iIntros "Hpsi". rewrite source_red_unfold.
     iIntros (P_s σ_s P_t σ_t) "[Hstate %]". iRight. iMod ("Hpsi"). iModIntro. iFrame.
   Qed.
 
@@ -935,7 +942,7 @@ Section fix_lang.
         state_interp P_t σ_t P_s σ_s' ∗ source_red e_s' Ψ)) -∗
     source_red e_s Ψ.
   Proof.
-    iIntros "Hstep". rewrite source_red_eq /flip source_red_unfold /source_red_rec.
+    iIntros "Hstep". rewrite source_red_unfold.
     iIntros (P_s σ_s P_t σ_t) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro.
     iFrame.
   Qed.
@@ -954,7 +961,7 @@ Section fix_lang.
     (∀ P_s σ_s P_t σ_t, state_interp P_t σ_t P_s σ_s ==∗ ⌜reach_stuck P_s e_s σ_s⌝) -∗
     source_red e_s Ψ.
   Proof.
-    iIntros "Hstuck". rewrite source_red_eq /flip source_red_unfold /source_red_rec.
+    iIntros "Hstuck". rewrite source_red_unfold.
     iIntros (????) "[Hstate %Hsafe]". iMod ("Hstuck" with "Hstate") as "%".
     exfalso; by apply Hsafe.
   Qed.
@@ -975,16 +982,34 @@ Section fix_lang.
   Proof.
     iIntros "He".
     iApply (source_red_ind _ (λ e_s, source_red (fill K_s e_s) Ψ)%I); last by rewrite source_red_eq /flip .
-    iModIntro. clear e_s. iIntros (e_s) "IH". rewrite source_red_eq /flip source_red_unfold.
+    iModIntro. clear e_s. iIntros (e_s) "IH". rewrite source_red_eq /flip source_red_def_unfold.
     iIntros (????) "[Hstate %Hsafe]". iMod ("IH" with "[$Hstate]") as "IH".
     { iPureIntro. intros ?. by eapply Hsafe, fill_reach_stuck. }
     iDestruct "IH" as "[Hstep | [Hstate Hred]]".
     { iModIntro. iDestruct "Hstep" as (e_s' σ_s') "(%&?&?)". iLeft.
       iExists (fill K_s e_s'), σ_s'. iFrame. iPureIntro.
       by apply fill_prim_step. }
-    rewrite source_red_unfold.
+    rewrite source_red_def_unfold.
     iMod ("Hred" with "[$Hstate//]") as "[Hstep | Hred]"; iModIntro; eauto.
   Qed.
+
+  Lemma source_red_mono Φ Ψ :
+    (∀ e_s, Φ e_s -∗ Ψ e_s) -∗
+    ∀ e_s, source_red e_s Φ -∗ source_red e_s Ψ.
+  Proof.
+    iIntros "Hw" (e_s) "Ht".
+    iApply (source_red_ind _ (λ e_s, (∀ e_s', Φ e_s' -∗ Ψ e_s') -∗ source_red e_s Ψ)%I with "[] [Ht] Hw"); last by rewrite source_red_eq /flip.
+    iModIntro. clear e_s. iIntros (e_s) "IH Hw".
+    rewrite source_red_unfold. iIntros (????) "Hstate".
+    iMod ("IH" with "Hstate") as  "[Hs | [Hstate Hphi]]"; iModIntro.
+    - iDestruct "Hs" as (e_s' σ_s') "(Hs & Hstate & IH)".
+      iLeft; iExists e_s', σ_s'. iFrame. by iApply "IH".
+    - iRight. iFrame. by iApply "Hw".
+  Qed.
+
+  Lemma source_red_wand Φ Ψ e_s :
+    source_red e_s Φ -∗ (∀ e_s', Φ e_s' -∗ Ψ e_s') -∗ source_red e_s Ψ.
+  Proof. iIntros "Ht Hw". iApply (source_red_mono with "Hw Ht"). Qed.
 
   (** ** same thing for target *)
   Definition target_red_rec (Ψ : expr Λ → PROP) (rec : exprO → PROP) e_t :=

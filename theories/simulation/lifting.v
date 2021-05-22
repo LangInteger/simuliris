@@ -8,6 +8,8 @@ From iris.proofmode Require Import tactics.
 (* TODO move to language.v? *)
 Section lang.
   Context {Λ : language}.
+  Implicit Types (e : expr Λ) (P : prog Λ).
+
    Record pure_step (e1 e2 : expr Λ) := {
       pure_step_safe P σ1 : reducible P e1 σ1;
       pure_step_det P σ1 e2' σ2 efs:
@@ -97,6 +99,57 @@ Section lang.
     split; [econstructor | ].
     exists e, 0. repeat split; done.
   Qed.
+
+  Lemma irred_unless_safe ϕ P e σ :
+    IrredUnless ϕ P e σ →
+    to_val e = None →
+    safe P e σ →
+    ϕ.
+  Proof.
+    intros Hirred Hnval Hsafe. apply Hirred. rewrite /safe in Hsafe. contradict Hsafe.
+    do 3 eexists. split; first econstructor. exists e, 0. split; last split; done.
+  Qed.
+
+  (*Lemma pool_step_append P T T' T'' σ σ' i : *)
+    (*pool_step P T σ i (T' σ' → pool_step P (T ++ T'') σ i (T' ++ T'') σ'.*)
+  (*Proof.*)
+    (*intros Hpool. econstructor. *)
+
+  Lemma safe_prim_step P (e : expr Λ) σ :
+    safe P e σ → ∀ e' σ', prim_step P e σ e' σ' [] → safe P e' σ'.
+  Proof.
+    intros Hsafe e' σ' Hprim.
+    rewrite /safe in Hsafe. rewrite /safe. contradict Hsafe.
+    destruct Hsafe as (T'' & σ'' & I & Hsteps & Hstuck).
+    exists T'', σ'', (0 :: I). split; last done.
+    econstructor 2; last done.
+    eapply (Pool_step _ 0 [] e e' [] [] σ σ'); done.
+  Qed.
+
+  Lemma irreducible_reach_stuck P e σ :
+    to_val e = None → irreducible P e σ → reach_stuck P e σ.
+  Proof.
+    intros Hval Hirred. exists [e], σ, [].
+    split; first constructor.
+    exists e, 0; split; first done. split; done.
+  Qed.
+
+  Lemma irred_unless_n P e e' σ σ' ϕ :
+    safe P e σ →
+    no_forks P e σ e' σ' →
+    IrredUnless ϕ P e' σ' →
+    to_val e' = None →
+    ϕ.
+  Proof.
+    intros Hsafe Hsteps Hirred Hnoval .
+    induction Hsteps.
+    { apply Hirred. rewrite /safe in Hsafe. contradict Hsafe.
+      apply irreducible_reach_stuck; done.
+    }
+    apply IHHsteps; [ |done..].
+    eapply safe_prim_step; done.
+  Qed.
+
 End lang.
 
 #[global]
@@ -263,11 +316,9 @@ Section fix_sim.
     source_red e_s Ψ.
   Proof.
     intros Hunless Hval. iIntros "Hs".
-    rewrite source_red_eq /flip source_red_unfold /source_red_rec /safe.
-    iIntros (????) "[Hstate %Hnreach]".
-    assert (¬ irreducible P_s e_s σ_s) as Hn.
-    { contradict Hnreach. by apply stuck_reach_stuck. }
-    apply Hunless in Hn. iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+    rewrite source_red_unfold. iIntros (????) "[Hstate %Hsafe]".
+    iMod ("Hs" with "[] [$Hstate //]") as "Hs"; last done.
+    iPureIntro. eapply irred_unless_safe; done.
   Qed.
 
   Lemma sim_irred_unless ϕ e_s e_t Φ :
@@ -278,10 +329,9 @@ Section fix_sim.
   Proof.
     intros Hunless Hval. iIntros "Hs".
     rewrite sim_expr_unfold /safe.
-    iIntros (????) "[Hstate %Hnreach]".
-    assert (¬ irreducible P_s e_s σ_s) as Hn.
-    { contradict Hnreach. by apply stuck_reach_stuck. }
-    apply Hunless in Hn. iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+    iIntros (????) "[Hstate %Hsafe]".
+    iMod ("Hs" with "[] [$Hstate //]") as "Hs"; last done.
+    iPureIntro. eapply irred_unless_safe; done.
   Qed.
 
   (** Target eval *)
