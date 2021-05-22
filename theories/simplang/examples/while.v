@@ -12,8 +12,8 @@ Section fix_bi.
     let: "n" := Alloc #n in
     While (#0 < ! "n") ("n" <- ! "n" - #1).
 
-  Lemma loop (n : nat) :
-    ⊢ loop_test n ⪯ #() {{ val_rel }}.
+  Lemma loop (n : nat) π :
+    ⊢ loop_test n ⪯{π, val_rel} #() {{ val_rel }}.
   Proof.
     rewrite /loop_test.
     target_alloc l as "Hl" "_". sim_pures.
@@ -51,8 +51,8 @@ Section fix_bi.
       + by assert ((n0 - S n) * m + m = (n0 - n) * m)%Z as -> by lia.
   Qed.
 
-  Lemma mul_sim (n m : nat) :
-    ⊢ mul_loop #n #m ⪯ #(n * m) {{ val_rel }}.
+  Lemma mul_sim (n m : nat) π :
+    ⊢ mul_loop #n #m ⪯{π, val_rel} #n * #m {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
     sim_pures. target_alloc l_n as "Hln" "Ha_n". target_alloc l_acc as "Hlacc" "Ha_acc".
@@ -67,10 +67,10 @@ Section fix_bi.
     by sim_pures; sim_val.
   Qed.
 
-  Lemma loop_lem' (n0 n m : nat) (l_acc l_n : loc) :
+  Lemma loop_lem' (n0 n m : nat) (l_acc l_n : loc) π :
     l_n ↦s #n -∗
     l_acc ↦s #((n0 - n) * m) -∗
-    source_red (while: #0 < !#l_n do #l_acc <- !#l_acc + #m;; #l_n <- !#l_n - #1 od)%E
+    source_red (while: #0 < !#l_n do #l_acc <- !#l_acc + #m;; #l_n <- !#l_n - #1 od)%E π
       (λ e_s', ⌜e_s' = #()⌝ ∗ l_n ↦s #0 ∗ l_acc ↦s #(n0 * m)).
   Proof.
     iIntros "Hn Hm". iInduction n as [ | ] "IH" forall "Hn Hm".
@@ -84,8 +84,8 @@ Section fix_bi.
       + by assert ((n0 - S n) * m + m = (n0 - n) * m)%Z as -> by lia.
   Qed.
 
-  Lemma mul_sim' (n m : nat) :
-    ⊢ #(n * m) ⪯ mul_loop #n #m  {{ val_rel }}.
+  Lemma mul_sim' (n m : nat) π :
+    ⊢ #(n * m) ⪯{π, val_rel} mul_loop #n #m  {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
     sim_pures. source_alloc l_n as "Hln" "Ha_n". source_alloc l_acc as "Hlacc" "Ha_acc".
@@ -103,8 +103,8 @@ Section fix_bi.
   Definition diverging_loop : expr :=
     while: #true do #() od.
 
-  Lemma diverge_sim :
-    ⊢ diverging_loop ⪯ diverging_loop {{ val_rel }}.
+  Lemma diverge_sim π :
+    ⊢ diverging_loop ⪯{π, val_rel} diverging_loop {{ val_rel }}.
   Proof.
     iApply heap_bij_refl; done.
   Qed.
@@ -117,8 +117,8 @@ Section fix_bi.
 
   Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
 
-  Lemma input_sim :
-    ⊢ input_loop ⪯ input_loop {{ val_rel }}.
+  Lemma input_sim π:
+    ⊢ input_loop ⪯{π, val_rel} input_loop {{ val_rel }}.
   Proof.
     iApply heap_bij_refl; done.
   Qed.
@@ -131,12 +131,12 @@ Section fix_bi.
       else #().
 
   (* TODO: avoid equalities? *)
-  Lemma loop_rec :
+  Lemma loop_rec π:
     "rec" @s input_rec -∗
-    input_loop ⪯ Call ##"rec" #true {{ val_rel }}.
+    input_loop ⪯{π, val_rel} Call ##"rec" #true {{ val_rel }}.
   Proof.
     iIntros "#Hs". rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
-    iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
+    iApply (sim_while_rec _ _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
 
@@ -150,12 +150,12 @@ Section fix_bi.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
 
-  Lemma loop_rec' :
+  Lemma loop_rec' π:
     "rec" @t input_rec -∗
-     Call ##"rec" #true ⪯ input_loop {{ val_rel }}.
+     Call ##"rec" #true ⪯{π, val_rel} input_loop {{ val_rel }}.
   Proof.
     iIntros "#Hs". rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
-    iApply (sim_rec_while _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
+    iApply (sim_rec_while _ _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.
 

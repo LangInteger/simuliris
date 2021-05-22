@@ -1,8 +1,19 @@
+From stdpp Require Import gmap.
 From simuliris.simulation Require Import language lifting.
 From simuliris.simplang Require Export lang.
 From simuliris.simplang Require Import tactics.
 
 (** * Instances of the [IrredUnless] class *)
+
+(* TODO: upstream this somewhere? *)
+Definition exists_dec_unique {A} (x : A) (P : _ → Prop) : (∀ y, P y → P x) → Decision (P x) → Decision (∃ y, P y).
+Proof.
+  intros Hx Hdec.
+  refine (cast_if (decide (P x))).
+  - abstract by eexists _.
+  - abstract naive_solver.
+Defined.
+
 
 Section irreducible.
   Implicit Types (e : expr) (v : val) (σ : state).
@@ -186,77 +197,74 @@ Section irreducible.
   Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_loadSc σ v_l P :
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (RSt n, v))) P (Load ScOrd $ Val v_l) σ.
+    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load ScOrd $ Val v_l) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[[] ]| ] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_loadNa1 σ v_l P :
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (RSt n, v))) P (Load Na1Ord $ Val v_l) σ.
+    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load Na1Ord $ Val v_l) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[[] ]| ] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_loadNa2 σ v_l P :
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (RSt (S n), v))) P (Load Na2Ord $ Val v_l) σ.
+    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt (S n), v)) P (Load Na2Ord $ Val v_l) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[[ | []] ]| ] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[ | []] ] | ] eqn:Heq; decide_goal.
   Qed.
 
   Global Instance irreducible_storeSc σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (RSt 0, v))) P (Store ScOrd (Val $ v_l) (Val v)) σ.
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store ScOrd (Val $ v_l) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[[ | [] ] ]|] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[ | [] ] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_storeNa1 σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (RSt 0, v))) P (Store Na1Ord (Val $ v_l) (Val v)) σ.
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store Na1Ord (Val $ v_l) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[[ | [] ] ]|] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[ | [] ] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_storeNa2 σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (Some (WSt, v))) P (Store Na2Ord (Val $ v_l) (Val v)) σ.
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (WSt, v)) P (Store Na2Ord (Val $ v_l) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; last by prove_irred.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[[ |  ] ]|] | ] eqn:Heq; decide_goal.
+    destruct (heap σ !! l) as [ [[ |  ] ] | ] eqn:Heq; decide_goal.
   Qed.
 
+  (* Global Instance forall_dec {A} P : (∀ x, Decision (P x)) → Decision (∀ x : A, P x). *)
+  (* Proof. intros. apply _. *)
+
+
   Global Instance irreducible_freeN σ v_l v_n P :
-  IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧
-    (∀ i, (0 ≤ i < n)%Z → ∃ v, heap σ !! (l +ₗ i) = Some (Some (RSt 0, v))) ∧
-    (∀ i, (∃ v st, heap σ !! (l +ₗ i) = Some (Some (st, v))) → (0 ≤ i < n)%Z))
+    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧
+                       (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
     apply irred_unless_irred_dec; last (prove_irred; apply ϕ; eauto 8).
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct v_n as [[n | | | | | ]  | | | ]; try decide_goal.
-    assert (∀ (m : nat) l, Decision (∀ i, (0 ≤ i < m)%Z → (∃ v, heap σ !! (l +ₗ i) = Some (Some (RSt 0, v))))) as Hdec1.
-    { intros n' l'.
-      (* TODO: use ugly stuff with the heap map to get the decision *)
-      admit.
-    }
-    assert (∀ (m : nat) l, Decision (∀ i, (∃ v st, heap σ !! (l +ₗ i) = Some (Some (st, v))) → (0 ≤ i < m)%Z)) as Hdec2.
-    { intros n' l'.
-      (* TODO: use ugly stuff with the heap map to get the decision *)
-      admit.
-    }
-    destruct (decide (0 < n)%Z) as [Hlt | Hnlt]; last by decide_goal.
-    specialize (Hdec1 (Z.to_nat n) l).
-    specialize (Hdec2 (Z.to_nat n) l).
-    replace (Z.of_nat (Z.to_nat n)) with n in *; last lia.
-    destruct Hdec1 as [Hdec1 | Hdec1]; first last.
-    { right; contradict Hdec1. destruct Hdec1 as (? & ? & [=] & [=] & ? & ? &?); subst. done. }
-    destruct Hdec2 as [Hdec2 | Hdec2]; first last.
-    { right; contradict Hdec2. destruct Hdec2 as (? & ? & [=] & [=] & ? & ? &?); subst. done. }
-    left; eauto 8.
+    apply (exists_dec_unique l); [ naive_solver|].
+    apply (exists_dec_unique n); [ naive_solver|].
+    apply and_dec; [decide_goal|].
+    apply and_dec; [decide_goal|].
+    apply and_dec; [apply _|].
+
+    destruct (decide (map_Forall (λ l' _,
+     (loc_chunk l' = loc_chunk l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
+                                 ) σ.(heap))) as [Hm|Hm]; last first.
+    { right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
+      have Hi : i = (l +ₗ (loc_idx i - loc_idx l)).
+      { rewrite /loc_add. destruct i, l => /=; f_equal; [ done | lia]. }
+      rewrite Hi in Hheap. eapply mk_is_Some, Hm in Hheap. lia. }
   Admitted.
 
   Global Instance irreducible_allocN σ v_n v P :

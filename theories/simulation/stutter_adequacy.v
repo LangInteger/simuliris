@@ -12,7 +12,7 @@ Section meta_level_simulation.
   Context {PROP : bi}.
   Context {Λ : language}.
   Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {PROP_forall : BiPureForall PROP}.
@@ -24,7 +24,7 @@ Section meta_level_simulation.
   (* we pull out the simulation to a meta-level simulation,
      the set V tracks which threads are already values in both target and source *)
   Definition msim (T_t: list (expr Λ)) (σ_t: state Λ)  (T_s: list (expr Λ)) (σ_s: state Λ) (V: gset nat) :=
-    sat (state_interp p_t σ_t p_s σ_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post Ω) e_t e_s).
+    sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post Ω) i e_t e_s).
 
   Lemma msim_length T_t T_s σ_t σ_s V:
     msim T_t σ_t T_s σ_s V → length T_t = length T_s.
@@ -53,9 +53,9 @@ Section meta_level_simulation.
     - simpl; clear Hsim. iIntros "(SI & %Hvals & Hsims)".
       iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
       rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
-      + iPureIntro. by eapply pool_safe_threads_safe.
+      + iPureIntro. by erewrite fill_empty.
       + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
-        iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
+        iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val". rewrite fill_empty.
         eapply of_val_inj in Heq1 as <-. subst e_s'.
         eapply no_forks_pool_steps in Hnfs as (I & Hpool & _); last done.
         iModIntro. iExists (<[i := (of_val v_s)]> T_s), σ_s', I.
@@ -74,13 +74,14 @@ Section meta_level_simulation.
 
   Lemma msim_proj_val (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
     i ∈ V →
+    pool_safe p_s T_s σ_s →
     msim T_t σ_t T_s σ_s V →
     ∃ v_t v_s,
       T_t !! i = Some (of_val v_t) ∧
       T_s !! i = Some (of_val v_s) ∧
-      sat (state_interp p_t σ_t p_s σ_s ∗ Ω v_t v_s).
+      sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω v_t v_s).
   Proof.
-    intros Hel Hsim. rewrite /msim in Hsim. eapply sat_mono in Hsim.
+    intros Hel Hsafe Hsim. rewrite /msim in Hsim. eapply sat_mono in Hsim.
     - eapply sat_bupd in Hsim.
       eapply sat_exists in Hsim as [v_t Hsim]; exists v_t.
       eapply sat_exists in Hsim as [v_s Hsim]; exists v_s.
@@ -93,12 +94,12 @@ Section meta_level_simulation.
       destruct (Vals i Hel) as (v_t & v_s & Hlook1 & Hlook2).
       iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim _]"; eauto.
       rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
-      + iPureIntro. eapply val_safe.
-      + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Hpost]".
+      + iPureIntro. by erewrite fill_empty.
+      + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Hpost]". rewrite fill_empty.
         iModIntro. iExists v_t, v_s.
         do 2 (iSplit; first done).
         inversion Hnfs; subst.
-        * iFrame. iDestruct "Hpost" as (v_t' v_s' ->%of_val_inj ->%of_val_inj) "$".
+        * rewrite list_insert_id //. iFrame. iDestruct "Hpost" as (v_t' v_s' ->%of_val_inj ->%of_val_inj) "$".
         * exfalso. by eapply val_prim_step.
       + iDestruct "Step" as "[%Hred _]". destruct Hred as (e_t' & σ_t' & efs & Hstep).
         exfalso. by eapply val_prim_step.
@@ -126,7 +127,7 @@ Section meta_level_simulation.
     - simpl; clear Hsim. iIntros "(SI & %Hvals & Hsims)".
       iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
       rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
-      + iPureIntro. by eapply pool_safe_threads_safe.
+      + iPureIntro. by erewrite fill_empty.
       + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
         iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
         subst e_t. exfalso. by eapply val_prim_step.
@@ -141,13 +142,15 @@ Section meta_level_simulation.
           iSpecialize ("Hpost" $! e_t' e_s with "Hsim").
           rewrite (list_insert_id T_s) //.
         * iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim' Hlen') "(SI & Hsim & Hforks)".
+          rewrite fill_empty.
           eapply no_forks_then_prim_step_pool_steps in Hnfs as (J & Hsteps & _); eauto.
           iModIntro. iExists _, _, _; iSplit; first done.
           iFrame. iSplit.
           { iPureIntro. intros j Hj. eapply Hvals in Hj as (v_t & v_s & Hlook1 & Hlook2).
             exists v_t, v_s. split; eauto using pool_step_value_preservation, pool_steps_value_preservation. }
           iSpecialize ("Hpost" $! e_t' e_s'' with "Hsim").
-          rewrite Hupd. iApply (big_sepL2_app with "Hpost Hforks").
+          rewrite Hupd. iApply (big_sepL2_app with "Hpost [Hforks]").
+          by rewrite insert_length Hlen.
   Qed.
 
   Lemma msim_not_stuck (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) V i e_t :
@@ -163,7 +166,7 @@ Section meta_level_simulation.
     iIntros "(SI & _ & Hsims)".
     iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
     rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
-    + iPureIntro. by eapply pool_safe_threads_safe.
+    + iPureIntro. by erewrite fill_empty.
     + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
       iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
       iModIntro. iPureIntro. intros [Heq _].
@@ -175,7 +178,7 @@ Section meta_level_simulation.
 
   Lemma msim_sim_pool T_t σ_t T_s σ_s V:
     msim T_t σ_t T_s σ_s V →
-    sat (state_interp p_t σ_t p_s σ_s ∗ sim_pool (zip T_t T_s)).
+    sat (state_interp p_t σ_t p_s σ_s T_s ∗ sim_pool (zip T_t T_s)).
   Proof.
     intros Hsim.
     eapply sat_mono, Hsim. iIntros "($ & _ & Hsims)".
@@ -222,10 +225,12 @@ Section meta_level_simulation.
     last by eapply msim_safety.
     eapply fair_div_coind_delay_iff in Hfair as [D Hfair].
     eapply msim_sim_pool in Hsim as Hpool.
-    eapply sim_pool_preserves_fair_termination in Hpool.
-    - eapply fair_div_coind_traditional.
-      revert Hpool; rewrite snd_zip // Hlen //.
+    eapply fair_div_coind_traditional.
+    assert (T_s = (zip T_t T_s).*2) as ->.
+    { rewrite snd_zip // Hlen //. }
+    eapply sim_pool_preserves_fair_termination.
     - rewrite fst_zip // Hlen //.
+    - rewrite snd_zip // Hlen //.
     - rewrite snd_zip // Hlen //.
   Qed.
 
@@ -261,7 +266,7 @@ Section meta_level_simulation.
       pool_steps p_s T_s σ_s J T_s' σ_s' ∧
       msim T_t' σ_t' T_s' σ_s' U ∧
       (∀ i v_t, T_t' !! i = Some (of_val v_t) →
-      ∃ v_s, T_s' !! i = Some (of_val v_s) ∧ sat (state_interp p_t σ_t' p_s σ_s' ∗ Ω v_t v_s)).
+      ∃ v_s, T_s' !! i = Some (of_val v_s) ∧ sat (state_interp p_t σ_t' p_s σ_s' T_s' ∗ Ω v_t v_s)).
   Proof.
     (* first we exectute the simulation to v_t *)
     intros Hsim Hstuck Htgt; eapply msim_steps in Hsim as (T_s' & σ_s' & J1 & Hsrc & Hsim); [|eauto..].
@@ -277,6 +282,7 @@ Section meta_level_simulation.
       repeat split; eauto using pool_steps_trans.
       intros i v_t Hlook.
       eapply msim_proj_val with (i := i) in Hsim as (v_t' & v_s & Hlook1 & Hlook2 & Hsat).
+      3: { eapply pool_steps_safe; [done|]. by eapply pool_steps_safe. }
       { exists v_s. split; first done. rewrite Hlook1 in Hlook.
         by eapply Some_inj, of_val_inj in Hlook as ->. }
       eapply elem_of_union_r. eapply elem_of_difference.
@@ -299,7 +305,7 @@ Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
   Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -321,11 +327,11 @@ Section adequacy_statement.
   Lemma adequacy p_t p_s:
     (* pre *)
     sat (local_rel Ω p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s) ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [(of_call main u)]) ∗
       progs_are p_t p_s ∗
       Ω u u) →
     (* post *)
-    (∀ v_t v_s σ_t σ_s, sat (state_interp p_t σ_t p_s σ_s ∗ Ω v_t v_s) → O v_t v_s) →
+    (∀ v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω v_t v_s) → O v_t v_s) →
     B p_t p_s.
   Proof.
     intros Hpre Hpost σ_t σ_s [HI Hsafe].
@@ -355,7 +361,7 @@ Section adequacy_statement_alt.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
   Context (Ω : val Λ → val Λ → PROP).
-  Context {s : SimulLang PROP Λ}.
+  Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -365,7 +371,7 @@ Section adequacy_statement_alt.
 
   Lemma adequacy_alt p_t p_s:
     sat (local_rel Ω p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s) ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [(of_call main u)]) ∗
       progs_are p_t p_s ∗
       Ω u u ∗
       ∀ v_s v_t, Ω v_t v_s -∗ ⌜O v_t v_s⌝) →
@@ -375,9 +381,8 @@ Section adequacy_statement_alt.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
       iCombine "H1 H2 H3 H4" as "H". iExact "H". }
     eapply (@adequacy PROP _ _ _ _ _ _ (sat_frame _) _); first apply Hsat.
-    intros v_t v_s σ_t σ_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
+    intros v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
   Qed.
 
 End adequacy_statement_alt.
-

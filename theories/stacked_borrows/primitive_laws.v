@@ -14,12 +14,14 @@ Class sborG (Σ: gFunctors) := SBorG {
   sborG_gen_progG :> gen_sim_progG string ectx ectx Σ;
 }.
 
-Global Instance sborG_SimulLang `{!sborG Σ} : SimulLang (iPropI Σ) bor_lang := {
-  state_interp P_t σ_t P_s σ_s :=
+Global Program Instance sborG_simuliris `{!sborG Σ} : simulirisG (iPropI Σ) bor_lang := {
+  state_interp P_t σ_t P_s σ_s _ :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s
     )%I;
 }.
+Next Obligation.
+Admitted.
 
 
 (** Program assertions *)
@@ -39,8 +41,6 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 
 Context (Ω : result → result → iProp Σ).
-Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
-
 
 
 (** Program for target *)

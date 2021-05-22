@@ -171,11 +171,12 @@ Definition vals_compare_safe (vl v1 : val) : Prop :=
   val_is_unboxed vl ∨ val_is_unboxed v1.
 Global Arguments vals_compare_safe !_ !_ /.
 
-(** The state: heaps of [option (lock_state * val)]s, with [None] representing deallocated locations. *)
+(** The state: heaps of [lock_state * val]s. *)
 Inductive lock_state :=
 | WSt | RSt (n : nat).
 Record state : Type := {
-  heap: gmap loc (option (lock_state * val));
+  heap: gmap loc (lock_state * val);
+  used_blocks: gset block;
 }.
 
 (** Equality and other typeclass stuff *)
@@ -291,7 +292,7 @@ Proof.
   | (inr (inr (inl fn))) => LitFn fn
   end) _); by intros [].
 Qed.
-Global Instance un_op_finite : Countable un_op.
+Global Instance un_op_countable : Countable un_op.
 Proof.
  refine (inj_countable' (λ op, match op with NegOp => 0 | MinusUnOp => 1 end)
   (λ n, match n with 0 => NegOp | _ => MinusUnOp end) _); by intros [].
@@ -402,7 +403,7 @@ Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
 
 Global Instance : Inhabited lock_state := populate (RSt 0).
 Global Instance state_inhabited : Inhabited state :=
-  populate {| heap := inhabitant |}.
+  populate {| heap := inhabitant; used_blocks := inhabitant |}.
 Global Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
 Global Instance expr_inhabited : Inhabited expr := populate (Val inhabitant).
 
@@ -563,22 +564,25 @@ Definition bin_op_eval (op : bin_op) (v1 v2 : val) : option val :=
     end.
 
 
-Definition state_upd_heap (f: gmap loc (option (lock_state * val)) → gmap loc (option (lock_state * val))) (σ: state) : state :=
-  {| heap := f σ.(heap) |}.
+Definition state_upd_heap (f: gmap loc (lock_state * val) → gmap loc (lock_state * val)) (σ: state) : state :=
+  {| heap := f σ.(heap); used_blocks := σ.(used_blocks) |}.
 Global Arguments state_upd_heap _ !_ /.
+Definition state_upd_used_blocks (f: gset block → gset block) (σ: state) : state :=
+  {| heap := σ.(heap); used_blocks := f σ.(used_blocks) |}.
+Global Arguments state_upd_used_blocks _ !_ /.
 
-Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (option (lock_state * val)) :=
+Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (lock_state * val) :=
   match vs with
   | [] => ∅
-  | v :: vs' => {[l := Some (RSt 0, v)]} ∪ heap_array (l +ₗ 1) vs'
+  | v :: vs' => {[l := (RSt 0, v)]} ∪ heap_array (l +ₗ 1) vs'
   end.
 
-Lemma heap_array_singleton l v : heap_array l [v] = {[l := Some (RSt 0, v)]}.
+Lemma heap_array_singleton l v : heap_array l [v] = {[l := (RSt 0, v)]}.
 Proof. by rewrite /heap_array right_id. Qed.
 
 Lemma heap_array_lookup l vs ow k :
   heap_array l vs !! k = Some ow ↔
-  ∃ j w, (0 ≤ j)%Z ∧ k = l +ₗ j ∧ ow = Some (RSt 0, w) ∧ vs !! (Z.to_nat j) = Some w.
+  ∃ j w, (0 ≤ j)%Z ∧ k = l +ₗ j ∧ ow = (RSt 0, w) ∧ vs !! (Z.to_nat j) = Some w.
 Proof.
   revert k l; induction vs as [|v' vs IH]=> l' l /=.
   { rewrite lookup_empty. naive_solver lia. }
@@ -597,7 +601,7 @@ Proof.
     auto with lia.
 Qed.
 
-Lemma heap_array_map_disjoint (h : gmap loc (option (lock_state * val))) (l : loc) (vs : list val) :
+Lemma heap_array_map_disjoint (h : gmap loc (lock_state * val)) (l : loc) (vs : list val) :
   (∀ i, (0 ≤ i)%Z → (i < length vs)%Z → h !! (l +ₗ i) = None) →
   (heap_array l vs) ##ₘ h.
 Proof.
@@ -618,39 +622,39 @@ Proof.
 Qed.
 
 Lemma state_init_heap_singleton l v σ :
-  state_init_heap l 1 v σ = state_upd_heap <[l:= Some (RSt 0, v)]> σ.
+  state_init_heap l 1 v σ = state_upd_heap <[l:= (RSt 0, v)]> σ.
 Proof.
   destruct σ as [h]. rewrite /state_init_heap /=. f_equiv.
   rewrite right_id insert_union_singleton_l. done.
 Qed.
 
-Fixpoint free_mem (l : loc) (n : nat) (σ : gmap loc (option (lock_state * val)))
-  : gmap loc (option (lock_state * val)) :=
+Fixpoint free_mem (l : loc) (n : nat) (σ : gmap loc (lock_state * val))
+  : gmap loc (lock_state * val) :=
   match n with
   | O => σ
-  | S n => <[l := None]> (free_mem (l +ₗ 1) n σ)
+  | S n => delete l (free_mem (l +ₗ 1) n σ)
   end.
 Lemma lookup_free_mem_1 l l' n σ :
   loc_chunk l ≠ loc_chunk l' → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hneq. rewrite lookup_insert_ne; last by congruence.
+  intros Hneq. rewrite lookup_delete_ne; last by congruence.
   by apply IH.
 Qed.
 Lemma lookup_free_mem_2 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = Some None.
+  loc_chunk l = loc_chunk l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = None.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first lia.
   intros Hchunk Hi.
   destruct (decide (loc_idx l = loc_idx l')) as [Heq | Hneq].
-  - rewrite lookup_insert_Some; left; split; last done. destruct l, l'; cbn in *; congruence.
-  - rewrite lookup_insert_ne; last congruence. apply IH; first done. destruct l, l'; cbn in *; lia.
+  - rewrite lookup_delete_None; left. destruct l, l'; simpl in *; congruence.
+  - rewrite lookup_delete_ne; last congruence. apply IH; first done. destruct l, l'; simpl in *; lia.
 Qed.
 Lemma lookup_free_mem_3 l l' (n : nat) σ :
   loc_chunk l = loc_chunk l' → (loc_idx l' < loc_idx l)%Z → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hchunk Hi. rewrite lookup_insert_ne.
+  intros Hchunk Hi. rewrite lookup_delete_ne.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
@@ -658,19 +662,18 @@ Lemma lookup_free_mem_4 l l' (n : nat) σ :
   loc_chunk l = loc_chunk l' → (loc_idx l' >= loc_idx l + n)%Z → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hchunk Hi. rewrite lookup_insert_ne.
+  intros Hchunk Hi. rewrite lookup_delete_ne.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
 
-Lemma upd_free_mem σ l n o :
-  o > 0 →
-  <[l := None]> (free_mem (l +ₗ o) n σ.(heap)) = free_mem (l +ₗ o) n (<[l := None]> σ.(heap)).
+Lemma delete_free_mem σ l n o:
+  (o > 0)%Z →
+  delete l (free_mem (l +ₗ o) n σ) = free_mem (l +ₗ o) n (delete l σ).
 Proof.
   intros HO.
-  induction n as [|n IH] in o, HO|-* => //=. rewrite insert_commute.
-  - rewrite loc_add_assoc. replace (Z.of_nat (o) + 1)%Z with (Z.of_nat (o + 1)); last lia. rewrite IH; [done | lia].
-  - destruct l; rewrite /loc_add; cbn; intros [=]; lia.
+  induction n as [|n IH] in o, HO|-* => //=. rewrite delete_commute. f_equal.
+  rewrite loc_add_assoc IH; [done | lia].
 Qed.
 
 (** Building actual evaluation contexts out of ectx_items *)
@@ -724,41 +727,40 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
   | ForkS e σ:
      head_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
   | AllocNS n v σ b :
-     (0 < n)%Z →
-     (∀ i, σ.(heap) !! (mkloc b i) = None) →
+      (0 < n)%Z →
+      b ∉ σ.(used_blocks) →
+     (∀ i, σ.(heap) !! (Loc b i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc (mkloc b 0)) (state_init_heap (mkloc b 0) n v σ) []
+               (Val $ LitV $ LitLoc (Loc b 0)) (state_upd_used_blocks ({[b]} ∪.) (state_init_heap (Loc b 0) n v σ)) []
   | FreeNS l σ n :
      (0 < n)%Z →
      (* always need to deallocate the full block *)
-     (∀ i, (∃ v st, σ.(heap) !! (l +ₗ i) = Some $ Some (st, v)) → (0 ≤ i < n)%Z) →
-     (* the blocks we deallocate need to be in RSt 0 *)
-     (∀ i, (0 ≤ i < n)%Z → ∃ v, σ.(heap) !! (l +ₗ i) = Some $ Some (RSt 0, v)) →
+     (∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ 0 ≤ m < n)%Z →
      head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
                (Val $ LitV LitUnit) (state_upd_heap (free_mem l (Z.to_nat n)) σ) []
   | LoadScS l v σ n :
-     σ.(heap) !! l = Some $ Some (RSt n, v) →
+     σ.(heap) !! l = Some (RSt n, v) →
      head_step P (Load ScOrd (Val $ LitV $ LitLoc l)) σ (of_val v) σ []
   | StoreScS l v v' σ :
-     σ.(heap) !! l = Some $ Some (RSt 0, v) →
+     σ.(heap) !! l = Some (RSt 0, v) →
      head_step P (Store ScOrd (Val $ LitV $ LitLoc l) (Val v')) σ
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some (RSt 0, v')]> σ) []
+               (Val $ LitV LitUnit) (state_upd_heap <[l:=(RSt 0, v')]> σ) []
   | LoadNa1S l v σ n :
-      σ.(heap) !! l = Some $ Some (RSt n, v) →
+      σ.(heap) !! l = Some (RSt n, v) →
       head_step P (Load Na1Ord (Val $ LitV $ LitLoc l)) σ
-        (Load Na2Ord (Val $ LitV $ LitLoc l)) (state_upd_heap <[l := Some (RSt (S n), v)]> σ) []
+        (Load Na2Ord (Val $ LitV $ LitLoc l)) (state_upd_heap <[l := (RSt (S n), v)]> σ) []
   | LoadNa2S l v σ n :
-      σ.(heap) !! l = Some $ Some (RSt (S n), v) →
+      σ.(heap) !! l = Some (RSt (S n), v) →
       head_step P (Load Na2Ord (Val $ LitV $ LitLoc l)) σ
-                (of_val v) (state_upd_heap <[l := Some (RSt n, v)]> σ) []
+                (of_val v) (state_upd_heap <[l := (RSt n, v)]> σ) []
   | StoreNa1S l v v' σ :
-      σ.(heap) !! l = Some $ Some (RSt 0, v) →
+      σ.(heap) !! l = Some (RSt 0, v) →
       head_step P (Store Na1Ord (Val $ LitV $ LitLoc l) (Val v')) σ
-                (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) (state_upd_heap <[l:=Some (WSt, v)]> σ) []
+                (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) (state_upd_heap <[l:=(WSt, v)]> σ) []
   | StoreNa2S l v v' σ :
-      σ.(heap) !! l = Some $ Some (WSt, v) →
+      σ.(heap) !! l = Some (WSt, v) →
       head_step P (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) σ
-                (Val $ LitV LitUnit) (state_upd_heap <[l:=Some (RSt 0, v')]> σ) []
+                (Val $ LitV LitUnit) (state_upd_heap <[l:=(RSt 0, v')]> σ) []
   | CallS f v K σ :
      P !! f = Some K →
      head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (fill K (Val v)) σ [].
@@ -879,12 +881,14 @@ Proof.
 Qed.
 
 Lemma alloc_fresh P v n σ :
-  let l := {| loc_chunk := fresh_block σ.(heap); loc_idx := 0 |} in
+  let l := Loc (fresh_block σ.(heap) σ.(used_blocks)) 0 in
   (0 < n)%Z →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
-            (Val $ LitV $ LitLoc l) (state_init_heap l n v σ) [].
+            (Val $ LitV $ LitLoc l) (state_upd_used_blocks ({[l.(loc_chunk)]} ∪.) (state_init_heap l n v σ)) [].
 Proof.
-  intros. apply AllocNS; first done. apply is_fresh_block.
+  intros. apply AllocNS; first done.
+  - apply is_fresh_block_blocks.
+  - apply is_fresh_block.
 Qed.
 
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:

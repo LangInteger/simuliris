@@ -12,7 +12,7 @@ Import bi.
 Section fix_lang.
 Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
 Context {Λ : language}.
-Context {s : SimulLang PROP Λ}.
+Context {s : simulirisG PROP Λ}.
 
 Set Default Proof Using "Type*".
 
@@ -36,11 +36,11 @@ Definition all_values O P :=
   (∀ i , i ∈ O → ∃ v_t v_s, P !! i = Some (of_val v_t, of_val v_s)).
 
 Definition must_step_inner (post: list (expr Λ * expr Λ) → PROP) (must_step: list (expr Λ * expr Λ) → gset nat → gmap nat nat → PROP) (P: list (expr Λ * expr Λ)) (O: gset nat) (D: gmap nat nat) : PROP :=
-  (∀ p_t σ_t p_s σ_s, state_interp p_t σ_t p_s σ_s ∗ ⌜pool_safe p_s P.(src) σ_s⌝ ∗ ⌜delays_for P.(tgt) D⌝ ==∗
+  (∀ p_t σ_t p_s σ_s, state_interp p_t σ_t p_s σ_s P.(src) ∗ ⌜pool_safe p_s P.(src) σ_s⌝ ∗ ⌜delays_for P.(tgt) D⌝ ==∗
     (* the base case where every term in O must be a value *)
-    (⌜all_values O P⌝ ∗ state_interp p_t σ_t p_s σ_s ∗ post P) ∨
+    (⌜all_values O P⌝ ∗ state_interp p_t σ_t p_s σ_s P.(src) ∗ post P) ∨
     (* the target can be stuttered for any finite number of steps *)
-    (∃ P' σ_s' I, ⌜pool_steps p_s P.(src) σ_s I P'.(src) σ_s'⌝ ∗ ⌜P'.(tgt) = P.(tgt)⌝ ∗ state_interp p_t σ_t p_s σ_s' ∗ must_step P' (O ∖ list_to_set I) D) ∨
+    (∃ P' σ_s' I, ⌜pool_steps p_s P.(src) σ_s I P'.(src) σ_s'⌝ ∗ ⌜P'.(tgt) = P.(tgt)⌝ ∗ state_interp p_t σ_t p_s σ_s' P'.(src) ∗ must_step P' (O ∖ list_to_set I) D) ∨
     (* the target can step, and every fair step can be replayed (or stuttered) in the source *)
     (
       (* we do not need reducibility of the target for fairness ⌜reducible_pool p_t P.(tgt) σ_t⌝ ∗ *)
@@ -48,7 +48,7 @@ Definition must_step_inner (post: list (expr Λ * expr Λ) → PROP) (must_step:
       ∃ P' σ_s' I,
         ⌜P'.(tgt) = T_t'⌝ ∗
         ⌜pool_steps p_s P.(src) σ_s I P'.(src) σ_s'⌝ ∗
-        state_interp p_t σ_t' p_s σ_s' ∗
+        state_interp p_t σ_t' p_s σ_s' P'.(src) ∗
         must_step P' (O ∖ list_to_set I) D'
     ))%I.
 
@@ -184,19 +184,19 @@ Qed.
 *)
 
 
-Definition gsim_expr_all Ω (P: list (expr Λ * expr Λ)) := ([∗ list] p ∈ P, gsim_expr Ω (lift_post Ω) (fst p) (snd p))%I.
-Notation must_step_all Ω := (must_step (gsim_expr_all Ω)).
+Definition gsim_expr_all Ω π (P: list (expr Λ * expr Λ)) := ([∗ list] i↦p ∈ P, gsim_expr Ω (lift_post Ω) (π + i) (fst p) (snd p))%I.
+Notation must_step_all Ω π := (must_step (gsim_expr_all Ω π)).
 
 
-Lemma must_step_all_add_values Ω P O O' D:
+Lemma must_step_all_add_values Ω P O O' D π:
   (∀ i, i ∈ O' → i ∈ O ∨ ∃ v_t v_s, P !! i = Some (of_val v_t, of_val v_s)) →
-  must_step_all Ω P O D -∗
-  must_step_all Ω P O' D.
+  must_step_all Ω π P O D -∗
+  must_step_all Ω π P O' D.
 Proof.
   intros Hall. iIntros "Hlocal". iRevert (O' Hall).
   iApply (must_step_ind (λ P O D, ∀ O' : gset nat,
   ⌜∀ i, i ∈ O' → i ∈ O ∨ (∃ v_t v_s, P !! i = Some (of_val v_t, of_val v_s))⌝
-  → must_step_all Ω P O' D)%I with "[] Hlocal").
+  → must_step_all Ω π P O' D)%I with "[] Hlocal").
   iModIntro. clear P O D. iIntros (P O D) "Hinner".
   iIntros (O' Hel). rewrite must_step_unfold.
   iIntros (p_t σ_t p_s σ_s) "H".
@@ -233,38 +233,38 @@ Proof.
     destruct (P' !! j) as [[??]|]; simpl; naive_solver.
 Qed.
 
-Lemma must_step_all_weaken Ω P O O' D:
+Lemma must_step_all_weaken Ω P O O' D π:
   O' ⊆ O →
-  must_step_all Ω P O D -∗
-  must_step_all Ω P O' D.
+  must_step_all Ω π P O D -∗
+  must_step_all Ω π P O' D.
 Proof.
   iIntros (Hsub) "Hall". iApply must_step_all_add_values; last done.
   naive_solver.
 Qed.
 
 
-Lemma must_step_all_delays_for Ω P O D:
-  (⌜delays_for P.(tgt) D⌝ -∗ must_step_all Ω P O D) -∗ must_step_all Ω P O D.
+Lemma must_step_all_delays_for Ω P O D π:
+  (⌜delays_for P.(tgt) D⌝ -∗ must_step_all Ω π P O D) -∗ must_step_all Ω π P O D.
 Proof.
   rewrite must_step_unfold /must_step_inner.
   iIntros "Hsim". iIntros (p_t σ_t p_s σ_s) "(SI & Hsafe & %Hdel)".
   iApply ("Hsim" with "[//] [$SI $Hsafe //]").
 Qed.
 
-Definition gsim_expr_all_wo Ω P O :=
-  ([∗ list] k ↦ p ∈ P, if (decide (k ∈ O)) then emp else gsim_expr Ω (lift_post Ω) (fst p) (snd p))%I.
+Definition gsim_expr_all_wo Ω π P O :=
+  ([∗ list] k ↦ p ∈ P, if (decide (k ∈ O)) then emp else gsim_expr Ω (lift_post Ω) (π + k) (fst p) (snd p))%I.
 
-Lemma gsim_expr_all_to_wo Ω P :
-  gsim_expr_all Ω P ≡ gsim_expr_all_wo Ω P ∅.
+Lemma gsim_expr_all_to_wo Ω P π:
+  gsim_expr_all Ω π P ≡ gsim_expr_all_wo Ω π P ∅.
 Proof.
   rewrite /gsim_expr_all /gsim_expr_all_wo. f_equiv.
   intros k [e_t e_s]. destruct (decide (k ∈ ∅)); set_solver.
 Qed.
 
-Lemma gsim_expr_all_wo_split Ω P O i e_t e_s:
+Lemma gsim_expr_all_wo_split Ω P O i e_t e_s π:
   P !! i = Some (e_t, e_s) →
   i ∉ O →
-  gsim_expr_all_wo Ω P O ≡ (gsim_expr Ω (lift_post Ω) e_t e_s ∗ gsim_expr_all_wo Ω P (O ∪ {[i]}))%I.
+  gsim_expr_all_wo Ω π P O ≡ (gsim_expr Ω (lift_post Ω) (π + i) e_t e_s ∗ gsim_expr_all_wo Ω π P (O ∪ {[i]}))%I.
 Proof.
   intros Hlook Hel. rewrite /gsim_expr_all_wo.
   rewrite (big_sepL_delete _ _ i); last done.
@@ -274,9 +274,9 @@ Proof.
     eauto; set_solver.
 Qed.
 
-Lemma gsim_expr_all_wo_insert Ω i O P e_t e_s:
+Lemma gsim_expr_all_wo_insert Ω i O P e_t e_s π:
   i ∈ O →
-  gsim_expr_all_wo Ω P O ≡ gsim_expr_all_wo Ω (<[i := (e_t, e_s)]> P) O.
+  gsim_expr_all_wo Ω π P O ≡ gsim_expr_all_wo Ω π (<[i := (e_t, e_s)]> P) O.
 Proof.
   intros Hel. destruct (P !! i) as [[e_t' e_s']|] eqn: Hlook; last first.
   { rewrite list_insert_ge //; by eapply lookup_ge_None_1. }
@@ -294,7 +294,7 @@ Qed.
 
 Lemma gsim_expr_all_wo_app Ω O P1 P2:
   (∀ i, i ∈ O → i < length P1) →
-  (gsim_expr_all_wo Ω P1 O ∗ gsim_expr_all Ω P2)%I ≡ gsim_expr_all_wo Ω (P1 ++ P2)%I O.
+  (gsim_expr_all_wo Ω 0 P1 O ∗ gsim_expr_all Ω (length P1) P2)%I ≡ gsim_expr_all_wo Ω 0 (P1 ++ P2)%I O.
 Proof.
   intros Hlt; rewrite /gsim_expr_all_wo /gsim_expr_all.
   rewrite big_sepL_app. f_equiv. f_equiv.
@@ -306,9 +306,9 @@ Proof.
 Qed.
 
 Lemma gsim_expr_all_app Ω P1 P2:
-  gsim_expr_all Ω (P1 ++ P2) ≡ (gsim_expr_all Ω P1 ∗ gsim_expr_all Ω P2)%I.
+  gsim_expr_all Ω 0 (P1 ++ P2) ≡ (gsim_expr_all Ω 0 P1 ∗ gsim_expr_all Ω (length P1) P2)%I.
 Proof.
-  rewrite gsim_expr_all_to_wo -gsim_expr_all_wo_app; last set_solver.
+  rewrite gsim_expr_all_to_wo -gsim_expr_all_wo_app; [ | set_solver].
   rewrite !gsim_expr_all_to_wo //.
 Qed.
 
@@ -316,14 +316,14 @@ Qed.
 Lemma gsim_expr_target_step_unfold Ω T i p_t p_s σ_t σ_s e_t e_s e_t' σ_t' efs_t:
   T !! i = Some e_s →
   prim_step p_t e_t σ_t e_t' σ_t' efs_t →
-  safe p_s e_s σ_s →
-  state_interp p_t σ_t p_s σ_s -∗
-  gsim_expr Ω (lift_post Ω) e_t e_s ==∗
-  ∃ e_s' σ_s' efs_s I, gsim_expr Ω (lift_post Ω) e_t' e_s' ∗ state_interp p_t σ_t' p_s σ_s' ∗
-      ⌜pool_steps p_s T σ_s I (<[i := e_s']> T ++ efs_s) σ_s'⌝ ∗ ⌜length efs_t = length efs_s⌝ ∗ gsim_expr_all Ω (zip efs_t efs_s).
+  pool_safe p_s T σ_s →
+  state_interp p_t σ_t p_s σ_s T -∗
+  gsim_expr Ω (lift_post Ω) i e_t e_s ==∗
+  ∃ e_s' σ_s' efs_s I, gsim_expr Ω (lift_post Ω) i e_t' e_s' ∗ state_interp p_t σ_t' p_s σ_s' (<[i := e_s']> T ++ efs_s) ∗
+      ⌜pool_steps p_s T σ_s I (<[i := e_s']> T ++ efs_s) σ_s'⌝ ∗ ⌜length efs_t = length efs_s⌝ ∗ gsim_expr_all Ω (length T) (zip efs_t efs_s).
 Proof.
   intros Hlook Hprim Hsafe. iIntros "SI Hsim". rewrite gsim_expr_unfold.
-  iMod ("Hsim" with "[$SI //]") as "[Val|Step]".
+  iMod ("Hsim" with "[$SI]") as "[Val|Step]". { by erewrite fill_empty. }
   - iModIntro. iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Hpost]".
     iDestruct "Hpost" as (v_t v_s Heq1 Heq2) "?".
     rewrite Heq1 in Hprim. exfalso. by eapply val_prim_step.
@@ -331,21 +331,22 @@ Proof.
     iMod ("Step" with "[//]") as "[Stutter|NoStutter]".
     + iModIntro. iDestruct "Stutter" as "(-> & SI & Hsim)".
       iExists e_s, σ_s. iFrame. iExists [], []. rewrite /gsim_expr_all; simpl.
-      iPureIntro. repeat split. rewrite right_id list_insert_id //. constructor.
+      rewrite app_nil_r list_insert_id //. iFrame.
+      iPureIntro. repeat split. constructor.
     + iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim' Hlen) "(SI & Hsim & Hall)".
       iModIntro. iExists e_s'', σ_s''. iFrame. iExists efs_s.
       eapply no_forks_then_prim_step_pool_steps in Hnfs as (I & ? & Hsub); [|done..].
-      iExists I. repeat iSplit; [done..|].
-      rewrite /gsim_expr_all big_sepL2_alt bi.and_elim_r. iFrame.
+      iExists I. rewrite fill_empty. iFrame. repeat iSplit; [done..|].
+      by rewrite /gsim_expr_all big_sepL2_alt bi.and_elim_r.
 Qed.
 
 
 Lemma gsim_expr_must_step_all_core_ind Ω P O D i:
   i ∈ O →
   O ⊆ threads P.(tgt) →
-  □ (∀ j D P', ⌜j ∈ O⌝ -∗ ⌜O ∖ {[j]} ⊆ threads P'.(tgt)⌝ -∗ gsim_expr_all Ω P' -∗ must_step_all Ω P' (O ∖ {[j]}) D) -∗
-  gsim_expr_all Ω P -∗
-  must_step_all Ω P O D.
+  □ (∀ j D P', ⌜j ∈ O⌝ -∗ ⌜O ∖ {[j]} ⊆ threads P'.(tgt)⌝ -∗ gsim_expr_all Ω 0 P' -∗ must_step_all Ω 0 P' (O ∖ {[j]}) D) -∗
+  gsim_expr_all Ω 0 P -∗
+  must_step_all Ω 0 P O D.
 Proof.
   iIntros (Hel Hsub) "#IHO Hall". specialize (Hsub _ Hel) as Hthread.
   eapply threads_spec in Hthread as (e & Hlook).
@@ -354,17 +355,16 @@ Proof.
   replace (∅ ∪ {[i]}: gset nat) with ({[i]}: gset nat) by set_solver.
   iDestruct "Hall" as "[Hsim Hall]".
   rewrite gsim_expr_eq global_greatest_def_unfold.
-  iApply (global_least_def_strong_ind _ (λ Ψ e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ gsim_expr_all_wo Ω P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post Ω e_t e_s) -∗ must_step_all Ω P O D)%I with "[] Hsim [] [] Hall"); eauto.
-  { intros n ?? Heq ??. repeat f_equiv. by apply Heq. }
-  clear P D Hsub e_t e_s Hlook. iModIntro. iIntros (Ψ e_t e_s) "Hsim".
-  iIntros (P D Hlook Hsub) "Hall Hpost".
+  iApply (global_least_def_strong_ind _ (λ Ψ π e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜i = π⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ gsim_expr_all_wo Ω 0 P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post Ω e_t e_s) -∗ must_step_all Ω 0 P O D)%I with "[] Hsim [] [] [] Hall"); eauto.
+  { intros n ?? Heq ???. repeat f_equiv. by apply Heq. }
+  clear P D Hsub e_t e_s Hlook. iModIntro. iIntros (Ψ π e_t e_s) "Hsim".
+  iIntros (P D Hlook ? Hsub) "Hall Hpost". subst π.
   destruct (to_val e_t) as [v_t|] eqn: Hval.
   - (* thread i is a value *)
     rewrite must_step_unfold /gsim_expr_inner /must_step_inner.
     iIntros (p_t σ_t p_s σ_s) "(SI & %Hsafe & %Hdel)".
     iMod ("Hsim" with "[$SI]") as "[Val|Step]".
-    + iPureIntro. eapply (pool_safe_threads_safe _ _ _ i); first done.
-      rewrite list_lookup_fmap Hlook //.
+    + iPureIntro. erewrite fill_empty. rewrite list_lookup_fmap Hlook //.
     + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI HΨ]".
       iSpecialize ("Hpost" with "HΨ"). iDestruct "Hpost" as (v_t' v_s Heq1 Heq2) "Hval".
       rewrite Heq1 to_of_val in Hval. injection Hval as ->.
@@ -372,7 +372,7 @@ Proof.
       eapply (no_forks_pool_steps P.(src) i) in Hnfs as (I & Hnfs & Hsub'); last first.
       { rewrite list_lookup_fmap Hlook //. }
       iExists (<[i := (e_t, e_s')]> P), σ_s', I.
-      rewrite !list_fmap_insert //=. iSplit; first done.
+      rewrite fill_empty !list_fmap_insert //=. iSplit; first done.
       rewrite list_insert_id ?list_lookup_fmap ?Hlook //. iSplit; first done.
       iFrame. iApply (must_step_all_weaken _ _ O); first set_solver.
       iApply (must_step_all_add_values _ _ (O ∖ {[i]})).
@@ -405,8 +405,7 @@ Proof.
     iIntros (T_t' D' j σ_t' Hstep).
     destruct (decide (j = i)) as [->|Hne].
     + iClear "IHd". iMod ("Hsim" with "[$SI]") as "[Val|Step]".
-      * iPureIntro. eapply (pool_safe_threads_safe _ _ _ i); first done.
-        rewrite list_lookup_fmap Hlook //.
+      * iPureIntro. erewrite fill_empty. rewrite list_lookup_fmap Hlook //.
       * iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI HΨ]".
         iDestruct ("Hpost" with "HΨ") as (v_t v_s Heq1 Heq2) "?".
         rewrite Heq1 to_of_val in Hval. naive_solver.
@@ -415,11 +414,13 @@ Proof.
         rewrite list_lookup_fmap Hlook //= in Hlook'. injection Hlook' as <-.
         iMod ("Hstep" with "[//]") as "[Stutter|NoStutter]".
         -- iDestruct "Stutter" as "(-> & SI & Hupd)".
-           iModIntro. iExists (<[i := (e_t', e_s)]> P), σ_s, []. iFrame.
+           iModIntro. iExists (<[i := (e_t', e_s)]> P), σ_s, [].
+           rewrite (list_fmap_insert snd) (list_insert_id (P.(src))).
+           2: { rewrite list_lookup_fmap Hlook //. } iFrame.
            iSplit. { iPureIntro. rewrite Hupd right_id list_fmap_insert //. }
-           iSplit. { iPureIntro. rewrite list_fmap_insert list_insert_id ?list_lookup_fmap ?Hlook //. constructor. }
+           iSplit. { iPureIntro. constructor. }
            simpl. rewrite bi.and_elim_l. replace (O ∖ ∅) with O by set_solver.
-           iApply ("Hupd" with "[] [] [Hall] Hpost").
+           iApply ("Hupd" with "[] [//] [] [Hall] Hpost").
            ++ iPureIntro. eapply list_lookup_insert, lookup_lt_Some, Hlook.
            ++ iPureIntro. rewrite list_fmap_insert. by etrans; last eapply threads_insert.
            ++ rewrite -gsim_expr_all_wo_insert //. set_solver.
@@ -429,8 +430,10 @@ Proof.
            iExists (<[i := (e_t', e_s'')]> P ++ zip efs_t efs_s), σ_s'', I.
            iSplit. { iPureIntro. rewrite fmap_app Hupd list_fmap_insert fst_zip // Hlen //. }
            iSplit. { iPureIntro. rewrite fmap_app list_fmap_insert //= snd_zip ?Hlen //. }
+           rewrite fill_empty fmap_app list_fmap_insert snd_zip ?Hlen //.
            iFrame. rewrite Heq. iApply "IHO"; first done.
            { iPureIntro. rewrite fmap_app list_fmap_insert. etrans; last eapply threads_prim_step. set_solver. }
+
            rewrite gsim_expr_all_app. iSplitR "Hfrks".
            ++ rewrite gsim_expr_all_to_wo (gsim_expr_all_wo_split _ _ ∅ i);
               last set_solver;
@@ -440,7 +443,7 @@ Proof.
               iFrame. iApply (gsim_expr_mono with "Hpost [Hsim]").
               by rewrite gsim_expr_eq.
            ++ rewrite /gsim_expr_all.
-              by rewrite big_sepL2_alt gsim_expr_eq bi.and_elim_r.
+              by rewrite big_sepL2_alt gsim_expr_eq bi.and_elim_r insert_length fmap_length.
       + eapply fair_pool_step_inv in Hstep as (e_j & e_j_t' & efs_t & Hstep & Hlook' & Hupd & Hdecr).
         eapply list_lookup_fmap_inv in Hlook' as ([e_j_t e_j_s] & -> & Hlookj); simpl in Hstep.
         eapply Hdecr in HD as (d' & -> & HD'); last done.
@@ -451,10 +454,9 @@ Proof.
         iMod (gsim_expr_target_step_unfold _ P.(src) j with "SI Hsim") as (e_j_s' σ_s' efs_s I) "(Hsim & SI & %Hsteps & %Hlen & Hfrks)".
         * rewrite list_lookup_fmap Hlookj //.
         * done.
-        * eapply (pool_safe_threads_safe _ _ _ j); first done.
-          rewrite list_lookup_fmap Hlookj //.
+        * done.
         * iModIntro. iExists (<[j := (e_j_t', e_j_s')]> P ++ zip efs_t efs_s), σ_s', I.
-          iFrame. rewrite Hupd !fmap_app !list_fmap_insert //= fst_zip ?Hlen // snd_zip ?Hlen //.
+          rewrite Hupd !fmap_app !list_fmap_insert //= fst_zip ?Hlen // snd_zip ?Hlen //. iFrame.
           do 2 (iSplit; first done). iApply (must_step_all_weaken _ _ O); first set_solver.
           iApply "IHd".
           -- done.
@@ -465,11 +467,12 @@ Proof.
              { eapply lookup_app_l_Some, list_lookup_insert, lookup_lt_Some, Hlookj. }
              iFrame. rewrite -gsim_expr_all_wo_app; last first.
              { intros k Hk. assert (k = j ∨ k = i) as [] by set_solver; subst; rewrite insert_length; by eapply lookup_lt_Some. }
+             rewrite insert_length fmap_length.
              iFrame. rewrite gsim_expr_all_wo_insert //. set_solver.
 Qed.
 
 Lemma gsim_expr_must_step_all Ω P O D:
-  O ⊆ threads P.(tgt) → gsim_expr_all Ω P -∗ must_step_all Ω P O D.
+  O ⊆ threads P.(tgt) → gsim_expr_all Ω 0 P -∗ must_step_all Ω 0 P O D.
 Proof.
   intros Hsub. iRevert (D P Hsub).
   iInduction (set_wf O) as [O _] "IHO".
@@ -487,7 +490,7 @@ Proof.
 Qed.
 
 Lemma gsim_expr_to_pool Ω P:
-  gsim_expr_all Ω P -∗ sim_pool P.
+  gsim_expr_all Ω 0 P -∗ sim_pool P.
 Proof.
   iIntros "H". iApply (sim_pool_coind with "[] H"); clear P. iModIntro.
   iIntros (P D) "Hall". by iApply gsim_expr_must_step_all.
@@ -570,16 +573,16 @@ Section fair_termination.
   Lemma must_step_sat R p_s p_t P O D σ_s σ_t :
     fair_div_delay p_t P.(tgt) D σ_t →
     pool_safe p_s P.(src) σ_s →
-    sat (state_interp p_t σ_t p_s σ_s ∗ must_step R P O D) →
+    sat (state_interp p_t σ_t p_s σ_s P.(src) ∗ must_step R P O D) →
     ∃ P' D' σ_t' σ_s' I,
-      sat (state_interp p_t σ_t' p_s σ_s' ∗ R P') ∧
+      sat (state_interp p_t σ_t' p_s σ_s' P'.(src) ∗ R P') ∧
       fair_div_delay p_t P'.(tgt) D' σ_t' ∧
       pool_steps p_s P.(src) σ_s I P'.(src) σ_s' ∧
       (all_values (O ∖ list_to_set I) P') ∧
       filter (λ i, i ∈ active_threads P.(src)) O ⊆ list_to_set I.
   Proof.
     intros Hdiv Hsafe Hsat. enough (sat (∃ P' D' σ_t' σ_s' I,
-    (state_interp p_t σ_t' p_s σ_s' ∗ R P') ∗
+    (state_interp p_t σ_t' p_s σ_s' P'.(src) ∗ R P') ∗
     ⌜fair_div_delay p_t P'.(tgt) D' σ_t'⌝ ∗
     ⌜pool_steps p_s P.(src) σ_s I P'.(src) σ_s'⌝ ∗
     ⌜(all_values (O ∖ list_to_set I) P')⌝ ∗
@@ -594,8 +597,8 @@ Section fair_termination.
       eapply sat_elim in Hsat'. eauto 10. }
     eapply sat_bupd, sat_mono, Hsat; clear Hsat.
     iIntros "[SI Hmust]". iRevert (σ_t σ_s Hdiv Hsafe) "SI".
-    iApply (must_step_ind (λ P O D, ∀ σ_t σ_s, ⌜fair_div_delay p_t P.(tgt) D σ_t⌝ → ⌜pool_safe p_s P.(src) σ_s⌝ → state_interp p_t σ_t p_s σ_s ==∗
-                             ∃ P' D' σ_t' σ_s' I, (state_interp p_t σ_t' p_s σ_s' ∗ R P') ∗ _)%I
+    iApply (must_step_ind (λ P O D, ∀ σ_t σ_s, ⌜fair_div_delay p_t P.(tgt) D σ_t⌝ → ⌜pool_safe p_s P.(src) σ_s⌝ → state_interp p_t σ_t p_s σ_s P.(src) ==∗
+                             ∃ P' D' σ_t' σ_s' I, (state_interp p_t σ_t' p_s σ_s' P'.(src) ∗ R P') ∗ _)%I
     with "[] Hmust").
     clear P O D. iModIntro. iIntros (P O D) "Hmust".
     iIntros (σ_t σ_s Hdiv Hsafe) "SI". eapply fair_div_delays_for in Hdiv as Hdel.
@@ -647,9 +650,9 @@ Section fair_termination.
   Lemma sim_pool_sat_unfold p_s p_t P D σ_s σ_t :
     fair_div_delay p_t P.(tgt) D σ_t →
     pool_safe p_s P.(src) σ_s →
-    sat (state_interp p_t σ_t p_s σ_s ∗ sim_pool P) →
+    sat (state_interp p_t σ_t p_s σ_s P.(src) ∗ sim_pool P) →
     ∃ P' D' σ_t' σ_s' I,
-      sat (state_interp p_t σ_t' p_s σ_s' ∗ sim_pool P') ∧
+      sat (state_interp p_t σ_t' p_s σ_s' P'.(src) ∗ sim_pool P') ∧
       fair_div_delay p_t P'.(tgt) D' σ_t' ∧
       pool_steps p_s P.(src) σ_s I P'.(src) σ_s' ∧
       ∅ ⊂ active_threads P.(src) ⊆ list_to_set I.
@@ -674,7 +677,7 @@ Section fair_termination.
   Lemma sim_pool_preserves_fair_termination p_s p_t P D σ_s σ_t:
     fair_div_delay p_t P.(tgt) D σ_t →
     pool_safe p_s P.(src) σ_s →
-    sat (state_interp p_t σ_t p_s σ_s ∗ sim_pool P) →
+    sat (state_interp p_t σ_t p_s σ_s P.(src) ∗ sim_pool P) →
     fair_div_coind p_s P.(src) σ_s.
   Proof.
     revert p_s p_t P D σ_s σ_t. cofix IH. intros p_s p_t P D σ_s σ_t Hfair Hsafe Hsat.
