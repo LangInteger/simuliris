@@ -165,15 +165,6 @@ Class bor_stateG Σ := {
   (*heap_source_name : gname;*)
   (*heap_target_name : gname;*)
 
-  (* A bijection on blocks, stating that the size of the allocation and the stacks are pointwise the same, and the target locations are in public or private relation *)
-  heap_bij_inG :> gset_bijG Σ block block;
-  heap_bij_name : gname;
-
-  (* Size of blocks *)
-  freeable_inG :> ghost_mapG Σ loc (option nat);
-  freeable_source_name : gname;
-  freeable_target_name : gname;
-
   (* Maintaining the locations protected by each call id *)
   call_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
   call_source_name : gname;
@@ -189,204 +180,13 @@ Class bor_stateG Σ := {
   heap_view_target_name : gname;
 }.
 
-(* NOTE: doing this in simplang style doesn't work. 
-  the language doesn't offer any guarantees that locations that were used once will not be re-used.
- *)
-Section freeable.
-  Context {Σ} (freeable_name : gname) {freeable_inG : ghost_mapG Σ loc (option nat)}.
-  (*[σ] is the heap map. [bs] is the set of all blocks ever allocated. [hF] is the freeable map, mapping to the allocation size. *)
-  Definition heap_freeable_rel (σ : gmap loc scalar) (bs : gset block) (hF : gmap loc (option nat)) : Prop :=
-    ∀ l (o : option nat), hF !! l = Some o →
-     l.1 ∈ bs ∧
-     l.2 = 0 ∧
-     0 < default 1%nat o ∧
-     ∀ i, is_Some (σ !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
-
-  Definition heap_freeable_def (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
-    ⌜l.2 = 0⌝ ∗ l ↪[ freeable_name ]{# q } n.
-  Definition heap_freeable_aux : seal (@heap_freeable_def). by eexists. Qed.
-  Definition heap_freeable := unseal heap_freeable_aux.
-  Definition heap_freeable_eq : @heap_freeable = @heap_freeable_def :=
-    seal_eq heap_freeable_aux.
-
-  Definition heap_freeable_auth σ bs : iProp Σ := ∃ hF,
-    ghost_map_auth freeable_name 1 hF ∗ ⌜heap_freeable_rel σ bs hF⌝.
-
-  Local Notation "†{ q } l …? n" := (heap_freeable l q n)
-  (at level 20, q at level 50, format "†{ q } l …? n") : bi_scope.
-  Local Notation "† l …? n" := (heap_freeable  l 1 n) (at level 20) : bi_scope.
-
-  Lemma heap_freeable_idx l n :
-    †l…?n -∗ ⌜l.2 = 0⌝.
-  Proof. rewrite heap_freeable_eq. iIntros "[$ _]". Qed.
-
-  Lemma heap_freeable_excl l l' n n' :
-    l.1 = l'.1 →
-    †l…?n -∗ †l'…?n' -∗ False.
-  Proof.
-    rewrite heap_freeable_eq.
-    iIntros (?) "[% Hl1] [% Hl2]". destruct l, l'; simplify_eq/=.
-    by iDestruct (ghost_map_elem_valid_2 with "Hl1 Hl2") as %[? ?].
-  Qed.
-
-  Lemma heap_freeable_rel_stable σ bs h l p :
-    heap_freeable_rel σ bs h → is_Some (σ !! l) →
-    heap_freeable_rel (<[l := p]>σ) bs h.
-  Proof.
-    intros REL Hσ blk qs Hqs. destruct (REL blk qs) as [? [? [? REL']]]; first done.
-    split_and!; [done..|]=> i. rewrite -REL' lookup_insert_is_Some.
-    destruct (decide (l = blk +ₗ i)); naive_solver.
-  Qed.
-
-  Instance option_proper A : Proper ((=) ==> iff) (is_Some (A:=A)). 
-  Proof. intros a b ->; done. Qed.
-
-  Lemma heap_freeable_rel_init_mem l h n σ bs sc:
-    n ≠ O →
-    l.2 = 0 →
-    l.1 ∉ bs →
-    (∀ m : Z, σ !! (l +ₗ m) = None) →
-    heap_freeable_rel σ bs h →
-    heap_freeable_rel (heap_array l (replicate n sc) ∪ σ) ({[l.1]} ∪ bs)
-                      (<[l := Some n]> h).
-  Proof.
-    move => ?? Hnotin Hnone Hrel l' o /lookup_insert_Some[[??]|[? Hl]]; simplify_eq/=.
-    - split_and!; [set_solver|done|lia|] => i.
-      split.
-      + move => [?].
-        rewrite lookup_union_Some ?Hnone.
-        2: { apply heap_array_map_disjoint. naive_solver lia. }
-        rewrite heap_array_lookup => -[[?[?[?]]]|//]. simplify_eq.
-        rewrite lookup_replicate. lia.
-      + move => ?.
-        eexists _.
-        rewrite lookup_union_Some ?Hnone.
-        2: { apply heap_array_map_disjoint. naive_solver lia. }
-        left. apply heap_array_lookup. eexists i.
-        split_and!; [lia|done |].
-        rewrite lookup_replicate. naive_solver lia.
-    - have [?[?[? Hi]]]:= Hrel _ _ Hl.
-      split_and!; [set_solver|done|lia|] => i.
-      have <-:= Hi i. f_equiv.
-      apply option_eq => ?.
-      rewrite lookup_union_Some.
-      2: { apply heap_array_map_disjoint. naive_solver lia. }
-      rewrite heap_array_lookup.
-      split; [|naive_solver].
-      move => [[?[?[?]]]|//].
-      contradict Hnotin.
-      have ->: l.1 = l'.1 by destruct l, l'; naive_solver.
-      done.
-  Qed.
-
-  Lemma heap_freeable_rel_free_mem σ hF n l bs:
-    l.2 = 0 →
-    hF !! l = Some (Some n) →
-    heap_freeable_rel σ bs hF →
-    heap_freeable_rel (free_mem l n σ) bs (<[l:=None]> hF).
-  Proof.
-    intros ? Hl REL b qs Hlookup.
-    destruct (REL l (Some n)) as [? [? [? REL']]]; auto.
-    move: Hlookup => /lookup_insert_Some [[??]|[NEQ ?]]; simplify_eq.
-    - split_and!; [done| done| simpl; lia |] => i /=. split; [|lia] => -[?].
-      have ->: free_mem b n σ !! (b +ₗ i) = None; last naive_solver.
-      destruct (decide (0 ≤ i < n))%Z.
-      + apply lookup_free_mem_2; [done|]. simpl. lia.
-      + destruct (decide (i < 0))%Z.
-        * rewrite lookup_free_mem_3 => /=; [|done|lia].
-          apply eq_None_not_Some. naive_solver lia.
-        * rewrite lookup_free_mem_4 => /=; [|done|lia].
-          apply eq_None_not_Some. naive_solver lia.
-    - destruct (REL b qs) as [? [? [? REL'']]]; auto.
-      split_and!; [done..|]=> i. rewrite -REL'' lookup_free_mem_1 //=.
-      destruct b, l; simplify_eq/=. congruence.
-  Qed.
-
-  (*Lemma heap_freeable_inj n1 l1 l2 n2 σ bs:*)
-    (*(0 < n1)%Z →*)
-    (*(∀ m, is_Some (σ !! (l1 +ₗ m)) ↔ (0 ≤ m < n1)%Z) →*)
-    (*loc_chunk l1 = loc_chunk l2 →*)
-    (*heap_ctx γ σ bs -∗ †l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.*)
-  (*Proof.*)
-    (*iIntros (? Hrel1 ?) "(%hF & ? & HhF & %Hrel) Hf".*)
-    (*rewrite heap_freeable_eq. iDestruct "Hf" as (?) "Hf".*)
-    (*iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.*)
-    (*iPureIntro.*)
-    (*have [? [? [? {}Hrel2]]]:= Hrel _ _ Hf.*)
-    (*destruct n2; last first. {*)
-      (*have [_ [|? Hl]]:= Hrel1 0; [lia|].*)
-      (*have [/=[|] ]:= Hrel2 (loc_idx l1 - loc_idx l2)%Z; last lia.*)
-      (*eexists _. erewrite <-Hl. f_equal. rewrite /loc_add. destruct l1, l2 => /=.*)
-      (*f_equal; [done |lia].*)
-    (*}*)
-    (*simplify_eq/=.*)
-    (*destruct (decide (l1 = l2)).*)
-    (*{ subst. split; [|done].*)
-      (*have Heq: (∀ i : Z, (0 ≤ i < n) ↔ (0 ≤ i < n1))%Z. naive_solver.*)
-      (*f_equal.*)
-      (*destruct (decide (n1 < n)%Z). { have := Heq n1. lia. }*)
-      (*destruct (decide (n < n1)%Z). { have := Heq n. lia. }*)
-      (*lia.*)
-    (*}*)
-    (*have ?: loc_idx l1 ≠ loc_idx l2 by destruct l1, l2;  naive_solver.*)
-    (*destruct (decide (loc_idx l1 < loc_idx l2)%Z).*)
-    (*- have [_ [|? Hl]]:= Hrel1 0; first lia.*)
-      (*have [/=[|] ]:= Hrel2 (loc_idx l1 - loc_idx l2)%Z; last lia.*)
-      (*eexists _. erewrite <-Hl. f_equal. rewrite /loc_add. destruct l1, l2 => /=.*)
-      (*f_equal; [done |lia].*)
-    (*- have [_ [|? Hl]]:= Hrel2 0; first lia.*)
-      (*have [/=[|] ]:= Hrel1 (loc_idx l2 - loc_idx l1)%Z; last lia.*)
-      (*eexists _. erewrite <-Hl. f_equal. rewrite /loc_add. destruct l1, l2 => /=.*)
-      (*f_equal; [done |lia].*)
-  (*Qed.*)
-
-  (*Lemma heap_freeable_lookup σ l l' x n bs:*)
-    (*σ !! l' = Some x → loc_chunk l' = loc_chunk l →*)
-    (*heap_ctx γ σ bs -∗ †l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.*)
-  (*Proof.*)
-    (*iIntros (Hlo ?) "(%hF&?&HhF&%Hrel) Hf".*)
-    (*rewrite heap_freeable_eq. iDestruct "Hf" as (?) "Hf".*)
-    (*iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.*)
-    (*iPureIntro.*)
-    (*have [? {}Hrel]:= Hrel _ _ Hf.*)
-    (*have Hl': l' = (l +ₗ (loc_idx l' - loc_idx l)).*)
-    (*{ destruct l', l => /=. rewrite /loc_add/=. f_equal; [done|lia]. }*)
-    (*rewrite Hl' in Hlo.*)
-    (*eapply mk_is_Some, Hrel in Hlo.*)
-    (*eexists (Z.to_nat (loc_idx l' - loc_idx l)). split; [lia|].*)
-    (*rewrite Hl'. f_equal => /=. lia.*)
-  (*Qed.*)
-End freeable.
-
-(** Allocation size notation *)
-Notation "† l '…?t' n" := (heap_freeable freeable_target_name l 1 n)
-  (at level 20, format "† l …?t  n") : bi_scope.
-Notation "† l '…t' n" := (heap_freeable freeable_target_name l 1 (Some n))
-  (at level 20, format "† l …t  n") : bi_scope.
-Notation "† l '…t' -" := (heap_freeable freeable_target_name l 1 None)
-  (at level 20, format "† l …t  -") : bi_scope.
-Notation "† l '…?s' n" := (heap_freeable freeable_source_name l 1 n)
-  (at level 20, format "† l …?s  n") : bi_scope.
-Notation "† l '…s' n" := (heap_freeable freeable_source_name l 1 (Some n))
-  (at level 20, format "† l …s  n") : bi_scope.
-Notation "† l '…s' -" := (heap_freeable freeable_source_name l 1 None)
-  (at level 20, format "† l …s  -") : bi_scope.
-
-
 Section mem_bijection.
   Context {Σ} `{bor_stateG Σ}.
-
-  Definition heap_bij_auth (L : gset (block * block)) : iProp Σ :=
-    gset_bij_own_auth heap_bij_name (DfracOwn 1) L.
-  Definition heap_bij_elem (b_t : block) (b_s : block) :=
-    gset_bij_own_elem heap_bij_name b_t b_s.
-  Definition heap_bij_elem_loc (l_t l_s : loc) : iProp Σ :=
-    heap_bij_elem l_t.1 l_s.1 ∗ ⌜l_t.2 = l_s.2⌝.
 
   (* The bijection serves the following purpose:
       * the blocks are of the same size
       * the stacks for the locations are pointwise the same
-      * every location is either a private location or a public location, which is tied to the tag ghost state 
+      * every location is either a private location or a public location, which is tied to the tag ghost state
   *)
   Context (sc_rel : scalar → scalar → iProp Σ).
 
@@ -395,72 +195,161 @@ Section mem_bijection.
      TODO: can we make that more beautiful? all the different invariants are interleaved in subtle ways, which makes modular reasoning really hard... *)
     Context (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) (Mcall_t : gmap call_id (gmap ptr_id (gset loc))).
 
-    Definition pub_loc σ_t σ_s (l_t l_s : loc) : iProp Σ := 
-      ∀ sc_t, ⌜σ_t.(shp) !! l_t = Some sc_t⌝ → ∃ sc_s, ⌜σ_s.(shp) !! l_s = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
-    Definition priv_loc t (l_t : loc) : Prop := 
-      ∃ tk, M_tag !! t = Some (tk, tt) ∧ is_Some (M_t !! (t, l_t)) ∧
+    Definition pub_loc σ_t σ_s (l : loc) : iProp Σ :=
+      ∀ sc_t, ⌜σ_t.(shp) !! l = Some sc_t⌝ → ∃ sc_s, ⌜σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
+    Definition priv_loc t (l : loc) : Prop :=
+      ∃ tk, M_tag !! t = Some (tk, tt) ∧ is_Some (M_t !! (t, l)) ∧
         (* local *)
-        (tk = tk_local ∨ 
+        (tk = tk_local ∨
         (* unique with protector *)
-        (tk = tk_unq ∧ ∃ c M' L, Mcall_t !! c = Some M' ∧ M' !! t = Some L ∧ l_t ∈ L)).
-      
-    Definition alloc_block_rel (σ_t σ_s : state) (b_t b_s : block) : iProp Σ :=  
-      ∃ n : option nat, 
-        (* same size *)
-        † (b_t, 0) …?t n ∗ † (b_s, 0) …?s n ∗
-        (* same stacks *)
-        ⌜∀ i st, σ_t.(sst) !! (b_t, i) = Some st → σ_s.(sst) !! (b_s, i) = Some st⌝ ∗
-        (* private / public locations of the target *)
-        ∀ i, ⌜is_Some (σ_t.(shp) !! (b_t, i))⌝ → 
-          pub_loc σ_t σ_s (b_t, i) (b_s, i) ∨ ⌜∃ t, priv_loc t (b_t, i)⌝.
+        (tk = tk_unq ∧ ∃ c M' L, Mcall_t !! c = Some M' ∧ M' !! t = Some L ∧ l ∈ L)).
 
-    Definition heap_bij_interp (L : gset (block * block)) σ_t σ_s : iProp Σ :=
-      [∗ set] p ∈ L, let '(b_t, b_s) := p in alloc_block_rel σ_t σ_s b_t b_s.
+    (* This definition enforces quite strict requirements on the state:
+      - the domains of the heaps shp are the same
+      - the stacks are the same
+      - the call counter is the same
+      - the tag counter is the same
+      - the set of ongoing calls is the same
+      - there's a relation on the scalars stored at locations ([pub_loc]), except when the location is currently controlled by a tag ([priv_loc]).
+
+      Note that, while the definition may appear asymmetric in source and target, due to the well-formedness on states [state_wf] and the relation of the tag maps enforced below, it really is symmetric in practice.
+    *)
+    Definition state_rel σ_t σ_s : iProp Σ :=
+        ⌜dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝ ∗
+        ⌜σ_s.(sst) = σ_t.(sst)⌝ ∗
+        ⌜σ_s.(snp) = σ_t.(snp)⌝ ∗
+        ⌜σ_s.(snc) = σ_t.(snc)⌝ ∗
+        ⌜σ_s.(scs) = σ_t.(scs)⌝ ∗
+        (* private / public locations of the target *)
+        ∀ l, ⌜is_Some (σ_t.(shp) !! l)⌝ → pub_loc σ_t σ_s l ∨ ⌜∃ t, priv_loc t l⌝.
+
+    Global Instance state_rel_persistent σ_t σ_s :
+      (∀ sc_t sc_s, Persistent (sc_rel sc_t sc_s)) → Persistent (state_rel σ_t σ_s).
+    Proof. intros. apply _. Qed.
+
   End defs.
 End mem_bijection.
-
-Notation "b_t '⇔h' b_s" := (heap_bij_elem b_t b_s) (at level 50) : bi_scope. 
-Notation "l_t '↔h' l_s" := (heap_bij_elem_loc l_t l_s) (at level 50) : bi_scope.
 
 Section bijection_lemmas.
   Context {Σ} `{bor_stateG Σ}.
   Context (sc_rel : scalar → scalar → iProp Σ).
+  Local Notation state_rel := (state_rel sc_rel).
+
+  Lemma state_rel_get_pure Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(snp) = σ_t.(snp) ∧ σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_stacks_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_snp_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(snp) = σ_t.(snp)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_snc_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(snc) = σ_t.(snc)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_calls_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(scs) = σ_t.(scs)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+
 
   (*Lemma heap_bij_interp_alloc L t : *)
     (*(∀ b_s, (b_t, b_s) ∉ L) →*)
     (*heap_bij_interp sc_rel M_tag M_t Mcall_t L σ_t σ_s -∗*)
     (*heap_bij_interp sc_rel M_tag (Minit_mem ) Mcall_t L (state_upd_mem (init_mem (b_t, 0) n) σ_t)*)
 
-
-  (* TODO: accessors *)
-  Lemma heap_bij_interp_update_private_target M_tag M_t Mcall_t L σ_t σ_s l_t t sc : 
-    is_Some (σ_t.(shp) !! l_t) →
-    priv_loc M_tag M_t Mcall_t t l_t →
-    heap_bij_interp sc_rel M_tag M_t Mcall_t L σ_t σ_s -∗
-    heap_bij_interp sc_rel M_tag (<[(t, l_t) := sc]> M_t) Mcall_t L (state_upd_mem (<[l_t := sc]>) σ_t) σ_s.
+  Lemma state_rel_upd_pub_both M_tag M_t Mcall_t σ_t σ_s l sc_t sc_s :
+    sc_rel sc_t sc_s -∗
+    state_rel M_tag M_t Mcall_t σ_t σ_s -∗
+    state_rel M_tag M_t Mcall_t (state_upd_mem (<[l := sc_t]>) σ_t) (state_upd_mem (<[l := sc_s]>) σ_s).
   Proof.
-    (* 
-      1. CA: is the block in the bijection or not. If not, we are done.
-      2. Otherwise, the interesting part are the public/private locations.
-      3. We prove that it is a private location for t. 
-    *)
-  Admitted.
+    iIntros "Hs (%Hshp & % & % & % & % & Hrel)". rewrite /state_rel /=.
+    iSplitR. { iPureIntro. by rewrite !dom_insert_L Hshp. }
+    do 4 (iSplitR; first done).
+    iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
+    - iLeft. iIntros (sc_t') "%Hsc_t'". iExists sc_s.
+      iSplitR. { iPureIntro. by rewrite lookup_insert. }
+      move :Hsc_t'; rewrite lookup_insert => [= <-] //.
+    - rewrite lookup_insert_ne in Hsome; last done.
+      iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | Hpriv]".
+      + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done | done]. iApply "Hpub".
+      + iRight. done.
+  Qed.
 
-  Lemma heap_bij_interp_update_private_source M_tag M_t Mcall_t L σ_t σ_s l_t l_s t sc : 
-    is_Some (σ_t.(shp) !! l_t) →
-    priv_loc M_tag M_t Mcall_t t l_t →
-    (l_t.1, l_s.1) ∈ L →
-    l_t.2 = l_s.2 → 
-    heap_bij_interp sc_rel M_tag M_t Mcall_t L σ_t σ_s -∗
-    heap_bij_interp sc_rel M_tag M_t Mcall_t L σ_t (state_upd_mem (<[l_s := sc]>) σ_s).
+  Lemma priv_loc_upd_insert Mtag Mt Mcall t l t' l' sc :
+    priv_loc Mtag Mt Mcall t l →
+    priv_loc Mtag (<[(t',l') := sc]> Mt) Mcall t l.
   Proof.
-    (* 
-      1. the interesting part are the public/private locations.
-      2. We prove that the target location is private. 
-          For any other location, this is fine, because l_t is in bijection with l_s, 
-            so other locations cannot be tripped by that.
-    *)
-  Admitted.
+    rewrite /priv_loc. intros (tk & Ht & Hs & Hinv). exists tk.
+    split_and!; [ done | | done].
+    Search "lookup" "insert".
+    apply lookup_insert_is_Some. destruct (decide ((t', l') = (t, l))); eauto.
+  Qed.
+
+  Lemma state_rel_upd_priv_target M_tag M_t Mcall σ_t σ_s l t sc :
+    is_Some (σ_t.(shp) !! l) →
+    priv_loc M_tag M_t Mcall t l →
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    state_rel M_tag (<[(t, l) := sc]> M_t) Mcall (state_upd_mem (<[l := sc]>) σ_t) σ_s.
+  Proof.
+    iIntros (Hs Hpriv) "(%Hshp & % & % & % & % & Hrel)". rewrite /state_rel /=.
+    iSplitR. { iPureIntro. rewrite dom_insert_lookup_L; done. }
+    do 4 (iSplitR; first done).
+    iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
+    - iRight. iExists t. iPureIntro. apply priv_loc_upd_insert. done.
+    - rewrite lookup_insert_ne in Hsome; last done.
+      iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | %Hpriv']".
+      + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done ]. iApply "Hpub".
+      + iRight. iPureIntro. destruct Hpriv' as (t' & Hpriv'). exists t'.
+        by eapply priv_loc_upd_insert.
+  Qed.
+
+  Lemma state_rel_upd_priv_source M_tag M_t Mcall σ_t σ_s l t sc :
+    is_Some (σ_t.(shp) !! l) →
+    priv_loc M_tag M_t Mcall t l →
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    state_rel M_tag M_t Mcall σ_t (state_upd_mem (<[l := sc]>) σ_s).
+  Proof.
+    iIntros (Hs Hpriv) "(%Hshp & % & % & % & % & Hrel)". rewrite /state_rel /=.
+    iSplitR. { iPureIntro. rewrite dom_insert_lookup_L; [ by rewrite Hshp| ].
+      rewrite lookup_lookup_total_dom; first by eauto.
+      rewrite Hshp. by apply elem_of_dom.
+    }
+    do 4 (iSplitR; first done).
+    iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
+    - iRight. iExists t. done.
+    - iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | %Hpriv']".
+      + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done ]. iApply "Hpub".
+      + iRight. iPureIntro. destruct Hpriv' as (t' & Hpriv'). exists t'. done.
+  Qed.
+
+  Lemma state_rel_pub_if_not_priv M_tag M_t Mcall σ_t σ_s l :
+    is_Some (σ_t.(shp) !! l) →
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    ⌜∀ t, ¬ priv_loc M_tag M_t Mcall t l⌝ -∗
+    pub_loc sc_rel σ_t σ_s l.
+  Proof.
+    iIntros (Hs) "(%& % & % & % & % & Hrel) %Hnpriv".
+    iPoseProof ("Hrel" $! l with "[//]") as "[Hpub | %Hpriv]"; first done.
+    destruct Hpriv as (t & Hpriv). exfalso; by eapply Hnpriv.
+  Qed.
+
+  Lemma state_rel_heap_lookup_some M_tag M_t Mcall σ_t σ_s l :
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    ⌜is_Some (σ_t.(shp) !! l) ↔ is_Some (σ_s.(shp) !! l)⌝.
+  Proof.
+    iIntros "(%Hshp & _)". iPureIntro. by rewrite -!elem_of_dom Hshp.
+  Qed.
+
+  Lemma pub_loc_lookup σ_t σ_s l :
+    is_Some (σ_t.(shp) !! l) →
+    pub_loc sc_rel σ_t σ_s l -∗
+    ∃ sc_t sc_s, ⌜σ_t.(shp) !! l = Some sc_t ∧ σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    iIntros (Hs) "Hpub". destruct Hs as (sc_t & Ht).
+    iDestruct ("Hpub" $! sc_t with "[//]") as (sc_s) "[%Hs Hsc]".
+    iExists sc_t, sc_s. eauto.
+  Qed.
+
 End bijection_lemmas.
 
 (* Interpretation for call ids *)
@@ -472,8 +361,7 @@ Section call_defs.
   Definition call_set_is (c : call_id) (M : gmap ptr_id (gset loc)) :=
     ghost_map_elem call_gname c (DfracOwn 1) M.
 
-  (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below, 
-    since also the block bijection needs access to it. *)
+  (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below. *)
   Definition call_set_interp (M : gmap call_id (gmap ptr_id (gset loc))) (σ : state) : Prop :=
     ∀ c (M' : gmap ptr_id (gset loc)), M !! c = Some M' →
       c ∈ σ.(scs) ∧
@@ -497,8 +385,6 @@ Section heap_defs.
   Definition bor_state_pre (l : loc) (t : ptr_id) (tk : tag_kind) (s : stack) :=
     tk = tk_local ∨ ∃ pm pro, mkItem pm (Tagged t) pro ∈ s ∧ pm ≠ Disabled.
 
-  (* TODO: we should really try to pose weaker requirements here.
-    maybe something like: there is a granting item for t among the items accessible from the top? *)
   Definition bor_state_own (l : loc) (t : ptr_id) (tk : tag_kind) (s : stack) :=
     (tk = tk_unq ∧ ∃ s' op, s = (mkItem Unique (Tagged t) op) :: s') ∨
     (tk = tk_pub ∧ t ∈ active_SRO s) ∨
@@ -540,22 +426,22 @@ Section heap_defs.
     rewrite Hs. eauto.
   Qed.
 
-  Lemma loc_controlled_mem_insert_ne l l' t tk sc sc' σ : 
+  Lemma loc_controlled_mem_insert_ne l l' t tk sc sc' σ :
     l ≠ l' →
     loc_controlled l t tk sc σ →
     loc_controlled l t tk sc (state_upd_mem <[l' := sc']> σ).
   Proof.
-    intros Hneq (s & Hsome & Him). exists s; split; first done. 
-    intros [Hownw Hmem]%Him. split; first done. 
-    rewrite lookup_insert_ne; done. 
+    intros Hneq (s & Hsome & Him). exists s; split; first done.
+    intros [Hownw Hmem]%Him. split; first done.
+    rewrite lookup_insert_ne; done.
   Qed.
-  Lemma loc_controlled_mem_insert l t tk sc sc' σ : 
+  Lemma loc_controlled_mem_insert l t tk sc sc' σ :
     loc_controlled l t tk sc σ →
     loc_controlled l t tk sc' (state_upd_mem <[l := sc']> σ).
   Proof.
-    intros (s & Hsome & Him). exists s; split; first done. 
-    intros [Hownw Hmem]%Him. split; first done. 
-    rewrite lookup_insert; done. 
+    intros (s & Hsome & Him). exists s; split; first done.
+    intros [Hownw Hmem]%Him. split; first done.
+    rewrite lookup_insert; done.
   Qed.
   (*Lemma loc_controlled_mem_insert_unowned l t tk sc sc' σ : *)
     (*¬ bor_state_pre l t tk *)
@@ -567,19 +453,107 @@ Section heap_defs.
     (*rewrite lookup_insert; done. *)
   (*Qed.*)
 
-  Definition tag_interp (M : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) σ_t σ_s : Prop := 
-    ∀ (t : ptr_id) tk, M !! t = Some (tk, ()) → 
+  Section local.
+  (** Facts about local tags  *)
+  Lemma loc_controlled_local_unique l t t' sc sc' σ :
+    loc_controlled l t tk_local sc σ →
+    loc_controlled l t' tk_local sc' σ →
+    t' = t ∧ sc' = sc.
+  Proof.
+    intros (s & Hsome & Hcontrol) (s' & Hsome' & Hcontrol').
+    rewrite Hsome in Hsome'. injection Hsome' as [= <-].
+    specialize (Hcontrol ltac:(by left)) as [[[[=]] | [[[=] ] | [_  ->]]] Hmem].
+    specialize (Hcontrol' ltac:(by left)) as [[[[=]] | [[[=] ] | [_  Heq]]] Hmem'].
+    injection Heq. rewrite Hmem in Hmem'. injection Hmem'. done.
+  Qed.
+  Lemma loc_controlled_local_pre l t t' tk' st sc σ :
+    σ.(sst) !! l = Some st →
+    loc_controlled l t tk_local sc σ →
+    bor_state_pre l t' tk' st →
+    tk' = tk_local ∨ t' = t.
+  Proof.
+    intros Hst [Heq _]%loc_controlled_local [-> | Hprot]; first by left.
+    destruct Hprot as (pm & pro & Hel & _).
+    rewrite Heq in Hst. injection Hst as [= <-].
+    apply elem_of_list_singleton in Hel.
+    injection Hel. eauto.
+  Qed.
+  Lemma loc_controlled_local_own l t t' tk' st sc σ :
+    σ.(sst) !! l = Some st →
+    loc_controlled l t tk_local sc σ →
+    bor_state_own l t' tk' st →
+    (tk' = tk_unq ∨ tk' = tk_local) ∧ t = t'.
+  Proof.
+    intros Hst [Heq _]%loc_controlled_local [[-> (s' & ? & ->)] | [[-> Hpub] | [-> ->]]].
+    - rewrite Heq in Hst. injection Hst. eauto.
+    - exfalso. rewrite Heq in Hst. injection Hst as [= <-]. done.
+    - rewrite Heq in Hst. injection Hst. eauto.
+  Qed.
+
+  (* having local ownership of a location is authoritative, in the sense that we can update memory without hurting other tags that control this location. *)
+  Lemma loc_controlled_local_authoritative l t t' tk' sc sc' σ f :
+    loc_controlled l t tk_local sc (state_upd_mem f σ) →
+    loc_controlled l t' tk' sc' σ →
+    t ≠ t' →
+    loc_controlled l t' tk' sc' (state_upd_mem f σ).
+  Proof.
+    intros Hcontrol (s' & Hsome' & Hcontrol') Hneq.
+    exists s'; split; first done.
+    intros [Hown Hshp]%Hcontrol'.
+    by edestruct (loc_controlled_local_own l t t' tk' s' sc (state_upd_mem f σ)) as [_ <-].
+  Qed.
+  End local.
+
+  Definition dom_agree_on_tag (M_t M_s : gmap (ptr_id * loc) scalar) (t : ptr_id) :=
+    (∀ l, is_Some (M_t !! (t, l)) → is_Some (M_s !! (t, l))) ∧
+    (∀ l, is_Some (M_s !! (t, l)) → is_Some (M_t !! (t, l))).
+
+  Lemma dom_agree_on_tag_upd_ne_target M_t M_s t t' l sc :
+    t ≠ t' →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag (<[(t, l) := sc]> M_t) M_s t'.
+  Proof.
+    intros Hneq [Htgt Hsrc]. split => l'' Hsome.
+    - apply Htgt. move : Hsome. rewrite lookup_insert_is_Some. by intros [[= -> <-] | [_ ?]].
+    - apply lookup_insert_is_Some. right. split; first congruence. by apply Hsrc.
+  Qed.
+  Lemma dom_agree_on_tag_upd_ne_source M_t M_s t t' l sc :
+    t ≠ t' →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag M_t (<[(t, l) := sc]> M_s) t'.
+  Proof.
+    intros Hneq [Htgt Hsrc]. split => l'' Hsome.
+    - apply lookup_insert_is_Some. right. split; first congruence. by apply Htgt.
+    - apply Hsrc. move : Hsome. rewrite lookup_insert_is_Some. by intros [[= -> <-] | [_ ?]].
+  Qed.
+  Lemma dom_agree_on_tag_upd_target M_t M_s t l sc :
+    is_Some (M_t !! (t, l)) →
+    dom_agree_on_tag M_t M_s t →
+    dom_agree_on_tag (<[(t, l) := sc]> M_t) M_s t.
+  Proof.
+    intros Hs [Htgt Hsrc]. split => l''.
+    - rewrite lookup_insert_is_Some. intros [[= <-] | [_ ?]]; by apply Htgt.
+    - intros Hsome. rewrite lookup_insert_is_Some'. right; by apply Hsrc.
+  Qed.
+  Lemma dom_agree_on_tag_upd_source M_t M_s t l sc :
+    is_Some (M_s !! (t, l)) →
+    dom_agree_on_tag M_t M_s t →
+    dom_agree_on_tag M_t (<[(t, l) := sc]> M_s) t.
+  Proof.
+    intros Hs [Htgt Hsrc]. split => l''.
+    - intros Hsome. rewrite lookup_insert_is_Some'. right; by apply Htgt.
+    - rewrite lookup_insert_is_Some. intros [[= <-] | [_ ?]]; by apply Hsrc.
+  Qed.
+
+
+  Definition tag_interp (M : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) σ_t σ_s : Prop :=
+    ∀ (t : ptr_id) tk, M !! t = Some (tk, ()) →
       (* tags are valid *)
       (t < σ_t.(snp))%nat ∧ (t < σ_s.(snp))%nat ∧
-      (∃ lb_t lb_s (len : nat),
-        (* at all offsets, the values agree, and match the physical state assuming the tag currently has control over the location *)
-        (∀ o, o < len → ∃ sc_t sc_s,
-          M_t !! (t, lb_t +ₗ o) = Some sc_t ∧ loc_controlled (lb_t +ₗ o) t tk sc_t σ_t ∧
-          M_s !! (t, lb_s +ₗ o) = Some sc_s ∧ loc_controlled (lb_s +ₗ o) t tk sc_s σ_s) ∧ 
-        (* locations in the heap view are valid *)
-        (∀ l sc, M_t !! (t, l) = Some sc → ∃ o : nat, l = lb_t +ₗ o ∧ o < len) ∧
-        (∀ l sc, M_s !! (t, l) = Some sc → ∃ o : nat, l = lb_s +ₗ o ∧ o < len)
-      ).
+      (* at all locations, the values agree, and match the physical state assuming the tag currently has control over the location *)
+      (∀ l sc_t, M_t !! (t, l) = Some sc_t → loc_controlled l t tk sc_t σ_t) ∧
+      (∀ l sc_s, M_s !! (t, l) = Some sc_s → loc_controlled l t tk sc_s σ_s) ∧
+      dom_agree_on_tag M_t M_s t.
 End heap_defs.
 
 
@@ -605,36 +579,34 @@ Section state_interp.
   (* We generally do not enforce that stacks for all locations are equal: that would make non-determinism in choosing locations slightly clunky.
     Rather, we should again force equality in bijections.
   *)
-  Definition bor_auth (M_call_s M_call_t : gmap call_id (gmap ptr_id (gset loc))) (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) (L : gset (block * block)) : iProp Σ := 
-    ghost_map_auth call_source_name 1 M_call_s ∗
-    ghost_map_auth call_target_name 1 M_call_t ∗
+  Definition bor_auth (M_call : gmap call_id (gmap ptr_id (gset loc))) (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) : iProp Σ :=
+    ghost_map_auth call_source_name 1 M_call ∗
     tkmap_auth tag_name 1 M_tag ∗
     ghost_map_auth heap_view_target_name 1 M_t ∗
-    ghost_map_auth heap_view_source_name 1 M_s ∗
-    gset_bij_own_auth heap_bij_name (DfracOwn 1) L.
+    ghost_map_auth heap_view_source_name 1 M_s.
   Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
   (* since multiple parts of the interpretation need access to these maps, we own the authoritative parts here and not in the interpretations below *)
-   ∃ (M_call_s M_call_t : gmap call_id (gmap ptr_id (gset loc)))
+   ∃ (M_call : gmap call_id (gmap ptr_id (gset loc)))
      (M_tag : gmap ptr_id (tag_kind * unit))
-     (M_t M_s : gmap (ptr_id * loc) scalar) 
-     (L : gset (block * block)),
-    bor_auth M_call_s M_call_t M_tag M_t M_s L ∗
+     (M_t M_s : gmap (ptr_id * loc) scalar),
+    bor_auth M_call M_tag M_t M_s ∗
 
-    heap_bij_interp sc_rel M_tag M_t M_call_t L σ_t σ_s ∗
-    ⌜call_set_interp M_call_s σ_s⌝ ∗
-    ⌜call_set_interp M_call_t σ_t⌝ ∗
+    state_rel sc_rel M_tag M_t M_call σ_t σ_s ∗
+    (* due to the [state_rel], enforcing this on [σ_t] also does the same for [σ_s] *)
+    ⌜call_set_interp M_call σ_t⌝ ∗
     ⌜tag_interp M_tag M_t M_s σ_t σ_s⌝ ∗
 
-    (* TODO: for the future, it would be nice to generalize that to a bijection, too *)
-    ⌜σ_s.(snp) = σ_t.(snp)⌝ ∗
-    ⌜σ_s.(snc) = σ_t.(snc)⌝ ∗
-    ⌜σ_s.(scs) = σ_t.(scs)⌝ ∗
     ⌜state_wf σ_s⌝ ∗
     ⌜state_wf σ_t⌝.
 
   Lemma bor_interp_get_pure σ_t σ_s :
     bor_interp σ_t σ_s -∗ ⌜σ_s.(snp) = σ_t.(snp) ∧ σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t⌝.
-  Proof. iIntros "(% & % & % & % & % & %& ? & ? & ? & ? & ? & %)". eauto. Qed.
+  Proof.
+    iIntros "(% & % & % & % & ? & Hstate & _ & _ & % & %)".
+    iPoseProof (state_rel_get_pure with "Hstate") as "%".
+    iPureIntro. tauto.
+  Qed.
+
 End state_interp.
 
 
@@ -670,14 +642,14 @@ Section lemmas.
     let l_t := (fresh_block σ_t.(shp), 0) in
     let l_s := (fresh_block σ_s.(shp), 0) in
     let t := σ_t.(snp) in
-    bor_interp 
+    bor_interp
       (mkState (init_mem l_t (tsize T) σ_t.(shp)) (init_stacks σ_t.(sst) l_t (tsize T) (Tagged σ_t.(snp))) σ_t.(scs) (S σ_t.(snp)) σ_t.(snc))
       (mkState (init_mem l_s (tsize T) σ_s.(shp)) (init_stacks σ_s.(sst) l_s (tsize T) (Tagged σ_s.(snp))) σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)) ∗
       t @@ tk_local ∗
       l_t ↦t∗[local]{t} repeat ScPoison (tsize T) ∗
       l_s ↦s∗[local]{t} repeat ScPoison (tsize T).
   Proof.
-    iIntros "(% & % & % & % & % & % & ? & Hbij & ? & ? & Htag & %Hsnp & %Hsnc & %Hscs & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & ? & Hstate & ? & Htag & %Hwf_s & %Hwf_t)".
     (* 1. allocate new local locations
        2. profit
     *)
@@ -689,10 +661,10 @@ Section lemmas.
   Admitted.
 
 
-  Lemma state_wf_upd_mem σ l sc : 
+  Lemma state_wf_upd_mem σ l sc :
     is_Some (σ.(shp) !! l) →
     wf_scalar σ sc →
-    state_wf σ → 
+    state_wf σ →
     state_wf (state_upd_mem (<[l := sc]>) σ).
   Proof.
     intros Hs Hwf []. constructor; try done.
@@ -701,7 +673,7 @@ Section lemmas.
       split; rewrite elem_of_union; last by eauto.
       intros [ ->%elem_of_singleton_1 | ]; last done.
       by apply elem_of_dom.
-    - intros l' l'' pid Hsome. 
+    - intros l' l'' pid Hsome.
       destruct (decide (l = l')) as [<- | Hne].
       + move : Hsome. rewrite lookup_insert => [= Heq].
         subst sc. specialize (Hwf _ _ eq_refl). apply Hwf.
@@ -723,63 +695,56 @@ Section lemmas.
       bor_interp (state_upd_mem (<[l := sc']>) σ_t) σ_s ∗
       l ↦t[local]{t} sc').
   Proof.
-    iIntros "(% & % & % & % & % & % & (Hc_t & ? & Htag_auth & Htag_t_auth & Htag_s_auth & Hbij_auth) & Hbij & ? & ? & %Htag_interp & %Hsnp & %Hsnc & %Hscs & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ha).
-    destruct Ha as (lb_t & lb_s & len & Ha & Ht & _).
+    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
     iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
-    specialize (Ht _ _ Ht_lookup) as (o & -> & Ho).
-    destruct (Ha o ltac:(lia)) as (sc_t & sc_s & Ht_lookup' & Hcontrol & _).
-    rewrite Ht_lookup in Ht_lookup'. injection Ht_lookup' as [= <-].
+    specialize (Ht _ _ Ht_lookup) as Hcontrol.
     specialize (loc_controlled_local _ _ _ _ Hcontrol) as (Hstack & Hmem).
     iSplitR; first done. iSplitR; first done.
-    iSplitR. { iPureIntro. intros tg l ->. 
+    iSplitR. { iPureIntro. intros tg l' ->.
       destruct tg as [tg | ]; last done.
       eapply state_wf_mem_tag; done.
-    } 
+    }
 
     iIntros (sc') "%Hwf_sc".
     iMod (ghost_map_update sc' with "Htag_t_auth Hp") as "[Htag_t_auth $]".
     iModIntro. rewrite /bor_interp.
-    iExists M_call_s, M_call_t, M_tag, (<[(t, lb_t +ₗ o):=sc']> M_t), M_s, L.
-    iFrame. cbn. iSplitL "Hbij". 
-    { iApply (heap_bij_interp_update_private_target with "Hbij"). 
-      - eauto. 
+    iExists M_call, M_tag, (<[(t, l):=sc']> M_t), M_s.
+    iFrame. cbn. iSplitL "Hsrel".
+    { iApply (state_rel_upd_priv_target with "Hsrel").
+      - eauto.
       - exists tk_local. split_and!; [done | by eauto | by left ].
-    } 
-    iSplitR; first last.
+    }
+    iSplitL; first last.
     { repeat iSplitL; [ done.. | ].
       iPureIntro. apply state_wf_upd_mem; [by eauto | done | done].
-    } 
-    clear Ha lb_s sc_s.
+    }
 
     iPureIntro.
     intros t' tk' (? & ? & H')%Htag_interp. do 2 (split; first done).
-    destruct H' as (lb_t' & lb_s' & len' & Hoo & Ha_t & Ha_s).
-    exists lb_t', lb_s', len'. 
-    split_and!; last done.
-    - intros o' Ho'. specialize (Hoo _ Ho') as (sc_t & sc_s & Hoo). 
+    destruct H' as (Ha_t & Ha_s & Hagree').
+    split_and!; [ | done | ].
+    - intros l' sc_t.
       destruct (decide (t = t')) as [<- | Hneq]; first last.
-      { exists sc_t, sc_s. rewrite lookup_insert_ne; last congruence.
-        split_and!; [ apply Hoo | | apply Hoo..].  
-        destruct (decide (lb_t' +ₗ o' = lb_t +ₗ o)) as [-> | Hneq_loc].
-        { (* this is contradictory, as tag t has local ownership *)
-          admit.
-        } 
-        apply loc_controlled_mem_insert_ne; [done | apply Hoo]. 
-      } 
-      revert Hoo.
-      destruct (decide (lb_t' +ₗ o' = lb_t +ₗ o)) as [-> | Hneq_loc] => Hoo.
-      + exists sc', sc_s.
-        rewrite lookup_insert. split_and!; [ done | | apply Hoo..].  
-        eapply loc_controlled_mem_insert, Hoo.
-      + exists sc_t, sc_s.
-        rewrite lookup_insert_ne; last congruence. 
-        split_and!; [ apply Hoo | | apply Hoo..].  
-        eapply loc_controlled_mem_insert_ne; [done | apply Hoo].
-    - (* easy *) admit.
-  Admitted. 
+      { rewrite lookup_insert_ne; last congruence. intros Hsc_t.
+        destruct (decide (l' = l)) as [-> | Hneq_loc].
+        { (* this is fine as tag t has local ownership: t' doesn't have any control *)
+          eapply loc_controlled_local_authoritative; [ | by apply Ha_t | done].
+          eapply loc_controlled_mem_insert. done.
+        }
+        apply loc_controlled_mem_insert_ne; [done | by apply Ha_t].
+      }
+      revert Ha_t.
+      destruct (decide (l' = l)) as [-> | Hneq_loc] => Ha_t.
+      + rewrite lookup_insert => [= ->]. by eapply loc_controlled_mem_insert, Ha_t.
+      + rewrite lookup_insert_ne; last congruence. intros ?.
+        eapply loc_controlled_mem_insert_ne; [done | by apply Ha_t].
+    - destruct (decide (t = t')) as [<- | Hneq].
+      + eapply dom_agree_on_tag_upd_target; eauto.
+      + eapply dom_agree_on_tag_upd_ne_target; eauto.
+  Qed.
 
   Lemma heap_local_accessN_target' σ_t σ_s (t : ptr_id) l scs :
     bor_interp σ_t σ_s -∗
@@ -866,20 +831,30 @@ Section val_rel.
     | ScInt z1, ScInt z2 => ⌜z1 = z2⌝
     | ScFnPtr f1, ScFnPtr f2 => ⌜f1  = f2⌝
     | ScPtr l1 t1, ScPtr l2 t2 =>
-        (* asserts that: the stacks are the same, the allocation size is the same, and that the locations are related *)
-        l1 ↔h l2 ∗
+        (* through srel: the stacks are the same, the allocation size is the same, and the locations are related (i.e.: if tagged, then it is public) *)
+        ⌜l1 = l2⌝ ∗
         (⌜t1 = Untagged⌝ ∗ ⌜t2 = Untagged⌝) ∨
         (∃ p1 p2, ⌜t1 = Tagged p1⌝ ∗ ⌜t2 = Tagged p2⌝ ∗
         (* may want to generalize that properly when we have a proper bijection on tags*)
-        ⌜p2 = p1⌝ ∗
+        ⌜p1 = p2⌝ ∗
         p1 @@ tk_pub
-        (* note: we do not have any assertion about the value as viewed by the tag here -- we don't really care about it, we need to do a retag anyways *)
+        (* note: we do not have any assertion about the value as viewed by the tag here -- we don't really care about it, we need to do a retag anyways. what the tk_pub gives us is that the locations store related values *)
       )
     | _, _ => False
     end.
- 
+
   Global Instance sc_rel_persistent sc_t sc_s : Persistent (sc_rel sc_t sc_s).
   Proof. destruct sc_t, sc_s; apply _. Qed.
+
+  Lemma sc_rel_public_ptr_inv σ_t σ_s t1 t2 l1 l2 :
+    bor_interp sc_rel σ_t σ_s -∗
+    sc_rel (ScPtr l1 (Tagged t1)) (ScPtr l2 (Tagged t2)) -∗
+    ⌜l1 = l2 ∧ t1 = t2⌝ ∗
+    ∀ sc_s, ⌜σ_s.(shp) !! l1 = Some sc_s⌝ → ∃ sc_t, ⌜σ_t.(shp) !! l2 = Some sc_t⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+  Admitted.
+
+
 
   (*Definition value_rel (v1 v2 : value) := Forall2*)
 End val_rel.
@@ -911,7 +886,7 @@ Implicit Types f : fname.
 
 Context (Ω : result → result → iProp Σ).
 
-Lemma fresh_block_det σ_s σ_t : 
+Lemma fresh_block_det σ_s σ_t :
   dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp) →
   fresh_block σ_s.(shp) = fresh_block σ_t.(shp).
 Proof. rewrite /fresh_block. intros ->. done. Qed.
@@ -948,25 +923,25 @@ Qed.
 
 Lemma target_local_copy scs T l t Ψ :
   length scs = tsize T →
-  t @@ tk_local -∗ 
+  t @@ tk_local -∗
   l ↦t∗[local]{t} scs -∗
   (l ↦t∗[local]{t} scs -∗ target_red #scs Ψ)%E -∗
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
   iApply target_red_lift_head_step. iIntros (?????) "(HP_t & HP_s & Hbor)".
-  iModIntro. 
+  iModIntro.
   iPoseProof (heap_local_accessN_target with "Hbor Ht Htag") as "(%Hd & %Hstack & %Hwf & Hclose)".
   iSplitR.
   { iPureIntro. do 3 eexists. econstructor 2.
     - econstructor. rewrite -Hlen. apply Hd.
-    - econstructor. 
+    - econstructor.
       + instantiate (1 := σ_t.(sst)).
         (*induction T.*)
         (** cbn. induction sz; cbn; first done.*)
-        admit. 
+        admit.
       + done.
-  } 
+  }
   iIntros (e_t' efs_t σ_t') "%Hhead". inv_head_step.
   rewrite Hlen READ in Hd. injection Hd as ->.
   iMod ("Hclose" $! scs with "[//] [//]") as "[Hbor Ht]".
@@ -974,38 +949,38 @@ Proof.
   iFrame.
   iSplitL "Hbor"; last by iApply "Hsim".
   (* TODO: have write-id lemma *)
-  admit. 
+  admit.
 Admitted.
 
 Lemma source_local_copy scs T l t Ψ π :
   length scs = tsize T →
-  t @@ tk_local -∗ 
+  t @@ tk_local -∗
   l ↦s∗[local]{t} scs -∗
   (l ↦s∗[local]{t} scs -∗ source_red #scs π Ψ)%E -∗
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
   iApply source_red_lift_head_step. iIntros (??????) "[(HP_t & HP_s & Hbor) _]".
-  iModIntro. 
+  iModIntro.
   iPoseProof (heap_local_accessN_source with "Hbor Hs Htag") as "(%Hd & %Hstack & %Hwf & Hclose)".
   assert (head_reducible P_t (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hstep).
   { do 3 eexists. econstructor 2.
     - econstructor. rewrite -Hlen. apply Hd.
-    - econstructor. 
+    - econstructor.
       + instantiate (1 := σ_t.(sst)).
         (*induction T.*)
         (** cbn. induction sz; cbn; first done.*)
-        admit. 
+        admit.
       + done.
-  } 
-  iExists e_s', σ_s'. inv_head_step. 
+  }
+  iExists e_s', σ_s'. inv_head_step.
   iSplitR; first by eauto using head_step, bor_step, mem_expr_step.
   rewrite Hlen READ in Hd. injection Hd as ->.
   iMod ("Hclose" $! scs with "[//] [//]") as "[Hbor Ht]".
   iModIntro. iFrame.
   iSplitL "Hbor"; last by iApply "Hsim".
   (* TODO: have write-id lemma *)
-  admit. 
+  admit.
 Admitted.
 
 (*Lemma sim_retag_default_mutref l_t l_s ot Φ c pkind T π : *)
