@@ -2,6 +2,7 @@
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 From simuliris.stacked_borrows Require Export lang_base notation type locations.
+From Equations Require Import Equations.
 
 (*** EXPRESSION SEMANTICS --------------------------------------------------***)
 
@@ -256,15 +257,15 @@ Fixpoint write_mem l (v: value) h: mem :=
   | s :: v => write_mem (l +ₗ 1) v (<[l := s]> h)
   end.
 
-Fixpoint read_mem_go (l : loc) (n : nat) (h : mem) (oacc : option value) {struct n} : option value :=
-    match n with
-    | O => oacc
-    | S n =>
+Equations read_mem (l: loc) (n: nat) h: option value :=
+  read_mem l n h := go l n (Some [])
+  where go : loc → nat → option value → option value :=
+        go l O      oacc := oacc;
+        go l (S n)  oacc :=
           acc ← oacc ;
           v ← h !! l;
-          read_mem_go (l +ₗ 1) n h (Some (acc ++ [v]))
-    end.
-Definition read_mem (l: loc) (n: nat) (h : mem) : option value := read_mem_go l n h (Some []).
+          go (l +ₗ 1) n (Some (acc ++ [v])).
+
 
 Definition fresh_block (h : mem) : block :=
   let loclst : list loc := elements (dom (gset loc) h) in

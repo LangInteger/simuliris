@@ -2,70 +2,13 @@
 From iris.proofmode Require Export tactics.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
-From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
+From simuliris.base_logic Require Export gen_sim_prog.
 From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
-From iris.algebra.lib Require Import gset_bij.
-From iris.base_logic.lib Require Import gset_bij.
 From iris.prelude Require Import options.
 From simuliris.stacked_borrows Require Import tkmap_view.
-From simuliris.stacked_borrows Require Export class_instances tactics notation lang bor_semantics.
-
-Definition wf_mem_tag (h: mem) (nxtp: ptr_id) :=
-  ∀ l l' pid, h !! l = Some (ScPtr l' (Tagged pid)) → (pid < nxtp)%nat.
-
-Definition stack_item_included (stk: stack) (nxtp: ptr_id) (nxtc: call_id) :=
-  ∀ si, si ∈ stk → match si.(tg) with
-                    | Tagged t => (t < nxtp)%nat
-                    | _ => True
-                   end ∧
-                   match si.(protector) with
-                    | Some c => (c < nxtc)%nat
-                    | _ => True
-                   end.
-
-Definition is_tagged (it: item) :=
-  match it.(tg) with Tagged _ => True | _ => False end.
-Instance is_tagged_dec it: Decision (is_tagged it).
-Proof. intros. rewrite /is_tagged. case tg; solve_decision. Defined.
-Definition stack_item_tagged_NoDup (stk : stack) :=
-  NoDup (fmap tg (filter is_tagged stk)).
-
-Definition wf_stack (stk: stack) (nxtp: ptr_id) (nxtc: call_id) :=
-  stack_item_included stk nxtp nxtc ∧ stack_item_tagged_NoDup stk.
-Definition wf_stacks (α: stacks) (nxtp: ptr_id) (nxtc: call_id) :=
-  ∀ l stk, α !! l = Some stk → wf_stack stk nxtp nxtc.
-Definition wf_non_empty (α: stacks) :=
-  ∀ l stk, α !! l = Some stk → stk ≠ [].
-Definition wf_no_dup (α: stacks) :=
-  ∀ l stk, α !! l = Some stk → NoDup stk.
-Definition wf_cid_incl (cids: call_id_set) (nxtc: call_id) :=
-  ∀ c : call_id, c ∈ cids → (c < nxtc)%nat.
-Definition wf_scalar σ sc := ∀ t l, sc = ScPtr l t → t <t σ.(snp).
-
-Record state_wf (s: state) := {
-  state_wf_dom : dom (gset loc) s.(shp) ≡ dom (gset loc) s.(sst);
-  state_wf_mem_tag : wf_mem_tag s.(shp) s.(snp);
-  state_wf_stack_item : wf_stacks s.(sst) s.(snp) s.(snc);
-  state_wf_non_empty : wf_non_empty s.(sst);
-  (*state_wf_cid_no_dup : NoDup s.(scs) ;*)
-  state_wf_cid_agree: wf_cid_incl s.(scs) s.(snc);
-  (* state_wf_cid_non_empty : s.(scs) ≠ []; *)
-  (* state_wf_no_dup : wf_no_dup σ.(cst).(sst); *)
-}.
-
-Fixpoint active_SRO (stk: stack) : gset ptr_id :=
-  match stk with
-  | [] => ∅
-  | it :: stk =>
-    match it.(perm) with
-    | SharedReadOnly => match it.(tg) with
-                        | Tagged t => {[t]} ∪ active_SRO stk
-                        | Untagged => active_SRO stk
-                        end
-    | _ => ∅
-    end
-  end.
+From simuliris.stacked_borrows Require Export defs.
+From simuliris.stacked_borrows Require Import steps_progress steps_retag.
 
 
 Fixpoint heap_array (l : loc) (scs : list scalar) : gmap loc scalar :=
@@ -167,8 +110,7 @@ Class bor_stateG Σ := {
 
   (* Maintaining the locations protected by each call id *)
   call_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
-  call_source_name : gname;
-  call_target_name : gname;
+  call_name : gname;
 
   (* tag ownership *)
   tag_inG :> tkmapG Σ ptr_id unit;
@@ -223,8 +165,8 @@ Section mem_bijection.
         (* private / public locations of the target *)
         ∀ l, ⌜is_Some (σ_t.(shp) !! l)⌝ → pub_loc σ_t σ_s l ∨ ⌜∃ t, priv_loc t l⌝.
 
-    Global Instance state_rel_persistent σ_t σ_s :
-      (∀ sc_t sc_s, Persistent (sc_rel sc_t sc_s)) → Persistent (state_rel σ_t σ_s).
+    Global Instance state_rel_persistent σ_t σ_s `{∀ sc_t sc_s, Persistent (sc_rel sc_t sc_s)} :
+      Persistent (state_rel σ_t σ_s).
     Proof. intros. apply _. Qed.
 
   End defs.
@@ -250,7 +192,9 @@ Section bijection_lemmas.
   Lemma state_rel_calls_eq Mtag Mt Mcall σ_t σ_s :
     state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(scs) = σ_t.(scs)⌝.
   Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
-
+  Lemma state_rel_dom_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜dom (gset loc) σ_t.(shp) = dom (gset loc) σ_s.(shp)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
 
   (*Lemma heap_bij_interp_alloc L t : *)
     (*(∀ b_s, (b_t, b_s) ∉ L) →*)
@@ -304,8 +248,8 @@ Section bijection_lemmas.
   Qed.
 
   Lemma state_rel_upd_priv_source M_tag M_t Mcall σ_t σ_s l t sc :
-    is_Some (σ_t.(shp) !! l) →
-    priv_loc M_tag M_t Mcall t l →
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
+    ⌜priv_loc M_tag M_t Mcall t l⌝ -∗
     state_rel M_tag M_t Mcall σ_t σ_s -∗
     state_rel M_tag M_t Mcall σ_t (state_upd_mem (<[l := sc]>) σ_s).
   Proof.
@@ -323,7 +267,7 @@ Section bijection_lemmas.
   Qed.
 
   Lemma state_rel_pub_if_not_priv M_tag M_t Mcall σ_t σ_s l :
-    is_Some (σ_t.(shp) !! l) →
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
     state_rel M_tag M_t Mcall σ_t σ_s -∗
     ⌜∀ t, ¬ priv_loc M_tag M_t Mcall t l⌝ -∗
     pub_loc sc_rel σ_t σ_s l.
@@ -333,15 +277,24 @@ Section bijection_lemmas.
     destruct Hpriv as (t & Hpriv). exfalso; by eapply Hnpriv.
   Qed.
 
-  Lemma state_rel_heap_lookup_some M_tag M_t Mcall σ_t σ_s l :
+  Lemma state_rel_heap_lookup_Some M_tag M_t Mcall σ_t σ_s :
     state_rel M_tag M_t Mcall σ_t σ_s -∗
-    ⌜is_Some (σ_t.(shp) !! l) ↔ is_Some (σ_s.(shp) !! l)⌝.
+    ∀ l, ⌜is_Some (σ_t.(shp) !! l)⌝ ↔ ⌜is_Some (σ_s.(shp) !! l)⌝.
   Proof.
-    iIntros "(%Hshp & _)". iPureIntro. by rewrite -!elem_of_dom Hshp.
+    iIntros "(%Hshp & _)". iPureIntro. move => l. cbn. by rewrite -!elem_of_dom Hshp.
+  Qed.
+
+  Lemma state_rel_pub_or_priv M_tag M_t Mcall σ_t σ_s l :
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    pub_loc sc_rel σ_t σ_s l ∨ ⌜∃ t, priv_loc M_tag M_t Mcall t l⌝.
+  Proof.
+    iIntros "Hsome Hstate". iDestruct "Hstate" as "(_ & _ & _ & _ & _ & Hl)".
+    by iApply "Hl".
   Qed.
 
   Lemma pub_loc_lookup σ_t σ_s l :
-    is_Some (σ_t.(shp) !! l) →
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
     pub_loc sc_rel σ_t σ_s l -∗
     ∃ sc_t sc_s, ⌜σ_t.(shp) !! l = Some sc_t ∧ σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
   Proof.
@@ -371,10 +324,26 @@ Section call_defs.
         (* for every protected location [l], there needs to be a protector in the stack *)
         ∀ (l : loc), l ∈ S → ∃ s pm, σ.(sst) !! l = Some s ∧
           mkItem pm (Tagged pid) (Some c) ∈ s ∧ pm ≠ Disabled.
+
+  Definition call_set_in' (M : gmap call_id (gmap ptr_id (gset loc))) c t l :=
+    ∃ M' L, M !! c = Some M' ∧ M' !! t = Some L ∧ l ∈ L.
+  Definition call_set_in (M : gmap ptr_id (gset loc)) t l := 
+    ∃ L, M !! t = Some L ∧ l ∈ L.
+  Lemma call_set_interp_access M σ c t l :
+    call_set_interp M σ →
+    call_set_in' M c t l →
+    c ∈ σ.(scs) ∧ t < σ.(snp) ∧ ∃ stk pm, σ.(sst) !! l = Some stk ∧
+      mkItem pm (Tagged t) (Some c) ∈ stk ∧ pm ≠ Disabled.
+  Proof.
+    intros Hinterp (M' & L & HM_some & HM'_some & Hin).
+    specialize (Hinterp _ _ HM_some) as (? & Hinterp).
+    specialize (Hinterp _ _ HM'_some) as (? & Hinterp).
+    specialize (Hinterp _ Hin). done.
+  Qed.
+
 End call_defs.
 
-Notation "c '@s@' M" := (call_set_is call_source_name c M) (at level 50).
-Notation "c '@t@' M" := (call_set_is call_target_name c M) (at level 50).
+Notation "c '@@' M" := (call_set_is call_name c M) (at level 50).
 
 
 (* Interpretation for heap assertions under control of tags
@@ -382,48 +351,59 @@ Notation "c '@t@' M" := (call_set_is call_target_name c M) (at level 50).
  *)
 Section heap_defs.
   (** The assumption on the location still being valid for tag [t], i.e., [t] not being disabled. *)
-  Definition bor_state_pre (l : loc) (t : ptr_id) (tk : tag_kind) (s : stack) :=
-    tk = tk_local ∨ ∃ pm pro, mkItem pm (Tagged t) pro ∈ s ∧ pm ≠ Disabled.
+  (* Note: That the stack is still there needs to be part of the precondition [bor_state_pre].
+        Otherwise, we will not be able to prove reflexivity for deallocation:
+          that needs to be able to remove stacks from the state without updating all the ghost state that may still make assumptions about it.
+  *)
 
-  Definition bor_state_own (l : loc) (t : ptr_id) (tk : tag_kind) (s : stack) :=
-    (tk = tk_unq ∧ ∃ s' op, s = (mkItem Unique (Tagged t) op) :: s') ∨
-    (tk = tk_pub ∧ t ∈ active_SRO s) ∨
-    (tk = tk_local ∧ s = [mkItem Unique (Tagged t) None]).
+  Definition bor_state_pre (l : loc) (t : ptr_id) (tk : tag_kind) (σ : state) :=
+    match tk with
+    | tk_local => True
+    | _ => ∃ st pm pro, σ.(sst) !! l = Some st ∧
+        mkItem pm (Tagged t) pro ∈ st ∧ pm ≠ Disabled
+    end.
+
+  Definition bor_state_own (l : loc) (t : ptr_id) (tk : tag_kind) (σ : state) :=
+    match tk with
+    | tk_local => σ.(sst) !! l = Some ([mkItem Unique (Tagged t) None])
+    | tk_unq => ∃ st, σ.(sst) !! l = Some st ∧ ∃ opro st',
+        st = mkItem Unique (Tagged t) opro :: st'
+    | tk_pub => ∃ st, σ.(sst) !! l = Some st ∧ t ∈ active_SRO st
+    end.
 
   Definition loc_controlled (l : loc) (t : ptr_id) (tk : tag_kind) (sc : scalar) (σ : state) :=
-    ∃ s, σ.(sst) !! l = Some s ∧
-      (bor_state_pre l t tk s → bor_state_own l t tk s ∧ σ.(shp) !! l = Some sc).
+    (bor_state_pre l t tk σ → bor_state_own l t tk σ ∧ σ.(shp) !! l = Some sc).
 
   Lemma loc_controlled_local l t sc σ :
     loc_controlled l t tk_local sc σ →
     σ.(sst) !! l = Some [mkItem Unique (Tagged t) None] ∧
     σ.(shp) !! l = Some sc.
-  Proof.
-    intros (s & Hs & Him). specialize (Him ltac:(by left)) as (Hbor & Hmem).
-    split; last done. destruct Hbor as [ [[=] ] | [[[=] ] |[_ H] ] ].
-    by rewrite Hs H.
-  Qed.
-  Lemma loc_controlled_unq l t sc σ :
+  Proof. intros Him. specialize (Him I) as (Hbor & Hmem). split;done. Qed.
+
+  Lemma loc_controlled_unq l t sc s σ :
     loc_controlled l t tk_unq sc σ →
-    (∀ s, σ.(sst) !! l = Some s → ∃ pm pro, mkItem pm (Tagged t) pro ∈ s ∧ pm ≠ Disabled) →
-    (∃ s' op, σ.(sst) !! l = Some $ (mkItem Unique (Tagged t) op) :: s') ∧
+    σ.(sst) !! l = Some s →
+    (∃ pm opro, mkItem pm (Tagged t) opro ∈ s ∧ pm ≠ Disabled) →
+    (∃ s' op, s = (mkItem Unique (Tagged t) op) :: s') ∧
     σ.(shp) !! l = Some sc.
   Proof.
-    intros (s & Hs & Him) Hpm.
-    specialize (Hpm _ Hs). specialize (Him ltac:(by right)) as (Hbor & Hmem). split; last done.
-    destruct Hbor as [[_ H]  | [[[=] ] |[[=] ] ] ].
-    rewrite Hs. destruct H as (s' & op & ->). eauto.
+    intros Him Hstk (pm & opro & Hpm).
+    edestruct Him as (Hown & ?). { rewrite /bor_state_pre. eauto. }
+    split; last done.
+    destruct Hown as (st' & opro' & st'' & Hst' & ->). simplify_eq. eauto.
   Qed.
-  Lemma loc_controlled_pub l t sc σ :
+
+  Lemma loc_controlled_pub l t sc σ s :
     loc_controlled l t tk_pub sc σ →
-    (∀ s, σ.(sst) !! l = Some s → ∃ pm pro, mkItem pm (Tagged t) pro ∈ s ∧ pm ≠ Disabled) →
-    (∃ s, σ.(sst) !! l = Some s ∧ t ∈ active_SRO s) ∧
+    σ.(sst) !! l = Some s →
+    (∃ pm opro, mkItem pm (Tagged t) opro ∈ s ∧ pm ≠ Disabled) →
+    t ∈ active_SRO s ∧
     σ.(shp) !! l = Some sc.
   Proof.
-    intros (s & Hs & Him) Hpm.
-    specialize (Hpm _ Hs). specialize (Him ltac:(by right)) as (Hbor & Hmem). split; last done.
-    destruct Hbor as [[[=] ]  | [[_ H] |[[=] ] ] ].
-    rewrite Hs. eauto.
+    intros Him Hst (pm & opro & Hin & Hpm).
+    edestruct Him as (Hown & ?). { rewrite /bor_state_pre; eauto 8. }
+    split; last done. destruct Hown as (st' & Hst' & Hsro).
+    simplify_eq. eauto.
   Qed.
 
   Lemma loc_controlled_mem_insert_ne l l' t tk sc sc' σ :
@@ -431,16 +411,15 @@ Section heap_defs.
     loc_controlled l t tk sc σ →
     loc_controlled l t tk sc (state_upd_mem <[l' := sc']> σ).
   Proof.
-    intros Hneq (s & Hsome & Him). exists s; split; first done.
-    intros [Hownw Hmem]%Him. split; first done.
+    intros Hneq Him Hpre.
+    apply Him in Hpre as [Hown Hmem]. split; first done.
     rewrite lookup_insert_ne; done.
   Qed.
   Lemma loc_controlled_mem_insert l t tk sc sc' σ :
     loc_controlled l t tk sc σ →
     loc_controlled l t tk sc' (state_upd_mem <[l := sc']> σ).
   Proof.
-    intros (s & Hsome & Him). exists s; split; first done.
-    intros [Hownw Hmem]%Him. split; first done.
+    intros Him Hpre. apply Him in Hpre as [Hown Hmem]. split; first done.
     rewrite lookup_insert; done.
   Qed.
   (*Lemma loc_controlled_mem_insert_unowned l t tk sc sc' σ : *)
@@ -460,34 +439,35 @@ Section heap_defs.
     loc_controlled l t' tk_local sc' σ →
     t' = t ∧ sc' = sc.
   Proof.
-    intros (s & Hsome & Hcontrol) (s' & Hsome' & Hcontrol').
-    rewrite Hsome in Hsome'. injection Hsome' as [= <-].
-    specialize (Hcontrol ltac:(by left)) as [[[[=]] | [[[=] ] | [_  ->]]] Hmem].
-    specialize (Hcontrol' ltac:(by left)) as [[[[=]] | [[[=] ] | [_  Heq]]] Hmem'].
-    injection Heq. rewrite Hmem in Hmem'. injection Hmem'. done.
+    intros Hcontrol Hcontrol'. specialize (Hcontrol I) as [Hown Hmem].
+    specialize (Hcontrol' I) as [Hown' Hmem'].
+    split; last by simplify_eq.
+    move : Hown Hown'. rewrite /bor_state_own // => -> [=] //.
   Qed.
-  Lemma loc_controlled_local_pre l t t' tk' st sc σ :
-    σ.(sst) !! l = Some st →
+
+  Lemma loc_controlled_local_pre l t t' tk' sc σ :
     loc_controlled l t tk_local sc σ →
-    bor_state_pre l t' tk' st →
+    bor_state_pre l t' tk' σ →
     tk' = tk_local ∨ t' = t.
   Proof.
-    intros Hst [Heq _]%loc_controlled_local [-> | Hprot]; first by left.
-    destruct Hprot as (pm & pro & Hel & _).
-    rewrite Heq in Hst. injection Hst as [= <-].
-    apply elem_of_list_singleton in Hel.
-    injection Hel. eauto.
+    intros [Heq _]%loc_controlled_local.
+    destruct tk'; last by eauto.
+    - intros (st' &  pm & opro &  Hst & Hin & Hpm).
+      move : Hst Hin. rewrite Heq.
+      move => [= <-] /elem_of_list_singleton [=]; eauto.
+    - intros (st' &  pm & opro &  Hst & Hin & Hpm).
+      move : Hst Hin. rewrite Heq.
+      move => [= <-] /elem_of_list_singleton [=]; eauto.
   Qed.
-  Lemma loc_controlled_local_own l t t' tk' st sc σ :
-    σ.(sst) !! l = Some st →
+  Lemma loc_controlled_local_own l t t' tk' sc σ :
     loc_controlled l t tk_local sc σ →
-    bor_state_own l t' tk' st →
+    bor_state_own l t' tk' σ →
     (tk' = tk_unq ∨ tk' = tk_local) ∧ t = t'.
   Proof.
-    intros Hst [Heq _]%loc_controlled_local [[-> (s' & ? & ->)] | [[-> Hpub] | [-> ->]]].
-    - rewrite Heq in Hst. injection Hst. eauto.
-    - exfalso. rewrite Heq in Hst. injection Hst as [= <-]. done.
-    - rewrite Heq in Hst. injection Hst. eauto.
+    intros [Heq _]%loc_controlled_local. destruct tk'.
+    - move => [st' []]. rewrite Heq => [= <-] //.
+    - move => [st' [Heq' [opro [st'' ]]]]. move : Heq'. rewrite Heq => [= <-] [= ->] //; eauto.
+    - rewrite /bor_state_own Heq => [=]; eauto.
   Qed.
 
   (* having local ownership of a location is authoritative, in the sense that we can update memory without hurting other tags that control this location. *)
@@ -497,10 +477,8 @@ Section heap_defs.
     t ≠ t' →
     loc_controlled l t' tk' sc' (state_upd_mem f σ).
   Proof.
-    intros Hcontrol (s' & Hsome' & Hcontrol') Hneq.
-    exists s'; split; first done.
-    intros [Hown Hshp]%Hcontrol'.
-    by edestruct (loc_controlled_local_own l t t' tk' s' sc (state_upd_mem f σ)) as [_ <-].
+    intros Hcontrol Hcontrol' Hneq [Hown Hmem]%Hcontrol'. split; first done.
+    by edestruct (loc_controlled_local_own l t t' tk' sc (state_upd_mem f σ)) as [_ <-].
   Qed.
   End local.
 
@@ -544,7 +522,12 @@ Section heap_defs.
     - intros Hsome. rewrite lookup_insert_is_Some'. right; by apply Htgt.
     - rewrite lookup_insert_is_Some. intros [[= <-] | [_ ?]]; by apply Hsrc.
   Qed.
-
+  Lemma dom_agree_on_tag_lookup_target M_t M_s t l :
+    dom_agree_on_tag M_t M_s t → is_Some (M_t !! (t, l)) → is_Some (M_s !! (t, l)).
+  Proof. intros Hag Hsome. apply Hag, Hsome. Qed.
+  Lemma dom_agree_on_tag_lookup_source M_t M_s t l :
+    dom_agree_on_tag M_t M_s t → is_Some (M_s !! (t, l)) → is_Some (M_t !! (t, l)).
+  Proof. intros Hag Hsome. apply Hag, Hsome. Qed.
 
   Definition tag_interp (M : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) σ_t σ_s : Prop :=
     ∀ (t : ptr_id) tk, M !! t = Some (tk, ()) →
@@ -557,7 +540,7 @@ Section heap_defs.
 End heap_defs.
 
 
-Notation "p '@@' tk" := (tkmap_elem tag_name p tk ()) (at level 50).
+Notation "p '$$' tk" := (tkmap_elem tag_name p tk ()) (at level 50).
 
 Notation "l '↦t[unq]{' t } sc" := (ghost_map_elem heap_view_target_name (t, l) (DfracOwn 1) sc)
   (at level 20, format "l  ↦t[unq]{ t }  sc") : bi_scope.
@@ -580,7 +563,7 @@ Section state_interp.
     Rather, we should again force equality in bijections.
   *)
   Definition bor_auth (M_call : gmap call_id (gmap ptr_id (gset loc))) (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) : iProp Σ :=
-    ghost_map_auth call_source_name 1 M_call ∗
+    ghost_map_auth call_name 1 M_call ∗
     tkmap_auth tag_name 1 M_tag ∗
     ghost_map_auth heap_view_target_name 1 M_t ∗
     ghost_map_auth heap_view_source_name 1 M_s.
@@ -606,6 +589,11 @@ Section state_interp.
     iPoseProof (state_rel_get_pure with "Hstate") as "%".
     iPureIntro. tauto.
   Qed.
+
+  Lemma bor_interp_get_state_wf σ_t σ_s :
+    bor_interp σ_t σ_s -∗
+    ⌜state_wf σ_t⌝ ∗ ⌜state_wf σ_s⌝.
+  Proof. iIntros "(% & % & % & % & ? & Hstate & _ & _ & % & %)". eauto. Qed.
 
 End state_interp.
 
@@ -645,7 +633,7 @@ Section lemmas.
     bor_interp
       (mkState (init_mem l_t (tsize T) σ_t.(shp)) (init_stacks σ_t.(sst) l_t (tsize T) (Tagged σ_t.(snp))) σ_t.(scs) (S σ_t.(snp)) σ_t.(snc))
       (mkState (init_mem l_s (tsize T) σ_s.(shp)) (init_stacks σ_s.(sst) l_s (tsize T) (Tagged σ_s.(snp))) σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)) ∗
-      t @@ tk_local ∗
+      t $$ tk_local ∗
       l_t ↦t∗[local]{t} repeat ScPoison (tsize T) ∗
       l_s ↦s∗[local]{t} repeat ScPoison (tsize T).
   Proof.
@@ -659,7 +647,6 @@ Section lemmas.
     (* TODO: need notion of array maps, see HeapLang *)
     (*iMod (ghost_map_insert_big with "Hheap_s_auth") as "(Hheap_s_auth & Hloc_s)".*)
   Admitted.
-
 
   Lemma state_wf_upd_mem σ l sc :
     is_Some (σ.(shp) !! l) →
@@ -678,13 +665,13 @@ Section lemmas.
       + move : Hsome. rewrite lookup_insert => [= Heq].
         subst sc. specialize (Hwf _ _ eq_refl). apply Hwf.
       + rewrite lookup_insert_ne in Hsome; last done.
-        eapply state_wf_mem_tag0; done.
+        eapply state_wf_mem_tag; done.
     Qed.
 
   Lemma heap_local_access_target σ_t σ_s (t : ptr_id) l  sc :
     bor_interp σ_t σ_s -∗
     l ↦t[local]{t} sc -∗
-    t @@ tk_local -∗
+    t $$ tk_local -∗
     ⌜σ_t.(shp) !! l = Some sc⌝ ∗
     ⌜σ_t.(sst) !! l = Some [mkItem Unique (Tagged t) None]⌝ ∗
     ⌜wf_scalar σ_t sc⌝ ∗
@@ -749,9 +736,9 @@ Section lemmas.
   Lemma heap_local_accessN_target' σ_t σ_s (t : ptr_id) l scs :
     bor_interp σ_t σ_s -∗
     l ↦t∗[local]{t} scs -∗
-    t @@ tk_local -∗
-    ⌜∀ i : nat, i < length scs → σ_t.(shp) !! (l +ₗ i) = scs !! i ⌝ ∗
-    ⌜∀ i, i < length scs → σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
+    t $$ tk_local -∗
+    ⌜∀ i : nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i ⌝ ∗
+    ⌜∀ i:nat, (i < length scs)%nat → σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
     (∀ scs',
       ⌜length scs' = length scs⌝ -∗
       ⌜Forall (wf_scalar σ_t) scs'⌝ -∗
@@ -765,9 +752,9 @@ Section lemmas.
   Lemma heap_local_accessN_target σ_t σ_s (t : ptr_id) l scs :
     bor_interp σ_t σ_s -∗
     l ↦t∗[local]{t} scs -∗
-    t @@ tk_local -∗
+    t $$ tk_local -∗
     ⌜read_mem l (length scs) σ_t.(shp) = Some scs⌝ ∗
-    ⌜∀ i, i < length scs → σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
+    ⌜∀ i:nat, (i < length scs)%nat → σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
     ⌜scs <<t σ_t.(snp)⌝ ∗
     (∀ scs',
       ⌜length scs' = length scs⌝ -∗
@@ -779,10 +766,20 @@ Section lemmas.
   Proof.
   Admitted.
 
+  Lemma heap_local_readN_target σ_t σ_s (t : ptr_id) l scs :
+    bor_interp σ_t σ_s -∗
+    l ↦t∗[local]{t} scs -∗
+    t $$ tk_local -∗
+    ⌜read_mem l (length scs) σ_t.(shp) = Some scs⌝ ∗
+    ⌜∀ i:nat, (i < length scs)%nat → σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
+    ⌜scs <<t σ_t.(snp)⌝.
+  Proof.
+  Admitted.
+
   Lemma heap_local_access_source σ_t σ_s (t : ptr_id) l sc :
     bor_interp σ_t σ_s -∗
     l ↦s[local]{t} sc -∗
-    t @@ tk_local -∗
+    t $$ tk_local -∗
     ⌜σ_s.(shp) !! l = Some sc⌝ ∗
     ⌜σ_s.(sst) !! l = Some [mkItem Unique (Tagged t) None]⌝ ∗
     ⌜wf_scalar σ_s sc⌝ ∗
@@ -798,9 +795,9 @@ Section lemmas.
   Lemma heap_local_accessN_source σ_t σ_s (t : ptr_id) l scs :
     bor_interp σ_t σ_s -∗
     l ↦s∗[local]{t} scs -∗
-    t @@ tk_local -∗
+    t $$ tk_local -∗
     ⌜read_mem l (length scs) σ_s.(shp) = Some scs⌝ ∗
-    ⌜∀ i, i < length scs → σ_s.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
+    ⌜∀ i:nat, (i < length scs)%nat → σ_s.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
     ⌜scs <<t σ_s.(snp)⌝ ∗
     (∀ scs',
       ⌜length scs' = length scs⌝ -∗
@@ -812,14 +809,100 @@ Section lemmas.
   Proof.
   Admitted.
 
+  Lemma heap_local_readN_source σ_t σ_s (t : ptr_id) l scs :
+    bor_interp σ_t σ_s -∗
+    l ↦s∗[local]{t} scs -∗
+    t $$ tk_local -∗
+    ⌜read_mem l (length scs) σ_s.(shp) = Some scs⌝ ∗
+    ⌜∀ i:nat, (i < length scs)%nat → σ_s.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]⌝ ∗
+    ⌜scs <<t σ_s.(snp)⌝.
+  Proof.
+  Admitted.
+
 End lemmas.
 
+(* accessing a local location is only possible with the same tag, retaining the same stack for the access *)
+Lemma local_access_eq l t t' stk n stk' kind σ_s σ_t M_tag M_t M_s :
+  σ_t.(sst) !! l = Some stk →
+  access1 stk kind t' σ_t.(scs) = Some (n, stk') →
+  M_tag !! t = Some (tk_local, ()) →
+  is_Some (M_t !! (t, l)) →
+  tag_interp M_tag M_t M_s σ_t σ_s →
+  t' = Tagged t ∧ stk' = stk.
+Proof.
+  intros Hst Haccess Htag Ht Htag_interp.
+  specialize (access1_in_stack _ _ _ _ _ _ Haccess) as (it & Hin_stack & <- & Henabled).
+  specialize (Htag_interp _ _ Htag) as (_ & _ & Htl & Hsl & Hdom).
+  destruct Ht as (sc_t & Ht).
+  specialize (Htl _ _ Ht) as Hcontrol.
+  apply loc_controlled_local in Hcontrol as (Hcontrol & _).
+  destruct (tag_unique_head_access σ_t.(scs) _ (Tagged t) None kind ltac:(by exists [])) as (n' & Hn).
+  move : Hst Hin_stack Haccess .
+  rewrite Hcontrol => [= <-]. rewrite elem_of_list_singleton => ->.
+  rewrite Hn => [= _ <-]. done.
+Qed.
 
+Lemma protector_access_eq l t t' stk n stk' kind σ_s σ_t M_tag Mcall M_t M_s :
+  σ_t.(sst) !! l = Some stk →
+  access1 stk kind t' σ_t.(scs) = Some (n, stk') →
+  M_tag !! t = Some (tk_unq, ()) →
+  is_Some (M_t !! (t, l)) →
+  (∃ (c: call_id), call_set_in' Mcall c t l) →
+  tag_interp M_tag M_t M_s σ_t σ_s →
+  call_set_interp Mcall σ_t →
+  state_wf σ_t →
+  t' = Tagged t.
+Proof.
+  intros Hst Haccess Htag Ht (c & Hcall) Htag_interp Hcall_interp Hwf.
+  specialize (call_set_interp_access _ _ _ _ _ Hcall_interp Hcall) as (Hc_in & _ & (stk'' & pm & Hstk'' & Hin & Hpm)).
+  specialize (Htag_interp _ _ Htag) as (_ & _ & Htl & Hsl & Hdom).
+  destruct Ht as (sc_t & Ht).
+  specialize (Htl _ _ Ht) as Hcontrol.
+  specialize (loc_controlled_unq _ _ _ _ _ Hcontrol Hstk'' ltac:(eauto)) as ((stk''' & opro & ->) & Hmem).
+  move : Hstk'' Hin Haccess. rewrite Hst => [= Heq]. move : Hst. rewrite Heq => Hst Hi.
+  have ->: opro = Some c.
+  { destruct (state_wf_stack_item _ Hwf _ _ Hst) as [_ ND].
+    have [=] := stack_item_tagged_NoDup_eq _ _ _ t ND Hi ltac:(by left) eq_refl eq_refl.
+    done.
+  }
+  eapply access1_incompatible_head_protector; [by (eexists; eauto) | done].
+Qed.
 
+(* successfully accesses with a private location are only possible when the tag is equal *)
+Lemma priv_loc_UB_access_eq l kind σ_s σ_t t t' stk M_tag M_t M_s Mcall :
+  σ_t.(sst) !! l = Some stk →
+  is_Some (access1 stk kind t' σ_t.(scs)) →
+  priv_loc M_tag M_t Mcall t l →
+  tag_interp M_tag M_t M_s σ_t σ_s →
+  call_set_interp Mcall σ_t →
+  state_wf σ_t →
+  t' = Tagged t.
+Proof.
+  intros Hs ([? ?] & Haccess) Hpriv Htag_interp Hcall_interp Hwf.
+  destruct Hpriv as (tk & Htag & Ht & [-> | [-> Hc]]).
+  - by eapply local_access_eq.
+  - by eapply protector_access_eq.
+Qed.
 
-
-
-
+Definition untagged_or_public (M_tag : gmap ptr_id (tag_kind * unit)) t :=
+  match t with
+  | Tagged t2 => M_tag !! t2 = Some (tk_pub, ())
+  | Untagged => True
+  end.
+Lemma priv_pub_access_UB l kind σ_s σ_t t t' stk M_tag Mcall M_t M_s :
+  σ_t.(sst) !! l = Some stk →
+  is_Some (access1 stk kind t' σ_t.(scs)) →
+  priv_loc M_tag M_t Mcall t l →
+  tag_interp M_tag M_t M_s σ_t σ_s →
+  call_set_interp Mcall σ_t →
+  state_wf σ_t →
+  untagged_or_public M_tag t' →
+  False.
+Proof.
+  intros Hs Haccess Hpriv Htag_interp Hcall_interp Hwf.
+  rewrite (priv_loc_UB_access_eq _ _ _ _ _ _ _ _ _ _ _ Hs Haccess Hpriv Htag_interp Hcall_interp Hwf).
+  destruct Hpriv as (tk & Hl & _ & [-> | [-> _]]); cbn; intros; simplify_eq.
+Qed.
 
 
 
@@ -830,16 +913,15 @@ Section val_rel.
     match sc1, sc2 with
     | ScInt z1, ScInt z2 => ⌜z1 = z2⌝
     | ScFnPtr f1, ScFnPtr f2 => ⌜f1  = f2⌝
-    | ScPtr l1 t1, ScPtr l2 t2 =>
+    | ScPtr l1 p1, ScPtr l2 p2 =>
         (* through srel: the stacks are the same, the allocation size is the same, and the locations are related (i.e.: if tagged, then it is public) *)
         ⌜l1 = l2⌝ ∗
-        (⌜t1 = Untagged⌝ ∗ ⌜t2 = Untagged⌝) ∨
-        (∃ p1 p2, ⌜t1 = Tagged p1⌝ ∗ ⌜t2 = Tagged p2⌝ ∗
+        (⌜p1 = Untagged⌝ ∗ ⌜p2 = Untagged⌝ ∨
+        (∃ t1 t2, ⌜p1 = Tagged t1⌝ ∗ ⌜p2 = Tagged t2⌝ ∗
         (* may want to generalize that properly when we have a proper bijection on tags*)
-        ⌜p1 = p2⌝ ∗
-        p1 @@ tk_pub
+        ⌜t1 = t2⌝ ∗
+        t1 $$ tk_pub))
         (* note: we do not have any assertion about the value as viewed by the tag here -- we don't really care about it, we need to do a retag anyways. what the tk_pub gives us is that the locations store related values *)
-      )
     | _, _ => False
     end.
 
@@ -854,9 +936,16 @@ Section val_rel.
   Proof.
   Admitted.
 
+  Definition value_rel (v1 v2 : value) : iProp Σ := [∗ list] sc_t; sc_s ∈ v1; v2, sc_rel sc_t sc_s.
 
-
-  (*Definition value_rel (v1 v2 : value) := Forall2*)
+  Definition rrel (r1 r2 : result) : iProp Σ :=
+    match r1, r2 with
+    | ValR v1, ValR v2 => value_rel v1 v2
+    | PlaceR l1 bor1 T1, PlaceR l2 bor2 T2 =>
+      (* places must be related in a similar way as pointers: either untagged or public. Types should be equal. *)
+      sc_rel (ScPtr l1 bor1) (ScPtr l2 bor2) ∧ ⌜T1 = T2⌝
+    | _, _ => False
+    end.
 End val_rel.
 
 Class sborG (Σ: gFunctors) := SBorG {
@@ -891,12 +980,13 @@ Lemma fresh_block_det σ_s σ_t :
   fresh_block σ_s.(shp) = fresh_block σ_t.(shp).
 Proof. rewrite /fresh_block. intros ->. done. Qed.
 
-Lemma sim_alloc T Φ π :
-  (∀ t l_t l_s, t @@ tk_local -∗
+(* reflexivity steps *)
+Lemma sim_alloc_local T Φ π :
+  (∀ t l_t l_s, t $$ tk_local -∗
     l_t ↦t∗[local]{t} repeat ScPoison (tsize T) -∗
     l_s ↦s∗[local]{t} repeat ScPoison (tsize T) -∗
-    Place l_t (Tagged t) T ⪯{π, Ω} Place l_s (Tagged t) T {{ Φ }}) -∗
-  Alloc T ⪯{π, Ω} Alloc T {{ Φ }}.
+    Place l_t (Tagged t) T ⪯{π, Ω} Place l_s (Tagged t) T [{ Φ }]) -∗
+  Alloc T ⪯{π, Ω} Alloc T [{ Φ }].
 Proof.
   iIntros "Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
@@ -915,73 +1005,385 @@ Proof.
   iApply ("Hsim" with "Htag Htarget Hsource").
 Qed.
 
-(*Lemma sim_make_public T Φ π : *)
-  (*t @@ tk_local -∗ *)
-  (*l_t ↦t∗[local]{t} repeat ScPoison (tsize T) -∗*)
-  (*l_s ↦s∗[local]{t} repeat ScPoison (tsize T) -∗*)
+Lemma sim_alloc_public T Φ π : 
+  (∀ t l_t l_s, t $$ tk_pub -∗
+    rrel (PlaceR l_t (Tagged t) T) (PlaceR l_s (Tagged t) T) -∗
+    Place l_t (Tagged t) T ⪯{π, Ω} Place l_s (Tagged t) T [{ Φ }]) -∗
+  Alloc T ⪯{π, Ω} Alloc T [{ Φ }].
+Proof.
+Admitted.
+
+Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π : 
+  rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
+  #[☠] ⪯{π, Ω} #[☠] [{ Φ }] -∗ 
+  Free (Place l_t bor_t T_t) ⪯{π, Ω} Free (Place l_s bor_s T_s) [{ Φ }].
+Proof. 
+Admitted.
+
+Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
+  head_step P (Copy (PlaceR l t T)) σ e σ' efs →
+  ∃ v α',
+  efs = [] ∧ (read_mem l (tsize T) (shp σ) = Some v) ∧
+  (memory_read (sst σ) (scs σ) l t (tsize T) = Some α') ∧
+  v <<t snp σ ∧
+  σ' = mkState (shp σ) α' (scs σ) (snp σ) (snc σ) ∧
+  e = (ValR v).
+Proof. intros Hhead. inv_head_step. eauto 8. Qed.
+
+Lemma sim_copy_public_controlled_update σ l l' (bor : tag) (T : type) (α' : stacks) (t : ptr_id) (tk : tag_kind) (sc : scalar)
+  (ACC: memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α')
+  (Hwf : state_wf σ)
+  (Hlocal : ∀ stk n t' stk' kind, σ.(sst) !! l' = Some stk →
+            access1 stk kind t' σ.(scs) = Some (n, stk') →
+            tk = tk_local →
+            t' = Tagged t ∧ stk' = stk) :
+  let σ' := mkState σ.(shp) α' σ.(scs) σ.(snp) σ.(snc) in
+  loc_controlled l' t tk sc σ →
+  loc_controlled l' t tk sc σ'.
+Proof.
+  intros σ' Hcontrol Hpre.
+  (* need to update the loc_controlled.
+    intuitive justification:
+    - if l is not affected by the Copy, we are fine.
+    - if it is affected, we already know that we accessed with a public tag [bor_s].
+      In case this current tag [t] is local, we have a contradiction as the tags must be the same.
+      In case this current tag [t] is unique: if the item is in the stack, then it must still be because it would have been protected
+      In case this current tag [t] is public: it should still be there, as it is not incompatible with our copy access (we leave SharedROs there).
+  *)
+
+  specialize (for_each_access1 _ _ _ _ _ _ _ ACC) as Hsub.
+  assert (bor_state_pre l' t tk σ) as H.
+  { move : Hpre. destruct tk; [ | | done ].
+    all: intros (st' & pm & opro & Hα'_some & Hit & Hpm);
+      specialize (Hsub _ _ Hα'_some) as (st & Hα_some & Hsublist & _);
+      exists st, pm, opro;
+      split_and!; [ done | | done]; specialize (Hsublist _ Hit) as ([] & Hit' & Heq & Heq' & Hperm'); simpl in *;
+      rewrite Heq Heq' -Hperm'; done.
+  }
+  specialize (Hcontrol H) as [Hown Hmem].
+  split; last done.
+  move: Hpre.
+  destruct tk; simpl.
+  * (* goal: use access1_active_SRO_preserving *)
+    intros (st & pm & opro & Hsome_st & Hit & Hpm). exists st. split; first done.
+    destruct Hown as (st'' & Hsome_st'' & Hactive).
+    destruct (for_each_lookup_case _ _ _ _ _ ACC _ _ _ Hsome_st'' Hsome_st) as [-> | [Hacc _]]; first done.
+    destruct access1 as [ [n st']| ] eqn:Hacc_eq; simpl in Hacc; simplify_eq.
+    eapply access1_active_SRO_preserving; [ | done | apply Hacc_eq | done ].
+    eapply Hwf; done.
+  * intros (st & pm & opro & Hsome_st & Hit & Hpm).
+    destruct Hown as (st' & Hsome_st' & opro' & st'0 & Heq).
+    destruct (for_each_lookup_case _ _ _ _ _ ACC _ _ _ Hsome_st' Hsome_st) as [-> | [Hacc _]]; first by eauto.
+    destruct access1 as [ [n st'']| ] eqn:Hacc_eq; simpl in Hacc; simplify_eq.
+    exists st. split; first done. exists opro'.
+    eapply access1_head_preserving; [ eapply Hwf; done| done | | apply Hacc_eq| eexists; done ].
+    (* need that opro = opro' *)
+    specialize (access1_read_eq _ _ _ _ t _ _ _ ltac:(eapply Hwf; done) Hacc_eq ltac:(by left) Hit Hpm ltac:(done) ltac:(done)) as Heq.
+    simplify_eq. done.
+  * intros _. simpl in Hown.
+    specialize (for_each_access1_lookup_inv _ _ _ _ _ _ _ ACC _ _ Hown) as (st' & Hst' & [[n' Hacc_eq] | Heq]).
+    2: { rewrite Heq. done. }
+    specialize (Hlocal _ _ _ _ _ Hown Hacc_eq eq_refl) as (-> & ->).
+    done.
+Qed.
 
 
-Lemma target_local_copy scs T l t Ψ :
-  length scs = tsize T →
-  t @@ tk_local -∗
-  l ↦t∗[local]{t} scs -∗
-  (l ↦t∗[local]{t} scs -∗ target_red #scs Ψ)%E -∗
+Lemma sim_copy_public Φ π l_t bor_t T_t l_s bor_s T_s :
+  rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
+  (∀ v_t v_s, value_rel v_t v_s -∗ v_t ⪯{π, Ω} ValR v_s [{ Φ }]) -∗
+  Copy (PlaceR l_t bor_t T_t) ⪯{π, Ω} Copy (PlaceR l_s bor_s T_s) [{ Φ }].
+Proof.
+  iIntros "#Hrel Hsim".
+  iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iModIntro.
+  destruct Hsafe as [Hpool Hsafe].
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (v_s & Hread_s & (α' & Hstack_s) & Hwell_tagged_s).
+  iDestruct "Hrel" as "[[<- Hrel] <-]".
+  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+
+  iAssert (⌜∀ i : nat, (i < tsize T_t)%nat → is_Some (shp σ_t !! (l_t +ₗ i))⌝)%I as "%Hsome_target".
+  { iPoseProof (state_rel_heap_lookup_Some with "Hsrel") as "%Hl".
+    iPureIntro. (* use read_mem_is_Some' *)
+    specialize (proj2 (read_mem_is_Some' l_t (tsize T_t) σ_s.(shp)) ltac:(eauto)) as Him.
+    intros i Hi. apply Hl, elem_of_dom. by eapply Him.
+  }
+
+  (* prove that it is a public location *)
+  iAssert (⌜untagged_or_public M_tag bor_t ∧ bor_t = bor_s⌝)%I as %Hpub.
+  { iDestruct "Hrel" as "[[-> ->] | (%t1 & %t2 & -> & -> & <- & Hpub)]"; first done.
+    iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%". done.
+  }
+  destruct Hpub as [Hpub ->].
+
+  (* prove reducibility *)
+  iPoseProof (state_rel_stacks_eq with "Hsrel") as "%Hstacks_eq".
+  iPoseProof (state_rel_calls_eq with "Hsrel") as "%Hcalls_eq".
+  iSplitR.
+  { iPoseProof (state_rel_dom_eq with "Hsrel") as "%Hdom".
+    iPureIntro.
+    destruct (read_mem_is_Some l_t (tsize T_t) σ_t.(shp)) as [v_t Eqvt].
+    { intros m. rewrite Hdom. apply (read_mem_is_Some' l_t (tsize T_t) σ_s.(shp)). by eexists. }
+    have Eqα'2: memory_read σ_t.(sst) σ_t.(scs) l_t bor_s (tsize T_t) = Some α'.
+    { rewrite -Hstacks_eq -Hcalls_eq. done. }
+    eexists; eexists; eexists. eapply copy_head_step'; eauto.
+  }
+  (* we keep the head_step hypotheses to use the [head_step_wf] lemma below *)
+  iIntros (e_t' efs_t σ_t') "%Hhead_t".
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (v_t & α'0 & -> & COPY & ACC & BOR & -> & ->).
+  iAssert (⌜α'0 = α'⌝)%I as "->".
+  { iPureIntro. move : ACC Hstack_s. rewrite Hcalls_eq Hstacks_eq. congruence. }
+  iModIntro.
+  pose (σ_s' := (mkState (shp σ_s) α' (scs σ_s) (snp σ_s) (snc σ_s))).
+  assert (Hhead_s : head_step P_s (Copy (Place l_t bor_s T_t)) σ_s (ValR v_s) σ_s' []).
+  { eapply copy_head_step'; eauto. }
+  iExists (Val v_s), [], σ_s'. iSplitR; first done.
+  iFrame "HP_t HP_s".
+
+  iSplitR "Hsim".
+  {
+    (* re-establish the invariants *)
+    iExists M_call, M_tag, M_t, M_s.
+    iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
+    iSplit; last iSplit; last iSplit; last iSplit.
+    - (* state rel *)
+      iPoseProof (state_rel_dom_eq with "Hsrel") as "%Hdom".
+      iPoseProof (state_rel_snp_eq with "Hsrel") as "%Hsnp".
+      iPoseProof (state_rel_snc_eq with "Hsrel") as "%Hsnc".
+      iSplit; first done. iSplit; first done. iSplit; first done.
+      iSplit; first done. iSplit; first done.
+      simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
+    - (* call invariant *)
+      iPureIntro. intros c M' HM'_some.
+      specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
+      split; first by apply Hin. intros pid L HL_some. specialize (Hprot pid L HL_some) as [Hpid Hprot].
+      split; first by apply Hpid. intros l Hin_l.
+      specialize (Hprot l Hin_l) as (stk & pm & Hstk_some & Hin_stack & Henabled).
+      (* we use that reads must preserve active protectors (but note that the stack may have changed, even when there is an active protector) *)
+      specialize (for_each_access1_active_preserving _ _ _ _ _ _ _ ACC l stk Hstk_some) as (stk' & Hstk'_some & Hac_pres).
+      exists stk', pm. split; last split; [ done | by apply Hac_pres| done ].
+    - (* tag invariant *)
+      iPureIntro.
+      intros t tk Htk_some. destruct (Htag_interp t tk Htk_some) as (Hsnp_lt_t & Hsnp_lt_s & Hctrl_t & Hctrl_s & Hag).
+      split_and!; [ done | done | | | done ].
+      + intros l sc_t Hsc_t. eapply sim_copy_public_controlled_update; [ by eauto .. | | by eauto].
+        intros stk n t' stk' kind Hstk Hacc1 ->.
+        eapply (local_access_eq _ _ _ _ _ _ _ _ _ _ _ _ Hstk Hacc1 Htk_some ltac:(eauto) Htag_interp).
+      + intros l sc_s Hsc_s. eapply sim_copy_public_controlled_update; [ by eauto .. | | by eauto].
+        intros stk n t' stk' kind Hstk Hacc1 ->.
+        rewrite Hstacks_eq in Hstk. rewrite Hcalls_eq in Hacc1.
+        assert (is_Some (M_t !! (t, l))) as Ht_some.
+        { apply Hag. eauto. }
+        eapply (local_access_eq _ _ _ _ _ _ _ _ _ _ _ _ Hstk Hacc1 Htk_some Ht_some Htag_interp).
+    - (* source state wf *)
+      iPureIntro. eapply head_step_wf; done.
+    - (* target state wf *)
+      iPureIntro. eapply head_step_wf; done.
+  }
+  iSplitL; last done.
+
+  iApply "Hsim".
+  (* proving the value relation *)
+  specialize (read_mem_values _ _ _ _ COPY) as [Hlen_t Hv_t].
+  specialize (read_mem_values _ _ _ _ Hread_s) as [Hlen_s Hv_s].
+  iApply big_sepL2_intuitionistically_forall; first lia.
+  iModIntro. iIntros (i sc_t sc_s) "%Hs_t %Hs_v".
+  assert (i < tsize T_t)%nat as Hi. { rewrite -Hlen_t. eapply lookup_lt_is_Some_1. eauto. }
+  iPoseProof (state_rel_pub_if_not_priv _ _ _ _ _ _ (l_t +ₗ i) with "[] Hsrel [Hrel]") as "Hpub".
+  { iPureIntro. by apply Hsome_target. }
+  { iPoseProof (state_rel_calls_eq with "Hsrel") as "%Hcall_eq".
+    iPoseProof (state_rel_stacks_eq with "Hsrel") as "%Hstack_eq".
+    iPureIntro. intros t Hpriv.
+    specialize (for_each_lookup_case_2 _ _ _ _ _ Hstack_s) as (Hstk & _).
+    specialize (Hstk i%nat ltac:(lia)) as (stk & stk' & ? & (_ & Haccess_some)).
+    eapply (priv_pub_access_UB _ AccessRead _ _ _ _ stk); [ | | apply Hpriv | eauto..].
+    - rewrite -Hstack_eq. done.
+    - move : Haccess_some. rewrite Hcall_eq. destruct access1; cbn; intros; simplify_eq. eauto.
+  }
+  iPoseProof (pub_loc_lookup with "[] Hpub") as "(%sc_t' & %sc_s' & %Hread_both & Hsc_rel)"; first by eauto.
+  enough (sc_t = sc_t' ∧ sc_s = sc_s') by naive_solver.
+  move : Hread_both (Hv_t i Hi) (Hv_s i Hi) Hs_t Hs_v.
+  by move => [-> ->] <- <- [= ->] [= ->].
+Qed.
+
+Lemma target_local_copy v_t T l t Ψ :
+  length v_t = tsize T →
+  t $$ tk_local -∗
+  l ↦t∗[local]{t} v_t -∗
+  (l ↦t∗[local]{t} v_t -∗ target_red #v_t Ψ)%E -∗
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
   iApply target_red_lift_head_step. iIntros (?????) "(HP_t & HP_s & Hbor)".
   iModIntro.
-  iPoseProof (heap_local_accessN_target with "Hbor Ht Htag") as "(%Hd & %Hstack & %Hwf & Hclose)".
+  iPoseProof (heap_local_readN_target with "Hbor Ht Htag") as "(%Hd & %Hstack & %Hwf)".
+  rewrite Hlen in Hd Hstack.
+  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %]".
   iSplitR.
-  { iPureIntro. do 3 eexists. econstructor 2.
-    - econstructor. rewrite -Hlen. apply Hd.
-    - econstructor.
-      + instantiate (1 := σ_t.(sst)).
-        (*induction T.*)
-        (** cbn. induction sz; cbn; first done.*)
-        admit.
-      + done.
+  { iPureIntro.
+    edestruct (copy_head_step P_t σ_t l (Tagged t) T) as (v & α & Hread & Hnewstack & Hhead);
+      last (do 3 eexists; eapply Hhead).
+    - done.
+    - apply read_mem_is_Some'. eauto.
+    - intros m stk Hm Hst. rewrite /access1_read_pre.
+      rewrite Hstack in Hst; last lia. injection Hst as [= <-].
+      exists 0%nat, (mkItem Unique (Tagged t) None).
+      split_and!; [done.. |]. intros ? ? ?; lia.
   }
-  iIntros (e_t' efs_t σ_t') "%Hhead". inv_head_step.
-  rewrite Hlen READ in Hd. injection Hd as ->.
-  iMod ("Hclose" $! scs with "[//] [//]") as "[Hbor Ht]".
+  iIntros (e_t' efs_t σ_t') "%Hhead".
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as (v_t' & α' & -> & READ & ACC & BOR & -> & ->).
+  rewrite READ in Hd. simplify_eq.
   iModIntro. iSplitR; first done.
-  iFrame.
+  iFrame "HP_t HP_s".
   iSplitL "Hbor"; last by iApply "Hsim".
-  (* TODO: have write-id lemma *)
-  admit.
-Admitted.
 
-Lemma source_local_copy scs T l t Ψ π :
-  length scs = tsize T →
-  t @@ tk_local -∗
-  l ↦s∗[local]{t} scs -∗
-  (l ↦s∗[local]{t} scs -∗ source_red #scs π Ψ)%E -∗
+  assert (α' = σ_t.(sst)) as ->.
+  {
+    apply map_eq. intros l'.
+    specialize (for_each_dom _ _ _ _ _ ACC) as Hdom.
+    destruct ((sst σ_t) !! l') as [stk | ] eqn:Hst; first last.
+    { rewrite Hst. apply not_elem_of_dom in Hst. move : Hst. rewrite Hdom. apply not_elem_of_dom. }
+    specialize (proj2 (elem_of_dom σ_t.(sst) l') ltac:(eauto)) as Hel. move: Hel.
+    rewrite Hdom. intros (stk' & Hst')%elem_of_dom.
+    specialize (for_each_lookup_case _ _ _ _ _ ACC l' stk stk' Hst Hst') as [Heq | [Hacc1 (i & Hi & ->)]].
+    { by rewrite Hst Hst' Heq. }
+    specialize (Hstack i ltac:(lia)).
+    rewrite Hst in Hstack. injection Hstack as [=].
+    specialize (tag_unique_head_access σ_t.(scs) stk (Tagged t) None AccessRead ltac:(exists []; eauto)) as (n & Hacc_eq).
+    rewrite Hacc_eq in Hacc1. injection Hacc1 as [= <-]. by rewrite Hst Hst'.
+  }
+  destruct σ_t; done.
+Qed.
+
+Lemma source_local_copy v_s T l t Ψ π :
+  length v_s = tsize T →
+  t $$ tk_local -∗
+  l ↦s∗[local]{t} v_s -∗
+  (l ↦s∗[local]{t} v_s -∗ source_red #v_s π Ψ)%E -∗
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
   iApply source_red_lift_head_step. iIntros (??????) "[(HP_t & HP_s & Hbor) _]".
   iModIntro.
-  iPoseProof (heap_local_accessN_source with "Hbor Hs Htag") as "(%Hd & %Hstack & %Hwf & Hclose)".
-  assert (head_reducible P_t (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hstep).
-  { do 3 eexists. econstructor 2.
-    - econstructor. rewrite -Hlen. apply Hd.
-    - econstructor.
-      + instantiate (1 := σ_t.(sst)).
-        (*induction T.*)
-        (** cbn. induction sz; cbn; first done.*)
-        admit.
-      + done.
+  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
+  iPoseProof (heap_local_readN_source with "Hbor Hs Htag") as "(%Hd & %Hstack & %Hwf)".
+  rewrite Hlen in Hd Hstack.
+  assert (head_reducible P_s (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hhead).
+  { edestruct (copy_head_step P_s σ_s l (Tagged t) T) as (v & α & Hread & Hnewstack & Hhead);
+      last (do 3 eexists; eapply Hhead).
+    - done.
+    - apply read_mem_is_Some'. eauto.
+    - intros m stk Hm Hst. rewrite /access1_read_pre.
+      rewrite Hstack in Hst; last lia. injection Hst as [= <-].
+      exists 0%nat, (mkItem Unique (Tagged t) None).
+      split_and!; [done.. |]. intros ? ? ?; lia.
   }
-  iExists e_s', σ_s'. inv_head_step.
-  iSplitR; first by eauto using head_step, bor_step, mem_expr_step.
-  rewrite Hlen READ in Hd. injection Hd as ->.
-  iMod ("Hclose" $! scs with "[//] [//]") as "[Hbor Ht]".
-  iModIntro. iFrame.
-  iSplitL "Hbor"; last by iApply "Hsim".
-  (* TODO: have write-id lemma *)
-  admit.
+  iExists e_s', σ_s'.
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as (v_t' & α' & -> & READ & ACC & BOR & -> & ->).
+  rewrite READ in Hd. simplify_eq.
+  iFrame "HP_t HP_s". iSplitR; first done.
+  iSplitL "Hbor"; last by iApply "Hsim". iModIntro.
+  assert (α' = σ_s.(sst)) as ->.
+  {
+    apply map_eq. intros l'.
+    specialize (for_each_dom _ _ _ _ _ ACC) as Hdom.
+    destruct ((sst σ_s) !! l') as [stk | ] eqn:Hst; first last.
+    { rewrite Hst. apply not_elem_of_dom in Hst. move : Hst. rewrite Hdom. apply not_elem_of_dom. }
+    specialize (proj2 (elem_of_dom σ_s.(sst) l') ltac:(eauto)) as Hel. move: Hel.
+    rewrite Hdom. intros (stk' & Hst')%elem_of_dom.
+    specialize (for_each_lookup_case _ _ _ _ _ ACC l' stk stk' Hst Hst') as [Heq | [Hacc1 (i & Hi & ->)]].
+    { by rewrite Hst Hst' Heq. }
+    specialize (Hstack i ltac:(lia)).
+    rewrite Hst in Hstack. injection Hstack as [=].
+    specialize (tag_unique_head_access σ_s.(scs) stk (Tagged t) None AccessRead ltac:(exists []; eauto)) as (n & Hacc_eq).
+    rewrite Hacc_eq in Hacc1. injection Hacc1 as [= <-]. by rewrite Hst Hst'.
+  }
+  by destruct σ_s.
+Qed.
+
+Lemma target_protected_copy v_t T l t Ψ c M  :
+  length v_t = tsize T →
+  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
+  c @@ M -∗
+  t $$ tk_unq -∗
+  l ↦t∗[unq]{t} v_t -∗
+  (l ↦t∗[unq]{t} v_t -∗ c @@ M -∗ target_red #v_t Ψ)%E -∗
+  target_red (Copy (Place l (Tagged t) T)) Ψ.
+Proof.
 Admitted.
+
+Lemma source_protected_copy v_s T l t Ψ c M π :
+  length v_s = tsize T →
+  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
+  c @@ M -∗
+  t $$ tk_unq -∗
+  l ↦s∗[unq]{t} v_s -∗
+  (l ↦s∗[unq]{t} v_s -∗ c @@ M -∗ source_red #v_s π Ψ)%E -∗
+  source_red (Copy (Place l (Tagged t) T)) π Ψ.
+Proof.
+Admitted.
+
+(* Write lemmas *)
+Lemma sim_write_public Φ π l_t bor_t T_t l_s bor_s T_s v_t' v_s' :
+  rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
+  value_rel v_t' v_s' -∗
+  (#[☠] ⪯{π, Ω} #[☠] [{ Φ }]) -∗
+  Write (PlaceR l_t bor_t T_t) v_t' ⪯{π, Ω} Write (PlaceR l_s bor_s T_s) v_s' [{ Φ }].
+Proof.
+Admitted.
+
+Lemma target_local_write v_t v_t' T l t Ψ :
+  length v_t = tsize T →
+  length v_t' = tsize T →
+  t $$ tk_local -∗
+  l ↦t∗[local]{t} v_t -∗
+  (l ↦t∗[local]{t} v_t' -∗ target_red #[☠] Ψ)%E -∗
+  target_red (Write (Place l (Tagged t) T) #v_t) Ψ.
+Proof.
+Admitted.
+
+Lemma source_local_write v_s v_s' T l t Ψ π :
+  length v_s = tsize T →
+  length v_s' = tsize T →
+  t $$ tk_local -∗
+  l ↦s∗[local]{t} v_s -∗
+  (l ↦s∗[local]{t} v_s' -∗ source_red #[☠] π Ψ)%E -∗
+  source_red (Write (Place l (Tagged t) T) #v_s) π Ψ.
+Proof.
+Admitted.
+
+Lemma target_protected_write v_t v_t' T l t c M Ψ :
+  length v_t = tsize T →
+  length v_t' = tsize T →
+  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
+  c @@ M -∗
+  t $$ tk_unq -∗
+  l ↦t∗[unq]{t} v_t -∗
+  (l ↦t∗[unq]{t} v_t' -∗ c @@ M -∗ target_red #[☠] Ψ)%E -∗
+  target_red (Write (Place l (Tagged t) T) #v_t) Ψ.
+Proof.
+Admitted.
+
+Lemma source_protected_write v_s v_s' T l t c M Ψ π :
+  length v_s = tsize T →
+  length v_s' = tsize T →
+  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
+  c @@ M -∗
+  t $$ tk_unq -∗
+  l ↦s∗[unq]{t} v_s -∗
+  (l ↦s∗[unq]{t} v_s' -∗ c @@ M -∗ source_red #[☠] π Ψ)%E -∗
+  source_red (Write (Place l (Tagged t) T) #v_s) π Ψ.
+Proof.
+Admitted.
+
+Lemma sim_retag_public l_t l_s ot os c kind T rkind π Φ : 
+  value_rel [ScPtr l_t ot] [ScPtr l_s os] -∗  
+  (∀ nt, value_rel [ScPtr l_t nt] [ScPtr l_s nt] -∗
+    #[ScPtr l_t nt] ⪯{π, Ω} #[ScPtr l_s nt] [{ Φ }]) -∗
+  Retag #[ScPtr l_t ot] #[ScCallId c] kind T rkind ⪯{π, Ω} Retag #[ScPtr l_s os] #[ScCallId c] kind T rkind [{ Φ }].
+Proof. 
+Admitted.
+
+(* TODO: more interesting retag lemmas for fnentry and default that give us the right ghost state *)
 
 (*Lemma sim_retag_default_mutref l_t l_s ot Φ c pkind T π : *)
   (*(∀ nt, nt @@ tk_local -∗ #[ScPtr l_t nt] ⪯{π, Ω} #[ScPtr l_s nt] [{ Φ }]) -∗*)
