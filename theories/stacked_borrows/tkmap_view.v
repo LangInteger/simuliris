@@ -3,6 +3,7 @@ From iris.algebra Require Export view gmap frac dfrac.
 From iris.algebra Require Import local_updates proofmode_classes big_op.
 From iris.algebra Require Import csum excl.
 From iris.prelude Require Import options.
+From simuliris.stacked_borrows Require Export defs.
 
 (** An adaption of gmap_view to use tag_kind to control permissions of fragments and to reflect that into the authoritative fragment. *)
 
@@ -12,7 +13,6 @@ From iris.prelude Require Import options.
   - tk_unq: the tag is unique (cannot be shared, assertion is not persistent).
   - tk_loc: the tag is local
  *)
-Inductive tag_kind := tk_pub  | tk_unq | tk_local.
 (* TODO: allow a local update from tk_unq to tk_pub *)
 Definition tagKindR := csumR (csumR (exclR unitO) (exclR unitO)) unitR.
 

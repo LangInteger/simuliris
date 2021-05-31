@@ -108,11 +108,11 @@ Proof. rewrite envs_entails_eq => ->. iIntros "H". by iApply sim_place_result. Q
 Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s π :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
-  envs_entails Δ (e_t ⪯{π, Ω} e_s {{ λ e_t' e_s', f_t e_t' ⪯{π, Ω} f_s e_s' [{ Φ }] }})%I →
+  envs_entails Δ (e_t ⪯{π, Ω} e_s [{ λ e_t' e_s', f_t e_t' ⪯{π, Ω} f_s e_s' [{ Φ }] }])%I →
   envs_entails Δ (fill K_t e_t ⪯{π, Ω} fill K_s e_s [{ Φ }]).
 Proof.
   rewrite envs_entails_eq=> -> ->. intros Hs.
-  iIntros "H". iApply (sim_bind Ω e_t e_s K_t K_s Φ). by iApply Hs.
+  iIntros "H". iApply (sim_expr_bind Ω K_t K_s e_t e_s Φ). by iApply Hs.
 Qed.
 
 Lemma tac_target_red_bind K_t e_t f_t Ψ Δ :
@@ -501,7 +501,19 @@ Tactic Notation "source_bind" open_constr(efoc_s) :=
   | _ => fail "source_bind: not a 'source_red'"
   end.
 
-
+(* Tactics for common bind-apply-intros pattern *)
+Tactic Notation "sim_apply" uconstr(ctx_t) uconstr(ctx_s) uconstr(Hl) uconstr(Hp) :=
+  sim_bind ctx_t ctx_s;
+  iApply (Hl); 
+  last (iIntros Hp; try iApply sim_expr_base). (* TODO: have a proper tactical for that base case *)
+Tactic Notation "target_apply" uconstr(ctx) uconstr(Hl) uconstr(Hp) :=
+  target_bind ctx;
+  iApply (Hl);
+  last (iIntros Hp; target_finish).
+Tactic Notation "source_apply" uconstr(ctx) uconstr(Hl) uconstr(Hp) :=
+  source_bind ctx;
+  iApply (Hl);
+  last (iIntros Hp; source_finish).
 
 
 (** ** Automation related to stuckness *)

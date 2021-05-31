@@ -20,6 +20,9 @@ Section pure_exec.
   Global Instance pure_iota_place x (e2 : expr) l t T :
     PureExec True 1 (Let x (Place l t T) e2) (subst' x (PlaceR l t T) e2).
   Proof. solve_pure_exec. Qed.
+  Global Instance pure_iota_result x (e2 : expr) (r : result) :
+    PureExec True 1 (Let x (of_result r) e2) (subst' x (of_result r) e2).
+  Proof. solve_pure_exec. rewrite to_of_result. eauto. Qed.
 
   (* We do not have a general instance for BinOp as evaluation of EqOp for locations is not pure *)
   Global Instance pure_add z1 z2  :
@@ -215,7 +218,7 @@ Section irreducible.
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag (Val v) (Val v') pk T rk) σ.
   Proof.
     prove_irred_unless.
-    destruct (decide (c ∈ σ.(scs))); last finish_decision. 
+    destruct (decide (c ∈ σ.(scs))); last finish_decision.
     destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
     + left. eauto 8.
     + right. intros (c' & ot & l' & [= -> ->] & [= ->] & ? &? & ?); congruence.
@@ -253,7 +256,7 @@ Section irreducible.
     IrredUnless False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_irred_unless. Qed.
   Global Instance irreducible_write P σ l t T v :
-    IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp)) P (Write (Place l t T) (Val v)) σ.
+    IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; [ | prove_irred].
     (* TODO*)
@@ -270,5 +273,17 @@ Section irreducible.
   Admitted.
 
   (* TODO: "weak" instances that do not talk about the heap *)
+  Global Instance irreducible_write_weak P σ l t T v :
+    IrredUnless (length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+  Proof. 
+    eapply irred_unless_weaken; last apply irreducible_write. tauto.
+  Qed.
+  Global Instance irreducible_retag_weak P σ v v' pk T rk :
+    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag (Val v) (Val v') pk T rk) σ.
+  Proof. 
+    eapply irred_unless_weaken; last apply irreducible_retag.
+    intros (c & ot & l & -> & -> & _). eauto.
+  Qed.
+
 
 End irreducible.

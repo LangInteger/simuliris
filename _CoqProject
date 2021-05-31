@@ -73,6 +73,14 @@ theories/stacked_borrows/tactics.v
 theories/stacked_borrows/class_instances.v
 theories/stacked_borrows/primitive_laws.v
 theories/stacked_borrows/tkmap_view.v
+theories/stacked_borrows/heap.v
 theories/stacked_borrows/proofmode.v
 
 theories/stacked_borrows/examples/pure.v
+theories/stacked_borrows/examples/opt1.v
+theories/stacked_borrows/examples/opt1_down.v
+theories/stacked_borrows/examples/opt2.v
+theories/stacked_borrows/examples/opt2_down.v
+theories/stacked_borrows/examples/opt3.v
+theories/stacked_borrows/examples/opt3_down.v
+

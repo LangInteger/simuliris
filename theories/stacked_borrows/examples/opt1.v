@@ -1,32 +1,20 @@
-From simuliris.stacked_borrows Require Import proofmode lang.
+From simuliris.simulation Require Import lifting.
+From simuliris.stacked_borrows Require Import proofmode defs lang heap.
 Set Default Proof Using "Type".
 
 (** Moving read of mutable reference up across code not using that ref. *)
-
 
 (* Assuming x : &mut i32 *)
 Definition ex1_unopt : ectx :=
   (λ: "i",
     (* get related values i*)
-
-    (* init with same new call id on both sides and obtain knowledge that [c] is active: active(c) *)
-    (* c protects { } *)
-
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (&mut int) "i" in
-    (* get a location l and ptr_id pid; (l, Tagged pid) ↦{tk_local} i;
-       get authoritative knowledge of stack: l @s@ [mkItem Unique (Tagged pid) None]
-    *)
 
     (* retag_place reborrows the pointer value stored in "x" (which is "i"),
-      then updates "x" with the new pointer value.  A [Default] retag is
-      sufficient for this, we don't need the protector. *)
-    retag_place "x" (RefPtr Mutable) int Default #[0];;
-    (* obtain (through source UB) knowledge that i = #[ScPtr li ti], get  li_t ↔h li
-        (l, Tagged pid) ↦{tk_local} ScPtr li ti' for new tag ti'; 
-        get (li, ti') ↦{tk_mut} v0
-
+      then updates "x" with the new pointer value.
     *)
+    retag_place "x" (RefPtr Mutable) int Default #[ScCallId 0];;
 
     (* The unknown code is represented by a call to an unknown function "f" or
       "g". *)
@@ -34,7 +22,6 @@ Definition ex1_unopt : ectx :=
 
     (* Write 42 to the cell pointed to by the pointer in "x" *)
     *{int} "x" <- #[42] ;;
-    (* just use the permissions we have *)
 
     Call #[ScFnPtr "g"] #[] ;;
 
@@ -49,43 +36,131 @@ Definition ex1_unopt : ectx :=
   .
 
 
-Definition ex1_opt : function :=
-  fun: ["i"],
+Definition ex1_opt : ectx :=
+  λ: "i",
     let: "x" := new_place (&mut int) "i" in
-    retag_place "x" (RefPtr Mutable) int Default ;;
-    Call #[ScFnPtr "f"] [] ;;
-    (* *x : l, t *)
-    *{int} "x" <- #[42] ;;    (* stack for *x: mkItem Unique t None :: ... *)
-
-    (* TODO: for now, until we change read semantics, directly have 42 without a read *)
+    retag_place "x" (RefPtr Mutable) int Default #[ScCallId 0];;
+    Call #[ScFnPtr "f"] #[] ;;
+    *{int} "x" <- #[42] ;;
     let: "v" := #[42] in
-    (*let: "v" := Copy *{int} "x" in [> stack for *x : mkItem Unique t None :: .... ?<]*)
-
-    (* Question: 
-        why do we retain knowledge about x here? Note: we are reading asymmetrically from the bijection here.
-        Because: otherwise, we will reach UB in the source at a later point (in > 1 steps).
-        Reasoning: do a case analysis on the shape of the target stack for li.
-        If this is not what we need, use the bijection to transfer this knowledge to the source stack,
-        then claim that we can reach source stuckness after the call. 
-        But reaching source stuckness after the call seems really complicated!
-
-
-        Does this get easier when we set a protector?
-        Yes. 
-    *)
-
-
-    Call #[ScFnPtr "g"] [] ;;
+    Call #[ScFnPtr "g"] #[] ;;
     Free "x" ;;
-    "v"
+    "v".
 
+Lemma sim_new_place_local `{sborG Σ} T v_t v_s π Φ :
+  ⌜length v_t = length v_s⌝ -∗
+  (∀ t l_t l_s,
+    ⌜length v_s = tsize T⌝ -∗
+    ⌜length v_t = tsize T⌝ -∗
+    t $$ tk_local -∗
+    l_t ↦t∗[tk_local]{t} v_t -∗
+    l_s ↦s∗[tk_local]{t} v_s -∗
+    PlaceR l_t (Tagged t) T ⪯{π, rrel} PlaceR l_s (Tagged t) T [{ Φ }]) -∗
+  new_place T #v_t ⪯{π, rrel} new_place T #v_s [{ Φ }].
+Proof.
+  iIntros (Hlen_eq) "Hsim".
+  rewrite /new_place. sim_bind (Alloc _) (Alloc _).
+  iApply sim_alloc_local. iIntros (t l_t l_s) "Htag Ht Hs". iApply sim_expr_base.
+  sim_pures.
+  source_bind (Write _ _).
+  (* gain knowledge about the length *)
+  iApply source_red_irred_unless; first done. iIntros (Hsize).
+  iApply (source_write_local with "Htag Hs"); [by rewrite repeat_length | done | ].
+  iIntros "Hs Htag". source_finish.
 
-(* Where do protectors help me?
+  target_bind (Write _ _).
+  iApply (target_write_local with "Htag Ht"); [ by rewrite repeat_length | lia| ].
+  iIntros "Ht Htag". target_finish.
 
-        c protects { ti' ↦ { li } }       means: there's an item in the stack which is protected by c 
+  sim_pures. iApply ("Hsim" with "[//] [] Htag Ht Hs").
+  iPureIntro; lia.
+Qed.
 
-   protectors help when: 
-    * we can use source UB to find out that there's nothing un-poppable above the protector
-    * we can otherwise maintain that the protected item can be used rn for accesses: if access mode is Unique or Shared, then we can use knowledge of the protector to gain knowledge of the full stack!
-          (this is an invariant that needs to be held up by other threads, and thus makes this reasoning possible locally!)
+(* TODO: potentially have more modular lemmas for exploiting UB in order use the generic new_place lemma... *)
+
+(*Lemma let_irred1 ϕ P x e1 e2 σ : *)
+  (*IrredUnless ϕ P e1 σ →*)
+  (*IrredUnless ϕ P (Let x e1 e2) σ.*)
+(*Proof.*)
+  (*intros He1 Hnirred. *)
+
+(* TODO: maybe have nicer n-step irreducibility thing?
+  then we could use the above generic lemma for [new_place].
+   currently we don't use it since, in order to apply it, we'd need to use UB that happens during its execution...
 *)
+Lemma sim_opt1 `{sborG Σ} π :
+  ⊢ sim_ectx rrel π ex1_opt ex1_unopt rrel.
+Proof.
+  iIntros (r_t r_s) "Hrel".
+  sim_pures.
+  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l_t l_s) "Htag Ht Hs".
+  iApply sim_expr_base. sim_pures.
+
+  source_bind (Write _ _).
+  destruct r_s as [v_s | ]; first last.
+  { iApply source_red_irred_unless; first done. by iIntros. }
+  (* gain knowledge about the length *)
+  iApply source_red_irred_unless; first done. iIntros (Hsize).
+  iApply (source_write_local with "Htag Hs"); [by rewrite repeat_length | done | ].
+  iIntros "Hs Htag". source_finish.
+  iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
+  iPoseProof (value_rel_length with "Hv") as "%Hlen".
+  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [ by rewrite repeat_length | lia| ].
+  sim_pures.
+
+  target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first lia.
+  source_apply (Copy _) (source_copy_local with "Htag Hs") "Hs Htag"; first lia.
+
+  (* do the retag *)
+  sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
+  iApply sim_irred_unless; first done.
+  iIntros ((_ & ot & i & -> & _)).
+  iPoseProof (value_rel_singleton_source with "Hv") as (sc_t) "[-> Hscrel]".
+  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[-> Htagged]".
+  iApply (sim_retag_default with "Hscrel"); [cbn; lia| done | ].
+  iIntros (t_i v_t v_s Hlen_t Hlen_s) "_ Htag_i Hi_t Hi_s _".
+  iApply sim_expr_base.
+  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [done | done | ].
+  source_apply (Write _ _) (source_write_local with "Htag Hs") "Hs Htag"; [done | done | ].
+  sim_pures.
+
+  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  iIntros (r_t r_s) "_". sim_pures.
+
+  target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
+  source_apply (Copy _) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
+  sim_pures.
+
+  (* we need to do the writes symmetrically: we cannot know if the tag is still on top *)
+  sim_apply (Write _ _) (Write _ _) (sim_write_unique_unprotected with "Htag_i Hi_t Hi_s") "Htag_i Hi_t Hi_s".
+  sim_pures.
+
+  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  iIntros (r_t' r_s') "_". sim_pures.
+
+  source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
+  source_pures. source_apply (Copy _) (source_copy_any with "Htag_i Hi_s") "Hi_s Htag_i"; first done.
+  sim_pures.
+
+  sim_bind (Free _) (Free _).
+  (* TODO: need local free lemma that also removes the ghost state for that *)
+Abort.
+
+
+
+Definition ex1_opt' : ectx :=
+  λ: "i",
+    let: "x" := new_place (&mut int) "i" in
+    retag_place "x" (RefPtr Mutable) int Default "c";;
+    Call #[ScFnPtr "f"] #[] ;;
+    *{int} "x" <- #[42] ;;
+    (* using a read here: requires to use LLVM semantics for reads *)
+    let: "v" := Copy *{int} "x" in
+    Call #[ScFnPtr "g"] #[] ;;
+    Free "x" ;;
+    "v".
+
+Lemma sim_opt1' `{sborG Σ} π :
+  ⊢ sim_ectx rrel π ex1_opt' ex1_unopt rrel.
+Proof.
+Abort.

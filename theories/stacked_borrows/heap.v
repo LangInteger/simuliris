@@ -10,7 +10,6 @@ From simuliris.stacked_borrows Require Import tkmap_view.
 From simuliris.stacked_borrows Require Export defs.
 From simuliris.stacked_borrows Require Import steps_progress steps_retag.
 
-
 Fixpoint heap_array (l : loc) (scs : list scalar) : gmap loc scalar :=
   match scs with
   | [] => ∅
@@ -225,7 +224,6 @@ Section bijection_lemmas.
   Proof.
     rewrite /priv_loc. intros (tk & Ht & Hs & Hinv). exists tk.
     split_and!; [ done | | done].
-    Search "lookup" "insert".
     apply lookup_insert_is_Some. destruct (decide ((t', l') = (t, l))); eauto.
   Qed.
 
@@ -327,7 +325,7 @@ Section call_defs.
 
   Definition call_set_in' (M : gmap call_id (gmap ptr_id (gset loc))) c t l :=
     ∃ M' L, M !! c = Some M' ∧ M' !! t = Some L ∧ l ∈ L.
-  Definition call_set_in (M : gmap ptr_id (gset loc)) t l := 
+  Definition call_set_in (M : gmap ptr_id (gset loc)) t l :=
     ∃ L, M !! t = Some L ∧ l ∈ L.
   Lemma call_set_interp_access M σ c t l :
     call_set_interp M σ →
@@ -602,6 +600,16 @@ End state_interp.
 Definition array_tag `{!bor_stateG Σ} γh (t : ptr_id) (l : loc) (dq : dfrac) (scs : list scalar) : iProp Σ :=
   ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc)%I.
 
+Definition tk_to_frac (tk : tag_kind) :=
+  match tk with
+  | tk_pub => DfracDiscarded
+  | _ => DfracOwn 1
+  end.
+Notation "l '↦t∗[' tk ']{' t } scs" := (array_tag heap_view_target_name t l (tk_to_frac tk) scs)
+  (at level 20, format "l  ↦t∗[ tk ]{ t }  scs") : bi_scope.
+Notation "l '↦s∗[' tk ']{' t } scs" := (array_tag heap_view_source_name t l (tk_to_frac tk) scs)
+  (at level 20, format "l  ↦s∗[ tk ]{ t }  scs") : bi_scope.
+
 Notation "l '↦t∗[unq]{' t } scs" := (array_tag heap_view_target_name t l (DfracOwn 1) scs)
   (at level 20, format "l  ↦t∗[unq]{ t }  scs") : bi_scope.
 Notation "l '↦s∗[unq]{' t } scs" := (array_tag heap_view_source_name t l (DfracOwn 1) scs)
@@ -842,6 +850,7 @@ Proof.
   rewrite Hn => [= _ <-]. done.
 Qed.
 
+
 Lemma protector_access_eq l t t' stk n stk' kind σ_s σ_t M_tag Mcall M_t M_s :
   σ_t.(sst) !! l = Some stk →
   access1 stk kind t' σ_t.(scs) = Some (n, stk') →
@@ -909,7 +918,7 @@ Qed.
 (* NOTE: might need to generalize that with the bijection a bit when we want to do cool things, e.g., pass parts of an object to a function (but for just obtaining a reflexivity thm, it should be fine) *)
 Section val_rel.
   Context {Σ} `{bor_stateG Σ}.
-  Fixpoint sc_rel (sc1 sc2 : scalar) {struct sc2} : iProp Σ :=
+  Definition sc_rel (sc1 sc2 : scalar) : iProp Σ :=
     match sc1, sc2 with
     | ScInt z1, ScInt z2 => ⌜z1 = z2⌝
     | ScFnPtr f1, ScFnPtr f2 => ⌜f1  = f2⌝
@@ -922,19 +931,9 @@ Section val_rel.
         ⌜t1 = t2⌝ ∗
         t1 $$ tk_pub))
         (* note: we do not have any assertion about the value as viewed by the tag here -- we don't really care about it, we need to do a retag anyways. what the tk_pub gives us is that the locations store related values *)
+    | ScCallId c, ScCallId c' => ⌜c = c'⌝
     | _, _ => False
     end.
-
-  Global Instance sc_rel_persistent sc_t sc_s : Persistent (sc_rel sc_t sc_s).
-  Proof. destruct sc_t, sc_s; apply _. Qed.
-
-  Lemma sc_rel_public_ptr_inv σ_t σ_s t1 t2 l1 l2 :
-    bor_interp sc_rel σ_t σ_s -∗
-    sc_rel (ScPtr l1 (Tagged t1)) (ScPtr l2 (Tagged t2)) -∗
-    ⌜l1 = l2 ∧ t1 = t2⌝ ∗
-    ∀ sc_s, ⌜σ_s.(shp) !! l1 = Some sc_s⌝ → ∃ sc_t, ⌜σ_t.(shp) !! l2 = Some sc_t⌝ ∗ sc_rel sc_t sc_s.
-  Proof.
-  Admitted.
 
   Definition value_rel (v1 v2 : value) : iProp Σ := [∗ list] sc_t; sc_s ∈ v1; v2, sc_rel sc_t sc_s.
 
@@ -946,6 +945,80 @@ Section val_rel.
       sc_rel (ScPtr l1 bor1) (ScPtr l2 bor2) ∧ ⌜T1 = T2⌝
     | _, _ => False
     end.
+
+  Global Instance sc_rel_persistent sc_t sc_s : Persistent (sc_rel sc_t sc_s).
+  Proof. destruct sc_t, sc_s; apply _. Qed.
+  Global Instance value_rel_persistent v_t v_s : Persistent (value_rel v_t v_s).
+  Proof. apply _. Qed.
+  Global Instance rrel_persistent r_t r_s : Persistent (rrel r_t r_s).
+  Proof. destruct r_t, r_s; apply _. Qed.
+
+  Lemma sc_rel_public_ptr_inv σ_t σ_s t1 t2 l1 l2 :
+    bor_interp sc_rel σ_t σ_s -∗
+    sc_rel (ScPtr l1 (Tagged t1)) (ScPtr l2 (Tagged t2)) -∗
+    ⌜l1 = l2 ∧ t1 = t2⌝ ∗
+    ∀ sc_s, ⌜σ_s.(shp) !! l1 = Some sc_s⌝ → ∃ sc_t, ⌜σ_t.(shp) !! l2 = Some sc_t⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+  Admitted.
+
+  (* Inversion lemmas *)
+  Lemma sc_rel_ptr_source sc_t l_s t_s :
+    sc_rel sc_t (ScPtr l_s t_s) -∗ ⌜sc_t = ScPtr l_s t_s⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+  Proof.
+    iIntros "Hrel". destruct sc_t; [done | done | | done | done ].
+    iDestruct "Hrel" as "(-> & [[-> ->] | (% & %t & -> & -> & -> & ?)])"; iFrame; done.
+  Qed.
+  Lemma sc_rel_fnptr_source sc_t fn :
+    sc_rel sc_t (ScFnPtr fn) -∗ ⌜sc_t = ScFnPtr fn⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_t; [done | done | done | | done].
+    by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_int_source sc_t z :
+    sc_rel sc_t (ScInt z) -∗ ⌜sc_t = ScInt z⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_t; [ done | | done..].
+    by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_poison_source sc_t :
+    sc_rel sc_t (ScPoison) -∗ False.
+  Proof. iIntros "Hrel". destruct sc_t; done. Qed.
+  Lemma sc_rel_cid_source sc_t c :
+    sc_rel sc_t (ScCallId c) -∗ ⌜sc_t = ScCallId c⌝.
+  Proof. iIntros "Hrel"; destruct sc_t; [done.. | ]. by iDestruct "Hrel" as "->". Qed.
+
+  Lemma rrel_place_source r_t l_s t_s T :
+    rrel r_t (PlaceR l_s t_s T) -∗ 
+    ∃ l_t, ⌜r_t = PlaceR l_t t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+  Proof.
+    iIntros "Hrel".
+    destruct r_t as [ | l_t t' T']; first done. iDestruct "Hrel" as "(#H & ->)".
+    iDestruct (sc_rel_ptr_source with "H") as "[%Heq Htag]". 
+    injection Heq as [= -> ->]. iExists l_s. eauto.
+  Qed.
+  Lemma rrel_value_source r_t v_s : 
+    rrel r_t (ValR v_s) -∗ 
+    ∃ v_t, ⌜r_t = ValR v_t⌝ ∗ value_rel v_t v_s. 
+  Proof. 
+    iIntros "Hrel". destruct r_t as [ v_t | ]; last done.
+    iExists v_t. iFrame "Hrel". done.
+  Qed.
+
+
+  Lemma value_rel_length v_t v_s : 
+    value_rel v_t v_s -∗ ⌜length v_t = length v_s⌝.
+  Proof. iApply big_sepL2_length. Qed.
+  Lemma value_rel_empty : 
+    ⊢ value_rel [] [].
+  Proof. by iApply big_sepL2_nil. Qed.
+
+  Lemma value_rel_singleton_source v_t sc_s : 
+    value_rel v_t [sc_s] -∗ ∃ sc_t, ⌜v_t = [sc_t]⌝ ∗ sc_rel sc_t sc_s.
+  Proof. 
+    iIntros "Hv". iPoseProof (value_rel_length with "Hv") as "%Hlen". 
+    destruct v_t as [ | sc_t []]; [done | | done ].
+    iExists sc_t. iSplitR "Hv"; first done. iRevert "Hv". rewrite /value_rel big_sepL2_singleton. eauto.
+  Qed.
 End val_rel.
 
 Class sborG (Σ: gFunctors) := SBorG {
@@ -1005,7 +1078,7 @@ Proof.
   iApply ("Hsim" with "Htag Htarget Hsource").
 Qed.
 
-Lemma sim_alloc_public T Φ π : 
+Lemma sim_alloc_public T Φ π :
   (∀ t l_t l_s, t $$ tk_pub -∗
     rrel (PlaceR l_t (Tagged t) T) (PlaceR l_s (Tagged t) T) -∗
     Place l_t (Tagged t) T ⪯{π, Ω} Place l_s (Tagged t) T [{ Φ }]) -∗
@@ -1013,11 +1086,17 @@ Lemma sim_alloc_public T Φ π :
 Proof.
 Admitted.
 
-Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π : 
+(* TODO: local ownership makes strong assertions: 
+  we also have to deallocate the corresponding ghost state *)
+(*Lemma sim_free_local : *)
+
+  (*Free (Place l t T_t) ⪯{π, Ω*)
+
+Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
-  #[☠] ⪯{π, Ω} #[☠] [{ Φ }] -∗ 
+  #[☠] ⪯{π, Ω} #[☠] [{ Φ }] -∗
   Free (Place l_t bor_t T_t) ⪯{π, Ω} Free (Place l_s bor_s T_s) [{ Φ }].
-Proof. 
+Proof.
 Admitted.
 
 Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
@@ -1205,11 +1284,11 @@ Proof.
   by move => [-> ->] <- <- [= ->] [= ->].
 Qed.
 
-Lemma target_local_copy v_t T l t Ψ :
+Lemma target_copy_local v_t T l t Ψ :
   length v_t = tsize T →
   t $$ tk_local -∗
   l ↦t∗[local]{t} v_t -∗
-  (l ↦t∗[local]{t} v_t -∗ target_red #v_t Ψ)%E -∗
+  (l ↦t∗[local]{t} v_t -∗ t $$ tk_local -∗ target_red #v_t Ψ)%E -∗
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
@@ -1234,7 +1313,7 @@ Proof.
   rewrite READ in Hd. simplify_eq.
   iModIntro. iSplitR; first done.
   iFrame "HP_t HP_s".
-  iSplitL "Hbor"; last by iApply "Hsim".
+  iSplitL "Hbor"; last iApply ("Hsim" with "Ht Htag").
 
   assert (α' = σ_t.(sst)) as ->.
   {
@@ -1254,11 +1333,11 @@ Proof.
   destruct σ_t; done.
 Qed.
 
-Lemma source_local_copy v_s T l t Ψ π :
+Lemma source_copy_local v_s T l t Ψ π :
   length v_s = tsize T →
   t $$ tk_local -∗
   l ↦s∗[local]{t} v_s -∗
-  (l ↦s∗[local]{t} v_s -∗ source_red #v_s π Ψ)%E -∗
+  (l ↦s∗[local]{t} v_s -∗ t $$ tk_local -∗ source_red #v_s π Ψ)%E -∗
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
@@ -1281,7 +1360,7 @@ Proof.
   specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as (v_t' & α' & -> & READ & ACC & BOR & -> & ->).
   rewrite READ in Hd. simplify_eq.
   iFrame "HP_t HP_s". iSplitR; first done.
-  iSplitL "Hbor"; last by iApply "Hsim". iModIntro.
+  iSplitL "Hbor"; last by iApply ("Hsim" with "Hs Htag"). iModIntro.
   assert (α' = σ_s.(sst)) as ->.
   {
     apply map_eq. intros l'.
@@ -1300,24 +1379,24 @@ Proof.
   by destruct σ_s.
 Qed.
 
-Lemma target_protected_copy v_t T l t Ψ c M  :
+(* should work for any tag_kind [tk] *)
+Lemma target_copy_protected v_t T l t tk Ψ c M  :
   length v_t = tsize T →
   (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
   c @@ M -∗
-  t $$ tk_unq -∗
-  l ↦t∗[unq]{t} v_t -∗
-  (l ↦t∗[unq]{t} v_t -∗ c @@ M -∗ target_red #v_t Ψ)%E -∗
+  t $$ tk -∗
+  l ↦t∗[tk]{t} v_t -∗
+  (l ↦t∗[tk]{t} v_t -∗ c @@ M -∗ t $$ tk -∗ target_red #v_t Ψ)%E -∗
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
 Admitted.
 
-Lemma source_protected_copy v_s T l t Ψ c M π :
+(* doesn't need protectors due to source UB *)
+Lemma source_copy_any v_s T l t tk Ψ π :
   length v_s = tsize T →
-  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
-  c @@ M -∗
-  t $$ tk_unq -∗
-  l ↦s∗[unq]{t} v_s -∗
-  (l ↦s∗[unq]{t} v_s -∗ c @@ M -∗ source_red #v_s π Ψ)%E -∗
+  t $$ tk -∗
+  l ↦s∗[tk]{t} v_s -∗
+  (l ↦s∗[tk]{t} v_s -∗ t $$ tk -∗ source_red #v_s π Ψ)%E -∗
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
 Admitted.
@@ -1327,75 +1406,146 @@ Lemma sim_write_public Φ π l_t bor_t T_t l_s bor_s T_s v_t' v_s' :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
   value_rel v_t' v_s' -∗
   (#[☠] ⪯{π, Ω} #[☠] [{ Φ }]) -∗
-  Write (PlaceR l_t bor_t T_t) v_t' ⪯{π, Ω} Write (PlaceR l_s bor_s T_s) v_s' [{ Φ }].
+  Write (Place l_t bor_t T_t) v_t' ⪯{π, Ω} Write (Place l_s bor_s T_s) v_s' [{ Φ }].
 Proof.
 Admitted.
 
-Lemma target_local_write v_t v_t' T l t Ψ :
+(* note: this is a new lemma. we do not care about relating the values - we only care for the source expression requiring that [t] is still on top!
+  TODO: can we make that more general/nicer?
+*)
+Lemma sim_write_unique_unprotected π l_t l_s t T v_t v_s v_t' v_s' Φ :
+  t $$ tk_unq -∗
+  l_t ↦t∗[unq]{t} v_t -∗
+  l_s ↦s∗[unq]{t} v_s -∗
+  (t $$ tk_unq -∗ l_t ↦t∗[unq]{t} v_t' -∗ l_s ↦s∗[unq]{t} v_s' -∗ #[☠] ⪯{π, Ω} #[☠] [{ Φ }]) -∗
+  Write (Place l_t (Tagged t) T) #v_t' ⪯{π, Ω} Write (Place l_s (Tagged t) T) #v_s' [{ Φ }].
+Proof.
+Admitted.
+
+Lemma target_write_local v_t v_t' T l t Ψ :
   length v_t = tsize T →
   length v_t' = tsize T →
   t $$ tk_local -∗
-  l ↦t∗[local]{t} v_t -∗
-  (l ↦t∗[local]{t} v_t' -∗ target_red #[☠] Ψ)%E -∗
-  target_red (Write (Place l (Tagged t) T) #v_t) Ψ.
+  l ↦t∗[tk_local]{t} v_t -∗
+  (l ↦t∗[tk_local]{t} v_t' -∗ t $$ tk_local -∗ target_red #[☠] Ψ)%E -∗
+  target_red (Write (Place l (Tagged t) T) #v_t') Ψ.
 Proof.
 Admitted.
 
-Lemma source_local_write v_s v_s' T l t Ψ π :
+Lemma source_write_local v_s v_s' T l t Ψ π :
   length v_s = tsize T →
   length v_s' = tsize T →
   t $$ tk_local -∗
-  l ↦s∗[local]{t} v_s -∗
-  (l ↦s∗[local]{t} v_s' -∗ source_red #[☠] π Ψ)%E -∗
-  source_red (Write (Place l (Tagged t) T) #v_s) π Ψ.
+  l ↦s∗[tk_local]{t} v_s -∗
+  (l ↦s∗[tk_local]{t} v_s' -∗ t $$ tk_local -∗ source_red #[☠] π Ψ)%E -∗
+  source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
 Admitted.
 
-Lemma target_protected_write v_t v_t' T l t c M Ψ :
+Lemma target_write_protected v_t v_t' T l t c M Ψ :
   length v_t = tsize T →
   length v_t' = tsize T →
   (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
   c @@ M -∗
   t $$ tk_unq -∗
-  l ↦t∗[unq]{t} v_t -∗
-  (l ↦t∗[unq]{t} v_t' -∗ c @@ M -∗ target_red #[☠] Ψ)%E -∗
-  target_red (Write (Place l (Tagged t) T) #v_t) Ψ.
+  l ↦t∗[tk_unq]{t} v_t -∗
+  (l ↦t∗[tk_unq]{t} v_t' -∗ c @@ M -∗ t $$ tk_unq -∗ target_red #[☠] Ψ)%E -∗
+  target_red (Write (Place l (Tagged t) T) #v_t') Ψ.
 Proof.
 Admitted.
 
-Lemma source_protected_write v_s v_s' T l t c M Ψ π :
+(* doesn't need protectors: if the item isn't there anymore, it will be UB *)
+Lemma source_write_unique v_s v_s' T l t Ψ π :
   length v_s = tsize T →
   length v_s' = tsize T →
-  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
-  c @@ M -∗
   t $$ tk_unq -∗
-  l ↦s∗[unq]{t} v_s -∗
-  (l ↦s∗[unq]{t} v_s' -∗ c @@ M -∗ source_red #[☠] π Ψ)%E -∗
-  source_red (Write (Place l (Tagged t) T) #v_s) π Ψ.
+  l ↦s∗[tk_unq]{t} v_s -∗
+  (l ↦s∗[tk_unq]{t} v_s' -∗ t $$ tk_unq -∗ source_red #[☠] π Ψ)%E -∗
+  source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
 Admitted.
 
-Lemma sim_retag_public l_t l_s ot os c kind T rkind π Φ : 
-  value_rel [ScPtr l_t ot] [ScPtr l_s os] -∗  
+Lemma sim_retag_public l_t l_s ot os c kind T rkind π Φ :
+  value_rel [ScPtr l_t ot] [ScPtr l_s os] -∗
   (∀ nt, value_rel [ScPtr l_t nt] [ScPtr l_s nt] -∗
     #[ScPtr l_t nt] ⪯{π, Ω} #[ScPtr l_s nt] [{ Φ }]) -∗
   Retag #[ScPtr l_t ot] #[ScCallId c] kind T rkind ⪯{π, Ω} Retag #[ScPtr l_s os] #[ScCallId c] kind T rkind [{ Φ }].
-Proof. 
+Proof.
 Admitted.
 
-(* TODO: more interesting retag lemmas for fnentry and default that give us the right ghost state *)
+(* TODO: for Mutable, this is currently not particularly useful, since reads are UB when the tag is not there.
+  Instead, need a mechanism for "deferred observations" or such
+*)
+Lemma sim_retag_default mut T l_t l_s c ot π Φ :
+  (0 < tsize T)%nat → (* TODO: check if we need that condition *)
+  let pk : pointer_kind := RefPtr mut in
+  let pm := match mut with Mutable => Unique | Immutable => SharedReadOnly end in
+  (if mut is Immutable then is_freeze T else True) →
+  sc_rel (ScPtr l_t ot) (ScPtr l_s ot) -∗
+  (∀ nt v_t v_s,
+    let tk := match mut with Mutable => tk_unq | Immutable => tk_pub end in
+    ⌜length v_t = tsize T⌝ -∗ ⌜length v_s = tsize T⌝ -∗
+    value_rel v_t v_s -∗  (* as the pointers were public before *)
+    nt $$ tk -∗
+    l_t ↦t∗[tk]{nt} v_t -∗
+    l_s ↦s∗[tk]{nt} v_s -∗
+    (if mut is Immutable then sc_rel (ScPtr l_t (Tagged nt)) (ScPtr l_s (Tagged nt)) else True) -∗
+    #[ScPtr l_t (Tagged nt)] ⪯{π, Ω} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
+  Retag #[ScPtr l_t ot] #[ScCallId c] pk T Default ⪯{π, Ω} Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default [{ Φ }].
+Proof.
+Admitted.
 
-(*Lemma sim_retag_default_mutref l_t l_s ot Φ c pkind T π : *)
-  (*(∀ nt, nt @@ tk_local -∗ #[ScPtr l_t nt] ⪯{π, Ω} #[ScPtr l_s nt] [{ Φ }]) -∗*)
-  (*Retag #[ScPtr l_t ot] #[ScCallId c] (RefPtr Mutable) T Default ⪯{π, Ω} Retag #[ScPtr l_s ot] #[ScCallId c] (RefPtr Mutable) T Default [{ Φ }].*)
-(*Proof. *)
+Fixpoint seq_loc_set (l : loc) (n : nat) : gset loc :=
+  match n with
+  | O => ∅
+  | S n => {[ l +ₗ n ]} ∪ seq_loc_set l n
+  end.
 
-(*Abort.*)
+Lemma sim_retag_fnentry mut T l_t l_s c M ot π Φ :
+  let pk : pointer_kind := RefPtr mut in
+  let pm := match mut with Mutable => Unique | Immutable => SharedReadOnly end in
+  (if mut is Immutable then is_freeze T else True) →
+  sc_rel (ScPtr l_t ot) (ScPtr l_s ot) -∗
+  c @@ M -∗
+  (∀ nt v_t v_s,
+    let tk := match mut with Mutable => tk_unq | Immutable => tk_pub end in
+    let L := seq_loc_set l_t (tsize T) in   (* uses that l_t = l_s *)
+    ⌜length v_t = tsize T⌝ -∗ ⌜length v_s = tsize T⌝ -∗
+    value_rel v_t v_s -∗  (*as the pointers were public before *)
+    c @@ <[nt := L]> M -∗
+    nt $$ tk -∗
+    l_t ↦t∗[tk]{nt} v_t -∗
+    l_s ↦s∗[tk]{nt} v_s -∗
+    (if mut is Immutable then sc_rel (ScPtr l_t (Tagged nt)) (ScPtr l_s (Tagged nt)) else True) -∗
+    #[ScPtr l_t (Tagged nt)] ⪯{π, Ω} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
+  Retag #[ScPtr l_t ot] #[ScCallId c] pk T FnEntry ⪯{π, Ω} Retag #[ScPtr l_s ot] #[ScCallId c] pk T FnEntry [{ Φ }].
+Proof.
+Admitted.
 
+Lemma sim_initcall π Φ :
+  (∀ c, c @@ ∅ -∗
+    #[ScCallId c] ⪯{π, Ω} #[ScCallId c] [{ Φ }]) -∗
+  InitCall ⪯{π, Ω} InitCall [{ Φ }].
+Proof.
+Admitted.
 
+(* TODO: should we require that M = ∅ here and provide lemmas that allow to empty this?
+  That is what the original formalization does, but I don't think we will need it..
+*)
+Lemma sim_endcall c M π Φ :
+  c @@ M -∗
+  #[☠] ⪯{π, Ω} #[☠] [{ Φ }] -∗
+  EndCall #[ScCallId c] ⪯{π, Ω} EndCall #[ScCallId c] [{ Φ }].
+Proof.
+Admitted.
 
+Lemma sim_call fn r_t r_s π Φ :
+  Ω r_t r_s -∗
+  (∀ r_t r_s : result, Ω r_t r_s -∗ Φ (of_result r_t) (of_result r_s)) -∗
+  Call #[ScFnPtr fn] r_t ⪯{π, Ω} Call #[ScFnPtr fn] r_s [{ Φ }].
+Proof.
+  iIntros "Hval Hsim". iApply (sim_lift_call _ _ _ fn r_t r_s with "Hval"). by iApply "Hsim".
+Qed.
 
-
-
-
+End lifting.
 

@@ -61,3 +61,5 @@ Fixpoint active_SRO (stk: stack) : gset ptr_id :=
 
 Definition init_state := (mkState ∅ ∅ {[O]} O 1).
 
+
+Inductive tag_kind := tk_pub  | tk_unq | tk_local.

@@ -7,21 +7,9 @@ From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Export class_instances tactics notation.
+From simuliris.stacked_borrows Require Export class_instances tactics notation heap.
 From iris.prelude Require Import options.
 
-Class sborG (Σ: gFunctors) := SBorG {
-  sborG_gen_progG :> gen_sim_progG string ectx ectx Σ;
-}.
-
-Global Program Instance sborG_simuliris `{!sborG Σ} : simulirisG (iPropI Σ) bor_lang := {
-  state_interp P_t σ_t P_s σ_s _ :=
-    (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
-     gen_prog_interp (hG := gen_prog_inG_source) P_s
-    )%I;
-}.
-Next Obligation.
-Admitted.
 
 
 (** Program assertions *)
