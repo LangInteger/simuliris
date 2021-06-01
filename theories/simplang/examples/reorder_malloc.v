@@ -1,6 +1,4 @@
 From simuliris.simplang Require Import lang notation tactics class_instances heap_bij heapbij_refl.
-From iris Require Import bi.bi.
-Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 
@@ -65,15 +63,4 @@ Section reorder.
     iApply sim_call; [done | done | simpl; by eauto ].
   Qed.
 
-  Definition alloc2_use :=
-    (λ: "a", let: "l1" := Fst "a" in
-             let: "l2" := Snd "a" in
-             let: "v1" := ! "l1" in
-             let: "v2" := ! "l2" in
-             ("v1", "v2")
-    )%E.
-
-  Lemma use_related π :
-    ⊢ sim_ectx val_rel π alloc2_use alloc2_use val_rel.
-  Proof. iApply heap_bij_ectx_refl. done. Qed.
 End reorder.

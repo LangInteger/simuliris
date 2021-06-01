@@ -105,12 +105,16 @@ Fixpoint free_vars (e : expr) : gset string :=
   | Val v => ∅
   | Var x => {[x]}
   | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
+  | Match e0 x1 e1 x2 e2 =>
+    free_vars e0 ∪
+    (free_vars e1 ∖ binder_to_ctx x1) ∪
+    (free_vars e2 ∖ binder_to_ctx x2)
   | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
   | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 | FAA e1 e2 =>
      free_vars e1 ∪ free_vars e2
-  | If e0 e1 e2 | Match e0 _ e1 _ e2 | CmpXchg e0 e1 e2 =>
+  | If e0 e1 e2 | CmpXchg e0 e1 e2 =>
      free_vars e0 ∪ free_vars e1 ∪ free_vars e2
   end.
 

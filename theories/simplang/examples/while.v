@@ -1,9 +1,7 @@
 From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
-From iris Require Import bi.bi.
-Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import heapbij_refl.
+From simuliris.simplang Require Import open_expr_rel.
 
 Section fix_bi.
   Context `{sbijG Σ}.
@@ -70,12 +68,6 @@ Section fix_bi.
   Definition diverging_loop : expr :=
     while: #true do #() od.
 
-  Lemma diverge_sim π :
-    ⊢ diverging_loop ⪯{π, val_rel} diverging_loop {{ val_rel }}.
-  Proof.
-    iApply heap_bij_refl; done.
-  Qed.
-
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
     while: !"cont" do
@@ -83,12 +75,6 @@ Section fix_bi.
     od.
 
   Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
-
-  Lemma input_sim π:
-    ⊢ input_loop ⪯{π, val_rel} input_loop {{ val_rel }}.
-  Proof.
-    iApply heap_bij_refl; done.
-  Qed.
 
   Definition input_rec : ectx :=
     λ: "cont",
