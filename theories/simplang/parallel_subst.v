@@ -129,10 +129,13 @@ Lemma subst_map_free_vars (xs1 xs2 : gmap string val) (e : expr) :
   subst_map xs1 e = subst_map xs2 e.
 Proof.
   revert xs1 xs2; induction e=>/= xs1 xs2 Heq;
-  try solve [
+  solve [
+    (* trivial cases *)
     done
-  | rewrite Heq; [done|set_solver]
-  | f_equal;
+  | (* variable case *)
+    rewrite Heq; [done|set_solver]
+  | (* recursive cases *)
+    f_equal;
     repeat lazymatch goal with x : binder |- _ => destruct x end;
     intuition eauto using binder_delete_eq with set_solver
   ].
