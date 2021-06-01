@@ -128,5 +128,5 @@ Ltac expr_rel :=
   match goal with
   | |- proofmode.environments.envs_entails _ (expr_rel ?e_t ?e_s) =>
     let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
-    expr_rel_subst_l free ltac:(fun _ => iApply expr_rel_closed; [compute_done..|simpl])
+    expr_rel_subst_l free ltac:(fun _ => simpl; iApply expr_rel_closed; [compute_done..|])
   end.
