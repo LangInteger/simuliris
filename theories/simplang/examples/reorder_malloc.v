@@ -26,11 +26,8 @@ Section reorder.
   Lemma alloc2_reorder :
     ⊢ expr_rel alloc2_and_cont alloc2_and_cont'.
   Proof.
-    iApply (expr_rel_subst "a").
-    iIntros (v_t v_s) "Hrel /=".
-    iApply expr_rel_closed; [compute_done..|]. iIntros (π).
-
-    sim_pures.
+    expr_rel.
+    iIntros "%v_t %v_s Hrel %π".
 
     source_bind (Fst v_s).
     iApply source_red_irred_unless; first done.

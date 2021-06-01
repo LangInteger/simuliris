@@ -101,3 +101,32 @@ Section open_rel.
   Qed.
 
 End open_rel.
+
+(** Applies expr_rel_subst for each element of [l],
+    introduces the new terms under some fresh names,
+    calls [cont] on the remaining goal,
+    then reverts all the fresh names. *)
+Local Ltac expr_rel_subst_l l cont :=
+  match l with
+  | nil => cont ()
+  | ?x :: ?l =>
+    iApply (expr_rel_subst x);
+    let v_t := fresh "v_t" in
+    let v_s := fresh "v_s" in
+    let H := iFresh in
+    iIntros (v_t v_s) H;
+    expr_rel_subst_l l ltac:(fun _ =>
+      cont ();
+      iRevert (v_t v_s) H
+    )
+  end.
+
+(** Turns an [expr_rel] goal into a [sim] goal by applying a
+    suitable substitution. *)
+Ltac expr_rel :=
+  iStartProof;
+  match goal with
+  | |- proofmode.environments.envs_entails _ (expr_rel ?e_t ?e_s) =>
+    let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
+    expr_rel_subst_l free ltac:(fun _ => iApply expr_rel_closed; [compute_done..|simpl])
+  end.
