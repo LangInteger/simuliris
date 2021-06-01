@@ -348,6 +348,17 @@ Section refl.
     by rewrite !fmap_empty !subst_map_empty.
   Qed.
 
+  Lemma expr_rel_closed e_t e_s :
+    free_vars e_t = ∅ →
+    free_vars e_s = ∅ →
+    (∀ π, e_t ⪯{π, val_rel} e_s {{ val_rel }}) -∗
+    expr_rel e_t e_s.
+  Proof.
+    intros Hclosed_t Hclosed_s.
+    iIntros "Hsim" (π xs) "Hxs".
+    rewrite !subst_map_closed //.
+  Qed.
+
   Lemma expr_wf_sound e : expr_wf e → ⊢ expr_rel e e.
   Proof.
     intros Hwf. iInduction e as [ ] "IH" forall (Hwf); iIntros (? xs) "#Hs"; simpl.
@@ -378,9 +389,7 @@ Section refl.
   Theorem heap_bij_refl e π : expr_wf e → ⊢ e ⪯{π, val_rel} e {{ val_rel }}.
   Proof.
     intros Hwf. iPoseProof (expr_wf_sound _ Hwf) as "Hwf".
-    iSpecialize ("Hwf" $! π ∅). setoid_rewrite fmap_empty.
-    rewrite !subst_map_empty. iApply "Hwf". rewrite /subst_map_rel.
-    by rewrite -map_ForallI_empty.
+    by iApply expr_rel_empty.
   Qed.
 
   Definition ectxi_wf (Ki : ectx_item) : Prop :=

@@ -1,5 +1,5 @@
-From simuliris.simplang Require Import lang.
 From stdpp Require Export gmap.
+From simuliris.simplang Require Import lang.
 
 (** * Parallel substitution for SimpLang *)
 (** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
@@ -94,4 +94,38 @@ Lemma subst'_subst_map b (v : val) map e :
 Proof.
   destruct b; first done.
   exact: subst_subst_map.
+Qed.
+
+(** "Free variables" and their interaction with subst_map *)
+Local Definition binder_to_ctx (x : binder) : gset string :=
+  if x is BNamed s then {[s]} else ∅.
+
+Fixpoint free_vars (e : expr) : gset string :=
+  match e with
+  | Val v => ∅
+  | Var x => {[x]}
+  | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
+  | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
+     free_vars e
+  | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
+  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 | FAA e1 e2 =>
+     free_vars e1 ∪ free_vars e2
+  | If e0 e1 e2 | Match e0 _ e1 _ e2 | CmpXchg e0 e1 e2 =>
+     free_vars e0 ∪ free_vars e1 ∪ free_vars e2
+  end.
+
+Lemma subst_map_free_vars (xs1 xs2 : gmap string val) (e : expr) :
+  (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
+  subst_map xs1 e = subst_map xs2 e.
+Proof.
+Admitted.
+
+Lemma subst_map_closed xs e :
+  free_vars e = ∅ →
+  subst_map xs e = e.
+Proof.
+  intros Hclosed.
+  trans (subst_map ∅ e).
+  - apply subst_map_free_vars. rewrite Hclosed. done.
+  - apply subst_map_empty.
 Qed.
