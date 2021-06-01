@@ -85,9 +85,11 @@ Section refl.
   Lemma subst_map_rel_empty : ⊢ subst_map_rel ∅.
   Proof. apply map_ForallI_empty. Qed.
 
-  Definition sem_wf e_t e_s : iProp Σ :=
+  (** The "expression relation" of our logical relation. *)
+  Definition expr_rel e_t e_s : iProp Σ :=
     ∀ π (map : gmap string (val * val)),
-      subst_map_rel map -∗ subst_map (fst <$> map) e_t ⪯{π, val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
+      subst_map_rel map -∗
+      subst_map (fst <$> map) e_t ⪯{π, val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
 
   Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
   Proof.
@@ -128,7 +130,7 @@ Section refl.
     sim_bind ctx_t ctx_s;
     iApply (sim_wand with Hp).
 
-  Lemma sem_wf_var x : ⊢ sem_wf (Var x) (Var x).
+  Lemma expr_rel_var x : ⊢ expr_rel (Var x) (Var x).
   Proof.
     iIntros (? xs) "#Hs"; simpl.
     rewrite !lookup_fmap. destruct (xs !! x) as [[v_t v_s] | ] eqn:Heq; simpl.
@@ -136,8 +138,8 @@ Section refl.
     source_stuck_prim.
   Qed.
 
-  Lemma sem_wf_let x e1_t e1_s e2_t e2_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (Let x e1_t e2_t) (Let x e1_s e2_s).
+  Lemma expr_rel_let x e1_t e1_s e2_t e2_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Let x e1_t e2_t) (Let x e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 Hs)".
@@ -147,8 +149,8 @@ Section refl.
     iApply "IH2". by iApply (subst_map_rel_insert with "Hv").
   Qed.
 
-  Lemma sem_wf_call e1_t e1_s e2_t e2_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (Call e1_t e2_t) (Call e1_s e2_s).
+  Lemma expr_rel_call e1_t e1_s e2_t e2_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 Hs)".
@@ -159,16 +161,16 @@ Section refl.
     iApply sim_call; done.
   Qed.
 
-  Lemma sem_wf_unop e_t e_s o :
-    sem_wf e_t e_s -∗ sem_wf (UnOp o e_t) (UnOp o e_s).
+  Lemma expr_rel_unop e_t e_s o :
+    expr_rel e_t e_s -∗ expr_rel (UnOp o e_t) (UnOp o e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH Hs)".
     iIntros (v_t v_s) "#Hv". destruct o; sim_pures; discr_source; val_discr_source "Hv"; by sim_pures; sim_val.
   Qed.
 
-  Lemma sem_wf_binop e1_t e1_s e2_t e2_s o :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
+  Lemma expr_rel_binop e1_t e1_s e2_t e2_s o :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 Hs)".
@@ -191,8 +193,8 @@ Section refl.
       by iApply heap_bij_loc_shift.
   Qed.
 
-  Lemma sem_wf_if e1_t e1_s e2_t e2_s e3_t e3_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf e3_t e3_s -∗ sem_wf (If e1_t e2_t e3_t) (If e1_s e2_s e3_s).
+  Lemma expr_rel_if e1_t e1_s e2_t e2_s e3_t e3_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel e3_t e3_s -∗ expr_rel (If e1_t e2_t e3_t) (If e1_s e2_s e3_s).
   Proof.
     iIntros "IH1 IH2 IH3" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 Hs)".
@@ -202,8 +204,8 @@ Section refl.
     + iApply ("IH3" with "Hs").
   Qed.
 
-  Lemma sem_wf_while e1_t e1_s e2_t e2_s :
-    (□ sem_wf e1_t e1_s) -∗ (□ sem_wf e2_t e2_s) -∗ sem_wf (While e1_t e2_t) (While e1_s e2_s).
+  Lemma expr_rel_while e1_t e1_s e2_t e2_s :
+    (□ expr_rel e1_t e1_s) -∗ (□ expr_rel e2_t e2_s) -∗ expr_rel (While e1_t e2_t) (While e1_s e2_s).
   Proof.
     iIntros "#IH1 #IH2" (? xs) "#Hs"; simpl.
     iApply (sim_while_while _ _ _ _ _ _ (True)%I with "[//]").
@@ -216,8 +218,8 @@ Section refl.
     + iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
 
-  Lemma sem_wf_pair e1_t e1_s e2_t e2_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (Pair e1_t e2_t) (Pair e1_s e2_s).
+  Lemma expr_rel_pair e1_t e1_s e2_t e2_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Pair e1_t e2_t) (Pair e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 Hs)".
@@ -227,16 +229,16 @@ Section refl.
     sim_pures; sim_val. iModIntro; iSplit; eauto.
   Qed.
 
-  Lemma sem_wf_fst e_t e_s :
-    sem_wf e_t e_s -∗ sem_wf (Fst e_t) (Fst e_s).
+  Lemma expr_rel_fst e_t e_s :
+    expr_rel e_t e_s -∗ expr_rel (Fst e_t) (Fst e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH Hs)".
     iIntros (v_t v_s) "Hv".
     discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
   Qed.
-  Lemma sem_wf_snd e_t e_s :
-    sem_wf e_t e_s -∗ sem_wf (Snd e_t) (Snd e_s).
+  Lemma expr_rel_snd e_t e_s :
+    expr_rel e_t e_s -∗ expr_rel (Snd e_t) (Snd e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH Hs)".
@@ -244,23 +246,23 @@ Section refl.
     discr_source. iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
   Qed.
 
-  Lemma sem_wf_injl e_t e_s :
-    sem_wf e_t e_s -∗ sem_wf (InjL e_t) (InjL e_s).
+  Lemma expr_rel_injl e_t e_s :
+    expr_rel e_t e_s -∗ expr_rel (InjL e_t) (InjL e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH Hs)".
     iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
   Qed.
-  Lemma sem_wf_injr e_t e_s :
-    sem_wf e_t e_s -∗ sem_wf (InjR e_t) (InjR e_s).
+  Lemma expr_rel_injr e_t e_s :
+    expr_rel e_t e_s -∗ expr_rel (InjR e_t) (InjR e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH Hs)".
     iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
   Qed.
 
-  Lemma sem_wf_match e_t e_s e1_t e1_s e2_t e2_s x1 x2 :
-    sem_wf e_t e_s -∗ sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (Match e_t x1 e1_t x2 e2_t) (Match e_s x1 e1_s x2 e2_s).
+  Lemma expr_rel_match e_t e_s e1_t e1_s e2_t e2_s x1 x2 :
+    expr_rel e_t e_s -∗ expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Match e_t x1 e1_t x2 e2_t) (Match e_s x1 e1_s x2 e2_s).
   Proof.
     iIntros "IH IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s)  "(IH Hs)".
@@ -278,16 +280,16 @@ Section refl.
       iApply "IH2". by iApply subst_map_rel_insert.
   Qed.
 
-  Lemma sem_wf_fork e_t e_s :
-    sem_wf e_t e_s -∗ sem_wf (Fork e_t) (Fork e_s).
+  Lemma expr_rel_fork e_t e_s :
+    expr_rel e_t e_s -∗ expr_rel (Fork e_t) (Fork e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     iApply sim_fork; first by sim_pures; sim_val. iIntros (?). sim_pures.
     iApply (sim_wand with "(IH Hs)"). eauto.
   Qed.
 
-  Lemma sem_wf_allocN e1_t e1_s e2_t e2_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (AllocN e1_t e2_t) (AllocN e1_s e2_s).
+  Lemma expr_rel_allocN e1_t e1_s e2_t e2_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (AllocN e1_t e2_t) (AllocN e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 Hs)". iIntros (v_t v_s) "Hv".
@@ -304,8 +306,8 @@ Section refl.
     iIntros "Hv". sim_pures. sim_val. done.
   Qed.
 
-  Lemma sem_wf_freeN e1_t e1_s e2_t e2_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (FreeN e1_t e2_t) (FreeN e1_s e2_s).
+  Lemma expr_rel_freeN e1_t e1_s e2_t e2_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (FreeN e1_t e2_t) (FreeN e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 Hs)". iIntros (v_t v_s) "Hv".
@@ -315,8 +317,8 @@ Section refl.
     by sim_free; sim_val.
   Qed.
 
-  Lemma sem_wf_load o e_t e_s :
-    sem_wf e_t e_s -∗ sem_wf (Load o e_t) (Load o e_s).
+  Lemma expr_rel_load o e_t e_s :
+    expr_rel e_t e_s -∗ expr_rel (Load o e_t) (Load o e_s).
   Proof.
     iIntros "IH" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH Hs)".
@@ -324,8 +326,8 @@ Section refl.
     by sim_load v_t v_s as "Hv"; sim_val.
   Qed.
 
-  Lemma sem_wf_store o e1_t e1_s e2_t e2_s :
-    sem_wf e1_t e1_s -∗ sem_wf e2_t e2_s -∗ sem_wf (Store o e1_t e2_t) (Store o e1_s e2_s).
+  Lemma expr_rel_store o e1_t e1_s e2_t e2_s :
+    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Store o e1_t e2_t) (Store o e1_s e2_s).
   Proof.
     iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 Hs)".
@@ -336,39 +338,39 @@ Section refl.
     by sim_store; [done | sim_val].
   Qed.
 
-  Lemma sem_wf_val v_t v_s :
-    val_rel v_t v_s -∗ sem_wf (Val v_t) (Val v_s).
+  Lemma expr_rel_val v_t v_s :
+    val_rel v_t v_s -∗ expr_rel (Val v_t) (Val v_s).
   Proof. iIntros "Hv" (? xs) "#Hs"; simpl. by sim_val. Qed.
 
-  Lemma sem_wf_empty e_t e_s π : sem_wf e_t e_s -∗ e_t ⪯{π, val_rel} e_s {{ val_rel }}.
+  Lemma expr_rel_empty e_t e_s π : expr_rel e_t e_s -∗ e_t ⪯{π, val_rel} e_s {{ val_rel }}.
   Proof.
     iIntros "Hwf". iSpecialize ("Hwf" $! π ∅ subst_map_rel_empty).
     by rewrite !fmap_empty !subst_map_empty.
   Qed.
 
-  Lemma expr_wf_sound e : expr_wf e → ⊢ sem_wf e e.
+  Lemma expr_wf_sound e : expr_wf e → ⊢ expr_rel e e.
   Proof.
     intros Hwf. iInduction e as [ ] "IH" forall (Hwf); iIntros (? xs) "#Hs"; simpl.
-    - (* Val *) iApply sem_wf_val; [by iApply val_wf_sound | done].
-    - (* Var *) by iApply sem_wf_var.
-    - (* Let *) destruct Hwf as [Hwf1 Hwf2]. by iApply (sem_wf_let with "(IH [//]) (IH1 [//])").
-    - (* Call *) destruct Hwf as [Hwf1 Hwf2]. by iApply (sem_wf_call with "(IH [//]) (IH1 [//])").
-    - (* UnOp *) by iApply (sem_wf_unop with "(IH [//])").
-    - (* BinOp *) destruct Hwf as [Hwf1 Hwf2]. by iApply (sem_wf_binop with "(IH [//]) (IH1 [//])").
-    - (* If *) destruct Hwf as (Hwf1 & Hwf2 & Hwf3). by iApply (sem_wf_if with "(IH [//]) (IH1 [//]) (IH2 [//])").
-    - (* While *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_while with "(IH [//]) (IH1 [//])").
-    - (* Pairs *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_pair with "(IH [//]) (IH1 [//])").
-    - (* Fst *) by iApply (sem_wf_fst with "(IH [//])").
-    - (* Snd *) by iApply (sem_wf_snd with "(IH [//])").
-    - (* InjL *) by iApply (sem_wf_injl with "(IH [//])").
-    - (* InjR *) by iApply (sem_wf_injr with "(IH [//])").
+    - (* Val *) iApply expr_rel_val; [by iApply val_wf_sound | done].
+    - (* Var *) by iApply expr_rel_var.
+    - (* Let *) destruct Hwf as [Hwf1 Hwf2]. by iApply (expr_rel_let with "(IH [//]) (IH1 [//])").
+    - (* Call *) destruct Hwf as [Hwf1 Hwf2]. by iApply (expr_rel_call with "(IH [//]) (IH1 [//])").
+    - (* UnOp *) by iApply (expr_rel_unop with "(IH [//])").
+    - (* BinOp *) destruct Hwf as [Hwf1 Hwf2]. by iApply (expr_rel_binop with "(IH [//]) (IH1 [//])").
+    - (* If *) destruct Hwf as (Hwf1 & Hwf2 & Hwf3). by iApply (expr_rel_if with "(IH [//]) (IH1 [//]) (IH2 [//])").
+    - (* While *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_while with "(IH [//]) (IH1 [//])").
+    - (* Pairs *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_pair with "(IH [//]) (IH1 [//])").
+    - (* Fst *) by iApply (expr_rel_fst with "(IH [//])").
+    - (* Snd *) by iApply (expr_rel_snd with "(IH [//])").
+    - (* InjL *) by iApply (expr_rel_injl with "(IH [//])").
+    - (* InjR *) by iApply (expr_rel_injr with "(IH [//])").
     - (* Match *) destruct Hwf as (Hwf1 & Hwf2 & Hwf3).
-      by iApply (sem_wf_match with "(IH [//]) (IH1 [//]) (IH2 [//])").
-    - (* Fork *) by iApply (sem_wf_fork with "(IH [//])").
-    - (* AllocN *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_allocN with "(IH [//]) (IH1 [//])").
-    - (* Free *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_freeN with "(IH [//]) (IH1 [//])").
-    - (* Load *) by iApply (sem_wf_load with "(IH [//])").
-    - (* Store *) destruct Hwf as (Hwf1 & Hwf2). by iApply (sem_wf_store with "(IH [//]) (IH1 [//])").
+      by iApply (expr_rel_match with "(IH [//]) (IH1 [//]) (IH2 [//])").
+    - (* Fork *) by iApply (expr_rel_fork with "(IH [//])").
+    - (* AllocN *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_allocN with "(IH [//]) (IH1 [//])").
+    - (* Free *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_freeN with "(IH [//]) (IH1 [//])").
+    - (* Load *) by iApply (expr_rel_load with "(IH [//])").
+    - (* Store *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_store with "(IH [//]) (IH1 [//])").
     - done.
     - done.
   Qed.
@@ -421,28 +423,28 @@ Section refl.
     { iIntros (v_t v_s) "Hv". sim_pures. by sim_val. }
     destruct Hwf as [Hiwf Kwf].
     iSpecialize ("IH" with "[//]").
-    iIntros (v_t v_s) "#Hv". destruct Ki; sim_pures; iApply sim_bind; (iApply sim_wand; [ iApply sem_wf_empty | iApply "IH"]).
-    - iApply sem_wf_let; [by iApply sem_wf_val | by iApply expr_wf_sound].
-    - iApply sem_wf_call; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply sem_wf_call; [iApply expr_wf_sound; apply Hiwf | by iApply sem_wf_val ].
-    - iApply sem_wf_unop. by iApply sem_wf_val.
-    - iApply sem_wf_binop; [by iApply sem_wf_val | by iApply expr_wf_sound].
-    - iApply sem_wf_binop; [ by iApply expr_wf_sound | by iApply sem_wf_val].
-    - iApply sem_wf_if; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf..].
-    - iApply sem_wf_pair; iApply sem_wf_val; [done | by iApply val_wf_sound].
-    - iApply sem_wf_pair; [by iApply expr_wf_sound | by iApply sem_wf_val].
-    - iApply sem_wf_fst; by iApply sem_wf_val.
-    - iApply sem_wf_snd; by iApply sem_wf_val.
-    - iApply sem_wf_injl; by iApply sem_wf_val.
-    - iApply sem_wf_injr; by iApply sem_wf_val.
-    - iApply sem_wf_match; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf..].
-    - iApply sem_wf_allocN; [by iApply sem_wf_val | iApply sem_wf_val; by iApply val_wf_sound].
-    - iApply sem_wf_allocN; [iApply expr_wf_sound; apply Hiwf | by iApply sem_wf_val ].
-    - iApply sem_wf_freeN; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply sem_wf_freeN; [iApply expr_wf_sound; apply Hiwf | by iApply sem_wf_val ].
-    - iApply sem_wf_load; by iApply sem_wf_val.
-    - iApply sem_wf_store; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply sem_wf_store; [iApply expr_wf_sound; apply Hiwf | by iApply sem_wf_val ].
+    iIntros (v_t v_s) "#Hv". destruct Ki; sim_pures; iApply sim_bind; (iApply sim_wand; [ iApply expr_rel_empty | iApply "IH"]).
+    - iApply expr_rel_let; [by iApply expr_rel_val | by iApply expr_wf_sound].
+    - iApply expr_rel_call; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf].
+    - iApply expr_rel_call; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
+    - iApply expr_rel_unop. by iApply expr_rel_val.
+    - iApply expr_rel_binop; [by iApply expr_rel_val | by iApply expr_wf_sound].
+    - iApply expr_rel_binop; [ by iApply expr_wf_sound | by iApply expr_rel_val].
+    - iApply expr_rel_if; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf..].
+    - iApply expr_rel_pair; iApply expr_rel_val; [done | by iApply val_wf_sound].
+    - iApply expr_rel_pair; [by iApply expr_wf_sound | by iApply expr_rel_val].
+    - iApply expr_rel_fst; by iApply expr_rel_val.
+    - iApply expr_rel_snd; by iApply expr_rel_val.
+    - iApply expr_rel_injl; by iApply expr_rel_val.
+    - iApply expr_rel_injr; by iApply expr_rel_val.
+    - iApply expr_rel_match; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf..].
+    - iApply expr_rel_allocN; [by iApply expr_rel_val | iApply expr_rel_val; by iApply val_wf_sound].
+    - iApply expr_rel_allocN; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
+    - iApply expr_rel_freeN; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf].
+    - iApply expr_rel_freeN; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
+    - iApply expr_rel_load; by iApply expr_rel_val.
+    - iApply expr_rel_store; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf].
+    - iApply expr_rel_store; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
     - by destruct Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
