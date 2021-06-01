@@ -423,6 +423,8 @@ Section refl.
     iSpecialize ("IH" with "[//]").
     iIntros (v_t v_s) "#Hv". destruct Ki; sim_pures; iApply sim_bind; (iApply sim_wand; [ iApply sem_wf_empty | iApply "IH"]).
     - iApply sem_wf_let; [by iApply sem_wf_val | by iApply expr_wf_sound].
+    - iApply sem_wf_call; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf].
+    - iApply sem_wf_call; [iApply expr_wf_sound; apply Hiwf | by iApply sem_wf_val ].
     - iApply sem_wf_unop. by iApply sem_wf_val.
     - iApply sem_wf_binop; [by iApply sem_wf_val | by iApply expr_wf_sound].
     - iApply sem_wf_binop; [ by iApply expr_wf_sound | by iApply sem_wf_val].
@@ -446,8 +448,6 @@ Section refl.
     - by destruct Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
-    - iApply sem_wf_call; [by iApply sem_wf_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply sem_wf_call; [iApply expr_wf_sound; apply Hiwf | by iApply sem_wf_val ].
   Qed.
 
   (* TODO: do the same thing for a general notion of contexts *)

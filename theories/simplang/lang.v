@@ -416,10 +416,13 @@ Canonical Structure exprO := leibnizO expr.
 Inductive ectx_item :=
   (* we can evaluate the expression that x will be bound to *)
   | LetCtx (x : binder) (e2 : expr)
+  | CallLCtx (v2 : val)
+  | CallRCtx (e1 : expr)
   | UnOpCtx (op : un_op)
   | BinOpLCtx (op : bin_op) (v2 : val)
   | BinOpRCtx (op : bin_op) (e1 : expr)
   | IfCtx (e1 e2 : expr)
+  (* Deliberately nothing for While; that reduces *before* the condition reduces! *)
   | PairLCtx (v2 : val)
   | PairRCtx (e1 : expr)
   | FstCtx
@@ -438,9 +441,7 @@ Inductive ectx_item :=
   | CmpXchgMCtx (e0 : expr) (v2 : val)
   | CmpXchgRCtx (e0 : expr) (e1 : expr)
   | FaaLCtx (v2 : val)
-  | FaaRCtx (e1 : expr)
-  | CallLCtx (v2 : val)
-  | CallRCtx (e1 : expr).
+  | FaaRCtx (e1 : expr).
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
