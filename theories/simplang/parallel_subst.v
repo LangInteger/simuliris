@@ -154,3 +154,20 @@ Proof.
   - apply subst_map_free_vars. rewrite Hclosed. done.
   - apply subst_map_empty.
 Qed.
+
+Lemma subst_free_vars x v e :
+  x ∉ free_vars e →
+  subst x v e = e.
+Proof.
+  intros Hfree.
+  rewrite -(subst_map_empty (subst x v e)).
+  rewrite subst_map_subst.
+  rewrite (subst_map_free_vars _ ∅); first by apply subst_map_empty.
+  intros y ?. rewrite lookup_insert_ne //. set_solver.
+Qed.
+
+Lemma free_vars_subst x v e :
+  free_vars (subst x v e) = free_vars e ∖ {[x]}.
+Proof.
+  induction e=>/=; repeat case_decide; set_solver.
+Qed.

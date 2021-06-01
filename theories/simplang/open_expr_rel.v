@@ -75,24 +75,29 @@ Section open_rel.
 
   (** Prove [expr_rel] by introducing Coq variables for each free variable.
       TODO: generalize to more free variables. *)
-  Lemma expr_rel_open x e_t e_s :
-    free_vars e_t = {[x]} →
-    free_vars e_s = {[x]} →
-    (∀ π (v_t v_s : val), val_rel v_t v_s -∗
-      subst_map {[x:=v_t]} e_t ⪯{π, val_rel} subst_map {[x:=v_s]} e_s {{ val_rel }}) -∗
+  Lemma expr_rel_subst x e_t e_s :
+    (∀ (v_t v_s : val), val_rel v_t v_s -∗
+      expr_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
     expr_rel e_t e_s.
   Proof.
-    intros Hvar_t Hvar_s. iIntros "Hsim" (π xs Hdom) "Hxs".
+    iIntros "Hsim" (π xs Hdom) "#Hxs".
+    destruct (decide (x ∈ free_vars e_t ∪ free_vars e_s)) as [Hin|Hnotin]; last first.
+    { iSpecialize ("Hsim" $! #0 #0).
+      rewrite ->subst_free_vars by set_solver.
+      rewrite ->subst_free_vars by set_solver.
+      iApply "Hsim"; eauto. }
     assert (is_Some (xs !! x)) as [[v_t v_s] Hv].
     { apply elem_of_dom. set_solver. }
-    rewrite (subst_map_free_vars (fst <$> xs) {[x := v_t]}).
-    2:{ intros x' ?. replace x' with x by set_solver.
-        rewrite lookup_fmap Hv lookup_singleton //. }
-    rewrite (subst_map_free_vars (snd <$> xs) {[x := v_s]}).
-    2:{ intros x' ?. replace x' with x by set_solver.
-        rewrite lookup_fmap Hv lookup_singleton //. }
-    iApply "Hsim".
-    iApply ("Hxs" $! _ (_, _)). done.
+    iSpecialize ("Hsim" $! v_t v_s with "[]").
+    { iApply ("Hxs" $! _ (_, _)). done. }
+    iSpecialize ("Hsim" $! π xs with "[] Hxs").
+    { iPureIntro. rewrite !free_vars_subst. set_solver. }
+    rewrite !subst_map_subst.
+    rewrite insert_id.
+    2:{ rewrite lookup_fmap Hv //. }
+    rewrite insert_id.
+    2:{ rewrite lookup_fmap Hv //. }
+    done.
   Qed.
 
 End open_rel.
