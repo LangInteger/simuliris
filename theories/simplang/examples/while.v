@@ -1,9 +1,7 @@
 From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
-From iris Require Import bi.bi.
-Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import heapbij_refl.
+From simuliris.simplang Require Import open_expr_rel.
 
 Section fix_bi.
   Context `{sbijG Σ}.
@@ -103,12 +101,6 @@ Section fix_bi.
   Definition diverging_loop : expr :=
     while: #true do #() od.
 
-  Lemma diverge_sim π :
-    ⊢ diverging_loop ⪯{π, val_rel} diverging_loop {{ val_rel }}.
-  Proof.
-    iApply heap_bij_refl; done.
-  Qed.
-
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
     while: !"cont" do
@@ -116,12 +108,6 @@ Section fix_bi.
     od.
 
   Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
-
-  Lemma input_sim π:
-    ⊢ input_loop ⪯{π, val_rel} input_loop {{ val_rel }}.
-  Proof.
-    iApply heap_bij_refl; done.
-  Qed.
 
   Definition input_rec : ectx :=
     λ: "cont",
@@ -131,11 +117,12 @@ Section fix_bi.
       else #().
 
   (* TODO: avoid equalities? *)
-  Lemma loop_rec π:
+  Lemma loop_rec :
     "rec" @s input_rec -∗
-    input_loop ⪯{π, val_rel} Call ##"rec" #true {{ val_rel }}.
+    expr_rel input_loop (Call ##"rec" #true).
   Proof.
-    iIntros "#Hs". rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
+    iIntros "#Hs". expr_rel. iIntros (π).
+    rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
     iApply (sim_while_rec _ _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
@@ -150,11 +137,12 @@ Section fix_bi.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
 
-  Lemma loop_rec' π:
+  Lemma loop_rec' :
     "rec" @t input_rec -∗
-     Call ##"rec" #true ⪯{π, val_rel} input_loop {{ val_rel }}.
+    expr_rel (Call ##"rec" #true) input_loop.
   Proof.
-    iIntros "#Hs". rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
+    iIntros "#Hs". expr_rel. iIntros (π).
+    rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
     iApply (sim_rec_while _ _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.

@@ -1,6 +1,4 @@
-From simuliris.simplang Require Import lang notation tactics class_instances heap_bij heapbij_refl.
-From iris Require Import bi.bi.
-Import bi.
+From simuliris.simplang Require Import lang notation tactics class_instances heap_bij open_expr_rel.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 
@@ -9,71 +7,41 @@ From simuliris.simulation Require Import slsls lifting.
 Section reorder.
   Context `{sbijG Σ}.
 
-  Definition alloc2_and_cont :=
-    (λ: "a", let: "v1" := Fst "a" in
-             let: "v2" := Fst (Snd "a") in
-             let: "cont" := Snd (Snd "a") in
-             let: "l1" := Alloc "v1" in
-             let: "l2" := Alloc "v2" in
-             Call "cont" ("l1", "l2")
-    )%E.
+  Definition alloc2_and_cont : expr :=
+    let: "l1" := Alloc "v1" in
+    let: "l2" := Alloc "v2" in
+    Call "cont" ("l1", "l2").
 
-  Definition alloc2_and_cont' :=
-    (λ: "a", let: "v1" := Fst "a" in
-             let: "v2" := Fst (Snd "a") in
-             let: "cont" := Snd (Snd "a") in
-             let: "l1" := Alloc "v2" in
-             let: "l2" := Alloc "v1" in
-             Call "cont" ("l2", "l1")
-    )%E.
+  Definition alloc2_and_cont' : expr :=
+    let: "l2" := Alloc "v2" in
+    let: "l1" := Alloc "v1" in
+    Call "cont" ("l1", "l2").
 
-  Lemma alloc2_reorder π:
-    ⊢ sim_ectx val_rel π alloc2_and_cont alloc2_and_cont' val_rel.
+  Lemma alloc2_reorder :
+    ⊢ expr_rel alloc2_and_cont alloc2_and_cont'.
   Proof.
-    iIntros (v_t v_s) "Hrel". sim_pures.
-
-    source_bind (Fst v_s).
-    iApply source_red_irred_unless; first done.
-    iIntros ((v_s1 & v_s2' & ->)).
-    sim_pures.
-
-    source_bind (Fst v_s2').
-    iApply source_red_irred_unless; first done.
-    iIntros ((v_s2 & v_s_cont & ->)).
-    sim_pures.
+    expr_rel.
+    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 %π".
 
     source_alloc l1_s as "Hl1_s" "Ha1_s".
     source_alloc l2_s as "Hl2_s" "Ha2_s".
     sim_pures.
 
     iApply sim_irred_unless.
-    { destruct v_s_cont as [[] | | | ]; done. }
+    { destruct cont_s as [[] | | | ]; done. }
     iIntros ((fcont & ->)).
 
-    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2') "(-> & #Hrel1 & Hrel2')".
-    iPoseProof (val_rel_pair_source with "Hrel2'") as (v_t2 v_t_cont) "(-> & #Hrel2 & #Hrel_cont)".
-    iPoseProof (val_rel_litfn_source with "Hrel_cont") as "->".
+    iPoseProof (val_rel_litfn_source with "Hcont") as "->".
     sim_pures.
 
     target_alloc l1_t as "Hl1_t" "Ha1_t".
     target_alloc l2_t as "Hl2_t" "Ha2_t".
     sim_pures.
 
-    iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hrel1"); iIntros "#Hbij_1".
-    iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hrel2"); iIntros "#Hbij_2".
+    iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hv1"); iIntros "#Hbij_1".
+    iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hv2"); iIntros "#Hbij_2".
 
     iApply sim_call; [done | done | simpl; by eauto ].
   Qed.
 
-  Definition alloc2_use :=
-    (λ: "a", let: "l1" := Fst "a" in
-             let: "l2" := Snd "a" in
-             let: "v1" := ! "l1" in
-             let: "v2" := ! "l2" in
-             ("v1", "v2")
-    )%E.
-
-  Lemma use_related π :
-    ⊢ sim_ectx val_rel π alloc2_use alloc2_use val_rel.
-  Proof. iApply heap_bij_ectx_refl. done. Qed.
 End reorder.

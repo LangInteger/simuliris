@@ -1,5 +1,5 @@
-From simuliris.simplang Require Import lang.
 From stdpp Require Export gmap.
+From simuliris.simplang Require Import lang.
 
 (** * Parallel substitution for SimpLang *)
 (** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
@@ -94,4 +94,80 @@ Lemma subst'_subst_map b (v : val) map e :
 Proof.
   destruct b; first done.
   exact: subst_subst_map.
+Qed.
+
+(** "Free variables" and their interaction with subst_map *)
+Local Definition binder_to_ctx (x : binder) : gset string :=
+  if x is BNamed s then {[s]} else ∅.
+
+Fixpoint free_vars (e : expr) : gset string :=
+  match e with
+  | Val v => ∅
+  | Var x => {[x]}
+  | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
+  | Match e0 x1 e1 x2 e2 =>
+    free_vars e0 ∪
+    (free_vars e1 ∖ binder_to_ctx x1) ∪
+    (free_vars e2 ∖ binder_to_ctx x2)
+  | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
+     free_vars e
+  | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
+  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 | FAA e1 e2 =>
+     free_vars e1 ∪ free_vars e2
+  | If e0 e1 e2 | CmpXchg e0 e1 e2 =>
+     free_vars e0 ∪ free_vars e1 ∪ free_vars e2
+  end.
+
+Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string val) :
+  (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
+  binder_delete y xs1 !! x = binder_delete y xs2 !! x.
+Proof.
+  destruct y; first done. simpl.
+  destruct (decide (s = x)) as [->|Hne].
+  - rewrite !lookup_delete //.
+  - rewrite !lookup_delete_ne //. eauto.
+Qed.
+
+Lemma subst_map_free_vars (xs1 xs2 : gmap string val) (e : expr) :
+  (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
+  subst_map xs1 e = subst_map xs2 e.
+Proof.
+  revert xs1 xs2; induction e=>/= xs1 xs2 Heq;
+  solve [
+    (* trivial cases *)
+    done
+  | (* variable case *)
+    rewrite Heq; [done|set_solver]
+  | (* recursive cases *)
+    f_equal;
+    repeat lazymatch goal with x : binder |- _ => destruct x end;
+    intuition eauto using binder_delete_eq with set_solver
+  ].
+Qed.
+
+Lemma subst_map_closed xs e :
+  free_vars e = ∅ →
+  subst_map xs e = e.
+Proof.
+  intros Hclosed.
+  trans (subst_map ∅ e).
+  - apply subst_map_free_vars. rewrite Hclosed. done.
+  - apply subst_map_empty.
+Qed.
+
+Lemma subst_free_vars x v e :
+  x ∉ free_vars e →
+  subst x v e = e.
+Proof.
+  intros Hfree.
+  rewrite -(subst_map_empty (subst x v e)).
+  rewrite subst_map_subst.
+  rewrite (subst_map_free_vars _ ∅); first by apply subst_map_empty.
+  intros y ?. rewrite lookup_insert_ne //. set_solver.
+Qed.
+
+Lemma free_vars_subst x v e :
+  free_vars (subst x v e) = free_vars e ∖ {[x]}.
+Proof.
+  induction e=>/=; repeat case_decide; set_solver.
 Qed.
