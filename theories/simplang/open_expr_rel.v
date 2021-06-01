@@ -73,8 +73,8 @@ Section open_rel.
       rewrite !subst_map_closed //.
   Qed.
 
-  (** Prove [expr_rel] by introducing Coq variables for each free variable.
-      TODO: generalize to more free variables. *)
+  (** Substitute away a single variable in an [expr_rel].
+      Use the [expr_rel] tactic below to automatically apply this for all free variables. *)
   Lemma expr_rel_subst x e_t e_s :
     (∀ (v_t v_s : val), val_rel v_t v_s -∗
       expr_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
