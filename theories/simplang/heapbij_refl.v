@@ -69,7 +69,7 @@ Definition ectxi_wf (Ki : ectx_item) : Prop :=
 Definition ectx_wf : ectx → Prop := Forall ectxi_wf.
 
 Section refl.
-  Context `{sbijG Σ}.
+  Context `{heapbijG Σ}.
 
   Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
   Proof.
@@ -325,7 +325,7 @@ Section refl.
     target_alloc l_t as "Hl_t" "Ha_t"; first done.
     source_alloc l_s as "Hl_s" "Ha_s"; first done.
     iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
-    { iDestruct "Hv" as "#Hv". rewrite /vrel_list.
+    { iDestruct "Hv" as "#Hv".
       rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
       generalize (Z.to_nat x) => n.
       iInduction n as [] "IHn"; cbn; first done. iFrame "Hv IHn".

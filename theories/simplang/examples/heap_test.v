@@ -10,10 +10,10 @@ Module fix_bi.
 Section a.
 Context `{sheapGS Σ} (π : thread_id).
 Program Instance : sheapInv Σ := {|
-  sheap_inv _ _ _ _ _ := ⌜True⌝%I;
+  sheap_inv _ _ _ := ⌜True⌝%I;
 |}.
 Next Obligation. done. Qed.
-Global Instance : sheapInvConst.
+Global Instance : sheapInvSupportsAll.
 Proof. done. Qed.
 
 Definition val_rel (v1 v2 : val) : iProp Σ := (⌜v1 = v2⌝)%I.
@@ -67,7 +67,7 @@ End fix_bi.
 
 Module bij_test.
   Import heap_bij.
-  Context `{sbijG Σ} (π : thread_id).
+  Context `{heapbijG Σ} (π : thread_id).
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
   Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
@@ -90,7 +90,7 @@ Module bij_test.
     ((#l <- #42)%E ⪯ #l2 <- #42 {{ val_rel }}).
   Proof.
     iIntros "H H1 H2 H3".
-    iApply (sim_bij_insert _ _ l l2 with "H2 H3 H H1 "); first done; iIntros "Hb".
+    iApply (sim_bij_insert _ l l2 with "H2 H3 H H1 "); first done; iIntros "Hb".
     iApply (sim_bij_store with "Hb []"); first done. by sim_val.
   Qed.
 

@@ -322,7 +322,7 @@ Section adequacy_statement.
       progs_are p_t p_s ∗
       Ω 0 u u) →
     (* post *)
-    (∀ π v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω π v_t v_s) → O v_t v_s) →
+    (∀ v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω 0 v_t v_s) → O v_t v_s) →
     B p_t p_s.
   Proof.
     intros Hpre Hpost σ_t σ_s HI Hsafe.
@@ -375,14 +375,14 @@ Section adequacy_statement_alt.
       (* The "unit" argument to main is related *)
       Ω 0 u u ∗
       (* Logically related values are observationally related *)
-      ∀ π v_s v_t, Ω π v_t v_s -∗ ⌜O v_t v_s⌝) →
+      ∀ v_s v_t, Ω 0 v_t v_s -∗ ⌜O v_t v_s⌝) →
     B p_t p_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
       iCombine "H1 H2 H3 H4" as "H". iExact "H". }
     eapply (@adequacy PROP _ _ _ _ _ _ (sat_frame _) _); first apply Hsat.
-    intros π v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
+    intros v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
   Qed.
 

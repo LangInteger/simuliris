@@ -6,7 +6,7 @@ From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst heap_bij.
 
 Section open_rel.
-  Context `{sbijG Σ}.
+  Context `{heapbijG Σ}.
 
   (** Well-formed substitutions closing source and target, with [X] denoting the
       free variables. *)

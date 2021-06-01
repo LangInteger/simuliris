@@ -133,7 +133,7 @@ Lemma ctx_wf_snoc C Ci :
 Proof. rewrite ctx_wf_app /ctx_wf Forall_singleton //. Qed.
 
 Section ctx.
-  Context `{sbijG Σ}.
+  Context `{heapbijG Σ}.
 
   Theorem log_rel_ctx C e_t e_s :
     ctx_wf C → log_rel e_t e_s -∗ log_rel (fill_ctx C e_t) (fill_ctx C e_s).

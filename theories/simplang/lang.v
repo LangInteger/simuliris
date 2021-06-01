@@ -180,6 +180,8 @@ Record state : Type := {
   heap: gmap loc (lock_state * val);
   used_blocks: gset block;
 }.
+Definition heap_wf (σ: gmap loc (lock_state * val)) (bs : gset block) : Prop :=
+  ∀ l v, σ !! l = Some v → loc_chunk l ∈ bs.
 
 (** Equality and other typeclass stuff *)
 Lemma to_of_val v : to_val (of_val v) = Some v.
@@ -640,6 +642,17 @@ Proof.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
+Lemma lookup_free_mem_Some l l' n σ v:
+  free_mem l n σ !! l' = Some v ↔ σ !! l' = Some v ∧ (loc_chunk l ≠ loc_chunk l' ∨ ¬(loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z).
+Proof.
+  destruct (decide (loc_chunk l = loc_chunk l')).
+  2: { rewrite lookup_free_mem_1 //. naive_solver. }
+  destruct (decide (loc_idx l' < loc_idx l)%Z).
+  { rewrite lookup_free_mem_3 //. naive_solver lia. }
+  destruct (decide (loc_idx l' >= loc_idx l + n)%Z).
+  { rewrite lookup_free_mem_4 //. naive_solver lia. }
+  rewrite lookup_free_mem_2 //; [|lia]. naive_solver lia.
+Qed.
 
 Lemma delete_free_mem σ l n o:
   (o > 0)%Z →
@@ -648,6 +661,25 @@ Proof.
   intros HO.
   induction n as [|n IH] in o, HO|-* => //=. rewrite delete_commute. f_equal.
   rewrite loc_add_assoc IH; [done | lia].
+Qed.
+
+Lemma heap_wf_init_mem l h n bs v:
+  heap_wf h bs →
+  heap_wf (heap_array l (replicate n v) ∪ h) ({[loc_chunk l]} ∪ bs).
+Proof.
+  move => Hwf l' v' /lookup_union_Some_raw [/heap_array_lookup [?[?[?[?[??]]]]]|[??]].
+  - set_solver.
+  - set_unfold. right. by apply: Hwf.
+Qed.
+Lemma heap_wf_free_mem l h n bs:
+  heap_wf h bs →
+  heap_wf (free_mem l n h) bs.
+Proof. move => Hwf l' v' /lookup_free_mem_Some [??]. by apply: Hwf. Qed.
+Lemma heap_wf_stable σ bs l p :
+  heap_wf σ bs → is_Some (σ !! l) →
+  heap_wf (<[l := p]>σ) bs.
+Proof.
+  move => Hwf [??] ?? /lookup_insert_Some[[??]|[??]]; simplify_eq; by apply: Hwf.
 Qed.
 
 (** Building actual evaluation contexts out of ectx_items *)

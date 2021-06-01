@@ -68,11 +68,12 @@ Section lang.
 
   (* a more constructive formulation *)
   Class IrredUnless (ϕ : Prop) P (e : expr Λ) σ :=
-    irred_unless : ¬ irreducible P e σ → ϕ.
+    irred_unless : ϕ ∨ irreducible P e σ.
 
   Global Instance irred_unless_sirreducible ϕ P e σ : IrredUnless ϕ P e σ → SIrreducible (¬ ϕ) P e σ.
   Proof.
-    intros Hunless Hϕ e' σ' efs Hprim. apply Hϕ, Hunless. intros Hirred. by eapply Hirred.
+    intros Hunless Hϕ e' σ' efs Hprim. apply Hϕ. destruct Hunless as [|Hunless] => //.
+    exfalso. by apply: Hunless.
   Qed.
 
   (** We can get the other direction if we can decide ϕ (or assume XM) *)
@@ -81,21 +82,31 @@ Section lang.
     SIrreducible (¬ ϕ) P e σ →
     IrredUnless ϕ P e σ.
   Proof.
-    intros [Hphi | Hnphi] Hirred Hnirred; first done.
-    contradict Hnirred. by apply Hirred.
+    intros [Hphi | Hnphi] Hirred; first by left.
+    right. by apply Hirred.
   Qed.
 
   Lemma irred_unless_weaken P e σ (ϕ ψ : Prop)  :
     (ϕ → ψ) →
     IrredUnless ϕ P e σ → IrredUnless ψ P e σ.
-  Proof. intros Hw Hnirred Hirred. by apply Hw, Hnirred. Qed.
+  Proof. intros Hw [?|?]; [left; naive_solver|by right]. Qed.
 
   Lemma not_reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
      to_val e = None → ¬ (reach_stuck P e σ) → ϕ.
   Proof.
-    intros Hnval Hreach. apply Hirred. contradict Hreach. exists [e], σ, [].
-    split; [econstructor | ].
-    exists e, 0. repeat split; done.
+    intros Hnval Hreach. destruct Hirred; [done|]. contradict Hreach.
+    by apply: stuck_reach_stuck.
+  Qed.
+
+  Lemma safe_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
+     safe P e σ → to_val e = None → ϕ.
+  Proof. unfold safe. move => ??. by apply: not_reach_stuck_irred. Qed.
+
+  Lemma reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
+    to_val e = None → (ϕ → reach_stuck P e σ) → reach_stuck P e σ.
+  Proof.
+    move => Hv Hf. destruct Hirred; [naive_solver|].
+    by apply: stuck_reach_stuck.
   Qed.
 
   Lemma pool_safe_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ} T π K:
@@ -105,6 +116,24 @@ Section lang.
     unfold pool_safe in Hsafe. contradict Hsafe. apply: pool_reach_stuck_reach_stuck; [|done].
     by apply fill_reach_stuck.
   Qed.
+
+  Lemma pool_reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ} T π K:
+    T !! π = Some (fill K e) → to_val e = None → (ϕ → pool_reach_stuck P T σ) → pool_reach_stuck P T σ.
+  Proof.
+    intros Hsafe ??.
+    destruct Hirred; [naive_solver|].
+    apply: pool_reach_stuck_reach_stuck; [|done].
+    apply: fill_reach_stuck. by apply: stuck_reach_stuck.
+  Qed.
+
+  Lemma reach_or_stuck_irred e σ Φ P ϕ {Hirred : IrredUnless ϕ P e σ}:
+    to_val e = None →
+    (ϕ → reach_or_stuck P e σ Φ) → reach_or_stuck P e σ Φ.
+  Proof.
+    destruct Hirred; [naive_solver|].
+    move => ??. left. by apply: stuck_reach_stuck.
+  Qed.
+
 End lang.
 
 #[global]
@@ -150,7 +179,8 @@ Section fix_sim.
     iFrame.
     destruct (Hstep) as [Hred Hdet]. destruct (Hred P_s σ_s) as (e_s' & σ_s' & efs & Hs).
     specialize (Hdet _ _ _ _ _ Hs) as [-> [-> ->]].
-    iSplitR; [done|]. by iApply state_interp_pure_step.
+    iSplitR. { iPureIntro. apply: no_forks_step; [done|]. apply: no_forks_refl. }
+    by iApply state_interp_pure_step.
   Qed.
 
   Lemma target_red_lift_pure Ψ n e1 e2 ϕ :
@@ -216,7 +246,7 @@ Section fix_sim.
     iIntros (??????) "[Hstate [% %]]".
     iMod ("Hsource" with "[$Hstate//]") as (e_s' σ_s') "[% Hstate]".
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro.
-    econstructor; [done|by econstructor].
+    apply: no_forks_step; [done|]. by apply: no_forks_refl.
   Qed.
 
   (** Head reduction *)
@@ -297,7 +327,8 @@ Section fix_sim.
     { unfold pool_safe in Hnreach. contradict Hnreach.
       apply: pool_reach_stuck_reach_stuck; [|done].
       apply: fill_reach_stuck. by apply stuck_reach_stuck. }
-    apply Hunless in Hn. iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+    destruct (Hunless P_s σ_s); [|done].
+    iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
   Qed.
 
   Lemma sim_irred_unless ϕ e_s e_t Φ :
@@ -313,7 +344,8 @@ Section fix_sim.
     { unfold pool_safe in Hnreach. contradict Hnreach.
       apply: pool_reach_stuck_reach_stuck; [|done].
       apply: fill_reach_stuck. by apply stuck_reach_stuck. }
-    apply Hunless in Hn. iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+    destruct (Hunless P_s σ_s); [|done].
+    iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
   Qed.
 
   (** Target eval *)
@@ -342,7 +374,8 @@ Section fix_sim.
     iIntros "Hsource". iApply source_red_step.
     iIntros (??????) "[Hstate %Hnreach]".
     iMod ("Hsource" with "[$Hstate//]") as (e_s' σ_s') "[% >Hstate]".
-    iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
+    iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro.
+    apply: no_forks_step; [ by apply head_prim_step| apply: no_forks_refl].
   Qed.
 
   (** Call *)

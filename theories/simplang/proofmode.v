@@ -118,7 +118,7 @@ Proof.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
 
-Lemma tac_target_red_allocN n v j i K Ψ Δ `{!sheapInvConst} :
+Lemma tac_target_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i († l …t Z.to_nat n)) j (l ↦t∗ (replicate (Z.to_nat n) v))) Δ with
@@ -136,7 +136,7 @@ Proof.
   rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_allocN n v j i K Ψ Δ `{!sheapInvConst}:
+Lemma tac_source_red_allocN n v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
   (0 < n)%Z →
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i (†l …s Z.to_nat n)) j (l ↦s∗ (replicate (Z.to_nat n) v))) Δ with
@@ -154,7 +154,7 @@ Proof.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_alloc v j i K Ψ Δ `{!sheapInvConst}:
+Lemma tac_target_red_alloc v j i K Ψ Δ:
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i (†l …t 1)) j (l ↦t v)) Δ with
     | Some Δ' =>
@@ -171,7 +171,7 @@ Proof.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_alloc v j i K Ψ Δ `{!sheapInvConst}:
+Lemma tac_source_red_alloc v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i (†l …s 1)) j (l ↦s v)) Δ with
     | Some Δ' =>
@@ -188,7 +188,7 @@ Proof.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_free l v i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_target_red_free l v i j K Ψ Δ Δ':
   envs_lookup_delete false i Δ = Some (false, l ↦t v, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …t 1)%I →
   (let Δ'' := envs_delete false j false Δ' in
@@ -205,7 +205,7 @@ Proof.
   by iApply target_red_base.
 Qed.
 
-Lemma tac_source_red_free l v i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_source_red_free l v i j K Ψ Δ Δ' `{!sheapInvSupportsFree}:
   envs_lookup_delete false i Δ = Some (false, l ↦s v, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …s 1)%I →
   (let Δ'' := envs_delete false j false Δ' in
@@ -222,7 +222,7 @@ Proof.
   by iApply source_red_base.
 Qed.
 
-Lemma tac_target_red_freeN l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_target_red_freeN l (n : Z) vs i j K Ψ Δ Δ':
   n = length vs →
   envs_lookup_delete false i Δ = Some (false, l ↦t∗ vs, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …t Z.to_nat n)%I →
@@ -240,7 +240,7 @@ Proof.
   by iApply target_red_base.
 Qed.
 
-Lemma tac_source_red_freeN l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_source_red_freeN l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvSupportsFree}:
   n = length vs →
   envs_lookup_delete false i Δ = Some (false, l ↦s∗ vs, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …s Z.to_nat n)%I →
@@ -258,7 +258,7 @@ Proof.
   by iApply source_red_base.
 Qed.
 
-Lemma tac_target_red_loadsc Δ i K b l q v Ψ `{!sheapInvConst}:
+Lemma tac_target_red_loadsc Δ i K b l q v Ψ:
   envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load ScOrd (LitV l))) Ψ).
@@ -272,7 +272,7 @@ Proof.
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Ht".
     iApply target_red_base; eauto.
 Qed.
-Lemma tac_target_red_loadna Δ i K b l v Ψ q `{!sheapInvConst}:
+Lemma tac_target_red_loadna Δ i K b l v Ψ q:
   envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load Na1Ord (LitV l))) Ψ).
@@ -287,7 +287,7 @@ Proof.
     iApply target_red_base; eauto.
 Qed.
 
-Lemma tac_source_red_loadsc Δ i K b l q v Ψ `{!sheapInvConst}:
+Lemma tac_source_red_loadsc Δ i K b l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load ScOrd (LitV l))) π Ψ).
@@ -301,7 +301,7 @@ Proof.
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Hs".
     iApply source_red_base; eauto.
 Qed.
-Lemma tac_source_red_loadna Δ i K b l v Ψ q `{!sheapInvConst}:
+Lemma tac_source_red_loadna Δ i K b l v Ψ q `{!sheapInvSupportsLoad Na1Ord}:
   envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load Na1Ord (LitV l))) π Ψ).
@@ -317,13 +317,13 @@ Proof.
 Qed.
 
 
-Lemma target_red_store l v v' o Ψ `{!sheapInvConst}:
+Lemma target_red_store l v v' o Ψ:
   o = ScOrd ∨ o = Na1Ord →
   l ↦t v' -∗
   (l ↦t v -∗ target_red (of_val #()) Ψ) -∗
   target_red (Store o (Val $ LitV (LitLoc l)) (Val v)) Ψ.
 Proof. intros [-> | ->]; [iApply target_red_store_sc | iApply target_red_store_na]. Qed.
-Lemma tac_target_red_store Δ i K l v v' o Ψ `{!sheapInvConst}:
+Lemma tac_target_red_store Δ i K l v v' o Ψ:
   o = ScOrd ∨ o = Na1Ord →
   envs_lookup i Δ = Some (false, l ↦t v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦t v')) Δ with
@@ -340,13 +340,13 @@ Proof.
   rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
 Qed.
 
-Lemma source_red_store l v v' o Ψ `{!sheapInvConst}:
+Lemma source_red_store l v v' o Ψ `{!sheapInvSupportsStore o}:
   o = ScOrd ∨ o = Na1Ord →
   l ↦s v' -∗
   (l ↦s v -∗ source_red (of_val #()) π Ψ) -∗
   source_red (Store o (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
 Proof. intros [-> | ->]; [iApply source_red_store_sc | iApply source_red_store_na]. Qed.
-Lemma tac_source_red_store Δ i K l v v' o Ψ `{!sheapInvConst}:
+Lemma tac_source_red_store Δ i K l v v' o Ψ `{!sheapInvSupportsStore o}:
   o = ScOrd ∨ o = Na1Ord →
   envs_lookup i Δ = Some (false, l ↦s v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦s v')) Δ with
@@ -1100,4 +1100,22 @@ Ltac discr_source :=
   | |- envs_entails _ (source_red _ _ _) => iApply source_red_irred_unless; [try done | discr ()]
   | |- envs_entails _ (sim_expr _ _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
   | |- envs_entails _ (sim _ _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  end.
+
+Tactic Notation "reach_or_stuck_bind" open_constr(efoc) :=
+  lazymatch goal with
+  | |- reach_or_stuck _ ?e _ _ =>
+    reshape_expr e ltac:(fun K e' =>
+                           unify e' efoc;
+                           eapply (reach_or_stuck_bind _ e' _ _ K); simpl
+                        )
+  end.
+
+Tactic Notation "reach_or_stuck_fill" open_constr(efoc) :=
+  lazymatch goal with
+  | |- reach_or_stuck _ ?e _ _ =>
+    reshape_expr e ltac:(fun K e' =>
+                           unify e' efoc;
+                           eapply (fill_reach_or_stuck _ e' _ _ K)
+                        )
   end.

@@ -5,7 +5,7 @@ From simuliris.simulation Require Import slsls lifting.
 (** * Simple example for re-ordering two allocs and then passing the related locations to an external function. *)
 
 Section reorder.
-  Context `{sbijG Σ}.
+  Context `{heapbijG Σ}.
 
   Definition alloc2_and_cont : expr :=
     let: "l1" := Alloc "v1" in

@@ -4,7 +4,7 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import log_rel.
 
 Section fix_bi.
-  Context `{sbijG Σ} (π : thread_id).
+  Context `{heapbijG Σ} (π : thread_id).
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
   Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 

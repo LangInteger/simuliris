@@ -816,6 +816,18 @@ Section fix_lang.
   Proof. iIntros "H Hv". iApply (sim_expr_mono with "Hv H"). Qed.
 
   (** Update the SI. Useful when we use the SI to encode invariants. *)
+  Lemma sim_update_si_strong Ω e_t e_s Φ π :
+    (∀ P_t σ_t P_s σ_s T_s K_s,
+        state_interp P_t σ_t P_s σ_s T_s -∗
+        ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝ ==∗
+        state_interp P_t σ_t P_s σ_s T_s ∗ e_t ⪯{π, Ω} e_s [{ Φ }])
+    -∗ e_t ⪯{π, Ω} e_s [{ Φ }].
+  Proof.
+    iIntros "Hupd". rewrite {2}(sim_expr_unfold Ω Φ π e_t e_s).
+    iIntros (??????) "[Hstate %Hnreach]". iMod ("Hupd" with "Hstate [//]") as "[Hstate Hsim]".
+    rewrite {1}sim_expr_unfold. iApply "Hsim". by iFrame.
+  Qed.
+
   Definition update_si (P : PROP) :=
     (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ state_interp P_t σ_t P_s σ_s T_s ∗ P)%I.
   Instance update_si_proper : Proper ((≡) ==> (≡)) update_si.
@@ -823,9 +835,8 @@ Section fix_lang.
   Lemma sim_update_si Ω e_t e_s Φ π :
     update_si (e_t ⪯{π, Ω} e_s [{ Φ }]) -∗ e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
-    iIntros "Hupd". rewrite {2}(sim_expr_unfold Ω Φ π e_t e_s).
-    iIntros (??????) "[Hstate Hnreach]". iMod ("Hupd" with "Hstate") as "[Hstate Hsim]".
-    rewrite {1}sim_expr_unfold. iApply "Hsim". iFrame.
+    iIntros "Hupd". iApply sim_update_si_strong.
+    iIntros (??????) "Hstate %". by iApply "Hupd".
   Qed.
 
   Lemma sim_step_source Ω e_t e_s Φ π :
@@ -889,7 +900,7 @@ Section fix_lang.
   Definition source_red_rec (Ψ : expr Λ → PROP) π (rec : exprO → PROP) e_s :=
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-      (∃ e_s' σ_s', ⌜no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ rec e_s')
       ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_s))%I.
 
@@ -959,7 +970,7 @@ Section fix_lang.
     { iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
       apply: pool_safe_no_forks; [done..|]. apply fill_no_forks. eauto using no_forks_step, no_forks_refl. }
     iModIntro. rewrite list_insert_insert.
-    iExists e_s'', σ_s''; iFrame. iPureIntro. econstructor; eauto.
+    iExists e_s'', σ_s''; iFrame. iPureIntro. by apply: no_forks_trans.
   Qed.
 
   Lemma source_red_base Ψ e_s π:
@@ -972,7 +983,7 @@ Section fix_lang.
   Lemma source_red_step Ψ e_s π :
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-      (∃ e_s' σ_s', ⌜no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)) -∗
     source_red e_s π Ψ.
   Proof.
@@ -1032,7 +1043,7 @@ Section fix_lang.
     iDestruct "IH" as "[Hstep | [Hstate Hred]]".
     { iModIntro. iDestruct "Hstep" as (e_s' σ_s') "(%&?&?)". iLeft.
       iExists (fill K_s e_s'), σ_s'. rewrite fill_comp. iFrame. iPureIntro.
-      by apply fill_prim_step. }
+      by apply: fill_no_forks. }
     rewrite source_red_unfold. rewrite -fill_comp in HT.
     iMod ("Hred" with "[$Hstate//]") as "[Hstep | Hred]"; iModIntro; eauto.
   Qed.

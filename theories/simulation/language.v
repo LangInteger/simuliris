@@ -909,6 +909,15 @@ Section language.
     eapply list_lookup_insert, lookup_lt_Some, Hlook.
   Qed.
 
+  Lemma pool_reach_stuck_no_forks π p T e e' σ σ':
+    T !! π = Some e →
+    no_forks p e σ e' σ' → pool_reach_stuck p (<[π := e']>T) σ' → pool_reach_stuck p T σ.
+  Proof.
+    intros HT Hnfs Hrs.
+    pose proof no_forks_pool_steps _ _ _ _ _ _ _ Hnfs HT as [? [??]].
+    by apply: pool_steps_reach_stuck.
+  Qed.
+
   Lemma pool_safe_no_forks p T e σ i e' σ':
     pool_safe p T σ →
     T !! i = Some e →
@@ -981,3 +990,85 @@ Section language.
 
 
 End language.
+
+Section reach_or_stuck.
+  Context {Λ : language}.
+
+  Definition post_in_ectx (Φ : expr Λ → state Λ → Prop) (e : expr Λ) (σ : state Λ) : Prop :=
+    ∃ Ks e', e = fill Ks e' ∧ Φ e' σ.
+
+  Lemma post_in_ectx_intro (Φ : expr Λ → state Λ → Prop) e σ:
+    Φ e σ →
+    post_in_ectx Φ e σ.
+  Proof. eexists empty_ectx, e. rewrite fill_empty. naive_solver. Qed.
+
+  Definition reach_or_stuck (P : prog Λ) (e : expr Λ) (σ : state Λ) (Φ : expr Λ → state Λ → Prop) : Prop :=
+    reach_stuck P e σ ∨ ∃ e' σ', no_forks P e σ e' σ' ∧ Φ e' σ'.
+
+  Lemma reach_or_stuck_refl p e σ (Φ : _ → _ → Prop):
+    Φ e σ → reach_or_stuck p e σ Φ.
+  Proof. move => ?. right. eexists _, _ => /=. split; [|done]. by apply: no_forks_refl. Qed.
+
+  Lemma reach_or_stuck_no_forks p e σ e' σ' (Φ : _ → _ → Prop):
+    no_forks p e σ e' σ' → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
+  Proof.
+    move => ? [Hros|[?[?[??]]]]; [left|right].
+    - by apply: reach_stuck_no_forks.
+    - eexists _, _. split; [|done]. by apply: no_forks_trans.
+  Qed.
+
+  Lemma reach_or_stuck_step p e σ e' σ' (Φ : _ → _ → Prop):
+    prim_step p e σ e' σ' [] → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
+  Proof.
+    move => ??. apply: reach_or_stuck_no_forks; [|done].
+    apply: no_forks_step; [done|]. apply: no_forks_refl.
+  Qed.
+
+  Lemma reach_or_stuck_head_step p e σ e' σ' (Φ : _ → _ → Prop):
+    head_step p e σ e' σ' [] → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
+  Proof. move => ??. apply: reach_or_stuck_step; [|done]. by apply: head_prim_step. Qed.
+
+  Lemma fill_reach_or_stuck p e σ Φ Ks:
+    reach_or_stuck p e σ (post_in_ectx Φ) → reach_or_stuck p (fill Ks e) σ (post_in_ectx Φ).
+  Proof.
+    move => [Hros|[?[?[?[?[?[? ?]]]]]]]; [left|right]; subst.
+    - by apply: fill_reach_stuck.
+    - eexists _, _. split; [ by apply: fill_no_forks|].
+      eexists _, _. rewrite fill_comp. naive_solver.
+  Qed.
+
+  Lemma reach_or_stuck_bind p e σ Φ Ks:
+    reach_or_stuck p e σ (λ e' σ', reach_or_stuck p (fill Ks e') σ' Φ) → reach_or_stuck p (fill Ks e) σ Φ.
+  Proof.
+    move => [Hros|[?[?[?[?|[?[?[??]]]]]]]]; [left|left|right].
+    - by apply: fill_reach_stuck.
+    - apply: reach_stuck_no_forks.
+      2: { by apply: fill_no_forks. }
+      done.
+    - eexists _, _. split; [|done].
+      apply: no_forks_trans. { by apply: fill_no_forks. }
+      done.
+  Qed.
+
+  Lemma pool_reach_stuck_reach_or_stuck π p T e σ Φ:
+    T !! π = Some e →
+    reach_or_stuck p e σ Φ →
+    (∀ e' σ', Φ e' σ' → pool_reach_stuck p (<[π := e']>T) σ') →
+    pool_reach_stuck p T σ.
+  Proof.
+    move => HT [Hros|[?[?[??]]]] Hreach.
+    - by apply: pool_reach_stuck_reach_stuck.
+    - apply: pool_reach_stuck_no_forks; [done..|]. naive_solver.
+  Qed.
+
+  Lemma pool_safe_reach_or_stuck π p T e σ Φ K:
+    pool_safe p T σ →
+    T !! π = Some (fill K e) →
+    reach_or_stuck p e σ Φ →
+    ∃ e' σ',  Φ e' σ' ∧ pool_safe p (<[π := fill K e']>T) σ'.
+  Proof.
+    move => Hs HT [Hros|[?[?[??]]]].
+    - exfalso. apply: Hs. apply: pool_reach_stuck_reach_stuck; [|done]. by apply: fill_reach_stuck.
+    - eexists _, _. split; [done|]. apply: pool_safe_no_forks; [done..|]. by apply: fill_no_forks.
+  Qed.
+End reach_or_stuck.

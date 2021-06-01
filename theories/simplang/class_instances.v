@@ -30,6 +30,26 @@ Section irreducible.
     - destruct to_class as [ [] | ] eqn:Heq';
         [ by rewrite (to_class_val _ _ Heq') in Heq | done | done].
   Qed.
+End irreducible.
+
+Ltac solve_sub_redexes_are_values :=
+  let K := fresh "K" in
+  let e' := fresh "e'" in
+  let Heq := fresh "Heq" in
+  let Hv := fresh "Hv" in
+  let IH := fresh "IH" in
+  let Ki := fresh "Ki" in
+  let Ki' := fresh "Ki'" in
+  intros K e' Heq Hv;
+  destruct K as [ | Ki K]; first (done);
+  exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
+  [destruct Ki; inversion Heq; subst; cbn in *; congruence
+  | eapply IH; first (by rewrite Heq);
+    rewrite language_to_val_eq; apply fill_item_val_none;
+      by rewrite -language_to_val_eq].
+
+Section irreducible.
+  Implicit Types (e : expr) (v : val) (σ : state).
 
   (* slightly hacky proof tactic for irreducibility, solving goals of the form [SIrreducible _ _ _ _].
     Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
@@ -40,23 +60,10 @@ Section irreducible.
     let e_s' := fresh "e_s'" in
     let σ_s' := fresh "σ_s'" in
     let Hhead := fresh "Hhead" in
-    let K := fresh "K" in
-    let e' := fresh "e'" in
-    let Heq := fresh "Heq" in
-    let Hv := fresh "Hv" in
-    let IH := fresh "IH" in
-    let Ki := fresh "Ki" in
-    let Ki' := fresh "Ki'" in
     intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
     [ (*this need not complete the proof and may generate a proof obligation *)
       inversion Hhead; subst; try by (apply ϕ; eauto)
-    | intros K e' Heq Hv; clear ϕ;
-      destruct K as [ | Ki K]; first (done);
-      exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
-      [destruct Ki; inversion Heq; subst; cbn in *; congruence
-      | eapply IH; first (by rewrite Heq);
-        rewrite language_to_val_eq; apply fill_item_val_none;
-        by rewrite -language_to_val_eq]
+    | solve_sub_redexes_are_values
     ].
 
   (** Tactic support for proving goals of the form [IrredUnless] by
@@ -288,6 +295,13 @@ Section irreducible.
     - left. eauto.
     - right. intros (n' & [= <-] & Hn'); lia.
   Qed.
+
+  Global Instance irreducible_storeScNa1 o σ v_l P (v : val) `{!TCFastDone (o ≠ Na2Ord)} :
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store o (Val $ v_l) (Val v)) σ.
+  Proof. unfold TCFastDone in *. destruct o; try done; apply _. Qed.
+  Global Instance irreducible_loadScNa1 o σ v_l P `{!TCFastDone (o ≠ Na2Ord)}:
+    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load o $ Val v_l) σ.
+  Proof. unfold TCFastDone in *. destruct o; try done; apply _. Qed.
 
   (** for the usual use case with [sim_irred_unless], we will not actually have the state and program
     in context, thus the application of the above instances will fail.
