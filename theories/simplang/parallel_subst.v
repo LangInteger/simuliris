@@ -114,11 +114,29 @@ Fixpoint free_vars (e : expr) : gset string :=
      free_vars e0 ∪ free_vars e1 ∪ free_vars e2
   end.
 
+Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string val) :
+  (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
+  binder_delete y xs1 !! x = binder_delete y xs2 !! x.
+Proof.
+  destruct y; first done. simpl.
+  destruct (decide (s = x)) as [->|Hne].
+  - rewrite !lookup_delete //.
+  - rewrite !lookup_delete_ne //. eauto.
+Qed.
+
 Lemma subst_map_free_vars (xs1 xs2 : gmap string val) (e : expr) :
   (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
   subst_map xs1 e = subst_map xs2 e.
 Proof.
-Admitted.
+  revert xs1 xs2; induction e=>/= xs1 xs2 Heq;
+  try solve [
+    done
+  | rewrite Heq; [done|set_solver]
+  | f_equal;
+    repeat lazymatch goal with x : binder |- _ => destruct x end;
+    intuition eauto using binder_delete_eq with set_solver
+  ].
+Qed.
 
 Lemma subst_map_closed xs e :
   free_vars e = ∅ →
