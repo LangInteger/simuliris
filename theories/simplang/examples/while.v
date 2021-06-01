@@ -4,14 +4,17 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import log_rel.
 
 Section fix_bi.
-  Context `{sbijG Σ}.
+  Context `{sbijG Σ} (π : thread_id).
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+
 
   Definition loop_test n : expr :=
     let: "n" := Alloc #n in
     While (#0 < ! "n") ("n" <- ! "n" - #1).
 
-  Lemma loop (n : nat) π :
-    ⊢ loop_test n ⪯{π, val_rel} #() {{ val_rel }}.
+  Lemma loop (n : nat) :
+    ⊢ loop_test n ⪯ #() {{ val_rel }}.
   Proof.
     rewrite /loop_test.
     target_alloc l as "Hl" "_". sim_pures.
@@ -49,8 +52,8 @@ Section fix_bi.
       + by assert ((n0 - S n) * m + m = (n0 - n) * m)%Z as -> by lia.
   Qed.
 
-  Lemma mul_sim (n m : nat) π :
-    ⊢ mul_loop #n #m ⪯{π, val_rel} #n * #m {{ val_rel }}.
+  Lemma mul_sim (n m : nat) :
+    ⊢ mul_loop #n #m ⪯ #n * #m {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
     sim_pures. target_alloc l_n as "Hln" "Ha_n". target_alloc l_acc as "Hlacc" "Ha_acc".
@@ -88,7 +91,7 @@ Section fix_bi.
     "rec" @s input_rec -∗
     log_rel input_loop (Call ##"rec" #true).
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π).
+    iIntros "#Hs". log_rel. iIntros "!#" (π').
     rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
     iApply (sim_while_rec _ _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
@@ -108,7 +111,7 @@ Section fix_bi.
     "rec" @t input_rec -∗
     log_rel (Call ##"rec" #true) input_loop.
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π).
+    iIntros "#Hs". log_rel. iIntros "!#" (π').
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
     iApply (sim_rec_while _ _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }

@@ -65,12 +65,12 @@ Section open_rel.
   Definition log_rel e_t e_s : iProp Σ :=
     □ ∀ π (map : gmap string (val * val)),
       subst_map_rel (free_vars e_t ∪ free_vars e_s) map -∗
-      subst_map (fst <$> map) e_t ⪯{π, val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
+      subst_map (fst <$> map) e_t ⪯{π, const val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
 
   Lemma log_rel_closed e_t e_s :
     free_vars e_t = ∅ →
     free_vars e_s = ∅ →
-    log_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π, val_rel} e_s {{ val_rel }}).
+    log_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π, const val_rel} e_s {{ val_rel }}).
   Proof.
     intros Hclosed_t Hclosed_s. iSplit.
     - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).

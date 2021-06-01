@@ -36,7 +36,7 @@ Inductive val_rel_pure : val → val → Prop :=
 Local Hint Constructors val_rel_pure : core.
 Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
 
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 Definition mul2_source :=
   (λ: "x",
@@ -87,6 +87,7 @@ Lemma client_sim (n : Z) :
 Proof.
   iIntros "Htarget Hsource Hinj1_t".
   target_call. target_call. source_call. sim_pures.
-  iApply sim_call; eauto.
+  iApply sim_wand; [ iApply sim_call; [done..|]; eauto |].
+  eauto.
 Qed.
 End fix_bi.

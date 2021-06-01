@@ -117,7 +117,7 @@ Hint Mode PureExec - - - + - : core.
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language} {s : simulirisG PROP Λ}.
-  Context (Ω : val Λ → val Λ → PROP) (π : thread_id).
+  Context (Ω : thread_id → val Λ → val Λ → PROP) (π : thread_id).
 
   Implicit Types
     (e_s e_t e: expr Λ)
@@ -173,7 +173,7 @@ Section fix_sim.
         ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ∃ e_s' efs_s σ_s', ⌜prim_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
             state_interp P_t σ_t' P_s σ_s' (<[π:=K_s e_s']>T_s ++ efs_s) ∗ e_t' ⪯{π, Ω} e_s' [{ Φ }] ∗
-            ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π', Ω} e_s0 [{lift_post Ω}])) -∗
+            ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π', Ω} e_s0 [{lift_post (Ω (length T_s + π'))}])) -∗
     e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros "Hsim".
@@ -261,7 +261,7 @@ Section fix_sim.
         ⌜head_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ∃ e_s' efs_s σ_s', ⌜head_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s ++ efs_s) ∗ e_t' ⪯{π, Ω} e_s' [{ Φ }] ∗
-          ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π', Ω} e_s0 [{lift_post Ω}])) -∗
+          ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π', Ω} e_s0 [{lift_post (Ω (length T_s + π'))}])) -∗
     e_t ⪯{π, Ω} e_s [{ Φ }].
   Proof.
     iIntros "Hsim". iApply sim_lift_prim_step_both. iIntros (??????) "[Hstate %Hnreach]".
@@ -347,8 +347,8 @@ Section fix_sim.
 
   (** Call *)
   Lemma sim_lift_call Φ fn v_t v_s :
-    Ω v_t v_s -∗
-    (∀ v_t v_s, Ω v_t v_s -∗ Φ (of_val v_t) (of_val v_s)) -∗
+    Ω π v_t v_s -∗
+    (∀ v_t v_s, Ω π v_t v_s -∗ Φ (of_val v_t) (of_val v_s)) -∗
     (of_call fn v_t) ⪯{π, Ω} (of_call fn v_s) [{ Φ }].
   Proof.
     iIntros "Hom Hv".

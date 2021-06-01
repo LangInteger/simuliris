@@ -25,7 +25,7 @@ Implicit Types
   (D: gmap nat nat)
   (i j k: nat)
   (σ_s σ_t σ : state Λ)
-  (Ω: val Λ → val Λ → PROP).
+  (Ω: thread_id → val Λ → val Λ → PROP).
 
 (* Language Setup *)
 Notation "P '.(tgt)'" := (P.*1) (at level 5).
@@ -184,7 +184,7 @@ Qed.
 *)
 
 
-Definition gsim_expr_all Ω π (P: list (expr Λ * expr Λ)) := ([∗ list] i↦p ∈ P, gsim_expr Ω (lift_post Ω) (π + i) (fst p) (snd p))%I.
+Definition gsim_expr_all Ω π (P: list (expr Λ * expr Λ)) := ([∗ list] i↦p ∈ P, gsim_expr Ω (lift_post (Ω (π + i))) (π + i) (fst p) (snd p))%I.
 Notation must_step_all Ω π := (must_step (gsim_expr_all Ω π)).
 
 
@@ -252,19 +252,19 @@ Proof.
 Qed.
 
 Definition gsim_expr_all_wo Ω π P O :=
-  ([∗ list] k ↦ p ∈ P, if (decide (k ∈ O)) then emp else gsim_expr Ω (lift_post Ω) (π + k) (fst p) (snd p))%I.
+  ([∗ list] k ↦ p ∈ P, if (decide (k ∈ O)) then emp else gsim_expr Ω (lift_post (Ω (π + k))) (π + k) (fst p) (snd p))%I.
 
 Lemma gsim_expr_all_to_wo Ω P π:
   gsim_expr_all Ω π P ≡ gsim_expr_all_wo Ω π P ∅.
 Proof.
   rewrite /gsim_expr_all /gsim_expr_all_wo. f_equiv.
-  intros k [e_t e_s]. destruct (decide (k ∈ ∅)); set_solver.
+  intros k [e_t e_s]. case_decide; set_solver.
 Qed.
 
 Lemma gsim_expr_all_wo_split Ω P O i e_t e_s π:
   P !! i = Some (e_t, e_s) →
   i ∉ O →
-  gsim_expr_all_wo Ω π P O ≡ (gsim_expr Ω (lift_post Ω) (π + i) e_t e_s ∗ gsim_expr_all_wo Ω π P (O ∪ {[i]}))%I.
+  gsim_expr_all_wo Ω π P O ≡ (gsim_expr Ω (lift_post (Ω (π + i))) (π + i) e_t e_s ∗ gsim_expr_all_wo Ω π P (O ∪ {[i]}))%I.
 Proof.
   intros Hlook Hel. rewrite /gsim_expr_all_wo.
   rewrite (big_sepL_delete _ _ i); last done.
@@ -299,7 +299,7 @@ Proof.
   intros Hlt; rewrite /gsim_expr_all_wo /gsim_expr_all.
   rewrite big_sepL_app. f_equiv. f_equiv.
   intros k [e_t e_s]; simpl.
-  destruct (decide) as [Hel|]; last done.
+  case_decide as Hel; last done.
   eapply Hlt in Hel.
   change (length P1 + k) with (length (P1: list (expr Λ * expr Λ)) + k) in Hel.
   lia.
@@ -318,8 +318,8 @@ Lemma gsim_expr_target_step_unfold Ω T i p_t p_s σ_t σ_s e_t e_s e_t' σ_t' e
   prim_step p_t e_t σ_t e_t' σ_t' efs_t →
   pool_safe p_s T σ_s →
   state_interp p_t σ_t p_s σ_s T -∗
-  gsim_expr Ω (lift_post Ω) i e_t e_s ==∗
-  ∃ e_s' σ_s' efs_s I, gsim_expr Ω (lift_post Ω) i e_t' e_s' ∗ state_interp p_t σ_t' p_s σ_s' (<[i := e_s']> T ++ efs_s) ∗
+  gsim_expr Ω (lift_post (Ω i)) i e_t e_s ==∗
+  ∃ e_s' σ_s' efs_s I, gsim_expr Ω (lift_post (Ω i)) i e_t' e_s' ∗ state_interp p_t σ_t' p_s σ_s' (<[i := e_s']> T ++ efs_s) ∗
       ⌜pool_steps p_s T σ_s I (<[i := e_s']> T ++ efs_s) σ_s'⌝ ∗ ⌜length efs_t = length efs_s⌝ ∗ gsim_expr_all Ω (length T) (zip efs_t efs_s).
 Proof.
   intros Hlook Hprim Hsafe. iIntros "SI Hsim". rewrite gsim_expr_unfold.
@@ -355,7 +355,7 @@ Proof.
   replace (∅ ∪ {[i]}: gset nat) with ({[i]}: gset nat) by set_solver.
   iDestruct "Hall" as "[Hsim Hall]".
   rewrite gsim_expr_eq global_greatest_def_unfold.
-  iApply (global_least_def_strong_ind _ (λ Ψ π e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜i = π⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ gsim_expr_all_wo Ω 0 P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post Ω e_t e_s) -∗ must_step_all Ω 0 P O D)%I with "[] Hsim [] [] [] Hall"); eauto.
+  iApply (global_least_def_strong_ind _ (λ Ψ π e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜i = π⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ gsim_expr_all_wo Ω 0 P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post (Ω i) e_t e_s) -∗ must_step_all Ω 0 P O D)%I with "[] Hsim [] [] [] Hall"); eauto.
   { intros n ?? Heq ???. repeat f_equiv. by apply Heq. }
   clear P D Hsub e_t e_s Hlook. iModIntro. iIntros (Ψ π e_t e_s) "Hsim".
   iIntros (P D Hlook ? Hsub) "Hall Hpost". subst π.

@@ -11,7 +11,7 @@ Section meta_level_simulation.
 
   Context {PROP : bi}.
   Context {Λ : language}.
-  Context (Ω : val Λ → val Λ → PROP).
+  Context (Ω : thread_id → val Λ → val Λ → PROP).
   Context {s : simulirisG PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
@@ -24,7 +24,7 @@ Section meta_level_simulation.
   (* we pull out the simulation to a meta-level simulation,
      the set V tracks which threads are already values in both target and source *)
   Definition msim (T_t: tpool Λ) (σ_t: state Λ)  (T_s: tpool Λ) (σ_s: state Λ) (V: gset nat) :=
-    sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post Ω) i e_t e_s).
+    sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post (Ω i)) i e_t e_s).
 
   Lemma msim_length T_t T_s σ_t σ_s V:
     msim T_t σ_t T_s σ_s V → length T_t = length T_s.
@@ -79,7 +79,7 @@ Section meta_level_simulation.
     ∃ v_t v_s,
       T_t !! i = Some (of_val v_t) ∧
       T_s !! i = Some (of_val v_s) ∧
-      sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω v_t v_s).
+      sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω i v_t v_s).
   Proof.
     intros Hel Hsafe Hsim. rewrite /msim in Hsim. eapply sat_mono in Hsim.
     - eapply sat_bupd in Hsim.
@@ -266,7 +266,7 @@ Section meta_level_simulation.
       pool_steps p_s T_s σ_s J T_s' σ_s' ∧
       msim T_t' σ_t' T_s' σ_s' U ∧
       (∀ i v_t, T_t' !! i = Some (of_val v_t) →
-      ∃ v_s, T_s' !! i = Some (of_val v_s) ∧ sat (state_interp p_t σ_t' p_s σ_s' T_s' ∗ Ω v_t v_s)).
+      ∃ v_s, T_s' !! i = Some (of_val v_s) ∧ sat (state_interp p_t σ_t' p_s σ_s' T_s' ∗ Ω i v_t v_s)).
   Proof.
     (* first we exectute the simulation to v_t *)
     intros Hsim Hstuck Htgt; eapply msim_steps in Hsim as (T_s' & σ_s' & J1 & Hsrc & Hsim); [|eauto..].
@@ -304,7 +304,7 @@ End meta_level_simulation.
 Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context (Ω : val Λ → val Λ → PROP).
+  Context (Ω : thread_id → val Λ → val Λ → PROP).
   Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
@@ -320,9 +320,9 @@ Section adequacy_statement.
     sat (local_rel Ω p_t p_s ∗
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
       progs_are p_t p_s ∗
-      Ω u u) →
+      Ω 0 u u) →
     (* post *)
-    (∀ v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω v_t v_s) → O v_t v_s) →
+    (∀ π v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω π v_t v_s) → O v_t v_s) →
     B p_t p_s.
   Proof.
     intros Hpre Hpost σ_t σ_s HI Hsafe.
@@ -352,7 +352,7 @@ Section adequacy_statement_alt.
 
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context (Ω : val Λ → val Λ → PROP).
+  Context (Ω : thread_id → val Λ → val Λ → PROP).
   Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
@@ -373,16 +373,16 @@ Section adequacy_statement_alt.
       (* The programs are in the state *)
       progs_are p_t p_s ∗
       (* The "unit" argument to main is related *)
-      Ω u u ∗
+      Ω 0 u u ∗
       (* Logically related values are observationally related *)
-      ∀ v_s v_t, Ω v_t v_s -∗ ⌜O v_t v_s⌝) →
+      ∀ π v_s v_t, Ω π v_t v_s -∗ ⌜O v_t v_s⌝) →
     B p_t p_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
       iCombine "H1 H2 H3 H4" as "H". iExact "H". }
     eapply (@adequacy PROP _ _ _ _ _ _ (sat_frame _) _); first apply Hsat.
-    intros v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
+    intros π v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
   Qed.
 

@@ -115,7 +115,7 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 Implicit Types π : thread_id.
 
-Context (Ω : val → val → iProp Σ) (π : thread_id).
+Context (Ω : thread_id → val → val → iProp Σ) (π : thread_id).
 Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 (** Program for target *)
@@ -432,7 +432,7 @@ Qed.
 Lemma sim_call e_t e_s v_t v_s f :
   to_val e_t = Some v_t →
   to_val e_s = Some v_s →
-  ⊢ Ω v_t v_s -∗ Call (## f) e_t ⪯{π, Ω} Call (## f) e_s {{ Ω }}.
+  ⊢ Ω π v_t v_s -∗ Call (## f) e_t ⪯{π, Ω} Call (## f) e_s {{ Ω π }}.
 Proof.
   intros <-%of_to_val <-%of_to_val.
   (* FIXME use lifting lemma for this *)
@@ -446,7 +446,7 @@ Qed.
 (** fork *)
 Lemma sim_fork e_t e_s Ψ `{!sheapInvConst} :
   #() ⪯ #() [{ Ψ }] -∗
-  (∀ π', e_t ⪯{π', Ω} e_s [{ lift_post Ω }]) -∗
+  (∀ π', e_t ⪯{π', Ω} e_s [{ lift_post (Ω π') }]) -∗
   Fork e_t ⪯ Fork e_s [{ Ψ }].
 Proof.
   iIntros "Hval Hsim". iApply sim_lift_head_step_both.

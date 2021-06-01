@@ -145,7 +145,7 @@ Section refl.
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "#Hv2".
     discr_source; first by apply call_not_val. val_discr_source "Hv2".
-    iApply sim_call; done.
+    iApply sim_wand; [ by iApply sim_call|]. iIntros (??) "$".
   Qed.
 
   Lemma log_rel_unop e_t e_s o :

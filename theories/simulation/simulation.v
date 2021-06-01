@@ -32,12 +32,12 @@ Proof. rewrite /progs_are; apply _. Qed.
 (** Typeclass for the simulation relation so we can use the definitions with
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
 Class Sim {PROP : bi} {Λ : language} (s : simulirisG PROP Λ) :=
-  sim : (val Λ → val Λ → PROP) → (val Λ → val Λ → PROP) → thread_id → expr Λ → expr Λ → PROP.
+  sim : (thread_id → val Λ → val Λ → PROP) → (val Λ → val Λ → PROP) → thread_id → expr Λ → expr Λ → PROP.
 #[global]
 Hint Mode Sim - - - : typeclass_instances.
 
 Class SimE {PROP : bi} {Λ : language} (s : simulirisG PROP Λ) :=
-  sim_expr : (val Λ → val Λ → PROP) → (expr Λ → expr Λ → PROP) → thread_id → expr Λ → expr Λ → PROP.
+  sim_expr : (thread_id → val Λ → val Λ → PROP) → (expr Λ → expr Λ → PROP) → thread_id → expr Λ → expr Λ → PROP.
 #[global]
 Hint Mode SimE - - - : typeclass_instances.
 
@@ -67,7 +67,7 @@ Instance thread_id_equiv : Equiv thread_id. apply thread_idO. Defined.
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context (Ω : val Λ → val Λ → PROP).
+  Context (Ω : thread_id → val Λ → val Λ → PROP).
   Context {s : simulirisG PROP Λ}.
 
   Set Default Proof Using "Type*".
@@ -75,7 +75,7 @@ Section fix_lang.
   Implicit Types (e_s e_t e: expr Λ).
 
   Definition sim_ectx `{!Sim s} π K_t K_s Φ :=
-    (∀ v_t v_s, Ω v_t v_s -∗ sim Ω Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
+    (∀ v_t v_s, Ω π v_t v_s -∗ sim Ω Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
   Definition sim_expr_ectx `{!SimE s} π K_t K_s Φ :=
-    (∀ v_t v_s, Ω v_t v_s -∗ sim_expr Ω Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
+    (∀ v_t v_s, Ω π v_t v_s -∗ sim_expr Ω Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
 End fix_lang.

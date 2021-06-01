@@ -33,7 +33,7 @@ Section fix_lang.
   (** Global simulation relation with stuttering *)
 
   Section sim_def.
-  Context (val_rel : val Λ → val Λ → PROP).
+  Context (val_rel : thread_id → val Λ → val Λ → PROP).
   Definition gsim_expr_inner (greatest_rec : expr_rel -d> thread_id -d> expr_rel) (least_rec : expr_rel -d> thread_id -d> expr_rel) : expr_rel -d> thread_id -d> expr_rel :=
     λ Φ π e_t e_s,
     (∀ P_t σ_t P_s σ_s T_s K_s,
@@ -53,7 +53,7 @@ Section fix_lang.
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗ greatest_rec Φ π e_t' e_s'' ∗
-          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post val_rel) (length T_s + π') e_t e_s))
+          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post (val_rel (length T_s + π'))) (length T_s + π') e_t e_s))
     )%I.
 
   Lemma gsim_expr_inner_mono l1 l2 g1 g2:
@@ -216,7 +216,7 @@ Section fix_lang.
 
   End sim_def.
 
-  Implicit Types (Ω : val Λ → val Λ → PROP).
+  Implicit Types (Ω : thread_id → val Λ → val Λ → PROP).
 
   Definition gsim_expr_aux : seal (λ Ω, global_greatest_def Ω).
   Proof. by eexists. Qed.
@@ -250,7 +250,7 @@ Section fix_lang.
           ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗
           gsim_expr Ω Φ π e_t' e_s'' ∗
-          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, gsim_expr Ω (lift_post Ω) (length T_s + π') e_t e_s))
+          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, gsim_expr Ω (lift_post (Ω (length T_s + π'))) (length T_s + π') e_t e_s))
     )%I.
   Proof.
     rewrite gsim_expr_fixpoint /gsim_expr_inner //.
@@ -636,7 +636,7 @@ Section fix_lang.
 
   (* we show that the local simulation for all functions in the program implies the global simulation *)
   Definition local_rel Ω P_t P_s : PROP :=
-    (□ ∀ f K_s π, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx Ω π K_t K_s Ω)%I.
+    (□ ∀ f K_s π, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx Ω π K_t K_s (Ω π))%I.
   Typeclasses Opaque local_rel.
 
   Global Instance local_rel_persistent Ω P_s P_t : Persistent (local_rel Ω P_s P_t).
@@ -697,8 +697,8 @@ Section fix_lang.
     is_Some (P_s !! f) →
     local_rel Ω P_t P_s -∗
     progs_are P_t P_s -∗
-    Ω v_t v_s -∗
-    gsim_expr Ω (lift_post Ω) π (of_call f v_t) (of_call f v_s).
+    Ω π v_t v_s -∗
+    gsim_expr Ω (lift_post (Ω π)) π (of_call f v_t) (of_call f v_s).
   Proof.
     iIntros ([K_s Hlook]) "#Hloc #Hprogs Hval".
     iApply (local_to_global with "Hloc Hprogs").

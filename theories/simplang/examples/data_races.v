@@ -27,7 +27,7 @@ Section data_race.
     )%E.
 
   Lemma remove_store_and_load_sim π:
-    ⊢ sim_ectx val_rel π remove_store_and_load_opt remove_store_and_load val_rel.
+    ⊢ sim_ectx (const val_rel) π remove_store_and_load_opt remove_store_and_load val_rel.
   Proof.
     iIntros (v_t v_s) "Hrel". sim_pures.
 
@@ -75,7 +75,7 @@ Section data_race.
     )%E.
 
   Lemma reg_promote_loop_sim π f:
-    ⊢ sim_ectx val_rel π (reg_promote_loop_opt f) (reg_promote_loop f) val_rel.
+    ⊢ sim_ectx (const val_rel) π (reg_promote_loop_opt f) (reg_promote_loop f) val_rel.
   Proof.
     iIntros (v_t v_s) "Hrel". sim_pures.
 
@@ -119,7 +119,7 @@ Section data_race.
     )%E.
 
   Lemma hoist_load_sim π:
-    ⊢ sim_ectx val_rel π hoist_load_opt hoist_load val_rel.
+    ⊢ sim_ectx (const val_rel) π hoist_load_opt hoist_load val_rel.
   Proof.
     iIntros (v_t v_s) "Hrel". sim_pures.
 

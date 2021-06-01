@@ -98,7 +98,7 @@ Section fix_lang.
     (λ e_t e_s, ∃ v_t v_s, ⌜e_t = of_val v_t⌝ ∗ ⌜e_s = of_val v_s⌝ ∗ Φ v_t v_s)%I.
 
   Section sim_def.
-  Context (val_rel : val Λ → val Λ → PROP).
+  Context (val_rel : thread_id → val Λ → val Λ → PROP).
 
   (* Thread id must come after postcondition as otherwise NonExpansive
   applies to the thread id instead of the post-condition. *)
@@ -121,14 +121,14 @@ Section fix_lang.
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗ greatest_rec Φ π e_t' e_s'' ∗
-          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post val_rel) (length T_s + π') e_t e_s))
+          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post (val_rel (length T_s + π'))) (length T_s + π') e_t e_s))
 
       ∨ (* call case *)
       (∃ f K_t v_t K_s' v_s σ_s',
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
         ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
-        val_rel v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
-        (∀ v_t v_s, val_rel v_t v_s -∗ greatest_rec Φ π (fill K_t (of_val v_t)) (fill K_s' (of_val v_s)) ))
+        val_rel π v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
+        (∀ v_t v_s, val_rel π  v_t v_s -∗ greatest_rec Φ π (fill K_t (of_val v_t)) (fill K_s' (of_val v_s)) ))
     )%I.
 
 
@@ -299,7 +299,7 @@ Section fix_lang.
 
   End sim_def.
 
-  Implicit Types (Ω : val Λ → val Λ → PROP).
+  Implicit Types (Ω : thread_id → val Λ → val Λ → PROP).
 
   Definition sim_expr_aux : seal (λ Ω, greatest_def Ω).
   Proof. by eexists. Qed.
@@ -339,13 +339,13 @@ Section fix_lang.
           ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗
           sim_expr Ω Φ π e_t' e_s'' ∗
-          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, sim_expr Ω (lift_post Ω) (length T_s + π') e_t e_s))
+          [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, sim_expr Ω (lift_post (Ω (length T_s + π'))) (length T_s + π') e_t e_s))
 
       ∨ (* call case *)
       (∃ f K_t v_t K_s' v_s σ_s',
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
         ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
-        Ω v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
+        Ω π v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
         sim_expr_ectx Ω π K_t K_s' Φ)
     )%I.
   Proof.
@@ -764,7 +764,7 @@ Section fix_lang.
   Lemma sim_call_inline Ω P_t P_s v_t v_s K_t K_s f Φ π :
     P_t !! f = Some K_t →
     P_s !! f = Some K_s →
-    ⊢ progs_are P_t P_s ∗ Ω v_t v_s ∗ sim_expr_ectx Ω π K_t K_s Φ -∗ (of_call f v_t) ⪯{π, Ω} (of_call f v_s) [{ Φ }].
+    ⊢ progs_are P_t P_s ∗ Ω π v_t v_s ∗ sim_expr_ectx Ω π K_t K_s Φ -∗ (of_call f v_t) ⪯{π, Ω} (of_call f v_s) [{ Φ }].
   Proof.
     intros Htgt Hsrc. iIntros "(#Prog & Val & Sim)".
     rewrite sim_expr_unfold. iIntros (P_t' σ_t P_s' σ_s T_s K_s') "[SI [% %]]".

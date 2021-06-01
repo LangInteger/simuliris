@@ -253,8 +253,8 @@ Section fix_heap.
   Global Instance : sheapInvConst.
   Proof. done. Qed.
 
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
   Lemma sim_bij_load_sc l_t l_s Φ :
     l_t ↔h l_s -∗
@@ -633,7 +633,7 @@ Section sim.
 
   Import bi.
 
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
   Implicit Types
     (K_t K_s : ectx)
@@ -652,10 +652,10 @@ Section sim.
     (∀ v_t v_s,
       match envs_app true (Esnoc Enil j (val_rel v_t v_s)) Δ with
       | Some Δ' =>
-          envs_entails Δ' (sim_expr val_rel Φ π (fill K_t (Val v_t)) (fill K_s (Val v_s)))
+          envs_entails Δ' (sim_expr (const val_rel) Φ π (fill K_t (Val v_t)) (fill K_s (Val v_s)))
       | None => False
       end) →
-    envs_entails Δ (sim_expr val_rel Φ π (fill K_t (Load o (LitV l_t))) (fill K_s (Load o (LitV l_s))))%I.
+    envs_entails Δ (sim_expr (const val_rel) Φ π (fill K_t (Load o (LitV l_t))) (fill K_s (Load o (LitV l_s))))%I.
   Proof using val_rel_pers.
     rewrite envs_entails_eq=> ? Hi.
     rewrite -sim_expr_bind. eapply wand_apply; first exact: sim_bij_load.
@@ -671,8 +671,8 @@ Section sim.
   Lemma tac_bij_store Δ i K_t K_s b l_t l_s v_t' v_s' o Φ :
     envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
     envs_entails Δ (val_rel v_t' v_s') →
-    envs_entails Δ (sim_expr val_rel Φ π (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
-    envs_entails Δ (sim_expr val_rel Φ π (fill K_t (Store o (LitV l_t) (Val v_t'))) (fill K_s (Store o (LitV l_s) (Val v_s')))).
+    envs_entails Δ (sim_expr (const val_rel) Φ π (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
+    envs_entails Δ (sim_expr (const val_rel) Φ π (fill K_t (Store o (LitV l_t) (Val v_t'))) (fill K_s (Store o (LitV l_s) (Val v_s')))).
   Proof using val_rel_pers.
     rewrite envs_entails_eq => HΔ.
     rewrite (persistent_persistently_2 (val_rel _ _)).
@@ -691,8 +691,8 @@ Section sim.
     *)
   Lemma tac_bij_freeN Δ i K_t K_s b l_t l_s n Φ :
     envs_lookup i Δ = Some (b, l_t ↔h l_s)%I →
-    envs_entails (envs_delete true i b Δ) (sim_expr val_rel Φ π (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
-    envs_entails Δ (sim_expr val_rel Φ π (fill K_t (FreeN (Val $ LitV $ LitInt n) (LitV l_t))) (fill K_s (FreeN (Val $ LitV $ LitInt n) (LitV l_s)))).
+    envs_entails (envs_delete true i b Δ) (sim_expr (const val_rel) Φ π (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
+    envs_entails Δ (sim_expr (const val_rel) Φ π (fill K_t (FreeN (Val $ LitV $ LitInt n) (LitV l_t))) (fill K_s (FreeN (Val $ LitV $ LitInt n) (LitV l_s)))).
   Proof using val_rel_pers.
     rewrite envs_entails_eq => Hl HΔ.
     rewrite -sim_expr_bind. rewrite (envs_lookup_sound _ _ _ _ Hl).
