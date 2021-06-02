@@ -21,7 +21,7 @@ Section reorder.
     ⊢ expr_rel alloc2_and_cont alloc2_and_cont'.
   Proof.
     expr_rel.
-    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 %π".
+    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 !# %π".
 
     source_alloc l1_s as "Hl1_s" "Ha1_s".
     source_alloc l2_s as "Hl2_s" "Ha2_s".

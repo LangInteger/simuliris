@@ -63,32 +63,32 @@ Section open_rel.
       The simulation relation must hold after applying an arbitrary well-formed
       closing substitution [map]. *)
   Definition expr_rel e_t e_s : iProp Σ :=
-    ∀ π (map : gmap string (val * val)),
+    □ ∀ π (map : gmap string (val * val)),
       subst_map_rel (free_vars e_t ∪ free_vars e_s) map -∗
       subst_map (fst <$> map) e_t ⪯{π, val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
 
   Lemma expr_rel_closed e_t e_s :
     free_vars e_t = ∅ →
     free_vars e_s = ∅ →
-    expr_rel e_t e_s ⊣⊢ (∀ π, e_t ⪯{π, val_rel} e_s {{ val_rel }}).
+    expr_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π, val_rel} e_s {{ val_rel }}).
   Proof.
     intros Hclosed_t Hclosed_s. iSplit.
-    - iIntros "Hwf" (π). iSpecialize ("Hwf" $! π ∅).
+    - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).
       rewrite ->!fmap_empty, ->!subst_map_empty.
       rewrite Hclosed_t Hclosed_s [∅ ∪ _]left_id_L.
-      iApply "Hwf". by iApply subst_map_rel_empty.
-    - iIntros "Hsim" (π xs) "Hxs".
+      iApply "Hrel". by iApply subst_map_rel_empty.
+    - iIntros "#Hsim" (π xs) "!# #Hxs".
       rewrite !subst_map_closed //.
   Qed.
 
   (** Substitute away a single variable in an [expr_rel].
       Use the [expr_rel] tactic below to automatically apply this for all free variables. *)
   Lemma expr_rel_subst x e_t e_s :
-    (∀ (v_t v_s : val), val_rel v_t v_s -∗
+    (□ ∀ (v_t v_s : val), val_rel v_t v_s -∗
       expr_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
     expr_rel e_t e_s.
   Proof.
-    iIntros "Hsim" (π xs) "#Hxs".
+    iIntros "#Hsim" (π xs) "!# #Hxs".
     destruct (decide (x ∈ free_vars e_t ∪ free_vars e_s)) as [Hin|Hnotin]; last first.
     { iSpecialize ("Hsim" $! #0 #0).
       rewrite ->subst_free_vars by set_solver.
@@ -121,7 +121,9 @@ Local Ltac expr_rel_subst_l l cont :=
     let v_t := fresh "v_t" in
     let v_s := fresh "v_s" in
     let H := iFresh in
-    iIntros (v_t v_s) H;
+    iIntros (v_t v_s) "!#";
+    let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
+    iIntros pat;
     expr_rel_subst_l l ltac:(fun _ =>
       cont ();
       iRevert (v_t v_s) H

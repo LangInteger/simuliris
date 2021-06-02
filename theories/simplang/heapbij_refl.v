@@ -4,44 +4,45 @@ From simuliris.simplang Require Import parallel_subst heap_bij open_expr_rel.
 
 (** * Reflexivity theorem for the heap bijection value relation *)
 
-(** We will only be able to show reflexivity for "well-formed" terms. *)
+(** We will only be able to show reflexivity for "well-formed" terms.
+This is basically our 'type system'. Indeed, "no types" really just means
+"everything has the same type". *)
+Fixpoint val_wf (v : val) : Prop :=
+  match v with
+  | LitV (LitLoc l) => False (* no literal locations allowed *)
+  | LitV _ => True
+  | PairV v1 v2 => val_wf v1 ∧ val_wf v2
+  | InjLV v => val_wf v
+  | InjRV v => val_wf v
+  end.
+
+Fixpoint expr_wf (e : expr) : Prop :=
+  match e with
+  | Val v => val_wf v
+  | Var x => True
+  | Let b e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | Call e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | UnOp op e => expr_wf e
+  | BinOp op e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | If e1 e2 e3 => expr_wf e1 ∧ expr_wf e2 ∧ expr_wf e3
+  | While e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | Pair e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | Fst e => expr_wf e
+  | Snd e => expr_wf e
+  | InjL e => expr_wf e
+  | InjR e => expr_wf e
+  | Match e x1 e1 x2 e2 => expr_wf e ∧ expr_wf e1 ∧ expr_wf e2
+  | Fork e => expr_wf e
+  | AllocN e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | FreeN e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | Load o e => expr_wf e
+  | Store o e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | CmpXchg e1 e2 e3 => False   (* currently not supported *)
+  | FAA e1 e2 => False          (* currently not supported *)
+  end.
 
 Section refl.
   Context `{sbijG Σ}.
-
-  Fixpoint val_wf (v : val) : Prop :=
-    match v with
-    | LitV (LitLoc l) => False (* no literal locations allowed *)
-    | LitV _ => True
-    | PairV v1 v2 => val_wf v1 ∧ val_wf v2
-    | InjLV v => val_wf v
-    | InjRV v => val_wf v
-    end.
-
-  Fixpoint expr_wf (e : expr) : Prop :=
-    match e with
-    | Val v => val_wf v
-    | Var x => True
-    | Let b e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | Call e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | UnOp op e => expr_wf e
-    | BinOp op e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | If e1 e2 e3 => expr_wf e1 ∧ expr_wf e2 ∧ expr_wf e3
-    | While e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | Pair e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | Fst e => expr_wf e
-    | Snd e => expr_wf e
-    | InjL e => expr_wf e
-    | InjR e => expr_wf e
-    | Match e x1 e1 x2 e2 => expr_wf e ∧ expr_wf e1 ∧ expr_wf e2
-    | Fork e => expr_wf e
-    | AllocN e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | FreeN e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | Load o e => expr_wf e
-    | Store o e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | CmpXchg e1 e2 e3 => False   (* currently not supported *)
-    | FAA e1 e2 => False          (* currently not supported *)
-    end.
 
   Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
   Proof.
@@ -84,7 +85,7 @@ Section refl.
 
   Lemma expr_rel_var x : ⊢ expr_rel (Var x) (Var x).
   Proof.
-    iIntros (? xs) "#Hs"; simpl.
+    iIntros (? xs) "!# #Hs"; simpl.
     iDestruct (subst_map_rel_lookup x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
     rewrite !lookup_fmap Hv /=. sim_val. done.
   Qed.
@@ -92,7 +93,7 @@ Section refl.
   Lemma expr_rel_let x e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Let x e1_t e2_t) (Let x e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv". sim_pures. rewrite !subst'_subst_map.
@@ -109,7 +110,7 @@ Section refl.
   Lemma expr_rel_call e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "#Hv1".
@@ -123,7 +124,7 @@ Section refl.
   Lemma expr_rel_unop e_t e_s o :
     expr_rel e_t e_s -∗ expr_rel (UnOp o e_t) (UnOp o e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv".
@@ -133,7 +134,7 @@ Section refl.
   Lemma expr_rel_binop e1_t e1_s e2_t e2_s o :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "Hv2".
@@ -162,7 +163,7 @@ Section refl.
     expr_rel e3_t e3_s -∗
     expr_rel (If e1_t e2_t e3_t) (If e1_s e2_s e3_s).
   Proof.
-    iIntros "IH1 IH2 IH3" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2 #IH3" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
@@ -172,9 +173,11 @@ Section refl.
   Qed.
 
   Lemma expr_rel_while e1_t e1_s e2_t e2_s :
-    (□ expr_rel e1_t e1_s) -∗ (□ expr_rel e2_t e2_s) -∗ expr_rel (While e1_t e2_t) (While e1_s e2_s).
+    expr_rel e1_t e1_s -∗
+    expr_rel e2_t e2_s -∗
+    expr_rel (While e1_t e2_t) (While e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     iApply (sim_while_while _ _ _ _ _ _ (True)%I with "[//]").
     iModIntro; iIntros "_".
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
@@ -188,9 +191,11 @@ Section refl.
   Qed.
 
   Lemma expr_rel_pair e1_t e1_s e2_t e2_s :
-    expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Pair e1_t e2_t) (Pair e1_s e2_s).
+    expr_rel e1_t e1_s -∗
+    expr_rel e2_t e2_s -∗
+    expr_rel (Pair e1_t e2_t) (Pair e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "Hv2".
@@ -203,7 +208,7 @@ Section refl.
   Lemma expr_rel_fst e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Fst e_t) (Fst e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
@@ -213,7 +218,7 @@ Section refl.
   Lemma expr_rel_snd e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Snd e_t) (Snd e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
@@ -224,7 +229,7 @@ Section refl.
   Lemma expr_rel_injl e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (InjL e_t) (InjL e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
@@ -232,7 +237,7 @@ Section refl.
   Lemma expr_rel_injr e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (InjR e_t) (InjR e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
@@ -244,7 +249,7 @@ Section refl.
     expr_rel e2_t e2_s -∗
     expr_rel (Match e_t x1 e1_t x2 e2_t) (Match e_s x1 e1_s x2 e2_s).
   Proof.
-    iIntros "IH IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH #IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s)  "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv".
@@ -274,7 +279,7 @@ Section refl.
   Lemma expr_rel_fork e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Fork e_t) (Fork e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     iApply sim_fork; first by sim_pures; sim_val. iIntros (?). sim_pures.
     iApply (sim_wand with "(IH [])"); eauto.
   Qed.
@@ -282,7 +287,7 @@ Section refl.
   Lemma expr_rel_allocN e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (AllocN e1_t e2_t) (AllocN e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
@@ -304,7 +309,7 @@ Section refl.
   Lemma expr_rel_freeN e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (FreeN e1_t e2_t) (FreeN e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
@@ -319,7 +324,7 @@ Section refl.
   Lemma expr_rel_load o e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Load o e_t) (Load o e_s).
   Proof.
-    iIntros "IH" (? xs) "#Hs"; simpl.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv". discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
@@ -329,7 +334,7 @@ Section refl.
   Lemma expr_rel_store o e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Store o e1_t e2_t) (Store o e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv". (* FIXME: fix printing *)
@@ -342,11 +347,11 @@ Section refl.
 
   Lemma expr_rel_val v_t v_s :
     val_rel v_t v_s -∗ expr_rel (Val v_t) (Val v_s).
-  Proof. iIntros "Hv" (? xs) "#Hs"; simpl. by sim_val. Qed.
+  Proof. iIntros "#Hv" (? xs) "!# #Hs"; simpl. by sim_val. Qed.
 
   Theorem expr_wf_sound e : expr_wf e → ⊢ expr_rel e e.
   Proof.
-    intros Hwf. iInduction e as [ ] "IH" forall (Hwf); iIntros (? xs) "#Hs"; simpl.
+    intros Hwf. iInduction e as [ ] "IH" forall (Hwf); iIntros (? xs) "!# #Hs"; simpl.
     - (* Val *) iApply expr_rel_val; [by iApply val_wf_sound | done].
     - (* Var *) by iApply expr_rel_var.
     - (* Let *) destruct Hwf as [Hwf1 Hwf2]. by iApply (expr_rel_let with "(IH [//]) (IH1 [//])").
@@ -364,7 +369,7 @@ Section refl.
       by iApply (expr_rel_match with "(IH [//]) (IH1 [//]) (IH2 [//])").
     - (* Fork *) by iApply (expr_rel_fork with "(IH [//])").
     - (* AllocN *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_allocN with "(IH [//]) (IH1 [//])").
-    - (* Free *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_freeN with "(IH [//]) (IH1 [//])").
+    - (* FreeN *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_freeN with "(IH [//]) (IH1 [//])").
     - (* Load *) by iApply (expr_rel_load with "(IH [//])").
     - (* Store *) destruct Hwf as (Hwf1 & Hwf2). by iApply (expr_rel_store with "(IH [//]) (IH1 [//])").
     - done.
