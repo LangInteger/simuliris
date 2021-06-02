@@ -11,7 +11,7 @@ Section refl.
 
   Fixpoint val_wf (v : val) : Prop :=
     match v with
-    | LitV (LitLoc l) => False (* no literal locations allowed :( *)
+    | LitV (LitLoc l) => False (* no literal locations allowed *)
     | LitV _ => True
     | PairV v1 v2 => val_wf v1 ∧ val_wf v2
     | InjLV v => val_wf v
