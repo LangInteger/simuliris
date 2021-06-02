@@ -84,38 +84,37 @@ Section refl.
 
   Lemma expr_rel_var x : ⊢ expr_rel (Var x) (Var x).
   Proof.
-    iIntros (? xs ?) "#Hs"; simpl.
-    rewrite !lookup_fmap. destruct (xs !! x) as [[v_t v_s] | ] eqn:Heq; simpl.
-    { sim_pures; sim_val; iModIntro. by iApply ("Hs" $! x (v_t, v_s)). }
-    source_stuck_prim.
+    iIntros (? xs) "#Hs"; simpl.
+    iDestruct (subst_map_rel_lookup x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
+    rewrite !lookup_fmap Hv /=. sim_val. done.
   Qed.
 
   Lemma expr_rel_let x e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Let x e1_t e2_t) (Let x e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv". sim_pures. rewrite !subst'_subst_map.
     rewrite -(binder_insert_fmap fst (v_t, v_s)).
     rewrite -(binder_insert_fmap snd (v_t, v_s)).
     iApply "IH2".
-    { iPureIntro.
-      destruct x as [|x]; first set_solver.
-      apply elem_of_subseteq=>x'.
-      destruct (decide (x = x')) as [<-|Hne]; set_solver. }
-    by iApply (subst_map_rel_insert with "Hv").
+    iApply (subst_map_rel_insert with "[] Hv").
+    iApply (subst_map_rel_weaken with "[$]").
+    destruct x as [|x]; first set_solver.
+    apply elem_of_subseteq=>x'.
+    destruct (decide (x = x')) as [<-|Hne]; set_solver.
   Qed.
 
   Lemma expr_rel_call e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs? ) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "#Hv1".
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "#Hv2".
     discr_source; first by apply call_not_val. val_discr_source "Hv2".
     iApply sim_call; done.
@@ -124,9 +123,9 @@ Section refl.
   Lemma expr_rel_unop e_t e_s o :
     expr_rel e_t e_s -∗ expr_rel (UnOp o e_t) (UnOp o e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv".
     destruct o; sim_pures; discr_source; val_discr_source "Hv"; by sim_pures; sim_val.
   Qed.
@@ -134,12 +133,12 @@ Section refl.
   Lemma expr_rel_binop e1_t e1_s e2_t e2_s o :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "Hv1".
     destruct o; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [sim_val; done .. | | ].
     - iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
@@ -163,27 +162,27 @@ Section refl.
     expr_rel e3_t e3_s -∗
     expr_rel (If e1_t e2_t e3_t) (If e1_s e2_s e3_s).
   Proof.
-    iIntros "IH1 IH2 IH3" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2 IH3" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
     discr_source. val_discr_source "Hv". destruct x; sim_pures.
-    + iApply ("IH2" with "[] Hs"). iPureIntro. set_solver.
-    + iApply ("IH3" with "[] Hs"). iPureIntro. set_solver.
+    + iApply "IH2". iApply (subst_map_rel_weaken with "[$]"). set_solver.
+    + iApply "IH3". iApply (subst_map_rel_weaken with "[$]"). set_solver.
   Qed.
 
   Lemma expr_rel_while e1_t e1_s e2_t e2_s :
     (□ expr_rel e1_t e1_s) -∗ (□ expr_rel e2_t e2_s) -∗ expr_rel (While e1_t e2_t) (While e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs ?) "#Hs"; simpl.
+    iIntros "#IH1 #IH2" (? xs) "#Hs"; simpl.
     iApply (sim_while_while _ _ _ _ _ _ (True)%I with "[//]").
     iModIntro; iIntros "_".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
     discr_source. val_discr_source "Hv". destruct x; sim_pures.
-    + smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Hs)".
-      { iPureIntro. set_solver. }
+    + smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+      { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
       iIntros (? ?) "_"; sim_pures. iApply sim_expr_base. iRight. by eauto.
     + iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
@@ -191,12 +190,12 @@ Section refl.
   Lemma expr_rel_pair e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Pair e1_t e2_t) (Pair e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "Hv1".
     sim_pures; sim_val. iModIntro; iSplit; eauto.
   Qed.
@@ -204,9 +203,9 @@ Section refl.
   Lemma expr_rel_fst e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Fst e_t) (Fst e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
     discr_source.
     iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
@@ -214,9 +213,9 @@ Section refl.
   Lemma expr_rel_snd e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Snd e_t) (Snd e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
     discr_source.
     iPoseProof (val_rel_pair_source with "Hv") as (??) "(-> & ? & ?)"; by sim_pures; sim_val.
@@ -225,17 +224,17 @@ Section refl.
   Lemma expr_rel_injl e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (InjL e_t) (InjL e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
   Qed.
   Lemma expr_rel_injr e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (InjR e_t) (InjR e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv"; by sim_pures; sim_val.
   Qed.
 
@@ -245,9 +244,9 @@ Section refl.
     expr_rel e2_t e2_s -∗
     expr_rel (Match e_t x1 e1_t x2 e2_t) (Match e_s x1 e1_s x2 e2_s).
   Proof.
-    iIntros "IH IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s)  "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s)  "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv".
     discr_source.
     + iPoseProof (val_rel_injl_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
@@ -255,40 +254,40 @@ Section refl.
       rewrite -(binder_insert_fmap fst (v_t', x)).
       rewrite -(binder_insert_fmap snd (v_t', x)).
       iApply "IH1".
-      { iPureIntro.
-        destruct x1 as [|x1]; first set_solver.
-        apply elem_of_subseteq=>x'.
-        destruct (decide (x1 = x')) as [<-|Hne]; set_solver. }
-      by iApply subst_map_rel_insert.
+      iApply (subst_map_rel_insert with "[] [$]").
+      iApply (subst_map_rel_weaken with "[$]").
+      destruct x1 as [|x1]; first set_solver.
+      apply elem_of_subseteq=>x'.
+      destruct (decide (x1 = x')) as [<-|Hne]; set_solver.
     + iPoseProof (val_rel_injr_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
       rewrite !subst'_subst_map.
       rewrite -(binder_insert_fmap fst (v_t', x)).
       rewrite -(binder_insert_fmap snd (v_t', x)).
       iApply "IH2".
-      { iPureIntro.
-        destruct x2 as [|x2]; first set_solver.
-        apply elem_of_subseteq=>x'.
-        destruct (decide (x2 = x')) as [<-|Hne]; set_solver. }
-      by iApply subst_map_rel_insert.
+      iApply (subst_map_rel_insert with "[] [$]").
+      iApply (subst_map_rel_weaken with "[$]").
+      destruct x2 as [|x2]; first set_solver.
+      apply elem_of_subseteq=>x'.
+      destruct (decide (x2 = x')) as [<-|Hne]; set_solver.
   Qed.
 
   Lemma expr_rel_fork e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Fork e_t) (Fork e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
+    iIntros "IH" (? xs) "#Hs"; simpl.
     iApply sim_fork; first by sim_pures; sim_val. iIntros (?). sim_pures.
-    iApply (sim_wand with "(IH [] Hs)"); eauto with set_solver.
+    iApply (sim_wand with "(IH [])"); eauto.
   Qed.
 
   Lemma expr_rel_allocN e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (AllocN e1_t e2_t) (AllocN e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t' v_s') "Hv'".
     discr_source. val_discr_source "Hv'".
     target_alloc l_t as "Hl_t" "Ha_t"; first done.
@@ -305,12 +304,12 @@ Section refl.
   Lemma expr_rel_freeN e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (FreeN e1_t e2_t) (FreeN e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t' v_s') "Hv'".
     discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
     iPoseProof (val_rel_litint_source with "Hv'") as "->".
@@ -320,9 +319,9 @@ Section refl.
   Lemma expr_rel_load o e_t e_s :
     expr_rel e_t e_s -∗ expr_rel (Load o e_t) (Load o e_s).
   Proof.
-    iIntros "IH" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv". discr_source. iPoseProof (val_rel_loc_source with "Hv") as (l_t) "(-> & Hrel)".
     by sim_load v_t v_s as "Hv"; sim_val.
   Qed.
@@ -330,12 +329,12 @@ Section refl.
   Lemma expr_rel_store o e1_t e1_s e2_t e2_s :
     expr_rel e1_t e1_s -∗ expr_rel e2_t e2_s -∗ expr_rel (Store o e1_t e2_t) (Store o e1_s e2_s).
   Proof.
-    iIntros "IH1 IH2" (? xs ?) "#Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] Hs)".
-    { iPureIntro. set_solver. }
+    iIntros "IH1 IH2" (? xs) "#Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv". (* FIXME: fix printing *)
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] Hs)".
-    { iPureIntro. set_solver. }
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t' v_s') "Hv'".
     discr_source. iPoseProof (val_rel_loc_source with "Hv'") as (l_t) "(-> & Hrel)".
     by sim_store; [done | sim_val].
@@ -343,9 +342,9 @@ Section refl.
 
   Lemma expr_rel_val v_t v_s :
     val_rel v_t v_s -∗ expr_rel (Val v_t) (Val v_s).
-  Proof. iIntros "Hv" (? xs ?) "#Hs"; simpl. by sim_val. Qed.
+  Proof. iIntros "Hv" (? xs) "#Hs"; simpl. by sim_val. Qed.
 
-  Lemma expr_wf_sound e : expr_wf e → ⊢ expr_rel e e.
+  Theorem expr_wf_sound e : expr_wf e → ⊢ expr_rel e e.
   Proof.
     intros Hwf. iInduction e as [ ] "IH" forall (Hwf); iIntros (? xs) "#Hs"; simpl.
     - (* Val *) iApply expr_rel_val; [by iApply val_wf_sound | done].
