@@ -2,7 +2,7 @@ From iris.bi Require Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import
-  fairness relations language global_sim fairness_adequacy.
+  fairness relations language behavior global_sim fairness_adequacy.
 Import bi.
 
 
@@ -310,24 +310,15 @@ Section adequacy_statement.
   Arguments sat _%I.
 
   Variable (I: state Λ → state Λ → Prop).
-  Variable (O: val Λ → val Λ → Prop).
   Variable (main: string) (u: val Λ).
+  Variable (O: val Λ → val Λ → Prop).
 
-  Definition B (p_t p_s: prog Λ) :=
-    ∀ σ_t σ_s, I σ_t σ_s ∧ safe p_s (of_call main u) σ_s →
-    (* divergent case *)
-    (fair_div p_t [(of_call main u)] σ_t → fair_div p_s [(of_call main u)] σ_s) ∧
-    (* convergent case *)
-    (∀ T_t σ_t' I, pool_steps p_t [of_call main u] σ_t I T_t σ_t' →
-     ∃ T_s σ_s' J, pool_steps p_s [of_call main u] σ_s J T_s σ_s' ∧
-    (∀ i v_t, T_t !! i = Some (of_val v_t) → ∃ v_s, T_s !! i = Some (of_val v_s) ∧ O v_t v_s)) ∧
-    (* safety *)
-    (safe p_t (of_call main u) σ_t).
+  Let B := B I main u O.
 
   Lemma adequacy p_t p_s:
     (* pre *)
     sat (local_rel Ω p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [(of_call main u)]) ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
       progs_are p_t p_s ∗
       Ω u u) →
     (* post *)
@@ -366,16 +357,24 @@ Section adequacy_statement_alt.
   Arguments sat _%I.
 
   Variable (I: state Λ → state Λ → Prop).
-  Variable (O: val Λ → val Λ → Prop).
   Variable (main: string) (u: val Λ).
+  Variable (O: val Λ → val Λ → Prop).
+
+  Let B := B I main u O.
 
   Lemma adequacy_alt p_t p_s:
-    sat (local_rel Ω p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [(of_call main u)]) ∗
+    sat (
+      (* The programs are related *)
+      local_rel Ω p_t p_s ∗
+      (* The initial states satisfy the state interpretation *)
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
+      (* The programs are in the state *)
       progs_are p_t p_s ∗
+      (* The "unit" argument to main is related *)
       Ω u u ∗
+      (* Logically related values are observationally related *)
       ∀ v_s v_t, Ω v_t v_s -∗ ⌜O v_t v_s⌝) →
-    B I O main u p_t p_s.
+    B p_t p_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
