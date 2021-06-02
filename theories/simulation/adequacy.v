@@ -313,7 +313,7 @@ Section adequacy_statement.
   Variable (main: string) (u: val Λ).
   Variable (O: val Λ → val Λ → Prop).
 
-  Let B := B I main u O.
+  Let B := beh_rel I main u O.
 
   Lemma adequacy p_t p_s:
     (* pre *)
@@ -360,7 +360,7 @@ Section adequacy_statement_alt.
   Variable (main: string) (u: val Λ).
   Variable (O: val Λ → val Λ → Prop).
 
-  Let B := B I main u O.
+  Let B := beh_rel I main u O.
 
   (** Derive from the above an adequacy theorem with just a single [sat]. *)
   Lemma adequacy_alt p_t p_s:

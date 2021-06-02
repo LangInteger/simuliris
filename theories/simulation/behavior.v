@@ -11,7 +11,7 @@ Section beh.
   Variable (O: val Λ → val Λ → Prop).
 
   (** "Behavioral refinement", stated in a constructive way. *)
-  Definition B (p_t p_s: prog Λ) :=
+  Definition beh_rel (p_t p_s: prog Λ) :=
     ∀ σ_t σ_s, I σ_t σ_s ∧ safe p_s (of_call main u) σ_s →
     (* divergent case *)
     (fair_div p_t [of_call main u] σ_t → fair_div p_s [of_call main u] σ_s) ∧
