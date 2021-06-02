@@ -362,6 +362,7 @@ Section adequacy_statement_alt.
 
   Let B := B I main u O.
 
+  (** Derive from the above an adequacy theorem with just a single [sat]. *)
   Lemma adequacy_alt p_t p_s:
     sat (
       (* The programs are related *)
