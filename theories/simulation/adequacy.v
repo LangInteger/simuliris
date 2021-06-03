@@ -325,7 +325,7 @@ Section adequacy_statement.
     (∀ v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω v_t v_s) → O v_t v_s) →
     B p_t p_s.
   Proof.
-    intros Hpre Hpost σ_t σ_s [HI Hsafe].
+    intros Hpre Hpost σ_t σ_s HI Hsafe.
     eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
     destruct Hlook as [K_s Hlook].
     assert (msim (sat:=sat) Ω p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.

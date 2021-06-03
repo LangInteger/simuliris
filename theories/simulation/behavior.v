@@ -11,8 +11,8 @@ Section beh.
   Variable (O: val Λ → val Λ → Prop).
 
   (** * "Behavioral refinement", stated in a constructive way. *)
-  Definition beh_rel (p_t p_s: prog Λ) :=
-    ∀ σ_t σ_s, I σ_t σ_s ∧ safe p_s (of_call main u) σ_s →
+  Definition beh_rel (p_t p_s : prog Λ) :=
+    ∀ σ_t σ_s, I σ_t σ_s → safe p_s (of_call main u) σ_s →
     (* divergent case *)
     (fair_div p_t [of_call main u] σ_t → fair_div p_s [of_call main u] σ_s) ∧
     (* convergent case *)
@@ -25,8 +25,16 @@ Section beh.
   (** * A more classical definition of 'behavioral refinement', equivalent to the
       above. *)
 
-  (** First we define the "set of behaviors" of a program. *)
+  (** First we define the possible "behaviors" of a program, and which behaviors
+      we consider observably related (lifting O to behaviors). *)
   Inductive beh := BehReturn (v : val Λ) | BehDiverge | BehUndefined.
+  Inductive obs_beh : beh → beh → Prop :=
+  | ObsBehVal (v_t v_s : val Λ) :
+    O v_t v_s → obs_beh (BehReturn v_t) (BehReturn v_s)
+  | ObsBehDiv :
+    obs_beh BehDiverge BehDiverge
+  | ObsBehUndefined b :
+    obs_beh b BehUndefined.
 
   (** Next we define when a threadpool has a certain behavior. *)
   Inductive has_beh (p : prog Λ) : tpool Λ → state Λ → beh → Prop :=
@@ -42,6 +50,13 @@ Section beh.
       has_beh p T σ b.
   (* FIXME: The first definition talks about all threads that happen to converge,
      the second definition only about the main thread. *)
+
+  (** Finally, we can apply that to the relevant initial states. *)
+  Definition beh_rel_alt (p_t p_s : prog Λ) :=
+    ∀ σ_t σ_s b_t,
+      I σ_t σ_s →
+      has_beh p_t [of_call main u] σ_t b_t →
+      ∃ b_s, has_beh p_s [of_call main u] σ_s b_s ∧ obs_beh b_t b_s.
 
   (* TODO: prove them equivalent under classical assumptions. *)
 End beh.
