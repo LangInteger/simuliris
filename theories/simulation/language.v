@@ -434,17 +434,18 @@ Section language.
   Qed.
 
   (** Lifting of steps to thread pools *)
-  Implicit Types (T: list (expr Λ)).  (* thread pools *)
+  Definition tpool Λ := list (expr Λ).
+  Implicit Types (T: tpool Λ).  (* thread pools *)
   Implicit Types (I J: list nat).       (* traces *)
   Implicit Types (O: gset nat).       (* trace sets *)
 
-  Inductive pool_step (p: prog Λ): list (expr Λ) → state Λ → nat → list (expr Λ) → state Λ → Prop :=
+  Inductive pool_step (p: prog Λ): tpool Λ → state Λ → nat → tpool Λ → state Λ → Prop :=
     | Pool_step i T_l e e' T_r efs σ σ':
         prim_step p e σ e' σ' efs →
         i = length T_l →
         pool_step p (T_l ++ e :: T_r) σ i (T_l ++ e' :: T_r ++ efs) σ'.
 
-  Inductive pool_steps (p: prog Λ): list (expr Λ) → state Λ → list nat → list (expr Λ) → state Λ → Prop :=
+  Inductive pool_steps (p: prog Λ): tpool Λ → state Λ → list nat → tpool Λ → state Λ → Prop :=
     | Pool_steps_refl T σ: pool_steps p T σ [] T σ
     | Pool_steps_step T T' T'' σ σ' σ'' i I:
       pool_step p T σ i T' σ' →
@@ -799,7 +800,7 @@ Section language.
   Qed.
 
 
-  (* we define the unary versions of the above pool notions and lemmas *)
+  (* we define the one-thread versions of the above pool notions and lemmas *)
   Definition reach_stuck p e σ := pool_reach_stuck p [e] σ.
   Definition safe p e σ := ¬ reach_stuck p e σ.
   Definition no_fork p e σ e' σ' := prim_step p e σ e' σ' [].

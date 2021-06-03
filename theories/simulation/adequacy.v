@@ -23,7 +23,7 @@ Section meta_level_simulation.
 
   (* we pull out the simulation to a meta-level simulation,
      the set V tracks which threads are already values in both target and source *)
-  Definition msim (T_t: list (expr Λ)) (σ_t: state Λ)  (T_s: list (expr Λ)) (σ_s: state Λ) (V: gset nat) :=
+  Definition msim (T_t: tpool Λ) (σ_t: state Λ)  (T_s: tpool Λ) (σ_s: state Λ) (V: gset nat) :=
     sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post Ω) i e_t e_s).
 
   Lemma msim_length T_t T_s σ_t σ_s V:
@@ -34,7 +34,7 @@ Section meta_level_simulation.
     iDestruct "Hsims" as "[$ _]".
   Qed.
 
-  Lemma msim_add_val (v_t: val Λ) (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
+  Lemma msim_add_val (v_t: val Λ) (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) i V:
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     T_t !! i = Some (of_val v_t) →
@@ -72,7 +72,7 @@ Section meta_level_simulation.
         exfalso. by eapply val_prim_step.
   Qed.
 
-  Lemma msim_proj_val (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
+  Lemma msim_proj_val (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) i V:
     i ∈ V →
     pool_safe p_s T_s σ_s →
     msim T_t σ_t T_s σ_s V →
@@ -106,7 +106,7 @@ Section meta_level_simulation.
   Qed.
 
 
-  Lemma msim_step (T_t T_t' T_s: list (expr Λ)) (σ_t σ_t' σ_s: state Λ) i V:
+  Lemma msim_step (T_t T_t' T_s: tpool Λ) (σ_t σ_t' σ_s: state Λ) i V:
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     pool_step p_t T_t σ_t i T_t' σ_t' →
@@ -153,7 +153,7 @@ Section meta_level_simulation.
           by rewrite insert_length Hlen.
   Qed.
 
-  Lemma msim_not_stuck (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) V i e_t :
+  Lemma msim_not_stuck (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) V i e_t :
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     T_t !! i = Some e_t →
@@ -234,7 +234,7 @@ Section meta_level_simulation.
     - rewrite snd_zip // Hlen //.
   Qed.
 
-  Lemma msim_finish_source (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) U V:
+  Lemma msim_finish_source (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) U V:
     (∀ i, i ∈ U → ∃ v_t, T_t !! i = Some (of_val v_t)) →
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →

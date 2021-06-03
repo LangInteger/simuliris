@@ -163,25 +163,24 @@ Proof.
   split; first done. by eapply not_reducible.
 Qed.
 
-  (* classic proof *)
-  Lemma active_eventually_steps p T σ (f: div_exec p T σ) i :
-    fair f →
-    pool_safe p T σ →
-    i ∈ active_threads T →
-    ∃ n, (f n).(id) = i.
-  Proof.
-    intros Hfair Hsafe Hact.
-    destruct (classic (∃ n, (f n).(id) = i)) as [|Hne]; first done.
-    exfalso. feed pose proof (Hfair i) as Hsteps; last first.
-    { rewrite /always_eventually_steps in Hsteps.
-      specialize (Hsteps 0). by naive_solver. }
-    exists 0. intros n _. specialize (div_exec_steps f n) as Hsteps.
-    eapply active_threads_steps in Hsteps. eapply active_safe_enabled.
-    - eapply pool_steps_safe, Hsafe. eapply div_exec_steps.
-    - eapply Hsteps, elem_of_difference; split; first done.
-      rewrite elem_of_list_to_set. intros (m & Heq & _)%div_exec_trace_spec. naive_solver.
-  Qed.
-
+(* classic proof *)
+Lemma active_eventually_steps p T σ (f: div_exec p T σ) i :
+  fair f →
+  pool_safe p T σ →
+  i ∈ active_threads T →
+  ∃ n, (f n).(id) = i.
+Proof.
+  intros Hfair Hsafe Hact.
+  destruct (classic (∃ n, (f n).(id) = i)) as [|Hne]; first done.
+  exfalso. feed pose proof (Hfair i) as Hsteps; last first.
+  { rewrite /always_eventually_steps in Hsteps.
+    specialize (Hsteps 0). by naive_solver. }
+  exists 0. intros n _. specialize (div_exec_steps f n) as Hsteps.
+  eapply active_threads_steps in Hsteps. eapply active_safe_enabled.
+  - eapply pool_steps_safe, Hsafe. eapply div_exec_steps.
+  - eapply Hsteps, elem_of_difference; split; first done.
+    rewrite elem_of_list_to_set. intros (m & Heq & _)%div_exec_trace_spec. naive_solver.
+Qed.
 
 
 
