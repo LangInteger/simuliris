@@ -26,19 +26,19 @@ Section gset_bij.
   Qed.
 End gset_bij.
 
-Class gen_heap_bij_preG `{gen_sim_heapG L_t L_s V_t V_s Σ} := GenHeapBijPreG {
+Class gen_heap_bijGpreS `{gen_sim_heapGS L_t L_s V_t V_s Σ} := GenHeapBijGPreS {
   gen_heap_bij_pre_bijG :> gset_bijG Σ L_t L_s;
 }.
 
-Class gen_heap_bijG `{gen_sim_heapG L_t L_s V_t V_s Σ} := GenHeapBijG {
+Class gen_heap_bijGS `{gen_sim_heapGS L_t L_s V_t V_s Σ} := GenHeapBijGS {
   gen_heap_bij_bijG :> gset_bijG Σ L_t L_s;
   gen_heap_bij_name : gname;
 }.
-Arguments GenHeapBijG L_t L_s V_t V_s Σ {_ _ _ _ _ _} _.
+Arguments GenHeapBijGS L_t L_s V_t V_s Σ {_ _ _ _ _ _} _.
 Arguments gen_heap_bij_name { L_t L_s V_t V_s Σ _ _ _ _ _ _} : assert.
 
 Section definitions.
-  Context `{gen_heap_bijG L_t L_s V_t V_s Σ}.
+  Context `{gen_heap_bijGS L_t L_s V_t V_s Σ}.
 
   Local Notation "l '↦t' v" := (mapsto (hG:=gen_heap_inG_target) l (DfracOwn 1) v)
     (at level 20, format "l  ↦t  v") : bi_scope.
@@ -58,7 +58,7 @@ End definitions.
 Notation "l_t '↔h' l_s" := (gen_heap_bij_elem l_t l_s) (at level 30) : bi_scope.
 
 Section laws.
-  Context `{gen_heap_bijG L_t L_s V_t V_s Σ}.
+  Context `{gen_heap_bijGS L_t L_s V_t V_s Σ}.
 
   Local Notation "l '↦t' v" := (mapsto (hG:=gen_heap_inG_target) l (DfracOwn 1) v)
     (at level 20, format "l  ↦t  v") : bi_scope.
@@ -138,9 +138,9 @@ Section laws.
 
 End laws.
 
-Lemma gen_heap_bij_init_names `{gen_heap_bij_preG L_t L_s V_t V_s Σ} val_rel :
+Lemma gen_heap_bij_init_names `{gen_heap_bijGpreS L_t L_s V_t V_s Σ} val_rel :
   ⊢ |==> ∃ γ : gname,
-    let hG := GenHeapBijG L_t L_s V_t V_s Σ γ in
+    let hG := GenHeapBijGS L_t L_s V_t V_s Σ γ in
     gen_heap_bij_inv val_rel.
 Proof.
   iMod (gset_bij_own_alloc_empty) as (γ) "Hinv".
@@ -148,9 +148,9 @@ Proof.
   by iApply big_sepS_empty.
 Qed.
 
-Lemma gen_heap_bij_init `{gen_heap_bij_preG L_t L_s V_t V_s Σ} val_rel :
-  ⊢ |==> ∃ _ : gen_heap_bijG, gen_heap_bij_inv val_rel.
+Lemma gen_heap_bij_init `{gen_heap_bijGpreS L_t L_s V_t V_s Σ} val_rel :
+  ⊢ |==> ∃ _ : gen_heap_bijGS, gen_heap_bij_inv val_rel.
 Proof.
   iMod (gen_heap_bij_init_names val_rel) as (γ) "Hinit".
-  iModIntro. iExists (GenHeapBijG _ _ _ _ _ γ). iFrame.
+  iModIntro. iExists (GenHeapBijGS _ _ _ _ _ γ). iFrame.
 Qed.

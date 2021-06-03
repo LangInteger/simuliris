@@ -11,7 +11,7 @@ From iris.prelude Require Import options.
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap. *)
 
 Class sbijG (Σ : gFunctors) := SBijG {
-  sbijG_sheapG :> sheapG Σ;
+  sbijG_sheapG :> sheapGS Σ;
   sbijG_bijG :> gset_bijG Σ block block;
   sbijG_bij_name : gname;
 }.

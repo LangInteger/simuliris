@@ -21,36 +21,27 @@ Class gen_heapGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
   gen_meta_data_preG_inG :> inG Σ (reservation_mapR (agreeR positiveO));
 }.
 
-Class gen_heapPreNameG (L V : Type) (Σ : gFunctors) (gen_heap_name : gname) (gen_meta_name : gname)  `{Countable L} := GenHeapPreNameG {
+Class gen_heapGS_named (L V : Type) (Σ : gFunctors) (gen_heap_name : gname) (gen_meta_name : gname)  `{Countable L} := GenHeapGSNamed {
   gen_heap_preNameG :> gen_heapGpreS L V Σ
 }.
 
-Class gen_heapGS (L V : Type) (Σ : gFunctors) `{Countable L} := GenHeapGS {
-  gen_heap_name : gname;
-  gen_meta_name : gname;
-  gen_heap_inG :> gen_heapPreNameG L V Σ gen_heap_name gen_meta_name;
-}.
-Global Arguments GenHeapGS L V Σ {_ _} _ _ {_}.
-Global Arguments gen_heap_name {L V Σ _ _} _ : assert.
-Global Arguments gen_meta_name {L V Σ _ _} _ : assert.
-
 (** Variant for refinements between two languages *)
-Class gen_sim_heapG (L_t L_s V_t V_s : Type) (Σ : gFunctors) `{Countable L_s, Countable L_t} := GenSimHeapG {
+Class gen_sim_heapGS (L_t L_s V_t V_s : Type) (Σ : gFunctors) `{Countable L_s, Countable L_t} := GenSimHeapGS {
   gen_heap_name_target : gname;
   gen_meta_name_target : gname;
   gen_heap_name_source : gname;
   gen_meta_name_source : gname;
-  gen_heap_inG_source :> gen_heapPreNameG L_s V_s Σ gen_heap_name_source gen_meta_name_source;
-  gen_heap_inG_target :> gen_heapPreNameG L_t V_t Σ gen_heap_name_target gen_meta_name_target;
+  gen_heap_inG_source :> gen_heapGS_named L_s V_s Σ gen_heap_name_source gen_meta_name_source;
+  gen_heap_inG_target :> gen_heapGS_named L_t V_t Σ gen_heap_name_target gen_meta_name_target;
 }.
-Global Arguments GenSimHeapG L_t L_s V_t V_s Σ {_ _ _ _} _ _ _ _ {_ _}.
+Global Arguments GenSimHeapGS L_t L_s V_t V_s Σ {_ _ _ _} _ _ _ _ {_ _}.
 Global Arguments gen_heap_name_source {L_t L_s V_t V_s Σ _ _ _ _} _ : assert.
 Global Arguments gen_meta_name_source {L_t L_s V_t V_s Σ _ _ _ _} _ : assert.
 Global Arguments gen_heap_name_target {L_t L_s V_t V_s Σ _ _ _ _} _ : assert.
 Global Arguments gen_meta_name_target {L_t L_s V_t V_s Σ _ _ _ _} _ : assert.
 
 Section definitions.
-  Context `{Countable L, gen_heap_name : gname, gen_meta_name : gname, hG : !gen_heapPreNameG L V Σ gen_heap_name gen_meta_name}.
+  Context `{Countable L, gen_heap_name : gname, gen_meta_name : gname, hG : !gen_heapGS_named L V Σ gen_heap_name gen_meta_name}.
 
   Definition gen_heap_interp (σ : gmap L V) : iProp Σ := ∃ m : gmap L gname,
     (* The [⊆] is used to avoid assigning ghost information to the locations in
@@ -93,7 +84,7 @@ Local Notation "l ↦ v" := (mapsto l (DfracOwn 1) v)
   (at level 20, format "l  ↦  v") : bi_scope.
 
 Section gen_heap.
-  Context {L V} `{Countable L, gen_heap_name : gname, gen_meta_name : gname, !gen_heapPreNameG L V Σ gen_heap_name gen_meta_name}.
+  Context {L V} `{Countable L, gen_heap_name : gname, gen_meta_name : gname, !gen_heapGS_named L V Σ gen_heap_name gen_meta_name}.
   Implicit Types P Q : iProp Σ.
   Implicit Types Φ : V → iProp Σ.
   Implicit Types σ : gmap L V.
@@ -276,7 +267,7 @@ The key difference to [gen_heap_init] is that the [inG] instances in the new
 whereas [gen_heap_init] forgets about that relation. *)
 Lemma gen_heap_init_names `{Countable L, !gen_heapGpreS L V Σ} σ :
   ⊢ |==> ∃ γh γm : gname,
-    let hG := GenHeapPreNameG L V Σ γh γm in
+    let hG := GenHeapGSNamed L V Σ γh γm in
     gen_heap_interp σ ∗ ([∗ map] l ↦ v ∈ σ, l ↦ v) ∗ ([∗ map] l ↦ _ ∈ σ, meta_token l ⊤).
 Proof.
   iMod (own_alloc (gmap_view_auth 1 (∅ : gmap L (leibnizO V)))) as (γh) "Hh".
@@ -284,26 +275,17 @@ Proof.
   iMod (own_alloc (gmap_view_auth 1 (∅ : gmap L gnameO))) as (γm) "Hm".
   { exact: gmap_view_auth_valid. }
   iExists γh, γm.
-  iAssert (gen_heap_interp (hG:=GenHeapPreNameG _ _ _ γh γm _ _ _) ∅) with "[Hh Hm]" as "Hinterp".
+  iAssert (gen_heap_interp (hG:=GenHeapGSNamed _ _ _ γh γm _ _ _) ∅) with "[Hh Hm]" as "Hinterp".
   { iExists ∅; simpl. iFrame "Hh Hm". by rewrite dom_empty_L. }
   iMod (gen_heap_alloc_big with "Hinterp") as "(Hinterp & $ & $)".
   { apply map_disjoint_empty_r. }
   rewrite right_id_L. done.
 Qed.
 
-Lemma gen_heap_init `{Countable L, !gen_heapGpreS L V Σ} σ :
-  ⊢ |==> ∃ _ : gen_heapGS L V Σ,
-    gen_heap_interp σ ∗ ([∗ map] l ↦ v ∈ σ, l ↦ v) ∗ ([∗ map] l ↦ _ ∈ σ, meta_token l ⊤).
-Proof.
-  iMod (gen_heap_init_names σ) as (γh γm) "Hinit".
-  iExists (GenHeapGS _ _ _ γh γm).
-  done.
-Qed.
-
 (** FIXME: as one would expect, we have to give the instances explicitly here.
   Is there a more elegant way? *)
 Lemma gen_sim_heap_init `{Countable L_t, Countable L_s, !gen_heapGpreS L_t V_t Σ, !gen_heapGpreS L_s V_s Σ} (σ_t : gmap L_t V_t) (σ_s : gmap L_s V_s) :
-  ⊢ |==> ∃ _ : gen_sim_heapG L_t L_s V_t V_s Σ,
+  ⊢ |==> ∃ _ : gen_sim_heapGS L_t L_s V_t V_s Σ,
       (gen_heap_interp (hG := gen_heap_inG_target) σ_t ∗
       ([∗ map] l ↦ v ∈ σ_t, mapsto (hG := gen_heap_inG_target) l (DfracOwn 1) v) ∗
       ([∗ map] l ↦ _ ∈ σ_t, meta_token (hG := gen_heap_inG_target) l ⊤)) ∗
@@ -313,7 +295,6 @@ Lemma gen_sim_heap_init `{Countable L_t, Countable L_s, !gen_heapGpreS L_t V_t �
 Proof.
   iMod (gen_heap_init_names σ_t) as (γh_t γm_t) "Hinit_target".
   iMod (gen_heap_init_names σ_s) as (γh_s γm_s) "Hinit_source".
-  iExists (GenSimHeapG _ _ _ _ _ γh_t γm_t γh_s γm_s).
+  iExists (GenSimHeapGS _ _ _ _ _ γh_t γm_t γh_s γm_s).
   iModIntro. iFrame.
 Qed.
-
