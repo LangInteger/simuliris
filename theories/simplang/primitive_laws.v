@@ -11,7 +11,7 @@ From simuliris.simplang Require Export class_instances tactics notation ghost_st
 From iris.prelude Require Import options.
 
 Class sheapG (Σ: gFunctors) := SHeapG {
-  sheapG_gen_heapG :> heapG Σ;
+  sheapG_gen_heapG :> heapGS Σ;
   sheapG_gen_progG :> gen_sim_progG string ectx ectx Σ;
   sheapG_allocN_source : heap_names;
   sheapG_allocN_target : heap_names;

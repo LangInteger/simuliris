@@ -17,7 +17,7 @@ Definition lock_stateR : cmra :=
 Definition heapUR : ucmra :=
   gmapUR loc (prodR (prodR fracR lock_stateR) (agreeR valO)).
 
-Class heapG Σ := HeapG {
+Class heapGS Σ := HeapGS {
   heap_inG :> inG Σ (authR heapUR);
   heap_freeable_inG :> ghost_mapG Σ loc (option nat);
 }.
@@ -39,7 +39,7 @@ Definition heap_freeable_rel (σ : gmap loc (lock_state * val)) (bs : gset block
    ∀ i, is_Some (σ !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
 
 Section definitions.
-  Context `{!heapG Σ} (γ : heap_names).
+  Context `{!heapGS Σ} (γ : heap_names).
 
   Definition heap_mapsto_def (l : loc) (st : lock_state) (q : frac) (v: val) : iProp Σ :=
     own γ.(heap_name) (◯ {[ l := (q, to_lock_stateR st, to_agree v) ]}).
@@ -103,7 +103,7 @@ Section to_heap.
 End to_heap.
 
 Section heap.
-  Context `{!heapG Σ} (γ : heap_names).
+  Context `{!heapGS Σ} (γ : heap_names).
   Implicit Types P Q : iProp Σ.
   Implicit Types σ : gmap loc (lock_state * val).
   Implicit Types E : coPset.

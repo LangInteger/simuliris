@@ -15,22 +15,22 @@ Import uPred.
 
 (** The CMRAs we need, and the global ghost names we are using. *)
 
-Class gen_heapPreG (L V : Type) (Σ : gFunctors) `{Countable L} := {
+Class gen_heapGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
   gen_heap_preG_inG :> inG Σ (gmap_viewR L (leibnizO V));
   gen_meta_preG_inG :> inG Σ (gmap_viewR L gnameO);
   gen_meta_data_preG_inG :> inG Σ (reservation_mapR (agreeR positiveO));
 }.
 
 Class gen_heapPreNameG (L V : Type) (Σ : gFunctors) (gen_heap_name : gname) (gen_meta_name : gname)  `{Countable L} := GenHeapPreNameG {
-  gen_heap_preNameG :> gen_heapPreG L V Σ
+  gen_heap_preNameG :> gen_heapGpreS L V Σ
 }.
 
-Class gen_heapG (L V : Type) (Σ : gFunctors) `{Countable L} := GenHeapG {
+Class gen_heapGS (L V : Type) (Σ : gFunctors) `{Countable L} := GenHeapGS {
   gen_heap_name : gname;
   gen_meta_name : gname;
   gen_heap_inG :> gen_heapPreNameG L V Σ gen_heap_name gen_meta_name;
 }.
-Global Arguments GenHeapG L V Σ {_ _} _ _ {_}.
+Global Arguments GenHeapGS L V Σ {_ _} _ _ {_}.
 Global Arguments gen_heap_name {L V Σ _ _} _ : assert.
 Global Arguments gen_meta_name {L V Σ _ _} _ : assert.
 
@@ -272,9 +272,9 @@ End gen_heap.
 
 (** This variant of [gen_heap_init] should only be used when absolutely needed.
 The key difference to [gen_heap_init] is that the [inG] instances in the new
-[gen_heapG] instance are related to the original [gen_heapPreG] instance,
+[gen_heapGS] instance are related to the original [gen_heapGpreS] instance,
 whereas [gen_heap_init] forgets about that relation. *)
-Lemma gen_heap_init_names `{Countable L, !gen_heapPreG L V Σ} σ :
+Lemma gen_heap_init_names `{Countable L, !gen_heapGpreS L V Σ} σ :
   ⊢ |==> ∃ γh γm : gname,
     let hG := GenHeapPreNameG L V Σ γh γm in
     gen_heap_interp σ ∗ ([∗ map] l ↦ v ∈ σ, l ↦ v) ∗ ([∗ map] l ↦ _ ∈ σ, meta_token l ⊤).
@@ -291,18 +291,18 @@ Proof.
   rewrite right_id_L. done.
 Qed.
 
-Lemma gen_heap_init `{Countable L, !gen_heapPreG L V Σ} σ :
-  ⊢ |==> ∃ _ : gen_heapG L V Σ,
+Lemma gen_heap_init `{Countable L, !gen_heapGpreS L V Σ} σ :
+  ⊢ |==> ∃ _ : gen_heapGS L V Σ,
     gen_heap_interp σ ∗ ([∗ map] l ↦ v ∈ σ, l ↦ v) ∗ ([∗ map] l ↦ _ ∈ σ, meta_token l ⊤).
 Proof.
   iMod (gen_heap_init_names σ) as (γh γm) "Hinit".
-  iExists (GenHeapG _ _ _ γh γm).
+  iExists (GenHeapGS _ _ _ γh γm).
   done.
 Qed.
 
 (** FIXME: as one would expect, we have to give the instances explicitly here.
   Is there a more elegant way? *)
-Lemma gen_sim_heap_init `{Countable L_t, Countable L_s, !gen_heapPreG L_t V_t Σ, !gen_heapPreG L_s V_s Σ} (σ_t : gmap L_t V_t) (σ_s : gmap L_s V_s) :
+Lemma gen_sim_heap_init `{Countable L_t, Countable L_s, !gen_heapGpreS L_t V_t Σ, !gen_heapGpreS L_s V_s Σ} (σ_t : gmap L_t V_t) (σ_s : gmap L_s V_s) :
   ⊢ |==> ∃ _ : gen_sim_heapG L_t L_s V_t V_s Σ,
       (gen_heap_interp (hG := gen_heap_inG_target) σ_t ∗
       ([∗ map] l ↦ v ∈ σ_t, mapsto (hG := gen_heap_inG_target) l (DfracOwn 1) v) ∗
