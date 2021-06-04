@@ -36,6 +36,7 @@ theories/simplang/parallel_subst.v
 theories/simplang/open_expr_rel.v
 theories/simplang/heapbij_refl.v
 theories/simplang/ctx.v
+theories/simplang/adequacy.v
 
 theories/simplang/examples/sum.v
 theories/simplang/examples/heap_test.v

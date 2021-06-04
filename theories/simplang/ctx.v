@@ -123,7 +123,7 @@ Definition ctxi_wf (Ci : ctx_item) : Prop :=
   | FaaLCtx _ => False  (* unsupported *)
   | FaaRCtx _ => False (* unsupported *)
   end.
-Definition ctx_wf := Forall ctxi_wf.
+Definition ctx_wf : ctx → Prop := Forall ctxi_wf.
 
 Lemma ctx_wf_app C1 C2 :
   ctx_wf (C1 ++ C2) ↔ ctx_wf C1 ∧ ctx_wf C2.

@@ -41,6 +41,33 @@ Fixpoint expr_wf (e : expr) : Prop :=
   | FAA e1 e2 => False          (* currently not supported *)
   end.
 
+Definition ectxi_wf (Ki : ectx_item) : Prop :=
+  match Ki with
+  | LetCtx _ e => expr_wf e
+  | CallLCtx v => val_wf v
+  | CallRCtx e => expr_wf e
+  | UnOpCtx _ => True
+  | BinOpLCtx _ v => val_wf v
+  | BinOpRCtx _ e => expr_wf e
+  | IfCtx e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | PairLCtx v => val_wf v
+  | PairRCtx e => expr_wf e
+  | FstCtx | SndCtx | InjLCtx | InjRCtx | LoadCtx _ => True
+  | MatchCtx _ e1 _ e2 => expr_wf e1 ∧ expr_wf e2
+  | AllocNLCtx v => val_wf v
+  | AllocNRCtx e => expr_wf e
+  | FreeNLCtx v => val_wf v
+  | FreeNRCtx e => expr_wf e
+  | StoreLCtx _ v => val_wf v
+  | StoreRCtx _ e => expr_wf e
+  | CmpXchgLCtx _ _ => False  (* unsupported *)
+  | CmpXchgMCtx _ _ => False  (* unsupported *)
+  | CmpXchgRCtx _ _ => False  (* unsupported *)
+  | FaaLCtx _ => False  (* unsupported *)
+  | FaaRCtx _ => False (* unsupported *)
+  end.
+Definition ectx_wf : ectx → Prop := Forall ectxi_wf.
+
 Section refl.
   Context `{sbijG Σ}.
 
