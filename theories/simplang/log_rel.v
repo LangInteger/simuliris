@@ -1,5 +1,5 @@
-(** Lift the simulation relation to open terms.
-    This is the "expression relation" of our logical relation. *)
+(** Lift the simulation relation (the "expression relation") to open terms.
+    This is the top-level "logical relation". *)
 
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
@@ -59,18 +59,18 @@ Section open_rel.
     ⊢ subst_map_rel ∅ map.
   Proof. iApply big_sepS_empty. done. Qed.
 
-  (** The "expression relation" of our logical relation:
-      The simulation relation must hold after applying an arbitrary well-formed
-      closing substitution [map]. *)
-  Definition expr_rel e_t e_s : iProp Σ :=
+  (** The core "logical relation" of our system:
+      The simulation relation ("expression relation") must hold after applying
+      an arbitrary well-formed closing substitution [map]. *)
+  Definition log_rel e_t e_s : iProp Σ :=
     □ ∀ π (map : gmap string (val * val)),
       subst_map_rel (free_vars e_t ∪ free_vars e_s) map -∗
       subst_map (fst <$> map) e_t ⪯{π, val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
 
-  Lemma expr_rel_closed e_t e_s :
+  Lemma log_rel_closed e_t e_s :
     free_vars e_t = ∅ →
     free_vars e_s = ∅ →
-    expr_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π, val_rel} e_s {{ val_rel }}).
+    log_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π, val_rel} e_s {{ val_rel }}).
   Proof.
     intros Hclosed_t Hclosed_s. iSplit.
     - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).
@@ -81,12 +81,12 @@ Section open_rel.
       rewrite !subst_map_closed //.
   Qed.
 
-  (** Substitute away a single variable in an [expr_rel].
-      Use the [expr_rel] tactic below to automatically apply this for all free variables. *)
-  Lemma expr_rel_subst x e_t e_s :
+  (** Substitute away a single variable in an [log_rel].
+      Use the [log_rel] tactic below to automatically apply this for all free variables. *)
+  Lemma log_rel_subst x e_t e_s :
     (□ ∀ (v_t v_s : val), val_rel v_t v_s -∗
-      expr_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
-    expr_rel e_t e_s.
+      log_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
+    log_rel e_t e_s.
   Proof.
     iIntros "#Hsim" (π xs) "!# #Hxs".
     destruct (decide (x ∈ free_vars e_t ∪ free_vars e_s)) as [Hin|Hnotin]; last first.
@@ -109,33 +109,33 @@ Section open_rel.
 
 End open_rel.
 
-(** Applies expr_rel_subst for each element of [l],
+(** Applies log_rel_subst for each element of [l],
     introduces the new terms under some fresh names,
     calls [cont] on the remaining goal,
     then reverts all the fresh names. *)
-Local Ltac expr_rel_subst_l l cont :=
+Local Ltac log_rel_subst_l l cont :=
   match l with
   | nil => cont ()
   | ?x :: ?l =>
-    iApply (expr_rel_subst x);
+    iApply (log_rel_subst x);
     let v_t := fresh "v_t" in
     let v_s := fresh "v_s" in
     let H := iFresh in
     iIntros (v_t v_s) "!#";
     let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
     iIntros pat;
-    expr_rel_subst_l l ltac:(fun _ =>
+    log_rel_subst_l l ltac:(fun _ =>
       cont ();
       iRevert (v_t v_s) H
     )
   end.
 
-(** Turns an [expr_rel] goal into a [sim] goal by applying a
+(** Turns an [log_rel] goal into a [sim] goal by applying a
     suitable substitution. *)
-Ltac expr_rel :=
+Ltac log_rel :=
   iStartProof;
   match goal with
-  | |- proofmode.environments.envs_entails _ (expr_rel ?e_t ?e_s) =>
+  | |- proofmode.environments.envs_entails _ (log_rel ?e_t ?e_s) =>
     let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
-    expr_rel_subst_l free ltac:(fun _ => simpl; iApply expr_rel_closed; [compute_done..|])
+    log_rel_subst_l free ltac:(fun _ => simpl; iApply log_rel_closed; [compute_done..|])
   end.

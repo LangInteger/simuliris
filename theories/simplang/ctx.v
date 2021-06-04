@@ -2,7 +2,7 @@
 
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import heap_bij open_expr_rel heapbij_refl.
+From simuliris.simplang Require Import heap_bij log_rel heapbij_refl.
 
 (** First we need to define a notion of "contexts"
 (more general than the 'evaluation contexts' that the language comes with) *)
@@ -135,8 +135,8 @@ Proof. rewrite ctx_wf_app /ctx_wf Forall_singleton //. Qed.
 Section ctx.
   Context `{sbijG Σ}.
 
-  Theorem expr_rel_ctx C e_t e_s :
-    ctx_wf C → expr_rel e_t e_s -∗ expr_rel (fill_ctx C e_t) (fill_ctx C e_s).
+  Theorem log_rel_ctx C e_t e_s :
+    ctx_wf C → log_rel e_t e_s -∗ log_rel (fill_ctx C e_t) (fill_ctx C e_s).
   Proof.
     intros Hwf. iInduction (C) as [ | Ci C] "IH" using rev_ind; first by eauto.
     iIntros "Hrel".
@@ -144,35 +144,35 @@ Section ctx.
     iSpecialize ("IH" with "[//] Hrel").
     rewrite !fill_ctx_app /=.
     destruct Ci; simpl.
-    - iApply (expr_rel_let with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_let with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_call with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_call with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_unop with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_binop with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_binop with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_if with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_if with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_if with "[] [] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_while with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_while with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_pair with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_pair with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_fst with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_snd with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_injl with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_injr with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_match with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_match with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_match with "[] [] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_fork with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_allocN with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_allocN with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_freeN with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_freeN with "[] IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_load with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_store with "IH"); iApply expr_wf_sound; apply Hiwf.
-    - iApply (expr_rel_store with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_let with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_let with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_call with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_call with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_unop with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_binop with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_binop with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_if with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_if with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_if with "[] [] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_while with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_while with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_pair with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_pair with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_fst with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_snd with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_injl with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_injr with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_match with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_match with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_match with "[] [] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_fork with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_allocN with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_allocN with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_freeN with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_freeN with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_load with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_store with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_store with "[] IH"); iApply expr_wf_sound; apply Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.

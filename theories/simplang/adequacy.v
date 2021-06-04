@@ -2,7 +2,7 @@
 
 From simuliris.simulation Require Import slsls lifting behavior.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst heap_bij open_expr_rel heapbij_refl ctx.
+From simuliris.simplang Require Import parallel_subst heap_bij log_rel heapbij_refl ctx.
 
 Section ctx_rel.
 
