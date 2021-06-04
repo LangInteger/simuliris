@@ -48,7 +48,8 @@ Definition fair_div p T σ := ∃ f: div_exec p T σ, fair f.
 
 
 (* some theory about diverging executions *)
-Program Definition div_exec_advance {p T σ} (f: div_exec p T σ) n: div_exec p (f n).(pool) (f n).(state) :=
+Program Definition div_exec_advance {p T σ} (f: div_exec p T σ) n :
+    div_exec p (f n).(pool) (f n).(state) :=
   {| the_exec m := f (n + m) |}.
 Next Obligation.
   intros p T σ f n; rewrite /diverges.
@@ -56,6 +57,17 @@ Next Obligation.
   do 2 (split; first done).
   intros k; simpl; rewrite Nat.add_succ_r.
   eapply exec_diverges.
+Qed.
+
+Program Definition div_exec_extend {p T σ i T' σ'} (f: div_exec p T' σ')
+  (Hstep : pool_step p T σ i T' σ') : div_exec p T σ :=
+  {| the_exec n := match n return _ with 0 => (T, σ, i) | S n => f n end |}.
+Next Obligation.
+  intros. split; first done. split; first done.
+  intros [|n].
+  - simpl. destruct (exec_diverges _ _ _ f) as (? & ? & _).
+    congruence.
+  - eapply exec_diverges.
 Qed.
 
 Definition div_exec_next {p T σ} (f: div_exec p T σ) : div_exec p (f 1).(pool) (f 1).(state) := div_exec_advance f 1.
@@ -276,8 +288,16 @@ Section coinductive_inductive_fairness.
     pool_step p T σ i T' σ' →
     fair_div p T σ.
   Proof.
-    (* TODO *)
-  Admitted.
+    intros [exec Hfair] Hstep.
+    exists (div_exec_extend exec Hstep).
+    intros j Henabled m.
+    edestruct (Hfair j) as (m' & Hle & ?).
+    { clear m. destruct Henabled as [m Henabled].
+      exists (pred m). intros n Hle.
+      apply (Henabled (S n)). lia. }
+    exists (S m'). split; last done.
+    apply Nat.le_le_succ_r. exact Hle.
+  Qed.
 
 End coinductive_inductive_fairness.
 
