@@ -15,10 +15,10 @@ Section beh.
     ∀ σ_t σ_s, I σ_t σ_s → safe p_s (of_call main u) σ_s →
     (* divergent case *)
     (fair_div p_t [of_call main u] σ_t → fair_div p_s [of_call main u] σ_s) ∧
-    (* convergent case *)
-    (∀ T_t σ_t' I, pool_steps p_t [of_call main u] σ_t I T_t σ_t' →
-      ∃ T_s σ_s' J, pool_steps p_s [of_call main u] σ_s J T_s σ_s' ∧
-      (∀ i v_t, T_t !! i = Some (of_val v_t) → ∃ v_s, T_s !! i = Some (of_val v_s) ∧ O v_t v_s)) ∧
+    (* convergent case (for main thread) *)
+    (∀ v_t T_t σ_t' I, pool_steps p_t [of_call main u] σ_t I (of_val v_t :: T_t) σ_t' →
+      ∃ v_s T_s σ_s' J, pool_steps p_s [of_call main u] σ_s J (of_val v_s :: T_s) σ_s' ∧
+        O v_t v_s) ∧
     (* safety *)
     (safe p_t (of_call main u) σ_t).
 

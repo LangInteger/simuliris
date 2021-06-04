@@ -337,11 +337,12 @@ Section adequacy_statement.
       iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }
     split; last split.
     - intros Hfair. eapply msim_fair_divergence; eauto.
-    - intros T_t σ_t' J Hsteps.
+    - intros v_t T_t σ_t' J Hsteps.
       eapply msim_return in Hsim as (T_s & σ_s' & J' & U & Hsteps' & _ & Hvals); eauto.
-      exists T_s, σ_s', J'. split; first done.
-      intros i v_t Hlook'. eapply Hvals in Hlook' as (v_s & Hlook' & Hsat).
-      eapply Hpost in Hsat. eauto.
+      destruct (Hvals 0 v_t) as (v_s & Hlook' & Hsat); first done.
+      destruct T_s as [|? T_s]; first done.
+      simpl in Hlook'. injection Hlook' as [= ->].
+      eapply Hpost in Hsat. eauto 10.
     - by eapply msim_safety.
   Qed.
 
