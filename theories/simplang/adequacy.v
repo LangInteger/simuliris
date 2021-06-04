@@ -31,9 +31,9 @@ Section ctx_rel.
       [λ: x, e] denotes an evaluation context [let x = <hole> in e]; then the
       <hole> will be the function argument. *)
   Definition ctx_rel (e_t e_s : expr) :=
-    ∀ (C : ctx) (p : prog) (fname x : string),
+    ∀ (C : ctx) (fname x : string) (p : prog),
       ctx_wf C →
       map_Forall (const ectx_wf) p →
-      free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) = {[x]} →
+      free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
       B (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
 End ctx_rel.
