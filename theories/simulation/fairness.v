@@ -271,6 +271,14 @@ Section coinductive_inductive_fairness.
     econstructor; eauto.
   Qed.
 
+  Lemma fair_div_step p T σ i T' σ':
+    fair_div p T' σ' →
+    pool_step p T σ i T' σ' →
+    fair_div p T σ.
+  Proof.
+    (* TODO *)
+  Admitted.
+
 End coinductive_inductive_fairness.
 
 
