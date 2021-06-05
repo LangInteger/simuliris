@@ -8,7 +8,7 @@ dev-repo: "git+https://gitlab.mpi-sws.org/iris/simuliris.git"
 synopsis: "Local Simulation proofs, the Iris style"
 
 depends: [
-  "coq-iris" { (= "dev.2021-06-03.0.2959900d") | (= "dev") }
+  "coq-iris" { (= "dev.2021-06-05.0.2da41848") | (= "dev") }
 ]
 
 build: [make "-j%{jobs}%"]

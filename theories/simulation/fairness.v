@@ -225,7 +225,7 @@ Section coinductive_inductive_fairness.
       exists (max n1 n2 + 1). intros k Hk. eapply elem_of_list_to_set, div_exec_trace_spec.
       destruct (decide (j = k)).
       + subst. exists n1. split; first done. lia.
-      + assert (k ∈ div_exec_trace f n2) as Hel by (eapply elem_of_list_to_set; set_solver).
+      + assert (k ∈ div_exec_trace f n2) as Hel by (eapply (elem_of_list_to_set (C:=gset nat)); set_solver).
         eapply div_exec_trace_spec in Hel as (m & ? & ?).
         exists m. split; first done. lia.
   Qed.
