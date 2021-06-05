@@ -33,7 +33,7 @@ build-coq.8.12.0:
     OPAM_PINS: "coq version 8.12.0"
     DENY_WARNINGS: "1"
 
-build-iris.dev:
+trigger-iris.dev:
   <<: *template
   variables:
     OPAM_PINS: "coq version 8.13.dev   coq-stdpp.dev git git+https://gitlab.mpi-sws.org/iris/stdpp.git#$STDPP_REV   coq-iris.dev git git+https://gitlab.mpi-sws.org/iris/iris.git#$IRIS_REV"
