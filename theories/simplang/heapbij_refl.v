@@ -110,10 +110,12 @@ Section refl.
     sim_bind ctx_t ctx_s;
     iApply (sim_wand with Hp).
 
+  Notation log_rel := (log_rel val_rel) (only parsing).
+
   Lemma log_rel_var x : ⊢ log_rel (Var x) (Var x).
   Proof.
     iIntros (? xs) "!# #Hs"; simpl.
-    iDestruct (subst_map_rel_lookup x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
+    iDestruct (subst_map_rel_lookup _ x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
     rewrite !lookup_fmap Hv /=. sim_val. done.
   Qed.
 
@@ -205,7 +207,7 @@ Section refl.
     log_rel (While e1_t e2_t) (While e1_s e2_s).
   Proof.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    iApply (sim_while_while _ _ _ _ _ _ (True)%I with "[//]").
+    iApply (sim_while_while _ _ _ _ _ (True)%I with "[//]").
     iModIntro; iIntros "_".
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -286,7 +288,7 @@ Section refl.
       rewrite -(binder_insert_fmap fst (v_t', x)).
       rewrite -(binder_insert_fmap snd (v_t', x)).
       iApply "IH1".
-      iApply (subst_map_rel_insert with "[] [$]").
+      iApply (subst_map_rel_insert with "[] [//]").
       iApply (subst_map_rel_weaken with "[$]").
       destruct x1 as [|x1]; first set_solver.
       apply elem_of_subseteq=>x'.
@@ -296,7 +298,7 @@ Section refl.
       rewrite -(binder_insert_fmap fst (v_t', x)).
       rewrite -(binder_insert_fmap snd (v_t', x)).
       iApply "IH2".
-      iApply (subst_map_rel_insert with "[] [$]").
+      iApply (subst_map_rel_insert with "[] [//]").
       iApply (subst_map_rel_weaken with "[$]").
       destruct x2 as [|x2]; first set_solver.
       apply elem_of_subseteq=>x'.

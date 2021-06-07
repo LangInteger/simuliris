@@ -3,10 +3,11 @@
 
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst heap_bij.
+From simuliris.simplang Require Import parallel_subst primitive_laws.
 
 Section open_rel.
-  Context `{heapbijG Σ}.
+  Context `{!sheapGS Σ} `{!sheapInv Σ}.
+  Context (val_rel : val → val → iProp Σ) `{!∀ vt vs, Persistent (val_rel vt vs)}.
 
   (** Well-formed substitutions closing source and target, with [X] denoting the
       free variables. *)
@@ -65,12 +66,12 @@ Section open_rel.
   Definition log_rel e_t e_s : iProp Σ :=
     □ ∀ π (map : gmap string (val * val)),
       subst_map_rel (free_vars e_t ∪ free_vars e_s) map -∗
-      subst_map (fst <$> map) e_t ⪯{π, const val_rel} subst_map (snd <$> map) e_s {{ val_rel }}.
+      subst_map (fst <$> map) e_t ⪯{π} subst_map (snd <$> map) e_s {{ val_rel }}.
 
   Lemma log_rel_closed e_t e_s :
     free_vars e_t = ∅ →
     free_vars e_s = ∅ →
-    log_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π, const val_rel} e_s {{ val_rel }}).
+    log_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π} e_s {{ val_rel }}).
   Proof.
     intros Hclosed_t Hclosed_s. iSplit.
     - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).
@@ -93,7 +94,7 @@ Section open_rel.
     { iSpecialize ("Hsim" $! #0 #0).
       rewrite ->subst_free_vars by set_solver.
       rewrite ->subst_free_vars by set_solver.
-      iApply "Hsim"; eauto. }
+      iApply "Hsim"; eauto. admit. }
     iDestruct (subst_map_rel_lookup x with "Hxs") as (v_t v_s Hv) "Hrel"; first done.
     iSpecialize ("Hsim" $! v_t v_s with "Hrel").
     iSpecialize ("Hsim" $! π xs with "[Hxs]").
@@ -105,7 +106,7 @@ Section open_rel.
     rewrite insert_id.
     2:{ rewrite lookup_fmap Hv //. }
     done.
-  Qed.
+  Admitted.
 
 End open_rel.
 
@@ -117,7 +118,7 @@ Local Ltac log_rel_subst_l l cont :=
   match l with
   | nil => cont ()
   | ?x :: ?l =>
-    iApply (log_rel_subst x);
+    unshelve (iApply (log_rel_subst _ x)); [apply _|];
     let v_t := fresh "v_t" in
     let v_s := fresh "v_s" in
     let H := iFresh in
@@ -135,7 +136,7 @@ Local Ltac log_rel_subst_l l cont :=
 Ltac log_rel :=
   iStartProof;
   match goal with
-  | |- proofmode.environments.envs_entails _ (log_rel ?e_t ?e_s) =>
+  | |- proofmode.environments.envs_entails _ (log_rel _ ?e_t ?e_s) =>
     let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
     log_rel_subst_l free ltac:(fun _ => simpl; iApply log_rel_closed; [compute_done..|])
   end.

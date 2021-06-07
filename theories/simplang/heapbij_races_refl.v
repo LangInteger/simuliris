@@ -90,7 +90,7 @@ Section refl.
       subst_map_rel map -∗
       na_locs π c -∗
       (∀ v_t v_s, val_rel v_t v_s -∗ na_locs π c -∗ φ v_t v_s) -∗
-      subst_map (fst <$> map) e_t ⪯{π, weak_val_rel} subst_map (snd <$> map) e_s {{ φ }}.
+      subst_map (fst <$> map) e_t ⪯{π} subst_map (snd <$> map) e_s {{ φ }}.
 
   Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
   Proof.
@@ -211,7 +211,7 @@ Section refl.
     (□ sem_wf c e1_t e1_s) -∗ (□ sem_wf c e2_t e2_s) -∗ sem_wf c (While e1_t e2_t) (While e1_s e2_s).
   Proof.
     iIntros "#IH1 #IH2" (? xs φ) "#Hs Hc Hφ"; simpl.
-    iApply (sim_while_while _ _ _ _ _ _ (na_locs π c ∗ (∀ v_t v_s : val, val_rel v_t v_s -∗ na_locs π c -∗ φ v_t v_s))%I with "[$]").
+    iApply (sim_while_while _ _ _ _ _ (na_locs π c ∗ (∀ v_t v_s : val, val_rel v_t v_s -∗ na_locs π c -∗ φ v_t v_s))%I with "[$]").
     iModIntro; iIntros "[Hc Hφ]".
     sim_bind (subst_map _ e1_t) (subst_map _ e1_s).
     iApply ("IH1" with "Hs Hc"). iIntros (v_t1 v_s1) "#Hv1 Hc".
@@ -361,7 +361,7 @@ Section refl.
     val_rel v_t v_s -∗ sem_wf c (Val v_t) (Val v_s).
   Proof. iIntros "Hv" (? xs Φ) "#Hs Hc HΦ"; simpl. sim_val. iApply ("HΦ" with "Hv Hc"). Qed.
 
-  Lemma sem_wf_empty e_t e_s π : na_locs π ∅ -∗ sem_wf ∅ e_t e_s -∗ e_t ⪯{π, weak_val_rel} e_s {{ weak_val_rel π }}.
+  Lemma sem_wf_empty e_t e_s π : na_locs π ∅ -∗ sem_wf ∅ e_t e_s -∗ e_t ⪯{π} e_s {{ λ vt vs, na_locs π ∅ ∗ val_rel vt vs }}.
   Proof.
     iIntros "Hc Hwf". iSpecialize ("Hwf" $! π ∅ with "[] Hc").
     { iApply subst_map_rel_empty. }
@@ -397,10 +397,10 @@ Section refl.
   Qed.
 
   Theorem heap_bij_refl e π : expr_wf e →
-    ⊢ na_locs π ∅ -∗ e ⪯{π, weak_val_rel} e {{ weak_val_rel π }}.
+    ⊢ na_locs π ∅ -∗ e ⪯{π} e {{ λ vt vs, na_locs π ∅ ∗ val_rel vt vs }}.
   Proof.
     iIntros (Hwf) "Hc". iPoseProof (expr_wf_sound _ Hwf) as "Hwf".
-    iSpecialize ("Hwf" $! π ∅ (weak_val_rel π)). setoid_rewrite fmap_empty.
+    iSpecialize ("Hwf" $! π ∅ (λ vt vs, na_locs π ∅ ∗ val_rel vt vs))%I. setoid_rewrite fmap_empty.
     rewrite !subst_map_empty. iApply ("Hwf" with "[] Hc").
     { rewrite /subst_map_rel. by rewrite -map_ForallI_empty. }
     iIntros (??) "$ $".

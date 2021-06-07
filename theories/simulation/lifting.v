@@ -146,15 +146,13 @@ Hint Mode PureExec - - - + - : core.
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language} {s : simulirisG PROP Λ}.
-  Context (Ω : thread_id → val Λ → val Λ → PROP) (π : thread_id).
 
   Implicit Types
     (e_s e_t e: expr Λ)
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ).
-  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
-  Lemma state_interp_pure_step P_t σ_t P_s σ_s e_s T e_s' K_s:
+  Lemma state_interp_pure_step P_t σ_t P_s σ_s e_s T e_s' K_s π:
     pure_step e_s e_s' →
     T !! π = Some (fill K_s e_s) →
     state_interp (PROP := PROP) P_t σ_t P_s σ_s T -∗
@@ -168,7 +166,7 @@ Section fix_sim.
 
 
   (** Pure reduction *)
-  Lemma source_red_lift_pure Ψ m e_s1 e_s2 ϕ :
+  Lemma source_red_lift_pure π Ψ m e_s1 e_s2 ϕ :
     PureExec ϕ m e_s1 e_s2 →
     ϕ → source_red e_s2 π Ψ -∗ source_red e_s1 π Ψ.
   Proof.
@@ -195,16 +193,17 @@ Section fix_sim.
   Qed.
 
   (** Primitive reduction *)
-  Lemma sim_lift_prim_step_both e_t e_s Φ:
+  Lemma sim_lift_prim_step_both π e_t e_s Φ:
     (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' efs_t σ_t',
         ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-          ∃ e_s' efs_s σ_s', ⌜prim_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
-            state_interp P_t σ_t' P_s σ_s' (<[π:=K_s e_s']>T_s ++ efs_s) ∗ e_t' ⪯{π, Ω} e_s' [{ Φ }] ∗
-            ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π', Ω} e_s0 [{lift_post (Ω (length T_s + π'))}])) -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+         ∃ e_s' efs_s σ_s', ⌜prim_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
+            state_interp P_t σ_t' P_s σ_s' (<[π:=K_s e_s']>T_s ++ efs_s) ∗ e_t' ⪯{π} e_s' [{ Φ }] ∗
+            ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π'} e_s0 [{lift_post (ext_rel (length T_s + π'))}]))
+ -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hsim".
     rewrite sim_expr_unfold. iIntros (??????) "[Hstate [% %]]".
@@ -215,7 +214,7 @@ Section fix_sim.
     iDestruct (big_sepL2_length with "Hefs") as "#$". iFrame. iPureIntro. constructor.
   Qed.
 
-  Lemma sim_lift_prim_step_target e_t e_s Φ :
+  Lemma sim_lift_prim_step_target e_t e_s Φ π :
     (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
@@ -223,8 +222,8 @@ Section fix_sim.
         ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ⌜efs_t = []⌝ ∗
           state_interp P_t σ_t' P_s σ_s T_s ∗
-          e_t' ⪯{π, Ω} e_s [{ Φ }]) -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+          e_t' ⪯{π} e_s [{ Φ }]) -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Ha".
     iApply sim_step_target. iIntros (??????) "[Hstate [% %]]".
@@ -233,14 +232,14 @@ Section fix_sim.
     iModIntro; iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro; constructor.
   Qed.
 
-  Lemma sim_lift_prim_step_source e_t e_s Φ :
+  Lemma sim_lift_prim_step_source e_t e_s Φ π :
     (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ∃ e_s' σ_s',
         ⌜prim_step P_s e_s σ_s e_s' σ_s' []⌝ ∗
           state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']>T_s) ∗
-          e_t ⪯{π, Ω} e_s' [{ Φ }]) -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+          e_t ⪯{π} e_s' [{ Φ }]) -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hsource". iApply sim_step_source.
     iIntros (??????) "[Hstate [% %]]".
@@ -250,7 +249,7 @@ Section fix_sim.
   Qed.
 
   (** Head reduction *)
-  Lemma sim_lift_head_step_target e_t e_s Φ :
+  Lemma sim_lift_head_step_target e_t e_s Φ π :
     (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜head_reducible P_t e_t σ_t⌝ ∗
@@ -258,8 +257,8 @@ Section fix_sim.
         ⌜head_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ⌜efs_t = []⌝ ∗
           state_interp P_t σ_t' P_s σ_s T_s ∗
-          e_t' ⪯{π, Ω} e_s [{ Φ }]) -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+          e_t' ⪯{π} e_s [{ Φ }]) -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Htarget". iApply sim_lift_prim_step_target. iIntros (??????) "[Hstate [% %]]".
     iMod ("Htarget" with "[$Hstate//]") as "(%Hred & Hstep)". iModIntro.
@@ -269,30 +268,30 @@ Section fix_sim.
   Qed.
 
   (* for symmetry, in this lemma nothing actually happens *)
-  Lemma sim_lift_head_step_source e_t e_s Φ :
+  Lemma sim_lift_head_step_source e_t e_s Φ π :
     (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ∃ e_s' σ_s',
         ⌜head_step P_s e_s σ_s e_s' σ_s' []⌝ ∗ |==>
           (state_interp P_t σ_t P_s σ_s' (<[π:= fill K_s e_s']>T_s) ∗
-          e_t ⪯{π, Ω} e_s' [{ Φ }])) -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+          e_t ⪯{π} e_s' [{ Φ }])) -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hsource". iApply sim_lift_prim_step_source.
     iIntros (??????) "[Hstate %]". iMod ("Hsource" with "[$Hstate//]") as (e_s' σ_s') "[% >Hstate]".
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. by apply head_prim_step.
   Qed.
 
-  Lemma sim_lift_head_step_both e_t e_s Φ:
+  Lemma sim_lift_head_step_both e_t e_s Φ π:
     (∀ P_t P_s σ_t σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜head_reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' efs_t σ_t',
         ⌜head_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ∃ e_s' efs_s σ_s', ⌜head_step P_s e_s σ_s e_s' σ_s' efs_s⌝ ∗
-          state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s ++ efs_s) ∗ e_t' ⪯{π, Ω} e_s' [{ Φ }] ∗
-          ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π', Ω} e_s0 [{lift_post (Ω (length T_s + π'))}])) -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+          state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s ++ efs_s) ∗ e_t' ⪯{π} e_s' [{ Φ }] ∗
+          ([∗ list] π'↦e_t0;e_s0 ∈ efs_t;efs_s, e_t0 ⪯{length T_s + π'} e_s0 [{lift_post (ext_rel (length T_s + π'))}])) -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hsim". iApply sim_lift_prim_step_both. iIntros (??????) "[Hstate %Hnreach]".
     iMod ("Hsim" with "[$Hstate//]") as "(% & Hstep)".
@@ -303,7 +302,7 @@ Section fix_sim.
   Qed.
 
   (** Stuckness *)
-  Lemma source_stuck_prim ϕ e_s Ψ :
+  Lemma source_stuck_prim ϕ e_s Ψ π :
     (∀ P_s σ_s, SIrreducible ϕ P_s e_s σ_s) →
     ϕ →
     to_val e_s = None →
@@ -314,7 +313,7 @@ Section fix_sim.
       by intros e' σ' efs Hprim%Hirred.
   Qed.
 
-  Lemma source_red_irred_unless ϕ e_s Ψ :
+  Lemma source_red_irred_unless ϕ e_s Ψ π :
     (∀ P_s σ_s, IrredUnless ϕ P_s e_s σ_s) →
     to_val e_s = None →
     (⌜ϕ⌝ -∗ source_red e_s π Ψ) -∗
@@ -331,11 +330,11 @@ Section fix_sim.
     iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
   Qed.
 
-  Lemma sim_irred_unless ϕ e_s e_t Φ :
+  Lemma sim_irred_unless ϕ e_s e_t Φ π :
     (∀ P_s σ_s, IrredUnless ϕ P_s e_s σ_s) →
     to_val e_s = None →
-    (⌜ϕ⌝ -∗ e_t ⪯ e_s [{ Φ }]) -∗
-    e_t ⪯ e_s [{ Φ }].
+    (⌜ϕ⌝ -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     intros Hunless Hval. iIntros "Hs".
     rewrite sim_expr_unfold /safe.
@@ -363,7 +362,7 @@ Section fix_sim.
   Qed.
 
   (** source eval *)
-  Lemma source_red_lift_head_step Ψ e_s :
+  Lemma source_red_lift_head_step Ψ e_s π :
    ⊢ (∀ P_s σ_s P_t σ_t T_s K_s,
        state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝
         ==∗ ∃ e_s' σ_s',
@@ -379,10 +378,10 @@ Section fix_sim.
   Qed.
 
   (** Call *)
-  Lemma sim_lift_call Φ fn v_t v_s :
-    Ω π v_t v_s -∗
-    (∀ v_t v_s, Ω π v_t v_s -∗ Φ (of_val v_t) (of_val v_s)) -∗
-    (of_call fn v_t) ⪯{π, Ω} (of_call fn v_s) [{ Φ }].
+  Lemma sim_lift_call Φ fn v_t v_s π:
+    ext_rel π v_t v_s -∗
+    (∀ v_t v_s, ext_rel π v_t v_s -∗ Φ (of_val v_t) (of_val v_s)) -∗
+    (of_call fn v_t) ⪯{π} (of_call fn v_s) [{ Φ }].
   Proof.
     iIntros "Hom Hv".
     rewrite sim_expr_unfold. iIntros (??????) "[? [% %]]". iModIntro. iRight; iRight.
@@ -405,7 +404,7 @@ Section fix_sim.
      Since we do not have any means to keep track of this in the simulation relation, this lemma
      requires to take steps in the beginning, before escaping to the simulation relation again.
   *)
-  Lemma sim_lift_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ π :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s T_s K_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
@@ -414,12 +413,12 @@ Section fix_sim.
           ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜prim_step P_s e_s σ_s e_s' σ_s' []⌝ ∗
             state_interp P_t σ_t' P_s σ_s' (<[π:=K_s e_s']>T_s) ∗
-            e_t' ⪯{π, Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }]) -∗
+            e_t' ⪯{π} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }]) -∗
     inv e_t e_s -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     pose (F  := (λ Ψ π' e_t e_s, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) ∗ ⌜π = π'⌝ ∗ inv e_t e_s)%I).
-    iIntros "#H Inv". iApply (sim_expr_paco _ F).
+    iIntros "#H Inv". iApply (sim_expr_paco F).
     { intros ??? Heq ???; rewrite /F. repeat f_equiv. by apply Heq. }
     - iModIntro. clear. iIntros (Ψ π' e_t e_s) "[Himpl [% Hinv]]". subst π'.
       rewrite /lock_step. iIntros (p_t σ_t p_s σ_s T_s K_s) "Hs".
@@ -434,7 +433,7 @@ Section fix_sim.
     - rewrite /F. iFrame. iSplit; [|done]. clear. iIntros (e_t e_s) "$".
   Qed.
 
-  Lemma sim_lift_head_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_head_coind (inv : expr Λ → expr Λ → PROP) e_t e_s Φ π :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s T_s K_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
@@ -443,9 +442,9 @@ Section fix_sim.
           ⌜head_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜head_step P_s e_s σ_s e_s' σ_s' []⌝ ∗
             state_interp P_t σ_t' P_s σ_s' (<[π:=K_s e_s']> T_s) ∗
-            e_t' ⪯{π, Ω} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }]) -∗
+            e_t' ⪯{π} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ inv e_t'' e_s'' }]) -∗
     inv e_t e_s -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "#Ha Hinv". iApply (sim_lift_coind with "[] Hinv").
     iModIntro. iIntros (????????) "Hinv [Hstate [% %]]".
@@ -456,7 +455,7 @@ Section fix_sim.
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. split;[done|]. by apply head_prim_step.
   Qed.
 
-  Lemma sim_lift_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ π :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s T_s K_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
@@ -468,9 +467,9 @@ Section fix_sim.
             (∀ Ψ,
             □ (∀ e_t e_s, inv e_t e_s -∗ Ψ e_t e_s) -∗
             □ (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗
-            e_t' ⪯{π, Ω} e_s' [{ Ψ }])) -∗
+            e_t' ⪯{π} e_s' [{ Ψ }])) -∗
     inv e_t e_s -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "#H Inv". iApply (sim_lift_coind with "[H] Inv").
     iModIntro. iIntros (????????) "Hinv Hs". iMod ("H" with "Hinv Hs") as "[$ Hs]".
@@ -478,7 +477,7 @@ Section fix_sim.
     iExists e_s', σ_s'. iModIntro. iFrame. iApply "Hsim"; eauto.
   Qed.
 
-  Lemma sim_lift_head_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ :
+  Lemma sim_lift_head_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ π:
     (□ ∀ e_t e_s P_t P_s σ_t σ_s T_s K_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
@@ -490,9 +489,9 @@ Section fix_sim.
             (∀ Ψ,
             □ (∀ e_t e_s, inv e_t e_s -∗ Ψ e_t e_s) -∗
             □ (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗
-            e_t' ⪯{π, Ω} e_s' [{ Ψ }])) -∗
+            e_t' ⪯{π} e_s' [{ Ψ }])) -∗
     inv e_t e_s -∗
-    e_t ⪯{π, Ω} e_s [{ Φ }].
+    e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "#H Inv". iApply (sim_lift_head_coind with "[H] Inv").
     iModIntro. iIntros (????????) "Hinv Hs". iMod ("H" with "Hinv Hs") as "[$ Hs]".

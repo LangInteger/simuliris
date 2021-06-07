@@ -32,7 +32,7 @@ Section data_race.
     )%E.
 
   Lemma remove_store_and_load_sim π:
-    ⊢ sim_ectx (weak_val_rel) π remove_store_and_load_opt remove_store_and_load val_rel.
+    ⊢ sim_ectx π remove_store_and_load_opt remove_store_and_load val_rel.
   Proof.
     iIntros (v_t v_s) "[Hc Hrel]". sim_pures.
 
@@ -91,9 +91,9 @@ Section data_race.
     )%E.
 
   Lemma reg_promote_loop_sim π f:
-    ⊢ sim_ectx (const val_rel) π (reg_promote_loop_opt f) (reg_promote_loop f) val_rel.
+    ⊢ sim_ectx π (reg_promote_loop_opt f) (reg_promote_loop f) val_rel.
   Proof.
-    iIntros (v_t v_s) "Hrel". sim_pures.
+    iIntros (v_t v_s) "[Hc Hrel]". sim_pures.
 
     source_bind (Fst v_s).
     iApply source_red_irred_unless; first done.
@@ -143,7 +143,7 @@ Section data_race.
     )%E.
 
   Lemma hoist_load_sim π:
-    ⊢ sim_ectx (weak_val_rel) π hoist_load_opt hoist_load val_rel.
+    ⊢ sim_ectx π hoist_load_opt hoist_load val_rel.
   Proof.
     iIntros (v_t v_s) "[Hc Hrel]". sim_pures.
 
@@ -185,7 +185,7 @@ Section data_race.
       iApply (sim_bij_insert with "Hfi_t Hfi_s Hli_t Hli_s []"); [done|]. iIntros "#Hbiji".
       iApply (sim_bij_insert with "Hfr_t Hfr_s Hlr_t Hlr_s []"); [done|]. iIntros "#Hbijr".
       sim_bind (While _ _) (While _ _).
-      iApply (sim_while_while _ _ _ _ _ _ (
+      iApply (sim_while_while _ _ _ _ _ (
          l_t ↦t{#q} #m ∗ l_s ↦s{#q} #m ∗ na_locs π (<[l_s:=(l_t, NaRead q)]> ∅))%I with "[-]").
       { eauto with iFrame. }
       iIntros "!> (Hl_t&Hl_s&Hc)".

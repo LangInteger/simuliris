@@ -18,7 +18,7 @@ Section reorder.
     Call "cont" ("l1", "l2").
 
   Lemma alloc2_reorder :
-    ⊢ log_rel alloc2_and_cont alloc2_and_cont'.
+    ⊢ log_rel val_rel alloc2_and_cont alloc2_and_cont'.
   Proof.
     log_rel.
     iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 !# %π".

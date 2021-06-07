@@ -28,6 +28,7 @@ Class sheapInv (Σ : gFunctors) := SHeapRel {
     (∀ σ_s, prim_step P_s e_s σ_s e_s' σ_s []) →
     sheap_inv P_s σ_s T -∗
     sheap_inv P_s σ_s (<[π:=e_s']>T);
+  sheap_ext_rel : thread_id → val → val → iProp Σ;
 }.
 
 Class sheapInvSupportsLoad `{!sheapInv Σ} (o : order) := {
@@ -109,6 +110,7 @@ Global Program Instance sheapG_simulirisG `{!sheapGS Σ} `{!sheapInv Σ} : simul
      heap_ctx sheapG_allocN_source σ_s.(heap) σ_s.(used_blocks) ∗
      sheap_inv P_s σ_s T_s
     )%I;
+  ext_rel := sheap_ext_rel;
 }.
 Next Obligation.
   iIntros (?????????????) "($&$&$&$&?)".
@@ -181,8 +183,8 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 Implicit Types π : thread_id.
 
-Context (Ω : thread_id → val → val → iProp Σ) (π : thread_id).
-Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+Context (π : thread_id).
+Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 (** Program for target *)
 Lemma hasfun_target_agree f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
@@ -487,7 +489,7 @@ Qed.
 Lemma sim_call e_t e_s v_t v_s f :
   to_val e_t = Some v_t →
   to_val e_s = Some v_s →
-  ⊢ Ω π v_t v_s -∗ Call (## f) e_t ⪯{π, Ω} Call (## f) e_s {{ Ω π }}.
+  ⊢ ext_rel π v_t v_s -∗ Call (## f) e_t ⪯{π} Call (## f) e_s {{ ext_rel π }}.
 Proof.
   intros <-%of_to_val <-%of_to_val.
   (* FIXME use lifting lemma for this *)
@@ -501,7 +503,7 @@ Qed.
 (** fork *)
 Lemma sim_fork e_t e_s Ψ `{!sheapInvSupportsFork} :
   #() ⪯ #() [{ Ψ }] -∗
-  (∀ π', e_t ⪯{π', Ω} e_s [{ lift_post (Ω π') }]) -∗
+  (∀ π', e_t ⪯{π'} e_s [{ lift_post (ext_rel π') }]) -∗
   Fork e_t ⪯ Fork e_s [{ Ψ }].
 Proof.
   iIntros "Hval Hsim". iApply sim_lift_head_step_both.
@@ -520,13 +522,13 @@ Qed.
 Lemma sim_while_while b_t b_s c_t c_s inv Ψ :
   inv -∗
   □ (inv -∗
-    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π, Ω}
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π}
     (if: c_s then b_s ;; while: c_s do b_s od else #())%E
       [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv) }]) -∗
-  (while: c_t do b_t od ⪯{π, Ω} while: c_s do b_s od [{ Ψ }])%E.
+  (while: c_t do b_t od ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
   iIntros "Hinv_init #Hstep".
-  iApply (sim_lift_head_coind _ _ (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
+  iApply (sim_lift_head_coind (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
   { iFrame. eauto. }
   iModIntro. iIntros (?? ?? ?? ??) "(-> & -> & Hinv) ((?&?&?&?&Hsi) & [% %])".
   iModIntro. iSplitR; first by eauto with head_step.
@@ -547,11 +549,11 @@ Lemma sim_while_rec b_t c_t v_s (K_s : ectx) (inv : val → iProp Σ) Ψ rec_n :
   inv v_s -∗
   rec_n @s K_s -∗
   □ (∀ v_s', inv v_s' -∗
-    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π, Ω} (fill K_s v_s')%E
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π} (fill K_s v_s')%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s') }]) -∗
-  (while: c_t do b_t od ⪯{π, Ω} Call ## rec_n v_s [{ Ψ }])%E.
+  (while: c_t do b_t od ⪯{π} Call ## rec_n v_s [{ Ψ }])%E.
 Proof.
-  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ _ (λ e_t e_s, (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s')%I)); first last.
+  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind (λ e_t e_s, (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call ##rec_n (Val v_s')⌝ ∗ inv v_s')%I)); first last.
   { iExists v_s. eauto. }
   iModIntro. iIntros (?? ?? ?? ??) "He ((?&HP_s&?&?&?) & [% %])". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
@@ -570,11 +572,11 @@ Lemma sim_rec_while b_s c_s v_t (K_t : ectx) (inv : val → iProp Σ) Ψ rec_n :
   inv v_t -∗
   rec_n @t K_t -∗
   □ (∀ v_t', inv v_t' -∗
-    (fill K_t v_t')%E ⪯{π, Ω}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
+    (fill K_t v_t')%E ⪯{π}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t') }]) -∗
-  ( Call ##rec_n v_t ⪯{π, Ω} while: c_s do b_s od [{ Ψ }])%E.
+  ( Call ##rec_n v_t ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
-  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind _ _ (λ e_t e_s, (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t'))%I); first last.
+  iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind (λ e_t e_s, (∃ v_t', ⌜e_t = Call ##rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t'))%I); first last.
   { iExists v_t. eauto. }
   iModIntro. iIntros (?? ?? ?? ??) "He ((HP_t & ? & ? & ? &?) & [% %])". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
@@ -596,12 +598,12 @@ Lemma sim_rec_rec v_t v_s (K_t K_s : ectx) (inv : val → val → iProp Σ) Ψ r
   rec_t @t K_t -∗
   rec_s @s K_s -∗
   □ (∀ v_t' v_s', inv v_t' v_s' -∗
-    (fill K_t v_t')%E ⪯{π, Ω} (fill K_s v_s')%E
+    (fill K_t v_t')%E ⪯{π} (fill K_s v_s')%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s') }]) -∗
-  ( Call ##rec_t v_t ⪯{π, Ω} Call ##rec_s v_s [{ Ψ }])%E.
+  ( Call ##rec_t v_t ⪯{π} Call ##rec_s v_s [{ Ψ }])%E.
 Proof.
   iIntros "Hinv #Hrec_t #Hrec_s #Hstep".
-  iApply (sim_lift_head_coind _ _ (λ e_t e_s, (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s'))%I); first last.
+  iApply (sim_lift_head_coind (λ e_t e_s, (∃ v_t' v_s', ⌜e_t = Call ##rec_t (Val v_t')⌝ ∗ ⌜e_s = Call ##rec_s (Val v_s')⌝ ∗ inv v_t' v_s'))%I); first last.
   { iExists v_t, v_s. eauto. }
   iModIntro. iIntros (?? ?? ?? ??) "He ((HP_t & HP_s & ? & ? &?) & [% %])".
   iDestruct "He" as (v_t' v_s') "(-> & -> & Hinv)".

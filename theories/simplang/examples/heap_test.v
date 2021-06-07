@@ -11,6 +11,7 @@ Section a.
 Context `{sheapGS Σ} (π : thread_id).
 Program Instance : sheapInv Σ := {|
   sheap_inv _ _ _ := ⌜True⌝%I;
+  sheap_ext_rel _ _ _ := ⌜True⌝%I;
 |}.
 Next Obligation. done. Qed.
 Global Instance : sheapInvSupportsAll.
@@ -18,8 +19,8 @@ Proof. done. Qed.
 
 Definition val_rel (v1 v2 : val) : iProp Σ := (⌜v1 = v2⌝)%I.
 
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 
 Lemma test_load l l2 :
@@ -68,8 +69,8 @@ End fix_bi.
 Module bij_test.
   Import heap_bij.
   Context `{heapbijG Σ} (π : thread_id).
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
   Lemma test_load l l2:
     l ↦t #4 -∗ l2 ↦s #4 -∗

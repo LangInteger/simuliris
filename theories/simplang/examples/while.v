@@ -5,8 +5,8 @@ From simuliris.simplang Require Import log_rel.
 
 Section fix_bi.
   Context `{heapbijG Σ} (π : thread_id).
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, const val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
 
   Definition loop_test n : expr :=
@@ -89,11 +89,11 @@ Section fix_bi.
   (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
-    log_rel input_loop (Call ##"rec" #true).
+    log_rel val_rel input_loop (Call ##"rec" #true).
   Proof.
     iIntros "#Hs". log_rel. iIntros "!#" (π').
     rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
-    iApply (sim_while_rec _ _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
+    iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
 
@@ -109,11 +109,11 @@ Section fix_bi.
 
   Lemma loop_rec' :
     "rec" @t input_rec -∗
-    log_rel (Call ##"rec" #true) input_loop.
+    log_rel val_rel (Call ##"rec" #true) input_loop.
   Proof.
     iIntros "#Hs". log_rel. iIntros "!#" (π').
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
-    iApply (sim_rec_while _ _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
+    iApply (sim_rec_while _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.
 

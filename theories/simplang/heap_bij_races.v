@@ -103,7 +103,8 @@ Section fix_heap.
 
   Global Program Instance heap_bij_inv : sheapInv Σ := {|
     sheap_inv P_s σ_s T_s := na_bij_interp P_s σ_s T_s;
-  |}.
+    sheap_ext_rel π v_t v_s := na_locs π ∅ ∗ val_rel v_t v_s;
+  |}%I.
   Next Obligation.
     iIntros (????????) "(%L & %cols & % & % & ?)".
     iExists _, _. iFrame. iPureIntro.
@@ -137,11 +138,8 @@ Section fix_heap.
     apply: na_locs_wf_store; [done | done | by left | done | done |done | done |done].
   Qed.
 
-  Definition weak_val_rel (π : thread_id) (v_t v_s : val) : iProp Σ :=
-    na_locs π ∅ ∗ val_rel v_t v_s.
-
-  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, weak_val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, weak_val_rel} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+  Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
   Lemma sim_bij_exploit_store l_t (l_s : loc) Φ e_s e_t col:
     (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ σ' = σ_s))) →
@@ -470,7 +468,7 @@ Section fix_heap.
   Lemma sim_bij_fork e_t e_s Ψ :
     na_locs π ∅ -∗
     (na_locs π ∅ -∗ #() ⪯ #() [{ Ψ }]) -∗
-    (∀ π', na_locs π' ∅ -∗ e_t ⪯{π', weak_val_rel} e_s [{ lift_post (weak_val_rel π') }]) -∗
+    (∀ π', na_locs π' ∅ -∗ e_t ⪯{π'} e_s [{ lift_post (λ vt vs, na_locs π' ∅ ∗ val_rel vt vs) }]) -∗
     Fork e_t ⪯ Fork e_s [{ Ψ }].
   Proof.
     iIntros "Hc Hval Hsim". iApply sim_lift_head_step_both.

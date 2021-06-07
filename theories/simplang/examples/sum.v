@@ -10,8 +10,19 @@ From simuliris.simulation Require Import slsls lifting.
 
 Section fix_bi.
 Context `{sheapGS Σ} (π : thread_id).
+Inductive val_rel_pure : val → val → Prop :=
+  | val_rel_lit l : val_rel_pure (LitV l) (LitV l)
+  | val_rel_injL v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#1, v1)%V) (InjLV v2)
+  | val_rel_injR v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#2, v1)%V) (InjRV v2)
+  | val_rel_pair v1 v2 v1' v2' :
+      val_rel_pure v1 v1' →
+      val_rel_pure v2 v2' →
+      val_rel_pure ((v1, v2)%V) ((v1', v2')%V).
+Local Hint Constructors val_rel_pure : core.
+Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
 Program Instance : sheapInv Σ := {|
   sheap_inv _ _ _ := ⌜True⌝%I;
+  sheap_ext_rel _ := val_rel;
  |}.
 Next Obligation. done. Qed.
 Global Instance : sheapInvSupportsAll.
@@ -25,18 +36,8 @@ Definition inj2_enc : ectx := (λ: "x", (#2, "x"))%E.
 Definition diverge : ectx := (λ: "x", Call "diverge" "x")%E.
 
 (** the value relation determining which values can be passed to a function *)
-Inductive val_rel_pure : val → val → Prop :=
-  | val_rel_lit l : val_rel_pure (LitV l) (LitV l)
-  | val_rel_injL v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#1, v1)%V) (InjLV v2)
-  | val_rel_injR v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#2, v1)%V) (InjRV v2)
-  | val_rel_pair v1 v2 v1' v2' :
-      val_rel_pure v1 v1' →
-      val_rel_pure v2 v2' →
-      val_rel_pure ((v1, v2)%V) ((v1', v2')%V).
-Local Hint Constructors val_rel_pure : core.
-Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
 
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, const val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 
 Definition mul2_source :=
   (λ: "x",

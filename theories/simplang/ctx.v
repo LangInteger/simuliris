@@ -136,7 +136,7 @@ Section ctx.
   Context `{heapbijG Σ}.
 
   Theorem log_rel_ctx C e_t e_s :
-    ctx_wf C → log_rel e_t e_s -∗ log_rel (fill_ctx C e_t) (fill_ctx C e_s).
+    ctx_wf C → log_rel val_rel e_t e_s -∗ log_rel val_rel (fill_ctx C e_t) (fill_ctx C e_s).
   Proof.
     intros Hwf. iInduction (C) as [ | Ci C] "IH" using rev_ind; first by eauto.
     iIntros "Hrel".
