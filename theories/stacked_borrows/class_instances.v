@@ -274,12 +274,12 @@ Section irreducible.
 
   (* TODO: "weak" instances that do not talk about the heap *)
   Global Instance irreducible_write_weak P σ l t T v :
-    IrredUnless (length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+    IrredUnless (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
   Proof. 
     eapply irred_unless_weaken; last apply irreducible_write. tauto.
   Qed.
   Global Instance irreducible_retag_weak P σ v v' pk T rk :
-    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag (Val v) (Val v') pk T rk) σ.
+    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag (Val v) (Val v') pk T rk) σ | 10.
   Proof. 
     eapply irred_unless_weaken; last apply irreducible_retag.
     intros (c & ot & l & -> & -> & _). eauto.

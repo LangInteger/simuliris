@@ -32,7 +32,7 @@ Definition wf_no_dup (α: stacks) :=
   ∀ l stk, α !! l = Some stk → NoDup stk.
 Definition wf_cid_incl (cids: call_id_set) (nxtc: call_id) :=
   ∀ c : call_id, c ∈ cids → (c < nxtc)%nat.
-Definition wf_scalar σ sc := ∀ t l, sc = ScPtr l t → t <t σ.(snp).
+Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l t' → t' <t t.
 
 Record state_wf (s: state) := {
   state_wf_dom : dom (gset loc) s.(shp) ≡ dom (gset loc) s.(sst);

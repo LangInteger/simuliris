@@ -185,6 +185,14 @@ Proof.
       rewrite IH2; [|lia]. f_equal. rewrite app_length /=. lia.
 Qed.
 
+Lemma read_mem_values' l n h v :
+  length v = n →
+  (∀ i, (i < n)%nat → h !! (l +ₗ i) = v !! i) →
+  read_mem l n h = Some v.
+Proof. 
+  intros Hlen Hs.
+Admitted. 
+
 Lemma replace_check'_is_Some cids acc stk :
   (∀ it, it ∈ stk → it.(perm) = Unique → item_inactive_protector cids it) →
   is_Some (replace_check' cids acc stk).
@@ -439,7 +447,7 @@ Lemma call_head_step P σ name e K :
   head_step P (Call #[ScFnPtr name] e) σ (fill K e) σ [].
 Proof. by econstructor; econstructor. Qed.
 
-Lemma initcall_head_step P σ :
+Lemma init_call_head_step P σ :
   let c := σ.(snc) in
   let σ' := mkState σ.(shp) σ.(sst) ({[σ.(snc)]} ∪ σ.(scs)) σ.(snp) (S σ.(snc)) in
   head_step P InitCall σ (#[ScCallId (σ.(snc))]) σ' [].
