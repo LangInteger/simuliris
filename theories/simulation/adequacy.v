@@ -346,7 +346,6 @@ Section adequacy_statement_alt.
 
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : simulirisG PROP Λ}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -359,6 +358,8 @@ Section adequacy_statement_alt.
   (** Derive from the above an adequacy theorem with just a single [sat]. *)
   Lemma adequacy_alt p_t p_s:
     sat (
+      (* Delay the choice of the simulation parameters *)
+      ∃ `(simulirisG PROP Λ),
       (* The programs are related *)
       prog_rel p_t p_s ∗
       (* The initial states satisfy the state interpretation *)
@@ -371,12 +372,13 @@ Section adequacy_statement_alt.
       ∀ v_s v_t, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝) →
     B p_t p_s.
   Proof.
-    intros Hsat. eapply sat_frame_intro in Hsat; last first.
+  Admitted. (* FIXME: [adequacy] does not support delaying the choice of simulation parameters *)
+  (*  intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
       iCombine "H1 H2 H3 H4" as "H". iExact "H". }
     eapply (@adequacy PROP _ _ _ _ _ (sat_frame _) _); first apply Hsat.
     intros v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
     iIntros "(H & _ & Hval)". by iApply "H".
-  Qed.
+  Qed. *)
 
 End adequacy_statement_alt.

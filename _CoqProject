@@ -38,7 +38,7 @@ theories/simplang/pure_refl.v
 theories/simplang/heapbij.v
 theories/simplang/parallel_subst.v
 theories/simplang/gen_log_rel.v
-theories/simplang/adequacy.v
+theories/simplang/gen_adequacy.v
 
 theories/simplang/examples/sum.v
 
@@ -49,6 +49,7 @@ theories/simplang/na_inv/examples/data_races.v
 
 theories/simplang/simple_inv/inv.v
 theories/simplang/simple_inv/refl.v
+theories/simplang/simple_inv/adequacy.v
 theories/simplang/simple_inv/examples/heap_test.v
 theories/simplang/simple_inv/examples/reorder_malloc.v
 theories/simplang/simple_inv/examples/while.v

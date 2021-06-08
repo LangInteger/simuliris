@@ -11,11 +11,19 @@ From simuliris.simplang Require Export class_instances tactics notation ghost_st
 From iris.prelude Require Import options.
 
 Class sheapGS (Σ: gFunctors) := SHeapGS {
-  sheapG_gen_heapG :> heapGS Σ;
+  sheapG_gen_heapG :> heapG Σ;
   sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
-  sheapG_allocN_source : heap_names;
   sheapG_allocN_target : heap_names;
+  sheapG_allocN_source : heap_names;
 }.
+Class sheapGpreS (Σ: gFunctors) := SHeapGpreS {
+  sbij_pre_heapG :> heapG Σ;
+  sbij_pre_progG :> gen_progGpreS Σ string ectx;
+}.
+Definition sheapΣ := #[heapΣ; gen_progΣ string ectx].
+Global Instance subG_sheapΣ Σ :
+  subG sheapΣ Σ → sheapGpreS Σ.
+Proof. solve_inG. Qed.
 
 (** [sheapInv] allows extending the state interpretation with
    additional components, i.e., invariants on the relation of source
@@ -111,7 +119,7 @@ Global Instance sheap_inv_state_independent_supports_fork `{!sheapInv Σ} `{!she
 Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
 
 
-Global Program Instance sheapG_simulirisG `{!sheapGS Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
+Global Program Instance sheapGS_simulirisGS `{!sheapGS Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
@@ -181,6 +189,18 @@ Notation "† l '…s' n" := (heap_freeable sheapG_allocN_source l 1 (Some n))
 Notation "† l '…s' -" := (heap_freeable sheapG_allocN_source l 1 None)
   (at level 20, format "† l …s  -") : bi_scope.
 
+Lemma sheap_init `{!sheapGpreS Σ} P_t P_s T_s :
+  ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
+    (sheap_inv P_s state_empty T_s -∗ state_interp P_t state_empty P_s state_empty T_s) ∗ progs_are P_t P_s.
+Proof.
+  iMod heap_init as (γheap_tgt) "Hheap_tgt".
+  iMod heap_init as (γheap_src) "Hheap_src".
+  iMod (gen_prog_init P_t P_s) as (?) "[[Hprog_tgt #Hisprog_tgt] [Hprog_src #Hisprog_src]]".
+  iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %". iSplitL.
+  - iIntros "?". rewrite /state_interp /=. iFrame.
+  - rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(Hprog_tgt & Hprog_src & _)".
+    (* FIXME: This does not hold with the current [gen_prog]. *)
+Admitted.
 
 Section lifting.
 Context `{!sheapGS Σ} `{!sheapInv Σ}.

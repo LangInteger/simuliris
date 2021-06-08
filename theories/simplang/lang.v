@@ -180,6 +180,7 @@ Record state : Type := {
   heap: gmap loc (lock_state * val);
   used_blocks: gset block;
 }.
+Definition state_empty : state := {| heap := ∅; used_blocks := ∅ |}.
 Definition heap_wf (σ: gmap loc (lock_state * val)) (bs : gset block) : Prop :=
   ∀ l v, σ !! l = Some v → loc_chunk l ∈ bs.
 
@@ -296,85 +297,6 @@ Proof.
      end).
  refine (inj_countable' enc dec _). intros v. induction v; simplify_eq/=; by f_equal.
 Qed.
-(*
-Global Instance expr_countable : Countable expr.
-Proof.
-  (* (string + binder) + (lit + ((un_op + bin_op)) + order) *)
- set (enc :=
-   fix go e :=
-     match e with
-     | Val v => GenNode 0 [gov v]
-     | Var x => GenLeaf (inl (inl x))
-     | Let x e1 e2 => GenNode 1 [GenLeaf (inl (inr x)); go e1; go e2]
-     | UnOp op e => GenNode 3 [GenLeaf (inr (inr (inl (inl op)))); go e]
-     | BinOp op e1 e2 => GenNode 4 [GenLeaf (inr (inr (inl (inr op)))); go e1; go e2]
-     | If e0 e1 e2 => GenNode 5 [go e0; go e1; go e2]
-     | Pair e1 e2 => GenNode 6 [go e1; go e2]
-     | Fst e => GenNode 7 [go e]
-     | Snd e => GenNode 8 [go e]
-     | InjL e => GenNode 9 [go e]
-     | InjR e => GenNode 10 [go e]
-     | Match e0 x1 e1 x2 e2 => GenNode 11 [go e0; GenLeaf (inl (inr x1)); go e1; GenLeaf (inl (inr x2)); go e2]
-     | Fork e => GenNode 12 [go e]
-     | AllocN e1 e2 => GenNode 13 [go e1; go e2]
-     | FreeN e1 e2 => GenNode 14 [go e1; go e2]
-     | Load o e => GenNode 15 [GenLeaf (inr (inr (inr o))); go e]
-     | Store o e1 e2 => GenNode 16 [GenLeaf (inr (inr (inr o))); go e1; go e2]
-     | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
-     | FAA e1 e2 => GenNode 18 [go e1; go e2]
-     | Call e1 e2 => GenNode 19 [go e1; go e2]
-     | While e0 e1 => GenNode 20 [go e0; go e1]
-     end
-   with gov v :=
-     match v with
-     | LitV l => GenLeaf (inr (inl l))
-     | PairV v1 v2 => GenNode 1 [gov v1; gov v2]
-     | InjLV v => GenNode 2 [gov v]
-     | InjRV v => GenNode 3 [gov v]
-     end
-   for go).
- set (dec :=
-   fix go e :=
-     match e with
-     | GenNode 0 [v] => Val (gov v)
-     | GenLeaf (inl (inl x)) => Var x
-     | GenNode 1 [GenLeaf (inl (inr x)); e1; e2] => Let x (go e1) (go e2)
-     | GenNode 3 [GenLeaf (inr (inr (inl (inl op)))); e] => UnOp op (go e)
-     | GenNode 4 [GenLeaf (inr (inr (inl (inr op)))); e1; e2] => BinOp op (go e1) (go e2)
-     | GenNode 5 [e0; e1; e2] => If (go e0) (go e1) (go e2)
-     | GenNode 6 [e1; e2] => Pair (go e1) (go e2)
-     | GenNode 7 [e] => Fst (go e)
-     | GenNode 8 [e] => Snd (go e)
-     | GenNode 9 [e] => InjL (go e)
-     | GenNode 10 [e] => InjR (go e)
-     | GenNode 11 [e0; GenLeaf (inl (inr x1)); e1; GenLeaf (inl (inr x2)); e2] => Match (go e0) x1 (go e1) x2 (go e2)
-     | GenNode 12 [e] => Fork (go e)
-     | GenNode 13 [e1; e2] => AllocN (go e1) (go e2)
-     | GenNode 14 [e1; e2] => FreeN (go e1) (go e2)
-     | GenNode 15 [GenLeaf (inr (inr (inr o))); e] => Load o (go e)
-     | GenNode 16 [GenLeaf (inr (inr (inr o))); e1; e2] => Store o (go e1) (go e2)
-     | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
-     | GenNode 18 [e1; e2] => FAA (go e1) (go e2)
-     | GenNode 19 [e1; e2] => Call (go e1) (go e2)
-     | GenNode 20 [e0; e1] => While (go e0) (go e1)
-     | _ => Val $ LitV LitUnit (* dummy *)
-     end
-   with gov v :=
-     match v with
-     | GenLeaf (inr (inl l)) => LitV l
-     | GenNode 1 [v1; v2] => PairV (gov v1) (gov v2)
-     | GenNode 2 [v] => InjLV (gov v)
-     | GenNode 3 [v] => InjRV (gov v)
-     | _ => LitV LitUnit (* dummy *)
-     end
-   for go).
- refine (inj_countable' enc dec _).
- refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
-     [exact (gov v)|done..].
- - destruct v; by f_equal.
-Qed.
-*)
 
 Global Instance : Inhabited lock_state := populate (RSt 0).
 Global Instance state_inhabited : Inhabited state :=
