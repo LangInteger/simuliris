@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws log_rel.
+From simuliris.simplang Require Import parallel_subst primitive_laws log_rel ctx.
 
 Section struct_val_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
@@ -126,6 +126,13 @@ Section log_rel.
   Context (thread_own : thread_id → iProp Σ).
   Notation val_rel := (struct_val_rel loc_rel) (only parsing).
   Notation log_rel := (log_rel val_rel thread_own) (only parsing).
+
+  Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
+  Proof.
+    intros Hv.
+    iInduction v as [[] | | | ] "IH"; try by (simpl; try iApply "IH").
+    simpl. destruct Hv as [H1 H2]. iSplit; [by iApply "IH" | by iApply "IH1"].
+  Qed.
 
   Local Lemma call_not_val v1 v2 : language.to_val (Call v1 v2) = None.
   Proof.

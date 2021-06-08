@@ -2,9 +2,7 @@
 
 From simuliris.simulation Require Import slsls lifting behavior.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst heap_bij log_rel heapbij_refl ctx.
-
-(* TODO: make this file independent of heapbij_refl *)
+From simuliris.simplang Require Import parallel_subst heap_bij log_rel ctx.
 
 Section ctx_rel.
 
@@ -29,13 +27,14 @@ Section ctx_rel.
 
   Let B := beh_rel init_state "main" #() obs_val.
 
+  Context (expr_wf : expr → Prop).
   (** The two [e] can be put into an arbitrary context in an arbitrary function.
       [λ: x, e] denotes an evaluation context [let x = <hole> in e]; then the
       <hole> will be the function argument. *)
   Definition ctx_rel (e_t e_s : expr) :=
     ∀ (C : ctx) (fname x : string) (p : prog),
-      ctx_wf C →
-      map_Forall (const ectx_wf) p →
+      ctx_wf expr_wf C →
+      map_Forall (const (ectx_wf expr_wf)) p →
       free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
       B (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
 End ctx_rel.
