@@ -26,25 +26,13 @@ Section refl.
   Proof.
     intros e_t e_s Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //=; simpl in Hs; simplify_eq.
+    all: try by iApply pure_expr_wf_sound.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
     all: try iDestruct "IH2" as "[IH2 IH3]".
-    - (* Val *) iApply log_rel_val. by iApply val_wf_sound.
-    - (* Var *) by iApply log_rel_var.
-    - (* Let *) by iApply (log_rel_let with "IH IH1").
     - (* Call *)
       iApply (log_rel_call with "IH IH1").
       by iIntros (???).
-    - (* UnOp *) by iApply (log_rel_unop with "IH").
-    - (* BinOp *) by iApply (log_rel_binop with "IH IH1").
-    - (* If *) by iApply (log_rel_if with "IH IH1 IH2").
-    - (* While *) by iApply (log_rel_while with "IH IH1").
-    - (* Pairs *) by iApply (log_rel_pair with "IH IH1").
-    - (* Fst *) by iApply (log_rel_fst with "IH").
-    - (* Snd *) by iApply (log_rel_snd with "IH").
-    - (* InjL *) by iApply (log_rel_injl with "IH").
-    - (* InjR *) by iApply (log_rel_injr with "IH").
-    - (* Match *) destruct_and!; simplify_eq. by iApply (log_rel_match with "IH IH1 IH2").
     - (* Fork *)
       iApply (log_rel_fork with "IH").
       iIntros (????) "Ht Hsim Hfork". by iApply (sim_bij_fork with "Ht Hsim").

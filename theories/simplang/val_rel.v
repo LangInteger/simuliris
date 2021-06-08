@@ -451,4 +451,35 @@ Section log_rel.
   Lemma log_rel_val v_t v_s :
     val_rel v_t v_s -∗ log_rel (Val v_t) (Val v_s).
   Proof. iIntros "#Hv" (? xs) "!# #Hs Ht"; simpl. sim_val; by iFrame. Qed.
+
+  Definition pure_expr_wf (e : expr) : Prop :=
+    match e with
+    | Val v => val_wf v
+    | Var _ | Let _ _ _ | UnOp _ _ | BinOp _ _ _ | If _ _ _ | While _ _
+    | Pair _ _ | Fst _ | Snd _ | InjL _ | InjR _ | Match _ _ _ _ _ => True
+    | _ => False
+    end.
+
+  Theorem pure_expr_wf_sound : log_rel_exprs pure_expr_wf val_rel thread_own.
+  Proof.
+    intros e_t e_s Hwf Hs. iIntros "IH".
+    destruct e_t; simpl in Hs; destruct e_s => //=; simpl in Hs; simplify_eq.
+    all: try iDestruct "IH" as "[IH IH1]".
+    all: try iDestruct "IH1" as "[IH1 IH2]".
+    all: try iDestruct "IH2" as "[IH2 IH3]".
+    - (* Val *) iApply log_rel_val. by iApply val_wf_sound.
+    - (* Var *) by iApply log_rel_var.
+    - (* Let *) by iApply (log_rel_let with "IH IH1").
+    - (* UnOp *) by iApply (log_rel_unop with "IH").
+    - (* BinOp *) by iApply (log_rel_binop with "IH IH1").
+    - (* If *) by iApply (log_rel_if with "IH IH1 IH2").
+    - (* While *) by iApply (log_rel_while with "IH IH1").
+    - (* Pairs *) by iApply (log_rel_pair with "IH IH1").
+    - (* Fst *) by iApply (log_rel_fst with "IH").
+    - (* Snd *) by iApply (log_rel_snd with "IH").
+    - (* InjL *) by iApply (log_rel_injl with "IH").
+    - (* InjR *) by iApply (log_rel_injr with "IH").
+    - (* Match *) destruct_and!; simplify_eq.
+      by iApply (log_rel_match with "IH IH1 IH2").
+  Qed.
 End log_rel.
