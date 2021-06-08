@@ -1,6 +1,7 @@
-From simuliris.simplang Require Import lang notation tactics class_instances heap_bij log_rel.
+From simuliris.simplang Require Import lang notation tactics class_instances log_rel.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
+From simuliris.simplang.simple_inv Require Import simple_inv.
 
 (** * Simple example for re-ordering two allocs and then passing the related locations to an external function. *)
 

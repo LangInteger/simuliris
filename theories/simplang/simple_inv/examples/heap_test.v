@@ -1,7 +1,7 @@
 From simuliris.simplang Require Import lang notation tactics class_instances proofmode.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require heap_bij.
+From simuliris.simplang.simple_inv Require simple_inv.
 
 (** Some very trivial tests for the heap tactics *)
 
@@ -67,7 +67,7 @@ End a.
 End fix_bi.
 
 Module bij_test.
-  Import heap_bij.
+  Import simple_inv.
   Context `{heapbijG Σ} (π : thread_id).
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
   Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.

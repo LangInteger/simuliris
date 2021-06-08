@@ -1,7 +1,8 @@
-From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
+From simuliris.simplang Require Import lang notation tactics class_instances.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import log_rel.
+From simuliris.simplang.simple_inv Require Import simple_inv.
 
 Section fix_bi.
   Context `{heapbijG Σ} (π : thread_id).

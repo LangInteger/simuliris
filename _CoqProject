@@ -30,24 +30,25 @@ theories/simplang/notation.v
 theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
-theories/simplang/derived.v
 theories/simplang/val_rel.v
 theories/simplang/heapbij.v
-theories/simplang/heap_bij.v
-theories/simplang/na_locs.v
-theories/simplang/heap_bij_races.v
 theories/simplang/parallel_subst.v
 theories/simplang/log_rel.v
-theories/simplang/heapbij_refl.v
-theories/simplang/heapbij_races_refl.v
 theories/simplang/ctx.v
 theories/simplang/adequacy.v
 
 theories/simplang/examples/sum.v
-theories/simplang/examples/heap_test.v
-theories/simplang/examples/reorder_malloc.v
-theories/simplang/examples/while.v
-theories/simplang/examples/data_races.v
+
+theories/simplang/na_inv/na_locs.v
+theories/simplang/na_inv/na_inv.v
+theories/simplang/na_inv/na_inv_refl.v
+theories/simplang/na_inv/examples/data_races.v
+
+theories/simplang/simple_inv/simple_inv.v
+theories/simplang/simple_inv/simple_inv_refl.v
+theories/simplang/simple_inv/examples/heap_test.v
+theories/simplang/simple_inv/examples/reorder_malloc.v
+theories/simplang/simple_inv/examples/while.v
 
 
 

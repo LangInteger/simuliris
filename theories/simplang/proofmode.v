@@ -2,7 +2,7 @@ From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
 From simuliris.simulation Require Import slsls lifting language.
 From simuliris.simplang Require Import tactics class_instances.
-From simuliris.simplang Require Export notation primitive_laws derived.
+From simuliris.simplang Require Export notation primitive_laws.
 From iris.bi Require Import bi.
 Import bi.
 From iris.bi Require Import derived_laws.
