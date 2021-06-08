@@ -6,7 +6,7 @@ From simuliris.simulation Require Import slsls lifting.
 
 
 Section fix_bi.
-Context `{sheapG Σ} (π : thread_id).
+Context `{sheapGS Σ} (π : thread_id).
 Program Instance : sheapInv Σ := {|
   sheap_inv _ _ _ _ _ := ⌜True⌝%I;
  |}.

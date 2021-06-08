@@ -48,7 +48,8 @@ Definition fair_div p T σ := ∃ f: div_exec p T σ, fair f.
 
 
 (* some theory about diverging executions *)
-Program Definition div_exec_advance {p T σ} (f: div_exec p T σ) n: div_exec p (f n).(pool) (f n).(state) :=
+Program Definition div_exec_advance {p T σ} (f: div_exec p T σ) n :
+    div_exec p (f n).(pool) (f n).(state) :=
   {| the_exec m := f (n + m) |}.
 Next Obligation.
   intros p T σ f n; rewrite /diverges.
@@ -56,6 +57,17 @@ Next Obligation.
   do 2 (split; first done).
   intros k; simpl; rewrite Nat.add_succ_r.
   eapply exec_diverges.
+Qed.
+
+Program Definition div_exec_extend {p T σ i T' σ'} (f: div_exec p T' σ')
+  (Hstep : pool_step p T σ i T' σ') : div_exec p T σ :=
+  {| the_exec n := match n return _ with 0 => (T, σ, i) | S n => f n end |}.
+Next Obligation.
+  intros. split; first done. split; first done.
+  intros [|n].
+  - simpl. destruct (exec_diverges _ _ _ f) as (? & ? & _).
+    congruence.
+  - eapply exec_diverges.
 Qed.
 
 Definition div_exec_next {p T σ} (f: div_exec p T σ) : div_exec p (f 1).(pool) (f 1).(state) := div_exec_advance f 1.
@@ -163,25 +175,24 @@ Proof.
   split; first done. by eapply not_reducible.
 Qed.
 
-  (* classic proof *)
-  Lemma active_eventually_steps p T σ (f: div_exec p T σ) i :
-    fair f →
-    pool_safe p T σ →
-    i ∈ active_threads T →
-    ∃ n, (f n).(id) = i.
-  Proof.
-    intros Hfair Hsafe Hact.
-    destruct (classic (∃ n, (f n).(id) = i)) as [|Hne]; first done.
-    exfalso. feed pose proof (Hfair i) as Hsteps; last first.
-    { rewrite /always_eventually_steps in Hsteps.
-      specialize (Hsteps 0). by naive_solver. }
-    exists 0. intros n _. specialize (div_exec_steps f n) as Hsteps.
-    eapply active_threads_steps in Hsteps. eapply active_safe_enabled.
-    - eapply pool_steps_safe, Hsafe. eapply div_exec_steps.
-    - eapply Hsteps, elem_of_difference; split; first done.
-      rewrite elem_of_list_to_set. intros (m & Heq & _)%div_exec_trace_spec. naive_solver.
-  Qed.
-
+(* classic proof *)
+Lemma active_eventually_steps p T σ (f: div_exec p T σ) i :
+  fair f →
+  pool_safe p T σ →
+  i ∈ active_threads T →
+  ∃ n, (f n).(id) = i.
+Proof.
+  intros Hfair Hsafe Hact.
+  destruct (classic (∃ n, (f n).(id) = i)) as [|Hne]; first done.
+  exfalso. feed pose proof (Hfair i) as Hsteps; last first.
+  { rewrite /always_eventually_steps in Hsteps.
+    specialize (Hsteps 0). by naive_solver. }
+  exists 0. intros n _. specialize (div_exec_steps f n) as Hsteps.
+  eapply active_threads_steps in Hsteps. eapply active_safe_enabled.
+  - eapply pool_steps_safe, Hsafe. eapply div_exec_steps.
+  - eapply Hsteps, elem_of_difference; split; first done.
+    rewrite elem_of_list_to_set. intros (m & Heq & _)%div_exec_trace_spec. naive_solver.
+Qed.
 
 
 
@@ -214,7 +225,7 @@ Section coinductive_inductive_fairness.
       exists (max n1 n2 + 1). intros k Hk. eapply elem_of_list_to_set, div_exec_trace_spec.
       destruct (decide (j = k)).
       + subst. exists n1. split; first done. lia.
-      + assert (k ∈ div_exec_trace f n2) as Hel by (eapply elem_of_list_to_set; set_solver).
+      + assert (k ∈ div_exec_trace f n2) as Hel by (eapply (elem_of_list_to_set (C:=gset nat)); set_solver).
         eapply div_exec_trace_spec in Hel as (m & ? & ?).
         exists m. split; first done. lia.
   Qed.
@@ -270,6 +281,22 @@ Section coinductive_inductive_fairness.
     revert p T σ; cofix IH; intros p T σ Hfair Hsafe.
     destruct (fair_div_post_fix_coind _ _ _ Hfair Hsafe) as (I & T' & σ' & Hfair' & Hsafe' & Hsteps & Hact).
     econstructor; eauto.
+  Qed.
+
+  Lemma fair_div_step p T σ i T' σ':
+    fair_div p T' σ' →
+    pool_step p T σ i T' σ' →
+    fair_div p T σ.
+  Proof.
+    intros [exec Hfair] Hstep.
+    exists (div_exec_extend exec Hstep).
+    intros j Henabled m.
+    edestruct (Hfair j) as (m' & Hle & ?).
+    { clear m. destruct Henabled as [m Henabled].
+      exists (pred m). intros n Hle.
+      apply (Henabled (S n)). lia. }
+    exists (S m'). split; last done.
+    apply Nat.le_le_succ_r. exact Hle.
   Qed.
 
 End coinductive_inductive_fairness.

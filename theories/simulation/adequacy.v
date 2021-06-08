@@ -2,7 +2,7 @@ From iris.bi Require Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import
-  fairness relations language global_sim fairness_adequacy.
+  fairness relations language behavior global_sim fairness_adequacy.
 Import bi.
 
 
@@ -23,7 +23,7 @@ Section meta_level_simulation.
 
   (* we pull out the simulation to a meta-level simulation,
      the set V tracks which threads are already values in both target and source *)
-  Definition msim (T_t: list (expr Λ)) (σ_t: state Λ)  (T_s: list (expr Λ)) (σ_s: state Λ) (V: gset nat) :=
+  Definition msim (T_t: tpool Λ) (σ_t: state Λ)  (T_s: tpool Λ) (σ_s: state Λ) (V: gset nat) :=
     sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, gsim_expr Ω (lift_post Ω) i e_t e_s).
 
   Lemma msim_length T_t T_s σ_t σ_s V:
@@ -34,7 +34,7 @@ Section meta_level_simulation.
     iDestruct "Hsims" as "[$ _]".
   Qed.
 
-  Lemma msim_add_val (v_t: val Λ) (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
+  Lemma msim_add_val (v_t: val Λ) (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) i V:
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     T_t !! i = Some (of_val v_t) →
@@ -72,7 +72,7 @@ Section meta_level_simulation.
         exfalso. by eapply val_prim_step.
   Qed.
 
-  Lemma msim_proj_val (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) i V:
+  Lemma msim_proj_val (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) i V:
     i ∈ V →
     pool_safe p_s T_s σ_s →
     msim T_t σ_t T_s σ_s V →
@@ -106,7 +106,7 @@ Section meta_level_simulation.
   Qed.
 
 
-  Lemma msim_step (T_t T_t' T_s: list (expr Λ)) (σ_t σ_t' σ_s: state Λ) i V:
+  Lemma msim_step (T_t T_t' T_s: tpool Λ) (σ_t σ_t' σ_s: state Λ) i V:
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     pool_step p_t T_t σ_t i T_t' σ_t' →
@@ -153,7 +153,7 @@ Section meta_level_simulation.
           by rewrite insert_length Hlen.
   Qed.
 
-  Lemma msim_not_stuck (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) V i e_t :
+  Lemma msim_not_stuck (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) V i e_t :
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     T_t !! i = Some e_t →
@@ -234,7 +234,7 @@ Section meta_level_simulation.
     - rewrite snd_zip // Hlen //.
   Qed.
 
-  Lemma msim_finish_source (T_t T_s: list (expr Λ)) (σ_t σ_s: state Λ) U V:
+  Lemma msim_finish_source (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) U V:
     (∀ i, i ∈ U → ∃ v_t, T_t !! i = Some (of_val v_t)) →
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
@@ -310,31 +310,22 @@ Section adequacy_statement.
   Arguments sat _%I.
 
   Variable (I: state Λ → state Λ → Prop).
-  Variable (O: val Λ → val Λ → Prop).
   Variable (main: string) (u: val Λ).
+  Variable (O: val Λ → val Λ → Prop).
 
-  Definition B (p_t p_s: prog Λ) :=
-    ∀ σ_t σ_s, I σ_t σ_s ∧ safe p_s (of_call main u) σ_s →
-    (* divergent case *)
-    (fair_div p_t [(of_call main u)] σ_t → fair_div p_s [(of_call main u)] σ_s) ∧
-    (* convergent case *)
-    (∀ T_t σ_t' I, pool_steps p_t [of_call main u] σ_t I T_t σ_t' →
-     ∃ T_s σ_s' J, pool_steps p_s [of_call main u] σ_s J T_s σ_s' ∧
-    (∀ i v_t, T_t !! i = Some (of_val v_t) → ∃ v_s, T_s !! i = Some (of_val v_s) ∧ O v_t v_s)) ∧
-    (* safety *)
-    (safe p_t (of_call main u) σ_t).
+  Let B := beh_rel I main u O.
 
   Lemma adequacy p_t p_s:
     (* pre *)
     sat (local_rel Ω p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [(of_call main u)]) ∗
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
       progs_are p_t p_s ∗
       Ω u u) →
     (* post *)
     (∀ v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ Ω v_t v_s) → O v_t v_s) →
     B p_t p_s.
   Proof.
-    intros Hpre Hpost σ_t σ_s [HI Hsafe].
+    intros Hpre Hpost σ_t σ_s HI Hsafe.
     eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
     destruct Hlook as [K_s Hlook].
     assert (msim (sat:=sat) Ω p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.
@@ -346,11 +337,12 @@ Section adequacy_statement.
       iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }
     split; last split.
     - intros Hfair. eapply msim_fair_divergence; eauto.
-    - intros T_t σ_t' J Hsteps.
+    - intros v_t T_t σ_t' J Hsteps.
       eapply msim_return in Hsim as (T_s & σ_s' & J' & U & Hsteps' & _ & Hvals); eauto.
-      exists T_s, σ_s', J'. split; first done.
-      intros i v_t Hlook'. eapply Hvals in Hlook' as (v_s & Hlook' & Hsat).
-      eapply Hpost in Hsat. eauto.
+      destruct (Hvals 0 v_t) as (v_s & Hlook' & Hsat); first done.
+      destruct T_s as [|? T_s]; first done.
+      simpl in Hlook'. injection Hlook' as [= ->].
+      eapply Hpost in Hsat. eauto 10.
     - by eapply msim_safety.
   Qed.
 
@@ -366,16 +358,25 @@ Section adequacy_statement_alt.
   Arguments sat _%I.
 
   Variable (I: state Λ → state Λ → Prop).
-  Variable (O: val Λ → val Λ → Prop).
   Variable (main: string) (u: val Λ).
+  Variable (O: val Λ → val Λ → Prop).
 
+  Let B := beh_rel I main u O.
+
+  (** Derive from the above an adequacy theorem with just a single [sat]. *)
   Lemma adequacy_alt p_t p_s:
-    sat (local_rel Ω p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [(of_call main u)]) ∗
+    sat (
+      (* The programs are related *)
+      local_rel Ω p_t p_s ∗
+      (* The initial states satisfy the state interpretation *)
+      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
+      (* The programs are in the state *)
       progs_are p_t p_s ∗
+      (* The "unit" argument to main is related *)
       Ω u u ∗
+      (* Logically related values are observationally related *)
       ∀ v_s v_t, Ω v_t v_s -∗ ⌜O v_t v_s⌝) →
-    B I O main u p_t p_s.
+    B p_t p_s.
   Proof.
     intros Hsat. eapply sat_frame_intro in Hsat; last first.
     { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".

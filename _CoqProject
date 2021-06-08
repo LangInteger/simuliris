@@ -10,11 +10,12 @@ theories/logic/fixpoints.v
 theories/simulation/relations.v
 theories/simulation/language.v
 theories/simulation/fairness.v
+theories/simulation/behavior.v
 theories/simulation/simulation.v
 theories/simulation/slsls.v
 theories/simulation/global_sim.v
 theories/simulation/fairness_adequacy.v
-theories/simulation/stutter_adequacy.v
+theories/simulation/adequacy.v
 theories/simulation/lifting.v
 
 theories/playground/fixpoints.v
@@ -32,9 +33,10 @@ theories/simplang/proofmode.v
 theories/simplang/derived.v
 theories/simplang/heap_bij.v
 theories/simplang/parallel_subst.v
-theories/simplang/open_expr_rel.v
+theories/simplang/log_rel.v
 theories/simplang/heapbij_refl.v
 theories/simplang/ctx.v
+theories/simplang/adequacy.v
 
 theories/simplang/examples/sum.v
 theories/simplang/examples/heap_test.v

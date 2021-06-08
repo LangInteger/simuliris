@@ -14,6 +14,9 @@ Proof.
   - abstract naive_solver.
 Defined.
 
+Lemma forall_equiv_dec {X} (P Q : X → Prop) (HPQ : Decision (∀ x, P x → Q x)) (HQP : Decision (∀ x, Q x → P x)) :
+  Decision (∀ x, P x ↔ Q x).
+Proof. destruct HPQ as [HPQ | HPQ]; destruct HQP as [HQP | HQP]; [left; naive_solver | right; naive_solver..]. Qed.
 
 Section irreducible.
   Implicit Types (e : expr) (v : val) (σ : state).
@@ -239,11 +242,6 @@ Section irreducible.
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[ |  ] ] | ] eqn:Heq; decide_goal.
   Qed.
-
-  (* Global Instance forall_dec {A} P : (∀ x, Decision (P x)) → Decision (∀ x : A, P x). *)
-  (* Proof. intros. apply _. *)
-
-
   Global Instance irreducible_freeN σ v_l v_n P :
     IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
@@ -257,15 +255,29 @@ Section irreducible.
     apply and_dec; [decide_goal|].
     apply and_dec; [decide_goal|].
     apply and_dec; [apply _|].
-
-    destruct (decide (map_Forall (λ l' _,
-     (loc_chunk l' = loc_chunk l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
-                                 ) σ.(heap))) as [Hm|Hm]; last first.
-    { right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
-      have Hi : i = (l +ₗ (loc_idx i - loc_idx l)).
-      { rewrite /loc_add. destruct i, l => /=; f_equal; [ done | lia]. }
-      rewrite Hi in Hheap. eapply mk_is_Some, Hm in Hheap. lia. }
-  Admitted.
+    apply forall_equiv_dec.
+    - destruct (decide (map_Forall (λ l' _,
+       (loc_chunk l' = loc_chunk l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
+                                   ) σ.(heap))) as [Hm|Hm]; last first.
+      + right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
+        have Hi : i = (l +ₗ (loc_idx i - loc_idx l)).
+        { rewrite /loc_add. destruct i, l => /=; f_equal; [ done | lia]. }
+        rewrite Hi in Hheap. eapply mk_is_Some, Hm in Hheap. lia.
+      + left. intros m (x & Hsome).
+        specialize (map_Forall_lookup_1 _ _ _ _ Hm Hsome eq_refl).
+        destruct l; simpl; lia.
+    - destruct (decide (n > 0)%Z) as [Hn|]; first last. { left. intros m ?. lia. }
+      replace n with (Z.of_nat (Z.to_nat n)) by lia. generalize (Z.to_nat n) as n'. clear n Hn.
+      induction n' as [ | n IH]. { left. lia. }
+      destruct (σ.(heap) !! (l +ₗ n)) eqn:Hn; first last.
+      { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. rewrite Hn. intros (? & [=]). }
+      destruct IH as [IH | IH].
+      + left. intros m Hm. destruct (decide (Z.of_nat n = m)) as [<- | Hneq]; first by eauto.
+        apply IH. lia.
+      + destruct (decide (0 < n)) as [Hgt | Hlt].
+        * right. contradict IH. intros m Hm. apply IH. lia.
+        * left. intros m Hm. replace m with (Z.of_nat n) by lia. eauto.
+  Qed.
 
   Global Instance irreducible_allocN σ v_n v P :
     IrredUnless (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.

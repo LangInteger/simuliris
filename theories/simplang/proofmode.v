@@ -11,7 +11,7 @@ From iris.prelude Require Import options.
 
 
 Section sim.
-Context `{!sheapG Σ} `{sheapInv Σ}.
+Context `{!sheapGS Σ} `{sheapInv Σ}.
 Context (Ω : val → val → iProp Σ) (π : thread_id).
 Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.

@@ -2,7 +2,7 @@
 
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import heap_bij heapbij_refl.
+From simuliris.simplang Require Import heap_bij log_rel heapbij_refl.
 
 (** First we need to define a notion of "contexts"
 (more general than the 'evaluation contexts' that the language comes with) *)
@@ -84,79 +84,100 @@ Definition ctx := list ctx_item.
 Definition fill_ctx (C : ctx) (e : expr) : expr :=
   foldl (flip fill_item) e C.
 
+Lemma fill_ctx_app C1 C2 e :
+  fill_ctx (C1 ++ C2) e = fill_ctx C2 (fill_ctx C1 e).
+Proof. apply foldl_app. Qed.
+
+(** Lift our "type system" to contexts. *)
+Definition ctxi_wf (Ci : ctx_item) : Prop :=
+  match Ci with
+  | LetLCtx _ e => expr_wf e
+  | LetRCtx _ e => expr_wf e
+  | CallLCtx e => expr_wf e
+  | CallRCtx e => expr_wf e
+  | UnOpCtx _ => True
+  | BinOpLCtx _ e => expr_wf e
+  | BinOpRCtx _ e => expr_wf e
+  | IfLCtx e1 e2 => expr_wf e1 ∧ expr_wf e2
+  | IfMCtx e0 e2 => expr_wf e0 ∧ expr_wf e2
+  | IfRCtx e0 e1 => expr_wf e0 ∧ expr_wf e1
+  | WhileLCtx e1 => expr_wf e1
+  | WhileRCtx e0 => expr_wf e0
+  | PairLCtx e => expr_wf e
+  | PairRCtx e => expr_wf e
+  | FstCtx | SndCtx | InjLCtx | InjRCtx => True
+  | MatchLCtx _ e1 _ e2 => expr_wf e1 ∧ expr_wf e2
+  | MatchMCtx e0 _ _ e2 => expr_wf e0 ∧ expr_wf e2
+  | MatchRCtx e0 _ e1 _ => expr_wf e0 ∧ expr_wf e1
+  | ForkCtx => True
+  | AllocNLCtx e => expr_wf e
+  | AllocNRCtx e => expr_wf e
+  | FreeNLCtx e => expr_wf e
+  | FreeNRCtx e => expr_wf e
+  | LoadCtx _ => True
+  | StoreLCtx _ e => expr_wf e
+  | StoreRCtx _ e => expr_wf e
+  | CmpXchgLCtx _ _ => False  (* unsupported *)
+  | CmpXchgMCtx _ _ => False  (* unsupported *)
+  | CmpXchgRCtx _ _ => False  (* unsupported *)
+  | FaaLCtx _ => False  (* unsupported *)
+  | FaaRCtx _ => False (* unsupported *)
+  end.
+Definition ctx_wf : ctx → Prop := Forall ctxi_wf.
+
+Lemma ctx_wf_app C1 C2 :
+  ctx_wf (C1 ++ C2) ↔ ctx_wf C1 ∧ ctx_wf C2.
+Proof. apply Forall_app. Qed.
+Lemma ctx_wf_snoc C Ci :
+  ctx_wf (C ++ [Ci]) ↔ ctx_wf C ∧ ctxi_wf Ci.
+Proof. rewrite ctx_wf_app /ctx_wf Forall_singleton //. Qed.
+
 Section ctx.
   Context `{sbijG Σ}.
-  (* TODO: do the same thing for a general notion of contexts *)
-  Import simp_lang. (* bring simp_lang contexts back into priority. *)
 
-  Definition ectxi_wf (Ki : ectx_item) : Prop :=
-    match Ki with
-    | LetCtx _ e => expr_wf e
-    | UnOpCtx _ => True
-    | BinOpLCtx _ v => val_wf v
-    | BinOpRCtx _ e => expr_wf e
-    | IfCtx e1 e2 => expr_wf e1 ∧ expr_wf e2
-    | PairLCtx v => val_wf v
-    | PairRCtx e => expr_wf e
-    | FstCtx | SndCtx | InjLCtx | InjRCtx | LoadCtx _ => True
-    | MatchCtx _ e1 _ e2 => expr_wf e1 ∧ expr_wf e2
-    | AllocNLCtx v => val_wf v
-    | AllocNRCtx e => expr_wf e
-    | FreeNLCtx v => val_wf v
-    | FreeNRCtx e => expr_wf e
-    | StoreLCtx _ v => val_wf v
-    | StoreRCtx _ e => expr_wf e
-    | CmpXchgLCtx _ _ => False  (* unsupported *)
-    | CmpXchgMCtx _ _ => False  (* unsupported *)
-    | CmpXchgRCtx _ _ => False  (* unsupported *)
-    | FaaLCtx _ => False  (* unsupported *)
-    | FaaRCtx _ => False (* unsupported *)
-    | CallLCtx v => val_wf v
-    | CallRCtx e => expr_wf e
-    end.
-  (* we do not use [Forall] since that does not compute,
-    making applications of [heap_bij_ectx_refl] hard. *)
-  Fixpoint ectx_wf (K : ectx) : Prop :=
-    match K with
-    | [] => True
-    | Ki :: K => ectxi_wf Ki ∧ ectx_wf K
-    end.
-
-  (* FIXME: old proof relied on using [expr_rel] with a non-closing subst map
-  Theorem heap_bij_ectx_refl π K :
-    ectx_wf K → ⊢ sim_ectx val_rel π K K val_rel.
+  Theorem log_rel_ctx C e_t e_s :
+    ctx_wf C → log_rel e_t e_s -∗ log_rel (fill_ctx C e_t) (fill_ctx C e_s).
   Proof.
-    intros Hwf. iInduction (K) as [ | Ki K] "IH".
-    { iIntros (v_t v_s) "Hv". sim_pures. by sim_val. }
-    destruct Hwf as [Hiwf Kwf].
-    iSpecialize ("IH" with "[//]").
-    iIntros (v_t v_s) "#Hv". destruct Ki; sim_pures; iApply sim_bind; (iApply sim_wand; [ iApply expr_rel_empty | iApply "IH"]).
-    - iApply expr_rel_let; [by iApply expr_rel_val | by iApply expr_wf_sound].
-    - iApply expr_rel_call; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply expr_rel_call; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
-    - iApply expr_rel_unop. by iApply expr_rel_val.
-    - iApply expr_rel_binop; [by iApply expr_rel_val | by iApply expr_wf_sound].
-    - iApply expr_rel_binop; [ by iApply expr_wf_sound | by iApply expr_rel_val].
-    - iApply expr_rel_if; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf..].
-    - iApply expr_rel_pair; iApply expr_rel_val; [done | by iApply val_wf_sound].
-    - iApply expr_rel_pair; [by iApply expr_wf_sound | by iApply expr_rel_val].
-    - iApply expr_rel_fst; by iApply expr_rel_val.
-    - iApply expr_rel_snd; by iApply expr_rel_val.
-    - iApply expr_rel_injl; by iApply expr_rel_val.
-    - iApply expr_rel_injr; by iApply expr_rel_val.
-    - iApply expr_rel_match; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf..].
-    - iApply expr_rel_allocN; [by iApply expr_rel_val | iApply expr_rel_val; by iApply val_wf_sound].
-    - iApply expr_rel_allocN; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
-    - iApply expr_rel_freeN; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply expr_rel_freeN; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
-    - iApply expr_rel_load; by iApply expr_rel_val.
-    - iApply expr_rel_store; [by iApply expr_rel_val | iApply expr_wf_sound; apply Hiwf].
-    - iApply expr_rel_store; [iApply expr_wf_sound; apply Hiwf | by iApply expr_rel_val ].
+    intros Hwf. iInduction (C) as [ | Ci C] "IH" using rev_ind; first by eauto.
+    iIntros "Hrel".
+    rewrite ->ctx_wf_snoc in Hwf. destruct Hwf as [Kwf Hiwf].
+    iSpecialize ("IH" with "[//] Hrel").
+    rewrite !fill_ctx_app /=.
+    destruct Ci; simpl.
+    - iApply (log_rel_let with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_let with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_call with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_call with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_unop with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_binop with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_binop with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_if with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_if with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_if with "[] [] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_while with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_while with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_pair with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_pair with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_fst with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_snd with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_injl with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_injr with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_match with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_match with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_match with "[] [] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_fork with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_allocN with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_allocN with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_freeN with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_freeN with "[] IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_load with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_store with "IH"); iApply expr_wf_sound; apply Hiwf.
+    - iApply (log_rel_store with "[] IH"); iApply expr_wf_sound; apply Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
     - by destruct Hiwf.
-  Qed. *)
+  Qed.
 
 End ctx.

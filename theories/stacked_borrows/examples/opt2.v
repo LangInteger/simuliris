@@ -53,7 +53,7 @@ Lemma sim_opt2 `{sborG Σ} π :
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
-  sim_apply InitCall InitCall (sim_initcall) "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
+  sim_apply InitCall InitCall (sim_init_call) "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
 
   sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l_t l_s) "Htag Ht Hs".
   iApply sim_expr_base. sim_pures.

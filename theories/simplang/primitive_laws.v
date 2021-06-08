@@ -10,9 +10,9 @@ From simuliris.simulation Require Import lifting.
 From simuliris.simplang Require Export class_instances tactics notation ghost_state.
 From iris.prelude Require Import options.
 
-Class sheapG (Σ: gFunctors) := SHeapG {
-  sheapG_gen_heapG :> heapG Σ;
-  sheapG_gen_progG :> gen_sim_progG string ectx ectx Σ;
+Class sheapGS (Σ: gFunctors) := SHeapGS {
+  sheapG_gen_heapG :> heapGS Σ;
+  sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
   sheapG_allocN_source : heap_names;
   sheapG_allocN_target : heap_names;
 }.
@@ -35,7 +35,7 @@ Class sheapInvConst `{!sheapInv Σ} := {
     sheap_inv P_t1 σ_t1 P_s1 σ_s1 T1 -∗ sheap_inv P_t2 σ_t2 P_s2 σ_s2 T2
 }.
 
-Global Program Instance sheapG_simulirisG `{!sheapG Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
+Global Program Instance sheapG_simulirisG `{!sheapGS Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
@@ -106,7 +106,7 @@ Notation "† l '…s' -" := (heap_freeable sheapG_allocN_source l 1 None)
 
 
 Section lifting.
-Context `{!sheapG Σ} `{!sheapInv Σ}.
+Context `{!sheapGS Σ} `{!sheapInv Σ}.
 Implicit Types P Q : iProp Σ.
 Implicit Types Φ : val → val → iProp Σ.
 Implicit Types σ σ_s σ_t : state.

@@ -8,7 +8,7 @@ From simuliris.simplang Require heap_bij.
 
 Module fix_bi.
 Section a.
-Context `{sheapG Σ}.
+Context `{sheapGS Σ}.
 Program Instance : sheapInv Σ := {|
   sheap_inv _ _ _ _ _ := ⌜True⌝%I;
 |}.

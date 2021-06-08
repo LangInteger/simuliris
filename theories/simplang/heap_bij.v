@@ -11,7 +11,7 @@ From iris.prelude Require Import options.
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap. *)
 
 Class sbijG (Σ : gFunctors) := SBijG {
-  sbijG_sheapG :> sheapG Σ;
+  sbijG_sheapG :> sheapGS Σ;
   sbijG_bijG :> gset_bijG Σ block block;
   sbijG_bij_name : gname;
 }.
@@ -621,10 +621,7 @@ Qed.
 (** ** Extension of the proofmode *)
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
-From iris.bi Require Import bi.
-Import bi.
-From iris.bi Require Import derived_laws.
-Import bi.
+From iris.bi Require Import bi derived_laws.
 From simuliris.simplang Require Export proofmode.
 
 
@@ -633,6 +630,8 @@ Section sim.
   Context `{sbijG Σ} (val_rel : val → val → iProp Σ) (π : thread_id).
   Context {val_rel_pers : ∀ v_t v_s, Persistent (val_rel v_t v_s)}.
   Instance : sheapInv Σ := heap_bij_inv val_rel.
+
+  Import bi.
 
   Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
 

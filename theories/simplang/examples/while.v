@@ -1,7 +1,7 @@
 From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import open_expr_rel.
+From simuliris.simplang Require Import log_rel.
 
 Section fix_bi.
   Context `{sbijG Σ}.
@@ -119,9 +119,9 @@ Section fix_bi.
   (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
-    expr_rel input_loop (Call ##"rec" #true).
+    log_rel input_loop (Call ##"rec" #true).
   Proof.
-    iIntros "#Hs". expr_rel. iIntros (π).
+    iIntros "#Hs". log_rel. iIntros "!#" (π).
     rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
     iApply (sim_while_rec _ _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
@@ -139,9 +139,9 @@ Section fix_bi.
 
   Lemma loop_rec' :
     "rec" @t input_rec -∗
-    expr_rel (Call ##"rec" #true) input_loop.
+    log_rel (Call ##"rec" #true) input_loop.
   Proof.
-    iIntros "#Hs". expr_rel. iIntros (π).
+    iIntros "#Hs". log_rel. iIntros "!#" (π).
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
     iApply (sim_rec_while _ _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }

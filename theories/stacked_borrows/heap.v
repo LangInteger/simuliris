@@ -676,15 +676,15 @@ Proof.
   - simpl. move => [sc0 ]. rewrite lookup_insert_Some. move => [[[= <- <-] Heq] | [Hneq Ht]]; first lia.
     move : (IH (l +ₗ 1) ltac:(eauto)). destruct l. simpl. lia.
 Qed.
-Lemma array_tag_map_lookup2 l t v t' l' : 
+Lemma array_tag_map_lookup2 l t v t' l' :
   is_Some (array_tag_map l t v !! (t', l')) →
   t' = t ∧ ∃ i, (i < length v)%nat ∧ l' = l +ₗ i.
-Proof. 
+Proof.
   intros (-> & H1 & H2)%array_tag_map_lookup1.
-  split; first done. exists (Z.to_nat (l'.2 - l.2)). 
-  destruct l, l';  rewrite /shift_loc; simpl in *. split. 
+  split; first done. exists (Z.to_nat (l'.2 - l.2)).
+  destruct l, l';  rewrite /shift_loc; simpl in *. split.
   - lia.
-  - apply pair_equal_spec. split; lia. 
+  - apply pair_equal_spec. split; lia.
 Qed.
 
 Lemma array_tag_map_lookup_Some l t v (i : nat) :
@@ -1212,7 +1212,7 @@ Section val_rel.
 End val_rel.
 
 Class sborG (Σ: gFunctors) := SBorG {
-  sborG_gen_progG :> gen_sim_progG string ectx ectx Σ;
+  sborG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
   sborG_stateG :> bor_stateG Σ;
 }.
 
@@ -1690,59 +1690,59 @@ Proof.
   - rewrite lookup_union_r; last done. congruence.
 Qed.
 Lemma lookup_union_is_Some `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) :
-  is_Some ((M1 ∪ M2) !! k) ↔ is_Some (M1 !! k) ∨ is_Some (M2 !! k). 
-Proof. 
+  is_Some ((M1 ∪ M2) !! k) ↔ is_Some (M1 !! k) ∨ is_Some (M2 !! k).
+Proof.
   split.
   - intros (v & Hv). destruct (M1 !! k) eqn:HM1; first by eauto.
     right. erewrite <-lookup_union_r; eauto.
   - intros [(v & HM1) | (v & HM2)].
     + rewrite (lookup_union_Some_l _ _ _ _ HM1); eauto.
     + destruct (M1 !! k) eqn:HM1. { rewrite (lookup_union_Some_l _ _ _ _ HM1); eauto. }
-      rewrite lookup_union_r; eauto. 
+      rewrite lookup_union_r; eauto.
 Qed.
 
-Lemma dom_agree_on_tag_union M1_t M1_s M2_t M2_s t : 
+Lemma dom_agree_on_tag_union M1_t M1_s M2_t M2_s t :
   dom_agree_on_tag M1_t M1_s t → dom_agree_on_tag M2_t M2_s t →
   dom_agree_on_tag (M1_t ∪ M2_t) (M1_s ∪ M2_s) t.
 Proof.
-  intros [H1a H1b] [H2a H2b]. split; intros l; rewrite !lookup_union_is_Some; naive_solver. 
+  intros [H1a H1b] [H2a H2b]. split; intros l; rewrite !lookup_union_is_Some; naive_solver.
 Qed.
 
-Lemma dom_agree_on_tag_array_tag_map l t v_t v_s : 
+Lemma dom_agree_on_tag_array_tag_map l t v_t v_s :
   length v_t = length v_s →
   dom_agree_on_tag (array_tag_map l t v_t) (array_tag_map l t v_s) t.
-Proof. 
-  intros Hlen. split; intros l'. 
-  - intros (_ & (i & Hi & ->))%array_tag_map_lookup2. rewrite array_tag_map_lookup_Some; last lia. 
-    apply lookup_lt_is_Some_2. lia. 
-  - intros (_ & (i & Hi & ->))%array_tag_map_lookup2. rewrite array_tag_map_lookup_Some; last lia. 
-    apply lookup_lt_is_Some_2. lia. 
+Proof.
+  intros Hlen. split; intros l'.
+  - intros (_ & (i & Hi & ->))%array_tag_map_lookup2. rewrite array_tag_map_lookup_Some; last lia.
+    apply lookup_lt_is_Some_2. lia.
+  - intros (_ & (i & Hi & ->))%array_tag_map_lookup2. rewrite array_tag_map_lookup_Some; last lia.
+    apply lookup_lt_is_Some_2. lia.
 Qed.
 
-Lemma array_tag_map_lookup_None t t' l v : 
-  t ≠ t' → ∀ l', array_tag_map l t v !! (t', l') = None. 
-Proof. 
+Lemma array_tag_map_lookup_None t t' l v :
+  t ≠ t' → ∀ l', array_tag_map l t v !! (t', l') = None.
+Proof.
   intros Hneq l'. destruct (array_tag_map l t v !! (t', l')) eqn:Harr; last done.
-  specialize (array_tag_map_lookup1 l t v t' l' ltac:(eauto)) as [Heq _]; congruence. 
+  specialize (array_tag_map_lookup1 l t v t' l' ltac:(eauto)) as [Heq _]; congruence.
 Qed.
 
-Lemma dom_agree_on_tag_not_elem M_t M_s t : 
+Lemma dom_agree_on_tag_not_elem M_t M_s t :
   (∀ l, M_t !! (t, l) = None) → (∀ l, M_s !! (t, l) = None) →
-  dom_agree_on_tag M_t M_s t. 
+  dom_agree_on_tag M_t M_s t.
 Proof. intros Ht Hs. split; intros l; rewrite Ht Hs; congruence. Qed.
 
-Lemma retag_default_loc_controlled σ c l ot T mut α' i sc : 
+Lemma retag_default_loc_controlled σ c l ot T mut α' i sc :
   let nt := σ.(snp) in
-  let pk := RefPtr mut in 
+  let pk := RefPtr mut in
   let tk := match mut with Mutable => tk_unq | Immutable => tk_pub end in
   (if mut is Immutable then is_freeze T else True) →
-  retag σ.(sst) σ.(snp) σ.(scs) c l ot Default pk T = Some (Tagged nt, α', S σ.(snp)) → 
+  retag σ.(sst) σ.(snp) σ.(scs) c l ot Default pk T = Some (Tagged nt, α', S σ.(snp)) →
   (i < tsize T)%nat →
-  σ.(shp) !! (l +ₗ i) = Some sc → 
+  σ.(shp) !! (l +ₗ i) = Some sc →
   loc_controlled (l +ₗ i) nt tk sc (mkState σ.(shp) α' σ.(scs) (S σ.(snp)) σ.(snc)).
 Proof.
   intros nt pk tk Hfreeze  Hretag Hi Hsc Hpre. split; last done.
-  destruct mut. 
+  destruct mut.
   * (* unique *)
     destruct Hpre as (st & pm' & opro & Hst & Hit & Hpm'). exists st. split; first done.
     have EqRT':
@@ -1764,7 +1764,7 @@ Qed.
 
 Lemma retag_default_loc_controlled' σ c l l' t tk' ot T mut α' sc :
   let nt := σ.(snp) in
-  let pk := RefPtr mut in 
+  let pk := RefPtr mut in
   (if mut is Immutable then is_freeze T else True) →
   state_wf σ →
   retag σ.(sst) σ.(snp) σ.(scs) c l ot Default pk T = Some (Tagged nt, α', S σ.(snp)) →
@@ -1773,13 +1773,13 @@ Lemma retag_default_loc_controlled' σ c l l' t tk' ot T mut α' sc :
   (t < σ.(snp))%nat →
   loc_controlled l' t tk' sc σ →
   loc_controlled l' t tk' sc (mkState σ.(shp) α' σ.(scs) (S σ.(snp)) σ.(snc)).
-Proof. 
-  intros nt pk Hfreeze Hwf Hretag Hneq' Hneq Hlt Hcontrolled. 
-  intros Hpre. destruct tk'. 
+Proof.
+  intros nt pk Hfreeze Hwf Hretag Hneq' Hneq Hlt Hcontrolled.
+  intros Hpre. destruct tk'.
   * destruct Hpre as (stk' & pm' & pro & Eqstk' & In' & ND).
     destruct (retag_item_in _ _ _ _ _ _ _ _ _ _ _ _ Hretag _ _ t _ Eqstk' In')
       as (stk & Eqstk & In); [done..|].
-       
+
     destruct Hcontrolled as (Hown & Hl'). { simpl; naive_solver. }
     cbn. split; last done.
     exists stk'. split; [done|].
@@ -1792,7 +1792,7 @@ Proof.
     destruct (retag_item_in _ _ _ _ _ _ _ _ _ _ _ _ Hretag _ _ t _ Eqstk' In')
       as (stk & Eqstk & In); [done..|].
     destruct Hcontrolled as (Hown & Hl'); [simpl; naive_solver|].
-    split; last done. cbn. 
+    split; last done. cbn.
     exists stk'. split; [done|].
     destruct Hown as (stk1 & Eqstk1 & opro1 & HTOP).
     rewrite Eqstk1 in Eqstk. simplify_eq.
@@ -1803,14 +1803,14 @@ Proof.
       have EQ := stack_item_tagged_NoDup_eq _ _ _ t ND2 In1 In eq_refl eq_refl.
       by simplify_eq. } subst opro1 pm'. exists pro.
     have NEq: Tagged t ≠ ot.
-    { intros <-. specialize (Hneq' eq_refl). congruence. } 
+    { intros <-. specialize (Hneq' eq_refl). congruence. }
     move : HTOP.
     by apply (retag_item_head_preserving _ _ _ _ _ _ _ _ _ _ _ _ Hretag
                 _ _ _ _ _ ND2 Eqstk1 Eqstk' NEq In').
   * clear Hpre. specialize (Hcontrolled I) as (Hown & Hl'). split; last done.
-    move : Hown. cbn. 
+    move : Hown. cbn.
     have NEq: ot ≠ Tagged t.
-    { intros ->. specialize (Hneq' eq_refl). congruence. } 
+    { intros ->. specialize (Hneq' eq_refl). congruence. }
     move : NEq. by eapply retag_Some_local.
 Qed.
 
@@ -1932,10 +1932,10 @@ Proof.
     iPoseProof (state_rel_get_pure with "Hsrel") as "%Hp".
     destruct Hp as (Hsst & Hsnp & Hsnc & Hscs).
     assert (∀l', M_t !! (nt, l') = None) as HMt_nt.
-    { intros l'. destruct (M_t !! (nt, l')) eqn:HM_t; last done. 
+    { intros l'. destruct (M_t !! (nt, l')) eqn:HM_t; last done.
       specialize (Ht_dom nt l' ltac:(eauto)) as (? & ?); congruence. }
     assert (∀l', M_s !! (nt, l') = None) as HMs_nt.
-    { intros l'. destruct (M_s !! (nt, l')) eqn:HM_s; last done. 
+    { intros l'. destruct (M_s !! (nt, l')) eqn:HM_s; last done.
       specialize (Hs_dom nt l' ltac:(eauto)) as (? & ?); congruence. }
     iPureIntro. split_and!.
     { intros t tk'. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome_t]].
@@ -1948,27 +1948,27 @@ Proof.
           specialize (array_tag_map_lookup2 l nt v_s nt l' ltac:(eauto)) as [_ (i & Hi & ->)].
           subst nt. rewrite -Hsnp. eapply retag_default_loc_controlled; [ done | done | lia | ].
           move : Ha. rewrite array_tag_map_lookup_Some; last done. move => <-. apply Hshp_s. lia.
-        + apply dom_agree_on_tag_union. { apply dom_agree_on_tag_array_tag_map. lia. } 
+        + apply dom_agree_on_tag_union. { apply dom_agree_on_tag_array_tag_map. lia. }
           apply dom_agree_on_tag_not_elem; done.
-      - cbn. 
-        specialize (Htag_interp t tk' Hsome_t) as (Ht_t & Ht_s & Hcontrolled_t & Hcontrolled_s & Hagree). 
+      - cbn.
+        specialize (Htag_interp t tk' Hsome_t) as (Ht_t & Ht_s & Hcontrolled_t & Hcontrolled_s & Hagree).
         split_and!; [ lia | lia | | | ].
         + intros l' sc_t Ha. rewrite lookup_union_r in Ha; last by apply array_tag_map_lookup_None.
-          apply Hcontrolled_t in Ha. 
+          apply Hcontrolled_t in Ha.
           eapply retag_default_loc_controlled'; [done | done | done | | done | done | done].
           intros <-. destruct tk'; [ done | | ]; move : Hsome_t Hpub; congruence.
         + intros l' sc_s Ha. rewrite lookup_union_r in Ha; last by apply array_tag_map_lookup_None.
-          apply Hcontrolled_s in Ha. 
+          apply Hcontrolled_s in Ha.
           eapply retag_default_loc_controlled'; [done | done | done | | congruence | done | done].
           intros <-. destruct tk'; [ done | | ]; move : Hsome_t Hpub; congruence.
-        + apply dom_agree_on_tag_union; last done. 
-          apply dom_agree_on_tag_not_elem; apply array_tag_map_lookup_None; done. 
+        + apply dom_agree_on_tag_union; last done.
+          apply dom_agree_on_tag_not_elem; apply array_tag_map_lookup_None; done.
     }
-    { intros t l'. 
-      rewrite lookup_union_is_Some lookup_insert_is_Some'. intros [[-> _]%array_tag_map_lookup2 | H%Ht_dom]; eauto. } 
+    { intros t l'.
+      rewrite lookup_union_is_Some lookup_insert_is_Some'. intros [[-> _]%array_tag_map_lookup2 | H%Ht_dom]; eauto. }
     { intros t l'.
       rewrite lookup_union_is_Some lookup_insert_is_Some'. intros [[-> _]%array_tag_map_lookup2 | H%Hs_dom]; eauto. }
-  } 
+  }
   done.
 Qed.
 

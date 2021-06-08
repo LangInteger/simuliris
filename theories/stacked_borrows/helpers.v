@@ -91,12 +91,14 @@ Proof.
   - move=>[x|] //. apply (@reflexivity A (⊑) _).
   - move=>[x|] [y|] [z|] //. apply (@transitivity A (⊑) _).
 Qed.
+Instance option_sqsubseteq_antisymm `{SqSubsetEq A} `{!@AntiSymm A eq (⊑)} :
+  @AntiSymm (option A) eq (⊑).
+Proof.
+  intros [a|] [b|] Ha Hb; [|done|done|done]. f_equal. by apply : anti_symm.
+Qed.
 Instance option_sqsubseteq_po `{SqSubsetEq A} `{!@PartialOrder A (⊑)} :
   @PartialOrder (option A) (⊑).
-Proof.
-  split; [apply _|].
-  move => [?|] [?|] ??; [|done|done|done]. f_equal. by apply : anti_symm.
-Qed.
+Proof. split; apply _. Qed.
 
 Instance nat_sqsubseteq : SqSubsetEq nat := le.
 Instance nat_sqsubseteq_po : @PartialOrder nat (⊑) := _.
@@ -149,8 +151,8 @@ Proof. destruct x; set_solver. Qed.
 Lemma list_subseteq_nil_inv {A: Type} (x: list A):
   x ⊆ [] → x = [].
 Proof.
-  intros. apply : anti_symm.
-  by apply list_subseteq_nil_sublist. by apply sublist_nil_l.
+  intros. eapply anti_symm; last first.
+  by apply sublist_nil_l. by apply list_subseteq_nil_sublist. apply _.
 Qed.
 
 Lemma NoDup_sublist {A: Type} (x y: list A) (SUB: sublist x y) :
