@@ -89,16 +89,16 @@ Section fix_bi.
   (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
-    log_rel val_rel input_loop (Call ##"rec" #true).
+    log_rel val_rel (const True%I) input_loop (Call ##"rec" #true).
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π').
+    iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
     iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
 
     discr_source.
-    iIntros ((b & ->)); iPoseProof (val_rel_litbool_source with "Hv") as "->"; sim_pures.
+    iIntros ((b & ->)); iPoseProof (struct_val_rel_litbool_source with "Hv") as "->"; sim_pures.
     target_load. destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.
@@ -109,9 +109,9 @@ Section fix_bi.
 
   Lemma loop_rec' :
     "rec" @t input_rec -∗
-    log_rel val_rel (Call ##"rec" #true) input_loop.
+    log_rel val_rel (const True%I) (Call ##"rec" #true) input_loop.
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π').
+    iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
     iApply (sim_rec_while _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
@@ -119,7 +119,7 @@ Section fix_bi.
 
     source_load.
     discr_source.
-    iIntros ((b & ->)); iPoseProof (val_rel_litbool_source with "Hv") as "->"; sim_pures.
+    iIntros ((b & ->)); iPoseProof (struct_val_rel_litbool_source with "Hv") as "->"; sim_pures.
     destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.

@@ -7,7 +7,7 @@ From simuliris.simplang Require Import parallel_subst primitive_laws.
 
 Section open_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (val_rel : val → val → iProp Σ) `{!∀ vt vs, Persistent (val_rel vt vs)}.
+  Context (val_rel : val → val → iProp Σ) (thread_own : thread_id → iProp Σ).
 
   (** Well-formed substitutions closing source and target, with [X] denoting the
       free variables. *)
@@ -18,7 +18,8 @@ Section open_rel.
       | None => False
       end.
 
-  Global Instance subst_map_rel_pers X map : Persistent (subst_map_rel X map).
+  Global Instance subst_map_rel_pers X map `{!∀ vt vs, Persistent (val_rel vt vs)} :
+    Persistent (subst_map_rel X map).
   Proof.
     rewrite /subst_map_rel. apply big_sepS_persistent=>x.
     destruct (map !! x) as [[v_t v_s]|]; apply _.
@@ -43,7 +44,7 @@ Section open_rel.
   Definition binder_delete_gset (b : binder) (X : gset string) :=
     match b with BAnon => X | BNamed x => X ∖ {[x]} end.
 
-  Lemma subst_map_rel_insert X x v_t v_s map :
+  Lemma subst_map_rel_insert X x v_t v_s map `{!∀ vt vs, Persistent (val_rel vt vs)} :
     subst_map_rel (binder_delete_gset x X) map -∗
     val_rel v_t v_s -∗
     subst_map_rel X (binder_insert x (v_t, v_s) map).
@@ -66,35 +67,37 @@ Section open_rel.
   Definition log_rel e_t e_s : iProp Σ :=
     □ ∀ π (map : gmap string (val * val)),
       subst_map_rel (free_vars e_t ∪ free_vars e_s) map -∗
-      subst_map (fst <$> map) e_t ⪯{π} subst_map (snd <$> map) e_s {{ val_rel }}.
+      thread_own π -∗
+      subst_map (fst <$> map) e_t ⪯{π} subst_map (snd <$> map) e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}.
 
   Lemma log_rel_closed e_t e_s :
     free_vars e_t = ∅ →
     free_vars e_s = ∅ →
-    log_rel e_t e_s ⊣⊢ (□ ∀ π, e_t ⪯{π} e_s {{ val_rel }}).
+    log_rel e_t e_s ⊣⊢ (□ ∀ π, thread_own π -∗ e_t ⪯{π} e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}).
   Proof.
     intros Hclosed_t Hclosed_s. iSplit.
     - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).
       rewrite ->!fmap_empty, ->!subst_map_empty.
       rewrite Hclosed_t Hclosed_s [∅ ∪ _]left_id_L.
       iApply "Hrel". by iApply subst_map_rel_empty.
-    - iIntros "#Hsim" (π xs) "!# #Hxs".
+    - iIntros "#Hsim" (π xs) "!# Hxs".
       rewrite !subst_map_closed //.
   Qed.
 
   (** Substitute away a single variable in an [log_rel].
       Use the [log_rel] tactic below to automatically apply this for all free variables. *)
-  Lemma log_rel_subst x e_t e_s :
+  Lemma log_rel_subst x e_t e_s `{!∀ vt vs, Persistent (val_rel vt vs)}:
+    val_rel #() #() -∗
     (□ ∀ (v_t v_s : val), val_rel v_t v_s -∗
       log_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
     log_rel e_t e_s.
   Proof.
-    iIntros "#Hsim" (π xs) "!# #Hxs".
+    iIntros "#Hunit #Hsim" (π xs) "!# #Hxs".
     destruct (decide (x ∈ free_vars e_t ∪ free_vars e_s)) as [Hin|Hnotin]; last first.
-    { iSpecialize ("Hsim" $! #0 #0).
+    { iSpecialize ("Hsim" $! #() #()).
       rewrite ->subst_free_vars by set_solver.
       rewrite ->subst_free_vars by set_solver.
-      iApply "Hsim"; eauto. admit. }
+      iApply "Hsim"; eauto. }
     iDestruct (subst_map_rel_lookup x with "Hxs") as (v_t v_s Hv) "Hrel"; first done.
     iSpecialize ("Hsim" $! v_t v_s with "Hrel").
     iSpecialize ("Hsim" $! π xs with "[Hxs]").
@@ -106,7 +109,7 @@ Section open_rel.
     rewrite insert_id.
     2:{ rewrite lookup_fmap Hv //. }
     done.
-  Admitted.
+  Qed.
 
 End open_rel.
 
@@ -114,18 +117,18 @@ End open_rel.
     introduces the new terms under some fresh names,
     calls [cont] on the remaining goal,
     then reverts all the fresh names. *)
-Local Ltac log_rel_subst_l l cont :=
+Local Ltac log_rel_subst_l val_rel l cont :=
   match l with
   | nil => cont ()
   | ?x :: ?l =>
-    unshelve (iApply (log_rel_subst _ x)); [apply _|];
+    iApply (log_rel_subst val_rel _ x with "[//]");
     let v_t := fresh "v_t" in
     let v_s := fresh "v_s" in
     let H := iFresh in
     iIntros (v_t v_s) "!#";
     let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
     iIntros pat;
-    log_rel_subst_l l ltac:(fun _ =>
+    log_rel_subst_l val_rel l ltac:(fun _ =>
       cont ();
       iRevert (v_t v_s) H
     )
@@ -136,7 +139,7 @@ Local Ltac log_rel_subst_l l cont :=
 Ltac log_rel :=
   iStartProof;
   match goal with
-  | |- proofmode.environments.envs_entails _ (log_rel _ ?e_t ?e_s) =>
+  | |- proofmode.environments.envs_entails _ (log_rel ?val_rel ?town ?e_t ?e_s) =>
     let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
-    log_rel_subst_l free ltac:(fun _ => simpl; iApply log_rel_closed; [compute_done..|])
+    log_rel_subst_l val_rel free ltac:(fun _ => simpl; iApply log_rel_closed; [compute_done..|])
   end.

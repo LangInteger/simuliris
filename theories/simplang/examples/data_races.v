@@ -39,13 +39,13 @@ Section data_race.
     source_bind (Fst v_s).
     iApply source_red_irred_unless; first done.
     iIntros ((v_s1 & v_s2 & ->)).
-    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
+    iPoseProof (struct_val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
     sim_pures.
     sim_pures.
     source_bind (! _)%E.
     iApply source_red_irred_unless; first done.
     iIntros ((l_s2 & ->)).
-    iPoseProof (val_rel_loc_source with "Hrel2'") as (l_t2 ->) "#Hrel2".
+    iPoseProof (struct_val_rel_loc_source with "Hrel2'") as (l_t2 ->) "#Hrel2".
     sim_pures. simpl. rewrite -!source_red_base. do 2 iModIntro.
 
     sim_bind (_) (! _)%E.
@@ -98,7 +98,7 @@ Section data_race.
     source_bind (Fst v_s).
     iApply source_red_irred_unless; first done.
     iIntros ((v_s1 & v_s2 & ->)).
-    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
+    iPoseProof (struct_val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
     sim_pures.
     sim_pures.
 
@@ -152,19 +152,19 @@ Section data_race.
     iIntros ((v_s1 & v_s2' & ->)).
     sim_pures.
 
-    iPoseProof (val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & #Hrel2)".
+    iPoseProof (struct_val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & #Hrel2)".
     sim_pures.
     source_alloc lr_s as "Hlr_s" "Hfr_s". sim_pures.
     source_alloc li_s as "Hli_s" "Hfi_s". sim_pures.
     source_while. source_load.
     source_bind (_ < _)%E. iApply source_red_irred_unless; first done.
     iIntros ([[??] [??]]); simplify_eq.
-    iDestruct (val_rel_litint_source with "Hrel1") as %->. sim_pures. sim_pures.
+    iDestruct (struct_val_rel_litint_source with "Hrel1") as %->. sim_pures. sim_pures.
     case_bool_decide; [rewrite bool_decide_false;[|lia]|rewrite bool_decide_true;[|lia]]; sim_pures.
     - source_free. sim_pures. source_load. sim_pures. source_free. sim_pures. by sim_val.
     - source_bind (! _)%E. iApply source_red_irred_unless; first done.
       iIntros ([l_s ?]); simplify_eq.
-      iDestruct (val_rel_loc_source with "Hrel2") as (l_t ->) "Hbij".
+      iDestruct (struct_val_rel_loc_source with "Hrel2") as (l_t ->) "Hbij".
       do 2 iApply source_red_base. do 2 iModIntro.
       iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
         intros. reach_or_stuck_fill (! _)%E => /=.
@@ -177,7 +177,7 @@ Section data_race.
       source_load. sim_pures. source_load. sim_pures.
       source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
       iIntros ([[??] [m ?]]); simplify_eq.
-      iDestruct (val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
+      iDestruct (struct_val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
       source_store. source_load. source_store. sim_pures.
 
       target_load. target_alloc lr_t as "Hlr_t" "Hfr_t". target_alloc li_t as "Hli_t" "Hfi_t".
@@ -194,7 +194,7 @@ Section data_race.
       iIntros (??) "Hv' Hc". sim_val.
       source_bind (_ < _)%E. iApply source_red_irred_unless; first done.
       iIntros ([[??] [??]]); simplify_eq.
-      iDestruct (val_rel_litint_source with "Hv'") as %->. sim_pures. sim_pures.
+      iDestruct (struct_val_rel_litint_source with "Hv'") as %->. sim_pures. sim_pures.
       case_bool_decide; sim_pures.
       + source_load. sim_pures.
         sim_bind (! _)%E (! _)%E.
@@ -202,7 +202,7 @@ Section data_race.
         iIntros (??) "Hv'' Hc". sim_val.
         source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
         iIntros ([[??] [??]]); simplify_eq.
-        iDestruct (val_rel_litint_source with "Hv''") as %->. sim_pures. sim_pures.
+        iDestruct (struct_val_rel_litint_source with "Hv''") as %->. sim_pures. sim_pures.
         sim_bind (_ <- _)%E (_ <- _)%E.
         iApply (sim_bij_store_na with "Hbijr Hc"); [by simplify_map_eq| done |].
         iIntros "Hc". sim_val. sim_pures.
@@ -212,7 +212,7 @@ Section data_race.
         iIntros (??) "Hv''' Hc". sim_val.
         source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
         iIntros ([[??] [??]]); simplify_eq.
-        iDestruct (val_rel_litint_source with "Hv'''") as %->. sim_pures. sim_pures.
+        iDestruct (struct_val_rel_litint_source with "Hv'''") as %->. sim_pures. sim_pures.
         sim_bind (_ <- _)%E (_ <- _)%E.
         iApply (sim_bij_store_na with "Hbiji Hc"); [by simplify_map_eq| done |].
         iIntros "Hc". sim_val. sim_pures.

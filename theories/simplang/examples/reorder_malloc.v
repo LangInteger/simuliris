@@ -18,10 +18,10 @@ Section reorder.
     Call "cont" ("l1", "l2").
 
   Lemma alloc2_reorder :
-    ⊢ log_rel val_rel alloc2_and_cont alloc2_and_cont'.
+    ⊢ log_rel val_rel (const True%I) alloc2_and_cont alloc2_and_cont'.
   Proof.
     log_rel.
-    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 !# %π".
+    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 !# %π _".
 
     source_alloc l1_s as "Hl1_s" "Ha1_s".
     source_alloc l2_s as "Hl2_s" "Ha2_s".
@@ -31,8 +31,7 @@ Section reorder.
     { destruct cont_s as [[] | | | ]; done. }
     iIntros ((fcont & ->)).
 
-    iPoseProof (val_rel_litfn_source with "Hcont") as "->".
-    sim_pures.
+    val_discr_source "Hcont". sim_pures.
 
     target_alloc l1_t as "Hl1_t" "Ha1_t".
     target_alloc l2_t as "Hl2_t" "Ha2_t".
@@ -42,7 +41,7 @@ Section reorder.
     iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hv2"); iIntros "#Hbij_2".
 
     iApply sim_wand; [ iApply sim_call; [done | done | simpl; by eauto ] |].
-    iIntros (??) "$".
+    by iIntros (??) "$".
   Qed.
 
 End reorder.

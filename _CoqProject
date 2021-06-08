@@ -31,6 +31,7 @@ theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
 theories/simplang/derived.v
+theories/simplang/val_rel.v
 theories/simplang/heapbij.v
 theories/simplang/heap_bij.v
 theories/simplang/na_locs.v
