@@ -52,6 +52,12 @@ Inductive bin_op : Set :=
 Inductive order : Set :=
   ScOrd | Na1Ord | Na2Ord.
 
+Inductive val :=
+  | LitV (l : base_lit)
+  | PairV (v1 v2 : val)
+  | InjLV (v : val)
+  | InjRV (v : val).
+
 Inductive expr :=
   (* Values *)
   | Val (v : val)
@@ -82,11 +88,7 @@ Inductive expr :=
   | Store (o : order) (e1 : expr) (e2 : expr)
   | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
   | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
-with val :=
-  | LitV (l : base_lit)
-  | PairV (v1 v2 : val)
-  | InjLV (v : val)
-  | InjRV (v : val).
+  .
 
 Bind Scope expr_scope with expr.
 Bind Scope val_scope with val.
@@ -209,60 +211,10 @@ Global Instance bin_op_eq_dec : EqDecision bin_op.
 Proof. solve_decision. Defined.
 Global Instance order_eq_dec : EqDecision order.
 Proof. solve_decision. Defined.
-Global Instance expr_eq_dec : EqDecision expr.
-Proof.
-  refine (
-   fix go (e1 e2 : expr) {struct e1} : Decision (e1 = e2) :=
-     match e1, e2 with
-     | Val v, Val v' => cast_if (decide (v = v'))
-     | Var x, Var x' => cast_if (decide (x = x'))
-     | Let x e1 e2, Let x' e1' e2' =>
-        cast_if_and3 (decide (x = x')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | UnOp o e, UnOp o' e' => cast_if_and (decide (o = o')) (decide (e = e'))
-     | BinOp o e1 e2, BinOp o' e1' e2' =>
-        cast_if_and3 (decide (o = o')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | If e0 e1 e2, If e0' e1' e2' =>
-        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | While e0 e1, While e0' e1' =>
-        cast_if_and (decide (e0 = e0')) (decide (e1 = e1'))
-     | Pair e1 e2, Pair e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Fst e, Fst e' => cast_if (decide (e = e'))
-     | Snd e, Snd e' => cast_if (decide (e = e'))
-     | InjL e, InjL e' => cast_if (decide (e = e'))
-     | InjR e, InjR e' => cast_if (decide (e = e'))
-     | Match e0 x1 e1 x2 e2, Match e0' x1' e1' x2' e2' =>
-        cast_if_and5 (decide (e0 = e0')) (decide (x1 = x1')) (decide (e1 = e1')) (decide (x2 = x2')) (decide (e2 = e2'))
-     | Fork e, Fork e' => cast_if (decide (e = e'))
-     | AllocN e1 e2, AllocN e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | FreeN e1 e2, FreeN e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Load o e, Load o' e' => cast_if_and (decide (o = o')) (decide (e = e'))
-     | Store o e1 e2, Store o' e1' e2' =>
-        cast_if_and3 (decide (o = o')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | CmpXchg e0 e1 e2, CmpXchg e0' e1' e2' =>
-        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | FAA e1 e2, FAA e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Call f1 e1, Call f2 e2 =>
-        cast_if_and (decide (f1 = f2)) (decide (e1 = e2))
-     | _, _ => right _
-     end
-   with gov (v1 v2 : val) {struct v1} : Decision (v1 = v2) :=
-     match v1, v2 with
-     | LitV l, LitV l' => cast_if (decide (l = l'))
-     | PairV e1 e2, PairV e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | InjLV e, InjLV e' => cast_if (decide (e = e'))
-     | InjRV e, InjRV e' => cast_if (decide (e = e'))
-     | _, _ => right _
-     end
-   for go); try (clear go gov; abstract intuition congruence).
-Defined.
 Global Instance val_eq_dec : EqDecision val.
 Proof. solve_decision. Defined.
-
+Global Instance expr_eq_dec : EqDecision expr.
+Proof. solve_decision. Defined.
 
 Global Instance lock_state_countable : Countable lock_state.
 Proof.
@@ -321,6 +273,28 @@ Proof.
   | _ => Na2Ord
   end) _); by intros [].
 Qed.
+Global Instance val_countable : Countable val.
+Proof.
+ set (enc :=
+   fix go v :=
+     match v with
+     | LitV l => GenLeaf l
+     | PairV v1 v2 => GenNode 1 [go v1; go v2]
+     | InjLV v => GenNode 2 [go v]
+     | InjRV v => GenNode 3 [go v]
+     end).
+ set (dec :=
+   fix go v :=
+     match v with
+     | GenLeaf l => LitV l
+     | GenNode 1 [v1; v2] => PairV (go v1) (go v2)
+     | GenNode 2 [v] => InjLV (go v)
+     | GenNode 3 [v] => InjRV (go v)
+     | _ => LitV LitUnit (* dummy *)
+     end).
+ refine (inj_countable' enc dec _). intros v. induction v; simplify_eq/=; by f_equal.
+Qed.
+(*
 Global Instance expr_countable : Countable expr.
 Proof.
   (* (string + binder) + (lit + ((un_op + bin_op)) + order) *)
@@ -398,8 +372,7 @@ Proof.
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
-Global Instance val_countable : Countable val.
-Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
+*)
 
 Global Instance : Inhabited lock_state := populate (RSt 0).
 Global Instance state_inhabited : Inhabited state :=
