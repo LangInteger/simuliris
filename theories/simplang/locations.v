@@ -1,6 +1,7 @@
 From iris.prelude Require Export prelude.
 From iris.prelude Require Import options.
 From stdpp Require Import countable numbers gmap.
+From simuliris.simplang Require Export base.
 (* partly adapted from lambda rust *)
 
 Definition block := positive.

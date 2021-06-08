@@ -5,20 +5,9 @@ From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws val_rel.
+From simuliris.simplang Require Export class_instances primitive_laws gen_val_rel.
 
 From iris.prelude Require Import options.
-
-Lemma take_lookup_Some {A} n k (l : list A) x:
-  take n l !! k = Some x ↔ l !! k = Some x ∧ k < n.
-Proof.
-  split.
-  - destruct (decide (k < n)).
-    + rewrite lookup_take; naive_solver.
-    + rewrite lookup_take_ge //. lia.
-  - move => [??]. by rewrite lookup_take.
-Qed.
-
 
 Class heapbijG (Σ : gFunctors) := HeapBijG {
   heapbijG_sheapG :> sheapGS Σ;
@@ -36,9 +25,10 @@ Section definitions.
 End definitions.
 
 Notation "b_t '⇔h' b_s" := (heap_bij_elem b_t b_s) (at level 30) : bi_scope.
-Definition loc_rel `{heapbijG Σ} l_t l_s : iProp Σ := loc_chunk l_t ⇔h loc_chunk l_s ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
+Local Definition loc_rel `{heapbijG Σ} l_t l_s : iProp Σ :=
+  loc_chunk l_t ⇔h loc_chunk l_s ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
 Notation "l_t '↔h' l_s" := (loc_rel l_t l_s) (at level 30) : bi_scope.
-Definition val_rel `{heapbijG Σ} := struct_val_rel loc_rel.
+Local Notation val_rel := (gen_val_rel loc_rel).
 
 Section laws.
   Context `{heapbijG Σ}.
@@ -91,48 +81,15 @@ Section laws.
     iIntros "[Hi %Hj]". iSplitL "Hi"; first done. iPureIntro.
     destruct l_t, l_s; cbn in *; lia.
   Qed.
-
-  Lemma val_rel_func v1 v2 v3 : val_rel v1 v2 -∗ val_rel v1 v3 -∗ ⌜v2 = v3⌝.
-  Proof.
-    iIntros "Hv1 Hv2". iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); val_discr_source "Hv1"; val_discr_target "Hv2"; try done.
-    - iPoseProof (struct_val_rel_loc_source with "Hv1") as (?) "(-> & Hl1)".
-      iPoseProof (struct_val_rel_loc_target with "Hv2") as (?) "(-> & Hl2)".
-      by iPoseProof (heap_bij_loc_func with "Hl1 Hl2") as "->".
-    - iPoseProof (struct_val_rel_pair_source with "Hv1") as (??) "(-> & Hv1_1 & Hv1_2)".
-      iPoseProof (struct_val_rel_pair_target with "Hv2") as (??) "(-> & Hv2_1 & Hv2_2)".
-      iPoseProof ("IH" with "Hv1_1 Hv2_1") as "->".
-      by iPoseProof ("IH1" with "Hv1_2 Hv2_2") as "->".
-    - iPoseProof (struct_val_rel_injl_source with "Hv1") as (?) "(-> & Hv1)".
-      iPoseProof (struct_val_rel_injl_target with "Hv2") as (?) "(-> & Hv2)".
-      by iPoseProof ("IH" with "Hv1 Hv2") as "->".
-    - iPoseProof (struct_val_rel_injr_source with "Hv1") as (?) "(-> & Hv1)".
-      iPoseProof (struct_val_rel_injr_target with "Hv2") as (?) "(-> & Hv2)".
-      by iPoseProof ("IH" with "Hv1 Hv2") as "->".
-  Qed.
-  Lemma val_rel_inj v1 v2 v3 : val_rel v2 v1 -∗ val_rel v3 v1 -∗ ⌜v2 = v3⌝.
-  Proof.
-    iIntros "Hv1 Hv2". iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); val_discr_target "Hv1"; val_discr_source "Hv2"; try done.
-    - iPoseProof (struct_val_rel_loc_target with "Hv1") as (?) "(-> & Hl1)".
-      iPoseProof (struct_val_rel_loc_source with "Hv2") as (?) "(-> & Hl2)".
-      by iPoseProof (heap_bij_loc_inj with "Hl1 Hl2") as "->".
-    - iPoseProof (struct_val_rel_pair_target with "Hv1") as (??) "(-> & Hv1_1 & Hv1_2)".
-      iPoseProof (struct_val_rel_pair_source with "Hv2") as (??) "(-> & Hv2_1 & Hv2_2)".
-      iPoseProof ("IH" with "Hv1_1 Hv2_1") as "->".
-      by iPoseProof ("IH1" with "Hv1_2 Hv2_2") as "->".
-    - iPoseProof (struct_val_rel_injl_target with "Hv1") as (?) "(-> & Hv1)".
-      iPoseProof (struct_val_rel_injl_source with "Hv2") as (?) "(-> & Hv2)".
-      by iPoseProof ("IH" with "Hv1 Hv2") as "->".
-    - iPoseProof (struct_val_rel_injr_target with "Hv1") as (?) "(-> & Hv1)".
-      iPoseProof (struct_val_rel_injr_source with "Hv2") as (?) "(-> & Hv2)".
-      by iPoseProof ("IH" with "Hv1 Hv2") as "->".
-  Qed.
 End laws.
 
 
 Section definitions.
   Context `{heapbijG Σ}.
 
-  (** We require the [lock_state]s to be the same, pointwise *)
+  (** [P l_t l_s q] can be used to remove and add fractions of the
+  points-to predicate from the bijection. [alloc_rel] stores a proof
+  that [P l_t l_s q] holds for the fraction that it currently contains. *)
   Definition alloc_rel b_t b_s P : iProp Σ :=
     (∃ (n : option nat) vs_t vs_s,
         ⌜length vs_t = default 0 n⌝ ∗
@@ -157,13 +114,13 @@ Section definitions.
     iExists _, q. iFrame. iPureIntro. by apply: HP.
   Qed.
 
-  Lemma alloc_rel_read (b : bool) b_t b_s σ_s σ_t o v n (P : _ → _ → _ → Prop):
-    heap σ_s !! Loc b_s o = Some (RSt n, v) →
+  Lemma alloc_rel_read (b : bool) b_t b_s σ_s σ_t o v st (P : _ → _ → _ → Prop):
+    heap σ_s !! Loc b_s o = Some (st, v) →
     (∀ q, P (Loc b_t o) (Loc b_s o) q → ∃ q', q = Some q' ∧ if b then q' = 1%Qp else True) →
     alloc_rel b_t b_s P -∗
     heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s) -∗
     heap_ctx sheapG_allocN_target (heap σ_t) (used_blocks σ_t) -∗
-    ∃ n' v', ⌜heap σ_t !! Loc b_t o = Some (RSt n', v')⌝ ∗ ⌜if b then n' = n else True⌝ ∗ val_rel v' v.
+    ∃ st' v', ⌜heap σ_t !! Loc b_t o = Some (st', v')⌝ ∗ ⌜if b then st' = st else if st is RSt _ then ∃ n', st' = RSt n' else st' = WSt⌝ ∗ val_rel v' v.
   Proof.
     iIntros (? HP).
     iDestruct 1 as (? vs_t vs_s Hlen) "(Hl_s & Halloc_t & Halloc_s)".
@@ -183,9 +140,8 @@ Section definitions.
       simplify_eq/=.
       iExists _, _. by repeat (iSplitR; [done|]).
     - iDestruct (heap_read_st with "Hσ_s Hl_s") as %[? Hl_s].
-      iDestruct (heap_read_st with "Hσ_t Hl_t") as %[? Hl_t].
-      destruct st''; simplify_eq/=.
-      iExists _, _. by repeat (iSplitR; [done|]).
+      iDestruct (heap_read_st with "Hσ_t Hl_t") as %[? Hl_t]. simplify_eq.
+      iExists _, _. iFrame "Hv". iSplit; [done|]. iPureIntro. case_match; naive_solver.
   Qed.
 
   Lemma alloc_rel_write b_t b_s σ_s σ_t o v st st' v_s' v_t' (P : _ → _ → _ → Prop):
@@ -223,6 +179,43 @@ Section definitions.
     iSplitR; last first.
     - iApply "Hclose". iExists _, (Some _). by iFrame.
     - iPureIntro. rewrite insert_length. lia.
+  Qed.
+
+  Lemma alloc_rel_free b_t b_s n σ_s σ_t o (P : _ → _ → _ → Prop):
+    (0 < n)%Z →
+    (∀ m : Z, is_Some (heap σ_s !! (Loc b_s o +ₗ m)) ↔ (0 ≤ m < n)%Z) →
+    (∀ q k, (0 ≤ k < n)%Z → P (Loc b_t o +ₗ k) (Loc b_s o +ₗ k) q → q = Some 1%Qp) →
+    alloc_rel b_t b_s P -∗
+    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s) -∗
+    heap_ctx sheapG_allocN_target (heap σ_t) (used_blocks σ_t)
+    ==∗
+    ⌜∀ m, is_Some (heap σ_t !! (Loc b_t o +ₗ m)) ↔ (0 ≤ m < n)%Z⌝ ∗
+    alloc_rel b_t b_s P ∗
+    heap_ctx sheapG_allocN_source (free_mem (Loc b_s o) (Z.to_nat n) (heap σ_s)) (used_blocks σ_s) ∗
+    heap_ctx sheapG_allocN_target (free_mem (Loc b_t o) (Z.to_nat n) (heap σ_t)) (used_blocks σ_t).
+  Proof.
+    iIntros (?? HP).
+    iDestruct 1 as (n' vs_t vs_s Hlen) "(Hvs & Ha_t & Ha_s)".
+    iIntros "Hσ_s Hσ_t".
+    iDestruct (big_sepL2_length with "Hvs") as %Hlen'.
+    iDestruct (heap_freeable_inj with "Hσ_s Ha_s") as %[? Hl]; [done..|]. move: Hl => [?]. subst.
+
+    iAssert (∃ sts, Loc b_t 0 ↦t∗[sts] vs_t ∗ Loc b_s 0 ↦s∗[sts] vs_s)%I with "[Hvs]" as (?) "[Hl_t Hl_s]". {
+      iDestruct (big_sepL2_exist with "Hvs") as (sts ?) "Hvs". iExists sts.
+      rewrite /heap_mapsto_vec_st !(big_sepL2_to_sepL_r sts) -?big_sepL2_sepL; [|congruence..].
+      iApply (big_sepL2_impl with "Hvs").
+      iIntros "!>" (k x1 x2 Ht Hs) "(%st & % & %q & %Hrel & Hv & Hl)".
+      change (Loc b_s k) with (Loc b_s 0 +ₗ k) in Hrel.
+      move/HP in Hrel. rewrite Hrel.
+      2: { split; [lia|]. rewrite /= in Hlen. move/(lookup_lt_Some _ _ _) in Ht. lia. }
+      iDestruct "Hl" as "[Hl_t Hl_s]".
+      iSplitL "Hl_t"; iExists _; by iFrame.
+    }
+    iMod (heap_free with "Hσ_t Hl_t [Ha_t]") as (? Hlookup) "[Ha_t Hσ_t]"; [ by rewrite Hlen /= | by rewrite Hlen |].
+    iMod (heap_free with "Hσ_s Hl_s [Ha_s]") as (_ _) "[Ha_s Hσ_s]"; [done| by rewrite -Hlen' Hlen |].
+    rewrite -Hlen' Hlen Z2Nat.id; [|lia]. iFrame. iModIntro.
+    rewrite Z2Nat.id in Hlookup; [|lia].
+    iSplit; [done|]. iExists _, [], []. iFrame. by simpl.
   Qed.
 
   Lemma alloc_rel_P_holds (P : _ → _ → _ → Prop) b_t b_s σ_s o s:
@@ -382,8 +375,6 @@ Section laws.
     (∀ P' : _ → _ → _  → Prop,
         ⌜∀ b_t' b_s' o q, b_t' ≠ b_t → b_s' ≠ b_s → P (Loc b_t' o) (Loc b_s' o) q →
                            P' (Loc b_t' o) (Loc b_s' o) q⌝ -∗
-        (* ⌜∀ π col l_s w, cols' !! π = Some col → col !! l_s = Some w → loc_chunk l_s = b_s ∨ ∃ col' w', cols !! π = Some col' ∧ col' !! l_s = Some  w'⌝ -∗ *)
-        (* ⌜∀ b' o' q, b' ≠ b_s → alloc_rel_pred cols (Loc b' o') q → alloc_rel_pred cols' (Loc b' o') q⌝ -∗ *)
         alloc_rel b_t b_s P' -∗ heap_bij_interp L P').
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as "(Hauth & Hheap)".

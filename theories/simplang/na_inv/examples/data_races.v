@@ -1,66 +1,51 @@
-From simuliris.simplang Require Import lang notation tactics class_instances proofmode.
+From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel.
 From iris Require Import bi.bi.
 Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang.na_inv Require Export na_inv.
+From simuliris.simplang.na_inv Require Export inv.
 
 (** * Examples for exploiting UB of data-races. *)
 
 Section data_race.
-  Context `{nabijG Σ}.
+  Context `{naGS Σ}.
+
 
   (*
     problem of establishing disjointness:
     option 1: add comparsion in target (and make op sem for that realistic)
 *)
 
-  Definition remove_store_and_load_opt :=
-    (λ: "a", let: "l1" := Fst "a" in
-             let: "l2" := Snd "a" in
-             let: "v2" := !"l2" in
-             let: "r" := "v2" + "v2" in
-             "l1" <- "r";;
-             "r"
-    )%E.
+  Definition remove_store_and_load_opt : expr :=
+    let: "v2" := !"l2" in
+    let: "r" := "v2" + "v2" in
+    "l1" <- "r";;
+    "r".
 
-  Definition remove_store_and_load :=
-    (λ: "a", let: "l1" := Fst "a" in
-             let: "l2" := Snd "a" in
-             "l1" <- !"l2";;
-             "l1" <- !"l1" + !"l2";;
-             !"l1"
-    )%E.
 
-  Lemma remove_store_and_load_sim π:
-    ⊢ sim_ectx π remove_store_and_load_opt remove_store_and_load val_rel.
+  Definition remove_store_and_load : expr :=
+    "l1" <- !"l2";;
+    "l1" <- !"l1" + !"l2";;
+    !"l1".
+
+  Lemma remove_store_and_load_sim:
+    ⊢ log_rel remove_store_and_load_opt remove_store_and_load.
   Proof.
-    iIntros (v_t v_s) "[Hc Hrel]". sim_pures.
+    log_rel.
+    iIntros "%v2_t %v2_s #Hv2 %v1_t %v1_s #Hv1 !# %π Hc".
 
-    source_bind (Fst v_s).
-    iApply source_red_irred_unless; first done.
-    iIntros ((v_s1 & v_s2 & ->)).
-    iPoseProof (struct_val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
-    sim_pures.
-    sim_pures.
-    source_bind (! _)%E.
-    iApply source_red_irred_unless; first done.
-    iIntros ((l_s2 & ->)).
-    iPoseProof (struct_val_rel_loc_source with "Hrel2'") as (l_t2 ->) "#Hrel2".
-    sim_pures. simpl. rewrite -!source_red_base. do 2 iModIntro.
+    sim_bind (! _)%E (! _)%E. iApply sim_irred_unless; first done. iIntros ([l1_s ->]).
+    iPoseProof (gen_val_rel_loc_source with "Hv1") as (l_t1 ->) "#Hl1".
+    iApply (sim_bij_exploit_load with "Hl1 Hc"); [|done|].
+    { intros. apply: reach_or_stuck_refl. by apply: post_in_ectx_intro. }
+    iIntros (q v_t v_s) "Hl1_t Hl1_s Hv Hc". source_load. target_load. sim_val. sim_pures.
+    sim_bind (Val v_t) (_ <- _)%E. iApply sim_irred_unless; first done. iIntros ([l2_s ->]).
+    iPoseProof (gen_val_rel_loc_source with "Hv2") as (l_t2 ->) "#Hl2".
 
-    sim_bind (_) (! _)%E.
+    destruct (decide (l1_s = l2_s)); simplify_eq.
   Abort.
-    (* iApply (sim_bij_exploit_load with "Hrel2 Hc"); [intros; apply: no_forks_refl|done|]. *)
-    (* iIntros (q v_t v_s) "Hl_t2 Hl_s2 Hv Hc". iApply sim_expr_base. *)
-    (* source_load. target_load. sim_pures. *)
 
-  (* Abort. *)
-
-  Definition reg_promote_loop_opt f :=
-    (λ: "a",
-     let: "n" := Fst "a" in
-     let: "x" := Snd "a" in
+  Definition reg_promote_loop_opt f : expr :=
      let: "refn" := ref ! "n" in
      while: #0 < ! "refn" do
        Call ##f #2;;
@@ -70,13 +55,10 @@ Section data_race.
        "x" <- #2;;
        #2
      else
-       #0
-    )%E.
+       #0.
 
-  Definition reg_promote_loop f :=
-    (λ: "a",
-     let: "n" := Fst "a" in
-     let: "x" := Snd "a" in
+
+  Definition reg_promote_loop f : expr :=
      let: "refn" := ref ! "n" in
      let: "res" := ref #0 in
      while: #0 < ! "refn" do
@@ -88,27 +70,15 @@ Section data_race.
        Call ##f !"res";;
        "refn" <- !"refn" - #1
      od;;
-     !"res"
-    )%E.
+     !"res".
 
-  Lemma reg_promote_loop_sim π f:
-    ⊢ sim_ectx π (reg_promote_loop_opt f) (reg_promote_loop f) val_rel.
+  Lemma reg_promote_loop_sim f:
+    ⊢ log_rel (reg_promote_loop_opt f) (reg_promote_loop f).
   Proof.
-    iIntros (v_t v_s) "[Hc Hrel]". sim_pures.
-
-    source_bind (Fst v_s).
-    iApply source_red_irred_unless; first done.
-    iIntros ((v_s1 & v_s2 & ->)).
-    iPoseProof (struct_val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & Hrel2')".
-    sim_pures.
-    sim_pures.
-
+    log_rel.
   Abort.
 
-  Definition hoist_load_opt :=
-    (λ: "a",
-     let: "n" := Fst "a" in
-     let: "m" := Snd "a" in
+  Definition hoist_load_opt : expr :=
      if: "n" < #1 then
        #0
      else
@@ -123,13 +93,9 @@ Section data_race.
        Free "i";;
        let: "res" := !"r" in
        Free "r";;
-       "res"
-    )%E.
+       "res".
 
-  Definition hoist_load :=
-    (λ: "a",
-     let: "n" := Fst "a" in
-     let: "m" := Snd "a" in
+  Definition hoist_load : expr :=
      let: "r" := ref #0  in
      let: "i" := ref #0  in
      while: ! "i" < "n" do
@@ -140,32 +106,25 @@ Section data_race.
      Free "i";;
      let: "res" := !"r" in
      Free "r";;
-     "res"
-    )%E.
+     "res".
 
-  Lemma hoist_load_sim π:
-    ⊢ sim_ectx π hoist_load_opt hoist_load val_rel.
+  Lemma hoist_load_sim:
+    ⊢ log_rel hoist_load_opt hoist_load.
   Proof.
-    iIntros (v_t v_s) "[Hc Hrel]". sim_pures.
+    log_rel.
+    iIntros "%v_t1 %v_s1 #Hrel1 %v_t2 %v_s2 #Hrel2 !# %π Hc".
 
-    source_bind (Fst v_s).
-    iApply source_red_irred_unless; first done.
-    iIntros ((v_s1 & v_s2' & ->)).
-    sim_pures.
-
-    iPoseProof (struct_val_rel_pair_source with "Hrel") as (v_t1 v_t2) "(-> & #Hrel1 & #Hrel2)".
-    sim_pures.
     source_alloc lr_s as "Hlr_s" "Hfr_s". sim_pures.
     source_alloc li_s as "Hli_s" "Hfi_s". sim_pures.
     source_while. source_load.
     source_bind (_ < _)%E. iApply source_red_irred_unless; first done.
     iIntros ([[??] [??]]); simplify_eq.
-    iDestruct (struct_val_rel_litint_source with "Hrel1") as %->. sim_pures. sim_pures.
+    iDestruct (gen_val_rel_litint_source with "Hrel2") as %->. sim_pures. sim_pures.
     case_bool_decide; [rewrite bool_decide_false;[|lia]|rewrite bool_decide_true;[|lia]]; sim_pures.
-    - source_free. sim_pures. source_load. sim_pures. source_free. sim_pures. by sim_val.
+    - source_free. sim_pures. source_load. sim_pures. source_free. sim_pures. by sim_val; iFrame.
     - source_bind (! _)%E. iApply source_red_irred_unless; first done.
       iIntros ([l_s ?]); simplify_eq.
-      iDestruct (struct_val_rel_loc_source with "Hrel2") as (l_t ->) "Hbij".
+      iDestruct (gen_val_rel_loc_source with "Hrel1") as (l_t ->) "Hbij".
       do 2 iApply source_red_base. do 2 iModIntro.
       iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
         intros. reach_or_stuck_fill (! _)%E => /=.
@@ -178,7 +137,7 @@ Section data_race.
       source_load. sim_pures. source_load. sim_pures.
       source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
       iIntros ([[??] [m ?]]); simplify_eq.
-      iDestruct (struct_val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
+      iDestruct (gen_val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
       source_store. source_load. source_store. sim_pures.
 
       target_load. target_alloc lr_t as "Hlr_t" "Hfr_t". target_alloc li_t as "Hli_t" "Hfi_t".
@@ -195,7 +154,7 @@ Section data_race.
       iIntros (??) "Hv' Hc". sim_val.
       source_bind (_ < _)%E. iApply source_red_irred_unless; first done.
       iIntros ([[??] [??]]); simplify_eq.
-      iDestruct (struct_val_rel_litint_source with "Hv'") as %->. sim_pures. sim_pures.
+      iDestruct (gen_val_rel_litint_source with "Hv'") as %->. sim_pures. sim_pures.
       case_bool_decide; sim_pures.
       + source_load. sim_pures.
         sim_bind (! _)%E (! _)%E.
@@ -203,7 +162,7 @@ Section data_race.
         iIntros (??) "Hv'' Hc". sim_val.
         source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
         iIntros ([[??] [??]]); simplify_eq.
-        iDestruct (struct_val_rel_litint_source with "Hv''") as %->. sim_pures. sim_pures.
+        iDestruct (gen_val_rel_litint_source with "Hv''") as %->. sim_pures. sim_pures.
         sim_bind (_ <- _)%E (_ <- _)%E.
         iApply (sim_bij_store_na with "Hbijr Hc"); [by simplify_map_eq| done |].
         iIntros "Hc". sim_val. sim_pures.
@@ -213,7 +172,7 @@ Section data_race.
         iIntros (??) "Hv''' Hc". sim_val.
         source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
         iIntros ([[??] [??]]); simplify_eq.
-        iDestruct (struct_val_rel_litint_source with "Hv'''") as %->. sim_pures. sim_pures.
+        iDestruct (gen_val_rel_litint_source with "Hv'''") as %->. sim_pures. sim_pures.
         sim_bind (_ <- _)%E (_ <- _)%E.
         iApply (sim_bij_store_na with "Hbiji Hc"); [by simplify_map_eq| done |].
         iIntros "Hc". sim_val. sim_pures.
@@ -235,23 +194,22 @@ Section data_race.
           move => i ?. rewrite lookup_insert_ne //.
           destruct (decide (i = 0%Z)); [subst |lia]. by rewrite loc_add_0.
         }
-        iIntros "Hc". sim_val. sim_pures. by sim_val.
+        iIntros "Hc".
+        iApply (sim_bij_release (NaRead _) with "Hbij Hc [$] [$] Hv"); [by simplify_map_eq| ].
+        iIntros "Hc". rewrite delete_insert //.
+        sim_val. sim_pures. sim_val; by iFrame.
   Qed.
 
   (* TODO: try also other direction (or maybe another example that adds loads and that makes more sense) *)
 
-  Definition register_pressure_opt :=
-    (λ: "a",
+  Definition register_pressure_opt : expr :=
      let: "z" := !"a" + #1 in
-     "z" + !"a"
-    )%E.
+     "z" + !"a".
 
-  Definition register_pressure_load :=
-    (λ: "a",
+  Definition register_pressure_load : expr :=
      let: "y" := !"a" in
      let: "z" := "y" + #1 in
-     "z" + "y"
-    )%E.
+     "z" + "y".
 
 
   (* TODO: go over memory model papers (promising semantics paper)

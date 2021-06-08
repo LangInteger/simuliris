@@ -3,11 +3,12 @@
 
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws.
+From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel wf.
 
 Section open_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (val_rel : val → val → iProp Σ) (thread_own : thread_id → iProp Σ).
+  Context (loc_rel : loc → loc → iProp Σ) (thread_own : thread_id → iProp Σ).
+  Local Notation val_rel := (gen_val_rel loc_rel).
 
   (** Well-formed substitutions closing source and target, with [X] denoting the
       free variables. *)
@@ -64,16 +65,16 @@ Section open_rel.
   (** The core "logical relation" of our system:
       The simulation relation ("expression relation") must hold after applying
       an arbitrary well-formed closing substitution [map]. *)
-  Definition log_rel e_t e_s : iProp Σ :=
+  Definition gen_log_rel e_t e_s : iProp Σ :=
     □ ∀ π (map : gmap string (val * val)),
       subst_map_rel (free_vars e_t ∪ free_vars e_s) map -∗
       thread_own π -∗
       subst_map (fst <$> map) e_t ⪯{π} subst_map (snd <$> map) e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}.
 
-  Lemma log_rel_closed e_t e_s :
+  Lemma gen_log_rel_closed e_t e_s :
     free_vars e_t = ∅ →
     free_vars e_s = ∅ →
-    log_rel e_t e_s ⊣⊢ (□ ∀ π, thread_own π -∗ e_t ⪯{π} e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}).
+    gen_log_rel e_t e_s ⊣⊢ (□ ∀ π, thread_own π -∗ e_t ⪯{π} e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}).
   Proof.
     intros Hclosed_t Hclosed_s. iSplit.
     - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).
@@ -84,15 +85,14 @@ Section open_rel.
       rewrite !subst_map_closed //.
   Qed.
 
-  (** Substitute away a single variable in an [log_rel].
-      Use the [log_rel] tactic below to automatically apply this for all free variables. *)
-  Lemma log_rel_subst x e_t e_s `{!∀ vt vs, Persistent (val_rel vt vs)}:
-    val_rel #() #() -∗
+  (** Substitute away a single variable in an [gen_log_rel].
+      Use the [gen_log_rel] tactic below to automatically apply this for all free variables. *)
+  Lemma gen_log_rel_subst x e_t e_s `{!∀ vt vs, Persistent (val_rel vt vs)}:
     (□ ∀ (v_t v_s : val), val_rel v_t v_s -∗
-      log_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
-    log_rel e_t e_s.
+      gen_log_rel (subst x v_t e_t) (subst x v_s e_s)) -∗
+    gen_log_rel e_t e_s.
   Proof.
-    iIntros "#Hunit #Hsim" (π xs) "!# #Hxs".
+    iIntros "#Hsim" (π xs) "!# #Hxs".
     destruct (decide (x ∈ free_vars e_t ∪ free_vars e_s)) as [Hin|Hnotin]; last first.
     { iSpecialize ("Hsim" $! #() #()).
       rewrite ->subst_free_vars by set_solver.
@@ -113,33 +113,105 @@ Section open_rel.
 
 End open_rel.
 
-(** Applies log_rel_subst for each element of [l],
+(** Applies gen_log_rel_subst for each element of [l],
     introduces the new terms under some fresh names,
     calls [cont] on the remaining goal,
     then reverts all the fresh names. *)
-Local Ltac log_rel_subst_l val_rel l cont :=
+Local Ltac log_rel_subst_l l cont :=
   match l with
   | nil => cont ()
   | ?x :: ?l =>
-    iApply (log_rel_subst val_rel _ x with "[//]");
+    iApply (gen_log_rel_subst _ _ x);
     let v_t := fresh "v_t" in
     let v_s := fresh "v_s" in
     let H := iFresh in
     iIntros (v_t v_s) "!#";
     let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
     iIntros pat;
-    log_rel_subst_l val_rel l ltac:(fun _ =>
+    log_rel_subst_l l ltac:(fun _ =>
       cont ();
       iRevert (v_t v_s) H
     )
   end.
 
-(** Turns an [log_rel] goal into a [sim] goal by applying a
+(** Turns an [gen_log_rel] goal into a [sim] goal by applying a
     suitable substitution. *)
 Ltac log_rel :=
   iStartProof;
   match goal with
-  | |- proofmode.environments.envs_entails _ (log_rel ?val_rel ?town ?e_t ?e_s) =>
+  | |- proofmode.environments.envs_entails _ (gen_log_rel ?val_rel ?town ?e_t ?e_s) =>
     let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
-    log_rel_subst_l val_rel free ltac:(fun _ => simpl; iApply log_rel_closed; [compute_done..|])
+    log_rel_subst_l free ltac:(fun _ => simpl; iApply gen_log_rel_closed; [compute_done..|])
   end.
+
+Section log_rel_structural.
+  Context `{!sheapGS Σ} `{!sheapInv Σ}.
+  Context (loc_rel : loc → loc → iProp Σ).
+  Context (thread_own : thread_id → iProp Σ).
+  Context (expr_head_wf : expr_head → Prop).
+  Let log_rel := gen_log_rel loc_rel thread_own.
+
+  (** [log_rel_structural] is the main theorem one wants to prove. It
+  implies the reflexivity theorem for expressions, evaluation contexts
+  and general contexts.
+
+  The theorem says that for any expressions with equal heads and related
+  immediate subexpressions, the expressions themselves must also be related.
+   *)
+  Definition log_rel_structural : Prop := (∀ e_t e_s,
+     let head_t := expr_split_head e_t in
+     let head_s := expr_split_head e_s in
+     expr_head_wf head_s.1 →
+     head_s.1 = head_t.1 →
+     ([∗list] e_t';e_s' ∈ head_t.2; head_s.2, log_rel e_t' e_s') -∗
+     log_rel e_t e_s).
+
+  Theorem log_rel_structural_refl e :
+    log_rel_structural →
+    gen_expr_wf expr_head_wf e →
+    ⊢ log_rel e e.
+  Proof.
+    intros He Hwf.
+    iInduction e as [ ] "IH" forall (Hwf); destruct Hwf; iApply He; try done; simpl.
+    all: try iDestruct ("IH" with "[%]") as "$".
+    all: try iDestruct ("IH1" with "[%]") as "$".
+    all: try iDestruct ("IH2" with "[%]") as "$".
+    all: naive_solver.
+  Qed.
+
+  Theorem log_rel_ectx K e_t e_s :
+    log_rel_structural →
+    gen_ectx_wf expr_head_wf K →
+    log_rel e_t e_s -∗
+    log_rel (fill K e_t) (fill K e_s).
+  Proof.
+    intros He Hwf. iInduction (K) as [ | Ki K] "IH" using rev_ind; first by eauto.
+    iIntros "Hrel".
+    rewrite ->gen_ectx_wf_snoc in Hwf. destruct Hwf as [Kwf [Hewf Hiwf]].
+    iSpecialize ("IH" with "[//] Hrel").
+    rewrite !fill_app /=.
+    destruct Ki; simpl; iApply He => //=; iFrame "IH".
+    all: move: Hiwf; rewrite /= ?Forall_cons ?Forall_nil => Hiwf.
+    all: repeat iSplit; try done.
+    all: iApply log_rel_structural_refl; [done|].
+    all: naive_solver.
+  Qed.
+
+  Theorem log_rel_ctx C e_t e_s :
+    log_rel_structural →
+    gen_ctx_wf expr_head_wf C →
+    log_rel e_t e_s -∗
+    log_rel (fill_ctx C e_t) (fill_ctx C e_s).
+  Proof.
+    intros He Hwf. iInduction (C) as [ | Ci C] "IH" using rev_ind; first by eauto.
+    iIntros "Hrel".
+    rewrite ->gen_ctx_wf_snoc in Hwf. destruct Hwf as [Kwf [Hewf Hiwf]].
+    iSpecialize ("IH" with "[//] Hrel").
+    rewrite !fill_ctx_app /=.
+    destruct Ci; simpl; iApply He => //=; iFrame "IH".
+    all: move: Hiwf; rewrite /= ?Forall_cons ?Forall_nil => Hiwf.
+    all: repeat iSplit; try done.
+    all: iApply log_rel_structural_refl; [done|].
+    all: naive_solver.
+  Qed.
+End log_rel_structural.

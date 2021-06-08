@@ -378,7 +378,7 @@ Section fix_sim.
   Qed.
 
   (** Call *)
-  Lemma sim_lift_call Φ fn v_t v_s π:
+  Lemma sim_lift_call Φ fn (v_t v_s : val Λ) π:
     ext_rel π v_t v_s -∗
     (∀ v_t v_s, ext_rel π v_t v_s -∗ Φ (of_val v_t) (of_val v_s)) -∗
     (of_call fn v_t) ⪯{π} (of_call fn v_s) [{ Φ }].

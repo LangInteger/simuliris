@@ -994,6 +994,9 @@ End language.
 Section reach_or_stuck.
   Context {Λ : language}.
 
+  (** [post_in_ectx] allows ignoring arbitrary evaluation contexts
+  around e and is meant as a combinator for the postcondition of
+  [reach_or_stuck]. *)
   Definition post_in_ectx (Φ : expr Λ → state Λ → Prop) (e : expr Λ) (σ : state Λ) : Prop :=
     ∃ Ks e', e = fill Ks e' ∧ Φ e' σ.
 
@@ -1002,6 +1005,9 @@ Section reach_or_stuck.
     post_in_ectx Φ e σ.
   Proof. eexists empty_ectx, e. rewrite fill_empty. naive_solver. Qed.
 
+  (** [reach_or_stuck P e σ Φ] says that starting from e in state σ,
+  one can either reach e' in σ' such that Φ e' σ' holds or there is an
+  execution where e gets stuck. *)
   Definition reach_or_stuck (P : prog Λ) (e : expr Λ) (σ : state Λ) (Φ : expr Λ → state Λ → Prop) : Prop :=
     reach_stuck P e σ ∨ ∃ e' σ', no_forks P e σ e' σ' ∧ Φ e' σ'.
 

@@ -6,6 +6,7 @@ From iris.prelude Require Import options.
 Import bi.
 
 (* parameterized over value relation that restricts values passed to functions *)
+(* TODO: Hint Mode? *)
 Class simulirisG (PROP : bi) (Λ : language) := {
   (* state interpretation *)
   state_interp : prog Λ → state Λ → prog Λ → state Λ → list (expr Λ) → PROP;
@@ -17,8 +18,6 @@ Class simulirisG (PROP : bi) (Λ : language) := {
   (* external function call relation *)
   ext_rel : thread_id → val Λ → val Λ → PROP;
 }.
-#[global]
-Hint Mode simulirisG - - : typeclass_instances.
 
 Definition progs_are {Λ PROP} `{simulirisG PROP Λ} (P_t P_s : prog Λ) : PROP :=
   (□ ∀ P_t' P_s' σ_t σ_s T_s, state_interp P_t' σ_t P_s' σ_s T_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.

@@ -1,32 +1,30 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst log_rel ctx.
-From simuliris.simplang.na_inv Require Export na_inv.
+From simuliris.simplang Require Import parallel_subst gen_log_rel gen_refl pure_refl wf.
+From simuliris.simplang.na_inv Require Export inv.
 
 (** * Reflexivity theorem for the heap bijection value relation *)
 
-(** We will only be able to show reflexivity for "well-formed" terms.
-This is basically our 'type system'. Indeed, "no types" really just means
-"everything has the same type". *)
-
-Definition expr_wf (e : expr) : Prop :=
+Definition expr_head_wf (e : expr_head) : Prop :=
   match e with
-  | Val v => val_wf v
-  | Load o e => o ≠ Na2Ord
-  | Store o e1 e2 => o ≠ Na2Ord
-  | CmpXchg e1 e2 e3 => False   (* currently not supported *)
-  | FAA e1 e2 => False          (* currently not supported *)
+  | ValHead v => val_wf v
+  (* Na2Ord is an intermediate ordering that should only arise during
+  execution and programs should not contain it. *)
+  | LoadHead o => o ≠ Na2Ord
+  | StoreHead o => o ≠ Na2Ord
+  | CmpXchgHead => False   (* currently not supported *)
+  | FAAHead => False       (* currently not supported *)
   | _ => True
   end.
 
 Section refl.
-  Context `{nabijG Σ}.
+  Context `{naGS Σ}.
 
-  Theorem expr_wf_sound : log_rel_exprs expr_wf val_rel (λ π, na_locs π ∅).
+  Theorem na_log_rel_structural : log_rel_structural heapbij.loc_rel (λ π, na_locs π ∅) expr_head_wf.
   Proof.
-    intros e_t e_s Hwf Hs. iIntros "IH".
+    intros e_t e_s ?? Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //=; simpl in Hs; simplify_eq.
-    all: try by iApply pure_expr_wf_sound.
+    all: try by iApply pure_expr_wf_sound; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heap_bij_loc_func, heap_bij_loc_inj, heap_bij_loc_shift.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
     all: try iDestruct "IH2" as "[IH2 IH3]".
@@ -58,7 +56,7 @@ Section refl.
     - (* Store *)
       iApply (log_rel_store with "IH IH1").
       iIntros (??????) "Ht Hl Hv Hcont".
-      destruct o => //.
+      match goal with | o : order |- _ => destruct o => // end.
       + by iApply (sim_bij_store_sc with "Hl Ht Hv").
       + by iApply (sim_bij_store_na with "Hl Ht Hv").
   Qed.

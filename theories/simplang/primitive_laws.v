@@ -17,11 +17,12 @@ Class sheapGS (Σ: gFunctors) := SHeapGS {
   sheapG_allocN_target : heap_names;
 }.
 
-(** This class is instantiated per proof (usually at the beginning of the file).
-   It states additional components of the state interpretation, i.e.,
-   invariants on the relation of source and target programs and states.
- *)
+(** [sheapInv] allows extending the state interpretation with
+   additional components, i.e., invariants on the relation of source
+   and target programs and states. *)
 Class sheapInv (Σ : gFunctors) := SHeapRel {
+  (** [sheap_inv P_s σ_s T_s] is parametrized by the source program
+  [P_s], source state [σ_s] and source thread pool [T_s]. *)
   sheap_inv : prog → state → list expr → iProp Σ;
   sheap_inv_pure_prim_step P_s σ_s e_s T π e_s':
     T !! π = Some e_s →
@@ -30,7 +31,15 @@ Class sheapInv (Σ : gFunctors) := SHeapRel {
     sheap_inv P_s σ_s (<[π:=e_s']>T);
   sheap_ext_rel : thread_id → val → val → iProp Σ;
 }.
-
+(** Since [sheap_inv] is parametrized by the state of the source
+  program, operations that change the source state don't necessarily
+  preserve [sheap_inv]. Thus, each operation that changes the source
+  state has a type class [sheapInvSupports...] type class which one
+  can implement for a specific [sheapInv]. The lemmas for the source
+  operations below have these typeclasses as precondition. If
+  [sheap_inv] does not actually depend on the source state, one can
+  also implement [sheapInvStateIndependent] to automatically get
+  instances of all [sheapInvSupports...] typeclasses. *)
 Class sheapInvSupportsLoad `{!sheapInv Σ} (o : order) := {
   sheap_inv_load P_s σ_s T_s (l_s : loc) (v : val) n K_s π:
     T_s !! π = Some (fill K_s (Load o #l_s)) →
@@ -81,25 +90,25 @@ Class sheapInvSupportsFork `{!sheapInv Σ} := {
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s σ_s (<[π:=fill K_s #()]> T_s ++ [e_s])
 }.
-Class sheapInvSupportsAll `{!sheapInv Σ} := {
-  sheap_inv_all P_s1 σ_s1 T1 P_s2 σ_s2 T2:
+Class sheapInvStateIndependent `{!sheapInv Σ} := {
+  sheap_inv_state_independent P_s1 σ_s1 T1 P_s2 σ_s2 T2:
     sheap_inv P_s1 σ_s1 T1 -∗ sheap_inv P_s2 σ_s2 T2
 }.
-Global Instance sheap_inv_supports_all_supports_load `{!sheapInv Σ} `{!sheapInvSupportsAll} o:
+Global Instance sheap_inv_state_independent_supports_load `{!sheapInv Σ} `{!sheapInvStateIndependent} o:
   sheapInvSupportsLoad o.
-Proof. constructor => *. apply: sheap_inv_all. Qed.
-Global Instance sheap_inv_supports_all_supports_store `{!sheapInv Σ} `{!sheapInvSupportsAll} o:
+Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
+Global Instance sheap_inv_state_independent_supports_store `{!sheapInv Σ} `{!sheapInvStateIndependent} o:
   sheapInvSupportsStore o.
-Proof. constructor => *. apply: sheap_inv_all. Qed.
-Global Instance sheap_inv_supports_all_supports_alloc `{!sheapInv Σ} `{!sheapInvSupportsAll}:
+Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
+Global Instance sheap_inv_state_independent_supports_alloc `{!sheapInv Σ} `{!sheapInvStateIndependent}:
   sheapInvSupportsAlloc.
-Proof. constructor => *. apply: sheap_inv_all. Qed.
-Global Instance sheap_inv_supports_all_supports_free `{!sheapInv Σ} `{!sheapInvSupportsAll}:
+Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
+Global Instance sheap_inv_state_independent_supports_free `{!sheapInv Σ} `{!sheapInvStateIndependent}:
   sheapInvSupportsFree.
-Proof. constructor => *. apply: sheap_inv_all. Qed.
-Global Instance sheap_inv_supports_all_supports_fork `{!sheapInv Σ} `{!sheapInvSupportsAll}:
+Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
+Global Instance sheap_inv_state_independent_supports_fork `{!sheapInv Σ} `{!sheapInvStateIndependent}:
   sheapInvSupportsFork.
-Proof. constructor => *. apply: sheap_inv_all. Qed.
+Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
 
 
 Global Program Instance sheapG_simulirisG `{!sheapGS Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
@@ -183,9 +192,6 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 Implicit Types π : thread_id.
 
-Context (π : thread_id).
-Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
-
 (** Program for target *)
 Lemma hasfun_target_agree f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
 Proof. apply hasfun_agree. Qed.
@@ -213,7 +219,7 @@ Proof.
   by iApply ("Hloc" with "Hm Hn").
 Qed.
 
-Lemma source_red_allocN n v Ψ `{!sheapInvSupportsAlloc}:
+Lemma source_red_allocN π n v Ψ `{!sheapInvSupportsAlloc}:
   (0 < n)%Z →
   (∀ l, l ↦s∗ (replicate (Z.to_nat n) v) -∗
   † l …s Z.to_nat n -∗ source_red (of_val #l) π Ψ) -∗
@@ -241,7 +247,7 @@ Proof.
   iIntros (l). rewrite heap_mapsto_vec_singleton. iApply "Ht".
 Qed.
 
-Lemma source_red_alloc v Ψ `{!sheapInvSupportsAlloc} :
+Lemma source_red_alloc π v Ψ `{!sheapInvSupportsAlloc} :
   (∀ l, l ↦s v -∗ † l …s 1 -∗ source_red (of_val #l) π Ψ) -∗
   source_red (Alloc (Val v)) π Ψ.
 Proof.
@@ -278,7 +284,7 @@ Proof.
   by rewrite heap_mapsto_vec_singleton.
 Qed.
 
-Lemma source_red_freeN vs l (n : Z) Ψ `{!sheapInvSupportsFree} :
+Lemma source_red_freeN vs π l (n : Z) Ψ `{!sheapInvSupportsFree} :
   n = length vs →
   l ↦s∗ vs -∗
   † l …s (Z.to_nat n) -∗
@@ -298,7 +304,7 @@ Proof.
     by iApply "Hsim".
 Qed.
 
-Lemma source_red_free v l Ψ `{!sheapInvSupportsFree} :
+Lemma source_red_free π v l Ψ `{!sheapInvSupportsFree} :
   l ↦s v -∗
   † l …s 1 -∗
   († l …s - -∗ source_red (of_val #()) π Ψ) -∗
@@ -343,7 +349,7 @@ Proof.
   by iApply "Ht".
 Qed.
 
-Lemma source_red_load_sc l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
+Lemma source_red_load_sc π l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   l ↦s{#q} v -∗
   (l ↦s{#q} v -∗ source_red (of_val v) π Ψ) -∗
   source_red (Load ScOrd (Val $ LitV $ LitLoc l)) π Ψ.
@@ -360,7 +366,7 @@ Proof.
     by iApply "Ht".
 Qed.
 
-Lemma source_red_load_na l v Ψ q `{!sheapInvSupportsLoad Na1Ord} :
+Lemma source_red_load_na π l v Ψ q `{!sheapInvSupportsLoad Na1Ord} :
   l ↦s{#q} v -∗
   (l ↦s{#q} v -∗ source_red (of_val v) π Ψ) -∗
   source_red (Load Na1Ord (Val $ LitV $ LitLoc l)) π Ψ.
@@ -417,7 +423,7 @@ Proof.
   by iApply "Hsim".
 Qed.
 
-Lemma source_red_store_sc l v v' Ψ `{!sheapInvSupportsStore ScOrd} :
+Lemma source_red_store_sc π l v v' Ψ `{!sheapInvSupportsStore ScOrd} :
   l ↦s v' -∗
   (l ↦s v -∗ source_red (of_val #()) π Ψ) -∗
   source_red (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
@@ -435,7 +441,7 @@ Proof.
   by iApply "Hsim".
 Qed.
 
-Lemma source_red_store_na l v v' Ψ `{!sheapInvSupportsStore Na1Ord} :
+Lemma source_red_store_na π l v v' Ψ `{!sheapInvSupportsStore Na1Ord} :
   l ↦s v' -∗
   (l ↦s v -∗ source_red (of_val #()) π Ψ) -∗
   source_red (Store Na1Ord (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
@@ -471,7 +477,7 @@ Proof.
   iModIntro. by iFrame.
 Qed.
 
-Lemma source_red_call f K_s v Ψ :
+Lemma source_red_call π f K_s v Ψ :
   f @s K_s -∗
   source_red (fill K_s (Val v)) π Ψ -∗
   source_red (Call (Val $ LitV $ LitFn f) (Val v)) π Ψ.
@@ -486,7 +492,7 @@ Proof.
 Qed.
 
 (** Call lemmas for sim *)
-Lemma sim_call e_t e_s v_t v_s f :
+Lemma sim_call π e_t e_s v_t v_s f :
   to_val e_t = Some v_t →
   to_val e_s = Some v_s →
   ⊢ ext_rel π v_t v_s -∗ Call (## f) e_t ⪯{π} Call (## f) e_s {{ ext_rel π }}.
@@ -501,10 +507,10 @@ Proof.
 Qed.
 
 (** fork *)
-Lemma sim_fork e_t e_s Ψ `{!sheapInvSupportsFork} :
-  #() ⪯ #() [{ Ψ }] -∗
+Lemma sim_fork π e_t e_s Ψ `{!sheapInvSupportsFork} :
+  #() ⪯{π} #() [{ Ψ }] -∗
   (∀ π', e_t ⪯{π'} e_s [{ lift_post (ext_rel π') }]) -∗
-  Fork e_t ⪯ Fork e_s [{ Ψ }].
+  Fork e_t ⪯{π} Fork e_s [{ Ψ }].
 Proof.
   iIntros "Hval Hsim". iApply sim_lift_head_step_both.
   iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
@@ -519,7 +525,7 @@ Qed.
 
 (** Coinduction support *)
 
-Lemma sim_while_while b_t b_s c_t c_s inv Ψ :
+Lemma sim_while_while π b_t b_s c_t c_s inv Ψ :
   inv -∗
   □ (inv -∗
     (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π}
@@ -545,7 +551,7 @@ Proof.
 Qed.
 
 
-Lemma sim_while_rec b_t c_t v_s (K_s : ectx) (inv : val → iProp Σ) Ψ rec_n :
+Lemma sim_while_rec b_t c_t v_s (K_s : ectx) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_s -∗
   rec_n @s K_s -∗
   □ (∀ v_s', inv v_s' -∗
@@ -568,7 +574,7 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_while b_s c_s v_t (K_t : ectx) (inv : val → iProp Σ) Ψ rec_n :
+Lemma sim_rec_while b_s c_s v_t (K_t : ectx) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_t -∗
   rec_n @t K_t -∗
   □ (∀ v_t', inv v_t' -∗
@@ -593,7 +599,7 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_rec v_t v_s (K_t K_s : ectx) (inv : val → val → iProp Σ) Ψ rec_t rec_s :
+Lemma sim_rec_rec v_t v_s (K_t K_s : ectx) (inv : val → val → iProp Σ) Ψ rec_t rec_s π :
   inv v_t v_s -∗
   rec_t @t K_t -∗
   rec_s @s K_s -∗
