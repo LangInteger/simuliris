@@ -4,6 +4,9 @@ Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 
+(** This file defines a simple value relation for encoding sums using pairs and shows a simple example program.
+  This example is not fully worked out (the relation does not have support for heap operations).*)
+
 
 Section fix_bi.
 Context `{sheapGS Σ} (π : thread_id).
