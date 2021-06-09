@@ -293,56 +293,7 @@ Section meta_level_simulation.
 
 End meta_level_simulation.
 
-
-
-
 Section adequacy_statement.
-  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-  Context {Λ : language}.
-  Context {s : simulirisG PROP Λ}.
-  Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
-
-  Variable (I: state Λ → state Λ → Prop).
-  Variable (main: string) (u: val Λ).
-  Variable (O: val Λ → val Λ → Prop).
-
-  Let B := beh_rel I main u O.
-
-  Lemma adequacy p_t p_s:
-    (* pre *)
-    sat (prog_rel p_t p_s ∗
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
-      progs_are p_t p_s ∗
-      ext_rel 0 u u) →
-    (* post *)
-    (∀ v_t v_s σ_t σ_s T_s, sat (state_interp p_t σ_t p_s σ_s T_s ∗ ext_rel 0 v_t v_s) → O v_t v_s) →
-    B p_t p_s.
-  Proof.
-    intros Hpre Hpost σ_t σ_s HI Hsafe.
-    eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
-    destruct Hlook as [K_s Hlook].
-    assert (msim (sat:=sat) p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.
-    { rewrite /msim. eapply sat_mono, Hpre.
-      iIntros "(Hloc & SI & Hprogs & Hunit)".
-      iSpecialize ("SI" with "[//]"). iFrame.
-      iSplit; first by iPureIntro; intros ??; set_solver.
-      simpl. iSplit; last done.
-      iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }
-    split; last split.
-    - intros Hfair. eapply msim_fair_divergence; eauto.
-    - intros v_t T_t σ_t' J Hsteps.
-      eapply msim_return in Hsim as (T_s & σ_s' & J' & U & Hsteps' & _ & Hvals); eauto.
-      destruct (Hvals 0 v_t) as (v_s & Hlook' & Hsat); first done.
-      destruct T_s as [|? T_s]; first done.
-      simpl in Hlook'. injection Hlook' as [= ->].
-      eapply Hpost in Hsat. eauto 10.
-    - by eapply msim_safety.
-  Qed.
-
-End adequacy_statement.
-
-Section adequacy_statement_alt.
 
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
@@ -355,30 +306,46 @@ Section adequacy_statement_alt.
 
   Let B := beh_rel I main u O.
 
-  (** Derive from the above an adequacy theorem with just a single [sat]. *)
-  Lemma adequacy_alt p_t p_s:
-    sat (
+  Lemma slsls_adequacy p_t p_s:
+    (∀ σ_t σ_s, sat (
       (* Delay the choice of the simulation parameters *)
       ∃ `(simulirisG PROP Λ),
       (* The programs are related *)
       prog_rel p_t p_s ∗
       (* The initial states satisfy the state interpretation *)
-      (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
+      (⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
       (* The programs are in the state *)
       progs_are p_t p_s ∗
       (* The "unit" argument to main is related *)
       ext_rel 0 u u ∗
       (* Logically related values are observationally related *)
-      ∀ v_s v_t, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝) →
+      ∀ v_s v_t, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝)) →
     B p_t p_s.
   Proof.
-  Admitted. (* FIXME: [adequacy] does not support delaying the choice of simulation parameters *)
-  (*  intros Hsat. eapply sat_frame_intro in Hsat; last first.
-    { iIntros "(H1 & H2 & H3 & H4 & F)". iSplitL "F"; first iExact "F".
-      iCombine "H1 H2 H3 H4" as "H". iExact "H". }
-    eapply (@adequacy PROP _ _ _ _ _ (sat_frame _) _); first apply Hsat.
-    intros v_t v_s σ_t σ_s T_s Hsat_post. eapply sat_elim, sat_mono, Hsat_post.
-    iIntros "(H & _ & Hval)". by iApply "H".
-  Qed. *)
+    intros Hsat σ_t σ_s HI Hsafe.
+    eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
+    destruct Hlook as [K_s Hlook].
+    specialize (Hsat σ_t σ_s).
+    eapply sat_exists in Hsat as [simG Hsat].
+    assert (msim (sat:=sat_frame (sat:=sat) ((∀ v_s v_t : val Λ, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝))) p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.
+    { rewrite /msim /sat_frame. eapply sat_mono, Hsat.
+      iIntros "(Hloc & SI & Hprogs & Hunit & $)".
+      iSpecialize ("SI" with "[//]"). iFrame.
+      iSplit; first by iPureIntro; intros ??; set_solver.
+      simpl. iSplit; last done.
+      iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }
+    split; last split.
+    - intros Hfair. eapply (msim_fair_divergence (sat:=sat_frame _)); eauto.
+    - intros v_t T_t σ_t' J Hsteps.
+      eapply msim_return in Hsim as (T_s & σ_s' & J' & U & Hsteps' & _ & Hvals); eauto.
+      destruct (Hvals 0 v_t) as (v_s & Hlook' & Hsat'); first done.
+      destruct T_s as [|? T_s]; first done.
+      simpl in Hlook'. injection Hlook' as [= ->].
+      exists v_s, T_s, σ_s', J'. split; first done.
+      rewrite /sat_frame in Hsat'.
+      eapply sat_mono in Hsat'; first by eapply sat_elim.
+      iIntros "(H1 & H2 & H3)". by iApply "H1".
+    - eapply (msim_safety (sat:=sat_frame _)); eauto.
+Qed.
 
-End adequacy_statement_alt.
+End adequacy_statement.

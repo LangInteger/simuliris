@@ -63,8 +63,8 @@ Section adequacy.
     ) →
     beh_rel p_t p_s.
   Proof.
-    intros Hsat. eapply (adequacy_alt (sat:=isat)).
-    eapply sat_bupd, sat_mono, Hsat. clear Hsat.
+    intros Hsat. eapply (slsls_adequacy (sat:=isat)).
+    intros σ_t σ_s. eapply sat_bupd, sat_mono, Hsat. clear Hsat.
     iIntros "Hprog_rel".
     iMod sheap_init as (HsheapGS) "Hinit".
     iDestruct ("Hprog_rel" $! HsheapGS) as (HsheapInv loc_rel) "(Hinv & Hunit & Hobs & Hprog_rel)".
@@ -72,7 +72,7 @@ Section adequacy.
     iModIntro. iExists sheapGS_simulirisGS.
     iFrame "Hprog_rel Hprogs_are Hunit".
     iSplitR "Hobs".
-    - iIntros (?? [-> ->]). iApply "Hstate". done.
+    - iIntros ([-> ->]). iApply "Hstate". done.
     - iIntros (??) "Hext". iApply gen_val_rel_obs. iApply "Hobs". done.
   Qed.
 
