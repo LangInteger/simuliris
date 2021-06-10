@@ -22,27 +22,36 @@ theories/playground/fixpoints.v
 theories/playground/language.v
 theories/playground/pure_threadpool_sim.v
 
+theories/simplang/base.v
 theories/simplang/locations.v
 theories/simplang/lang.v
+theories/simplang/wf.v
 theories/simplang/ghost_state.v
 theories/simplang/primitive_laws.v
 theories/simplang/notation.v
 theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
-theories/simplang/derived.v
-theories/simplang/heap_bij.v
+theories/simplang/gen_val_rel.v
+theories/simplang/gen_refl.v
+theories/simplang/pure_refl.v
+theories/simplang/heapbij.v
 theories/simplang/parallel_subst.v
-theories/simplang/log_rel.v
-theories/simplang/heapbij_refl.v
-theories/simplang/ctx.v
+theories/simplang/gen_log_rel.v
 theories/simplang/adequacy.v
 
 theories/simplang/examples/sum.v
-theories/simplang/examples/heap_test.v
-theories/simplang/examples/reorder_malloc.v
-theories/simplang/examples/while.v
-theories/simplang/examples/data_races.v
+
+theories/simplang/na_inv/na_locs.v
+theories/simplang/na_inv/inv.v
+theories/simplang/na_inv/refl.v
+theories/simplang/na_inv/examples/data_races.v
+
+theories/simplang/simple_inv/inv.v
+theories/simplang/simple_inv/refl.v
+theories/simplang/simple_inv/examples/heap_test.v
+theories/simplang/simple_inv/examples/reorder_malloc.v
+theories/simplang/simple_inv/examples/while.v
 
 
 

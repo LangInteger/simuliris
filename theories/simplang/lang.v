@@ -180,6 +180,8 @@ Record state : Type := {
   heap: gmap loc (lock_state * val);
   used_blocks: gset block;
 }.
+Definition heap_wf (σ: gmap loc (lock_state * val)) (bs : gset block) : Prop :=
+  ∀ l v, σ !! l = Some v → loc_chunk l ∈ bs.
 
 (** Equality and other typeclass stuff *)
 Lemma to_of_val v : to_val (of_val v) = Some v.
@@ -388,63 +390,268 @@ Canonical Structure exprO := leibnizO expr.
 (** Evaluation contexts *)
 Inductive ectx_item :=
   (* we can evaluate the expression that x will be bound to *)
-  | LetCtx (x : binder) (e2 : expr)
-  | CallLCtx (v2 : val)
+  | LetEctx (x : binder) (e2 : expr)
+  | CallLEctx (v2 : val)
+  | CallREctx (e1 : expr)
+  | UnOpEctx (op : un_op)
+  | BinOpLEctx (op : bin_op) (v2 : val)
+  | BinOpREctx (op : bin_op) (e1 : expr)
+  | IfEctx (e1 e2 : expr)
+  (* Deliberately nothing for While; that reduces *before* the condition reduces! *)
+  | PairLEctx (v2 : val)
+  | PairREctx (e1 : expr)
+  | FstEctx
+  | SndEctx
+  | InjLEctx
+  | InjREctx
+  | MatchEctx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
+  | AllocNLEctx (v2 : val)
+  | AllocNREctx (e1 : expr)
+  | FreeNLEctx (v2 : val)
+  | FreeNREctx (e1 : expr)
+  | LoadEctx (o : order)
+  | StoreLEctx (o : order) (v2 : val)
+  | StoreREctx (o : order) (e1 : expr)
+  | CmpXchgLEctx (v1 : val) (v2 : val)
+  | CmpXchgMEctx (e0 : expr) (v2 : val)
+  | CmpXchgREctx (e0 : expr) (e1 : expr)
+  | FaaLEctx (v2 : val)
+  | FaaREctx (e1 : expr).
+
+Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
+  match Ki with
+  | LetEctx x e2 => Let x e e2
+  | UnOpEctx op => UnOp op e
+  | BinOpLEctx op v2 => BinOp op e (Val v2)
+  | BinOpREctx op e1 => BinOp op e1 e
+  | IfEctx e1 e2 => If e e1 e2
+  | PairLEctx v2 => Pair e (Val v2)
+  | PairREctx e1 => Pair e1 e
+  | FstEctx => Fst e
+  | SndEctx => Snd e
+  | InjLEctx => InjL e
+  | InjREctx => InjR e
+  | MatchEctx x1 e1 x2 e2 => Match e x1 e1 x2 e2
+  | AllocNLEctx v2 => AllocN e (Val v2)
+  | AllocNREctx e1 => AllocN e1 e
+  | FreeNLEctx v2 => FreeN e (Val v2)
+  | FreeNREctx e1 => FreeN e1 e
+  | LoadEctx o => Load o e
+  | StoreLEctx o v2 => Store o e (Val v2)
+  | StoreREctx o e1 => Store o e1 e
+  | CmpXchgLEctx v1 v2 => CmpXchg e (Val v1) (Val v2)
+  | CmpXchgMEctx e0 v2 => CmpXchg e0 e (Val v2)
+  | CmpXchgREctx e0 e1 => CmpXchg e0 e1 e
+  | FaaLEctx v2 => FAA e (Val v2)
+  | FaaREctx e1 => FAA e1 e
+  | CallLEctx v2 => Call e (Val v2)
+  | CallREctx e1 => Call e1 e
+  end.
+
+(** General contexts *)
+Inductive ctx_item :=
+  | LetLCtx (x : binder) (e2 : expr)
+  | LetRCtx (x : binder) (e1 : expr)
+  | CallLCtx (e2 : expr)
   | CallRCtx (e1 : expr)
   | UnOpCtx (op : un_op)
-  | BinOpLCtx (op : bin_op) (v2 : val)
+  | BinOpLCtx (op : bin_op) (e2 : expr)
   | BinOpRCtx (op : bin_op) (e1 : expr)
-  | IfCtx (e1 e2 : expr)
-  (* Deliberately nothing for While; that reduces *before* the condition reduces! *)
-  | PairLCtx (v2 : val)
+  | IfLCtx (e1 e2 : expr)
+  | IfMCtx (e0 e2 : expr)
+  | IfRCtx (e0 e1 : expr)
+  | WhileLCtx (e1 : expr)
+  | WhileRCtx (e0 : expr)
+  | PairLCtx (v2 : expr)
   | PairRCtx (e1 : expr)
   | FstCtx
   | SndCtx
   | InjLCtx
   | InjRCtx
-  | MatchCtx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
-  | AllocNLCtx (v2 : val)
+  | MatchLCtx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
+  | MatchMCtx (e0 : expr) (x1 : binder) (x2 : binder) (e2 : expr)
+  | MatchRCtx (e0 : expr) (x1 : binder) (e1 : expr) (x2 : binder)
+  | ForkCtx
+  | AllocNLCtx (v2 : expr)
   | AllocNRCtx (e1 : expr)
-  | FreeNLCtx (v2 : val)
+  | FreeNLCtx (v2 : expr)
   | FreeNRCtx (e1 : expr)
   | LoadCtx (o : order)
-  | StoreLCtx (o : order) (v2 : val)
+  | StoreLCtx (o : order) (v2 : expr)
   | StoreRCtx (o : order) (e1 : expr)
-  | CmpXchgLCtx (v1 : val) (v2 : val)
-  | CmpXchgMCtx (e0 : expr) (v2 : val)
+  | CmpXchgLCtx (v1 : expr) (v2 : expr)
+  | CmpXchgMCtx (e0 : expr) (v2 : expr)
   | CmpXchgRCtx (e0 : expr) (e1 : expr)
-  | FaaLCtx (v2 : val)
+  | FaaLCtx (v2 : expr)
   | FaaRCtx (e1 : expr).
 
-Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
-  match Ki with
-  | LetCtx x e2 => Let x e e2
+Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
+  match Ci with
+  | LetLCtx x e2 => Let x e e2
+  | LetRCtx x e1 => Let x e1 e
+  | CallLCtx e2 => Call e e2
+  | CallRCtx e1 => Call e1 e
   | UnOpCtx op => UnOp op e
-  | BinOpLCtx op v2 => BinOp op e (Val v2)
+  | BinOpLCtx op e2 => BinOp op e e2
   | BinOpRCtx op e1 => BinOp op e1 e
-  | IfCtx e1 e2 => If e e1 e2
-  | PairLCtx v2 => Pair e (Val v2)
+  | IfLCtx e1 e2 => If e e1 e2
+  | IfMCtx e0 e2 => If e0 e e2
+  | IfRCtx e0 e1 => If e0 e1 e
+  | WhileLCtx e1 => While e e1
+  | WhileRCtx e0 => While e0 e
+  | PairLCtx e2 => Pair e e2
   | PairRCtx e1 => Pair e1 e
   | FstCtx => Fst e
   | SndCtx => Snd e
   | InjLCtx => InjL e
   | InjRCtx => InjR e
-  | MatchCtx x1 e1 x2 e2 => Match e x1 e1 x2 e2
-  | AllocNLCtx v2 => AllocN e (Val v2)
+  | MatchLCtx x1 e1 x2 e2 => Match e x1 e1 x2 e2
+  | MatchMCtx e0 x1 x2 e2 => Match e0 x1 e x2 e2
+  | MatchRCtx e0 x1 e1 x2 => Match e0 x1 e1 x2 e
+  | ForkCtx => Fork e
+  | AllocNLCtx e2 => AllocN e e2
   | AllocNRCtx e1 => AllocN e1 e
-  | FreeNLCtx v2 => FreeN e (Val v2)
+  | FreeNLCtx e2 => FreeN e e2
   | FreeNRCtx e1 => FreeN e1 e
   | LoadCtx o => Load o e
-  | StoreLCtx o v2 => Store o e (Val v2)
+  | StoreLCtx o e2 => Store o e e2
   | StoreRCtx o e1 => Store o e1 e
-  | CmpXchgLCtx v1 v2 => CmpXchg e (Val v1) (Val v2)
-  | CmpXchgMCtx e0 v2 => CmpXchg e0 e (Val v2)
+  | CmpXchgLCtx e1 e2 => CmpXchg e e1 e2
+  | CmpXchgMCtx e0 e2 => CmpXchg e0 e e2
   | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
-  | FaaLCtx v2 => FAA e (Val v2)
+  | FaaLCtx e2 => FAA e e2
   | FaaRCtx e1 => FAA e1 e
-  | CallLCtx v2 => Call e (Val v2)
-  | CallRCtx e1 => Call e1 e
   end.
+
+Definition ctx := list ctx_item.
+Definition fill_ctx (C : ctx) (e : expr) : expr :=
+  foldl (flip fill_ctx_item) e C.
+
+Lemma fill_ctx_app C1 C2 e :
+  fill_ctx (C1 ++ C2) e = fill_ctx C2 (fill_ctx C1 e).
+Proof. apply foldl_app. Qed.
+
+(** Splitting an expression into information about the head expression and subexpressions. *)
+Inductive expr_head :=
+  | ValHead (v : val)
+  | VarHead (x : string)
+  | LetHead (x : binder)
+  | CallHead
+  | UnOpHead (op : un_op)
+  | BinOpHead (op : bin_op)
+  | IfHead
+  | WhileHead
+  | PairHead
+  | FstHead
+  | SndHead
+  | InjLHead
+  | InjRHead
+  | MatchHead (x1 : binder) (x2 : binder)
+  | ForkHead
+  | AllocNHead
+  | FreeNHead
+  | LoadHead (o : order)
+  | StoreHead (o : order)
+  | CmpXchgHead
+  | FAAHead
+.
+
+Definition expr_split_head (e : expr) : (expr_head * list expr) :=
+  match e with
+  | Val v => (ValHead v, [])
+  | Var x => (VarHead x, [])
+  | Let x e1 e2 => (LetHead x, [e1; e2])
+  | Call e1 e2 => (CallHead, [e1; e2])
+  | UnOp op e => (UnOpHead op, [e])
+  | BinOp op e1 e2 => (BinOpHead op, [e1; e2])
+  | If e0 e1 e2 => (IfHead, [e0;e1;e2])
+  | While e0 e1 => (WhileHead, [e0; e1])
+  | Pair e1 e2 => (PairHead, [e1; e2])
+  | Fst e => (FstHead, [e])
+  | Snd e => (SndHead, [e])
+  | InjL e => (InjLHead, [e])
+  | InjR e => (InjRHead, [e])
+  | Match e0 x1 e1 x2 e2 => (MatchHead x1 x2, [e0;e1;e2])
+  | Fork e => (ForkHead, [e])
+  | AllocN e1 e2 => (AllocNHead, [e1; e2])
+  | FreeN e1 e2 => (FreeNHead, [e1; e2])
+  | Load o e => (LoadHead o, [e])
+  | Store o e1 e2 => (StoreHead o, [e1; e2])
+  | CmpXchg e0 e1 e2 => (CmpXchgHead, [e0;e1;e2])
+  | FAA e1 e2 => (FAAHead, [e1; e2])
+  end.
+
+Global Instance expr_split_head_inj : Inj (=) (=) expr_split_head.
+Proof. move => [^ e1] [^ e2] => //=; move => [*]; by simplify_eq. Qed.
+
+Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
+  match Ki with
+  | LetEctx x e => (LetHead x, [e])
+  | CallLEctx v => (CallHead, [Val v])
+  | CallREctx e => (CallHead, [e])
+  | UnOpEctx op => (UnOpHead op, [])
+  | BinOpLEctx op v => (BinOpHead op, [Val v])
+  | BinOpREctx op e => (BinOpHead op, [e])
+  | IfEctx e1 e2 => (IfHead, [e1; e2])
+  | PairLEctx v => (PairHead, [Val v])
+  | PairREctx e => (PairHead, [e])
+  | FstEctx => (FstHead, [])
+  | SndEctx => (SndHead, [])
+  | InjLEctx => (InjLHead, [])
+  | InjREctx => (InjRHead, [])
+  | LoadEctx o => (LoadHead o, [])
+  | MatchEctx x1 e1 x2 e2 => (MatchHead x1 x2, [e1; e2])
+  | AllocNLEctx v => (AllocNHead, [Val v])
+  | AllocNREctx e => (AllocNHead, [e])
+  | FreeNLEctx v => (FreeNHead, [Val v])
+  | FreeNREctx e => (FreeNHead, [e])
+  | StoreLEctx o v => (StoreHead o, [Val v])
+  | StoreREctx o e => (StoreHead o, [e])
+  | CmpXchgLEctx v1 v2 => (CmpXchgHead, [Val v1; Val v2])
+  | CmpXchgMEctx e1 v2 => (CmpXchgHead, [e1; Val v2])
+  | CmpXchgREctx e1 e2 => (CmpXchgHead, [e1; e2])
+  | FaaLEctx v => (FAAHead, [Val v])
+  | FaaREctx e => (FAAHead, [e])
+  end.
+
+Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
+  match Ci with
+  | LetLCtx x e2 => (LetHead x, [e2])
+  | LetRCtx x e1 => (LetHead x, [e1])
+  | CallLCtx e2 => (CallHead, [e2])
+  | CallRCtx e1 => (CallHead, [e1])
+  | UnOpCtx op => (UnOpHead op, [])
+  | BinOpLCtx op e2 => (BinOpHead op, [e2])
+  | BinOpRCtx op e1 => (BinOpHead op, [e1])
+  | IfLCtx e1 e2 => (IfHead, [e1; e2])
+  | IfMCtx e0 e2 => (IfHead, [e0; e2])
+  | IfRCtx e0 e1 => (IfHead, [e0; e1])
+  | WhileLCtx e1 => (WhileHead, [e1])
+  | WhileRCtx e0 => (WhileHead, [e0])
+  | PairLCtx v2 => (PairHead, [v2])
+  | PairRCtx e1 => (PairHead, [e1])
+  | FstCtx => (FstHead, [])
+  | SndCtx => (SndHead, [])
+  | InjLCtx => (InjLHead, [])
+  | InjRCtx => (InjRHead, [])
+  | MatchLCtx x1 e1 x2 e2 => (MatchHead x1 x2, [e1; e2])
+  | MatchMCtx e0 x1 x2 e2 => (MatchHead x1 x2, [e0; e2])
+  | MatchRCtx e0 x1 e1 x2 => (MatchHead x1 x2, [e0; e1])
+  | ForkCtx => (ForkHead, [])
+  | AllocNLCtx v2 => (AllocNHead, [v2])
+  | AllocNRCtx e1 => (AllocNHead, [e1])
+  | FreeNLCtx v2 => (FreeNHead, [v2])
+  | FreeNRCtx e1 => (FreeNHead, [e1])
+  | LoadCtx o => (LoadHead o, [])
+  | StoreLCtx o v2 => (StoreHead o, [v2])
+  | StoreRCtx o e1 => (StoreHead o, [e1])
+  | CmpXchgLCtx v1 v2 => (CmpXchgHead, [v1; v2])
+  | CmpXchgMCtx e0 v2 => (CmpXchgHead, [e0; v2])
+  | CmpXchgRCtx e0 e1 => (CmpXchgHead, [e0; e1])
+  | FaaLCtx v2 => (FAAHead, [v2])
+  | FaaRCtx e1 => (FAAHead, [e1])
+  end.
+
 
 (** Substitution *)
 Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
@@ -640,6 +847,17 @@ Proof.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
+Lemma lookup_free_mem_Some l l' n σ v:
+  free_mem l n σ !! l' = Some v ↔ σ !! l' = Some v ∧ (loc_chunk l ≠ loc_chunk l' ∨ ¬(loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z).
+Proof.
+  destruct (decide (loc_chunk l = loc_chunk l')).
+  2: { rewrite lookup_free_mem_1 //. naive_solver. }
+  destruct (decide (loc_idx l' < loc_idx l)%Z).
+  { rewrite lookup_free_mem_3 //. naive_solver lia. }
+  destruct (decide (loc_idx l' >= loc_idx l + n)%Z).
+  { rewrite lookup_free_mem_4 //. naive_solver lia. }
+  rewrite lookup_free_mem_2 //; [|lia]. naive_solver lia.
+Qed.
 
 Lemma delete_free_mem σ l n o:
   (o > 0)%Z →
@@ -648,6 +866,25 @@ Proof.
   intros HO.
   induction n as [|n IH] in o, HO|-* => //=. rewrite delete_commute. f_equal.
   rewrite loc_add_assoc IH; [done | lia].
+Qed.
+
+Lemma heap_wf_init_mem l h n bs v:
+  heap_wf h bs →
+  heap_wf (heap_array l (replicate n v) ∪ h) ({[loc_chunk l]} ∪ bs).
+Proof.
+  move => Hwf l' v' /lookup_union_Some_raw [/heap_array_lookup [?[?[?[?[??]]]]]|[??]].
+  - set_solver.
+  - set_unfold. right. by apply: Hwf.
+Qed.
+Lemma heap_wf_free_mem l h n bs:
+  heap_wf h bs →
+  heap_wf (free_mem l n h) bs.
+Proof. move => Hwf l' v' /lookup_free_mem_Some [??]. by apply: Hwf. Qed.
+Lemma heap_wf_stable σ bs l p :
+  heap_wf σ bs → is_Some (σ !! l) →
+  heap_wf (<[l := p]>σ) bs.
+Proof.
+  move => Hwf [??] ?? /lookup_insert_Some[[??]|[??]]; simplify_eq; by apply: Hwf.
 Qed.
 
 (** Building actual evaluation contexts out of ectx_items *)

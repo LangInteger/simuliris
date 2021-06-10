@@ -2,7 +2,7 @@ From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
 From simuliris.simulation Require Import slsls lifting language.
 From simuliris.simplang Require Import tactics class_instances.
-From simuliris.simplang Require Export notation primitive_laws derived.
+From simuliris.simplang Require Export notation primitive_laws.
 From iris.bi Require Import bi.
 Import bi.
 From iris.bi Require Import derived_laws.
@@ -12,14 +12,11 @@ From iris.prelude Require Import options.
 
 Section sim.
 Context `{!sheapGS Σ} `{sheapInv Σ}.
-Context (Ω : val → val → iProp Σ) (π : thread_id).
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
-Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{π, Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.
 
-Lemma tac_sim_expr_eval Δ Φ e_t e_t' e_s e_s' :
+Lemma tac_sim_expr_eval π Δ Φ e_t e_t' e_s e_s' :
   (∀ (e_t'':=e_t'), e_t = e_t'') →
   (∀ (e_s'':=e_s'), e_s = e_s'') →
-  envs_entails Δ (e_t' ⪯ e_s' [{ Φ }]) → envs_entails Δ (e_t ⪯ e_s [{ Φ }]).
+  envs_entails Δ (e_t' ⪯{π} e_s' [{ Φ }]) → envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]).
 Proof. by intros -> ->. Qed.
 
 Lemma tac_target_red_expr_eval Δ Ψ e_t e_t' :
@@ -28,7 +25,7 @@ Lemma tac_target_red_expr_eval Δ Ψ e_t e_t' :
   envs_entails Δ (target_red e_t Ψ).
 Proof. by intros ->. Qed.
 
-Lemma tac_source_red_expr_eval Δ Ψ e_s e_s' :
+Lemma tac_source_red_expr_eval π Δ Ψ e_s e_s' :
   (∀ (e_s'':=e_s'), e_s = e_s'') →
   envs_entails Δ (source_red e_s' π Ψ : iProp Σ) →
   envs_entails Δ (source_red e_s π Ψ).
@@ -46,7 +43,7 @@ Proof.
   rewrite target_red_lift_pure //.
 Qed.
 
-Lemma tac_source_red_pure Δ n e_s e_s' K_s Ψ (ϕ : Prop):
+Lemma tac_source_red_pure π Δ n e_s e_s' K_s Ψ (ϕ : Prop):
   PureExec ϕ n e_s e_s' →
   ϕ →
   envs_entails Δ (source_red (fill K_s e_s') π Ψ : iProp Σ) →
@@ -69,35 +66,35 @@ Proof.
   rewrite envs_entails_eq => ->. iIntros "H". by iApply target_red_base.
 Qed.
 
-Lemma tac_source_red_base e_s Ψ Δ :
+Lemma tac_source_red_base π e_s Ψ Δ :
   envs_entails Δ (|==> Ψ e_s : iProp Σ) → envs_entails Δ (source_red e_s π Ψ).
 Proof.
   rewrite envs_entails_eq => ->. by iApply source_red_base.
 Qed.
-Lemma tac_source_red_base_no_bupd e_s Ψ Δ :
+Lemma tac_source_red_base_no_bupd π e_s Ψ Δ :
   envs_entails Δ (Ψ e_s : iProp Σ) → envs_entails Δ (source_red e_s π Ψ).
 Proof.
   rewrite envs_entails_eq => ->. iIntros "H". by iApply source_red_base.
 Qed.
 
-Lemma tac_sim_value v_t v_s Φ Δ :
-  envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (Val v_t ⪯ Val v_s {{ Φ }}).
+Lemma tac_sim_value π v_t v_s Φ Δ :
+  envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
 Proof.
   rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_value.
 Qed.
 
-Lemma tac_sim_value_no_bupd v_t v_s Φ Δ :
-  envs_entails Δ (Φ v_t v_s) → envs_entails Δ (Val v_t ⪯ Val v_s {{ Φ }}).
+Lemma tac_sim_value_no_bupd π v_t v_s Φ Δ :
+  envs_entails Δ (Φ v_t v_s) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
 Proof. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
 
-Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s :
+Lemma tac_sim_bind π K_t K_s Δ Φ e_t f_t e_s f_s :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
-  envs_entails Δ (e_t ⪯ e_s {{ λ e_t' e_s', f_t e_t' ⪯ f_s e_s' [{ Φ }] }})%I →
-  envs_entails Δ (fill K_t e_t ⪯ fill K_s e_s [{ Φ }]).
+  envs_entails Δ (e_t ⪯{π} e_s {{ λ e_t' e_s', f_t e_t' ⪯{π} f_s e_s' [{ Φ }] }})%I →
+  envs_entails Δ (fill K_t e_t ⪯{π} fill K_s e_s [{ Φ }]).
 Proof.
   rewrite envs_entails_eq=> -> ->. intros Hs.
-  iIntros "H". iApply (sim_bind Ω e_t e_s K_t K_s Φ). by iApply Hs.
+  iIntros "H". iApply (sim_bind e_t e_s K_t K_s Φ). by iApply Hs.
 Qed.
 
 Lemma tac_target_red_bind K_t e_t f_t Ψ Δ :
@@ -109,7 +106,7 @@ Proof.
   iIntros "H". iApply target_red_bind. by iApply Hs.
 Qed.
 
-Lemma tac_source_red_bind K_s e_s f_s Ψ Δ :
+Lemma tac_source_red_bind π K_s e_s f_s Ψ Δ :
   f_s = (λ e_s, fill K_s e_s) →
   envs_entails Δ (source_red e_s π (λ e_s', source_red (f_s e_s') π Ψ) : iProp Σ) →
   envs_entails Δ (source_red (fill K_s e_s) π Ψ).
@@ -118,7 +115,7 @@ Proof.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
 
-Lemma tac_target_red_allocN n v j i K Ψ Δ `{!sheapInvConst} :
+Lemma tac_target_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i († l …t Z.to_nat n)) j (l ↦t∗ (replicate (Z.to_nat n) v))) Δ with
@@ -136,7 +133,7 @@ Proof.
   rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_allocN n v j i K Ψ Δ `{!sheapInvConst}:
+Lemma tac_source_red_allocN π n v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
   (0 < n)%Z →
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i (†l …s Z.to_nat n)) j (l ↦s∗ (replicate (Z.to_nat n) v))) Δ with
@@ -154,7 +151,7 @@ Proof.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_alloc v j i K Ψ Δ `{!sheapInvConst}:
+Lemma tac_target_red_alloc v j i K Ψ Δ:
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i (†l …t 1)) j (l ↦t v)) Δ with
     | Some Δ' =>
@@ -171,7 +168,7 @@ Proof.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_source_red_alloc v j i K Ψ Δ `{!sheapInvConst}:
+Lemma tac_source_red_alloc π v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
   (∀ l,
     match envs_app false (Esnoc (Esnoc Enil i (†l …s 1)) j (l ↦s v)) Δ with
     | Some Δ' =>
@@ -188,7 +185,7 @@ Proof.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
-Lemma tac_target_red_free l v i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_target_red_free l v i j K Ψ Δ Δ':
   envs_lookup_delete false i Δ = Some (false, l ↦t v, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …t 1)%I →
   (let Δ'' := envs_delete false j false Δ' in
@@ -205,7 +202,7 @@ Proof.
   by iApply target_red_base.
 Qed.
 
-Lemma tac_source_red_free l v i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_source_red_free π l v i j K Ψ Δ Δ' `{!sheapInvSupportsFree}:
   envs_lookup_delete false i Δ = Some (false, l ↦s v, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …s 1)%I →
   (let Δ'' := envs_delete false j false Δ' in
@@ -222,7 +219,7 @@ Proof.
   by iApply source_red_base.
 Qed.
 
-Lemma tac_target_red_freeN l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_target_red_freeN l (n : Z) vs i j K Ψ Δ Δ':
   n = length vs →
   envs_lookup_delete false i Δ = Some (false, l ↦t∗ vs, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …t Z.to_nat n)%I →
@@ -240,7 +237,7 @@ Proof.
   by iApply target_red_base.
 Qed.
 
-Lemma tac_source_red_freeN l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvConst}:
+Lemma tac_source_red_freeN π l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvSupportsFree}:
   n = length vs →
   envs_lookup_delete false i Δ = Some (false, l ↦s∗ vs, Δ')%I →
   envs_lookup j Δ' = Some (false, †l …s Z.to_nat n)%I →
@@ -258,7 +255,7 @@ Proof.
   by iApply source_red_base.
 Qed.
 
-Lemma tac_target_red_loadsc Δ i K b l q v Ψ `{!sheapInvConst}:
+Lemma tac_target_red_loadsc Δ i K b l q v Ψ:
   envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load ScOrd (LitV l))) Ψ).
@@ -272,7 +269,7 @@ Proof.
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Ht".
     iApply target_red_base; eauto.
 Qed.
-Lemma tac_target_red_loadna Δ i K b l v Ψ q `{!sheapInvConst}:
+Lemma tac_target_red_loadna Δ i K b l v Ψ q:
   envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load Na1Ord (LitV l))) Ψ).
@@ -287,7 +284,7 @@ Proof.
     iApply target_red_base; eauto.
 Qed.
 
-Lemma tac_source_red_loadsc Δ i K b l q v Ψ `{!sheapInvConst}:
+Lemma tac_source_red_loadsc π Δ i K b l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load ScOrd (LitV l))) π Ψ).
@@ -301,7 +298,7 @@ Proof.
   * apply sep_mono_r, wand_mono; first done. rewrite Hi. iIntros "Hs".
     iApply source_red_base; eauto.
 Qed.
-Lemma tac_source_red_loadna Δ i K b l v Ψ q `{!sheapInvConst}:
+Lemma tac_source_red_loadna π Δ i K b l v Ψ q `{!sheapInvSupportsLoad Na1Ord}:
   envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load Na1Ord (LitV l))) π Ψ).
@@ -317,13 +314,13 @@ Proof.
 Qed.
 
 
-Lemma target_red_store l v v' o Ψ `{!sheapInvConst}:
+Lemma target_red_store l v v' o Ψ:
   o = ScOrd ∨ o = Na1Ord →
   l ↦t v' -∗
   (l ↦t v -∗ target_red (of_val #()) Ψ) -∗
   target_red (Store o (Val $ LitV (LitLoc l)) (Val v)) Ψ.
 Proof. intros [-> | ->]; [iApply target_red_store_sc | iApply target_red_store_na]. Qed.
-Lemma tac_target_red_store Δ i K l v v' o Ψ `{!sheapInvConst}:
+Lemma tac_target_red_store Δ i K l v v' o Ψ:
   o = ScOrd ∨ o = Na1Ord →
   envs_lookup i Δ = Some (false, l ↦t v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦t v')) Δ with
@@ -340,13 +337,13 @@ Proof.
   rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
 Qed.
 
-Lemma source_red_store l v v' o Ψ `{!sheapInvConst}:
+Lemma source_red_store π l v v' o Ψ `{!sheapInvSupportsStore o}:
   o = ScOrd ∨ o = Na1Ord →
   l ↦s v' -∗
   (l ↦s v -∗ source_red (of_val #()) π Ψ) -∗
   source_red (Store o (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
 Proof. intros [-> | ->]; [iApply source_red_store_sc | iApply source_red_store_na]. Qed.
-Lemma tac_source_red_store Δ i K l v v' o Ψ `{!sheapInvConst}:
+Lemma tac_source_red_store π Δ i K l v v' o Ψ `{!sheapInvSupportsStore o}:
   o = ScOrd ∨ o = Na1Ord →
   envs_lookup i Δ = Some (false, l ↦s v)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦s v')) Δ with
@@ -378,7 +375,7 @@ Proof.
     iApply target_red_base. iSpecialize ("Hs" with "Hf"); eauto.
 Qed.
 
-Lemma tac_source_red_call Δ i K b f v K_s Ψ :
+Lemma tac_source_red_call π Δ i K b f v K_s Ψ :
   envs_lookup i Δ = Some (b, f @s K_s)%I →
   envs_entails Δ (source_red (fill K (fill K_s (Val v))) π Ψ) →
   envs_entails Δ (source_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) π Ψ).
@@ -395,40 +392,40 @@ Qed.
 
 
 (** Switching between judgments *)
-Lemma tac_to_target Δ e_t e_s Φ :
-  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s [{ Φ }]))%I →
-  envs_entails Δ (e_t ⪯ e_s [{ Φ }]).
+Lemma tac_to_target π Δ e_t e_s Φ :
+  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯{π} e_s [{ Φ }]))%I →
+  envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]).
 Proof. rewrite envs_entails_eq=> Hi. by rewrite -target_red_sim_expr. Qed.
 
-Lemma tac_to_source Δ e_t e_s Φ :
-  envs_entails Δ (source_red e_s π (λ e_s', e_t ⪯ e_s' [{ Φ }]))%I →
-  envs_entails Δ (e_t ⪯ e_s [{ Φ }]).
+Lemma tac_to_source π Δ e_t e_s Φ :
+  envs_entails Δ (source_red e_s π (λ e_s', e_t ⪯{π} e_s' [{ Φ }]))%I →
+  envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]).
 Proof. rewrite envs_entails_eq=> Hi. by rewrite -source_red_sim_expr. Qed.
 
-Lemma tac_target_to_sim Δ e_t e_s Φ :
-  envs_entails Δ (e_t ⪯ e_s [{ Φ }]) →
-  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯ e_s [{ Φ }]))%I.
+Lemma tac_target_to_sim π Δ e_t e_s Φ :
+  envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]) →
+  envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯{π} e_s [{ Φ }]))%I.
 Proof.
   rewrite envs_entails_eq=> Hi. rewrite -target_red_base.
   iIntros "He". iModIntro. by iApply Hi.
 Qed.
 
-Lemma tac_source_to_sim Δ e_t e_s Φ :
-  envs_entails Δ (e_t ⪯ e_s [{ Φ }]) →
-  envs_entails Δ (source_red e_s π (λ e_s', e_t ⪯ e_s' [{ Φ }]))%I.
+Lemma tac_source_to_sim π Δ e_t e_s Φ :
+  envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]) →
+  envs_entails Δ (source_red e_s π (λ e_s', e_t ⪯{π} e_s' [{ Φ }]))%I.
 Proof.
   rewrite envs_entails_eq=> Hi. rewrite -source_red_base.
   iIntros "He". iModIntro. by iApply Hi.
 Qed.
 
-Lemma tac_sim_expr_to_sim Δ e_t e_s Φ :
-  envs_entails Δ (e_t ⪯ e_s {{ Φ }}) →
-  envs_entails Δ (e_t ⪯ e_s [{ lift_post Φ }])%I.
+Lemma tac_sim_expr_to_sim π Δ e_t e_s Φ :
+  envs_entails Δ (e_t ⪯{π} e_s {{ Φ }}) →
+  envs_entails Δ (e_t ⪯{π} e_s [{ lift_post Φ }])%I.
 Proof. done. Qed.
 
-Lemma tac_sim_to_sim_expr Δ e_t e_s Φ :
-  envs_entails Δ (e_t ⪯ e_s [{ lift_post Φ }]) →
-  envs_entails Δ (e_t ⪯ e_s {{ Φ }})%I.
+Lemma tac_sim_to_sim_expr π Δ e_t e_s Φ :
+  envs_entails Δ (e_t ⪯{π} e_s [{ lift_post Φ }]) →
+  envs_entails Δ (e_t ⪯{π} e_s {{ Φ }})%I.
 Proof. done. Qed.
 End sim.
 
@@ -437,13 +434,13 @@ End sim.
 Ltac to_sim :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr _ _ _ _ _) => idtac
-  | |- envs_entails _ (sim _ _ _ ?e_t ?e_s) =>
-      notypeclasses refine (tac_sim_to_sim_expr _ _ _ e_t e_s _ _)
-  | |- envs_entails _ (target_red ?e_t (λ _, sim_expr _ _ _ _ _ )) =>
-      notypeclasses refine (tac_target_to_sim _ _ _ e_t _ _ _)
-  | |- envs_entails _ (source_red ?e_s _ (λ _, sim_expr _ _ _ _ _)) =>
-      notypeclasses refine (tac_source_to_sim _ _ _ _ e_s _ _)
+  | |- envs_entails _ (sim_expr _ _ _ _) => idtac
+  | |- envs_entails _ (sim _ _ ?e_t ?e_s) =>
+      notypeclasses refine (tac_sim_to_sim_expr _ _ e_t e_s _ _)
+  | |- envs_entails _ (target_red ?e_t (λ _, sim_expr _ _ _ _ )) =>
+      notypeclasses refine (tac_target_to_sim _ _ e_t _ _ _)
+  | |- envs_entails _ (source_red ?e_s _ (λ _, sim_expr _ _ _ _)) =>
+      notypeclasses refine (tac_source_to_sim _ _ _ e_s _ _)
   | _ => fail "not a target_red or source_red of suitable shape"
   end.
 
@@ -454,8 +451,8 @@ Ltac to_target :=
   | _ =>
     to_sim;
     lazymatch goal with
-    | |- envs_entails _ (sim_expr ?Ω ?Φ ?π ?e_t ?e_s) =>
-        notypeclasses refine (tac_to_target  Ω π _ e_t e_s Φ _)
+    | |- envs_entails _ (sim_expr ?Φ ?π ?e_t ?e_s) =>
+        notypeclasses refine (tac_to_target π _ e_t e_s Φ _)
     | _ => fail "to_target: not a sim"
     end
   end.
@@ -467,8 +464,8 @@ Ltac to_source :=
   | _ =>
     to_sim;
     lazymatch goal with
-    | |- envs_entails _ (sim_expr ?Ω ?Φ ?π ?e_t ?e_s) =>
-        notypeclasses refine (tac_to_source Ω π _ e_t e_s Φ _)
+    | |- envs_entails _ (sim_expr ?Φ ?π ?e_t ?e_s) =>
+        notypeclasses refine (tac_to_source π _ e_t e_s Φ _)
     | _ => fail "to_source: not a sim"
     end
   end.
@@ -486,13 +483,13 @@ Ltac solve_vals_compare_safe :=
   here are bidirectional, so we never will make a goal unprovable. *)
 Ltac sim_value_head :=
   lazymatch goal with
-  | |- envs_entails _ (sim _ (λ _ _, bupd _) _ (Val _) (Val _)) =>
+  | |- envs_entails _ (sim (λ _ _, bupd _) _ (Val _) (Val _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim _ (λ _ _, sim_expr _ _ _ _ _) _ (Val _) (Val _)) =>
+  | |- envs_entails _ (sim (λ _ _, sim_expr _ _ _ _) _ (Val _) (Val _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim _ (λ _ _, sim _ _ _ _ _) _ (Val _) (Val _)) =>
+  | |- envs_entails _ (sim (λ _ _, sim _ _ _ _) _ (Val _) (Val _)) =>
       eapply tac_sim_value_no_bupd
-  | |- envs_entails _ (sim _ _ _ (Val _) (Val _)) =>
+  | |- envs_entails _ (sim _ _ (Val _) (Val _)) =>
       eapply tac_sim_value
   end.
 
@@ -500,8 +497,8 @@ Ltac sim_value_head :=
 Tactic Notation "sim_expr_eval" tactic3(t) :=
   iStartProof;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?Ω ?Φ ?π ?e_t ?e_s) =>
-    notypeclasses refine (tac_sim_expr_eval Ω π _ _ e_t _ e_s _ _ _ _);
+  | |- envs_entails _ (sim_expr ?Φ ?π ?e_t ?e_s) =>
+    notypeclasses refine (tac_sim_expr_eval π _ _ e_t _ e_s _ _ _ _);
       [let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl|let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl | ]
   | _ => fail "sim_expr_eval: not a 'sim"
   end.
@@ -511,10 +508,10 @@ Ltac sim_expr_simpl := sim_expr_eval simpl.
 Ltac sim_finish :=
   try sim_expr_simpl;      (* simplify occurences of subst/fill *)
   match goal with
-  | |- envs_entails _ (sim_expr _ (lift_post _) _ ?e_t ?e_s) =>
-      notypeclasses refine (tac_sim_expr_to_sim _ _ _ e_t e_s _ _)
-  | |- envs_entails _ (sim_expr _ _ _ _ _) => idtac
-  | |- envs_entails _ (sim _ _ _ _ _) => idtac
+  | |- envs_entails _ (sim_expr (lift_post _) _ ?e_t ?e_s) =>
+      notypeclasses refine (tac_sim_expr_to_sim _ _ e_t e_s _ _)
+  | |- envs_entails _ (sim_expr _ _ _ _) => idtac
+  | |- envs_entails _ (sim _ _ _ _) => idtac
   end;
   pm_prettify.        (* prettify λs caused by wp_value *)
 
@@ -533,9 +530,9 @@ Ltac target_value_head :=
   lazymatch goal with
   | |- envs_entails _ (target_red (Val _) (λ _, bupd _)) =>
       eapply tac_target_red_base_no_bupd
-  | |- envs_entails _ (target_red (Val _) (λ _, sim_expr _ _ _ _ _)) =>
+  | |- envs_entails _ (target_red (Val _) (λ _, sim_expr _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
-  | |- envs_entails _ (target_red (Val _) (λ _, sim _ _ _ _ _)) =>
+  | |- envs_entails _ (target_red (Val _) (λ _, sim _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
   | |- envs_entails _ (target_red (Val _) (λ _, target_red _ _)) =>
       eapply tac_target_red_base_no_bupd
@@ -562,9 +559,9 @@ Ltac source_value_head :=
   lazymatch goal with
   | |- envs_entails _ (source_red (Val _) _ (λ _, bupd _)) =>
       eapply tac_source_red_base_no_bupd
-  | |- envs_entails _ (source_red (Val _) _ (λ _, sim_expr _ _ _ _ _)) =>
+  | |- envs_entails _ (source_red (Val _) _ (λ _, sim_expr _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd
-  | |- envs_entails _ (source_red (Val _) _ (λ _, sim _ _ _ _ _)) =>
+  | |- envs_entails _ (source_red (Val _) _ (λ _, sim _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd
   | |- envs_entails _ (source_red (Val _) _ (λ _, source_red _ _ _)) =>
       eapply tac_source_red_base_no_bupd
@@ -692,16 +689,16 @@ Ltac sim_bind_core K_t K_s :=
   lazymatch eval hnf in K_t with
   | [] => lazymatch eval hnf in K_s with
           | [] => idtac
-          | _ => eapply (tac_sim_bind _ _ K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
+          | _ => eapply (tac_sim_bind _ K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
           end
-  | _ => eapply (tac_sim_bind _ _ K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
+  | _ => eapply (tac_sim_bind _ K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
   end.
 
 Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
   iStartProof;
   to_sim;
   lazymatch goal with
-  | |- envs_entails _ (sim_expr ?Ω ?Q ?π ?e_t ?e_s) =>
+  | |- envs_entails _ (sim_expr ?Q ?π ?e_t ?e_s) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
                                     first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s; sim_bind_core K_t K_s)
                                            (* TODO: fix error handling *)
@@ -805,7 +802,7 @@ Ltac sim_apply_core lem tac_suc tac_fail :=
   first
   [iPoseProofCore lem as false (fun H =>
      lazymatch goal with
-     | |- envs_entails _ (sim_expr _ _ ?e_t ?e_s ?Q) =>
+     | |- envs_entails _ (sim_expr _ ?e_t ?e_s ?Q) =>
        reshape_expr e_t ltac:(fun K_t e_t' =>
           reshape_expr e_s ltac:(fun K_s e_s' =>
             sim_bind_core K_t K_s; tac_suc H))
@@ -1098,6 +1095,30 @@ Ltac discr_source :=
            end; subst in
   match goal with
   | |- envs_entails _ (source_red _ _ _) => iApply source_red_irred_unless; [try done | discr ()]
-  | |- envs_entails _ (sim_expr _ _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
-  | |- envs_entails _ (sim _ _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  end.
+
+(** [reach_or_stuck_bind e] works on goals of the form [reach_or_stuck P e' σ Φ]
+    and tries to find a subexpression of e' matching e and applies the bind lemma for
+    it (similar to sim_bind and friends). *)
+Tactic Notation "reach_or_stuck_bind" open_constr(efoc) :=
+  lazymatch goal with
+  | |- reach_or_stuck _ ?e _ _ =>
+    reshape_expr e ltac:(fun K e' =>
+                           unify e' efoc;
+                           eapply (reach_or_stuck_bind _ e' _ _ K); simpl
+                        )
+  end.
+
+(** [reach_or_stuck_bind e] works on goals of the form [reach_or_stuck P e' σ (post_in_ectx Φ)]
+    and tries to find a subexpression e'' of e' matching e and results in a goal
+    [reach_or_stuck P e'' σ (post_in_ectx Φ)] (i.e. it discards the evaluation context around e''). *)
+Tactic Notation "reach_or_stuck_fill" open_constr(efoc) :=
+  lazymatch goal with
+  | |- reach_or_stuck _ ?e _ _ =>
+    reshape_expr e ltac:(fun K e' =>
+                           unify e' efoc;
+                           eapply (fill_reach_or_stuck _ e' _ _ K)
+                        )
   end.

@@ -1,11 +1,12 @@
-From simuliris.simplang Require Import lang notation tactics class_instances heap_bij log_rel.
+From simuliris.simplang Require Import lang notation tactics class_instances gen_log_rel.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
+From simuliris.simplang.simple_inv Require Import inv.
 
 (** * Simple example for re-ordering two allocs and then passing the related locations to an external function. *)
 
 Section reorder.
-  Context `{sbijG Σ}.
+  Context `{!simpleGS Σ}.
 
   Definition alloc2_and_cont : expr :=
     let: "l1" := Alloc "v1" in
@@ -21,7 +22,7 @@ Section reorder.
     ⊢ log_rel alloc2_and_cont alloc2_and_cont'.
   Proof.
     log_rel.
-    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 !# %π".
+    iIntros "%cont_t %cont_s #Hcont %v1_t %v1_s #Hv1 %v2_t %v2_s #Hv2 !# %π _".
 
     source_alloc l1_s as "Hl1_s" "Ha1_s".
     source_alloc l2_s as "Hl2_s" "Ha2_s".
@@ -31,8 +32,7 @@ Section reorder.
     { destruct cont_s as [[] | | | ]; done. }
     iIntros ((fcont & ->)).
 
-    iPoseProof (val_rel_litfn_source with "Hcont") as "->".
-    sim_pures.
+    val_discr_source "Hcont". sim_pures.
 
     target_alloc l1_t as "Hl1_t" "Ha1_t".
     target_alloc l2_t as "Hl2_t" "Ha2_t".
@@ -41,7 +41,8 @@ Section reorder.
     iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hv1"); iIntros "#Hbij_1".
     iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hv2"); iIntros "#Hbij_2".
 
-    iApply sim_call; [done | done | simpl; by eauto ].
+    iApply sim_wand; [ iApply sim_call; [done | done | simpl; by eauto ] |].
+    by iIntros (??) "$".
   Qed.
 
 End reorder.
