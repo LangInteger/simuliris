@@ -1,6 +1,3 @@
-(** This file proves the basic laws of the SimpLang program logic by applying
-the Simuliris lifting lemmas. *)
-
 From iris.proofmode Require Export tactics.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
@@ -9,6 +6,15 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.simplang Require Export class_instances tactics notation ghost_state.
 From iris.prelude Require Import options.
+
+(** * State interpretation for SimpLang
+
+This file provides a state interpretation of SimpLang. This state
+interpretation provides points-to predicates for source and target and
+assertions for functions. Additionally, the state interpretation can
+be extended via a custom invariant [sheapInv]. This file also proves
+the basic laws of the program logic, assuming that [sheapInv] allows
+them. *)
 
 Class sheapGS (Σ: gFunctors) := SHeapGS {
   sheapG_gen_heapG :> heapGS Σ;

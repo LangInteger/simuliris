@@ -4,6 +4,13 @@ From simuliris.simplang Require Import class_instances.
 From simuliris.simplang Require Export lang notation.
 From iris.prelude Require Import options.
 
+(** * Pure reasoning for exploiting UB of dataraces
+
+This file contains the pure reasoning that is necessary to exploit UB
+of non-atomic accesses. The main definition is [na_locs_wf], which
+keeps track of the alternaive executions which are used to justify the
+optimizations. *)
+
 (* TODO: move these two lemmas somewhere else? *)
 Lemma reach_or_stuck_store P_s (l_s : loc) (v' : val) σ o Φ:
   o ≠ Na2Ord →

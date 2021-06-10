@@ -2,6 +2,10 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl.
 
+(** * Reflexivity theorem for pure expressions
+This file defines a notion of pure expressions and proves an
+reflexivity theorem for them. *)
+
 Section log_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
   Context (loc_rel : loc → loc → iProp Σ) `{!∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
@@ -16,7 +20,7 @@ Section log_rel.
     | _ => False
     end.
 
-  Theorem pure_expr_wf_sound :
+  Theorem pure_log_rel_structural :
     loc_rel_func_law loc_rel →
     loc_rel_inj_law loc_rel →
     loc_rel_offset_law loc_rel →

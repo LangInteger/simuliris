@@ -2,6 +2,10 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws.
 
+(** * Structural value relation
+This file defines [gen_val_rel] that structually lifts a relation
+[loc_rel] on locations to values. *)
+
 Section gen_val_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
   Context (loc_rel : loc → loc → iProp Σ).

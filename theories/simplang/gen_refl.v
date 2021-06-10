@@ -2,6 +2,11 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf.
 
+(** * Lemmas for proving [log_rel]
+    This file provides a set of lemmas for proving [log_rel loc_rel
+    thread_own] for arbitrary [loc_rel] and [thread_own] by exploiting
+    the structure of the value relation. *)
+
 Section log_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
   Context (loc_rel : loc → loc → iProp Σ) `{!∀ l_t l_s, Persistent (loc_rel l_t l_s)}.

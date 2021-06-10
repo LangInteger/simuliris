@@ -1,9 +1,11 @@
-(** Lift the simulation relation (the "expression relation") to open terms.
-    This is the top-level "logical relation". *)
-
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel wf.
+
+(** * Logical relation
+ This file defines the top-level "logical relation" which lifts the
+ simulation relation (the "expression relation") to open terms.
+*)
 
 Section open_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.

@@ -9,6 +9,10 @@ From simuliris.simplang Require Export class_instances primitive_laws gen_val_re
 
 From iris.prelude Require Import options.
 
+(** * Library for defining a bijection between source and target heaps
+    This file provides the ghost state for establishing a bijection
+    between source and target heaps.  *)
+
 Class heapbijG (Σ : gFunctors) := HeapBijG {
   heapbijG_sheapG :> sheapGS Σ;
   heapbijG_bijG :> gset_bijG Σ block block;
