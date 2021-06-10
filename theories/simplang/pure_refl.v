@@ -3,7 +3,7 @@ From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl.
 
 (** * Reflexivity theorem for pure expressions
-This file defines a notion of pure expressions and proves an
+This file defines a notion of pure expressions and proves a
 reflexivity theorem for them. *)
 
 Section log_rel.
