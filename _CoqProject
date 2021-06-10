@@ -39,6 +39,7 @@ theories/simplang/heapbij.v
 theories/simplang/parallel_subst.v
 theories/simplang/gen_log_rel.v
 theories/simplang/gen_adequacy.v
+theories/simplang/behavior.v
 
 theories/simplang/examples/sum.v
 
