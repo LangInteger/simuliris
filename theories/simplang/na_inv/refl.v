@@ -23,8 +23,8 @@ Section refl.
   Theorem na_log_rel_structural : log_rel_structural heapbij.loc_rel (λ π, na_locs π ∅) expr_head_wf.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
-    destruct e_s, e_t => //=; simpl in Hs; simplify_eq.
-    all: try by iApply pure_expr_wf_sound; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heap_bij_loc_func, heap_bij_loc_inj, heap_bij_loc_shift.
+    destruct e_s, e_t => //; simpl in Hs; simplify_eq.
+    all: try by iApply pure_log_rel_structural; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heap_bij_loc_func, heap_bij_loc_inj, heap_bij_loc_shift.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
     all: try iDestruct "IH2" as "[IH2 IH3]".
