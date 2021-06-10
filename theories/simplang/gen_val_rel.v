@@ -1,10 +1,10 @@
+From iris.proofmode Require Import tactics.
+From iris.base_logic Require Import iprop.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws.
+From simuliris.simplang Require Import notation parallel_subst.
 
 Section gen_val_rel.
-  Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (loc_rel : loc → loc → iProp Σ).
+  Context {Σ} (loc_rel : loc → loc → iProp Σ).
 
   Definition loc_rel_func_law : Prop :=
     (∀ l l1 l2, loc_rel l l1 -∗ loc_rel l l2 -∗ ⌜l1 = l2⌝).
@@ -127,8 +127,7 @@ Tactic Notation "val_discr_target" constr(H) :=
          idtac].
 
 Section gen_val_rel.
-  Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (loc_rel : loc → loc → iProp Σ).
+  Context {Σ} (loc_rel : loc → loc → iProp Σ).
   Let val_rel := gen_val_rel loc_rel.
 
   Lemma gen_val_rel_func v1 v2 v3 : loc_rel_func_law loc_rel → val_rel v1 v2 -∗ val_rel v1 v3 -∗ ⌜v2 = v3⌝.

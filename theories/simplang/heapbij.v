@@ -1,22 +1,28 @@
+From iris.algebra.lib Require Import gset_bij.
 From iris.proofmode Require Import tactics.
 From iris.bi.lib Require Import fractional .
-From iris.base_logic.lib Require Import ghost_map.
-From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
+From iris.base_logic.lib Require Import ghost_map gset_bij.
+
+From simuliris.base_logic Require Import gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
-From iris.algebra.lib Require Import gset_bij.
-From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws gen_val_rel.
+From simuliris.simplang Require Import notation gen_val_rel primitive_laws.
 
 From iris.prelude Require Import options.
 
-Class heapbijG (Σ : gFunctors) := HeapBijG {
-  heapbijG_sheapG :> sheapGS Σ;
+Class heapbijGS (Σ : gFunctors) := HeapBijGS {
   heapbijG_bijG :> gset_bijG Σ block block;
   heapbijG_bij_name : gname;
 }.
+Class heapbijGpreS (Σ: gFunctors) := HeapBijGpreS {
+  sbij_pre_progG :> gset_bijG Σ block block;
+}.
+Definition heapbijΣ := #[gset_bijΣ block block].
+Global Instance subG_heapbijΣ Σ :
+  subG heapbijΣ Σ → heapbijGpreS Σ.
+Proof. solve_inG. Qed.
 
 Section definitions.
-  Context `{heapbijG Σ}.
+  Context `{heapbijGS Σ}.
 
   Definition heap_bij_auth (L : gset (block * block)) :=
     gset_bij_own_auth heapbijG_bij_name (DfracOwn 1) L.
@@ -25,13 +31,13 @@ Section definitions.
 End definitions.
 
 Notation "b_t '⇔h' b_s" := (heap_bij_elem b_t b_s) (at level 30) : bi_scope.
-Local Definition loc_rel `{heapbijG Σ} l_t l_s : iProp Σ :=
+Local Definition loc_rel `{heapbijGS Σ} l_t l_s : iProp Σ :=
   loc_chunk l_t ⇔h loc_chunk l_s ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
 Notation "l_t '↔h' l_s" := (loc_rel l_t l_s) (at level 30) : bi_scope.
 Local Notation val_rel := (gen_val_rel loc_rel).
 
 Section laws.
-  Context `{heapbijG Σ}.
+  Context `{!heapbijGS Σ}.
   Implicit Types (b_t b_s : block) (l_t l_s : loc).
 
   Global Instance heap_bij_elem_persistent b_t b_s :
@@ -83,9 +89,8 @@ Section laws.
   Qed.
 End laws.
 
-
 Section definitions.
-  Context `{heapbijG Σ}.
+  Context `{!heapbijGS Σ, !sheapGS Σ}.
 
   (** [P l_t l_s q] can be used to remove and add fractions of the
   points-to predicate from the bijection. [alloc_rel] stores a proof
@@ -118,8 +123,8 @@ Section definitions.
     heap σ_s !! Loc b_s o = Some (st, v) →
     (∀ q, P (Loc b_t o) (Loc b_s o) q → ∃ q', q = Some q' ∧ if b then q' = 1%Qp else True) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s) -∗
-    heap_ctx sheapG_allocN_target (heap σ_t) (used_blocks σ_t) -∗
+    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
+    heap_ctx sheapG_heap_target (heap σ_t) (used_blocks σ_t) -∗
     ∃ st' v', ⌜heap σ_t !! Loc b_t o = Some (st', v')⌝ ∗ ⌜if b then st' = st else if st is RSt _ then ∃ n', st' = RSt n' else st' = WSt⌝ ∗ val_rel v' v.
   Proof.
     iIntros (? HP).
@@ -148,12 +153,12 @@ Section definitions.
     heap σ_s !! Loc b_s o = Some (st, v) →
     (∀ q, P (Loc b_t o) (Loc b_s o) q → q = Some 1%Qp) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s) -∗
-    heap_ctx sheapG_allocN_target (heap σ_t) (used_blocks σ_t) -∗
+    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
+    heap_ctx sheapG_heap_target (heap σ_t) (used_blocks σ_t) -∗
     val_rel v_t' v_s' ==∗
     alloc_rel b_t b_s P ∗
-    heap_ctx sheapG_allocN_source (<[Loc b_s o := (st', v_s')]> (heap σ_s)) (used_blocks σ_s) ∗
-    heap_ctx sheapG_allocN_target (<[Loc b_t o := (st', v_t')]> (heap σ_t)) (used_blocks σ_t).
+    heap_ctx sheapG_heap_source (<[Loc b_s o := (st', v_s')]> (heap σ_s)) (used_blocks σ_s) ∗
+    heap_ctx sheapG_heap_target (<[Loc b_t o := (st', v_t')]> (heap σ_t)) (used_blocks σ_t).
   Proof.
     iIntros (? HP).
     iDestruct 1 as (n vs_t vs_s Hlen) "(Hl_s & Halloc_t & Halloc_s)".
@@ -186,13 +191,13 @@ Section definitions.
     (∀ m : Z, is_Some (heap σ_s !! (Loc b_s o +ₗ m)) ↔ (0 ≤ m < n)%Z) →
     (∀ q k, (0 ≤ k < n)%Z → P (Loc b_t o +ₗ k) (Loc b_s o +ₗ k) q → q = Some 1%Qp) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s) -∗
-    heap_ctx sheapG_allocN_target (heap σ_t) (used_blocks σ_t)
+    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
+    heap_ctx sheapG_heap_target (heap σ_t) (used_blocks σ_t)
     ==∗
     ⌜∀ m, is_Some (heap σ_t !! (Loc b_t o +ₗ m)) ↔ (0 ≤ m < n)%Z⌝ ∗
     alloc_rel b_t b_s P ∗
-    heap_ctx sheapG_allocN_source (free_mem (Loc b_s o) (Z.to_nat n) (heap σ_s)) (used_blocks σ_s) ∗
-    heap_ctx sheapG_allocN_target (free_mem (Loc b_t o) (Z.to_nat n) (heap σ_t)) (used_blocks σ_t).
+    heap_ctx sheapG_heap_source (free_mem (Loc b_s o) (Z.to_nat n) (heap σ_s)) (used_blocks σ_s) ∗
+    heap_ctx sheapG_heap_target (free_mem (Loc b_t o) (Z.to_nat n) (heap σ_t)) (used_blocks σ_t).
   Proof.
     iIntros (?? HP).
     iDestruct 1 as (n' vs_t vs_s Hlen) "(Hvs & Ha_t & Ha_s)".
@@ -221,7 +226,7 @@ Section definitions.
   Lemma alloc_rel_P_holds (P : _ → _ → _ → Prop) b_t b_s σ_s o s:
     heap σ_s !! Loc b_s o = Some s →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s) -∗
+    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
     ⌜∃ q, P (Loc b_t o) (Loc b_s o) q⌝%Qp.
   Proof.
     iIntros (?).
@@ -245,14 +250,14 @@ Section definitions.
     (if q2 is Some q2' then q1 = qd + q2' else q1 = qd)%Qp →
     (q2 = None → st = 0) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s)
+    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s)
     ==∗
     ∃ v_t,
       (Loc b_t o)↦t{#qd}v_t ∗
       (Loc b_s o)↦s{#qd}v_s ∗
       val_rel v_t v_s ∗
       alloc_rel b_t b_s P' ∗
-      heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s).
+      heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s).
   Proof.
     iIntros (? Hq1 Hq2 Hsame Hdiff Hst0).
     iDestruct 1 as (n vs_t vs_s Hlen) "(Hvs & Halloc_t & Halloc_s)".
@@ -314,10 +319,10 @@ Section definitions.
     (Loc b_t o)↦t{#q}v_t -∗
     (Loc b_s o)↦s{#q}v_s -∗
     val_rel v_t v_s -∗
-    heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s)
+    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s)
     ==∗
       alloc_rel b_t b_s P' ∗
-      heap_ctx sheapG_allocN_source (heap σ_s) (used_blocks σ_s).
+      heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s).
   Proof.
     iIntros (Hq Hsame).
     iDestruct 1 as (n vs_t vs_s Hlen) "(Hvs & Halloc_t & Halloc_s)".
@@ -363,8 +368,17 @@ Section definitions.
     (heap_bij_auth L ∗ [∗ set] p ∈ L, let '(b_t, b_s) := p in alloc_rel b_t b_s P)%I.
 End definitions.
 
+Lemma heapbij_init `{!heapbijGpreS Σ, !sheapGS Σ} P :
+  ⊢ |==> ∃ `(heapbijGS Σ), heap_bij_interp ∅ P.
+Proof.
+  iMod (gset_bij_own_alloc (A:=block) (B:=block) ∅) as (γbij) "[Hbij _]".
+  { apply: gset_bijective_empty. }
+  iIntros "!>". iExists (HeapBijGS _ _ γbij). iFrame.
+  iApply big_sepS_empty. done.
+Qed.
+
 Section laws.
-  Context `{heapbijG Σ}.
+  Context `{!heapbijGS Σ, !sheapGS Σ}.
   Implicit Types (b_t b_s : block) (l_t l_s : loc).
 
   Lemma heap_bij_access L P b_t b_s:
@@ -385,9 +399,9 @@ Section laws.
     iIntros (P' HP) "Halloc". iFrame.
     iApply big_sepS_delete; first done. iFrame.
     iApply (big_sepS_impl with "Hheap").
-    iIntros "!>" ([??] ?) "Halloc".
+    iIntros "!>" ([??] Hin2) "Halloc".
     iApply (alloc_rel_mono with "Halloc") => ?? /=.
-    set_unfold. destruct H0 as [Hin2 Hneq].
+    set_unfold. destruct Hin2 as [Hin2 Hneq].
     have ?:= gset_bijective_eq_iff _ _ _ _ _ _ Hin Hin2.
     apply: HP => b'; naive_solver.
   Qed.

@@ -8,7 +8,7 @@ Import bi.
 (* parameterized over "external" relation that restricts values passed to and
 from external function calls *)
 (* TODO: Hint Mode? *)
-Class simulirisGS (PROP : bi) (Λ : language) := {
+Class simulirisGS (PROP : bi) (Λ : language) := SimulirisGS {
   (* state interpretation *)
   state_interp : prog Λ → state Λ → prog Λ → state Λ → list (expr Λ) → PROP;
   state_interp_pure_prim_step P_t σ_t P_s σ_s e_s T π e_s':

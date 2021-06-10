@@ -9,9 +9,9 @@ From simuliris.simplang.simple_inv Require Import inv refl.
 
 Class simpleGpreS Σ := {
   sbij_pre_heapG :> sheapGpreS Σ;
-  sbij_pre_bijG :> gset_bijG Σ block block;
+  sbij_pre_bijG :> heapbijGpreS Σ;
 }.
-Definition simpleΣ := #[sheapΣ; gset_bijΣ block block].
+Definition simpleΣ := #[sheapΣ; heapbijΣ].
 
 Global Instance subG_sbijΣ Σ :
   subG simpleΣ Σ → simpleGpreS Σ.
@@ -23,17 +23,13 @@ Lemma adequacy `{!simpleGpreS Σ} p_t p_s :
 Proof.
   intros Hprog. apply simplang_adequacy.
   eapply sat_bupd, sat_mono, Hprog. clear Hprog.
-  iIntros "Hprog_rel".
-  iMod (gset_bij_own_alloc (A:=block) (B:=block) ∅) as (γbij) "[Hbij _]".
-  { apply: gset_bijective_empty. }
-  iIntros "!>" (?).
+  iIntros "Hprog_rel !> %".
+  iMod heapbij_init as (?) "Hbij". iModIntro.
   iExists simple_inv, heapbij.loc_rel.
-  set HsimpleGS := SimpleGS Σ (HeapBijG _ _ _ γbij).
-  iSpecialize ("Hprog_rel" $! HsimpleGS).
+  iSpecialize ("Hprog_rel" $! (SimpleGS Σ _ _)).
   iFrame "Hprog_rel".
   iSplitL "Hbij".
-  { rewrite /sheap_inv /=. iExists ∅. iFrame.
-    iApply big_sepS_empty. done. }
+  { rewrite /sheap_inv /=. iExists ∅. by iFrame. }
   iSplitR; first done.
   iIntros (??) "$".
 Qed.
