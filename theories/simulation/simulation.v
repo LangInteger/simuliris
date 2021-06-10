@@ -80,3 +80,6 @@ Section fix_lang.
   Definition sim_expr_ectx `{!SimE s} π K_t K_s Φ :=
     (∀ v_t v_s, ext_rel π v_t v_s -∗ sim_expr Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
 End fix_lang.
+
+Global Arguments sim_ectx : simpl never.
+Global Arguments sim_expr_ectx : simpl never.
