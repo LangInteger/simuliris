@@ -891,6 +891,23 @@ Section fix_lang.
       by iPureIntro.
   Qed.
 
+  (** Simulations on evaluation contexts *)
+  Lemma sim_ectx_mono Φ Φ' π :
+    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
+    ∀ E_s E_t, sim_ectx π E_t E_s Φ -∗ sim_ectx π E_t E_s Φ'.
+  Proof.
+    iIntros "Hmon" (E_s E_t) "HE %v_t %v_s Hv".
+    iApply (sim_mono with "Hmon"). iApply "HE". done.
+  Qed.
+
+  Lemma sim_expr_ectx_mono Φ Φ' π :
+    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
+    ∀ E_s E_t, sim_expr_ectx π E_t E_s Φ -∗ sim_expr_ectx π E_t E_s Φ'.
+  Proof.
+    iIntros "Hmon" (E_s E_t) "HE %v_t %v_s Hv".
+    iApply (sim_expr_mono with "Hmon"). iApply "HE". done.
+  Qed.
+
   (** ** source_red judgment *)
   (** source_red allows to focus the reasoning on the source value
     (while being able to switch back and forth to the full simulation at any point) *)

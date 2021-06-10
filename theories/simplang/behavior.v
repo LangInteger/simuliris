@@ -37,8 +37,8 @@ Section ctx_rel.
       <hole> will be the function argument. *)
   Definition gen_ctx_rel (e_t e_s : expr) :=
     ∀ (C : ctx) (fname x : string) (p : prog),
+      map_Forall (λ _ K, gen_ectx_wf expr_head_wf K ∧ free_vars_ectx K = ∅) p →
       gen_ctx_wf expr_head_wf C →
-      map_Forall (const (gen_ectx_wf expr_head_wf)) p →
       free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
       beh_rel (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
 

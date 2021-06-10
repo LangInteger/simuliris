@@ -71,18 +71,25 @@ Section open_rel.
       thread_own π -∗
       subst_map (fst <$> map) e_t ⪯{π} subst_map (snd <$> map) e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}.
 
-  Lemma gen_log_rel_closed e_t e_s :
-    free_vars e_t = ∅ →
-    free_vars e_s = ∅ →
-    gen_log_rel e_t e_s ⊣⊢ (□ ∀ π, thread_own π -∗ e_t ⪯{π} e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}).
+  Lemma gen_log_rel_closed_1 e_t e_s π :
+    free_vars e_t ∪ free_vars e_s = ∅ →
+    gen_log_rel e_t e_s ⊢
+      thread_own π -∗ e_t ⪯{π} e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}.
   Proof.
-    intros Hclosed_t Hclosed_s. iSplit.
-    - iIntros "#Hrel !#" (π). iSpecialize ("Hrel" $! π ∅).
-      rewrite ->!fmap_empty, ->!subst_map_empty.
-      rewrite Hclosed_t Hclosed_s [∅ ∪ _]left_id_L.
-      iApply "Hrel". by iApply subst_map_rel_empty.
-    - iIntros "#Hsim" (π xs) "!# Hxs".
-      rewrite !subst_map_closed //.
+    iIntros (Hclosed) "#Hrel". iSpecialize ("Hrel" $! π ∅).
+    rewrite ->!fmap_empty, ->!subst_map_empty.
+    rewrite Hclosed. iApply "Hrel". by iApply subst_map_rel_empty.
+  Qed.
+
+  Lemma gen_log_rel_closed e_t e_s :
+    free_vars e_t ∪ free_vars e_s = ∅ →
+    gen_log_rel e_t e_s ⊣⊢
+      (□ ∀ π, thread_own π -∗ e_t ⪯{π} e_s {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}).
+  Proof.
+    intros Hclosed. iSplit.
+    { iIntros "#Hrel !#" (π). iApply gen_log_rel_closed_1; done. }
+    iIntros "#Hsim" (π xs) "!# Hxs".
+    rewrite !subst_map_closed //; set_solver.
   Qed.
 
   (** Substitute away a single variable in an [gen_log_rel].
@@ -166,7 +173,7 @@ Section log_rel_structural.
      ([∗list] e_t';e_s' ∈ head_t.2; head_s.2, log_rel e_t' e_s') -∗
      log_rel e_t e_s).
 
-  Theorem log_rel_structural_refl e :
+  Theorem gen_log_rel_refl e :
     log_rel_structural →
     gen_expr_wf expr_head_wf e →
     ⊢ log_rel e e.
@@ -179,7 +186,7 @@ Section log_rel_structural.
     all: naive_solver.
   Qed.
 
-  Theorem log_rel_ectx K e_t e_s :
+  Theorem gen_log_rel_ectx K e_t e_s :
     log_rel_structural →
     gen_ectx_wf expr_head_wf K →
     log_rel e_t e_s -∗
@@ -193,11 +200,11 @@ Section log_rel_structural.
     destruct Ki; simpl; iApply He => //=; iFrame "IH".
     all: move: Hiwf; rewrite /= ?Forall_cons ?Forall_nil => Hiwf.
     all: repeat iSplit; try done.
-    all: iApply log_rel_structural_refl; [done|].
+    all: iApply gen_log_rel_refl; [done|].
     all: naive_solver.
   Qed.
 
-  Theorem log_rel_ctx C e_t e_s :
+  Theorem gen_log_rel_ctx C e_t e_s :
     log_rel_structural →
     gen_ctx_wf expr_head_wf C →
     log_rel e_t e_s -∗
@@ -211,7 +218,7 @@ Section log_rel_structural.
     destruct Ci; simpl; iApply He => //=; iFrame "IH".
     all: move: Hiwf; rewrite /= ?Forall_cons ?Forall_nil => Hiwf.
     all: repeat iSplit; try done.
-    all: iApply log_rel_structural_refl; [done|].
+    all: iApply gen_log_rel_refl; [done|].
     all: naive_solver.
   Qed.
 End log_rel_structural.
