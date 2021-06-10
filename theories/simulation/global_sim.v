@@ -20,6 +20,13 @@ Section fix_lang.
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ).
 
+  Definition prog_rel P_t P_s : PROP :=
+    (□ ∀ f K_s π, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx π K_t K_s (ext_rel π))%I.
+  Typeclasses Opaque prog_rel.
+
+  Global Instance prog_rel_persistent P_s P_t : Persistent (prog_rel P_s P_t).
+  Proof. rewrite /prog_rel; apply _. Qed.
+
   Notation expr_rel := (@exprO Λ -d> @exprO Λ -d> PROP).
 
   Global Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
@@ -632,20 +639,13 @@ Section fix_lang.
 
 
   (* we show that the local simulation for all functions in the program implies the global simulation *)
-  Definition local_rel P_t P_s : PROP :=
-    (□ ∀ f K_s π, ⌜P_s !! f = Some K_s⌝ → ∃ K_t, ⌜P_t !! f = Some K_t⌝ ∗ sim_ectx π K_t K_s (ext_rel π))%I.
-  Typeclasses Opaque local_rel.
-
-  Global Instance local_rel_persistent P_s P_t : Persistent (local_rel P_s P_t).
-  Proof. rewrite /local_rel; apply _. Qed.
-
   Lemma local_to_global P_t P_s Φ e_t e_s π:
-    local_rel P_t P_s -∗
+    prog_rel P_t P_s -∗
     progs_are P_t P_s -∗
     sim_expr Φ π e_t e_s -∗
     gsim_expr Φ π e_t e_s.
   Proof.
-    rewrite /local_rel; iIntros "#Hloc #Hprog Hsim".
+    rewrite /prog_rel; iIntros "#Hloc #Hprog Hsim".
     assert (NonExpansive (sim_expr : expr_rel → thread_id -d> expr_rel)).
     { solve_proper. }
     iApply (gsim_expr_coind (sim_expr) with "[] Hsim"); clear Φ π e_t e_s.
@@ -689,17 +689,16 @@ Section fix_lang.
       rewrite sim_expr_eq. by iApply "Hcont".
   Qed.
 
-
   Lemma local_to_global_call P_t P_s f v_t v_s π:
     is_Some (P_s !! f) →
-    local_rel P_t P_s -∗
+    prog_rel P_t P_s -∗
     progs_are P_t P_s -∗
     ext_rel π v_t v_s -∗
     gsim_expr (lift_post (ext_rel π)) π (of_call f v_t) (of_call f v_s).
   Proof.
     iIntros ([K_s Hlook]) "#Hloc #Hprogs Hval".
     iApply (local_to_global with "Hloc Hprogs").
-    rewrite /local_rel.
+    rewrite /prog_rel.
     iDestruct "Hloc" as "#Hloc".
     iDestruct ("Hloc" $! _ _ _ Hlook) as (K_t) "[% Hsim]".
     iApply sim_call_inline; last (iFrame; iSplit; first done); eauto.

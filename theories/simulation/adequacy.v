@@ -296,10 +296,6 @@ End meta_level_simulation.
 
 
 
-
-
-
-
 Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
@@ -315,7 +311,7 @@ Section adequacy_statement.
 
   Lemma adequacy p_t p_s:
     (* pre *)
-    sat (local_rel p_t p_s ∗
+    sat (prog_rel p_t p_s ∗
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
       progs_are p_t p_s ∗
       ext_rel 0 u u) →
@@ -364,7 +360,7 @@ Section adequacy_statement_alt.
   Lemma adequacy_alt p_t p_s:
     sat (
       (* The programs are related *)
-      local_rel p_t p_s ∗
+      prog_rel p_t p_s ∗
       (* The initial states satisfy the state interpretation *)
       (∀ σ_t σ_s, ⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
       (* The programs are in the state *)
