@@ -119,7 +119,7 @@ Global Instance sheap_inv_state_independent_supports_fork `{!sheapInv Σ} `{!she
 Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
 
 
-Global Program Instance sheapGS_simulirisGS `{!sheapGS Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
+Global Program Instance sheapGS_simulirisGS `{!sheapGS Σ} `{!sheapInv Σ} : simulirisGS (iPropI Σ) simp_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s ∗

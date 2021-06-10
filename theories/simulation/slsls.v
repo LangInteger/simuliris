@@ -72,7 +72,7 @@ Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dis
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : simulirisG PROP Λ}.
+  Context {s : simulirisGS PROP Λ}.
 
   Set Default Proof Using "Type*".
 

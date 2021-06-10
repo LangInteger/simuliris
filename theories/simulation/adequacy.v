@@ -11,7 +11,7 @@ Section meta_level_simulation.
 
   Context {PROP : bi}.
   Context {Λ : language}.
-  Context {s : simulirisG PROP Λ}.
+  Context {s : simulirisGS PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
   Context {PROP_forall : BiPureForall PROP}.
@@ -309,7 +309,7 @@ Section adequacy_statement.
   Lemma slsls_adequacy p_t p_s:
     (∀ σ_t σ_s, sat (
       (* Delay the choice of the simulation parameters *)
-      ∃ `(simulirisG PROP Λ),
+      ∃ `(simulirisGS PROP Λ),
       (* The programs are related *)
       prog_rel p_t p_s ∗
       (* The initial states satisfy the state interpretation *)

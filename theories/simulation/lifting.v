@@ -145,7 +145,7 @@ Hint Mode PureExec - - - + - : core.
 
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-  Context {Λ : language} {s : simulirisG PROP Λ}.
+  Context {Λ : language} {s : simulirisGS PROP Λ}.
 
   Implicit Types
     (e_s e_t e: expr Λ)
