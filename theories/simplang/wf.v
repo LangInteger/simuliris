@@ -24,8 +24,9 @@ Section expr_wf.
   Fixpoint gen_expr_wf (e : expr) : Prop :=
     expr_head_wf (expr_split_head e).1 ∧
     match e with
-    | Val v => True (** [val_wf v] should be part of [expr_head_wf (Val
-      v)] because [log_rel_structural] only provides [expr_head_wf]. *)
+    (** [val_wf v] should be part of [expr_head_wf (Val v)] because
+        [log_rel_structural] only provides [expr_head_wf]. *)
+    | Val v => True 
     | Var x => True
     | Let b e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
     | Call e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2

@@ -9,7 +9,7 @@ Definition expr_head_wf (e : expr_head) : Prop :=
   match e with
   | ValHead v => val_wf v
   (* Na2Ord is an intermediate ordering that should only arise during
-  execution and programs should not contain it. *)
+  execution and programs should not use it directly. *)
   | LoadHead o => o ≠ Na2Ord
   | StoreHead o => o ≠ Na2Ord
   | CmpXchgHead => False   (* currently not supported *)
