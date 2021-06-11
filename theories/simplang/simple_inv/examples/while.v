@@ -72,7 +72,7 @@ Section fix_bi.
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
     while: !"cont" do
-      "cont" <- Call ##"external" #()
+      "cont" <- Call f#"external" #()
     od.
 
   Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
@@ -80,14 +80,14 @@ Section fix_bi.
   Definition input_rec : ectx :=
     λ: "cont",
       if: "cont" then
-        let: "cont" := Call ##"external" #() in
-        Call ##"rec" "cont"
+        let: "cont" := Call f#"external" #() in
+        Call f#"rec" "cont"
       else #().
 
   (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
-    log_rel input_loop (Call ##"rec" #true).
+    log_rel input_loop (Call f#"rec" #true).
   Proof.
     iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
@@ -107,7 +107,7 @@ Section fix_bi.
 
   Lemma loop_rec' :
     "rec" @t input_rec -∗
-    log_rel (Call ##"rec" #true) input_loop.
+    log_rel (Call f#"rec" #true) input_loop.
   Proof.
     iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.

@@ -26,7 +26,7 @@ theories/simplang/base.v
 theories/simplang/locations.v
 theories/simplang/lang.v
 theories/simplang/wf.v
-theories/simplang/ghost_state.v
+theories/simplang/logical_heap.v
 theories/simplang/primitive_laws.v
 theories/simplang/notation.v
 theories/simplang/tactics.v

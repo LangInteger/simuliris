@@ -39,13 +39,13 @@ Section laws.
 
   Lemma na_bij_access b_t b_s P_s σ_s T_s:
     na_bij_interp P_s σ_s T_s -∗
-    b_t ⇔h b_s -∗
+    block_rel b_t b_s -∗
     ∃ cols, ⌜length cols = length T_s⌝ ∗ ⌜na_locs_wf cols P_s σ_s T_s⌝ ∗
     ghost_map_auth naGS_col_name 1 (map_seq 0 cols) ∗
     (alloc_rel b_t b_s (λ _, alloc_rel_pred cols)) ∗
     (∀ cols' σ_s' T_s',
         ⌜length cols' = length T_s'⌝ -∗ ⌜na_locs_wf cols' P_s σ_s' T_s'⌝ -∗
-        ⌜∀ π col l_s w, cols' !! π = Some col → col !! l_s = Some w → loc_chunk l_s = b_s ∨ ∃ col' w', cols !! π = Some col' ∧ col' !! l_s = Some  w'⌝ -∗
+        ⌜∀ π col l_s w, cols' !! π = Some col → col !! l_s = Some w → loc_block l_s = b_s ∨ ∃ col' w', cols !! π = Some col' ∧ col' !! l_s = Some  w'⌝ -∗
         ⌜∀ b' o' q, b' ≠ b_s → alloc_rel_pred cols (Loc b' o') q → alloc_rel_pred cols' (Loc b' o') q⌝ -∗
         ghost_map_auth naGS_col_name 1 (map_seq 0 cols') -∗ alloc_rel b_t b_s (λ _, alloc_rel_pred cols') -∗ na_bij_interp P_s σ_s' T_s').
   Proof.

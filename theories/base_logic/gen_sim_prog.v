@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 
 Local Definition gen_progR (F C : Type) `{Countable F} := agreeR (gmapO F (leibnizO C)).
 Class gen_progGpreS (Σ : gFunctors) (F C : Type) `{Countable F} := {
-  gen_prog_preG_inG :> inG Σ (gen_progR F C);
+  gen_prog_pre_inG :> inG Σ (gen_progR F C);
 }.
 Definition gen_progΣ (F C : Type) `{Countable F} := #[GFunctor (gen_progR F C)].
 

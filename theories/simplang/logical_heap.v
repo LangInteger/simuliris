@@ -36,12 +36,12 @@ Definition to_lock_stateR (x : lock_state) : lock_stateR :=
   match x with RSt n => Cinr n | WSt => Cinl (Excl ()) end.
 Definition to_heap : gmap loc (lock_state * val) → heapUR :=
   fmap (λ v, (1%Qp, to_lock_stateR (v.1), to_agree (v.2))).
-Definition heap_freeable_rel (σ : gmap loc (lock_state * val)) (bs : gset block) (hF : gmap loc (option nat)) : Prop :=
+Definition heap_freeable_rel (σ : state) (hF : gmap loc (option nat)) : Prop :=
   ∀ l o, hF !! l = Some o →
-   loc_chunk l ∈ bs ∧
+   loc_block l ∈ σ.(used_blocks) ∧
    loc_idx l = 0 ∧
    0 < default 1 o ∧
-   ∀ i, is_Some (σ !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
+   ∀ i, is_Some (σ.(heap) !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
 
 Section definitions.
   Context `{!heapG Σ} (γ : heap_names).
@@ -66,11 +66,11 @@ Section definitions.
   Definition heap_freeable_eq : @heap_freeable = @heap_freeable_def :=
     seal_eq heap_freeable_aux.
 
-  Definition heap_ctx (σ: gmap loc (lock_state * val)) (bs : gset block) : iProp Σ :=
-    (∃ hF, own γ.(heap_name) (● to_heap σ)
+  Definition heap_ctx (σ: state) : iProp Σ :=
+    (∃ hF, own γ.(heap_name) (● to_heap σ.(heap))
          ∗ ghost_map_auth γ.(heap_freeable_name) 1 hF
-         ∗ ⌜heap_freeable_rel σ bs hF⌝
-         ∗ ⌜heap_wf σ bs⌝)%I.
+         ∗ ⌜heap_freeable_rel σ hF⌝
+         ∗ ⌜heap_wf σ⌝)%I.
 End definitions.
 
 Typeclasses Opaque heap_mapsto heap_freeable heap_mapsto_vec.
@@ -111,7 +111,7 @@ End to_heap.
 Section heap.
   Context `{!heapG Σ} (γ : heap_names).
   Implicit Types P Q : iProp Σ.
-  Implicit Types σ : gmap loc (lock_state * val).
+  Implicit Types σ : state.
   Implicit Types E : coPset.
 
   Local Notation "l ↦[ st ]{ q } v" := (heap_mapsto γ l st q v)
@@ -270,7 +270,7 @@ Section heap.
   Proof. rewrite heap_freeable_eq. iIntros "[$ _]". Qed.
 
   Lemma heap_freeable_excl l l' n n' :
-    loc_chunk l = loc_chunk l' →
+    loc_block l = loc_block l' →
     †l…?n -∗ †l'…?n' -∗ False.
   Proof.
     rewrite heap_freeable_eq.
@@ -278,22 +278,22 @@ Section heap.
     by iDestruct (ghost_map_elem_valid_2 with "Hl1 Hl2") as %[? ?].
   Qed.
 
-  Lemma heap_freeable_rel_stable σ bs h l p :
-    heap_freeable_rel σ bs h → is_Some (σ !! l) →
-    heap_freeable_rel (<[l := p]>σ) bs h.
+  Lemma heap_freeable_rel_stable σ h l p :
+    heap_freeable_rel σ h → is_Some (σ.(heap) !! l) →
+    heap_freeable_rel (state_upd_heap <[l := p]> σ) h.
   Proof.
     intros REL Hσ blk qs Hqs. destruct (REL blk qs) as [? [? [? REL']]]; first done.
     split_and!; [done..|]=> i. rewrite -REL' lookup_insert_is_Some.
     destruct (decide (l = blk +ₗ i)); naive_solver.
   Qed.
 
-  Lemma heap_freeable_rel_init_mem l h n σ bs v:
+  Lemma heap_freeable_rel_init_mem l h n σ v:
     n ≠ O →
     loc_idx l = 0 →
-    loc_chunk l ∉ bs →
-    (∀ m : Z, σ !! (l +ₗ m) = None) →
-    heap_freeable_rel σ bs h →
-    heap_freeable_rel (heap_array l (replicate n v) ∪ σ) ({[loc_chunk l]} ∪ bs)
+    loc_block l ∉ σ.(used_blocks) →
+    (∀ m : Z, σ.(heap) !! (l +ₗ m) = None) →
+    heap_freeable_rel σ h →
+    heap_freeable_rel (State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_block l]} ∪ σ.(used_blocks)))
                       (<[l := Some n]> h).
   Proof.
     move => ?? Hnotin Hnone Hrel l' o /lookup_insert_Some[[??]|[? Hl]]; simplify_eq/=.
@@ -321,21 +321,21 @@ Section heap.
       split; [|naive_solver].
       move => [[?[?[?[??]]]]|//].
       contradict Hnotin.
-      have ->: loc_chunk l = loc_chunk l' by destruct l, l'; naive_solver.
+      have ->: loc_block l = loc_block l' by destruct l, l'; naive_solver.
       done.
   Qed.
 
-  Lemma heap_freeable_rel_free_mem σ hF n l bs:
+  Lemma heap_freeable_rel_free_mem σ hF n l :
     loc_idx l = 0 →
     hF !! l = Some (Some n) →
-    heap_freeable_rel σ bs hF →
-    heap_freeable_rel (free_mem l n σ) bs (<[l:=None]> hF).
+    heap_freeable_rel σ hF →
+    heap_freeable_rel (state_upd_heap (free_mem l n) σ) (<[l:=None]> hF).
   Proof.
     intros ? Hl REL b qs Hlookup.
     destruct (REL l (Some n)) as [? [? [? REL']]]; auto.
     move: Hlookup => /lookup_insert_Some [[??]|[NEQ ?]]; simplify_eq.
     - split_and!; [done| done| simpl; lia |] => i /=. split; [|lia] => -[?].
-      have : free_mem b n σ !! (b +ₗ i) = None; last naive_solver.
+      have : free_mem b n σ.(heap) !! (b +ₗ i) = None; last naive_solver.
       destruct (decide (0 ≤ i < n))%Z.
       + apply lookup_free_mem_2; [done|]. simpl. lia.
       + destruct (decide (i < 0))%Z.
@@ -348,11 +348,11 @@ Section heap.
       destruct b, l; simplify_eq/=. congruence.
   Qed.
 
-  Lemma heap_freeable_inj n1 l1 l2 n2 σ bs:
+  Lemma heap_freeable_inj n1 l1 l2 n2 σ:
     (0 < n1)%Z →
-    (∀ m, is_Some (σ !! (l1 +ₗ m)) ↔ (0 ≤ m < n1)%Z) →
-    loc_chunk l1 = loc_chunk l2 →
-    heap_ctx γ σ bs -∗ †l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
+    (∀ m, is_Some (σ.(heap) !! (l1 +ₗ m)) ↔ (0 ≤ m < n1)%Z) →
+    loc_block l1 = loc_block l2 →
+    heap_ctx γ σ -∗ †l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
   Proof.
     iIntros (? Hrel1 ?) "(%hF & ? & HhF & %Hrel & %) Hf".
     rewrite heap_freeable_eq. iDestruct "Hf" as (?) "Hf".
@@ -386,9 +386,9 @@ Section heap.
       f_equal; [done |lia].
   Qed.
 
-  Lemma heap_freeable_lookup σ l l' x n bs:
-    σ !! l' = Some x → loc_chunk l' = loc_chunk l →
-    heap_ctx γ σ bs -∗ †l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
+  Lemma heap_freeable_lookup σ l l' x n :
+    σ.(heap) !! l' = Some x → loc_block l' = loc_block l →
+    heap_ctx γ σ -∗ †l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
   Proof.
     iIntros (Hlo ?) "(%hF&?&HhF&%Hrel&%) Hf".
     rewrite heap_freeable_eq. iDestruct "Hf" as (?) "Hf".
@@ -403,15 +403,15 @@ Section heap.
     rewrite Hl'. f_equal => /=. lia.
   Qed.
 
-  Lemma heap_ctx_wf σ bs:
-    heap_ctx γ σ bs -∗ ⌜heap_wf σ bs⌝.
+  Lemma heap_ctx_wf σ :
+    heap_ctx γ σ -∗ ⌜heap_wf σ⌝.
   Proof. by iDestruct 1 as (?) "(?&?&?&%)". Qed.
 
   (** Weakest precondition *)
-  Lemma heap_alloc_vs σ l n v:
-    (∀ m : Z, σ !! (l +ₗ m) = None) →
-    own γ.(heap_name) (● to_heap σ)
-    ==∗ own γ.(heap_name) (● to_heap (heap_array l (replicate n v) ∪ σ))
+  Lemma heap_alloc_vs (h : gmap loc _) l n v:
+    (∀ m : Z, h !! (l +ₗ m) = None) →
+    own γ.(heap_name) (● to_heap h)
+    ==∗ own γ.(heap_name) (● to_heap (heap_array l (replicate n v) ∪ h))
        ∗ own γ.(heap_name) (◯ [^op list] i ↦ v ∈ (replicate n v),
            {[l +ₗ i := (1%Qp, Cinr 0%nat, to_agree v)]}).
   Proof.
@@ -434,13 +434,14 @@ Section heap.
     - by rewrite -(loc_add_0 l) FRESH.
   Qed.
 
-  Lemma heap_alloc σ l n v bs:
+  Lemma heap_alloc σ l n v :
     (0 < n)%Z →
     loc_idx l = 0 →
-    loc_chunk l ∉ bs →
-    (∀ m, σ !! (l +ₗ m) = None) →
-    heap_ctx γ σ bs ==∗
-      heap_ctx γ (heap_array l (replicate (Z.to_nat n) v) ∪ σ) ({[loc_chunk l]} ∪ bs) ∗ heap_freeable γ l 1 (Some (Z.to_nat n)) ∗
+    loc_block l ∉ σ.(used_blocks) →
+    (∀ m, σ.(heap) !! (l +ₗ m) = None) →
+    heap_ctx γ σ ==∗
+      heap_ctx γ (State (heap_array l (replicate (Z.to_nat n) v) ∪ σ.(heap)) ({[loc_block l]} ∪ σ.(used_blocks))) ∗
+      heap_freeable γ l 1 (Some (Z.to_nat n)) ∗
       l ↦∗ replicate (Z.to_nat n) v.
   Proof.
     intros ???; iDestruct 1 as (hF) "(Hvalσ & HhF & %Hrel & %Hwf)".
@@ -456,14 +457,14 @@ Section heap.
     - by apply heap_wf_init_mem.
   Qed.
 
-  Lemma heap_free_vs σ l vl sts :
+  Lemma heap_free_vs (h : gmap loc _) l vl sts :
     length vl = length sts →
-    own γ.(heap_name) (● to_heap σ) ∗ own γ.(heap_name) (◯ [^op list] i ↦ v ∈ zip sts vl,
+    own γ.(heap_name) (● to_heap h) ∗ own γ.(heap_name) (◯ [^op list] i ↦ v ∈ zip sts vl,
       {[l +ₗ i := (1%Qp, to_lock_stateR v.1, to_agree v.2)]})
-    ==∗ own γ.(heap_name) (● to_heap (free_mem l (length vl) σ)).
+    ==∗ own γ.(heap_name) (● to_heap (free_mem l (length vl) h)).
   Proof.
     rewrite -own_op => Hlen. apply own_update, auth_update_dealloc.
-    revert σ l sts Hlen. induction vl as [|v vl IH]=> σ l; [by case |] => -[//|st sts][?].
+    revert h l sts Hlen. induction vl as [|v vl IH]=> h l; [by case |] => -[//|st sts][?].
     cbn [zip_with]. rewrite (big_opL_consZ_l (λ k _, _ (_ k) _ )) /= loc_add_0.
     apply local_update_total_valid=> _ Hvalid _.
     assert (([^op list] k↦y ∈ zip sts vl,
@@ -477,11 +478,11 @@ Section heap.
     setoid_rewrite <-loc_add_assoc. by apply IH.
   Qed.
 
-  Lemma heap_free σ l vl (n : Z) sts bs:
+  Lemma heap_free σ l vl (n : Z) sts :
     n = length vl →
-    heap_ctx γ σ bs -∗ l ↦∗[sts] vl -∗ †l…?(Some (length vl))
-    ==∗ ⌜0 < n⌝%Z ∗ ⌜∀ m, is_Some (σ !! (l +ₗ m)) ↔ (0 ≤ m < n)⌝%Z ∗
-        †l…?None ∗ heap_ctx γ (free_mem l (Z.to_nat n) σ) bs.
+    heap_ctx γ σ -∗ l ↦∗[sts] vl -∗ †l…?(Some (length vl))
+    ==∗ ⌜0 < n⌝%Z ∗ ⌜∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ (0 ≤ m < n)⌝%Z ∗
+        †l…?None ∗ heap_ctx γ (state_upd_heap (free_mem l (Z.to_nat n)) σ).
   Proof.
     iDestruct 1 as (hF) "(Hvalσ & HhF & %REL & %Hwf)". subst.
     rewrite heap_freeable_eq. iIntros "Hmt [% Hf]".
@@ -497,11 +498,11 @@ Section heap.
     eauto using heap_freeable_rel_free_mem, heap_wf_free_mem.
   Qed.
 
-  Lemma heap_mapsto_lookup σ l ls q v :
-    own γ.(heap_name) (● to_heap σ) -∗
+  Lemma heap_mapsto_lookup h l ls q v :
+    own γ.(heap_name) (● to_heap h) -∗
     own γ.(heap_name) (◯ {[ l := (q, to_lock_stateR ls, to_agree v) ]}) -∗
     ⌜∃ n' : nat,
-        σ !! l = Some (match ls with RSt n => RSt (n+n') | WSt => WSt end, v)⌝.
+        h !! l = Some (match ls with RSt n => RSt (n+n') | WSt => WSt end, v)⌝.
   Proof.
     iIntros "H● H◯".
     iDestruct (own_valid_2 with "H● H◯") as %[Hl?]%auth_both_valid_discrete.
@@ -515,10 +516,10 @@ Section heap.
     by exists O. eauto. exists O. by rewrite Nat.add_0_r.
   Qed.
 
-  Lemma heap_mapsto_lookup_1 σ l ls v :
-    own γ.(heap_name) (● to_heap σ) -∗
+  Lemma heap_mapsto_lookup_1 h l ls v :
+    own γ.(heap_name) (● to_heap h) -∗
     own γ.(heap_name) (◯ {[ l := (1%Qp, to_lock_stateR ls, to_agree v) ]}) -∗
-    ⌜σ !! l = Some (ls, v)⌝.
+    ⌜h !! l = Some (ls, v)⌝.
   Proof.
     iIntros "H● H◯".
     iDestruct (own_valid_2 with "H● H◯") as %[Hl?]%auth_both_valid_discrete.
@@ -530,10 +531,10 @@ Section heap.
     destruct ls, ls''; rewrite ?Nat.add_0_r; naive_solver.
   Qed.
 
-  Lemma heap_read_vs σ n1 n2 nf l q v:
-    σ !! l = Some (RSt (n1 + nf), v) →
-    own γ.(heap_name) (● to_heap σ) -∗ heap_mapsto γ l (RSt n1) q v
-    ==∗ own γ.(heap_name) (● to_heap (<[l:=(RSt (n2 + nf), v)]> σ))
+  Lemma heap_read_vs h n1 n2 nf l q v:
+    h !! l = Some (RSt (n1 + nf), v) →
+    own γ.(heap_name) (● to_heap h) -∗ heap_mapsto γ l (RSt n1) q v
+    ==∗ own γ.(heap_name) (● to_heap (<[l:=(RSt (n2 + nf), v)]> h))
         ∗ heap_mapsto γ l (RSt n2) q v.
   Proof.
     rewrite heap_mapsto_eq.
@@ -544,44 +545,44 @@ Section heap.
     apply nat_local_update; lia.
   Qed.
 
-  Lemma heap_read_st σ l st q v bs:
-    heap_ctx γ σ bs -∗ l ↦[st]{q} v -∗
+  Lemma heap_read_st σ l st q v :
+    heap_ctx γ σ -∗ l ↦[st]{q} v -∗
     ⌜∃ n' : nat,
-        σ !! l = Some (match st with RSt n => RSt (n+n') | WSt => WSt end, v)⌝.
+        σ.(heap) !! l = Some (match st with RSt n => RSt (n+n') | WSt => WSt end, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
     rewrite heap_mapsto_eq.
     iDestruct (heap_mapsto_lookup with "Hσ Hmt") as %[n Hσl]; eauto.
   Qed.
 
-  Lemma heap_read_st_1 σ l st v bs:
-    heap_ctx γ σ bs -∗ l ↦[st] v -∗ ⌜σ !! l = Some (st, v)⌝.
+  Lemma heap_read_st_1 σ l st v :
+    heap_ctx γ σ -∗ l ↦[st] v -∗ ⌜σ.(heap) !! l = Some (st, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
     rewrite heap_mapsto_eq.
     iDestruct (heap_mapsto_lookup_1 with "Hσ Hmt") as %?; eauto.
   Qed.
 
-  Lemma heap_read σ l q v bs:
-    heap_ctx γ σ bs -∗ l ↦{q} v -∗ ∃ n, ⌜σ !! l = Some (RSt n, v)⌝.
+  Lemma heap_read σ l q v :
+    heap_ctx γ σ -∗ l ↦{q} v -∗ ∃ n, ⌜σ.(heap) !! l = Some (RSt n, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
     rewrite heap_mapsto_eq.
     iDestruct (heap_mapsto_lookup with "Hσ Hmt") as %[n Hσl]; eauto.
   Qed.
 
-  Lemma heap_read_1 σ l v bs:
-    heap_ctx γ σ bs -∗ l ↦ v -∗ ⌜σ !! l = Some (RSt 0, v)⌝.
+  Lemma heap_read_1 σ l v :
+    heap_ctx γ σ -∗ l ↦ v -∗ ⌜σ.(heap) !! l = Some (RSt 0, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
     rewrite heap_mapsto_eq.
     iDestruct (heap_mapsto_lookup_1 with "Hσ Hmt") as %?; auto.
   Qed.
 
-  Lemma heap_read_na_1 σ l q v n bs:
-    heap_ctx γ σ bs -∗ l ↦[RSt n]{q} v ==∗ ∃ n',
-      ⌜σ !! l = Some (RSt (n + n'), v)⌝ ∗
-      heap_ctx γ (<[l:=(RSt (S (n + n')), v)]> σ) bs ∗
+  Lemma heap_read_na_1 l q v n σ :
+    heap_ctx γ σ -∗ l ↦[RSt n]{q} v ==∗ ∃ n',
+      ⌜σ.(heap) !! l = Some (RSt (n + n'), v)⌝ ∗
+      heap_ctx γ (state_upd_heap <[l:=(RSt (S (n + n')), v)]> σ) ∗
       l ↦[RSt (S n)]{q} v.
   Proof.
     iIntros "Hσ Hmt".
@@ -589,13 +590,13 @@ Section heap.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & % & %)".
     iMod (heap_read_vs with "Hσ Hmt") as "[Hσ Hmt]"; first done.
     iModIntro. iExists n'; iSplit; [done|]. iFrame.
-    iExists hF. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_stable.
+    iExists hF. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_insert.
   Qed.
 
-  Lemma heap_read_na_2 σ l q v n bs:
-    heap_ctx γ σ bs -∗ l ↦[RSt (S n)]{q} v ==∗ ∃ n',
-      ⌜σ !! l = Some (RSt (S (n + n')), v)⌝ ∗
-      heap_ctx γ (<[l:=(RSt (n + n'), v)]> σ) bs ∗
+  Lemma heap_read_na_2 σ l q v n :
+    heap_ctx γ σ -∗ l ↦[RSt (S n)]{q} v ==∗ ∃ n',
+      ⌜σ.(heap) !! l = Some (RSt (S (n + n')), v)⌝ ∗
+      heap_ctx γ (state_upd_heap <[l:=(RSt (n + n'), v)]> σ) ∗
       l ↦[RSt n]{q} v.
   Proof.
     iIntros "Hσ Hmt".
@@ -603,28 +604,28 @@ Section heap.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & % & %)".
     iMod (heap_read_vs with "Hσ Hmt") as "[Hσ Hmt]"; first done.
     iModIntro. iExists n'; iSplit; [done|]. iFrame.
-    iExists hF. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_stable.
+    iExists hF. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_insert.
   Qed.
 
-  Lemma heap_read_na σ l q v bs:
-    heap_ctx γ σ bs -∗ l ↦{q} v ==∗ ∃ n,
-      ⌜σ !! l = Some (RSt n, v)⌝ ∗
-      heap_ctx γ (<[l:=(RSt (S n), v)]> σ) bs ∗
-      ∀ σ2 bs2, heap_ctx γ σ2 bs2 ==∗ ∃ n2, ⌜σ2 !! l = Some (RSt (S n2), v)⌝ ∗
-        heap_ctx γ (<[l:=(RSt n2, v)]> σ2) bs2 ∗ l ↦{q} v.
+  Lemma heap_read_na σ l q v :
+    heap_ctx γ σ -∗ l ↦{q} v ==∗ ∃ n,
+      ⌜σ.(heap) !! l = Some (RSt n, v)⌝ ∗
+      heap_ctx γ (state_upd_heap <[l:=(RSt (S n), v)]> σ) ∗
+      ∀ σ2, heap_ctx γ σ2 ==∗ ∃ n2, ⌜σ2.(heap) !! l = Some (RSt (S n2), v)⌝ ∗
+        heap_ctx γ (state_upd_heap <[l:=(RSt n2, v)]> σ2) ∗ l ↦{q} v.
   Proof.
     iIntros "Hσ Hmt".
     iMod (heap_read_na_1 with "Hσ Hmt") as (? ?) "[Hσ Hmt]".
     iModIntro. iExists _. iFrame. iSplit; [done|].
-    iIntros (σ2 bs2) "Hσ".
+    iIntros (σ2) "Hσ".
     iMod (heap_read_na_2 with "Hσ Hmt") as (? ?) "[Hσ Hmt]".
     iModIntro. iExists _. iFrame. done.
   Qed.
 
-  Lemma heap_write_vs σ st1 st2 l v v':
-    σ !! l = Some (st1, v) →
-    own γ.(heap_name) (● to_heap σ) -∗ heap_mapsto γ l st1 1%Qp v
-    ==∗ own γ.(heap_name) (● to_heap (<[l:=(st2, v')]> σ))
+  Lemma heap_write_vs h st1 st2 l v v':
+    h !! l = Some (st1, v) →
+    own γ.(heap_name) (● to_heap h) -∗ heap_mapsto γ l st1 1%Qp v
+    ==∗ own γ.(heap_name) (● to_heap (<[l:=(st2, v')]> h))
         ∗ heap_mapsto γ l st2 1%Qp v'.
   Proof.
     rewrite heap_mapsto_eq.
@@ -634,20 +635,20 @@ Section heap.
     apply exclusive_local_update. by destruct st2.
   Qed.
 
-  Lemma heap_write σ l v v' st st' bs:
-    heap_ctx γ σ bs -∗ l ↦[st] v ==∗ heap_ctx γ (<[l:=(st', v')]> σ) bs ∗ l ↦[st'] v'.
+  Lemma heap_write σ l v v' st st' :
+    heap_ctx γ σ -∗ l ↦[st] v ==∗ heap_ctx γ (state_upd_heap <[l:=(st', v')]> σ) ∗ l ↦[st'] v'.
   Proof.
     iIntros "Hσ Hmt".
     iDestruct (heap_read_st_1 with "Hσ Hmt") as %?; auto.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & % & %)".
     iMod (heap_write_vs with "Hσ Hmt") as "[Hσ $]"; first done.
-    iModIntro. iExists _. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_stable.
+    iModIntro. iExists _. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_insert.
   Qed.
 
-  Lemma heap_write_na_1 σ l v st bs:
-    heap_ctx γ σ bs -∗ l ↦[st] v ==∗
-      ⌜σ !! l = Some (st, v)⌝ ∗
-      heap_ctx γ (<[l:=(WSt, v)]> σ) bs ∗
+  Lemma heap_write_na_1 σ l v st :
+    heap_ctx γ σ -∗ l ↦[st] v ==∗
+      ⌜σ.(heap) !! l = Some (st, v)⌝ ∗
+      heap_ctx γ (state_upd_heap <[l:=(WSt, v)]> σ) ∗
       l ↦[WSt] v.
   Proof.
     iIntros "Hσ Hmt".
@@ -655,10 +656,10 @@ Section heap.
     iSplitR; [done|]. iApply (heap_write with "Hσ Hmt").
   Qed.
 
-  Lemma heap_write_na_2 σ l v v' bs:
-    heap_ctx γ σ bs -∗ l ↦[WSt] v ==∗
-      ⌜σ !! l = Some (WSt, v)⌝ ∗
-      heap_ctx γ (<[l:=(RSt 0, v')]> σ) bs ∗
+  Lemma heap_write_na_2 σ l v v' :
+    heap_ctx γ σ -∗ l ↦[WSt] v ==∗
+      ⌜σ.(heap) !! l = Some (WSt, v)⌝ ∗
+      heap_ctx γ (state_upd_heap <[l:=(RSt 0, v')]> σ) ∗
       l ↦ v'.
   Proof.
     iIntros "Hσ Hmt".
@@ -666,32 +667,46 @@ Section heap.
     iSplitR; [done|]. iApply (heap_write with "Hσ Hmt").
   Qed.
 
-  Lemma heap_write_na σ l v v' bs:
-    heap_ctx γ σ bs -∗ l ↦ v ==∗
-      ⌜σ !! l = Some (RSt 0, v)⌝ ∗
-      heap_ctx γ (<[l:=(WSt, v)]> σ) bs ∗
-      ∀ σ2 bs2, heap_ctx γ σ2 bs2 ==∗ ⌜σ2 !! l = Some (WSt, v)⌝ ∗
-        heap_ctx γ (<[l:=(RSt 0, v')]> σ2) bs2 ∗ l ↦ v'.
+  Lemma heap_write_na σ l v v' :
+    heap_ctx γ σ -∗ l ↦ v ==∗
+      ⌜σ.(heap) !! l = Some (RSt 0, v)⌝ ∗
+      heap_ctx γ (state_upd_heap <[l:=(WSt, v)]> σ) ∗
+      ∀ σ2, heap_ctx γ σ2 ==∗ ⌜σ2.(heap) !! l = Some (WSt, v)⌝ ∗
+        heap_ctx γ (state_upd_heap <[l:=(RSt 0, v')]> σ2) ∗ l ↦ v'.
   Proof.
     iIntros "Hσ Hmt".
     iMod (heap_write_na_1 with "Hσ Hmt") as (?) "[Hσ Hmt]".
     iModIntro. iFrame. iSplit; [done|].
-    iIntros (σ2 bs2) "Hσ".
+    iIntros (σ2) "Hσ".
     iMod (heap_write_na_2 with "Hσ Hmt") as (?) "[Hσ Hmt]".
     iModIntro. iFrame. done.
   Qed.
     
 End heap.
 
-Lemma heap_init `{heapG Σ} :
-  ⊢ |==> ∃ γ : heap_names, heap_ctx γ ∅ ∅.
+Lemma heap_init `{heapG Σ} h :
+  ⊢ |==> ∃ γ : heap_names, heap_ctx γ (state_init h) ∗
+    [∗ map] l ↦ v ∈ h, heap_mapsto γ l (RSt 0) 1 v.
 Proof.
-  iMod (ghost_map_alloc (∅ : gmap loc (option nat))) as (γmap) "[Hmap _]".
-  iMod (own_alloc (● (to_heap ∅))) as (γheap) "Hheap".
-  { apply auth_auth_valid. done. }
-  iExists {| heap_name := γheap; heap_freeable_name := γmap |}.
-  iModIntro. rewrite /heap_ctx /=. iExists ∅. iFrame. iPureIntro.
-  split.
-  - intros l o. rewrite lookup_empty. done.
-  - intros l ?. rewrite lookup_empty. done.
+  set σ := state_init h.
+  iMod (own_alloc (● (to_heap σ.(heap)) ⋅ ◯ (to_heap σ.(heap)))) as (γheap) "[Hheap Hfrag]".
+  { apply auth_both_valid_discrete. split; first done. apply to_heap_valid. }
+  (* The initially existing allocations cannot be freed *)
+  iMod (ghost_map_alloc (∅ : gmap loc (option nat))) as (γfmap) "[Hfmap _]".
+  iExists {| heap_name := γheap; heap_freeable_name := γfmap |}.
+  iModIntro. rewrite /heap_ctx /=.
+  iSplitR "Hfrag".
+  - iExists ∅. iFrame. iPureIntro.
+    split.
+    + intros l o. rewrite lookup_empty. done.
+    + apply state_init_wf.
+  - rewrite heap_mapsto_eq /heap_mapsto_def /=.
+    iInduction h as [|l v h Hk] "IH" using map_ind.
+    { iApply big_sepM_empty. done. }
+    rewrite big_sepM_insert; last done.
+    rewrite fmap_insert to_heap_insert.
+    rewrite insert_singleton_op.
+    2:{ apply lookup_to_heap_None. rewrite lookup_fmap Hk. done. }
+    iDestruct "Hfrag" as "[$ Hfrag]".
+    iApply "IH". done.
 Qed.

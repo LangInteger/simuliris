@@ -45,10 +45,10 @@ Section data_race.
     destruct (decide (l1_s = l2_s)); simplify_eq.
   Abort.
 
-  Definition reg_promote_loop_opt f : expr :=
+  Definition reg_promote_loop_opt fname : expr :=
      let: "refn" := ref ! "n" in
      while: #0 < ! "refn" do
-       Call ##f #2;;
+       Call f#fname #2;;
        "refn" <- !"refn" - #1
      od;;
      if: #0 < "n" then
@@ -58,7 +58,7 @@ Section data_race.
        #0.
 
 
-  Definition reg_promote_loop f : expr :=
+  Definition reg_promote_loop fname : expr :=
      let: "refn" := ref ! "n" in
      let: "res" := ref #0 in
      while: #0 < ! "refn" do
@@ -67,7 +67,7 @@ Section data_race.
        "res" <- !"x";;
        (* Should not access x (e.g. because it does not access the
        heap) and should not do synchronization. *)
-       Call ##f !"res";;
+       Call f#fname !"res";;
        "refn" <- !"refn" - #1
      od;;
      !"res".
@@ -87,7 +87,7 @@ Section data_race.
        let: "i" := ref #1 in
        while: ! "i" < "n" do
          "r" <- !"r" + "mval";;
-         (* Call ##f "x";; *)
+         (* Call f#fname "x";; *)
          "i" <- !"i" + #1
        od;;
        Free "i";;
@@ -100,7 +100,7 @@ Section data_race.
      let: "i" := ref #0  in
      while: ! "i" < "n" do
        "r" <- !"r" + !"m";;
-       (* Call ##f "x";; *)
+       (* Call f#fname "x";; *)
        "i" <- !"i" + #1
      od;;
      Free "i";;

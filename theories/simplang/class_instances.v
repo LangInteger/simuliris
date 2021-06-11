@@ -251,7 +251,7 @@ Section irreducible.
     apply and_dec; [apply _|].
     apply forall_equiv_dec.
     - destruct (decide (map_Forall (λ l' _,
-       (loc_chunk l' = loc_chunk l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
+       (loc_block l' = loc_block l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
                                    ) σ.(heap))) as [Hm|Hm]; last first.
       + right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
         have Hi : i = (l +ₗ (loc_idx i - loc_idx l)).
