@@ -29,13 +29,12 @@ Section definitions.
 
   Definition heap_bij_auth (L : gset (block * block)) :=
     gset_bij_own_auth heapbijG_bij_name (DfracOwn 1) L.
-  Definition heap_bij_elem (l_t : block) (l_s : block) :=
+  Definition block_rel (l_t : block) (l_s : block) :=
     gset_bij_own_elem heapbijG_bij_name l_t l_s.
 End definitions.
 
-Notation "b_t '⇔h' b_s" := (heap_bij_elem b_t b_s) (at level 30) : bi_scope.
-Local Definition loc_rel `{heapbijGS Σ} l_t l_s : iProp Σ :=
-  loc_chunk l_t ⇔h loc_chunk l_s ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
+Definition loc_rel `{heapbijGS Σ} l_t l_s : iProp Σ :=
+  block_rel (loc_chunk l_t) (loc_chunk l_s) ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
 Notation "l_t '↔h' l_s" := (loc_rel l_t l_s) (at level 30) : bi_scope.
 Local Notation val_rel := (gen_val_rel loc_rel).
 
@@ -43,15 +42,15 @@ Section laws.
   Context `{!heapbijGS Σ}.
   Implicit Types (b_t b_s : block) (l_t l_s : loc).
 
-  Global Instance heap_bij_elem_persistent b_t b_s :
-    Persistent (b_t ⇔h b_s).
+  Global Instance block_rel_persistent b_t b_s :
+    Persistent (block_rel b_t b_s).
   Proof. apply _. Qed.
-  Global Instance heap_bij_elem_loc_persistent l_t l_s :
+  Global Instance loc_rel_persistent l_t l_s :
     Persistent (l_t ↔h l_s).
   Proof. apply _. Qed.
 
   Lemma heap_bij_agree b_t1 b_t2 b_s1 b_s2 :
-    b_t1 ⇔h b_s1 -∗ b_t2 ⇔h b_s2 -∗ ⌜b_t1 = b_t2 ↔ b_s1 = b_s2⌝.
+    block_rel b_t1 b_s1 -∗ block_rel b_t2 b_s2 -∗ ⌜b_t1 = b_t2 ↔ b_s1 = b_s2⌝.
   Proof.
     iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2").
   Qed.
@@ -64,7 +63,7 @@ Section laws.
   Qed.
 
   Lemma heap_bij_func b_t b_s1 b_s2 :
-    b_t ⇔h b_s1 -∗ b_t ⇔h b_s2 -∗ ⌜b_s1 = b_s2⌝.
+    block_rel b_t b_s1 -∗ block_rel b_t b_s2 -∗ ⌜b_s1 = b_s2⌝.
   Proof.
     iIntros "H1 H2". iPoseProof (heap_bij_agree with "H1 H2") as "<-"; done.
   Qed.
@@ -75,7 +74,7 @@ Section laws.
   Qed.
 
   Lemma heap_bij_inj b_s b_t1 b_t2 :
-    b_t1 ⇔h b_s -∗ b_t2 ⇔h b_s -∗ ⌜b_t1 = b_t2⌝.
+    block_rel b_t1 b_s -∗ block_rel b_t2 b_s -∗ ⌜b_t1 = b_t2⌝.
   Proof.
     iIntros "H1 H2". iPoseProof (heap_bij_agree with "H1 H2") as "->"; done.
   Qed.
@@ -386,7 +385,7 @@ Section laws.
 
   Lemma heap_bij_access L P b_t b_s:
     heap_bij_interp L P -∗
-    b_t ⇔h b_s -∗
+    block_rel b_t b_s -∗
     ⌜(b_t, b_s) ∈ L⌝ ∗
     alloc_rel b_t b_s P ∗
     (∀ P' : _ → _ → _  → Prop,

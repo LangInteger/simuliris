@@ -39,7 +39,7 @@ Section laws.
 
   Lemma na_bij_access b_t b_s P_s σ_s T_s:
     na_bij_interp P_s σ_s T_s -∗
-    b_t ⇔h b_s -∗
+    block_rel b_t b_s -∗
     ∃ cols, ⌜length cols = length T_s⌝ ∗ ⌜na_locs_wf cols P_s σ_s T_s⌝ ∗
     ghost_map_auth naGS_col_name 1 (map_seq 0 cols) ∗
     (alloc_rel b_t b_s (λ _, alloc_rel_pred cols)) ∗
