@@ -96,13 +96,29 @@ Proof.
   destruct σ' as [h' α' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
-  inversion IS. clear IS. simplify_eq. split; [|done].
+  inversion IS; clear IS; simplify_eq.
+  split; [|done].
   constructor; simpl.
   - rewrite -(for_each_dom α l (tsize T) _ _ ACC). by apply WF.
   - apply WF.
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
   - apply WF.
+Qed.
+
+Lemma failed_copy_step_wf σ σ' e e' l bor T :
+  mem_expr_step σ.(shp) e (FailedCopyEvt l bor T) σ'.(shp) e' →
+  bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
+           (FailedCopyEvt l bor T)
+           σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
+  state_wf σ → state_wf σ'.
+Proof.
+  destruct σ as [h α cids nxtp nxtc].
+  destruct σ' as [h' α' cids' nxtp' nxtc']. simpl.
+  intros BS IS WF.
+  inversion BS. clear BS. simplify_eq.
+  inversion IS; clear IS; simplify_eq.
+  done.
 Qed.
 
 (** Write *)
@@ -950,8 +966,8 @@ Proof.
   - eapply alloc_step_wf; eauto.
   - eapply dealloc_step_wf; eauto.
   - eapply copy_step_wf; eauto.
+  - eapply failed_copy_step_wf; eauto.
   - eapply write_step_wf; eauto.
-  (*- inversion ExprStep.*)
   - eapply initcall_step_wf; eauto.
   - eapply endcall_step_wf; eauto.
   - eapply retag_step_wf; eauto.

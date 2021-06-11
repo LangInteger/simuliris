@@ -63,3 +63,10 @@ Definition init_state := (mkState ∅ ∅ {[O]} O 1).
 
 
 Inductive tag_kind := tk_pub  | tk_unq | tk_local.
+
+Definition state_upd_mem (f : mem → mem) σ :=
+  mkState (f σ.(shp)) σ.(sst) σ.(scs) σ.(snp) σ.(snc).
+Definition state_upd_stacks (f : stacks → stacks) σ :=
+  mkState σ.(shp) (f σ.(sst)) σ.(scs) σ.(snp) σ.(snc).
+Definition state_upd_calls (f : call_id_set → call_id_set) σ :=
+  mkState σ.(shp) σ.(sst) (f σ.(scs)) σ.(snp) σ.(snc).

@@ -7,7 +7,7 @@ From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Export class_instances tactics notation heap.
+From simuliris.stacked_borrows Require Export class_instances tactics notation heap steps_refl steps_opt.
 From iris.prelude Require Import options.
 
 

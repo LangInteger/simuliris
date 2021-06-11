@@ -9,11 +9,9 @@ Set Default Proof Using "Type".
 Definition ex2_unopt : ectx :=
   λ: "i",
     let: "c" := InitCall in
-    (* c protects { } *)
 
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (& int) "i" in
-    (* (x, Tagged pid_x) ↦{tk_local} i *)
 
     (* retag_place reborrows the pointer value stored in "x" (which is "i"),
       then updates "x" with the new pointer value.
@@ -55,7 +53,7 @@ Proof.
   sim_pures.
   sim_apply InitCall InitCall (sim_init_call) "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
 
-  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l_t l_s) "Htag Ht Hs".
+  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".
   iApply sim_expr_base. sim_pures.
 
   source_bind (Write _ _).
@@ -79,8 +77,8 @@ Proof.
   iIntros ((_ & ot & i & -> & _)).
   iPoseProof (value_rel_singleton_source with "Hv") as (sc_t) "[-> Hscrel]".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[-> Htagged]".
-  iApply (sim_retag_fnentry with "Hscrel Hcall"); [cbn; lia|  ].
-  iIntros (t_i v_t v_s Hlen_t Hlen_s) "Hvrel Hcall Htag_i Hi_t Hi_s #Hsc_i".
+  iApply (sim_retag_fnentry with "Hscrel Hcall"); [cbn; lia| done | ].
+  iIntros (t_i v_t v_s Hlen_t Hlen_s) "#Hvrel Hcall Htag_i Hi_t Hi_s #Hsc_i".
   iApply sim_expr_base.
   target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [done | done | ].
   source_apply (Write _ _) (source_write_local with "Htag Hs") "Hs Htag"; [done | done | ].
@@ -99,11 +97,26 @@ Proof.
 
   (* read in the source *)
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
-  source_pures. source_apply (Copy _) (source_copy_any with "Htag_i Hi_s") "Hi_s Htag_i"; first done.
-  sim_pures.
+  source_pures. source_bind (Copy _). iApply (source_copy_any with "Htag_i Hi_s"); first done.
+  iIntros (v_s' Hv_s') "Hi_s Htag_i". source_finish. sim_pures.
 
-  sim_bind (Free _) (Free _).
-  (* TODO: need local free lemma that also removes the ghost state for that *)
+  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "". sim_pures.
+  iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s Hvrel"); [ | apply lookup_insert | ].
+  { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. } 
+  iIntros "Hcall Htag_i Hi_t Hi_s".
+  iApply (sim_remove_empty_calls _ t_i with "Hcall"). 
+  { rewrite lookup_insert. done. } 
+  { rewrite Hlen_t. set_solver. } 
+  iIntros "Hcall".
+  sim_apply (EndCall _) (EndCall _) (sim_endcall with "[Hcall]") "".
+  { replace (delete t_i _) with (∅ : gmap ptr_id (gset loc)); first done. 
+    apply map_eq. intros t'. rewrite delete_insert_delete delete_insert; done.
+  } 
+  sim_pures. 
+  sim_val. iModIntro. destruct Hv_s' as [-> | ->]; first done. 
+  iApply big_sepL2_forall. iSplit. { rewrite replicate_length. iPureIntro. lia. } 
+  iIntros (k sc_t sc_s). rewrite lookup_replicate. iIntros "Hsc (-> & _)". 
+  (* TODO: need to be able to relate pointers to poison *)
 Abort.
 
 
@@ -133,7 +146,6 @@ Definition ex2_unopt' : ectx :=
     Free "x" ;;
 
     (* Finally, return the read value *)
-    EndCall "c";;
     "v"
   .
 

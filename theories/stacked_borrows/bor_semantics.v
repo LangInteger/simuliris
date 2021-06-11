@@ -377,10 +377,10 @@ Infix "<<t" := tag_values_included (at level 60, no associativity).
 
 Instance tag_included_dec tg nxtp : Decision (tag_included tg nxtp).
 Proof. destruct tg; cbn; apply _. Qed.
-Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp). 
+Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp).
 Proof.
   rewrite /tag_values_included. induction v as [ | sc v IH].
-  - left; intros l tg Ha. exfalso. by eapply not_elem_of_nil. 
+  - left; intros l tg Ha. exfalso. by eapply not_elem_of_nil.
   - destruct sc.
     1,2,4,5: destruct IH as [IH | IH]; [left | right]; setoid_rewrite elem_of_cons; [intros ?? [ [=] | ]| contradict IH]; eauto.
     destruct (decide (tg <t nxtp)) as [Hd | Hd]; destruct IH as [IH | IH]; [left | right | right | right]; setoid_rewrite elem_of_cons; [ | by eauto..].
@@ -406,6 +406,10 @@ Inductive bor_step (α : stacks) (cids: gset call_id) (nxtp: ptr_id) (nxtc: call
     (* This comes from wellformedness, but for convenience we require it here *)
     (BOR: vl <<t nxtp):
     bor_step α cids nxtp nxtc (CopyEvt l lbor T vl) α' cids nxtp nxtc
+(* Failing Copy when the stack access is not granted, yielding poison *)
+| CopyFailIS l lbor T
+    (ACC : memory_read α cids l lbor (tsize T) = None) :
+    bor_step α cids nxtp nxtc (FailedCopyEvt l lbor T) α cids nxtp nxtc
 (* This implements AllocationExtra::memory_written. *)
 | WriteIS α' l lbor T vl
     (ACC: memory_written α cids l lbor (tsize T) = Some α')
@@ -418,7 +422,7 @@ Inductive bor_step (α : stacks) (cids: gset call_id) (nxtp: ptr_id) (nxtc: call
     bor_step α cids nxtp nxtc (DeallocEvt l lbor T) α' cids nxtp nxtc
 | InitCallIS :
     bor_step α cids nxtp nxtc (InitCallEvt nxtc) α ({[nxtc]} ∪ cids) nxtp (S nxtc)
-| EndCallIS c 
+| EndCallIS c
     (EL: c ∈ cids) :
     bor_step α cids nxtp nxtc (EndCallEvt c) α (cids ∖ {[c]}) nxtp nxtc
 | RetagIS α' nxtp' l otag ntag T kind pkind c

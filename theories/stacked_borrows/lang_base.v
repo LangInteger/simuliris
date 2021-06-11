@@ -281,6 +281,7 @@ Inductive event :=
 | AllocEvt (l : loc) (lbor : tag) (T : type)
 | DeallocEvt (l : loc) (lbor: tag) (T : type)
 | CopyEvt (l : loc) (lbor : tag) (T : type) (v : value)
+| FailedCopyEvt (l : loc) (lbor : tag) (T : type)
 | WriteEvt (l : loc) (lbor : tag) (T : type) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)

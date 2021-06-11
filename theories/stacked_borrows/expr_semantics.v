@@ -341,14 +341,11 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → Prop :=
     to_value e = Some [ScCallId call] →
     mem_expr_step h (EndCall e) (EndCallEvt call) h #[☠]
 | CopyBS l lbor T (v: value)
-    (READ: read_mem l (tsize T) h = Some v)
-    (* (LEN: length v = tsize T) : true by read_mem_values *)
-    (* (VALUES: ∀ (i: nat), (i < length v)%nat → h !! (l +ₗ i) = v !! i)
-        : true by read_mem_values *) :
-    mem_expr_step
-              h (Copy (Place l lbor T))
-              (CopyEvt l lbor T v)
-              h (Val v)
+    (READ: read_mem l (tsize T) h = Some v) :
+    mem_expr_step h (Copy (Place l lbor T)) (CopyEvt l lbor T v) h (Val v)
+| FailedCopyBS l lbor T :
+    (* failed copies lead to poison, but still of the appropriate length *)
+    mem_expr_step h (Copy (Place l lbor T)) (FailedCopyEvt l lbor T) h (Val $ replicate (tsize T) ScPoison)
 | WriteBS l lbor T v (LEN: length v = tsize T)
     (DEFINED: ∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) h) :
     mem_expr_step

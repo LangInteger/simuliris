@@ -70,14 +70,17 @@ theories/stacked_borrows/steps_access.v
 theories/stacked_borrows/steps_wf.v
 theories/stacked_borrows/steps_progress.v
 theories/stacked_borrows/steps_retag.v
+theories/stacked_borrows/steps_inv.v
 
 
 
 theories/stacked_borrows/tactics.v 
 theories/stacked_borrows/class_instances.v
-theories/stacked_borrows/primitive_laws.v
 theories/stacked_borrows/tkmap_view.v
 theories/stacked_borrows/heap.v
+theories/stacked_borrows/steps_refl.v
+theories/stacked_borrows/steps_opt.v
+theories/stacked_borrows/primitive_laws.v
 theories/stacked_borrows/proofmode.v
 
 theories/stacked_borrows/examples/pure.v

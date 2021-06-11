@@ -49,18 +49,18 @@ Definition ex1_opt : ectx :=
 
 Lemma sim_new_place_local `{sborG Σ} T v_t v_s π Φ :
   ⌜length v_t = length v_s⌝ -∗
-  (∀ t l_t l_s,
+  (∀ t l,
     ⌜length v_s = tsize T⌝ -∗
     ⌜length v_t = tsize T⌝ -∗
     t $$ tk_local -∗
-    l_t ↦t∗[tk_local]{t} v_t -∗
-    l_s ↦s∗[tk_local]{t} v_s -∗
-    PlaceR l_t (Tagged t) T ⪯{π, rrel} PlaceR l_s (Tagged t) T [{ Φ }]) -∗
+    l ↦t∗[tk_local]{t} v_t -∗
+    l ↦s∗[tk_local]{t} v_s -∗
+    PlaceR l (Tagged t) T ⪯{π, rrel} PlaceR l (Tagged t) T [{ Φ }]) -∗
   new_place T #v_t ⪯{π, rrel} new_place T #v_s [{ Φ }].
 Proof.
   iIntros (Hlen_eq) "Hsim".
   rewrite /new_place. sim_bind (Alloc _) (Alloc _).
-  iApply sim_alloc_local. iIntros (t l_t l_s) "Htag Ht Hs". iApply sim_expr_base.
+  iApply sim_alloc_local. iIntros (t l) "Htag Ht Hs". iApply sim_expr_base.
   sim_pures.
   source_bind (Write _ _).
   (* gain knowledge about the length *)
@@ -93,7 +93,7 @@ Lemma sim_opt1 `{sborG Σ} π :
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
-  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l_t l_s) "Htag Ht Hs".
+  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".
   iApply sim_expr_base. sim_pures.
 
   source_bind (Write _ _).
@@ -139,12 +139,13 @@ Proof.
   iIntros (r_t' r_s') "_". sim_pures.
 
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
-  source_pures. source_apply (Copy _) (source_copy_any with "Htag_i Hi_s") "Hi_s Htag_i"; first done.
+  source_pures. source_bind (Copy _).
+  iApply (source_copy_any with "Htag_i Hi_s"); first done. iIntros (v_s') "%Hv_s' Hi_s Htag_i". source_finish.
   sim_pures.
 
-  sim_bind (Free _) (Free _).
-  (* TODO: need local free lemma that also removes the ghost state for that *)
-Abort.
+  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "". sim_pures.
+  sim_val. iModIntro. destruct Hv_s' as [-> | ->]; iApply big_sepL2_singleton; done.
+Qed.
 
 
 

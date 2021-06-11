@@ -189,9 +189,9 @@ Lemma read_mem_values' l n h v :
   length v = n →
   (∀ i, (i < n)%nat → h !! (l +ₗ i) = v !! i) →
   read_mem l n h = Some v.
-Proof. 
+Proof.
   intros Hlen Hs.
-Admitted. 
+Admitted.
 
 Lemma replace_check'_is_Some cids acc stk :
   (∀ it, it ∈ stk → it.(perm) = Unique → item_inactive_protector cids it) →
@@ -390,6 +390,13 @@ Proof.
   { move => ? /BLK. by rewrite (state_wf_dom _ WF). }
   do 2 eexists. do 2 (split; [done|]). intros σ'.
   eapply copy_head_step'; eauto.
+Qed.
+
+Lemma failed_copy_head_step' P (σ: state) l bor T (WF: state_wf σ) :
+  memory_read σ.(sst) σ.(scs) l bor (tsize T) = None →
+  head_step P (Copy (Place l bor T)) σ (Val $ replicate (tsize T) ScPoison) σ [].
+Proof.
+  intros RM. destruct σ; simpl in *. econstructor; [eapply FailedCopyBS | ]. econstructor; eauto.
 Qed.
 
 Lemma access1_write_is_Some cids stk bor

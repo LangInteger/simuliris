@@ -237,9 +237,10 @@ Section irreducible.
     IrredUnless False P (Copy (Val v)) σ.
   Proof. prove_irred_unless. Qed.
   Global Instance irreducible_copy_place P σ l t T :
-    IrredUnless (∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp)) P (Copy (Place l t T)) σ.
+    IrredUnless ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp)) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
   Proof.
     prove_irred_unless.
+    2: { destruct memory_read; eauto. } 
     destruct (read_mem l (tsize T) σ.(shp)) eqn:Heq1; last finish_decision.
     destruct (memory_read _ _ _ _ _) eqn:Heq2.
     2: { right; intros (v' & [= ->] & (? & [=]) & _). }
