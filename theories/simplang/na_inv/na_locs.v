@@ -701,7 +701,7 @@ End na_locs_wf.
 
 
 Definition na_locs_in_L (cols : list (gmap loc (loc * na_locs_state))) (L : gset (block * block)) : Prop :=
-  ∀ π col l x, cols !! π = Some col → col !! l = Some x → ∃ b1, (b1, loc_chunk l) ∈ L.
+  ∀ π col l x, cols !! π = Some col → col !! l = Some x → ∃ b1, (b1, loc_block l) ∈ L.
 
 Section na_locs_in_L.
   Lemma na_locs_in_L_extend cols L b_t b_s:

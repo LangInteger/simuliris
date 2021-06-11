@@ -38,7 +38,7 @@ Definition to_heap : gmap loc (lock_state * val) → heapUR :=
   fmap (λ v, (1%Qp, to_lock_stateR (v.1), to_agree (v.2))).
 Definition heap_freeable_rel (σ : state) (hF : gmap loc (option nat)) : Prop :=
   ∀ l o, hF !! l = Some o →
-   loc_chunk l ∈ σ.(used_blocks) ∧
+   loc_block l ∈ σ.(used_blocks) ∧
    loc_idx l = 0 ∧
    0 < default 1 o ∧
    ∀ i, is_Some (σ.(heap) !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
@@ -270,7 +270,7 @@ Section heap.
   Proof. rewrite heap_freeable_eq. iIntros "[$ _]". Qed.
 
   Lemma heap_freeable_excl l l' n n' :
-    loc_chunk l = loc_chunk l' →
+    loc_block l = loc_block l' →
     †l…?n -∗ †l'…?n' -∗ False.
   Proof.
     rewrite heap_freeable_eq.
@@ -290,10 +290,10 @@ Section heap.
   Lemma heap_freeable_rel_init_mem l h n σ v:
     n ≠ O →
     loc_idx l = 0 →
-    loc_chunk l ∉ σ.(used_blocks) →
+    loc_block l ∉ σ.(used_blocks) →
     (∀ m : Z, σ.(heap) !! (l +ₗ m) = None) →
     heap_freeable_rel σ h →
-    heap_freeable_rel (State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_chunk l]} ∪ σ.(used_blocks)))
+    heap_freeable_rel (State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_block l]} ∪ σ.(used_blocks)))
                       (<[l := Some n]> h).
   Proof.
     move => ?? Hnotin Hnone Hrel l' o /lookup_insert_Some[[??]|[? Hl]]; simplify_eq/=.
@@ -321,7 +321,7 @@ Section heap.
       split; [|naive_solver].
       move => [[?[?[?[??]]]]|//].
       contradict Hnotin.
-      have ->: loc_chunk l = loc_chunk l' by destruct l, l'; naive_solver.
+      have ->: loc_block l = loc_block l' by destruct l, l'; naive_solver.
       done.
   Qed.
 
@@ -351,7 +351,7 @@ Section heap.
   Lemma heap_freeable_inj n1 l1 l2 n2 σ:
     (0 < n1)%Z →
     (∀ m, is_Some (σ.(heap) !! (l1 +ₗ m)) ↔ (0 ≤ m < n1)%Z) →
-    loc_chunk l1 = loc_chunk l2 →
+    loc_block l1 = loc_block l2 →
     heap_ctx γ σ -∗ †l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
   Proof.
     iIntros (? Hrel1 ?) "(%hF & ? & HhF & %Hrel & %) Hf".
@@ -387,7 +387,7 @@ Section heap.
   Qed.
 
   Lemma heap_freeable_lookup σ l l' x n :
-    σ.(heap) !! l' = Some x → loc_chunk l' = loc_chunk l →
+    σ.(heap) !! l' = Some x → loc_block l' = loc_block l →
     heap_ctx γ σ -∗ †l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
   Proof.
     iIntros (Hlo ?) "(%hF&?&HhF&%Hrel&%) Hf".
@@ -437,10 +437,10 @@ Section heap.
   Lemma heap_alloc σ l n v :
     (0 < n)%Z →
     loc_idx l = 0 →
-    loc_chunk l ∉ σ.(used_blocks) →
+    loc_block l ∉ σ.(used_blocks) →
     (∀ m, σ.(heap) !! (l +ₗ m) = None) →
     heap_ctx γ σ ==∗
-      heap_ctx γ (State (heap_array l (replicate (Z.to_nat n) v) ∪ σ.(heap)) ({[loc_chunk l]} ∪ σ.(used_blocks))) ∗
+      heap_ctx γ (State (heap_array l (replicate (Z.to_nat n) v) ∪ σ.(heap)) ({[loc_block l]} ∪ σ.(used_blocks))) ∗
       heap_freeable γ l 1 (Some (Z.to_nat n)) ∗
       l ↦∗ replicate (Z.to_nat n) v.
   Proof.

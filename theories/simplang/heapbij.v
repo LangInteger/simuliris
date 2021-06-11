@@ -34,7 +34,7 @@ Section definitions.
 End definitions.
 
 Definition loc_rel `{heapbijGS Σ} l_t l_s : iProp Σ :=
-  block_rel (loc_chunk l_t) (loc_chunk l_s) ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
+  block_rel (loc_block l_t) (loc_block l_s) ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
 Notation "l_t '↔h' l_s" := (loc_rel l_t l_s) (at level 30) : bi_scope.
 Local Notation val_rel := (gen_val_rel loc_rel).
 
@@ -412,22 +412,22 @@ Section laws.
     n > 0 →
     length v_s = n →
     length v_t = n →
-    (∀ o, (∀ b_s, (loc_chunk l_t, b_s) ∉ L) →
-          (∀ b_t, (b_t, loc_chunk l_s) ∉ L) → P (l_t +ₗ o) (l_s +ₗ o) (Some 1%Qp)) →
+    (∀ o, (∀ b_s, (loc_block l_t, b_s) ∉ L) →
+          (∀ b_t, (b_t, loc_block l_s) ∉ L) → P (l_t +ₗ o) (l_s +ₗ o) (Some 1%Qp)) →
     heap_bij_interp L P -∗
     l_t ↦t∗ v_t -∗
     l_s ↦s∗ v_s -∗
     ([∗ list] vt;vs∈v_t;v_s, val_rel vt vs) -∗
     †l_t …t n -∗
     †l_s …s n ==∗
-    heap_bij_interp ({[(loc_chunk l_t, loc_chunk l_s)]} ∪ L) P ∗
+    heap_bij_interp ({[(loc_block l_t, loc_block l_s)]} ∪ L) P ∗
     l_t ↔h l_s.
   Proof.
     iIntros (Hn Hl_s Hl_t HP) "Hinv Ht Hs Hrel Ha_t Ha_s".
     iDestruct (heap_freeable_idx with "Ha_t") as %?.
     iDestruct (heap_freeable_idx with "Ha_s") as %?.
     iDestruct "Hinv" as "(Hauth & Hheap)".
-    pose (b_t := loc_chunk l_t). pose (b_s := loc_chunk l_s).
+    pose (b_t := loc_block l_t). pose (b_s := loc_block l_s).
     iAssert ((¬ ⌜set_Exists (λ '(b_t', b_s'), b_t = b_t') L⌝)%I) as "%Hext_t".
     { iIntros (([b_t' b_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as "Hr"; first by apply Hin.

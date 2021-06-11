@@ -181,9 +181,9 @@ Record state : Type := State {
   used_blocks: gset block;
 }.
 Definition state_init (h : gmap loc val) : state :=
-  {| heap := (λ v, (RSt 0, v)) <$> h; used_blocks := set_map loc_chunk (dom (gset loc) h) |}.
+  {| heap := (λ v, (RSt 0, v)) <$> h; used_blocks := set_map loc_block (dom (gset loc) h) |}.
 Definition heap_wf (σ: state) : Prop :=
-  ∀ l v, σ.(heap) !! l = Some v → loc_chunk l ∈ σ.(used_blocks).
+  ∀ l v, σ.(heap) !! l = Some v → loc_block l ∈ σ.(used_blocks).
 Lemma state_init_wf h :
   heap_wf (state_init h).
 Proof.
@@ -746,41 +746,41 @@ Fixpoint free_mem (l : loc) (n : nat) (σ : gmap loc (lock_state * val))
   | S n => delete l (free_mem (l +ₗ 1) n σ)
   end.
 Lemma lookup_free_mem_1 l l' n σ :
-  loc_chunk l ≠ loc_chunk l' → (free_mem l n σ) !! l' = σ !! l'.
+  loc_block l ≠ loc_block l' → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
   intros Hneq. rewrite lookup_delete_ne; last by congruence.
   by apply IH.
 Qed.
 Lemma lookup_free_mem_2 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = None.
+  loc_block l = loc_block l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = None.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first lia.
-  intros Hchunk Hi.
+  intros Hblock Hi.
   destruct (decide (loc_idx l = loc_idx l')) as [Heq | Hneq].
   - rewrite lookup_delete_None; left. destruct l, l'; simpl in *; congruence.
   - rewrite lookup_delete_ne; last congruence. apply IH; first done. destruct l, l'; simpl in *; lia.
 Qed.
 Lemma lookup_free_mem_3 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l' < loc_idx l)%Z → (free_mem l n σ) !! l' = σ !! l'.
+  loc_block l = loc_block l' → (loc_idx l' < loc_idx l)%Z → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hchunk Hi. rewrite lookup_delete_ne.
+  intros Hblock Hi. rewrite lookup_delete_ne.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
 Lemma lookup_free_mem_4 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l' >= loc_idx l + n)%Z → (free_mem l n σ) !! l' = σ !! l'.
+  loc_block l = loc_block l' → (loc_idx l' >= loc_idx l + n)%Z → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hchunk Hi. rewrite lookup_delete_ne.
+  intros Hblock Hi. rewrite lookup_delete_ne.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
 Lemma lookup_free_mem_Some l l' n σ v:
-  free_mem l n σ !! l' = Some v ↔ σ !! l' = Some v ∧ (loc_chunk l ≠ loc_chunk l' ∨ ¬(loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z).
+  free_mem l n σ !! l' = Some v ↔ σ !! l' = Some v ∧ (loc_block l ≠ loc_block l' ∨ ¬(loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z).
 Proof.
-  destruct (decide (loc_chunk l = loc_chunk l')).
+  destruct (decide (loc_block l = loc_block l')).
   2: { rewrite lookup_free_mem_1 //. naive_solver. }
   destruct (decide (loc_idx l' < loc_idx l)%Z).
   { rewrite lookup_free_mem_3 //. naive_solver lia. }
@@ -800,7 +800,7 @@ Qed.
 
 Lemma heap_wf_init_mem l n σ v:
   heap_wf σ →
-  heap_wf $ State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_chunk l]} ∪ σ.(used_blocks)).
+  heap_wf $ State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_block l]} ∪ σ.(used_blocks)).
 Proof.
   move => Hwf l' v' /lookup_union_Some_raw [/heap_array_lookup [?[?[?[?[??]]]]]|[??]].
   - set_solver.
@@ -1025,7 +1025,7 @@ Lemma alloc_fresh P v n σ :
   let l := Loc (fresh_block σ.(heap) σ.(used_blocks)) 0 in
   (0 < n)%Z →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
-            (Val $ LitV $ LitLoc l) (state_upd_used_blocks ({[l.(loc_chunk)]} ∪.) (state_init_heap l n v σ)) [].
+            (Val $ LitV $ LitLoc l) (state_upd_used_blocks ({[l.(loc_block)]} ∪.) (state_init_heap l n v σ)) [].
 Proof.
   intros. apply AllocNS; first done.
   - apply is_fresh_block_blocks.
