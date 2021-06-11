@@ -127,8 +127,8 @@ Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
 
 Global Program Instance sheapGS_simulirisGS `{!sheapGS Σ} `{!sheapInv Σ} : simulirisGS (iPropI Σ) simp_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
-    (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
-     gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
+    (has_prog (hG := gen_prog_inG_target) P_t ∗
+     has_prog (hG := gen_prog_inG_source) P_s ∗
      heap_ctx sheapG_heap_target σ_t.(heap) σ_t.(used_blocks) ∗
      heap_ctx sheapG_heap_source σ_s.(heap) σ_s.(used_blocks) ∗
      sheap_inv P_s σ_s T_s
@@ -176,9 +176,9 @@ Notation "l ↦s∗ vs" := (heap_mapsto_vec sheapG_heap_source l 1 vs)
   (at level 20, format "l  ↦s∗  vs") : bi_scope.
 
 (** Program assertions *)
-Notation "f '@t' Kt" := (hasfun (hG:=gen_prog_inG_target) f Kt)
+Notation "f '@t' Kt" := (has_fun (hG:=gen_prog_inG_target) f Kt)
   (at level 20, format "f  @t  Kt") : bi_scope.
-Notation "f '@s' Ks" := (hasfun (hG:=gen_prog_inG_source) f Ks)
+Notation "f '@s' Ks" := (has_fun (hG:=gen_prog_inG_source) f Ks)
   (at level 20, format "f  @s  Ks") : bi_scope.
 
 (** Allocation size notation *)
@@ -197,16 +197,24 @@ Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
 
 Lemma sheap_init `{!sheapGpreS Σ} P_t P_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
-    (sheap_inv P_s state_empty T_s -∗ state_interp P_t state_empty P_s state_empty T_s) ∗ progs_are P_t P_s.
+    (sheap_inv P_s state_empty T_s -∗ state_interp P_t state_empty P_s state_empty T_s) ∗
+    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
+    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
+    progs_are P_t P_s.
 Proof.
   iMod heap_init as (γheap_tgt) "Hheap_tgt".
   iMod heap_init as (γheap_src) "Hheap_src".
-  iMod (gen_prog_init P_t P_s) as (?) "[[Hprog_tgt #Hisprog_tgt] [Hprog_src #Hisprog_src]]".
-  iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %". iSplitL.
-  - iIntros "?". rewrite /state_interp /=. iFrame.
-  - rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(Hprog_tgt & Hprog_src & _)".
-    (* FIXME: This does not hold with the current [gen_prog]. *)
-Admitted.
+  iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_tgt #Hprog_src]".
+  iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %".
+  iSplitL; last iSplit; last iSplit.
+  - iIntros "?". rewrite /state_interp /=. iFrame "∗#".
+  - by iApply has_prog_all_funs.
+  - by iApply has_prog_all_funs.
+  - rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(#Hprog_tgt2 & #Hprog_src2 & _)".
+    iDestruct (has_prog_agree with "Hprog_tgt Hprog_tgt2") as %->.
+    iDestruct (has_prog_agree with "Hprog_src Hprog_src2") as %->.
+    done.
+Qed.
 
 Section lifting.
 Context `{!sheapGS Σ} `{!sheapInv Σ}.
@@ -219,12 +227,12 @@ Implicit Types f : fname.
 Implicit Types π : thread_id.
 
 (** Program for target *)
-Lemma hasfun_target_agree f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
-Proof. apply hasfun_agree. Qed.
+Lemma has_fun_target_agree f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
+Proof. apply has_fun_agree. Qed.
 
 (** Program for source *)
-Lemma hasfun_source_agree f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
-Proof. apply hasfun_agree. Qed.
+Lemma has_fun_source_agree f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
+Proof. apply has_fun_agree. Qed.
 
 
 (** operational heap lemmas *)
@@ -497,7 +505,7 @@ Lemma target_red_call f K_t v Ψ :
 Proof.
   iIntros "Hf Hred". iApply target_red_lift_head_step.
   iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & ?) !>".
-  iDestruct (gen_prog_valid with "HP_t Hf") as %?.
+  iDestruct (has_prog_has_fun_agree with "HP_t Hf") as %?.
   iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%"; inv_head_step.
   iModIntro. by iFrame.
@@ -510,7 +518,7 @@ Lemma source_red_call π f K_s v Ψ :
 Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.
   iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) [% %]] !>".
-  iDestruct (gen_prog_valid with "HP_s Hf") as %?.
+  iDestruct (has_prog_has_fun_agree with "HP_s Hf") as %?.
   iExists _, _. iSplit. { simpl. eauto with head_step. }
   iModIntro. iFrame.
   iApply sheap_inv_pure_prim_step; [done| |done] => ?.
@@ -593,7 +601,7 @@ Proof.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   iModIntro. iExists (fill K_s v_s'), σ_s.
 
-  iDestruct (gen_prog_valid with "HP_s Hrec") as %?.
+  iDestruct (has_prog_has_fun_agree with "HP_s Hrec") as %?.
   iFrame. iSplitR; [done|].
   iSplitR; [by eauto with head_step|].
   iApply sheap_inv_pure_prim_step; [done| |done] => ?.
@@ -613,7 +621,7 @@ Proof.
   iModIntro. iIntros (?? ?? ?? ??) "He ((HP_t & ? & ? & ? &?) & [% %])". iDestruct "He" as (v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
 
-  iDestruct (gen_prog_valid with "HP_t Hrec") as %?.
+  iDestruct (has_prog_has_fun_agree with "HP_t Hrec") as %?.
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   iModIntro.
@@ -641,8 +649,8 @@ Proof.
   iDestruct "He" as (v_t' v_s') "(-> & -> & Hinv)".
   iSpecialize ("Hstep" with "Hinv").
 
-  iDestruct (gen_prog_valid with "HP_t Hrec_t") as %?.
-  iDestruct (gen_prog_valid with "HP_s Hrec_s") as %?.
+  iDestruct (has_prog_has_fun_agree with "HP_t Hrec_t") as %?.
+  iDestruct (has_prog_has_fun_agree with "HP_s Hrec_s") as %?.
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   iModIntro.

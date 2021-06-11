@@ -24,7 +24,11 @@ Global Instance subG_sbijΣ Σ :
 Proof. solve_inG. Qed.
 
 Lemma prog_rel_adequacy `{!simpleGpreS Σ} (p_t p_s : prog) :
-  isat (∀ `(simpleGS Σ), prog_rel p_t p_s) →
+  isat (∀ `(simpleGS Σ),
+    ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
+    ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
+    prog_rel p_t p_s
+  ) →
   beh_rel p_t p_s.
 Proof.
   intros Hprog. apply simplang_adequacy.
@@ -47,7 +51,7 @@ Theorem log_rel_adequacy `{!simpleGpreS Σ} e_t e_s :
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
   apply prog_rel_adequacy. eapply sat_mono, Hrel. clear Hrel.
-  iIntros "#Hrel" (?) "!# %f %K_s %π".
+  iIntros "#Hrel" (?) "_ _ !# %f %K_s %π".
   iSpecialize ("Hrel" $! _).
   destruct (decide (f = fname)) as [->|Hne].
   - (* FIXME: wtf, why does it need a type annotation here?!? *)
