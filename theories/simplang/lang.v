@@ -176,13 +176,21 @@ Global Arguments vals_compare_safe !_ !_ /.
 (** The state: heaps of [lock_state * val]s. *)
 Inductive lock_state :=
 | WSt | RSt (n : nat).
-Record state : Type := {
+Record state : Type := State {
   heap: gmap loc (lock_state * val);
   used_blocks: gset block;
 }.
-Definition state_empty : state := {| heap := ∅; used_blocks := ∅ |}.
-Definition heap_wf (σ: gmap loc (lock_state * val)) (bs : gset block) : Prop :=
-  ∀ l v, σ !! l = Some v → loc_chunk l ∈ bs.
+Definition state_init (h : gmap loc val) : state :=
+  {| heap := (λ v, (RSt 0, v)) <$> h; used_blocks := set_map loc_chunk (dom (gset loc) h) |}.
+Definition heap_wf (σ: state) : Prop :=
+  ∀ l v, σ.(heap) !! l = Some v → loc_chunk l ∈ σ.(used_blocks).
+Lemma state_init_wf h :
+  heap_wf (state_init h).
+Proof.
+  intros l [st v]. simpl.
+  rewrite lookup_fmap. intros [v' [? [= -> ->]]]%fmap_Some_1.
+  apply elem_of_map_2. apply elem_of_dom. eauto.
+Qed.
 
 (** Equality and other typeclass stuff *)
 Lemma to_of_val v : to_val (of_val v) = Some v.
@@ -790,21 +798,21 @@ Proof.
   rewrite loc_add_assoc IH; [done | lia].
 Qed.
 
-Lemma heap_wf_init_mem l h n bs v:
-  heap_wf h bs →
-  heap_wf (heap_array l (replicate n v) ∪ h) ({[loc_chunk l]} ∪ bs).
+Lemma heap_wf_init_mem l n σ v:
+  heap_wf σ →
+  heap_wf $ State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_chunk l]} ∪ σ.(used_blocks)).
 Proof.
   move => Hwf l' v' /lookup_union_Some_raw [/heap_array_lookup [?[?[?[?[??]]]]]|[??]].
   - set_solver.
   - set_unfold. right. by apply: Hwf.
 Qed.
-Lemma heap_wf_free_mem l h n bs:
-  heap_wf h bs →
-  heap_wf (free_mem l n h) bs.
+Lemma heap_wf_free_mem l n σ:
+  heap_wf σ →
+  heap_wf $ state_upd_heap (free_mem l n) σ.
 Proof. move => Hwf l' v' /lookup_free_mem_Some [??]. by apply: Hwf. Qed.
-Lemma heap_wf_stable σ bs l p :
-  heap_wf σ bs → is_Some (σ !! l) →
-  heap_wf (<[l := p]>σ) bs.
+Lemma heap_wf_insert σ l p :
+  heap_wf σ → is_Some (σ.(heap) !! l) →
+  heap_wf $ state_upd_heap <[l := p]> σ.
 Proof.
   move => Hwf [??] ?? /lookup_insert_Some[[??]|[??]]; simplify_eq; by apply: Hwf.
 Qed.

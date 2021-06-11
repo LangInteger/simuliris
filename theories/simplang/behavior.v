@@ -11,7 +11,7 @@ Section ctx_rel.
   Context (expr_head_wf : expr_head → Prop).
 
   (* TODO: support arbitrary but equal initial heaps. *)
-  Let init_state (σ_t σ_s : state) : Prop := σ_t = state_empty ∧ σ_s = state_empty.
+  Let init_state (σ_t σ_s : state) : Prop := σ_t = state_init ∅ ∧ σ_s = state_init ∅.
 
   Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
     match v_t, v_s with

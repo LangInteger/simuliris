@@ -199,7 +199,7 @@ Definition na_alt_exec (P : prog) (σ : state) (T : list expr) (p : loc) (π : t
                                         Store Na1Ord #p v'
                                           else Load Na1Ord #p) ]> T) σ' /\
     heap_agree σ.(heap) σ'.(heap) excls ∧
-    heap_wf σ'.(heap) σ'.(used_blocks) ∧
+    heap_wf σ' ∧
     σ'.(used_blocks) ⊆ σ.(used_blocks).
 
 Definition na_locs_wf (cols : list (gmap loc (loc * na_locs_state))) (P_s : prog) (σ_s : state) (T_s : list expr) : Prop :=
@@ -212,7 +212,7 @@ Definition na_locs_wf (cols : list (gmap loc (loc * na_locs_state))) (P_s : prog
 Section na_alt_exec.
 
   Lemma na_alt_exec_intro ns (v' : val) σ_s' P_s σ_s T_s π K_s (l_s : loc) ls:
-    heap_wf σ_s'.(heap) σ_s'.(used_blocks) →
+    heap_wf σ_s' →
     used_blocks σ_s' ⊆ used_blocks σ_s →
     (∀ l, l ∉ ls → σ_s.(heap) !! l = σ_s'.(heap) !! l) →
     pool_safe P_s (<[π:=fill K_s (if ns is NaExcl then (#l_s <- v') else (! #l_s))]> T_s) σ_s' →
@@ -224,7 +224,7 @@ Section na_alt_exec.
 
   Lemma na_alt_exec_mono P_s σ_s σ_s' T_s T_s' π (l_s : loc) ns ls ls':
     na_alt_exec P_s σ_s' T_s' l_s π ns ls' →
-    (∀ σ', heap_wf σ'.(heap) σ'.(used_blocks) → used_blocks σ' ⊆ used_blocks σ_s' →
+    (∀ σ', heap_wf σ' → used_blocks σ' ⊆ used_blocks σ_s' →
            heap_agree σ_s'.(heap) σ'.(heap) ls' → heap_agree σ_s.(heap) σ'.(heap) ls) →
     used_blocks σ_s' ⊆ used_blocks σ_s →
     (∀ e, <[π:=e]>T_s = <[π:=e]>T_s' ) →
@@ -357,13 +357,13 @@ Section na_alt_exec.
     na_alt_exec P_s σ_s T_s l_s π' ns ls →
     T_s !! π = Some (fill K_s e) →
     π ≠ π' →
-    (∀ σ, heap_wf (heap σ) (used_blocks σ) →
+    (∀ σ, heap_wf σ →
         used_blocks σ ⊆ used_blocks σ_s →
         (∀ l v1 v2, l∉ls → σ_s.(heap) !! l = Some v1 → σ.(heap) !! l = Some v2 → v1 = v2) →
         reach_or_stuck P_s e σ (λ e σ',
         e = e' ∧
         (∀ l v1 v2, l∉ls → σ_s'.(heap) !! l = Some v1 → σ'.(heap) !! l = Some v2 → v1 = v2) ∧
-        heap_wf (heap σ') (used_blocks σ') ∧
+        heap_wf σ' ∧
         used_blocks σ' ⊆ used_blocks σ_s'
     )) →
     na_alt_exec P_s σ_s' (<[π := fill K_s e']>T_s) l_s π' ns ls.
@@ -474,7 +474,7 @@ Section na_locs_wf.
 
   Lemma na_locs_wf_insert_store cols P_s σ_s T_s π K_s (l_s : loc) l_t (v' : val) col:
     na_locs_wf cols P_s σ_s T_s →
-    heap_wf σ_s.(heap) σ_s.(used_blocks) →
+    heap_wf σ_s →
     cols !! π = Some col →
     pool_safe P_s (<[π:=fill K_s (#l_s <- v')]> T_s) σ_s →
     na_locs_wf (<[π:=<[l_s := (l_t, NaExcl)]>col]>cols) P_s σ_s T_s.
@@ -498,7 +498,7 @@ Section na_locs_wf.
 
   Lemma na_locs_wf_insert_load cols P_s σ_s T_s π K_s (l_s : loc) l_t col q:
     na_locs_wf cols P_s σ_s T_s →
-    heap_wf σ_s.(heap) σ_s.(used_blocks) →
+    heap_wf σ_s →
     cols !! π = Some col →
     pool_safe P_s (<[π:=fill K_s (! #l_s)]> T_s) σ_s →
     na_locs_wf (<[π:=<[l_s := (l_t, NaRead q)]>col]>cols) P_s σ_s T_s.
@@ -553,7 +553,7 @@ Section na_locs_wf.
     heap σ_s !! l_s = Some (RSt 0, v) →
     T_s !! π = Some (fill K_s (Store o #l_s v')) →
     pool_safe P_s T_s σ_s →
-    heap_wf (heap σ_s) (used_blocks σ_s) →
+    heap_wf σ_s →
     length cols = length T_s →
     na_locs_wf cols P_s (state_upd_heap <[l_s:=(RSt 0, v')]> σ_s) (<[π:=fill K_s #()]> T_s).
   Proof.
@@ -585,7 +585,7 @@ Section na_locs_wf.
         move => ????.
         apply: reach_or_stuck_irred; [done|]. move => [?[?[[<-]?]]]; simplify_eq.
         apply: reach_or_stuck_store; [done|].
-        apply: reach_or_stuck_refl. split_and!; [done| | by apply: heap_wf_stable; eauto |done].
+        apply: reach_or_stuck_refl. split_and!; [done| | by apply: heap_wf_insert; eauto |done].
         move => l' ?? /= ???. destruct (decide (l' = l_s)); simplify_map_eq => //. naive_solver.
   Qed.
 

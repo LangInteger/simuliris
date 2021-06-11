@@ -7,7 +7,7 @@ From simuliris.simplang Require Import parallel_subst gen_val_rel.
 Section adequacy.
   Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s :
     isat (∀ `(sheapGS Σ), |==> ∃ `(sheapInv Σ) loc_rel,
-      sheap_inv p_s state_empty [Call f#"main" #()] ∗
+      sheap_inv p_s (state_init ∅) [Call f#"main" #()] ∗
       ext_rel 0 #() #() ∗
       (∀ v_t v_s, ext_rel 0 v_t v_s -∗ gen_val_rel loc_rel v_t v_s) ∗
       (([∗ map] f ↦ K ∈ p_t, f @t K) -∗ ([∗ map] f ↦ K ∈ p_s, f @s K) -∗ prog_rel p_t p_s)
@@ -17,7 +17,7 @@ Section adequacy.
     intros Hrel. eapply (slsls_adequacy (sat:=isat)).
     eapply sat_mono, Hrel. clear Hrel.
     iIntros "Hprog_rel %σ_t %σ_s".
-    iMod (sheap_init p_t p_s) as (HsheapGS) "Hinit".
+    iMod (sheap_init p_t _ p_s _) as (HsheapGS) "Hinit".
     iMod ("Hprog_rel" $! HsheapGS) as (HsheapInv loc_rel) "(Hinv & Hunit & Hobs & Hprog_rel)".
     iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & Hp_s & Hprogs_are)".
     iModIntro. iExists sheapGS_simulirisGS.

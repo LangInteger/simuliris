@@ -125,8 +125,8 @@ Section definitions.
     heap σ_s !! Loc b_s o = Some (st, v) →
     (∀ q, P (Loc b_t o) (Loc b_s o) q → ∃ q', q = Some q' ∧ if b then q' = 1%Qp else True) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
-    heap_ctx sheapG_heap_target (heap σ_t) (used_blocks σ_t) -∗
+    heap_ctx sheapG_heap_source σ_s -∗
+    heap_ctx sheapG_heap_target σ_t -∗
     ∃ st' v', ⌜heap σ_t !! Loc b_t o = Some (st', v')⌝ ∗ ⌜if b then st' = st else if st is RSt _ then ∃ n', st' = RSt n' else st' = WSt⌝ ∗ val_rel v' v.
   Proof.
     iIntros (? HP).
@@ -155,12 +155,12 @@ Section definitions.
     heap σ_s !! Loc b_s o = Some (st, v) →
     (∀ q, P (Loc b_t o) (Loc b_s o) q → q = Some 1%Qp) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
-    heap_ctx sheapG_heap_target (heap σ_t) (used_blocks σ_t) -∗
+    heap_ctx sheapG_heap_source σ_s -∗
+    heap_ctx sheapG_heap_target σ_t -∗
     val_rel v_t' v_s' ==∗
     alloc_rel b_t b_s P ∗
-    heap_ctx sheapG_heap_source (<[Loc b_s o := (st', v_s')]> (heap σ_s)) (used_blocks σ_s) ∗
-    heap_ctx sheapG_heap_target (<[Loc b_t o := (st', v_t')]> (heap σ_t)) (used_blocks σ_t).
+    heap_ctx sheapG_heap_source (state_upd_heap <[Loc b_s o := (st', v_s')]> σ_s) ∗
+    heap_ctx sheapG_heap_target (state_upd_heap <[Loc b_t o := (st', v_t')]> σ_t).
   Proof.
     iIntros (? HP).
     iDestruct 1 as (n vs_t vs_s Hlen) "(Hl_s & Halloc_t & Halloc_s)".
@@ -193,13 +193,13 @@ Section definitions.
     (∀ m : Z, is_Some (heap σ_s !! (Loc b_s o +ₗ m)) ↔ (0 ≤ m < n)%Z) →
     (∀ q k, (0 ≤ k < n)%Z → P (Loc b_t o +ₗ k) (Loc b_s o +ₗ k) q → q = Some 1%Qp) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
-    heap_ctx sheapG_heap_target (heap σ_t) (used_blocks σ_t)
+    heap_ctx sheapG_heap_source σ_s -∗
+    heap_ctx sheapG_heap_target σ_t
     ==∗
     ⌜∀ m, is_Some (heap σ_t !! (Loc b_t o +ₗ m)) ↔ (0 ≤ m < n)%Z⌝ ∗
     alloc_rel b_t b_s P ∗
-    heap_ctx sheapG_heap_source (free_mem (Loc b_s o) (Z.to_nat n) (heap σ_s)) (used_blocks σ_s) ∗
-    heap_ctx sheapG_heap_target (free_mem (Loc b_t o) (Z.to_nat n) (heap σ_t)) (used_blocks σ_t).
+    heap_ctx sheapG_heap_source (state_upd_heap (free_mem (Loc b_s o) (Z.to_nat n)) σ_s) ∗
+    heap_ctx sheapG_heap_target (state_upd_heap (free_mem (Loc b_t o) (Z.to_nat n)) σ_t).
   Proof.
     iIntros (?? HP).
     iDestruct 1 as (n' vs_t vs_s Hlen) "(Hvs & Ha_t & Ha_s)".
@@ -228,7 +228,7 @@ Section definitions.
   Lemma alloc_rel_P_holds (P : _ → _ → _ → Prop) b_t b_s σ_s o s:
     heap σ_s !! Loc b_s o = Some s →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s) -∗
+    heap_ctx sheapG_heap_source σ_s -∗
     ⌜∃ q, P (Loc b_t o) (Loc b_s o) q⌝%Qp.
   Proof.
     iIntros (?).
@@ -252,14 +252,14 @@ Section definitions.
     (if q2 is Some q2' then q1 = qd + q2' else q1 = qd)%Qp →
     (q2 = None → st = 0) →
     alloc_rel b_t b_s P -∗
-    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s)
+    heap_ctx sheapG_heap_source σ_s
     ==∗
     ∃ v_t,
       (Loc b_t o)↦t{#qd}v_t ∗
       (Loc b_s o)↦s{#qd}v_s ∗
       val_rel v_t v_s ∗
       alloc_rel b_t b_s P' ∗
-      heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s).
+      heap_ctx sheapG_heap_source σ_s.
   Proof.
     iIntros (? Hq1 Hq2 Hsame Hdiff Hst0).
     iDestruct 1 as (n vs_t vs_s Hlen) "(Hvs & Halloc_t & Halloc_s)".
@@ -321,10 +321,10 @@ Section definitions.
     (Loc b_t o)↦t{#q}v_t -∗
     (Loc b_s o)↦s{#q}v_s -∗
     val_rel v_t v_s -∗
-    heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s)
+    heap_ctx sheapG_heap_source σ_s
     ==∗
       alloc_rel b_t b_s P' ∗
-      heap_ctx sheapG_heap_source (heap σ_s) (used_blocks σ_s).
+      heap_ctx sheapG_heap_source σ_s.
   Proof.
     iIntros (Hq Hsame).
     iDestruct 1 as (n vs_t vs_s Hlen) "(Hvs & Halloc_t & Halloc_s)".

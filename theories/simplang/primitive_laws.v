@@ -4,7 +4,7 @@ From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_prog.
 From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
-From simuliris.simplang Require Export class_instances tactics notation ghost_state.
+From simuliris.simplang Require Export class_instances tactics notation logical_heap.
 From iris.prelude Require Import options.
 
 (** * State interpretation for SimpLang
@@ -60,7 +60,7 @@ Class sheapInvSupportsLoad `{!sheapInv Σ} (o : order) := {
     heap σ_s !! l_s = Some (RSt n, v) →
     o ≠ Na2Ord →
     pool_safe P_s T_s σ_s →
-    heap_wf (heap σ_s) (used_blocks σ_s) →
+    heap_wf σ_s →
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s σ_s (<[π := fill K_s v]>T_s);
 }.
@@ -69,7 +69,7 @@ Class sheapInvSupportsStore `{!sheapInv Σ} (o : order) := {
     heap σ_s !! l_s = Some (RSt 0, v) →
     T_s !! π = Some (fill K_s (Store o #l_s v')) →
     pool_safe P_s T_s σ_s →
-    heap_wf (heap σ_s) (used_blocks σ_s) →
+    heap_wf σ_s →
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s (state_upd_heap <[l_s:=(RSt 0, v')]> σ_s) (<[π := fill K_s #()]>T_s);
 }.
@@ -78,7 +78,7 @@ Class sheapInvSupportsAlloc `{!sheapInv Σ} := {
     (0 < n)%Z →
     T_s !! π = Some (fill K_s (AllocN #n v)) →
     pool_safe P_s T_s σ_s →
-    heap_wf (heap σ_s) (used_blocks σ_s) →
+    heap_wf σ_s →
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s
          {| heap :=
@@ -92,7 +92,7 @@ Class sheapInvSupportsFree `{!sheapInv Σ} := {
     (0 < n)%Z →
     T_s !! π = Some (fill K_s (FreeN #n #l)) →
     pool_safe P_s T_s σ_s →
-    heap_wf (heap σ_s) (used_blocks σ_s) →
+    heap_wf σ_s →
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s (state_upd_heap (free_mem l (Z.to_nat n)) σ_s) (<[π:=fill K_s #()]> T_s);
 }.
@@ -100,7 +100,7 @@ Class sheapInvSupportsFork `{!sheapInv Σ} := {
   sheap_inv_fork P_s σ_s T_s K_s π e_s:
     T_s !! π = Some (fill K_s (Fork e_s)) →
     pool_safe P_s T_s σ_s →
-    heap_wf (heap σ_s) (used_blocks σ_s) →
+    heap_wf σ_s →
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s σ_s (<[π:=fill K_s #()]> T_s ++ [e_s])
 }.
@@ -129,8 +129,8 @@ Global Program Instance sheapGS_simulirisGS `{!sheapGS Σ} `{!sheapInv Σ} : sim
   state_interp P_t σ_t P_s σ_s T_s :=
     (has_prog (hG := gen_prog_inG_target) P_t ∗
      has_prog (hG := gen_prog_inG_source) P_s ∗
-     heap_ctx sheapG_heap_target σ_t.(heap) σ_t.(used_blocks) ∗
-     heap_ctx sheapG_heap_source σ_s.(heap) σ_s.(used_blocks) ∗
+     heap_ctx sheapG_heap_target σ_t ∗
+     heap_ctx sheapG_heap_source σ_s ∗
      sheap_inv P_s σ_s T_s
     )%I;
   ext_rel := sheap_ext_rel;
@@ -195,15 +195,16 @@ Notation "† l '…s' n" := (heap_freeable sheapG_heap_source l 1 (Some n))
 Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
   (at level 20, format "† l …s  -") : bi_scope.
 
-Lemma sheap_init `{!sheapGpreS Σ} P_t P_s T_s :
+Lemma sheap_init `{!sheapGpreS Σ} P_t h_t P_s h_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
-    (sheap_inv P_s state_empty T_s -∗ state_interp P_t state_empty P_s state_empty T_s) ∗
+    (sheap_inv P_s (state_init h_s) T_s -∗
+      state_interp P_t (state_init h_t) P_s (state_init h_s) T_s) ∗
     ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
     ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
     progs_are P_t P_s.
 Proof.
-  iMod heap_init as (γheap_tgt) "Hheap_tgt".
-  iMod heap_init as (γheap_src) "Hheap_src".
+  iMod (heap_init h_t) as (γheap_tgt) "Hheap_tgt".
+  iMod (heap_init h_s) as (γheap_src) "Hheap_src".
   iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_tgt #Hprog_src]".
   iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %".
   iSplitL; last iSplit; last iSplit.
