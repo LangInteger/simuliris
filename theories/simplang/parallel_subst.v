@@ -1,5 +1,5 @@
 From stdpp Require Export gmap.
-From simuliris.simplang Require Import lang.
+From simuliris.simplang Require Import lang notation.
 
 (** * Parallel substitution for SimpLang *)
 (** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
@@ -118,6 +118,10 @@ Fixpoint free_vars (e : expr) : gset string :=
      free_vars e0 ∪ free_vars e1 ∪ free_vars e2
   end.
 
+(* Just fill with any value, it does not make a difference. *)
+Definition free_vars_ectx (K : ectx) : gset string :=
+  free_vars (fill K #()).
+
 Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string val) :
   (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
   binder_delete y xs1 !! x = binder_delete y xs2 !! x.
@@ -170,4 +174,13 @@ Lemma free_vars_subst x v e :
   free_vars (subst x v e) = free_vars e ∖ {[x]}.
 Proof.
   induction e=>/=; repeat case_decide; set_solver.
+Qed.
+
+Lemma free_vars_fill K e :
+  free_vars (fill K e) = free_vars_ectx K ∪ free_vars e.
+Proof.
+  revert e. induction K as [|Ki K] using rev_ind; intros e; simpl.
+  { simpl. rewrite /free_vars_ectx /= left_id_L. done. }
+  rewrite /free_vars_ectx !fill_app /=. destruct Ki; simpl.
+  all: rewrite !IHK; set_solver+.
 Qed.

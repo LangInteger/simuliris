@@ -4,13 +4,14 @@ From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_log_rel.
+From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel.
 
 From iris.prelude Require Import options.
 
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap. *)
 Class simpleGS (Σ : gFunctors) := SimpleGS {
-  simpleGS_bijG :> heapbijG Σ;
+  simpleGS_heapGS :> sheapGS Σ;
+  simpleGS_bijGS :> heapbijGS Σ;
 }.
 
 Notation val_rel := (gen_val_rel heapbij.loc_rel).

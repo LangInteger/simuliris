@@ -17,11 +17,19 @@ the basic laws of the program logic, assuming that [sheapInv] allows
 them. *)
 
 Class sheapGS (Σ: gFunctors) := SHeapGS {
-  sheapG_gen_heapG :> heapGS Σ;
   sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
-  sheapG_allocN_source : heap_names;
-  sheapG_allocN_target : heap_names;
+  sheapG_heapG :> heapG Σ;
+  sheapG_heap_target : heap_names;
+  sheapG_heap_source : heap_names;
 }.
+Class sheapGpreS (Σ: gFunctors) := SHeapGpreS {
+  sbij_pre_heapG :> heapG Σ;
+  sbij_pre_progG :> gen_progGpreS Σ string ectx;
+}.
+Definition sheapΣ := #[heapΣ; gen_progΣ string ectx].
+Global Instance subG_sheapΣ Σ :
+  subG sheapΣ Σ → sheapGpreS Σ.
+Proof. solve_inG. Qed.
 
 (** [sheapInv] allows extending the state interpretation with
    additional components, i.e., invariants on the relation of source
@@ -117,12 +125,12 @@ Global Instance sheap_inv_state_independent_supports_fork `{!sheapInv Σ} `{!she
 Proof. constructor => *. apply: sheap_inv_state_independent. Qed.
 
 
-Global Program Instance sheapG_simulirisG `{!sheapGS Σ} `{!sheapInv Σ} : simulirisG (iPropI Σ) simp_lang := {
+Global Program Instance sheapGS_simulirisGS `{!sheapGS Σ} `{!sheapInv Σ} : simulirisGS (iPropI Σ) simp_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
     (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
      gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
-     heap_ctx sheapG_allocN_target σ_t.(heap) σ_t.(used_blocks) ∗
-     heap_ctx sheapG_allocN_source σ_s.(heap) σ_s.(used_blocks) ∗
+     heap_ctx sheapG_heap_target σ_t.(heap) σ_t.(used_blocks) ∗
+     heap_ctx sheapG_heap_source σ_s.(heap) σ_s.(used_blocks) ∗
      sheap_inv P_s σ_s T_s
     )%I;
   ext_rel := sheap_ext_rel;
@@ -133,38 +141,38 @@ Next Obligation.
 Qed.
 
 (* TODO: add dfrac notions back if the heap supports them*)
-Notation "l '↦t[' st ']{#' q } v" := (heap_mapsto sheapG_allocN_target l st q v%V)
+Notation "l '↦t[' st ']{#' q } v" := (heap_mapsto sheapG_heap_target l st q v%V)
   (at level 20, format "l  ↦t[ st ]{# q }  v") : bi_scope.
-Notation "l '↦t[' st ] v" := (heap_mapsto sheapG_allocN_target l st 1 v%V)
+Notation "l '↦t[' st ] v" := (heap_mapsto sheapG_heap_target l st 1 v%V)
   (at level 20, format "l  ↦t[ st ]  v") : bi_scope.
-Notation "l '↦t{#' q } v" := (heap_mapsto sheapG_allocN_target l (RSt 0) q v%V)
+Notation "l '↦t{#' q } v" := (heap_mapsto sheapG_heap_target l (RSt 0) q v%V)
   (at level 20, format "l  ↦t{# q }  v") : bi_scope.
-Notation "l '↦t' v" := (heap_mapsto sheapG_allocN_target l (RSt 0) 1 v%V)
+Notation "l '↦t' v" := (heap_mapsto sheapG_heap_target l (RSt 0) 1 v%V)
   (at level 20, format "l  ↦t  v") : bi_scope.
-Notation "l '↦s[' st ']{#' q } v" := (heap_mapsto sheapG_allocN_source l st q v%V)
+Notation "l '↦s[' st ']{#' q } v" := (heap_mapsto sheapG_heap_source l st q v%V)
   (at level 20, format "l  ↦s[ st ]{# q }  v") : bi_scope.
-Notation "l '↦s[' st ] v" := (heap_mapsto sheapG_allocN_source l st 1 v%V)
+Notation "l '↦s[' st ] v" := (heap_mapsto sheapG_heap_source l st 1 v%V)
   (at level 20, format "l  ↦s[ st ]  v") : bi_scope.
-Notation "l '↦s{#' q } v" := (heap_mapsto sheapG_allocN_source l (RSt 0) q v%V)
+Notation "l '↦s{#' q } v" := (heap_mapsto sheapG_heap_source l (RSt 0) q v%V)
   (at level 20, format "l  ↦s{# q }  v") : bi_scope.
-Notation "l '↦s' v" := (heap_mapsto sheapG_allocN_source l (RSt 0) 1 v%V)
+Notation "l '↦s' v" := (heap_mapsto sheapG_heap_source l (RSt 0) 1 v%V)
   (at level 20, format "l  ↦s  v") : bi_scope.
 
-Notation "l ↦t∗[ st ]{# q } vs" := (heap_mapsto_vec_st sheapG_allocN_target l st q vs)
+Notation "l ↦t∗[ st ]{# q } vs" := (heap_mapsto_vec_st sheapG_heap_target l st q vs)
   (at level 20, format "l  ↦t∗[ st ]{# q }  vs") : bi_scope.
-Notation "l ↦t∗[ st ] vs" := (heap_mapsto_vec_st sheapG_allocN_target l st 1 vs)
+Notation "l ↦t∗[ st ] vs" := (heap_mapsto_vec_st sheapG_heap_target l st 1 vs)
   (at level 20, format "l  ↦t∗[ st ]  vs") : bi_scope.
-Notation "l ↦t∗{# q } vs" := (heap_mapsto_vec sheapG_allocN_target l q vs)
+Notation "l ↦t∗{# q } vs" := (heap_mapsto_vec sheapG_heap_target l q vs)
   (at level 20, format "l  ↦t∗{# q }  vs") : bi_scope.
-Notation "l ↦t∗ vs" := (heap_mapsto_vec sheapG_allocN_target l 1 vs)
+Notation "l ↦t∗ vs" := (heap_mapsto_vec sheapG_heap_target l 1 vs)
   (at level 20, format "l  ↦t∗  vs") : bi_scope.
-Notation "l ↦s∗[ st ]{# q } vs" := (heap_mapsto_vec_st sheapG_allocN_source l st q vs)
+Notation "l ↦s∗[ st ]{# q } vs" := (heap_mapsto_vec_st sheapG_heap_source l st q vs)
   (at level 20, format "l  ↦s∗[ st ]{# q }  vs") : bi_scope.
-Notation "l ↦s∗[ st ] vs" := (heap_mapsto_vec_st sheapG_allocN_source l st 1 vs)
+Notation "l ↦s∗[ st ] vs" := (heap_mapsto_vec_st sheapG_heap_source l st 1 vs)
   (at level 20, format "l  ↦s∗[ st ]  vs") : bi_scope.
-Notation "l ↦s∗{# q } vs" := (heap_mapsto_vec sheapG_allocN_source l q vs)
+Notation "l ↦s∗{# q } vs" := (heap_mapsto_vec sheapG_heap_source l q vs)
   (at level 20, format "l  ↦s∗{# q }  vs") : bi_scope.
-Notation "l ↦s∗ vs" := (heap_mapsto_vec sheapG_allocN_source l 1 vs)
+Notation "l ↦s∗ vs" := (heap_mapsto_vec sheapG_heap_source l 1 vs)
   (at level 20, format "l  ↦s∗  vs") : bi_scope.
 
 (** Program assertions *)
@@ -174,19 +182,31 @@ Notation "f '@s' Ks" := (hasfun (hG:=gen_prog_inG_source) f Ks)
   (at level 20, format "f  @s  Ks") : bi_scope.
 
 (** Allocation size notation *)
-Notation "† l '…?t' n" := (heap_freeable sheapG_allocN_target l 1 n)
+Notation "† l '…?t' n" := (heap_freeable sheapG_heap_target l 1 n)
   (at level 20, format "† l …?t  n") : bi_scope.
-Notation "† l '…t' n" := (heap_freeable sheapG_allocN_target l 1 (Some n))
+Notation "† l '…t' n" := (heap_freeable sheapG_heap_target l 1 (Some n))
   (at level 20, format "† l …t  n") : bi_scope.
-Notation "† l '…t' -" := (heap_freeable sheapG_allocN_target l 1 None)
+Notation "† l '…t' -" := (heap_freeable sheapG_heap_target l 1 None)
   (at level 20, format "† l …t  -") : bi_scope.
-Notation "† l '…?s' n" := (heap_freeable sheapG_allocN_source l 1 n)
+Notation "† l '…?s' n" := (heap_freeable sheapG_heap_source l 1 n)
   (at level 20, format "† l …?s  n") : bi_scope.
-Notation "† l '…s' n" := (heap_freeable sheapG_allocN_source l 1 (Some n))
+Notation "† l '…s' n" := (heap_freeable sheapG_heap_source l 1 (Some n))
   (at level 20, format "† l …s  n") : bi_scope.
-Notation "† l '…s' -" := (heap_freeable sheapG_allocN_source l 1 None)
+Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
   (at level 20, format "† l …s  -") : bi_scope.
 
+Lemma sheap_init `{!sheapGpreS Σ} P_t P_s T_s :
+  ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
+    (sheap_inv P_s state_empty T_s -∗ state_interp P_t state_empty P_s state_empty T_s) ∗ progs_are P_t P_s.
+Proof.
+  iMod heap_init as (γheap_tgt) "Hheap_tgt".
+  iMod heap_init as (γheap_src) "Hheap_src".
+  iMod (gen_prog_init P_t P_s) as (?) "[[Hprog_tgt #Hisprog_tgt] [Hprog_src #Hisprog_src]]".
+  iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %". iSplitL.
+  - iIntros "?". rewrite /state_interp /=. iFrame.
+  - rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(Hprog_tgt & Hprog_src & _)".
+    (* FIXME: This does not hold with the current [gen_prog]. *)
+Admitted.
 
 Section lifting.
 Context `{!sheapGS Σ} `{!sheapInv Σ}.

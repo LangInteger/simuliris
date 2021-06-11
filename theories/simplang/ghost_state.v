@@ -17,10 +17,15 @@ Definition lock_stateR : cmra :=
 Definition heapUR : ucmra :=
   gmapUR loc (prodR (prodR fracR lock_stateR) (agreeR valO)).
 
-Class heapGS Σ := HeapGS {
+Class heapG Σ := HeapG {
   heap_inG :> inG Σ (authR heapUR);
   heap_freeable_inG :> ghost_mapG Σ loc (option nat);
 }.
+Definition heapΣ := #[GFunctor (authR heapUR); ghost_mapΣ loc (option nat)].
+
+Global Instance subG_heapΣ Σ :
+  subG heapΣ Σ → heapG Σ.
+Proof. solve_inG. Qed.
 
 Record heap_names := {
  heap_name : gname;
@@ -39,7 +44,7 @@ Definition heap_freeable_rel (σ : gmap loc (lock_state * val)) (bs : gset block
    ∀ i, is_Some (σ !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
 
 Section definitions.
-  Context `{!heapGS Σ} (γ : heap_names).
+  Context `{!heapG Σ} (γ : heap_names).
 
   Definition heap_mapsto_def (l : loc) (st : lock_state) (q : frac) (v: val) : iProp Σ :=
     own γ.(heap_name) (◯ {[ l := (q, to_lock_stateR st, to_agree v) ]}).
@@ -104,7 +109,7 @@ Section to_heap.
 End to_heap.
 
 Section heap.
-  Context `{!heapGS Σ} (γ : heap_names).
+  Context `{!heapG Σ} (γ : heap_names).
   Implicit Types P Q : iProp Σ.
   Implicit Types σ : gmap loc (lock_state * val).
   Implicit Types E : coPset.
@@ -675,5 +680,18 @@ Section heap.
     iMod (heap_write_na_2 with "Hσ Hmt") as (?) "[Hσ Hmt]".
     iModIntro. iFrame. done.
   Qed.
-
+    
 End heap.
+
+Lemma heap_init `{heapG Σ} :
+  ⊢ |==> ∃ γ : heap_names, heap_ctx γ ∅ ∅.
+Proof.
+  iMod (ghost_map_alloc (∅ : gmap loc (option nat))) as (γmap) "[Hmap _]".
+  iMod (own_alloc (● (to_heap ∅))) as (γheap) "Hheap".
+  { apply auth_auth_valid. done. }
+  iExists {| heap_name := γheap; heap_freeable_name := γmap |}.
+  iModIntro. rewrite /heap_ctx /=. iExists ∅. iFrame. iPureIntro.
+  split.
+  - intros l o. rewrite lookup_empty. done.
+  - intros l ?. rewrite lookup_empty. done.
+Qed.

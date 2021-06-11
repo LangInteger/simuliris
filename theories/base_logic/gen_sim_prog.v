@@ -7,12 +7,18 @@ From iris.prelude Require Import options.
   It provides a persistent token f @ K asserting that there is a function f with body K.
 *)
 
-Class gen_progGpreS (F C : Type) (Σ : gFunctors) `{Countable F} := {
+Class gen_progGpreS (Σ : gFunctors) (F C : Type) `{Countable F} := {
   gen_prog_preG_inG :> ghost_mapG Σ F C;
 }.
+Definition gen_progΣ (F C : Type) `{Countable F} := #[ghost_mapΣ F C].
 
+Global Instance subG_gen_progΣ Σ (F C : Type) `{Countable F} :
+  subG (gen_progΣ F C) Σ → gen_progGpreS Σ F C.
+Proof. solve_inG. Qed.
+
+(* TODO: [Σ] should be the first parameter. *)
 Class gen_progGS_named (F C : Type) (Σ : gFunctors) (gen_prog_name : gname) `{Countable F} := GenProgGSNamed {
-  gen_prog_preNameG :> gen_progGpreS F C Σ
+  gen_prog_preNameG :> gen_progGpreS Σ F C
 }.
 
 Class gen_sim_progGS (F C_t C_s : Type) (Σ : gFunctors) `{Countable F} := GenSimProgG {
@@ -89,7 +95,7 @@ Section gen_prog.
   Qed.
 End gen_prog.
 
-Lemma gen_prog_init_names `{Countable F, !gen_progGpreS F C Σ} p :
+Lemma gen_prog_init_names `{Countable F, !gen_progGpreS Σ F C} p :
   ⊢ |==> ∃ γp : gname,
     let hG := GenProgGSNamed F C Σ γp in
     gen_prog_interp p ∗ ([∗ map] f ↦ K ∈ p, f @ K).
@@ -103,7 +109,7 @@ Proof.
   rewrite right_id_L. done.
 Qed.
 
-Lemma gen_prog_init `{Countable F, !gen_progGpreS F C_t Σ, !gen_progGpreS F C_s Σ} P_t P_s :
+Lemma gen_prog_init `{Countable F, !gen_progGpreS Σ F C_t, !gen_progGpreS Σ F C_s} P_t P_s :
   ⊢ |==> ∃ _ : gen_sim_progGS F C_t C_s Σ,
     (gen_prog_interp (hG:=gen_prog_inG_target) P_t ∗
     ([∗ map] f ↦ K ∈ P_t, hasfun (hG:=gen_prog_inG_target) f K)) ∗

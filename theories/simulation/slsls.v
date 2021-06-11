@@ -72,7 +72,7 @@ Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dis
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
-  Context {s : simulirisG PROP Λ}.
+  Context {s : simulirisGS PROP Λ}.
 
   Set Default Proof Using "Type*".
 
@@ -889,6 +889,23 @@ Section fix_lang.
     - iLeft. rewrite list_insert_id //. by iFrame.
     - iRight; iExists e_s'', e_s', σ_s'', σ_s', []. rewrite app_nil_r. iModIntro; simpl; iFrame.
       by iPureIntro.
+  Qed.
+
+  (** Simulations on evaluation contexts *)
+  Lemma sim_ectx_mono Φ Φ' π :
+    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
+    ∀ E_s E_t, sim_ectx π E_t E_s Φ -∗ sim_ectx π E_t E_s Φ'.
+  Proof.
+    iIntros "Hmon" (E_s E_t) "HE %v_t %v_s Hv".
+    iApply (sim_mono with "Hmon"). iApply "HE". done.
+  Qed.
+
+  Lemma sim_expr_ectx_mono Φ Φ' π :
+    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
+    ∀ E_s E_t, sim_expr_ectx π E_t E_s Φ -∗ sim_expr_ectx π E_t E_s Φ'.
+  Proof.
+    iIntros "Hmon" (E_s E_t) "HE %v_t %v_s Hv".
+    iApply (sim_expr_mono with "Hmon"). iApply "HE". done.
   Qed.
 
   (** ** source_red judgment *)

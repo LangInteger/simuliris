@@ -115,6 +115,13 @@ Proof.
   - intros X Φ [x [Hv [a HΦ]]]; eauto.
 Qed.
 
+Lemma isat_intro {M} (P : uPred M) : (⊢ P) → isat P.
+Proof.
+  intros HP. exists ε. split; first by apply ucmra_unit_validN.
+  apply HP; first by apply ucmra_unit_validN.
+  uPred.unseal. done.
+Qed.
+
 Lemma isat_later_false {M}: isat ((▷ False)%I: uPred M) → False.
 Proof.
   unfold isat; uPred.unseal; intros [x [_ HF]].

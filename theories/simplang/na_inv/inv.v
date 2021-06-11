@@ -5,7 +5,7 @@ From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_log_rel.
+From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel.
 From simuliris.simplang.na_inv Require Export na_locs.
 
 From iris.prelude Require Import options.
@@ -13,7 +13,8 @@ From iris.prelude Require Import options.
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap and includes reasoning about data-races. *)
 
 Class naGS (Σ : gFunctors) := NaGS {
-  naGS_bijG :> heapbijG Σ;
+  naGS_heapGS :> sheapGS Σ;
+  naGS_bijGS :> heapbijGS Σ;
   naGS_col_mapG :> ghost_mapG Σ nat (gmap loc (loc * na_locs_state));
   naGS_col_name : gname;
 }.
