@@ -18,11 +18,8 @@ Notation Free e := (FreeN (Val $ LitV $ LitInt 1) e) (only parsing).
 (** Compare-and-set (CAS) returns just a boolean indicating success or failure. *)
 Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing).
 
-(* No scope for the values, does not conflict and scope is often not inferred
-properly. *)
 Notation "# l" := (LitV l%Z%V%stdpp) (at level 8, format "# l").
-(* to avoid collisions with binders *)
-Notation "## l" := (LitV (LitFn l%stdpp)) (at level 8, format "## l").
+Notation "f# l" := (LitV (LitFn l%stdpp)) (at level 8, format "f# l").
 
 (** Syntax inspired by Coq/Ocaml. Constructions with higher precedence come
     first. *)

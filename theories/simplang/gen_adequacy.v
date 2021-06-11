@@ -7,7 +7,7 @@ From simuliris.simplang Require Import parallel_subst gen_val_rel.
 Section adequacy.
   Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s :
     isat (∀ `(sheapGS Σ), |==> ∃ `(sheapInv Σ) loc_rel,
-      sheap_inv p_s state_empty [Call ##"main" #()] ∗
+      sheap_inv p_s state_empty [Call f#"main" #()] ∗
       ext_rel 0 #() #() ∗
       (∀ v_t v_s, ext_rel 0 v_t v_s -∗ gen_val_rel loc_rel v_t v_s) ∗
       (([∗ map] f ↦ K ∈ p_t, f @t K) -∗ ([∗ map] f ↦ K ∈ p_s, f @s K) -∗ prog_rel p_t p_s)

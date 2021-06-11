@@ -77,14 +77,14 @@ Proof.
     by sim_pures; sim_val.
 Qed.
 
-Definition source_client := (λ: "x", Call (##"mul2") (InjL "x"))%E.
-Definition target_client := (λ: "x", Call (## "mul2") (Call (##"inj1_enc") "x"))%E.
+Definition source_client := (λ: "x", Call (f#"mul2") (InjL "x"))%E.
+Definition target_client := (λ: "x", Call (f#"mul2") (Call (f#"inj1_enc") "x"))%E.
 
 Lemma client_sim (n : Z) π :
   "target_client" @t target_client -∗
   "source_client" @s source_client -∗
   "inj1_enc" @t inj1_enc -∗
-  Call (##"target_client") #n ⪯{π} Call (##"source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
+  Call (f#"target_client") #n ⪯{π} Call (f#"source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
 Proof.
   iIntros "Htarget Hsource Hinj1_t".
   target_call. target_call. source_call. sim_pures.
