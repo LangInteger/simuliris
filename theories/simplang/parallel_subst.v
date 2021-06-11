@@ -1,5 +1,6 @@
 From stdpp Require Export gmap.
-From simuliris.simplang Require Import lang notation.
+From simuliris.simplang Require Export lang notation.
+
 
 (** * Parallel substitution for SimpLang *)
 (** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
@@ -96,6 +97,15 @@ Proof.
   exact: subst_subst_map.
 Qed.
 
+Lemma subst_map_subst_map xs ys e :
+  subst_map xs (subst_map ys e) = subst_map (ys ∪ xs) e.
+Proof.
+  revert e.
+  induction ys as [|x v ys HNone IH] using map_ind => e.
+  { by rewrite left_id subst_map_empty. }
+  by rewrite -insert_union_l -[in X in _ = X]subst_map_subst -IH subst_map_subst.
+Qed.
+
 (** "Free variables" and their interaction with subst_map *)
 Local Definition binder_to_ctx (x : binder) : gset string :=
   if x is BNamed s then {[s]} else ∅.
@@ -174,6 +184,14 @@ Lemma free_vars_subst x v e :
   free_vars (subst x v e) = free_vars e ∖ {[x]}.
 Proof.
   induction e=>/=; repeat case_decide; set_solver.
+Qed.
+
+Lemma free_vars_subst_map xs e :
+  free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
+Proof.
+  induction xs as [| x v xs HNone IH ] using map_ind.
+  - rewrite subst_map_empty. set_solver.
+  - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
 Qed.
 
 Lemma free_vars_fill K e :

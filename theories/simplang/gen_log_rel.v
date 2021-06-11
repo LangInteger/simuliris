@@ -147,10 +147,19 @@ Local Ltac log_rel_subst_l l cont :=
     suitable substitution. *)
 Ltac log_rel :=
   iStartProof;
-  match goal with
+  lazymatch goal with
   | |- proofmode.environments.envs_entails _ (gen_log_rel ?val_rel ?town ?e_t ?e_s) =>
-    let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
-    log_rel_subst_l free ltac:(fun _ => simpl; iApply gen_log_rel_closed; [compute_done..|])
+    let h_t := get_head e_t in try unfold h_t;
+    let h_s := get_head e_s in try unfold h_s
+  end;
+  lazymatch goal with
+  | |- proofmode.environments.envs_entails _ (gen_log_rel ?val_rel ?town ?e_t ?e_s) =>
+    let e_t' := W.of_expr e_t in
+    let e_s' := W.of_expr e_s in
+    let free := eval vm_compute in (remove_dups (W.free_vars e_t' ++ W.free_vars e_s')) in
+    log_rel_subst_l free ltac:(fun _ =>
+        simpl; simpl_subst;
+        iApply gen_log_rel_closed; [apply empty_union_L; split; solve_is_closed|])
   end.
 
 Section log_rel_structural.

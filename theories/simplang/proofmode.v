@@ -524,7 +524,7 @@ Tactic Notation "target_red_expr_eval" tactic3(t) :=
       [let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl| ]
   | _ => fail "target_red_expr_eval: not a 'target_red"
   end.
-Ltac target_expr_simpl := target_red_expr_eval simpl.
+Ltac target_expr_simpl := target_red_expr_eval simpl; simpl_subst.
 
 Ltac target_value_head :=
   lazymatch goal with
@@ -553,7 +553,7 @@ Tactic Notation "source_red_expr_eval" tactic3(t) :=
       [let x := fresh in intros x; t; unfold x; notypeclasses refine eq_refl| ]
   | _ => fail "source_red_expr_eval: not a 'target_red"
   end.
-Ltac source_expr_simpl := source_red_expr_eval simpl.
+Ltac source_expr_simpl := source_red_expr_eval simpl; simpl_subst.
 
 Ltac source_value_head :=
   lazymatch goal with

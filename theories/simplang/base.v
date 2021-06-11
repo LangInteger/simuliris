@@ -1,6 +1,12 @@
 From iris.proofmode Require Import tactics.
 
 (* TODO: upstream the following definitions *)
+Ltac get_head e :=
+  lazymatch e with
+  | ?h _ => get_head constr:(h)
+  | _    => constr:(e)
+  end.
+
 Lemma take_lookup_Some {A} n k (l : list A) x:
   take n l !! k = Some x ↔ l !! k = Some x ∧ k < n.
 Proof.
