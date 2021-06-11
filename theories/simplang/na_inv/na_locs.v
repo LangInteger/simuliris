@@ -416,6 +416,10 @@ Section na_alt_exec.
 End na_alt_exec.
 
 Section na_locs_wf.
+  Lemma na_locs_wf_init P σ e:
+    na_locs_wf [∅] P σ [e].
+  Proof. move => ???. simplify_list_eq. eexists []. set_solver. Qed.
+
   Lemma na_locs_wf_combined_state_load cols P_s σ_s T_s π K_s e_s o (l_s : loc) col:
     na_locs_wf cols P_s σ_s T_s →
     T_s !! π = Some (fill K_s e_s) →
@@ -704,6 +708,10 @@ Definition na_locs_in_L (cols : list (gmap loc (loc * na_locs_state))) (L : gset
   ∀ π col l x, cols !! π = Some col → col !! l = Some x → ∃ b1, (b1, loc_block l) ∈ L.
 
 Section na_locs_in_L.
+  Lemma na_locs_in_L_init:
+    na_locs_in_L [∅] ∅.
+  Proof. move => ??????. simplify_list_eq. Qed.
+
   Lemma na_locs_in_L_extend cols L b_t b_s:
     na_locs_in_L cols L →
     na_locs_in_L cols ({[(b_t, b_s)]} ∪ L).

@@ -1,0 +1,82 @@
+(** The logical relation implies contextual refinement. *)
+
+From iris.algebra.lib Require Import gset_bij.
+From iris.base_logic.lib Require Import gset_bij ghost_map.
+
+From simuliris.logic Require Import satisfiable.
+From simuliris.simulation Require Import slsls global_sim.
+From simuliris.simplang Require Import proofmode tactics.
+From simuliris.simplang Require Import gen_adequacy behavior wf parallel_subst gen_refl.
+From simuliris.simplang.na_inv Require Import inv refl.
+
+(** Instantiate our notion of contextual refinement. *)
+Notation ctx_rel := (gen_ctx_rel expr_head_wf).
+
+(** Whole-program adequacy. *)
+Class naGpreS Σ := {
+  na_pre_heapG :> sheapGpreS Σ;
+  na_pre_bijG :> heapbijGpreS Σ;
+  na_pre_col_mapG :> ghost_mapG Σ nat (gmap loc (loc * na_locs_state));
+}.
+Definition naΣ := #[sheapΣ; heapbijΣ; ghost_mapΣ nat (gmap loc (loc * na_locs_state))].
+
+Global Instance subG_naΣ Σ :
+  subG naΣ Σ → naGpreS Σ.
+Proof. solve_inG. Qed.
+
+Lemma prog_rel_adequacy Σ `{!naGpreS Σ} (p_t p_s : prog) :
+  isat (∀ `(naGS Σ),
+    ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
+    ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
+    prog_rel p_t p_s
+  ) →
+  beh_rel p_t p_s.
+Proof.
+  intros Hprog. apply simplang_adequacy.
+  eapply sat_mono, Hprog. clear Hprog.
+  iIntros "Hprog_rel %".
+  iMod heapbij_init as (?) "Hbij".
+  iMod (ghost_map_alloc) as (γcols) "[Hcols Hcol]".
+  iModIntro. iExists na_inv, heapbij.loc_rel.
+  iSpecialize ("Hprog_rel" $! (NaGS Σ _ _ _ γcols)).
+  iFrame "Hprog_rel".
+  iSplitL "Hbij Hcols".
+  - rewrite /sheap_inv. iExists ∅, [∅]. iFrame. iPureIntro. split_and!.
+    + done.
+    + apply: na_locs_wf_init.
+    + apply: na_locs_in_L_init.
+  - rewrite map_seq_cons big_sepM_insert //.
+    iDestruct "Hcol" as "[Hcol _]". iFrame.
+    iSplit; [done|]. iIntros (??) "[? $]".
+Qed.
+
+(** Adequacy for open terms. *)
+Theorem log_rel_adequacy Σ `{!naGpreS Σ} e_t e_s :
+  (∀ `(naGS Σ), ⊢ log_rel e_t e_s) →
+  ctx_rel e_t e_s.
+Proof.
+  intros Hrel C fname x p Hpwf HCwf Hvars.
+  apply (prog_rel_adequacy Σ). eapply isat_intro.
+  iIntros (?) "_ _ !# %f %K_s %π".
+  iDestruct (Hrel _) as "Hrel". clear Hrel.
+  destruct (decide (f = fname)) as [->|Hne].
+  - (* FIXME: wtf, why does it need a type annotation here?!? *)
+    rewrite !(lookup_insert (M:=gmap _)).
+    iIntros ([= <-]). iExists _. iSplitR; first done.
+    (* TODO Factor this into a general lemma? *)
+    iIntros (v_t v_s) "[Hc #Hval] /=".
+    iApply (log_rel_closed_1 with "[] Hc").
+    { simpl. set_solver. }
+    iApply log_rel_let.
+    { iApply log_rel_val. done. }
+    iApply log_rel_ctx; done.
+  - rewrite !(lookup_insert_ne (M:=gmap _)) //.
+    iIntros (Hf). rename K_s into K. iExists K. iSplit; first done.
+    specialize (Hpwf _ _ Hf). destruct Hpwf as [HKwf HKclosed].
+    (* TODO Factor this into a lemma? *)
+    iIntros (v_t v_s) "[Hc #Hval] /=".
+    iApply (log_rel_closed_1 with "[] Hc").
+    { rewrite !free_vars_fill HKclosed. set_solver+. }
+    iApply log_rel_ectx; first done.
+    iApply log_rel_val; done.
+Qed.

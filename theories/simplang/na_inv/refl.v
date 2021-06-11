@@ -17,6 +17,10 @@ Definition expr_head_wf (e : expr_head) : Prop :=
   | _ => True
   end.
 
+Notation expr_wf := (gen_expr_wf expr_head_wf).
+Notation ectx_wf := (gen_ectx_wf expr_head_wf).
+Notation ctx_wf := (gen_ctx_wf expr_head_wf).
+
 Section refl.
   Context `{naGS Σ}.
 
@@ -59,5 +63,35 @@ Section refl.
       match goal with | o : order |- _ => destruct o => // end.
       + by iApply (sim_bij_store_sc with "Hl Ht Hv").
       + by iApply (sim_bij_store_na with "Hl Ht Hv").
+  Qed.
+
+  Corollary log_rel_refl e :
+    expr_wf e →
+    ⊢ log_rel e e.
+  Proof.
+    intros ?. iApply gen_log_rel_refl; first by apply na_log_rel_structural. done.
+  Qed.
+
+  Corollary log_rel_ctx C e_t e_s :
+    ctx_wf C →
+    log_rel e_t e_s -∗ log_rel (fill_ctx C e_t) (fill_ctx C e_s).
+  Proof.
+    intros ?. iApply gen_log_rel_ctx; first by apply na_log_rel_structural. done.
+  Qed.
+
+  Corollary log_rel_ectx K e_t e_s :
+    ectx_wf K →
+    log_rel e_t e_s -∗ log_rel (fill K e_t) (fill K e_s).
+  Proof.
+    intros ?. iApply gen_log_rel_ectx; first by apply na_log_rel_structural. done.
+  Qed.
+
+  Lemma log_rel_closed_1 e_t e_s π :
+    free_vars e_t ∪ free_vars e_s = ∅ →
+    log_rel e_t e_s -∗ na_locs π ∅ -∗ e_t ⪯{π} e_s {{ λ v_t v_s, na_locs π ∅ ∗ val_rel v_t v_s }}.
+  Proof.
+    iIntros (?) "#Hrel Hc".
+    iApply sim_mono; last iApply (gen_log_rel_closed_1 with "Hrel Hc"); [|done].
+    iIntros (v_t v_s) "[$ $]".
   Qed.
 End refl.
