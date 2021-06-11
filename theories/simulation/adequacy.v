@@ -307,9 +307,9 @@ Section adequacy_statement.
   Let B := beh_rel I main u O.
 
   Lemma slsls_adequacy p_t p_s:
-    (∀ σ_t σ_s, sat (
+    sat (∀ σ_t σ_s,
       (* Delay the choice of the simulation parameters *)
-      ∃ `(simulirisGS PROP Λ),
+      |==> ∃ `(simulirisGS PROP Λ),
       (* The programs are related *)
       prog_rel p_t p_s ∗
       (* The initial states satisfy the state interpretation *)
@@ -319,13 +319,15 @@ Section adequacy_statement.
       (* The "unit" argument to main is related *)
       ext_rel 0 u u ∗
       (* Logically related values are observationally related *)
-      ∀ v_s v_t, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝)) →
+      ∀ v_s v_t, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝) →
     B p_t p_s.
   Proof.
     intros Hsat σ_t σ_s HI Hsafe.
     eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
     destruct Hlook as [K_s Hlook].
-    specialize (Hsat σ_t σ_s).
+    eapply (sat_forall _ σ_t) in Hsat.
+    eapply (sat_forall _ σ_s) in Hsat.
+    eapply sat_bupd in Hsat.
     eapply sat_exists in Hsat as [simG Hsat].
     assert (msim (sat:=sat_frame (sat:=sat) ((∀ v_s v_t : val Λ, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝))) p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.
     { rewrite /msim /sat_frame. eapply sat_mono, Hsat.

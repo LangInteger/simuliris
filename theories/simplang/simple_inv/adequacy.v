@@ -28,8 +28,8 @@ Lemma prog_rel_adequacy `{!simpleGpreS Σ} (p_t p_s : prog) :
   beh_rel p_t p_s.
 Proof.
   intros Hprog. apply simplang_adequacy.
-  eapply sat_bupd, sat_mono, Hprog. clear Hprog.
-  iIntros "Hprog_rel !> %".
+  eapply sat_mono, Hprog. clear Hprog.
+  iIntros "Hprog_rel %".
   iMod heapbij_init as (?) "Hbij". iModIntro.
   iExists simple_inv, heapbij.loc_rel.
   iSpecialize ("Hprog_rel" $! (SimpleGS Σ _ _)).
