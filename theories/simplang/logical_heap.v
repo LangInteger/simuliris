@@ -685,16 +685,28 @@ Section heap.
 End heap.
 
 Lemma heap_init `{heapG Σ} h :
-  ⊢ |==> ∃ γ : heap_names, heap_ctx γ (state_init h).
+  ⊢ |==> ∃ γ : heap_names, heap_ctx γ (state_init h) ∗
+    [∗ map] l ↦ v ∈ h, heap_mapsto γ l (RSt 0) 1 v.
 Proof.
   set σ := state_init h.
-  iMod (own_alloc (● (to_heap σ.(heap)))) as (γheap) "Hheap".
-  { apply auth_auth_valid, to_heap_valid. }
+  iMod (own_alloc (● (to_heap σ.(heap)) ⋅ ◯ (to_heap σ.(heap)))) as (γheap) "[Hheap Hfrag]".
+  { apply auth_both_valid_discrete. split; first done. apply to_heap_valid. }
   (* The initially existing allocations cannot be freed *)
   iMod (ghost_map_alloc (∅ : gmap loc (option nat))) as (γfmap) "[Hfmap _]".
   iExists {| heap_name := γheap; heap_freeable_name := γfmap |}.
-  iModIntro. rewrite /heap_ctx /=. iExists ∅. iFrame. iPureIntro.
-  split.
-  - intros l o. rewrite lookup_empty. done.
-  - apply state_init_wf.
+  iModIntro. rewrite /heap_ctx /=.
+  iSplitR "Hfrag".
+  - iExists ∅. iFrame. iPureIntro.
+    split.
+    + intros l o. rewrite lookup_empty. done.
+    + apply state_init_wf.
+  - rewrite heap_mapsto_eq /heap_mapsto_def /=.
+    iInduction h as [|l v h Hk] "IH" using map_ind.
+    { iApply big_sepM_empty. done. }
+    rewrite big_sepM_insert; last done.
+    rewrite fmap_insert to_heap_insert.
+    rewrite insert_singleton_op.
+    2:{ apply lookup_to_heap_None. rewrite lookup_fmap Hk. done. }
+    iDestruct "Hfrag" as "[$ Hfrag]".
+    iApply "IH". done.
 Qed.

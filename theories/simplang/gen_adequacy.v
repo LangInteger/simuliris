@@ -19,7 +19,7 @@ Section adequacy.
     iIntros "Hprog_rel %σ_t %σ_s".
     iMod (sheap_init p_t _ p_s _) as (HsheapGS) "Hinit".
     iMod ("Hprog_rel" $! HsheapGS) as (HsheapInv loc_rel) "(Hinv & Hunit & Hobs & Hprog_rel)".
-    iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & Hp_s & Hprogs_are)".
+    iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & _ & Hp_s & _ & Hprogs_are)".
     iModIntro. iExists sheapGS_simulirisGS.
     iSpecialize ("Hprog_rel" with "Hp_t Hp_s").
     iFrame "Hprog_rel Hprogs_are Hunit".

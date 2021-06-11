@@ -199,15 +199,15 @@ Lemma sheap_init `{!sheapGpreS Σ} P_t h_t P_s h_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
     (sheap_inv P_s (state_init h_s) T_s -∗
       state_interp P_t (state_init h_t) P_s (state_init h_s) T_s) ∗
-    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
-    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
+    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗ ([∗ map] l ↦ v ∈ h_t, l ↦t v) ∗
+    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗ ([∗ map] l ↦ v ∈ h_s, l ↦s v) ∗
     progs_are P_t P_s.
 Proof.
-  iMod (heap_init h_t) as (γheap_tgt) "Hheap_tgt".
-  iMod (heap_init h_s) as (γheap_src) "Hheap_src".
+  iMod (heap_init h_t) as (γheap_tgt) "[Hheap_tgt Hptsto_tgt]".
+  iMod (heap_init h_s) as (γheap_src) "[Hheap_src Hptsto_src]".
   iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_tgt #Hprog_src]".
   iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %".
-  iSplitL; last iSplit; last iSplit.
+  iFrame. iSplitL; last iSplit; last iSplit.
   - iIntros "?". rewrite /state_interp /=. iFrame "∗#".
   - by iApply has_prog_all_funs.
   - by iApply has_prog_all_funs.
