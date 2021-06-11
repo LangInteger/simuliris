@@ -23,7 +23,7 @@ Global Instance subG_sbijΣ Σ :
   subG simpleΣ Σ → simpleGpreS Σ.
 Proof. solve_inG. Qed.
 
-Lemma prog_rel_adequacy `{!simpleGpreS Σ} (p_t p_s : prog) :
+Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog) :
   isat (∀ `(simpleGS Σ),
     ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
     ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
@@ -45,12 +45,12 @@ Proof.
 Qed.
 
 (** Adequacy for open terms. *)
-Theorem log_rel_adequacy `{!simpleGpreS Σ} e_t e_s :
+Theorem log_rel_adequacy Σ `{!simpleGpreS Σ} e_t e_s :
   isat (∀ `(simpleGS Σ), log_rel e_t e_s) →
   ctx_rel e_t e_s.
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
-  apply prog_rel_adequacy. eapply sat_mono, Hrel. clear Hrel.
+  apply (prog_rel_adequacy Σ). eapply sat_mono, Hrel. clear Hrel.
   iIntros "#Hrel" (?) "_ _ !# %f %K_s %π".
   iSpecialize ("Hrel" $! _).
   destruct (decide (f = fname)) as [->|Hne].

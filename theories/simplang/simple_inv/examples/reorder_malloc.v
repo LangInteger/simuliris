@@ -1,7 +1,8 @@
-From simuliris.simplang Require Import lang notation tactics class_instances gen_log_rel.
 From iris.proofmode Require Import tactics.
+From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang.simple_inv Require Import inv.
+From simuliris.simplang Require Import lang notation tactics class_instances gen_log_rel.
+From simuliris.simplang.simple_inv Require Import inv adequacy.
 
 (** * Simple example for re-ordering two allocs and then passing the related locations to an external function. *)
 
@@ -46,3 +47,14 @@ Section reorder.
   Qed.
 
 End reorder.
+
+Section closed.
+  (** Obtain a closed proof of [ctx_rel]. *)
+  Lemma alloc2_reorder_ctx : ctx_rel alloc2_and_cont alloc2_and_cont'.
+  Proof.
+    set Σ := #[simpleΣ].
+    apply (log_rel_adequacy Σ).
+    apply isat_intro.
+    iIntros (?). iApply alloc2_reorder.
+  Qed.
+End closed.
