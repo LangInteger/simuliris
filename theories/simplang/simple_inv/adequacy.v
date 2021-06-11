@@ -46,13 +46,13 @@ Qed.
 
 (** Adequacy for open terms. *)
 Theorem log_rel_adequacy Σ `{!simpleGpreS Σ} e_t e_s :
-  isat (∀ `(simpleGS Σ), log_rel e_t e_s) →
+  (∀ `(simpleGS Σ), ⊢ log_rel e_t e_s) →
   ctx_rel e_t e_s.
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
-  apply (prog_rel_adequacy Σ). eapply sat_mono, Hrel. clear Hrel.
-  iIntros "#Hrel" (?) "_ _ !# %f %K_s %π".
-  iSpecialize ("Hrel" $! _).
+  apply (prog_rel_adequacy Σ). eapply isat_intro.
+  iIntros (?) "_ _ !# %f %K_s %π".
+  iDestruct (Hrel _) as "Hrel". clear Hrel.
   destruct (decide (f = fname)) as [->|Hne].
   - (* FIXME: wtf, why does it need a type annotation here?!? *)
     rewrite !(lookup_insert (M:=gmap _)).

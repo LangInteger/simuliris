@@ -1,5 +1,4 @@
 From iris.proofmode Require Import tactics.
-From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import lang notation tactics class_instances gen_log_rel.
 From simuliris.simplang.simple_inv Require Import inv adequacy.
@@ -53,8 +52,7 @@ Section closed.
   Lemma alloc2_reorder_ctx : ctx_rel alloc2_and_cont alloc2_and_cont'.
   Proof.
     set Σ := #[simpleΣ].
-    apply (log_rel_adequacy Σ).
-    apply isat_intro.
-    iIntros (?). iApply alloc2_reorder.
+    apply (log_rel_adequacy Σ)=>?.
+    apply alloc2_reorder.
   Qed.
 End closed.
