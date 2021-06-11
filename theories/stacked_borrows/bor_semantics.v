@@ -402,9 +402,7 @@ Inductive bor_step (α : stacks) (cids: gset call_id) (nxtp: ptr_id) (nxtc: call
               (init_stacks α x (tsize T) (Tagged nxtp)) cids (S nxtp) nxtc
 (* This implements AllocationExtra::memory_read. *)
 | CopyIS α' l lbor T vl
-    (ACC: memory_read α cids l lbor (tsize T) = Some α')
-    (* This comes from wellformedness, but for convenience we require it here *)
-    (BOR: vl <<t nxtp):
+    (ACC: memory_read α cids l lbor (tsize T) = Some α') :
     bor_step α cids nxtp nxtc (CopyEvt l lbor T vl) α' cids nxtp nxtc
 (* Failing Copy when the stack access is not granted, yielding poison *)
 | CopyFailIS l lbor T
@@ -412,9 +410,7 @@ Inductive bor_step (α : stacks) (cids: gset call_id) (nxtp: ptr_id) (nxtc: call
     bor_step α cids nxtp nxtc (FailedCopyEvt l lbor T) α cids nxtp nxtc
 (* This implements AllocationExtra::memory_written. *)
 | WriteIS α' l lbor T vl
-    (ACC: memory_written α cids l lbor (tsize T) = Some α')
-    (* This comes from wellformedness, but for convenience we require it here *)
-    (BOR: vl <<t nxtp) :
+    (ACC: memory_written α cids l lbor (tsize T) = Some α') :
     bor_step α cids nxtp nxtc (WriteEvt l lbor T vl) α' cids nxtp nxtc
 (* This implements AllocationExtra::memory_deallocated. *)
 | DeallocIS α' l lbor T

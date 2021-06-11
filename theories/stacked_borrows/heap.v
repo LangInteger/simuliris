@@ -112,6 +112,7 @@ Class bor_stateG Σ := {
   heap_view_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
   heap_view_source_name : gname;
   heap_view_target_name : gname;
+
 }.
 
 Section mem_bijection.
@@ -617,22 +618,6 @@ Notation "l '↦t∗[' tk ']{' t } scs" := (array_tag heap_view_target_name t l 
 Notation "l '↦s∗[' tk ']{' t } scs" := (array_tag heap_view_source_name t l (tk_to_frac tk) scs)
   (at level 20, format "l  ↦s∗[ tk ]{ t }  scs") : bi_scope.
 
-Lemma ghost_map_array_tag_lookup `{!bor_stateG Σ} (γh : gname) (q : Qp) (M : gmap (ptr_id * loc) scalar) (scs : list scalar) (t : ptr_id) (l : loc) dq :
-  ghost_map_auth γh q M -∗
-  ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc) -∗
-  ⌜∀ i : nat, (i < length scs)%nat → M !! (t, l +ₗ i) = scs !! i⌝.
-Proof.
-  iIntros "Hauth Helem". iInduction scs as [ |sc scs ] "IH" forall (l) "Hauth Helem".
-  - iPureIntro; cbn. lia.
-  - rewrite big_sepL_cons. iDestruct "Helem" as "[Hsc Hscs]".
-    iPoseProof (ghost_map_lookup with "Hauth Hsc") as "%Hl".
-    iDestruct ("IH" $! (l +ₗ 1) with "Hauth [Hscs]") as "%IH".
-    { iApply (big_sepL_mono with "Hscs"). intros i sc' Hs. cbn. rewrite shift_loc_assoc.
-      replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done. }
-    iPureIntro. intros i Hle. destruct i; first done.
-    replace (Z.of_nat $ S i) with (1 + i)%Z by lia. cbn in *. rewrite -(IH i); last lia.
-    by rewrite shift_loc_assoc.
-Qed.
 
 Fixpoint array_tag_map (l : loc) (t : ptr_id) (v : list scalar) : gmap (ptr_id * loc) scalar :=
   match v with
@@ -670,6 +655,23 @@ Proof.
     + rewrite lookup_insert_ne; first last. { destruct l; simpl; intros [= ?]; lia. }
       move : (IH (l +ₗ 1) i ltac:(lia)). rewrite shift_loc_assoc.
       by replace (Z.of_nat (S i)) with (1 + i) by lia.
+Qed.
+
+Lemma ghost_map_array_tag_lookup `{!bor_stateG Σ} (γh : gname) (q : Qp) (M : gmap (ptr_id * loc) scalar) (scs : list scalar) (t : ptr_id) (l : loc) dq :
+  ghost_map_auth γh q M -∗
+  ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc) -∗
+  ⌜∀ i : nat, (i < length scs)%nat → M !! (t, l +ₗ i) = scs !! i⌝.
+Proof.
+  iIntros "Hauth Helem". iInduction scs as [ |sc scs ] "IH" forall (l) "Hauth Helem".
+  - iPureIntro; cbn. lia.
+  - rewrite big_sepL_cons. iDestruct "Helem" as "[Hsc Hscs]".
+    iPoseProof (ghost_map_lookup with "Hauth Hsc") as "%Hl".
+    iDestruct ("IH" $! (l +ₗ 1) with "Hauth [Hscs]") as "%IH".
+    { iApply (big_sepL_mono with "Hscs"). intros i sc' Hs. cbn. rewrite shift_loc_assoc.
+      replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done. }
+    iPureIntro. intros i Hle. destruct i; first done.
+    replace (Z.of_nat $ S i) with (1 + i)%Z by lia. cbn in *. rewrite -(IH i); last lia.
+    by rewrite shift_loc_assoc.
 Qed.
 
 Lemma ghost_map_array_tag_update `{!bor_stateG Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v v' : list scalar) (t : ptr_id) (l : loc) :
@@ -740,35 +742,33 @@ Section lemmas.
 
   Lemma state_wf_upd_mem σ l sc :
     is_Some (σ.(shp) !! l) →
-    wf_scalar σ.(snp) sc →
     state_wf σ →
     state_wf (state_upd_mem (<[l := sc]>) σ).
   Proof.
-    intros Hs Hwf []. constructor; try done.
+    intros Hs []. constructor; try done.
     - rewrite dom_insert //.
       have ->: {[l]} ∪ dom (gset loc) (shp σ) ≡ dom (gset loc) (shp σ); last done.
       split; rewrite elem_of_union; last by eauto.
       intros [ ->%elem_of_singleton_1 | ]; last done.
       by apply elem_of_dom.
-    - intros l' l'' pid Hsome.
-      destruct (decide (l = l')) as [<- | Hne].
-      + move : Hsome. rewrite lookup_insert => [= Heq].
-        subst sc. specialize (Hwf _ _ eq_refl). apply Hwf.
-      + rewrite lookup_insert_ne in Hsome; last done.
-        eapply state_wf_mem_tag; done.
+    (*- intros l' l'' pid Hsome.*)
+      (*destruct (decide (l = l')) as [<- | Hne].*)
+      (*+ move : Hsome. rewrite lookup_insert => [= Heq].*)
+        (*subst sc. specialize (Hwf _ _ eq_refl). apply Hwf.*)
+      (*+ rewrite lookup_insert_ne in Hsome; last done.*)
+        (*eapply state_wf_mem_tag; done.*)
     Qed.
 
   Lemma heap_local_write_target σ_t σ_s (t : ptr_id) l sc sc' :
     bor_interp σ_t σ_s -∗
     l ↦t[tk_local]{t} sc -∗
-    t $$ tk_local -∗
-    ⌜wf_scalar σ_t.(snp) sc'⌝ ==∗
+    t $$ tk_local ==∗
     bor_interp (state_upd_mem (<[l := sc']>) σ_t) σ_s ∗
     l ↦t[tk_local]{t} sc' ∗
     t $$ tk_local.
   Proof.
     iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
-    iIntros "Hp Htag %Hwf_sc".
+    iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom).
     destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
@@ -786,7 +786,7 @@ Section lemmas.
     }
     iSplitL; first last.
     { repeat iSplitL; [ done.. | ].
-      iPureIntro. apply state_wf_upd_mem; [by eauto | done | done].
+      iPureIntro. apply state_wf_upd_mem; [by eauto | done].
     }
 
     iPureIntro.
@@ -829,8 +829,8 @@ Section lemmas.
     l ↦t∗[tk_local]{t} scs -∗
     t $$ tk_local -∗
     ⌜∀ i : nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
-    ⌜∀ i:nat, (i < length scs)%nat → bor_state_own (l +ₗ i) t tk_local σ_t⌝ ∗
-    ⌜scs <<t σ_t.(snp)⌝.
+    ⌜∀ i:nat, (i < length scs)%nat → bor_state_own (l +ₗ i) t tk_local σ_t⌝.
+    (*∗ ⌜scs <<t σ_t.(snp)⌝.*)
   Proof.
     iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
@@ -839,8 +839,8 @@ Section lemmas.
     destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
     iPoseProof (ghost_map_array_tag_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
     iPureIntro.
-    enough (∀ i: nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i ∧ σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None] ∧ wf_scalar σ_t.(snp) (scs !!! i)) as Hsingle.
-    { split_and!; [ apply Hsingle.. | apply tag_values_included_iff; apply Hsingle]. }
+    enough (∀ i: nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i ∧ σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]) as Hsingle.
+    { split_and!; [ apply Hsingle..]. }
     intros i Hi.
     specialize (Ht_lookup i Hi). rewrite list_lookup_lookup_total in Ht_lookup; first last.
     { by apply lookup_lt_is_Some_2. }
@@ -849,10 +849,10 @@ Section lemmas.
     split_and!.
     - rewrite Hmem. rewrite list_lookup_lookup_total; [done | by apply lookup_lt_is_Some_2].
     - done.
-    - intros tg l' Hl.
-      destruct tg as [tg | ]; last done.
-      eapply state_wf_mem_tag; first done.
-      erewrite Hmem, Hl. done.
+    (*- intros tg l' Hl.*)
+      (*destruct tg as [tg | ]; last done.*)
+      (*eapply state_wf_mem_tag; first done.*)
+      (*erewrite Hmem, Hl. done.*)
   Qed.
 
   Lemma heap_protected_readN_target σ_t σ_s (t : ptr_id) tk l v_t c M :
@@ -862,8 +862,7 @@ Section lemmas.
     t $$ tk -∗
     c @@ M -∗
     ⌜∀ i : nat, (i < length v_t)%nat → σ_t.(shp) !! (l +ₗ i) = v_t !! i⌝ ∗
-    ⌜∀ i:nat, (i < length v_t)%nat → bor_state_own (l +ₗ i) t tk σ_t⌝ ∗
-    ⌜v_t <<t σ_t.(snp)⌝.
+    ⌜∀ i:nat, (i < length v_t)%nat → bor_state_own (l +ₗ i) t tk σ_t⌝.
   Proof.
     iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag Hcall".
@@ -873,8 +872,8 @@ Section lemmas.
     iPoseProof (ghost_map_array_tag_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
     iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hc_lookup".
     iPureIntro.
-    enough (∀ i: nat, (i < length v_t)%nat → σ_t.(shp) !! (l +ₗ i) = v_t !! i ∧ bor_state_own (l +ₗ i) t tk σ_t ∧ wf_scalar σ_t.(snp) (v_t !!! i)) as Hsingle.
-    { split_and!; [ apply Hsingle.. | apply tag_values_included_iff; apply Hsingle]. }
+    enough (∀ i: nat, (i < length v_t)%nat → σ_t.(shp) !! (l +ₗ i) = v_t !! i ∧ bor_state_own (l +ₗ i) t tk σ_t) as Hsingle.
+    { split_and!; [ apply Hsingle..]. }
     intros i Hi.
     specialize (Ht_lookup i Hi). rewrite list_lookup_lookup_total in Ht_lookup; first last.
     { by apply lookup_lt_is_Some_2. }
@@ -884,12 +883,12 @@ Section lemmas.
       specialize (call_set_interp_access _ _ _ _ _ Hcall ltac:(exists M; done)). apply loc_protected_bor_state_pre.
     }
     specialize (Hcontrol Hpre) as [Hown Hmem].
-    split_and!; [| done | ].
+    split_and!; [| done ].
     - rewrite Hmem. rewrite list_lookup_lookup_total; [done | ]. by apply lookup_lt_is_Some_2.
-    - intros tg l' Hl.
-      destruct tg as [tg | ]; last done.
-      eapply state_wf_mem_tag; first done.
-      erewrite Hmem, Hl. done.
+    (*- intros tg l' Hl.*)
+      (*destruct tg as [tg | ]; last done.*)
+      (*eapply state_wf_mem_tag; first done.*)
+      (*erewrite Hmem, Hl. done.*)
   Qed.
 
   Lemma heap_protected_readN_source σ_t σ_s (t : ptr_id) tk l v_t c M :
@@ -899,8 +898,7 @@ Section lemmas.
     t $$ tk -∗
     c @@ M -∗
     ⌜∀ i : nat, (i < length v_t)%nat → σ_s.(shp) !! (l +ₗ i) = v_t !! i⌝ ∗
-    ⌜∀ i:nat, (i < length v_t)%nat → bor_state_own (l +ₗ i) t tk σ_s⌝ ∗
-    ⌜v_t <<t σ_s.(snp)⌝.
+    ⌜∀ i:nat, (i < length v_t)%nat → bor_state_own (l +ₗ i) t tk σ_s⌝.
   Proof.
   Admitted.
 
@@ -933,23 +931,20 @@ Section lemmas.
     bor_interp σ_t σ_s -∗
     l ↦t∗[tk_local]{t} scs -∗
     t $$ tk_local -∗
-    ⌜length scs' = length scs⌝ -∗
-    ⌜scs' <<t σ_t.(snp) ⌝ ==∗
+    ⌜length scs' = length scs⌝ ==∗
     bor_interp (state_upd_mem (write_mem l scs') σ_t) σ_s ∗
     l ↦t∗[tk_local]{t} scs' ∗
     t $$ tk_local.
   Proof.
     iInduction scs' as [ | sc' scs'] "IH" forall (l scs).
-    - iIntros "Hbor Hp Ht %Hlen _". destruct scs; last done. iFrame "Ht Hp". iModIntro. destruct σ_t; eauto.
-    - iIntros "Hbor Hp Ht %Hlen %Hwf". destruct scs as [ | sc scs]; first done.
+    - iIntros "Hbor Hp Ht %Hlen". destruct scs; last done. iFrame "Ht Hp". iModIntro. destruct σ_t; eauto.
+    - iIntros "Hbor Hp Ht %Hlen". destruct scs as [ | sc scs]; first done.
       iPoseProof (big_sepL_cons with "Hp") as "[Hh Hp]".
-      iMod  ("IH" $! (l +ₗ 1) scs with "Hbor [Hp] Ht [] []") as "(Hbor & Hp & Ht)".
+      iMod  ("IH" $! (l +ₗ 1) scs with "Hbor [Hp] Ht []") as "(Hbor & Hp & Ht)".
       { iApply (big_sepL_mono with "Hp"). intros i sc0 Hsc0. cbn.
         rewrite shift_loc_assoc. replace (1 + i)%Z with (Z.of_nat $ S i) by lia. done. }
       { cbn in Hlen. iPureIntro. lia. }
-      { iPureIntro. intros l' tg Hin. eapply Hwf. right. apply Hin. }
-      iMod (heap_local_write_target  _ _ _ _ _ sc' with "Hbor Hh Ht []") as "(Hbor & Hh & Ht)".
-      { iPureIntro. cbn. specialize (proj1 (tag_values_included_iff _ _) Hwf) as Hi. apply (Hi O). cbn; lia. }
+      iMod (heap_local_write_target  _ _ _ _ _ sc' with "Hbor Hh Ht") as "(Hbor & Hh & Ht)".
       iModIntro. iFrame "Ht". iSplitL "Hbor".
       { rewrite state_upd_mem_compose. rewrite shift_loc_0_nat. by rewrite state_upd_write_mem_head. }
       iApply big_sepL_cons. iFrame "Hh". iApply (big_sepL_mono with "Hp").
@@ -962,8 +957,7 @@ Section lemmas.
     l ↦s∗[tk_local]{t} scs -∗
     t $$ tk_local -∗
     ⌜∀ i : nat, (i < length scs)%nat → σ_s.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
-    ⌜∀ i:nat, (i < length scs)%nat → bor_state_own (l +ₗ i) t tk_local σ_s⌝ ∗
-    ⌜scs <<t σ_s.(snp)⌝.
+    ⌜∀ i:nat, (i < length scs)%nat → bor_state_own (l +ₗ i) t tk_local σ_s⌝.
   Proof.
   Admitted.
 
@@ -971,8 +965,7 @@ Section lemmas.
     bor_interp σ_t σ_s -∗
     l ↦s∗[tk_local]{t} scs -∗
     t $$ tk_local -∗
-    ⌜length scs' = length scs⌝ -∗
-    ⌜scs' <<t σ_s.(snp) ⌝ ==∗
+    ⌜length scs' = length scs⌝ ==∗
     bor_interp σ_t (state_upd_mem (write_mem l scs') σ_s) ∗
     l ↦s∗[tk_local]{t} scs' ∗
     t $$ tk_local.
@@ -1106,13 +1099,11 @@ Section val_rel.
         t1 $$ tk_pub))
         (* note: we do not have any assertion about the value as viewed by the tag here -- we don't really care about it, we need to do a retag anyways. what the tk_pub gives us is that the locations store related values *)
     | ScCallId c, ScCallId c' => ⌜c = c'⌝
-    (* TODO: poison cannot be refined by ScPtr: this would break the public write lemma,
-        as we cannot ensure that the well-taggedness is still fulfilled.
-        Either, we should make sure here that values are well-tagged (through some persistent ghost state giving a lower-bound on the allowed tag) or relax the well-taggedness requirement for the heap.
-     *)
+    | ScPtr l t, ScPoison => True
     | ScInt z, ScPoison => True
     | ScPoison, ScPoison => True
     | ScFnPtr fn, ScPoison => True
+    | ScCallId c, ScPoison => True
     | _, _ => False
     end.
 
@@ -1169,17 +1160,17 @@ Section val_rel.
     sc_rel (ScPoison) sc_s -∗ ⌜sc_s = ScPoison⌝.
   Proof. iIntros "Hrel". destruct sc_s; done. Qed.
 
-  Lemma sc_rel_wf_scalar_iff sc_t sc_s t :
-    sc_rel sc_t sc_s -∗ ⌜wf_scalar t sc_t ↔ wf_scalar t sc_s⌝.
-  Proof.
-    iIntros "Hsc".
-    destruct sc_s as [ | n | l tg | | ].
-    - destruct sc_t; done.
-    - iPoseProof (sc_rel_int_source with "Hsc") as "->". done.
-    - iPoseProof (sc_rel_ptr_source with "Hsc") as "[-> _]". done.
-    - iPoseProof (sc_rel_fnptr_source with "Hsc") as "->"; done.
-    - iPoseProof (sc_rel_cid_source with "Hsc") as "->"; done.
-  Qed.
+  (*Lemma sc_rel_wf_scalar_iff sc_t sc_s t :*)
+    (*sc_rel sc_t sc_s -∗ ⌜wf_scalar t sc_t ↔ wf_scalar t sc_s⌝.*)
+  (*Proof.*)
+    (*iIntros "Hsc".*)
+    (*destruct sc_s as [ | n | l tg | | ].*)
+    (*- destruct sc_t; cbn; try done. 4: { done.*)
+    (*- iPoseProof (sc_rel_int_source with "Hsc") as "->". done.*)
+    (*- iPoseProof (sc_rel_ptr_source with "Hsc") as "[-> _]". done.*)
+    (*- iPoseProof (sc_rel_fnptr_source with "Hsc") as "->"; done.*)
+    (*- iPoseProof (sc_rel_cid_source with "Hsc") as "->"; done.*)
+  (*Qed.*)
 
   Lemma rrel_place_source r_t l_s t_s T :
     rrel r_t (PlaceR l_s t_s T) -∗
@@ -1248,18 +1239,18 @@ Section val_rel.
     - intros [Hwf Ha]. intros [ | i] Hi; first done. apply Ha. cbn in Hi. lia.
   Qed.
 
-  Lemma value_rel_tag_values_included_iff v_t v_s t :
-    value_rel v_t v_s -∗ ⌜v_t <<t t ↔ v_s <<t t⌝.
-  Proof.
-    iInduction v_t as [ | sc_t v_t] "IH" forall (v_s); destruct v_s as [ | sc_s v_s].
-    - iIntros "_". iPureIntro. done.
-    - rewrite value_rel_length. done.
-    - iClear "IH". rewrite value_rel_length. done.
-    - rewrite /value_rel big_sepL2_cons. iIntros "[Hscrel Hvrel]".
-      iPoseProof ("IH" with "Hvrel") as "%IH".
-      iPoseProof (sc_rel_wf_scalar_iff _ _ t with "Hscrel") as "%Hsc".
-      iPureIntro. rewrite !tag_values_included_cons. naive_solver.
-  Qed.
+  (*Lemma value_rel_tag_values_included_iff v_t v_s t :*)
+    (*value_rel v_t v_s -∗ ⌜v_t <<t t ↔ v_s <<t t⌝.*)
+  (*Proof.*)
+    (*iInduction v_t as [ | sc_t v_t] "IH" forall (v_s); destruct v_s as [ | sc_s v_s].*)
+    (*- iIntros "_". iPureIntro. done.*)
+    (*- rewrite value_rel_length. done.*)
+    (*- iClear "IH". rewrite value_rel_length. done.*)
+    (*- rewrite /value_rel big_sepL2_cons. iIntros "[Hscrel Hvrel]".*)
+      (*iPoseProof ("IH" with "Hvrel") as "%IH".*)
+      (*iPoseProof (sc_rel_wf_scalar_iff _ _ t with "Hscrel") as "%Hsc".*)
+      (*iPureIntro. rewrite !tag_values_included_cons. naive_solver.*)
+  (*Qed.*)
 End val_rel.
 
 Class sborG (Σ: gFunctors) := SBorG {

@@ -17,7 +17,7 @@ Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
   efs = [] ∧ 
   ((∃ v α', read_mem l (tsize T) (shp σ) = Some v ∧
   memory_read (sst σ) (scs σ) l t (tsize T) = Some α' ∧
-  v <<t snp σ ∧
+  (*v <<t snp σ ∧*)
   σ' = mkState (shp σ) α' (scs σ) (snp σ) (snc σ) ∧
   e = (ValR v)) ∨ 
   e = ValR (replicate (tsize T) ScPoison) ∧ memory_read (sst σ) (scs σ) l t (tsize T) = None ∧ σ' = σ).
@@ -31,8 +31,7 @@ Lemma head_write_inv (P : prog) l bor T v σ σ' e' efs :
   σ' = mkState (write_mem l v σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc) ∧
   length v = tsize T ∧
   (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧
-  memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α' ∧
-  v <<t σ.(snp).
+  memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α'.
 Proof. intros Hhead. inv_head_step. eauto 9. Qed.
 
 Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pkind T rkind :

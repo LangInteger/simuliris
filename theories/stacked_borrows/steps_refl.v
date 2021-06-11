@@ -160,7 +160,7 @@ Proof.
   destruct Hpub as [Hpub ->].
 
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as [(v_s & Hread_s & (α' & Hstack_s) & Hwell_tagged_s) | Hfail]; first last. 
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as [(v_s & Hread_s & (α' & Hstack_s)) | Hfail]; first last. 
   { (* failing copy *)
     iSplitR. 
     { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; first done. 
@@ -200,7 +200,7 @@ Proof.
   }
   (* we keep the head_step hypotheses to use the [head_step_wf] lemma below *)
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(v_t & α'0 & COPY & ACC & BOR & -> & ->) | (-> & ? & ->)]]; last congruence. 
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(v_t & α'0 & COPY & ACC & -> & ->) | (-> & ? & ->)]]; last congruence. 
   iAssert (⌜α'0 = α'⌝)%I as "->".
   { iPureIntro. move : ACC Hstack_s. rewrite Hcalls_eq Hstacks_eq. congruence. }
   iModIntro.
@@ -344,18 +344,18 @@ Proof.
   destruct Hsafe as [Hpool Hsafe].
   specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (Hread_s & (α' & Hstack_s) & Hwell_tagged_s & Hlen_s').
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
-  iPoseProof (value_rel_tag_values_included_iff with "Hvrel") as "%Htag_included".
+  (*iPoseProof (value_rel_tag_values_included_iff with "Hvrel") as "%Htag_included".*)
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iSplitR.
-  { iPureIntro. do 3 eexists. eapply write_head_step'; [lia | | |].
-    - rewrite -Hsnp_eq. apply Htag_included. done.
+  { iPureIntro. do 3 eexists. eapply write_head_step'; [lia | |].
+    (*- rewrite -Hsnp_eq. apply Htag_included. done.*)
     - rewrite -Hdom_eq. intros n Hn. apply Hread_s. lia.
     - instantiate (1 := α'). rewrite -Hsst_eq -Hscs_eq. done.
   }
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_write_inv _ _ _ _ _ _ _ _ _ Hhead_t) as (α'0 & -> & -> & -> & _ & Hin_dom & Hstack_t & Hwell_tagged_t).
+  specialize (head_write_inv _ _ _ _ _ _ _ _ _ Hhead_t) as (α'0 & -> & -> & -> & _ & Hin_dom & Hstack_t).
   iAssert (⌜α'0 = α'⌝)%I as "->".
   { iPureIntro. move : Hstack_t Hstack_s. rewrite Hsst_eq Hscs_eq. congruence. }
   iModIntro.

@@ -497,9 +497,9 @@ Proof.
   iApply sim_update_si. rewrite /update_si. iIntros (?????) "(HP_t & HP_s & Hbor)".
   set (L' := L ∖ seq_loc_set l (length v_t)). set (M' := <[ t := L' ]> M).
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen".
-  iPoseProof (heap_protected_readN_source with "Hbor Hs Htag Hc") as "(%Hv_s & % & %)".
+  iPoseProof (heap_protected_readN_source with "Hbor Hs Htag Hc") as "(%Hv_s & %)".
   { intros i Hi. exists L. split; first done. apply Hl. lia. } 
-  iPoseProof (heap_protected_readN_target with "Hbor Ht Htag Hc") as "(%Hv_t & % & %)".
+  iPoseProof (heap_protected_readN_target with "Hbor Ht Htag Hc") as "(%Hv_t & %)".
   { intros i Hi. exists L. split; first done. apply Hl. lia. } 
 
   iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)". 
@@ -606,7 +606,6 @@ Proof.
 Qed.
 
 (** Write lemmas *)
-(* TODO: these lemmas are missing requirements on the well-taggedness of the written values! *)
 
 (* note: this is a new lemma. we do not care about relating the values - we only care for the source expression requiring that [t] is still on top!
   TODO: can we make that more general/nicer?
@@ -674,7 +673,7 @@ Proof.
   iIntros (Hlen) "Htag Ht Hsim".
   iApply target_red_lift_head_step. iIntros (?????) "(HP_t & HP_s & Hbor)".
   iModIntro.
-  iPoseProof (heap_local_readN_target with "Hbor Ht Htag") as "(%Hd & %Hstack & %Hwf)".
+  iPoseProof (heap_local_readN_target with "Hbor Ht Htag") as "(%Hd & %Hstack)".
   rewrite Hlen in Hd Hstack.
   have READ_t : read_mem l (tsize T) σ_t.(shp) = Some v_t.
   { apply read_mem_values'; done. }
@@ -685,7 +684,7 @@ Proof.
   iSplitR.
   { iPureIntro. do 3 eexists; eapply copy_head_step'; [done | done | eauto ]. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & BOR & -> & ->) | (_ & Hfail & _)]]; last congruence.
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
   rewrite READ in READ_t. simplify_eq.
   iModIntro. iSplitR; first done.
   iFrame "HP_t HP_s".
@@ -705,7 +704,7 @@ Proof.
   iApply source_red_lift_head_step. iIntros (??????) "[(HP_t & HP_s & Hbor) _]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
-  iPoseProof (heap_local_readN_source with "Hbor Hs Htag") as "(%Hd & %Hstack & %Hwf)".
+  iPoseProof (heap_local_readN_source with "Hbor Hs Htag") as "(%Hd & %Hstack)".
   rewrite Hlen in Hd Hstack.
   have READ_s : read_mem l (tsize T) σ_s.(shp) = Some v_s.
   { apply read_mem_values'; done. }
@@ -715,7 +714,7 @@ Proof.
   assert (head_reducible P_s (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hhead).
   { do 3 eexists; eapply copy_head_step'; [done | done | eauto ]. }
   iExists e_s', σ_s'.
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & BOR & -> & ->) | (_ & Hfail & _)]]; last congruence.
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
   rewrite READ in READ_s. simplify_eq.
   iFrame "HP_t HP_s". iSplitR; first done.
   iSplitL "Hbor"; last by iApply ("Hsim" with "Hs Htag"). iModIntro.
@@ -735,7 +734,7 @@ Proof.
   iIntros (Hlen Hprotected) "Hcall Htag Ht Hsim".
   iApply target_red_lift_head_step. iIntros (?????) "(HP_t & HP_s & Hbor)".
   iModIntro.
-  iPoseProof (heap_protected_readN_target with "Hbor Ht Htag Hcall") as "(%Hd & %Hown & %Hwf)".
+  iPoseProof (heap_protected_readN_target with "Hbor Ht Htag Hcall") as "(%Hd & %Hown)".
   { by rewrite Hlen. }
   rewrite Hlen in Hd Hown.
   have READ_t : read_mem l (tsize T) σ_t.(shp) = Some v_t.
@@ -750,7 +749,7 @@ Proof.
   iSplitR.
   { iPureIntro. do 3 eexists; eapply copy_head_step'; [done | eapply read_mem_values'; eauto | eauto]. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & BOR & -> & ->) | (_ & Hfail & _)]]; last congruence.
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
   rewrite READ in READ_t. simplify_eq.
   iModIntro. iSplitR; first done.
   iFrame "HP_t HP_s".
@@ -772,7 +771,7 @@ Proof.
   iIntros (Hlen Hprotected) "Hcall Htag Hs Hsim".
   iApply source_red_lift_head_step. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
-  iPoseProof (heap_protected_readN_source with "Hbor Hs Htag Hcall") as "(%Hd & %Hown & %Hwf)".
+  iPoseProof (heap_protected_readN_source with "Hbor Hs Htag Hcall") as "(%Hd & %Hown)".
   { by rewrite Hlen. }
   rewrite Hlen in Hd Hown.
   have READ_t : read_mem l (tsize T) σ_s.(shp) = Some v_s.
@@ -804,14 +803,14 @@ Proof.
 Admitted. 
 
 (* TODO: define ghost state that does allow us to use a later source_copy to resolve the value *)
-Lemma target_copy_deferred v_t T l t tk Ψ :
-  length v_t = tsize T →
-  t $$ tk -∗
-  l ↦t∗[tk]{t} v_t -∗
-  (l ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ target_red #v_t Ψ)%E -∗
-  target_red (Copy (Place l (Tagged t) T)) Ψ.
-Proof. 
-Abort.
+(*Lemma target_copy_deferred v_t T l t tk Ψ :*)
+  (*length v_t = tsize T →*)
+  (*t $$ tk -∗*)
+  (*l ↦t∗[tk]{t} v_t -∗*)
+  (*(∀ v_t', (v_t = v_t' ∨ v_t = ScPoison ∗ TagInvalid(l, t))  l ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ target_red #v_t Ψ)%E -∗*)
+  (*target_red (Copy (Place l (Tagged t) T)) Ψ.*)
+(*Proof. *)
+(*Abort.*)
 
 (* TODO: with the right ghost state, this should allow use to resolve "deferred" target copies *)
 Lemma source_copy_resolve_deferred v_s T l t Ψ tk π :

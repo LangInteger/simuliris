@@ -368,10 +368,10 @@ Lemma copy_head_step' P (σ: state) l bor T v α (WF: state_wf σ) :
   head_step P (Copy (Place l bor T)) σ (Val v) σ' [].
 Proof.
   intros RM. econstructor; econstructor; eauto.
-  move => l1 [t1|//] /elem_of_list_lookup [i Eqi].
-  apply (state_wf_mem_tag _ WF (l +ₗ i) l1).
-  destruct (read_mem_values _ _ _ _ RM) as [Eq1 Eq2].
-  rewrite Eq2; [done|]. rewrite -Eq1. by eapply lookup_lt_Some.
+  (*move => l1 [t1|//] /elem_of_list_lookup [i Eqi].*)
+  (*apply (state_wf_mem_tag _ WF (l +ₗ i) l1).*)
+  (*destruct (read_mem_values _ _ _ _ RM) as [Eq1 Eq2].*)
+  (*rewrite Eq2; [done|]. rewrite -Eq1. by eapply lookup_lt_Some.*)
 Qed.
 
 Lemma copy_head_step P (σ: state) l bor T
@@ -424,7 +424,7 @@ Qed.
 
 Lemma write_head_step' P (σ: state) l bor T v α
   (LEN: length v = tsize T)
-  (LOCVAL: v <<t σ.(snp))
+  (*(LOCVAL: v <<t σ.(snp))*)
   (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom (gset loc) σ.(shp))
   (BOR: memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α) :
   let σ' := mkState (write_mem l v σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
@@ -434,7 +434,7 @@ Proof. intros. econstructor 2; econstructor; eauto; by rewrite LEN. Qed.
 Lemma write_head_step P (σ: state) l bor T v
   (WF: state_wf σ)
   (LEN: length v = tsize T)
-  (LOCVAL: v <<t σ.(snp))
+  (*(LOCVAL: v <<t σ.(snp))*)
   (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom (gset loc) σ.(shp))
   (STK: ∀ m stk, (m < tsize T)%nat → σ.(sst) !! (l +ₗ m) = Some stk →
         access1_write_pre σ.(scs) stk bor) :

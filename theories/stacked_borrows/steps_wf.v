@@ -37,14 +37,14 @@ Proof.
   destruct (tsize T) eqn:Eqs.
   - inversion IS; clear IS; simplify_eq; constructor; simpl;
       try rewrite Eqs /=; try by apply WF.
-    + eapply wf_mem_tag_mono; [|by apply WF]. simpl; lia.
+    (*+ eapply wf_mem_tag_mono; [|by apply WF]. simpl; lia.*)
     + eapply wf_stack_item_mono; [..|by apply WF]; [simpl; lia|done].
   - inversion IS; clear IS; simplify_eq; constructor; cbn -[init_mem].
     + rewrite Eqs init_stacks_foldr init_mem_foldr.
       apply foldr_gmap_insert_dom, WF.
-    + intros ?? bor. rewrite init_mem_foldr.
-      intros [|Eq]%foldr_gmap_insert_lookup; [done|].
-      move : (state_wf_mem_tag _ WF _ _ _ Eq). destruct bor; simpl; lia.
+    (*+ intros ?? bor. rewrite init_mem_foldr.*)
+      (*intros [|Eq]%foldr_gmap_insert_lookup; [done|].*)
+      (*move : (state_wf_mem_tag _ WF _ _ _ Eq). destruct bor; simpl; lia.*)
     + intros ??. rewrite init_stacks_foldr.
       intros [->|Eq]%foldr_gmap_insert_lookup; split.
       * intros si ->%elem_of_list_singleton. simpl. split; [lia|done].
@@ -74,9 +74,9 @@ Proof.
   rewrite (memory_deallocated_delete α cids' l bor (tsize T) α'); [|done].
   constructor; simpl.
   - rewrite free_mem_foldr. apply foldr_gmap_delete_dom, WF.
-  - intros ???. rewrite free_mem_foldr.
-    intros Eq%foldr_gmap_delete_lookup.
-    apply (state_wf_mem_tag _ WF _ _ _ Eq).
+  (*- intros ???. rewrite free_mem_foldr.*)
+    (*intros Eq%foldr_gmap_delete_lookup.*)
+    (*apply (state_wf_mem_tag _ WF _ _ _ Eq).*)
   - intros ?? Eq%foldr_gmap_delete_lookup.
     apply (state_wf_stack_item _ WF _ _ Eq).
   - intros ?? Eq%foldr_gmap_delete_lookup.
@@ -90,17 +90,17 @@ Lemma copy_step_wf σ σ' e e' l bor T vl :
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (CopyEvt l bor T vl)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
-  state_wf σ → state_wf σ' ∧ vl <<t σ'.(snp).
+  state_wf σ → state_wf σ' (* ∧ vl <<t σ'.(snp) *).
 Proof.
   destruct σ as [h α cids nxtp nxtc].
   destruct σ' as [h' α' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
   inversion IS; clear IS; simplify_eq.
-  split; [|done].
+  (*split; [|done].*)
   constructor; simpl.
   - rewrite -(for_each_dom α l (tsize T) _ _ ACC). by apply WF.
-  - apply WF.
+  (*- apply WF.*)
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
   - apply WF.
@@ -195,19 +195,19 @@ Proof.
   constructor; simpl.
   - rewrite -(for_each_dom α l (tsize T) _ _ ACC).
     rewrite write_mem_dom; [by apply WF|done].
-  - move => l0 l' bor'. destruct (write_mem_lookup l vl h) as [IN OUT].
-    case (decide (l0.1 = l.1)) => Eq1.
-    + have Eql0: l0 = (l +ₗ (l0.2 - l.2)).
-      { rewrite /shift_loc -Eq1. destruct l0; simpl. f_equal. by lia. }
-      case (decide (0 ≤ l0.2 - l.2 < length vl)) => [[Le Lt]|NLe].
-      * rewrite Eql0 -(Z2Nat.id _ Le) IN.
-        intros Eq%elem_of_list_lookup_2. apply (BOR _ _ Eq).
-        rewrite -(Nat2Z.id (length vl)) -Z2Nat.inj_lt; [done|lia..].
-      * rewrite OUT; [by apply (state_wf_mem_tag _ WF)|].
-        move => i Lt Eq. rewrite Eql0 in Eq. apply shift_loc_inj in Eq.
-        apply NLe. rewrite Eq. lia.
-    + rewrite OUT; [by apply (state_wf_mem_tag _ WF)|].
-      move => ? _ Eq. apply Eq1. rewrite Eq. by apply shift_loc_block.
+  (*- move => l0 l' bor'. destruct (write_mem_lookup l vl h) as [IN OUT].*)
+    (*case (decide (l0.1 = l.1)) => Eq1.*)
+    (*+ have Eql0: l0 = (l +ₗ (l0.2 - l.2)).*)
+      (*{ rewrite /shift_loc -Eq1. destruct l0; simpl. f_equal. by lia. }*)
+      (*case (decide (0 ≤ l0.2 - l.2 < length vl)) => [[Le Lt]|NLe].*)
+      (** rewrite Eql0 -(Z2Nat.id _ Le) IN.*)
+        (*intros Eq%elem_of_list_lookup_2. apply (BOR _ _ Eq).*)
+        (*rewrite -(Nat2Z.id (length vl)) -Z2Nat.inj_lt; [done|lia..].*)
+      (** rewrite OUT; [by apply (state_wf_mem_tag _ WF)|].*)
+        (*move => i Lt Eq. rewrite Eql0 in Eq. apply shift_loc_inj in Eq.*)
+        (*apply NLe. rewrite Eq. lia.*)
+    (*+ rewrite OUT; [by apply (state_wf_mem_tag _ WF)|].*)
+      (*move => ? _ Eq. apply Eq1. rewrite Eq. by apply shift_loc_block.*)
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
   - apply WF.
@@ -883,17 +883,17 @@ Proof.
       * intros ???????. by eapply reborrowN_wf_stack.
 Qed.
 
-Lemma retag_ref_wf_stack h α nxtc cids nxtp l old T kind bar bor' α' nxtp'
+Lemma retag_ref_wf_stack (*h*) α nxtc cids nxtp l old T kind bar bor' α' nxtp'
   (BAR : match bar with Some c => (c < nxtc)%nat | _ => True end) :
   retag_ref α cids nxtp l old T kind bar = Some (bor', α', nxtp') →
-  wf_mem_tag h nxtp →
+  (*wf_mem_tag h nxtp →*)
   wf_stacks α nxtp nxtc → wf_non_empty α →
-  wf_mem_tag h nxtp' ∧
+  (*wf_mem_tag h nxtp' ∧*)
   dom (gset loc) α ≡ dom (gset loc) α' ∧
   wf_stacks α' nxtp' nxtc ∧ wf_non_empty α'.
 Proof.
-  intros RE WF1 WF2 WF3. split.
-  { move => x' l' t' /WF1. apply retag_ref_nxtp_mono in RE. lia. }
+  intros RE (*WF1*) WF2 WF3. (* split.*)
+  (*{ move => x' l' t' /WF1. apply retag_ref_nxtp_mono in RE. lia. }*)
   revert RE WF2 WF3.
   rewrite /retag_ref. case tsize eqn:Eq; [by intros; simplify_eq|].
   case reborrow as [α1|] eqn:Eq1; [simpl|done].
@@ -926,7 +926,7 @@ Proof.
     destruct WF;
     (eapply retag_ref_wf_stack in Eq1; eauto);
     [|by destruct rkind| |by destruct rkind|..];
-    destruct Eq1 as (WF1 & Eq1 & ? & ?);
+    destruct Eq1 as ((*WF1 & *) Eq1 & ? & ?);
     (split; [by rewrite -Eq1|done..]).
 Qed.
 

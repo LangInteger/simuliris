@@ -1,8 +1,8 @@
-(*From Equations Require Import Equations.*)
+From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 From simuliris.stacked_borrows Require Export lang_base notation type locations.
-From Equations Require Import Equations.
+Local Open Scope Z_scope.
 
 (*** EXPRESSION SEMANTICS --------------------------------------------------***)
 
@@ -324,19 +324,12 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → Prop :=
     pure_expr_step P h (Call #[ScFnPtr fn] e2)
                         (fill K e2).
 
-(* TODO: should explicitly insert EndCall - InitCall into source code, do not put it here*)
-
-(* TODO: initcall should generate a call id explicitly, endcall should take one and end it;
-  semantics should have a set of active call_ids.
-   ghost state for owning call ids (like heap) -- similar to bijection.
-*)
 Inductive mem_expr_step (h: mem) : expr → event → mem → expr → Prop :=
-  (* TODO: can we remove call_id here?*)
 | InitCallBS (c: call_id):
     mem_expr_step
               h InitCall
               (InitCallEvt c)
-              h (Val(cons (ScCallId c) nil))
+              h (Val $ [ScCallId c])
 | EndCallBS (call: call_id) e :
     to_value e = Some [ScCallId call] →
     mem_expr_step h (EndCall e) (EndCallEvt call) h #[☠]

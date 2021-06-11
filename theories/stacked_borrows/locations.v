@@ -1,7 +1,7 @@
 From iris.prelude Require Import prelude.
 From iris.prelude Require Import options.
 From stdpp Require Import countable numbers gmap.
-Open Scope Z_scope.
+Local Open Scope Z_scope.
 
 Declare Scope loc_scope.
 Delimit Scope loc_scope with L.
@@ -11,7 +11,7 @@ Definition block : Set := positive.
 Definition loc : Set := block * Z.
 
 Bind Scope loc_scope with loc.
-Open Scope loc_scope.
+Global Open Scope loc_scope.
 
 Global Instance loc_eq_decision : EqDecision loc.
 Proof. solve_decision. Qed.
