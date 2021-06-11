@@ -255,6 +255,12 @@ Proof.
   by iApply source_red_base.
 Qed.
 
+Lemma target_red_load o l q v Ψ:
+  o = ScOrd ∨ o = Na1Ord →
+  l ↦t{#q} v -∗
+  (l ↦t{#q} v -∗ target_red (of_val v) Ψ) -∗
+  target_red (Load o (Val $ LitV $ LitLoc l)) Ψ.
+Proof. intros [-> | ->]; [iApply target_red_load_sc | iApply target_red_load_na]. Qed.
 Lemma tac_target_red_loadsc Δ i K b l q v Ψ:
   envs_lookup i Δ = Some (b, l ↦t{#q} v)%I →
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
@@ -284,6 +290,12 @@ Proof.
     iApply target_red_base; eauto.
 Qed.
 
+Lemma source_red_load π o l q v Ψ `{!sheapInvSupportsLoad o}:
+  o = ScOrd ∨ o = Na1Ord →
+  l ↦s{#q} v -∗
+  (l ↦s{#q} v -∗ source_red (of_val v) π Ψ) -∗
+  source_red (Load o (Val $ LitV $ LitLoc l)) π Ψ.
+Proof. intros [-> | ->]; [iApply source_red_load_sc | iApply source_red_load_na]. Qed.
 Lemma tac_source_red_loadsc π Δ i K b l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   envs_lookup i Δ = Some (b, l ↦s{#q} v)%I →
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →

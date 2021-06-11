@@ -243,11 +243,12 @@ Module W.
       apply/not_elem_of_dom. rewrite dom_list_to_map. set_solver.
   Qed.
 
-  Lemma tac_to_expr_subst x v e (P : _ → Prop) e':
-    (let ex := e' in subst x v e = ex) →
-    P (to_expr e') →
-    P (simp_lang.subst x v (to_expr e)).
-  Proof. by rewrite -to_expr_subst => ->. Qed.
+  Lemma tac_to_expr_subst x v e (P : _ → Prop) e' e'':
+    (e = to_expr e') →
+    (let ex := e'' in subst x v e' = ex) →
+    P (to_expr e'') →
+    P (simp_lang.subst x v e).
+  Proof. move => -> <-. by rewrite to_expr_subst. Qed.
 
   Definition add_substmap (xs : list (string * val)) (e : expr) : expr :=
     match xs with
@@ -379,12 +380,12 @@ Ltac simpl_subst :=
       | subst _ _ _ => fail
       | _ => idtac
       end;
+      pattern (subst x v e);
       let e' := W.of_expr e in
-      let g := context C [subst x v (W.to_expr e')] in
-      change g;
-      pattern (simp_lang.subst x v (W.to_expr e'));
-      simple refine (W.tac_to_expr_subst _ _ _ _ _ _ _); [ shelve |
-      let ex := fresh "e" in intro ex; vm_compute; exact: eq_refl | ];
+      simple refine (W.tac_to_expr_subst _ _ _ _ e' _ _ _ _); [ shelve
+      | simpl; rewrite ?list_to_map_to_list; reflexivity
+      | let ex := fresh "e" in intro ex; vm_compute; exact: eq_refl
+      |];
       simple refine (W.tac_to_expr_combine_subst_map _ _ _ _ _); [ shelve |
       let ex := fresh "e" in intro ex; vm_compute; exact: eq_refl | ];
       simpl

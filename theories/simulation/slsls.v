@@ -1190,3 +1190,5 @@ Section fix_lang.
     target_red e_t Φ -∗ (∀ e_t', Φ e_t' -∗ Ψ e_t') -∗ target_red e_t Ψ.
   Proof. iIntros "Ht Hw". iApply (target_red_mono with "Hw Ht"). Qed.
 End fix_lang.
+
+Arguments lift_post : simpl never.

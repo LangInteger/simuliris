@@ -457,4 +457,18 @@ Section laws.
       + apply: Hext_t. eexists _. naive_solver.
       + apply: Hext_s. eexists _. naive_solver.
   Qed.
+
+  Lemma heap_bij_freeable_ne l1 l_t2 l_s2 n L P:
+    l_t2 ↔h l_s2 -∗
+    †l1…?s n -∗
+    heap_bij_interp L P -∗
+    ⌜loc_block l1 ≠ loc_block l_s2⌝.
+  Proof.
+    iIntros "[Hbij %] Hf Hint".
+    iDestruct (heap_bij_access with "Hint Hbij") as (?) "[Halloc _]".
+    iDestruct "Halloc" as (n' vs_t vs_s Hlen) "(Hvs & Halloc_t & Halloc_s)".
+    destruct (decide (loc_block l1 = loc_block l_s2)) => //.
+    by iDestruct (heap_freeable_excl with "Hf Halloc_s") as %?.
+  Qed.
+
 End laws.

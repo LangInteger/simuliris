@@ -46,6 +46,7 @@ theories/simplang/examples/sum.v
 theories/simplang/na_inv/na_locs.v
 theories/simplang/na_inv/inv.v
 theories/simplang/na_inv/refl.v
+theories/simplang/na_inv/readonly_refl.v
 theories/simplang/na_inv/examples/data_races.v
 
 theories/simplang/simple_inv/inv.v

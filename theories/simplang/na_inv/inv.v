@@ -487,4 +487,17 @@ Section fix_heap.
     - by iApply big_sepL2_singleton.
   Qed.
 
+  Lemma sim_bij_freeable_ne l1 l_t2 l_s2 Φ n:
+    l_t2 ↔h l_s2 -∗
+    †l1…?s n -∗
+    (⌜loc_block l1 ≠ loc_block l_s2⌝ -∗ †l1…?s n -∗ Φ) -∗
+    update_si Φ.
+  Proof.
+    iIntros "Hbij Hf HΦ" (P_t σ_t P_s σ_s T_s) "($&$&$&$&Hinv)".
+    iDestruct "Hinv" as (L cols ???) "[? Hb]".
+    iDestruct (heap_bij_freeable_ne with "Hbij Hf Hb") as %?.
+    iModIntro. iDestruct ("HΦ" with "[//] Hf") as "$".
+    iExists _, _. by iFrame.
+  Qed.
+
 End fix_heap.
