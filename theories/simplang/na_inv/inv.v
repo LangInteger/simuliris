@@ -500,4 +500,19 @@ Section fix_heap.
     iExists _, _. by iFrame.
   Qed.
 
+  Lemma sim_bij_freeable_ne_val l1 v_t2 v_s2 Φ n:
+    val_rel v_t2 v_s2 -∗
+    †l1…?s n -∗
+    (⌜if v_s2 is #(LitLoc l_s2) then loc_block l1 ≠ loc_block l_s2 else True⌝ -∗ †l1…?s n -∗ Φ) -∗
+    update_si Φ.
+  Proof.
+    iIntros "Hbij Hf HΦ" (P_t σ_t P_s σ_s T_s) "($&$&$&$&Hinv)".
+    iDestruct "Hinv" as (L cols ???) "[? Hb]".
+    case_match; [case_match|..].
+    5: iDestruct (gen_val_rel_loc_source with "Hbij") as (? ->) "Hbij".
+    5: iDestruct (heap_bij_freeable_ne with "Hbij Hf Hb") as %?.
+    all: iModIntro; iDestruct ("HΦ" with "[//] Hf") as "$".
+    all: iExists _, _; by iFrame.
+  Qed.
+
 End fix_heap.
