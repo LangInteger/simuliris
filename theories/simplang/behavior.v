@@ -10,7 +10,7 @@ From simuliris.simplang Require Import lang notation parallel_subst wf gen_val_r
 Section ctx_rel.
   Context (expr_head_wf : expr_head → Prop).
 
-  (* TODO: generalize *)
+  (* TODO: support arbitrary but equal initial heaps. *)
   Let init_state (σ_t σ_s : state) : Prop := σ_t = state_empty ∧ σ_s = state_empty.
 
   Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
