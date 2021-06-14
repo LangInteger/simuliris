@@ -61,7 +61,7 @@ Proof.
   iFrame "HP_t HP_s".
   iSplitR "Hsim"; first last. { iSplitL; done. }
 
-  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
 
   (* prove that it is a public location *)
   iAssert (⌜untagged_or_public M_tag bor_s⌝)%I as %Hpub.
@@ -73,9 +73,15 @@ Proof.
   (* re-establish the invariants *)
   iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplit; last iSplit; last iSplit; last iSplit.
+  iSplit; last iSplit; last iSplit; last iSplit; last iSplit.
+  - (* re-establish the tainted interpretation *)
+    subst σ_s'.
+    iApply (tag_tainted_interp_preserve with "Htainted"); simpl; first lia.
+    intros l stk' Hstk' it Hit.
+    specialize (for_each_dealloc_lookup_Some _ _ _ _ _ Hstack_s _ _ Hstk') as (_ & Hstk).
+    right. right. eauto.
   - (* re-establish the state relation *)
-    admit. 
+    admit.
   - (* re-establish the call set interpretation *)
     admit.
   - (* re-establish the tag interpretation *)
@@ -148,7 +154,7 @@ Proof.
   iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iDestruct "Hrel" as "[[<- Hrel] <-]".
-  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
   iPoseProof (state_rel_stacks_eq with "Hsrel") as "%Hstacks_eq".
   iPoseProof (state_rel_calls_eq with "Hsrel") as "%Hcalls_eq".
 
@@ -160,25 +166,25 @@ Proof.
   destruct Hpub as [Hpub ->].
 
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as [(v_s & Hread_s & (α' & Hstack_s)) | Hfail]; first last. 
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as [(v_s & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
   { (* failing copy *)
-    iSplitR. 
-    { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; first done. 
-      rewrite -Hstacks_eq -Hcalls_eq. done. 
-    } 
+    iSplitR.
+    { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; first done.
+      rewrite -Hstacks_eq -Hcalls_eq. done.
+    }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
-    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(? & ? & _ & ? & _) | (-> & ? & ->)]]; first congruence. 
+    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(? & ? & _ & ? & _) | (-> & ? & ->)]]; first congruence.
     iModIntro.
     assert (Hhead_s : head_step P_s (Copy (Place l_t bor_s T_t)) σ_s (Val $ replicate (tsize T_t) ScPoison) σ_s []).
     { eapply failed_copy_head_step'; eauto. }
     iExists (Val $ replicate (tsize T_t) ScPoison), [], σ_s. iSplitR; first done.
-    iFrame. iSplitR "Hsim"; first last. 
-    { iSplitL; last done. iApply "Hsim". 
-      generalize (tsize T_t) => n. iInduction n as [ | n] "IH"; first by iApply big_sepL2_nil. 
-      rewrite /value_rel big_sepL2_cons; iFrame "IH". done. 
-    } 
+    iFrame. iSplitR "Hsim"; first last.
+    { iSplitL; last done. iApply "Hsim".
+      generalize (tsize T_t) => n. iInduction n as [ | n] "IH"; first by iApply big_sepL2_nil.
+      rewrite /value_rel big_sepL2_cons; iFrame "IH". done.
+    }
     iExists M_call, M_tag, M_t, M_s. iFrame. repeat (iSplit; done).
-  } 
+  }
   (* successful copy *)
   iAssert (⌜∀ i : nat, (i < tsize T_t)%nat → is_Some (shp σ_t !! (l_t +ₗ i))⌝)%I as "%Hsome_target".
   { iPoseProof (state_rel_heap_lookup_Some with "Hsrel") as "%Hl".
@@ -200,7 +206,7 @@ Proof.
   }
   (* we keep the head_step hypotheses to use the [head_step_wf] lemma below *)
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(v_t & α'0 & COPY & ACC & -> & ->) | (-> & ? & ->)]]; last congruence. 
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(v_t & α'0 & COPY & ACC & -> & ->) | (-> & ? & ->)]]; last congruence.
   iAssert (⌜α'0 = α'⌝)%I as "->".
   { iPureIntro. move : ACC Hstack_s. rewrite Hcalls_eq Hstacks_eq. congruence. }
   iModIntro.
@@ -215,7 +221,12 @@ Proof.
     (* re-establish the invariants *)
     iExists M_call, M_tag, M_t, M_s.
     iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-    iSplit; last iSplit; last iSplit; last iSplit.
+    iSplit; last iSplit; last iSplit; last iSplit; last iSplit.
+    - (* tainted *)
+      subst σ_s'. iApply (tag_tainted_interp_tagged_sublist with "Htainted"); simpl; first lia.
+      intros l stk' Hstk'.
+      specialize (for_each_access1 _ _ _ _ _ _ _ Hstack_s _ _ Hstk') as (stk & Hstk & Hsubl & _).
+      eauto.
     - (* state rel *)
       iPoseProof (state_rel_dom_eq with "Hsrel") as "%Hdom".
       iPoseProof (state_rel_snp_eq with "Hsrel") as "%Hsnp".
@@ -366,7 +377,7 @@ Proof.
   iFrame "HP_t HP_s".
   iSplitR "Hsim"; first last. { iSplitL; done. }
 
-  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
 
   (* prove that it is a public location *)
   iAssert (⌜untagged_or_public M_tag bor_s⌝)%I as %Hpub.
@@ -378,7 +389,12 @@ Proof.
   (* re-establish the invariants *)
   iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplit; last iSplit; last iSplit; last iSplit.
+  iSplit; last iSplit; last iSplit; last iSplit; last iSplit.
+  - (* tainted *)
+    subst σ_s'. iApply (tag_tainted_interp_tagged_sublist with "Htainted"); simpl; first lia.
+    intros l stk' Hstk'.
+    specialize (for_each_access1 _ _ _ _ _ _ _ Hstack_s _ _ Hstk') as (stk & Hstk & Hsubl & _).
+    eauto.
   - (* state rel *)
     rewrite /state_rel; simpl. iSplitL.
     { iPureIntro. apply gset_leibniz. rewrite !write_mem_dom; [by rewrite Hdom_eq | done..]. }
@@ -431,7 +447,7 @@ Lemma bor_interp_retag_public σ_s σ_t c l ot rkind kind T nt α' nxtp' :
   bor_interp sc_rel (mkState σ_t.(shp) α' σ_t.(scs) nxtp' σ_t.(snc)) (mkState σ_s.(shp) α' σ_s.(scs) nxtp' σ_s.(snc)).
 Proof.
   intros Hretag Hwf_t' Hwf_s'.
-  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
 
   iDestruct "Hscrel" as "[_ #Hrel]".
   iAssert (⌜untagged_or_public M_tag ot⌝)%I as %Hpub.
@@ -467,6 +483,8 @@ Proof.
   iPoseProof (state_rel_get_pure with "Hsrel") as "%Hp".
   iExists M_call, M_tag', M_t, M_s.
   iFrame. iSplitL.
+  { (* tainted *) iApply (tag_tainted_interp_retag with "Htainted"). done. }
+  iSplitL.
   { (* state relation *)
     rewrite /state_rel. simpl. iDestruct "Hsrel" as "(-> & %Hs_eq & %Hsnp_eq & -> & -> & Hsrel)".
     do 5 (iSplitL; first done). iIntros (l' Hsl').
@@ -585,7 +603,7 @@ Lemma bor_interp_init_call σ_t σ_s :
     (mkState σ_t.(shp) σ_t.(sst) ({[ σ_t.(snc) ]} ∪ σ_t.(scs)) σ_t.(snp) (S σ_t.(snc)))
     (mkState σ_s.(shp) σ_s.(sst) ({[ σ_s.(snc) ]} ∪ σ_s.(scs)) σ_s.(snp) (S σ_s.(snc))).
 Proof.
-  iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
   iPoseProof (state_rel_snc_eq with "Hsrel") as "%Hsnc_eq".
   assert (M_call !! σ_t.(snc) = None) as Hfresh.
   { destruct (M_call !! σ_t.(snc)) as [ M' | ] eqn:HM'; last done. apply Hcall_interp in HM' as (Hin & _).
@@ -655,7 +673,7 @@ Lemma bor_interp_end_call c σ_t σ_s :
   c @@ ∅ ==∗ (* we need it to be empty to avoid tripping private locations *)
   ⌜c ∈ σ_t.(scs) ∧ c ∈ σ_s.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
 Proof.
-  iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
+  iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
   iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
   iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro.
   iPoseProof (state_rel_calls_eq with "Hsrel") as "->".

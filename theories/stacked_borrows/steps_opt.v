@@ -48,7 +48,7 @@ Lemma bor_interp_retag_default σ_t σ_s c l ot T α' mut :
   bor_interp sc_rel (mkState σ_t.(shp) α' σ_t.(scs) (S σ_t.(snp)) σ_t.(snc)) (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
 Proof.
   intros pk pm tk Hretag Hc_in Hfreeze Hwf'_t Hwf'_s.
-  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
 
   iDestruct "Hscrel" as "[_ Hrel]".
   iAssert (⌜untagged_or_public M_tag ot⌝)%I as %Hpub.
@@ -114,6 +114,8 @@ Proof.
   (* re-establishing the interpretation *)
   iExists M_call, (<[ nt := (tk, ()) ]> M_tag), (array_tag_map l nt v_t ∪ M_t), (array_tag_map l nt v_s ∪ M_s).
   iFrame. iSplitL.
+  { (* tainted *) iApply (tag_tainted_interp_retag with "Htainted"); done. } 
+  iSplitL.
   { (* state relation *)
     rewrite /state_rel. simpl. iDestruct "Hsrel" as "(-> & %Hs_eq & -> & -> & -> & Hsrel)".
     do 5 (iSplitL; first done). iIntros (l' Hsl').
@@ -181,9 +183,6 @@ Proof.
   done.
 Qed.
 
-(* TODO: for Mutable, this is currently not particularly useful, since reads are UB when the tag is not there.
-  Instead, need a mechanism for "deferred observations" or such
-*)
 Lemma sim_retag_default mut T l_t l_s c ot π Φ :
   (0 < tsize T)%nat → (* for convenience: makes the proof easier *)
   let pk : pointer_kind := RefPtr mut in
@@ -266,7 +265,7 @@ Lemma bor_interp_retag_fnentry σ_t σ_s l ot c T α' M mut :
   bor_interp sc_rel (mkState σ_t.(shp) α' σ_t.(scs) (S σ_t.(snp)) σ_t.(snc)) (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
 Proof.
   intros pk pm tk L Hretag Hfreeze Hwf'_t Hwf'_s.
-  iIntros "Hscrel Hcid Hbor". iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iIntros "Hscrel Hcid Hbor". iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
 
   iDestruct "Hscrel" as "[_ Hrel]".
   iAssert (⌜untagged_or_public M_tag ot⌝)%I as %Hpub.
@@ -336,6 +335,8 @@ Proof.
   (* re-establishing the interpretation *)
   iExists (<[c:=M']> M_call), (<[ nt := (tk, ()) ]> M_tag), (array_tag_map l nt v_t ∪ M_t), (array_tag_map l nt v_s ∪ M_s).
   iFrame. iSplitL.
+  { (* tainted *) iApply (tag_tainted_interp_retag with "Htainted"); done. } 
+  iSplitL. 
   { (* state relation *)
     rewrite /state_rel. simpl. iDestruct "Hsrel" as "(-> & %Hs_eq & -> & -> & -> & Hsrel)".
     do 5 (iSplitL; first done). iIntros (l' Hsl').
@@ -502,7 +503,7 @@ Proof.
   iPoseProof (heap_protected_readN_target with "Hbor Ht Htag Hc") as "(%Hv_t & %)".
   { intros i Hi. exists L. split; first done. apply Hl. lia. } 
 
-  iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)". 
+  iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)". 
   iPoseProof (ghost_map_lookup with "Hcall_auth Hc") as "%HcM".
   iMod (ghost_map_update M' with "Hcall_auth Hc") as "[Hcall_auth Hc]".
   iModIntro. iFrame "HP_t HP_s". iSplitR "Hsim Hc Ht Htag Hs"; last by iApply ("Hsim" with "Hc Htag Ht Hs").
@@ -576,7 +577,7 @@ Proof.
   iIntros (Ht ->) "Hc Hsim". 
   iApply sim_update_si. rewrite /update_si. iIntros (?????) "(HP_t & HP_s & Hbor)".
   set (M' := delete t M).
-  iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)". 
+  iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)". 
   iPoseProof (ghost_map_lookup with "Hcall_auth Hc") as "%HcM".
   iMod (ghost_map_update M' with "Hcall_auth Hc") as "[Hcall_auth Hc]".
   iModIntro. iFrame "HP_t HP_s". iSplitR "Hsim Hc"; last by iApply ("Hsim" with "Hc").
@@ -692,7 +693,6 @@ Proof.
   destruct σ_t; done.
 Qed.
 
-
 Lemma source_copy_local v_s T l t Ψ π :
   length v_s = tsize T →
   t $$ tk_local -∗
@@ -802,25 +802,219 @@ Lemma source_copy_any v_s T l t tk Ψ π :
 Proof.
 Admitted. 
 
-(* TODO: define ghost state that does allow us to use a later source_copy to resolve the value *)
-(*Lemma target_copy_deferred v_t T l t tk Ψ :*)
-  (*length v_t = tsize T →*)
-  (*t $$ tk -∗*)
-  (*l ↦t∗[tk]{t} v_t -∗*)
-  (*(∀ v_t', (v_t = v_t' ∨ v_t = ScPoison ∗ TagInvalid(l, t))  l ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ target_red #v_t Ψ)%E -∗*)
-  (*target_red (Copy (Place l (Tagged t) T)) Ψ.*)
-(*Proof. *)
-(*Abort.*)
+Definition exists_dec_unique {A} (x : A) (P : _ → Prop) : (∀ y, P y → P x) → Decision (P x) → Decision (∃ y, P y).
+Proof.
+  intros Hx Hdec.
+  refine (cast_if (decide (P x))).
+  - abstract by eexists _.
+  - abstract naive_solver.
+Defined.
 
-(* TODO: with the right ghost state, this should allow use to resolve "deferred" target copies *)
-Lemma source_copy_resolve_deferred v_s T l t Ψ tk π :
+Lemma list_in_dec {X} (P : X → Prop) (l : list X) : 
+  (∀ x, Decision (P x)) → 
+  Decision (∃ it, P it ∧ it ∈ l).
+Proof. 
+  intros HdecP. induction l as [ | it l IH]. 
+  - right. intros (it & _ & []%elem_of_nil).
+  - destruct IH as [ IH | IH]. 
+    + left. destruct IH as (it' & Hit' & Hin). exists it'. split; first done. right. done.
+    + destruct (HdecP it) as [Hit | Hnit]. 
+      { left. exists it. split; first done. by left. } 
+      right. intros (it' & Hit' & [-> | Hin]%elem_of_cons); first done.
+      apply IH. eauto. 
+Qed.
+
+Lemma target_copy_deferred v_t T l t tk Ψ :
+  length v_t = tsize T →
+  t $$ tk -∗
+  l ↦t∗[tk]{t} v_t -∗
+  (∀ v_t', deferred_read v_t v_t' l t -∗ l ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ target_red #v_t' Ψ)%E -∗
+  target_red (Copy (Place l (Tagged t) T)) Ψ.
+Proof. 
+  iIntros (Hlen) "Htag Ht Hsim".
+  iApply target_red_lift_head_step. iIntros (?????) "(HP_t & HP_s & Hbor)".
+  iModIntro.
+  iPoseProof (heap_readN_target with "Hbor Ht Htag") as "%Hcontrolled".
+
+  (* either: 
+    - one of the preconditions is not fulfilled anymore. 
+      In that case, we know that the item is not in the stack. 
+      This means that memory_read = None, and the CopyFail rule works. 
+      In that case, we allocate with tag_tainted_interp_insert at that i.
+    - all of the preconditions are fulfilled. In that case, we proceed similarly 
+      to the protected case. 
+  *)
+
+  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %]".
+  assert ((∀ i, (i < length v_t)%nat → shp σ_t !! (l +ₗ i) = v_t !! i ∧  bor_state_own (l +ₗ i) t tk σ_t) ∨ (∃ i, (i < length v_t)%nat ∧ ∀ st pm opro, σ_t.(sst) !! (l +ₗ i) = Some st → mkItem pm (Tagged t) opro ∉ st ∨ pm = Disabled)) as [Hsuccess | Hnosuccess].
+  { 
+    revert Hcontrolled. clear Hlen. 
+    set (n' := length v_t). assert (n' = length v_t) as Heq by done. revert Heq. 
+    generalize n' as n => n. clear n'.
+    induction n as [ | n IH] in l, v_t |-* => Hlen Hcontrolled. { left. intros i Hi. lia. }
+    destruct v_t as [ | sc v_t]; first done.
+    specialize (IH v_t (l +ₗ 1)) as [IH | IH].
+    - naive_solver. 
+    - intros i Hi. specialize (Hcontrolled (S i) ltac:(lia)). 
+      rewrite shift_loc_assoc. replace (1 + i)%Z with (Z.of_nat (S i))%Z by lia. done.
+    - setoid_rewrite shift_loc_assoc in IH. 
+      destruct (σ_t.(sst) !! (l +ₗ O)) as [stk | ] eqn:Hstk; first last.
+      { right; exists O. split; first lia. intros ????; congruence. } 
+      assert (Decision (∃ pm opro, mkItem pm (Tagged t) opro ∈ stk)) as [Hin | Hnotin]. 
+      { destruct (list_in_dec (λ it, tg it = Tagged t) stk) as [Hit | Hnit]; first apply _. 
+        - left. destruct Hit as (it & Htg & Hit). exists (perm it), (protector it). 
+          destruct it; naive_solver.
+        - right. contradict Hnit. destruct Hnit as (pm & opro & Hit).
+          exists (mkItem pm (Tagged t) opro). split; done.
+      } 
+      2: { right. exists O. split; first lia. intros st pm opro Hst. simplify_eq. 
+        left. contradict Hnotin. eauto. } 
+      destruct Hin as (pm & opro & Hit). 
+      destruct (decide (pm = Disabled)) as [-> | Hen]. 
+      { right. exists O. split; first lia. intros st pm' opro' ?; simplify_eq. 
+        destruct (decide (pm' = Disabled)) as [Heq | Hneq]; first by eauto.
+        left. intros Hit'. 
+        assert (stack_item_tagged_NoDup stk) as Hnodup.
+        { by eapply Hwf_t. } 
+        specialize (stack_item_tagged_NoDup_eq stk _ _ t Hnodup Hit Hit' eq_refl eq_refl). 
+        intros [= <-]. done. 
+      } 
+      left. 
+      destruct (Hcontrolled O ltac:(lia)) as [Hown Hshp].
+      { destruct tk; [ | | done]; exists stk, pm, opro; eauto. } 
+      intros i Hi. 
+      destruct (decide (i = O)) as [-> | Hneq]; first done. 
+      simpl. specialize (IH (pred i) ltac:(lia)). 
+      replace ((1 + Z.of_nat (pred i))) with (Z.of_nat i) in IH by lia. 
+      destruct IH as [IH1 IH2]; split; last done.
+      rewrite IH1. destruct i; done. 
+    - destruct IH as (i & Hi & IH). 
+      right; exists (S i). split; first lia. 
+      replace (Z.of_nat (S i))%Z with (1 + i)%Z by lia. rewrite -shift_loc_assoc. 
+      done. 
+  } 
+  - rewrite Hlen in Hsuccess.
+    have READ_t : read_mem l (tsize T) σ_t.(shp) = Some v_t.
+    { apply read_mem_values'; first done. by apply Hsuccess. }
+    have Eq_stk : memory_read σ_t.(sst) σ_t.(scs) l (Tagged t) (tsize T) = Some σ_t.(sst).
+    {
+      apply memory_read_access1. intros i Hi.
+      specialize (Hsuccess i Hi) as (_ & Hown). destruct (bor_state_own_some_stack _ _ _ _ Hown) as (stk & Hs_stk).
+      exists stk. split; first done. eapply bor_state_own_access1_read; done.
+    }
+    iSplitR.
+    { iPureIntro. do 3 eexists; eapply copy_head_step'; [done | eapply read_mem_values'; [ eauto | apply Hsuccess] | done ]. }
+    iIntros (e_t' efs_t σ_t') "%Hhead".
+    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
+    rewrite READ in READ_t. simplify_eq.
+    iModIntro. iSplitR; first done.
+    iFrame "HP_t HP_s".
+    iSplitL "Hbor"; first by destruct σ_t. 
+    iApply ("Hsim" with "[] Ht Htag").
+    iRight. done. 
+  - destruct Hnosuccess as (i & Hi & Hst). 
+    assert (memory_read σ_t.(sst) σ_t.(scs) l (Tagged t) (tsize T) = None) as Hnone.
+    { destruct memory_read as [ α' | ] eqn:Hread; last done. 
+      specialize (for_each_lookup_case_2 _ _ _ _ _ Hread) as [Hs _]. 
+      specialize (Hs i ltac:(lia)) as (stk & stk' & Hstk & Hstk' & Hacc1'). 
+      destruct access1 as [[] | ] eqn:Hacc1; last done.
+      specialize (access1_in_stack _ _ _ _ _ _ Hacc1) as (it & Hit & Htg & Hperm). 
+      destruct it as [perm tg opro].
+      specialize (Hst _ perm opro Hstk) as [Hnotin | ->]; last done. 
+      exfalso. apply Hnotin. naive_solver. 
+    } 
+    iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & _)". 
+    iSplitR.
+    { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; done. }
+    iIntros (e_t' efs_t σ_t') "%Hhead_t".
+    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(? & ? & _ & ? & _) | (-> & ? & ->)]]; first congruence.
+
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Hl". apply Htag_interp in Hl as (? & ? & _). 
+    iPoseProof (state_rel_stacks_eq with "Hsrel") as "%Heq".
+    iMod (tag_tainted_interp_insert σ_s t (l +ₗ i) with "Htainted") as "[Htainted Htfor]"; first done.
+    { rewrite Heq. intros stk it Hstk Hit.
+      specialize (Hst stk (perm it) (protector it) Hstk) as [Hnotin  | ->]; last by right.
+      left. intros Heq'. simplify_eq. destruct it; naive_solver.
+    } 
+    iModIntro. iSplitR; first done.
+    iSplitR "Hsim Htfor Htag Ht"; first last. 
+    { iApply ("Hsim" with "[Htfor] Ht Htag"). 
+      iLeft. iExists i. iFrame "Htfor".
+      iPureIntro. rewrite replicate_length. split; lia. 
+    } 
+    iFrame "HP_t HP_s". 
+    iExists M_call, M_tag, M_t, M_s. iFrame. iFrame "Hsrel". repeat (iSplit; done).
+Qed.
+
+
+Lemma source_copy_resolve_deferred v_s v_t v_t' T l t Ψ tk π :
   length v_s = tsize T →
   t $$ tk -∗
   l ↦s∗[tk]{t} v_s -∗
-  (l ↦s∗[tk]{t} v_s -∗ t $$ tk -∗ source_red #v_s π Ψ)%E -∗
+  deferred_read v_t v_t' l t -∗ 
+  value_rel v_t v_s -∗
+  (∀ v_s', value_rel v_t' v_s' -∗ l ↦s∗[tk]{t} v_s -∗ t $$ tk -∗ source_red #v_s' π Ψ)%E -∗
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
-Abort.
+  iIntros (Hlen) "Htag Hs Hdef #Hv Hsim".
+  iApply source_red_lift_head_step. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iModIntro. 
+  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
+  destruct Hsafe as [Hpool Hsafe].
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
+  { iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_head_step'; done. }
+    iModIntro. iFrame. iApply ("Hsim" with "[Hdef] Hs Htag"). 
+    iApply big_sepL2_forall. rewrite replicate_length. iSplit. 
+    - iPoseProof (value_rel_length with "Hv") as "%".
+      iDestruct "Hdef" as "[(%i & % & _) | ->]"; iPureIntro; lia. 
+    - iIntros (i sc_s ?). rewrite lookup_replicate. iIntros "_ (-> & _)". 
+      destruct sc_s; done. 
+  } 
+  (* successful read -- so this has to match what the ghost state says, since the 
+    preconditions are fulfilled. Moreover, this means we must be in the second 
+    case of [deferred_read]. *)
+  iPoseProof (heap_readN_source with "Hbor Hs Htag") as "%Hcontrolled".
+  assert (∀ i, (i < length v_s)%nat → shp σ_s !! (l +ₗ i) = v_s !! i ∧  bor_state_own (l +ₗ i) t tk σ_s) as Hcontrol'.
+  {
+    intros i Hi. 
+    destruct (Hcontrolled i Hi) as [Hown Hshp].
+    { specialize (for_each_lookup_case_2 _ _ _ _ _ Hstack_s) as [Hs _]. 
+      specialize (Hs i ltac:(lia)) as (stk0 & stk' & Hstk0 & Hstk' & Hacc1'). 
+      destruct access1 as [[] | ] eqn:Hacc1; last done.
+      specialize (access1_in_stack _ _ _ _ _ _ Hacc1) as (it & Hit & Htg & Hperm). 
+      destruct it as [perm tg opro]. simpl in *. simplify_eq. 
+      destruct tk; last done. 
+      all: exists stk0, perm, opro; done. 
+    } 
+    split; last done. rewrite Hshp list_lookup_lookup_total; first done.
+    apply lookup_lt_is_Some_2. lia. 
+  } 
+  have READ_s : read_mem l (tsize T) σ_s.(shp) = Some v_s.
+  { apply read_mem_values'; first lia. rewrite -Hlen. apply Hcontrol'. }
+  have Eq_stk : memory_read σ_s.(sst) σ_s.(scs) l (Tagged t) (tsize T) = Some σ_s.(sst).
+  { apply memory_read_access1. intros i Hi.
+    specialize (Hcontrol' i ltac:(lia)) as (_ & Hown). 
+    destruct (bor_state_own_some_stack _ _ _ _ Hown) as (stk & Heq). 
+    eexists; split; first done.
+    eapply bor_state_own_access1_read; done.
+  } 
+  iExists _, _. iSplitR. { iPureIntro. eapply copy_head_step'; done. } 
+  iModIntro. 
+  iFrame. 
+  iDestruct "Hdef" as "[(%i & %Hi & Htainted) | ->]"; first last. 
+  { iSplitL "Hbor"; first by destruct σ_s. iApply ("Hsim" with "Hv Hs Htag"). } 
+  iDestruct "Hbor" as "(% & % & % & % & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htaint_interp & #Hsrel & %Hcall_interp & %Htag_interp & _ & %Hwf_t)". 
+  iPoseProof (tag_tainted_interp_lookup with "Htainted Htaint_interp") as "[%Ht %Hstk]".
+  iPoseProof (value_rel_length with "Hv") as "%".
+  exfalso. 
+  specialize (for_each_lookup_case_2 _ _ _ _ _ Hstack_s) as [Hs _]. 
+  specialize (Hs i ltac:(lia)) as (stk0 & stk' & Hstk0 & Hstk' & Hacc1'). 
+  destruct access1 as [[] | ] eqn:Hacc1; last done.
+  specialize (access1_in_stack _ _ _ _ _ _ Hacc1) as (it & Hit & Htg & Hperm). 
+  destruct it as [perm tg opro]. simpl in *.
+  specialize (Hstk stk0 _ Hstk0 Hit) as [Hneq | Hdis]; last done. 
+  simpl in Hneq. congruence. 
+Qed.
 
 (** Alloc *)
 Lemma sim_alloc_local T Φ π :
