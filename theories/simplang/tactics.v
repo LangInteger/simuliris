@@ -65,9 +65,14 @@ Global Hint Extern 1 (head_step _ _ _ _ _ _) => econstructor : head_step.
 Global Hint Extern 0 (head_step _ (AllocN _ _) _ _ _ _) => apply alloc_fresh : head_step.
 
 Module W.
+  (** A version of [expr] that allows computing substitutions and free
+  variables even for expressions containing unknown code. *)
   Inductive expr :=
+  (** Unknown expression e *)
   | Expr (e : simp_lang.expr)
-  | ClosedExpr (f : list string) (e : simp_lang.expr) (Hfree : (free_vars e) = list_to_set f)
+  (** Unknown expression e with known set of free variables *)
+  | ClosedExpr (f : list string) (e : simp_lang.expr) (Hfree : free_vars e ⊆ list_to_set f)
+  (** [subst_map xs e] *)
   | SubstMap (xs : list (string * val)) (e : expr)
 
   | Val (v : val)
@@ -120,6 +125,7 @@ Module W.
     | FAA e1 e2 => simp_lang.FAA (to_expr e1) (to_expr e2)
     end.
 
+  (** [of_expr e] expects [e] to be a simpl_lang.expr and returns a reified [expr] for it. *)
   Ltac of_expr e :=
   lazymatch e with
 
@@ -168,31 +174,7 @@ Module W.
 
   | _ =>
     lazymatch goal with
-    | H : free_vars e = list_to_set ?f |- _ =>
-      constr:(ClosedExpr f e H)
-    (*
-    | H : free_vars e = ?f |- _ =>
-      let rec go f :=
-          lazymatch f with
-          | {[ ?x ]} ∪ ?f' =>
-            let _ := match x with | _ => idtac x f' end in
-            let l := go f' in
-            let _ := match x with | _ => idtac x f' l end in
-            constr:(@cons string x l)
-          | {[ ?x ]} =>
-            constr:(@cons string x nil)
-          | ∅ =>
-            let _ := match f with | _ => idtac f  end in
-            constr:(@nil string)
-          end in
-      let l := go f in
-      (* idtac f; *)
-      let H' := fresh in
-      let _ := match f with | _ =>
-                              assert (free_vars e = list_to_set l) as H'; [admit|]
-               end in
-      constr:(ClosedExpr l e H')
-     *)
+    | H : free_vars e ⊆ list_to_set ?f |- _ => constr:(ClosedExpr f e H)
     | _ => constr:(Expr e)
     end
   end.
@@ -245,7 +227,7 @@ Module W.
 
   Lemma tac_to_expr_subst x v e (P : _ → Prop) e' e'':
     (e = to_expr e') →
-    (let ex := e'' in subst x v e' = ex) →
+    (subst x v e' = e'') →
     P (to_expr e'') →
     P (simp_lang.subst x v e).
   Proof. move => -> <-. by rewrite to_expr_subst. Qed.
@@ -259,6 +241,8 @@ Module W.
     to_expr (add_substmap xs e) = subst_map (list_to_map xs) (to_expr e).
   Proof. destruct xs => //=. by rewrite subst_map_empty. Qed.
 
+  (** This function collapses multiple consecutive [SubstMap] which
+  can arise after [subst] on closed expressions. *)
   Fixpoint combine_subst_map (xs : list (string * val)) (e : expr)  : expr :=
     match e with
     | SubstMap ys e => combine_subst_map (ys ++ xs) e
@@ -304,16 +288,15 @@ Module W.
   Proof. by rewrite to_expr_combine_subst_map subst_map_empty. Qed.
 
   Lemma tac_to_expr_combine_subst_map e (P : _ → Prop) e':
-    (let ex := e' in combine_subst_map [] e = ex) →
+    (combine_subst_map [] e = e') →
     P (to_expr e') →
     P (to_expr e).
   Proof. move => <-. by rewrite to_expr_combine_subst_map_empty. Qed.
 
-  Definition binder_to_list (b : binder) : list string :=
-  match b with
-  | BNamed n => [n]
-  | BAnon => []
-  end.
+  (** This function computes the free variables of [e]. Note that this
+  function returns to few free variables for unknown expressions [Expr
+  e]. Thus, we don't have a soundness proof like in the other cases,
+  but this function is still useful for the [log_rel] tactic. *)
   Fixpoint free_vars (e : expr) : list string :=
   match e with
   | Expr _ => [] (* bogus but we don't care *)
@@ -362,7 +345,7 @@ Module W.
     elim: e xs => [^ e] //= xs Hx.
     all: destruct_and?.
     all: repeat match goal with | H : (∀ xs, _) |- _ => specialize (H _ ltac:(done)) end.
-    { rewrite eHfree. set_unfold => ??. by apply: elem_of_submseteq. }
+    { etrans; [eassumption|]. set_unfold => ??. by apply: elem_of_submseteq. }
     { revert select (_ ⊆ _). rewrite free_vars_subst_map list_to_set_app dom_list_to_map. set_solver. }
     all: repeat match goal with | x : binder |- _ => destruct x end; set_solver.
   Qed.
@@ -384,10 +367,10 @@ Ltac simpl_subst :=
       let e' := W.of_expr e in
       simple refine (W.tac_to_expr_subst _ _ _ _ e' _ _ _ _); [ shelve
       | simpl; rewrite ?list_to_map_to_list; reflexivity
-      | let ex := fresh "e" in intro ex; vm_compute; exact: eq_refl
+      | vm_compute; exact: eq_refl
       |];
       simple refine (W.tac_to_expr_combine_subst_map _ _ _ _ _); [ shelve |
-      let ex := fresh "e" in intro ex; vm_compute; exact: eq_refl | ];
+      vm_compute; exact: eq_refl | ];
       simpl
     end.
 Arguments subst : simpl never.
@@ -399,33 +382,3 @@ Ltac solve_is_closed :=
     apply (W.to_expr_is_closed_empty e');
     vm_compute; exact: I
   end.
-
-(*
-   Goal ∀ e : simp_lang.expr, free_vars e = list_to_set ["r"; "i" ] →
-    simp_lang.subst "r" (#0) (
-(* let: "r" := ref #0  in *)
-     let: "i" := ref #0  in
-     while: e do
-       "r" <- !"r" + !"m";;
-       (* Call ##f "x";; *)
-       "i" <- !"i" + #1
-     od;;
-     Free "i";;
-     let: "res" := !"r" in
-     Free "r";;
-     "res")%E = #0.
-     move => e?.
-     simpl_subst.
-   Abort.
-
-   Goal ∀ e : simp_lang.expr, free_vars e = list_to_set ["r"; "i" ] →
-    simp_lang.subst "i" (#0) (
-(* let: "r" := ref #0  in *)
-     (* let: "i" := ref #0  in *)
-while: subst_map (<["r":=#0]> ∅) e do #0 <- ! #0 + ! "m";; "i" <- ! "i" + #1 od ;;
-   simp_lang.FreeN #1 "i";; let: "res" := ! #0 in simp_lang.FreeN #1 #0;; "res")%E = #0.
-     move => ??.
-     simpl_subst.
-   Abort.
-
-  *)

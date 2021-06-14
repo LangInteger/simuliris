@@ -110,7 +110,7 @@ Section data_race.
      "res".
 
   Lemma hoist_load_sim e:
-    free_vars e = list_to_set ["n"; "i"] →
+    free_vars e ⊆ list_to_set ["n"; "i"] →
     gen_expr_wf readonly_wf e →
     ⊢ log_rel (hoist_load_opt e) (hoist_load e).
   Proof.
@@ -126,7 +126,7 @@ Section data_race.
     source_while. to_sim.
     sim_bind (subst_map _ _) (subst_map _ _).
     iApply (sim_refl with "[] [Hc]");
-      [compute_done | rewrite He; compute_done
+      [compute_done | etrans; [eassumption|compute_done]
        | apply: readonly_log_rel_structural [] ∅ | done | | |]. {
         rewrite !dom_insert_L. iApply big_sepS_intro. iIntros "!#" (x Hin).
         rewrite map_lookup_zip_with.
@@ -170,7 +170,7 @@ Section data_race.
       iIntros "!> (Hl_t&Hl_s&Hc)".
       sim_bind (subst_map _ _) (subst_map _ _).
       iApply (sim_refl with "[] [Hc Hl_t Hl_s]");
-        [compute_done | rewrite He; compute_done
+        [compute_done | etrans; [eassumption|compute_done]
          | apply (readonly_log_rel_structural [(l_t, l_s, #m ,#m , q)]) | done | | |]. {
         rewrite !dom_insert_L. iApply big_sepS_intro. iIntros "!#" (x Hin).
         rewrite map_lookup_zip_with.
@@ -251,7 +251,7 @@ End data_race.
 Section closed.
   (** Obtain a closed proof of [ctx_rel]. *)
   Lemma hoist_load_ctx e :
-    free_vars e = list_to_set ["n"; "i"] →
+    free_vars e ⊆ list_to_set ["n"; "i"] →
     gen_expr_wf readonly_wf e →
     ctx_rel (hoist_load_opt e) (hoist_load e).
   Proof.

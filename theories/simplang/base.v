@@ -1,3 +1,4 @@
+From stdpp Require Import binders.
 From iris.proofmode Require Import tactics.
 
 (* TODO: upstream the following definitions *)
@@ -5,6 +6,12 @@ Ltac get_head e :=
   lazymatch e with
   | ?h _ => get_head constr:(h)
   | _    => constr:(e)
+  end.
+
+Definition binder_to_list (b : binder) : list string :=
+  match b with
+  | BNamed n => [n]
+  | BAnon => []
   end.
 
 Lemma fst_map_zip {A B C} `{!EqDecision A} `{!Countable A} (m1 : gmap A B) (m2 : gmap A C) :

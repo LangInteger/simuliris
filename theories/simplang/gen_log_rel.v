@@ -235,7 +235,7 @@ Section log_rel_structural.
 
   Corollary sim_refl π m1 m2 e Φ :
     dom (gset _) m1 = dom (gset _) m2 →
-    free_vars e = dom (gset _) m1 →
+    free_vars e ⊆ dom (gset _) m1 →
     log_rel_structural →
     gen_expr_wf expr_head_wf e →
     subst_map_rel loc_rel (dom _ m1) (map_zip m1 m2) -∗
@@ -251,7 +251,8 @@ Section log_rel_structural.
       2: { move => ?. by rewrite -!elem_of_dom Hdom. }
       setoid_rewrite snd_map_zip.
       2: { move => ?. by rewrite -!elem_of_dom Hdom. }
-      iApply ("Hlog" with "[Hrel] Ht"). by rewrite Hfree idemp_L.
+      iApply ("Hlog" with "[Hrel] Ht").
+      iApply (subst_map_rel_weaken with "Hrel"). set_solver.
     - iIntros (e_t e_s) "(%v_t & %v_s & -> & -> & Ht & Hv)". by iApply ("HΦ" with "Ht").
   Qed.
 
