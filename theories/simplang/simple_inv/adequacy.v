@@ -54,8 +54,7 @@ Proof.
   iIntros (?) "_ _ !# %f %K_s %π".
   iDestruct (Hrel _) as "Hrel". clear Hrel.
   destruct (decide (f = fname)) as [->|Hne].
-  - (* FIXME: wtf, why does it need a type annotation here?!? *)
-    rewrite !(lookup_insert (M:=gmap _)).
+    rewrite !lookup_insert.
     iIntros ([= <-]). iExists _. iSplitR; first done.
     (* TODO Factor this into a general lemma? *)
     iIntros (v_t v_s) "#Hval /=".
@@ -64,7 +63,7 @@ Proof.
     iApply log_rel_let.
     { iApply log_rel_val. done. }
     iApply log_rel_ctx; done.
-  - rewrite !(lookup_insert_ne (M:=gmap _)) //.
+  - rewrite !lookup_insert_ne //.
     iIntros (Hf). rename K_s into K. iExists K. iSplit; first done.
     specialize (Hpwf _ _ Hf). destruct Hpwf as [HKwf HKclosed].
     (* TODO Factor this into a lemma? *)

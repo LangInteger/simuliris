@@ -21,7 +21,7 @@ Section language_mixin.
   Context (fill : ectx → expr → expr).
 
   (** A program is a map from function names to function bodies. *)
-  Definition mixin_prog := gmap string ectx.
+  Local Notation mixin_prog := (gmap string ectx).
 
   Context (head_step : mixin_prog → expr → state → expr → state → list expr → Prop).
 
@@ -69,7 +69,7 @@ Section language_mixin.
 End language_mixin.
 
 Arguments mixin_expr_class : clear implicits.
-Arguments mixin_prog : clear implicits.
+Local Notation mixin_prog ectx := (gmap string ectx).
 
 Structure language := Language {
   expr : Type;
