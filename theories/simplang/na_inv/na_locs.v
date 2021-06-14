@@ -348,9 +348,9 @@ Section na_alt_exec.
     apply: fill_reach_stuck.
     destruct ns; (apply: reach_stuck_irred; [done|]).
     - move => [?[?[? Hh]]]; simplify_eq/=.
-      move: Hh => /lookup_free_mem_Some /= [/(mk_is_Some _ _) /Hs ??]. lia.
+      move: Hh => /lookup_free_mem_Some /= [/(mk_is_Some _ _) /Hs ?[//|?]]. lia.
     - move => [?[?[? [? Hh]]]]; simplify_eq/=.
-      move: Hh => /lookup_free_mem_Some /= [/(mk_is_Some _ _) /Hs ??]. lia.
+      move: Hh => /lookup_free_mem_Some /= [/(mk_is_Some _ _) /Hs ?[//|?]]. lia.
   Qed.
 
   Lemma na_alt_exec_step P_s σ_s σ_s' T_s π π' ns ls e e' l_s K_s:

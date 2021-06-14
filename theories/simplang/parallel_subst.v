@@ -9,6 +9,7 @@ Fixpoint subst_map (xs : gmap string val) (e : expr) : expr :=
   match e with
   | Var y => if xs !! y is Some v then Val v else Var y
   | Val v => Val v
+  | GlobalVar n => GlobalVar n
   | Let x1 e1 e2 => Let x1 (subst_map xs e1) (subst_map (binder_delete x1 xs) e2)
   | UnOp op e => UnOp op (subst_map xs e)
   | BinOp op e1 e2 => BinOp op (subst_map xs e1) (subst_map xs e2)
@@ -113,6 +114,7 @@ Local Definition binder_to_ctx (x : binder) : gset string :=
 Fixpoint free_vars (e : expr) : gset string :=
   match e with
   | Val v => ∅
+  | GlobalVar n => ∅
   | Var x => {[x]}
   | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
   | Match e0 x1 e1 x2 e2 =>

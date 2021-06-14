@@ -26,8 +26,9 @@ Section expr_wf.
     match e with
     (** [val_wf v] should be part of [expr_head_wf (Val v)] because
         [log_rel_structural] only provides [expr_head_wf]. *)
-    | Val v => True 
+    | Val v => True
     | Var x => True
+    | GlobalVar x => True
     | Let b e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
     | Call e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
     | UnOp op e => gen_expr_wf e

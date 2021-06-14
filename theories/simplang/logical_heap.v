@@ -20,8 +20,9 @@ Definition heapUR : ucmra :=
 Class heapG Σ := HeapG {
   heap_inG :> inG Σ (authR heapUR);
   heap_freeable_inG :> ghost_mapG Σ loc (option nat);
+  heap_globals_inG :> inG Σ (agreeR (leibnizO (gset string)));
 }.
-Definition heapΣ := #[GFunctor (authR heapUR); ghost_mapΣ loc (option nat)].
+Definition heapΣ := #[GFunctor (authR heapUR); ghost_mapΣ loc (option nat); GFunctor (agreeR (leibnizO (gset string)))].
 
 Global Instance subG_heapΣ Σ :
   subG heapΣ Σ → heapG Σ.
@@ -30,6 +31,7 @@ Proof. solve_inG. Qed.
 Record heap_names := {
  heap_name : gname;
  heap_freeable_name : gname;
+ heap_globals_name : gname;
 }.
 
 Definition to_lock_stateR (x : lock_state) : lock_stateR :=
@@ -37,11 +39,11 @@ Definition to_lock_stateR (x : lock_state) : lock_stateR :=
 Definition to_heap : gmap loc (lock_state * val) → heapUR :=
   fmap (λ v, (1%Qp, to_lock_stateR (v.1), to_agree (v.2))).
 Definition heap_freeable_rel (σ : state) (hF : gmap loc (option nat)) : Prop :=
-  ∀ l o, hF !! l = Some o →
-   loc_block l ∈ σ.(used_blocks) ∧
-   loc_idx l = 0 ∧
+  ∀ b i o, hF !! Loc (AllocBlock b) i = Some o →
+   b ∈ σ.(used_blocks) ∧
+   i = 0 ∧
    0 < default 1 o ∧
-   ∀ i, is_Some (σ.(heap) !! (l +ₗ i)) ↔ (0 ≤ i < default O o)%Z.
+   ∀ i, is_Some (σ.(heap) !! Loc (AllocBlock b) i) ↔ (0 ≤ i < default O o)%Z.
 
 Section definitions.
   Context `{!heapG Σ} (γ : heap_names).
@@ -60,15 +62,29 @@ Section definitions.
     ([∗ list] i ↦ st; v ∈ sts; vl, heap_mapsto (l +ₗ i) st q v)%I.
 
   Definition heap_freeable_def (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
-    ⌜loc_idx l = 0⌝ ∗ l ↪[ γ.(heap_freeable_name) ]{# q } n.
+    ⌜loc_idx l = 0⌝ ∗ ⌜block_is_alloc l.(loc_block)⌝ ∗ l ↪[ γ.(heap_freeable_name) ]{# q } n.
   Definition heap_freeable_aux : seal (@heap_freeable_def). by eexists. Qed.
   Definition heap_freeable := unseal heap_freeable_aux.
   Definition heap_freeable_eq : @heap_freeable = @heap_freeable_def :=
     seal_eq heap_freeable_aux.
 
+  Definition heap_globals_def (gs : gset string) : iProp Σ :=
+    own γ.(heap_globals_name) (to_agree (gs : leibnizO _)).
+  Definition heap_globals_aux : seal (@heap_globals_def). by eexists. Qed.
+  Definition heap_globals := unseal heap_globals_aux.
+  Definition heap_globals_eq : @heap_globals = @heap_globals_def :=
+    seal_eq heap_globals_aux.
+  Definition heap_global_def (g : string) : iProp Σ :=
+    ∃ gs, ⌜g ∈ gs⌝ ∗ heap_globals gs.
+  Definition heap_global_aux : seal (@heap_global_def). by eexists. Qed.
+  Definition heap_global := unseal heap_global_aux.
+  Definition heap_global_eq : @heap_global = @heap_global_def :=
+    seal_eq heap_global_aux.
+
   Definition heap_ctx (σ: state) : iProp Σ :=
     (∃ hF, own γ.(heap_name) (● to_heap σ.(heap))
          ∗ ghost_map_auth γ.(heap_freeable_name) 1 hF
+         ∗ heap_globals σ.(globals)
          ∗ ⌜heap_freeable_rel σ hF⌝
          ∗ ⌜heap_wf σ⌝)%I.
 End definitions.
@@ -274,7 +290,7 @@ Section heap.
     †l…?n -∗ †l'…?n' -∗ False.
   Proof.
     rewrite heap_freeable_eq.
-    iIntros (?) "[% Hl1] [% Hl2]". destruct l, l'; simplify_eq/=.
+    iIntros (?) "(%&%&Hl1) (%&%&Hl2)". destruct l, l'; simplify_eq/=.
     by iDestruct (ghost_map_elem_valid_2 with "Hl1 Hl2") as %[? ?].
   Qed.
 
@@ -681,7 +697,7 @@ Section heap.
     iMod (heap_write_na_2 with "Hσ Hmt") as (?) "[Hσ Hmt]".
     iModIntro. iFrame. done.
   Qed.
-    
+
 End heap.
 
 Lemma heap_init `{heapG Σ} h :

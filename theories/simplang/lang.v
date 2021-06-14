@@ -64,6 +64,7 @@ Inductive expr :=
   (* Base lambda calculus *)
     (* instead of lambda abstractions, we have let expressions and calls *)
   | Var (x : string)
+  | GlobalVar (x : string)
   | Let (x : binder) (e1 e2 : expr)
   | Call (e1 : expr) (e2 : expr)
   (* Base types and their operations *)
@@ -178,19 +179,19 @@ Inductive lock_state :=
 | WSt | RSt (n : nat).
 Record state : Type := State {
   heap: gmap loc (lock_state * val);
-  used_blocks: gset block;
+  used_dyn_blocks: gset dyn_block;
+  globals: gset string;
 }.
-Definition state_init (h : gmap loc val) : state :=
-  {| heap := (λ v, (RSt 0, v)) <$> h; used_blocks := set_map loc_block (dom (gset loc) h) |}.
+(** The initial heap contains only global variables as a closed
+program can only refer to global variables on the heap.  *)
+(* TODO: Allow global variables to contain arrays *)
+Definition state_init (h : gmap string val) : state :=
+  {| heap := kmap global_loc ((λ v, (RSt 0, v)) <$> h); used_dyn_blocks := ∅; globals := dom _ h |}.
 Definition heap_wf (σ: state) : Prop :=
-  ∀ l v, σ.(heap) !! l = Some v → loc_block l ∈ σ.(used_blocks).
+  ∀ b i v, σ.(heap) !! Loc (DynBlock b) i = Some v → b ∈ σ.(used_dyn_blocks).
 Lemma state_init_wf h :
   heap_wf (state_init h).
-Proof.
-  intros l [st v]. simpl.
-  rewrite lookup_fmap. intros [v' [? [= -> ->]]]%fmap_Some_1.
-  apply elem_of_map_2. apply elem_of_dom. eauto.
-Qed.
+Proof. by move => b i [st v] /= /lookup_kmap_Some [?[??]]. Qed.
 
 (** Equality and other typeclass stuff *)
 Lemma to_of_val v : to_val (of_val v) = Some v.
@@ -308,7 +309,7 @@ Qed.
 
 Global Instance : Inhabited lock_state := populate (RSt 0).
 Global Instance state_inhabited : Inhabited state :=
-  populate {| heap := inhabitant; used_blocks := inhabitant |}.
+  populate {| heap := inhabitant; used_dyn_blocks := inhabitant; globals := inhabitant |}.
 Global Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
 Global Instance expr_inhabited : Inhabited expr := populate (Val inhabitant).
 
@@ -465,6 +466,7 @@ Proof. apply foldl_app. Qed.
 Inductive expr_head :=
   | ValHead (v : val)
   | VarHead (x : string)
+  | GlobalVarHead (x : string)
   | LetHead (x : binder)
   | CallHead
   | UnOpHead (op : un_op)
@@ -490,6 +492,7 @@ Definition expr_split_head (e : expr) : (expr_head * list expr) :=
   match e with
   | Val v => (ValHead v, [])
   | Var x => (VarHead x, [])
+  | GlobalVar x => (GlobalVarHead x, [])
   | Let x e1 e2 => (LetHead x, [e1; e2])
   | Call e1 e2 => (CallHead, [e1; e2])
   | UnOp op e => (UnOpHead op, [e])
@@ -586,7 +589,7 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
 (** Substitution *)
 Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   match e with
-  | Val _ => e
+  | Val _ | GlobalVar _ => e
   | Var y => if decide (x = y) then Val v else Var y
   | Let y e1 e2 =>
      Let y (subst x v e1) (if decide (BNamed x ≠ y) then subst x v e2 else e2)
@@ -676,11 +679,11 @@ Definition bin_op_eval (op : bin_op) (v1 v2 : val) : option val :=
 
 
 Definition state_upd_heap (f: gmap loc (lock_state * val) → gmap loc (lock_state * val)) (σ: state) : state :=
-  {| heap := f σ.(heap); used_blocks := σ.(used_blocks) |}.
+  {| heap := f σ.(heap); used_dyn_blocks := σ.(used_dyn_blocks); globals := σ.(globals) |}.
 Global Arguments state_upd_heap _ !_ /.
-Definition state_upd_used_blocks (f: gset block → gset block) (σ: state) : state :=
-  {| heap := σ.(heap); used_blocks := f σ.(used_blocks) |}.
-Global Arguments state_upd_used_blocks _ !_ /.
+Definition state_upd_used_dyn_blocks (f: gset dyn_block → gset dyn_block) (σ: state) : state :=
+  {| heap := σ.(heap); used_dyn_blocks := f σ.(used_dyn_blocks); globals := σ.(globals) |}.
+Global Arguments state_upd_used_dyn_blocks _ !_ /.
 
 Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (lock_state * val) :=
   match vs with
@@ -798,24 +801,22 @@ Proof.
   rewrite loc_add_assoc IH; [done | lia].
 Qed.
 
-Lemma heap_wf_init_mem l n σ v:
+Lemma heap_wf_init_mem b n σ v:
   heap_wf σ →
-  heap_wf $ State (heap_array l (replicate n v) ∪ σ.(heap)) ({[loc_block l]} ∪ σ.(used_blocks)).
+  heap_wf $ State (heap_array (dyn_loc b) (replicate n v) ∪ σ.(heap)) ({[b]} ∪ σ.(used_dyn_blocks)) σ.(globals).
 Proof.
-  move => Hwf l' v' /lookup_union_Some_raw [/heap_array_lookup [?[?[?[?[??]]]]]|[??]].
+  move => Hwf b' i' v' /lookup_union_Some_raw [/heap_array_lookup[?[?[?[[??][??]]]]]|[??]].
   - set_solver.
   - set_unfold. right. by apply: Hwf.
 Qed.
 Lemma heap_wf_free_mem l n σ:
   heap_wf σ →
   heap_wf $ state_upd_heap (free_mem l n) σ.
-Proof. move => Hwf l' v' /lookup_free_mem_Some [??]. by apply: Hwf. Qed.
+Proof. move => Hwf b' i' v' /lookup_free_mem_Some [??]. by apply: Hwf. Qed.
 Lemma heap_wf_insert σ l p :
   heap_wf σ → is_Some (σ.(heap) !! l) →
   heap_wf $ state_upd_heap <[l := p]> σ.
-Proof.
-  move => Hwf [??] ?? /lookup_insert_Some[[??]|[??]]; simplify_eq; by apply: Hwf.
-Qed.
+Proof. move => Hwf [??] ??? /lookup_insert_Some[[??]|[??]]; simplify_eq; by apply: Hwf. Qed.
 
 (** Building actual evaluation contexts out of ectx_items *)
 Definition ectx := list ectx_item.
@@ -834,6 +835,9 @@ Notation "e1 ;; e2" := (Let BAnon e1%E e2%E)
   (at level 100, e2 at level 200,
    format "'[' '[hv' '[' e1 ']' ;;  ']' '/' e2 ']'") : expr_scope.
 Inductive head_step (P : prog) : expr → state → expr → state → list expr → Prop :=
+  | GlobalVarS n σ :
+     n ∈ σ.(globals) →
+     head_step P (GlobalVar n) σ (Val $ LitV $ LitLoc $ global_loc n) σ []
   | PairS v1 v2 σ :
      head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ []
   | InjLS v σ :
@@ -868,13 +872,14 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
   | ForkS e σ:
      head_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
   | AllocNS n v σ b :
-      (0 < n)%Z →
-      b ∉ σ.(used_blocks) →
-     (∀ i, σ.(heap) !! (Loc b i) = None) →
+     (0 < n)%Z →
+     b ∉ σ.(used_dyn_blocks) →
+     (∀ i, σ.(heap) !! (dyn_loc b +ₗ i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc (Loc b 0)) (state_upd_used_blocks ({[b]} ∪.) (state_init_heap (Loc b 0) n v σ)) []
+               (Val $ LitV $ LitLoc (dyn_loc b)) (state_upd_used_dyn_blocks ({[b]} ∪.) (state_init_heap (dyn_loc b) n v σ)) []
   | FreeNS l σ n :
      (0 < n)%Z →
+     block_is_dyn l.(loc_block) →
      (* always need to deallocate the full block *)
      (∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ 0 ≤ m < n)%Z →
      head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
@@ -1021,17 +1026,18 @@ Proof.
   revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
 Qed.
 
+(*
 Lemma alloc_fresh P v n σ :
-  let l := Loc (fresh_block σ.(heap) σ.(used_blocks)) 0 in
+  let l := Loc (fresh_block σ.(heap) σ.(used_dyn_blocks)) 0 in
   (0 < n)%Z →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
-            (Val $ LitV $ LitLoc l) (state_upd_used_blocks ({[l.(loc_block)]} ∪.) (state_init_heap l n v σ)) [].
+            (Val $ LitV $ LitLoc l) (state_upd_used_dyn_blocks ({[l.(loc_block)]} ∪.) (state_init_heap l n v σ)) [].
 Proof.
   intros. apply AllocNS; first done.
   - apply is_fresh_block_blocks.
   - apply is_fresh_block.
 Qed.
-
+*)
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:
   to_val e1 = None →
   head_step P e1' σ1 e2 σ2 efs →
