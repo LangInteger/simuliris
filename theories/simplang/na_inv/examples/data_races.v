@@ -4,7 +4,7 @@ Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang.na_inv Require Export inv.
-From simuliris.simplang.na_inv Require Import readonly_refl.
+From simuliris.simplang.na_inv Require Import readonly_refl adequacy.
 
 (** * Examples for exploiting UB of data-races. *)
 
@@ -247,3 +247,17 @@ Section data_race.
 *)
 
 End data_race.
+
+Section closed.
+  (** Obtain a closed proof of [ctx_rel]. *)
+  Lemma hoist_load_ctx e :
+    free_vars e = list_to_set ["n"; "i"] →
+    gen_expr_wf readonly_wf e →
+    ctx_rel (hoist_load_opt e) (hoist_load e).
+  Proof.
+    intros ??.
+    set Σ := #[naΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    by apply hoist_load_sim.
+  Qed.
+End closed.
