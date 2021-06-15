@@ -17,6 +17,9 @@ the basic laws of the program logic, assuming that [sheapInv] allows
 them. *)
 
 Class sheapGS (Σ: gFunctors) := SHeapGS {
+  (* These instances need to have a lower priority than the sheapGpreS
+  instances as otherwise the statement of [simplang_adequacy] uses the
+  wrong instance. *)
   sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ | 1;
   sheapG_heapG :> heapG Σ | 1;
   sheapG_heap_target : heap_names;
@@ -196,7 +199,11 @@ Notation "† l '…s' n" := (heap_freeable sheapG_heap_source l 1 (Some n))
 Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
   (at level 20, format "† l …s  -") : bi_scope.
 
-(** Global *)
+(** Global variables
+    [..._globals gs] asserts that the set of global variables in target resp. source  is [gs].
+    [..._global gs] asserts that [g] is a valid global variable in for the target resp. source.
+ *)
+(* TODO: Are there better notations? *)
 Notation target_globals := (heap_globals sheapG_heap_target).
 Notation target_global := (heap_global sheapG_heap_target).
 Notation source_globals := (heap_globals sheapG_heap_source).
