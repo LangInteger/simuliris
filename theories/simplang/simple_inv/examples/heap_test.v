@@ -81,11 +81,12 @@ Module bij_test.
   Qed.
 
   Lemma test_insert π l l2:
+    block_is_dyn (loc_block l) → block_is_dyn (loc_block l2) →
     l ↦t #4 -∗ l2 ↦s #4 -∗ †l …t 1 -∗ †l2 …s 1 -∗
     ((#l <- #42)%E ⪯{π} #l2 <- #42 {{ val_rel }}).
   Proof.
-    iIntros "H H1 H2 H3".
-    iApply (sim_bij_insert _ l l2 with "H2 H3 H H1 "); first done; iIntros "Hb".
+    iIntros (??) "H H1 H2 H3".
+    iApply (sim_bij_insert _ l l2 with "H2 H3 H H1 "); [naive_solver|done|]; iIntros "Hb".
     iApply (sim_bij_store with "Hb []"); first done. by sim_val.
   Qed.
 

@@ -4,7 +4,7 @@ From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel.
+From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel gen_global_rel.
 
 From iris.prelude Require Import options.
 
@@ -14,19 +14,30 @@ Class simpleGS (Σ : gFunctors) := SimpleGS {
   simpleGS_bijGS :> heapbijGS Σ;
 }.
 
-Notation val_rel := (gen_val_rel heapbij.loc_rel).
-Notation log_rel := (gen_log_rel heapbij.loc_rel (λ _, True%I)).
+Notation val_rel := (gen_val_rel loc_rel).
+Notation log_rel := (gen_log_rel loc_rel (λ _, True%I)).
 
 Section fix_heap.
   Context `{!simpleGS Σ}.
 
   Global Program Instance simple_inv : sheapInv Σ := {|
-    sheap_inv _ _ _:= ∃ L, heap_bij_interp L (λ _ _ q, q = Some 1%Qp);
+    sheap_inv _ _ _:=
+      ∃ L gs,
+        heap_bij_interp L (λ _ _ q, q = Some 1%Qp) ∗
+        gen_global_rel loc_rel gs gs;
     sheap_ext_rel _ := val_rel;
   |}%I.
   Next Obligation. done. Qed.
   Global Instance : sheapInvStateIndependent.
   Proof. done. Qed.
+
+  Lemma sim_bij_global_rel_law :
+    gen_global_rel_law loc_rel.
+  Proof.
+    iIntros (Φ) "HΦ".
+    iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) !>". iFrame.
+    iDestruct ("HΦ" with "Hgs") as "$". iExists _, _. by iFrame.
+  Qed.
 
   Lemma sim_bij_load_sc π l_t l_s Φ :
     l_t ↔h l_s -∗
@@ -35,7 +46,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&Hgs)) [% %Hsafe]]".
     have [l[v[m[[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#?"; [done| naive_solver |]; simplify_eq.
@@ -45,7 +56,7 @@ Section fix_heap.
     iSplitR; first by eauto with head_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim".
-    - iExists L. by iApply "Hclose".
+    - iExists L, gs. iFrame. by iApply "Hclose".
     - by iApply "Hsim".
   Qed.
 
@@ -56,7 +67,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[m[[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)".
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done| naive_solver |]; simplify_eq.
@@ -67,7 +78,7 @@ Section fix_heap.
     iSplitR; first by eauto with head_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim".
-    - iExists L. by iApply "Hclose".
+    - iExists L, gs. iFrame "Hgs". by iApply "Hclose".
     - by iApply "Hsim".
   Qed.
 
@@ -78,7 +89,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[m[[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
@@ -89,7 +100,7 @@ Section fix_heap.
     iSplitR; first by eauto with head_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim".
-    - iExists _. by iApply "Hclose".
+    - iExists _, gs. iFrame "Hgs". by iApply "Hclose".
     - iApply sim_bij_load_na2; [|done]. by iSplit.
   Qed.
 
@@ -107,7 +118,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)".
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
@@ -116,7 +127,7 @@ Section fix_heap.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hval") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
     iSplitR; first by eauto with head_step.
-    iFrame => /=. rewrite right_id. iExists _. by iApply "Hclose".
+    iFrame => /=. rewrite right_id. iExists _, gs. iFrame "Hgs". by iApply "Hclose".
   Qed.
 
   Lemma sim_bij_store_na2 π l_t l_s v_t v_s Φ :
@@ -127,7 +138,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
@@ -136,7 +147,7 @@ Section fix_heap.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hval") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
     iSplitR; first by eauto with head_step.
-    iFrame => /=. rewrite right_id. iExists L. by iApply "Hclose".
+    iFrame => /=. rewrite right_id. iExists L, gs. iFrame "Hgs". by iApply "Hclose".
   Qed.
 
   Lemma sim_bij_store_na1 π l_t l_s v_t v_s Φ :
@@ -147,7 +158,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
@@ -158,7 +169,7 @@ Section fix_heap.
     iSplitR; first by eauto with head_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim Hval".
-    - iExists _. by iApply "Hclose".
+    - iExists _, gs. iFrame "Hgs". by iApply "Hclose".
     - iApply (sim_bij_store_na2 with "[] Hval Hsim"). by iSplit.
   Qed.
 
@@ -176,7 +187,7 @@ Section fix_heap.
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv]) [% %Hsafe]]".
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
     have [m[?[[<-][[<-][??]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (?) "(Halloc & Hσ_s & Hσ_t)"; [done..|].
@@ -184,13 +195,14 @@ Section fix_heap.
     iIntros (e_t' efs σ_t') "%"; inv_head_step.
     iModIntro. iExists _, _, _.
     iSplitR; first by eauto with head_step.
-    iFrame. iSplit; [|done]. iExists L. by iApply "Hclose".
+    iFrame. iSplit; [|done]. iExists L, gs. iFrame "Hgs". by iApply "Hclose".
   Qed.
 
   Lemma sim_bij_insertN π l_t l_s vs_t vs_s e_t e_s n Φ :
     n > 0 →
     length vs_t = n →
     length vs_s = n →
+    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t n -∗
     †l_s …s n -∗
     l_t ↦t∗ vs_t -∗
@@ -199,13 +211,14 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros (Hn Ht Hs) "Hs_t Hs_s Hl_t Hl_s Hval Hsim". iApply sim_update_si.
-    iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & [%L Hinv])".
+    iIntros (Hn Ht Hs Hb) "Hs_t Hs_s Hl_t Hl_s Hval Hsim". iApply sim_update_si.
+    iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs))".
     iMod (heap_bij_insertN with "Hinv Hl_t Hl_s Hval Hs_t Hs_s") as "[Hb #Ha]"; [done .. | ].
-    iModIntro. iFrame. iDestruct ("Hsim" with "[//]") as "$". by iExists _.
+    iModIntro. iFrame. iDestruct ("Hsim" with "[//]") as "$". iExists _, gs. by iFrame "Hgs".
   Qed.
 
   Lemma sim_bij_insert π l_t l_s v_t v_s e_t e_s Φ :
+    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t 1 -∗
     †l_s …s 1 -∗
     l_t ↦t v_t -∗
@@ -214,8 +227,8 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros "Hs_t Hs_s Hl_t Hl_s Hv".
-    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | | | ].
+    iIntros (?) "Hs_t Hs_s Hl_t Hl_s Hv".
+    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | done | | | ].
     - by rewrite heap_mapsto_vec_singleton.
     - by rewrite heap_mapsto_vec_singleton.
     - by iApply big_sepL2_singleton.

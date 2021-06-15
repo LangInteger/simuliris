@@ -879,7 +879,8 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
                (Val $ LitV $ LitLoc (dyn_loc b)) (state_upd_used_dyn_blocks ({[b]} ∪.) (state_init_heap (dyn_loc b) n v σ)) []
   | FreeNS l σ n :
      (0 < n)%Z →
-     block_is_dyn l.(loc_block) →
+     (* TODO: Should we only allow freeing dyn blocks? *)
+     (* block_is_dyn l.(loc_block) → *)
      (* always need to deallocate the full block *)
      (∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ 0 ≤ m < n)%Z →
      head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
@@ -1026,18 +1027,19 @@ Proof.
   revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
 Qed.
 
-(*
 Lemma alloc_fresh P v n σ :
-  let l := Loc (fresh_block σ.(heap) σ.(used_dyn_blocks)) 0 in
+  let l := dyn_loc (fresh σ.(used_dyn_blocks)) in
   (0 < n)%Z →
+  heap_wf σ →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
-            (Val $ LitV $ LitLoc l) (state_upd_used_dyn_blocks ({[l.(loc_block)]} ∪.) (state_init_heap l n v σ)) [].
+            (Val $ LitV $ LitLoc l)
+            (state_upd_used_dyn_blocks ({[(fresh σ.(used_dyn_blocks))]} ∪.) (state_init_heap l n v σ)) [].
 Proof.
-  intros. apply AllocNS; first done.
-  - apply is_fresh_block_blocks.
-  - apply is_fresh_block.
+  intros l Hn Hwf. apply AllocNS; first done.
+  - apply is_fresh.
+  - move => i. apply eq_None_not_Some => -[? /Hwf]. apply is_fresh.
 Qed.
-*)
+
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:
   to_val e1 = None →
   head_step P e1' σ1 e2 σ2 efs →

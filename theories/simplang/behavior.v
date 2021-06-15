@@ -10,8 +10,8 @@ From simuliris.simplang Require Import lang notation parallel_subst wf gen_val_r
 Section ctx_rel.
   Context (expr_head_wf : expr_head → Prop).
 
-  (* TODO: support arbitrary but equal initial heaps. *)
-  Let init_state (σ_t σ_s : state) : Prop := σ_t = state_init ∅ ∧ σ_s = state_init ∅.
+  Let init_state (g : gmap string val) (σ_t σ_s : state) : Prop :=
+    σ_t = state_init g ∧ σ_s = state_init g.
 
   Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
     match v_t, v_s with
@@ -29,18 +29,19 @@ Section ctx_rel.
     end.
 
   (** The simplang instance of [beh_rel]. *)
-  Definition beh_rel := beh_rel init_state "main" #() obs_val.
+  Definition beh_rel g := beh_rel (init_state g) "main" #() obs_val.
 
   (** Contextual refinement:
       The two [e] can be put into an arbitrary context in an arbitrary function.
       [λ: x, e] denotes an evaluation context [let x = <hole> in e]; then the
       <hole> will be the function argument. *)
   Definition gen_ctx_rel (e_t e_s : expr) :=
-    ∀ (C : ctx) (fname x : string) (p : prog),
+    ∀ (C : ctx) (fname x : string) (p : prog) (g : gmap string val),
       map_Forall (λ _ K, gen_ectx_wf expr_head_wf K ∧ free_vars_ectx K = ∅) p →
       gen_ctx_wf expr_head_wf C →
       free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
-      beh_rel (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
+      map_Forall (λ _ v, val_wf v) g →
+      beh_rel g (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
 
   Lemma gen_val_rel_obs {Σ} loc_rel v_t v_s :
     gen_val_rel loc_rel v_t v_s ⊢@{iPropI Σ} ⌜obs_val v_t v_s⌝.

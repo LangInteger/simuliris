@@ -117,7 +117,7 @@ Qed.
 
 Lemma tac_target_red_allocN n v j i K Ψ Δ :
   (0 < n)%Z →
-  (∀ l,
+  (∀ l, block_is_dyn l.(loc_block) →
     match envs_app false (Esnoc (Esnoc Enil i († l …t Z.to_nat n)) j (l ↦t∗ (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
@@ -127,7 +127,7 @@ Lemma tac_target_red_allocN n v j i K Ψ Δ :
 Proof.
   rewrite envs_entails_eq=> ? HΔ. iIntros "He".
   iApply target_red_bind. iApply (target_red_allocN); [done..| ].
-  iIntros (l) "Hl Hn". specialize (HΔ l).
+  iIntros (l Hb) "Hl Hn". specialize (HΔ l Hb).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply target_red_base. iModIntro. iApply HΔ.
   rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
@@ -135,7 +135,7 @@ Qed.
 
 Lemma tac_source_red_allocN π n v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
   (0 < n)%Z →
-  (∀ l,
+  (∀ l, block_is_dyn l.(loc_block) →
     match envs_app false (Esnoc (Esnoc Enil i (†l …s Z.to_nat n)) j (l ↦s∗ (replicate (Z.to_nat n) v))) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) π Ψ)
@@ -145,14 +145,14 @@ Lemma tac_source_red_allocN π n v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
 Proof.
   rewrite envs_entails_eq=> ? HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_allocN; [done..| ].
-  iIntros (l) "Hl Hn". specialize (HΔ l).
+  iIntros (l Hb) "Hl Hn". specialize (HΔ l Hb).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply source_red_base. iModIntro.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
 Lemma tac_target_red_alloc v j i K Ψ Δ:
-  (∀ l,
+  (∀ l, block_is_dyn l.(loc_block) →
     match envs_app false (Esnoc (Esnoc Enil i (†l …t 1)) j (l ↦t v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (target_red (fill K (Val $ LitV $ LitLoc l)) Ψ)
@@ -162,14 +162,14 @@ Lemma tac_target_red_alloc v j i K Ψ Δ:
 Proof.
   rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply target_red_bind. iApply target_red_alloc.
-  iIntros (l) "Hl Hn". specialize (HΔ l).
+  iIntros (l Hb) "Hl Hn". specialize (HΔ l Hb).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply target_red_base. iModIntro.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
 Qed.
 
 Lemma tac_source_red_alloc π v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
-  (∀ l,
+  (∀ l, block_is_dyn l.(loc_block) →
     match envs_app false (Esnoc (Esnoc Enil i (†l …s 1)) j (l ↦s v)) Δ with
     | Some Δ' =>
        envs_entails Δ' (source_red (fill K (Val $ LitV $ LitLoc l)) π Ψ)
@@ -179,7 +179,7 @@ Lemma tac_source_red_alloc π v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
 Proof.
   rewrite envs_entails_eq=> HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_alloc.
-  iIntros (l) "Hl Hn". specialize (HΔ l).
+  iIntros (l Hb) "Hl Hn". specialize (HΔ l Hb).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   iApply source_red_base. iModIntro.
   iApply HΔ. rewrite envs_app_sound //; simpl. iApply "He"; iSplitL "Hl"; eauto.
@@ -873,7 +873,7 @@ Tactic Notation "target_alloc" ident(l) "as" constr(H) constr(H2) :=
   let Htmp := iFresh in
   let Htmp2 := iFresh in
   let finish _ :=
-    first [intros l | fail 1 "target_alloc:" l "not fresh"];
+    first [intros l ? | fail 1 "target_alloc:" l "not fresh"];
     pm_reduce;
     lazymatch goal with
     | |- False => fail 1 "target_alloc:" H " or " H2 "not fresh"
@@ -913,7 +913,7 @@ Tactic Notation "source_alloc" ident(l) "as" constr(H) constr(H2) :=
   let Htmp := iFresh in
   let Htmp2 := iFresh in
   let finish _ :=
-    first [intros l | fail 1 "source_alloc:" l "not fresh"];
+    first [intros l ? | fail 1 "source_alloc:" l "not fresh"];
     pm_reduce;
     lazymatch goal with
     | |- False => fail 1 "source_alloc:" H " or " H2 "not fresh"

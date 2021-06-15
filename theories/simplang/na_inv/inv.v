@@ -5,7 +5,7 @@ From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting.
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel.
+From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel gen_global_rel.
 From simuliris.simplang.na_inv Require Export na_locs.
 
 From iris.prelude Require Import options.
@@ -25,12 +25,13 @@ Section definitions.
     π ↪[ naGS_col_name ] col.
 
   Definition na_bij_interp (P_s : prog) (σ_s : state) (T_s : list expr) :=
-    (∃ L cols,
+    (∃ L cols gs,
         ⌜length cols = length T_s⌝ ∗
         ⌜na_locs_wf cols P_s σ_s T_s⌝ ∗
         ⌜na_locs_in_L cols L⌝ ∗
         ghost_map_auth naGS_col_name 1 (map_seq 0 cols) ∗
-        heap_bij_interp L (λ _, alloc_rel_pred cols))%I.
+        heap_bij_interp L (λ _, alloc_rel_pred cols) ∗
+        gen_global_rel loc_rel gs gs)%I.
 End definitions.
 
 Section laws.
@@ -49,10 +50,10 @@ Section laws.
         ⌜∀ b' o' q, b' ≠ b_s → alloc_rel_pred cols (Loc b' o') q → alloc_rel_pred cols' (Loc b' o') q⌝ -∗
         ghost_map_auth naGS_col_name 1 (map_seq 0 cols') -∗ alloc_rel b_t b_s (λ _, alloc_rel_pred cols') -∗ na_bij_interp P_s σ_s' T_s').
   Proof.
-    iIntros "Hinv Hrel". iDestruct "Hinv" as (L cols ? ? HL) "(Hcols & Hbij)".
+    iIntros "Hinv Hrel". iDestruct "Hinv" as (L cols ? ? ? HL) "(Hcols & Hbij & Hgs)".
     iExists _. do 2 (iSplit; [done|]). iFrame.
     iDestruct (heap_bij_access with "Hbij Hrel") as (?) "[$ Hclose]".
-    iIntros (cols' σ_s' T_s' ? ? Hdom HP) "Hcols He". iExists L, cols'. iFrame. repeat (iSplit; [done|]).
+    iIntros (cols' σ_s' T_s' ? ? Hdom HP) "Hcols He". iExists L, cols', _. iFrame. repeat (iSplit; [done|]).
     iSplit.
     { iPureIntro => ??????. efeed pose proof Hdom as Hd; [done.. | ].
       destruct Hd as [->|[?[??]]].
@@ -75,36 +76,44 @@ Section fix_heap.
     sheap_ext_rel π v_t v_s := na_locs π ∅ ∗ val_rel v_t v_s;
   |}%I.
   Next Obligation.
-    iIntros (????????) "(%L & %cols & % & % & ?)".
-    iExists _, _. iFrame. iPureIntro.
+    iIntros (????????) "(%L & %cols & %gs & % & % & ? &?)".
+    iExists _,_, _. iFrame. iPureIntro.
     rewrite insert_length. split; [done|].
     by apply: na_locs_wf_pure.
   Qed.
 
   Global Instance heap_bij_inv_supports_alloc : sheapInvSupportsAlloc.
   Proof.
-    constructor. iIntros (???????????) "(%L&%cols&%Hlen&%Hwf&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    constructor. iIntros (???????????) "(%L&%cols&%gs&%Hlen&%Hwf&?&?&?&?)".
+    iExists _,_, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     by apply: na_locs_wf_alloc.
   Qed.
   Global Instance heap_bij_inv_supports_free : sheapInvSupportsFree.
   Proof.
-    constructor. iIntros (???????????) "(%L&%cols&%Hlen&%Hwf&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    constructor. iIntros (???????????) "(%L&%cols&%gs&%Hlen&%Hwf&?&?&?&?)".
+    iExists _, _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     by apply: na_locs_wf_free.
   Qed.
   Global Instance heap_bij_inv_supports_load o : sheapInvSupportsLoad o.
   Proof.
-    constructor. iIntros (?????????????) "(%L&%cols&%Hlen&%Hwf&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    constructor. iIntros (?????????????) "(%L&%cols&%gs&%Hlen&%Hwf&?&?&?&?)".
+    iExists _, _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     by apply: na_locs_wf_load.
   Qed.
   Global Instance heap_bij_inv_supports_store : sheapInvSupportsStore Na1Ord.
   Proof.
-    constructor. iIntros (????????????) "(%L&%cols&%Hlen&%Hwf&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    constructor. iIntros (????????????) "(%L&%cols&%gs&%Hlen&%Hwf&?&?&?&?)".
+    iExists _, _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     have [|??]:= lookup_lt_is_Some_2 cols π. { rewrite Hlen. by apply: lookup_lt_Some. }
     apply: na_locs_wf_store; [done | done | by left | done | done |done | done |done].
+  Qed.
+
+  Lemma sim_bij_global_rel_law :
+    gen_global_rel_law loc_rel.
+  Proof.
+    iIntros (Φ) "HΦ".
+    iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%cols&%gs&?&?&?&?&?&#Hgs)) !>". iFrame.
+    iDestruct ("HΦ" with "Hgs") as "$". iExists _, _, _. by iFrame.
   Qed.
 
   Lemma sim_bij_exploit_store π l_t (l_s : loc) Φ e_s e_t col:
@@ -302,10 +311,10 @@ Section fix_heap.
     iExists _, _. iSplit; [iPureIntro; by econstructor|].
     iMod (heap_write with "Hσ_s Hl") as "[$ ?]".
     iFrame. iModIntro.
-    iDestruct "Hinv" as "(%L&%cols&%Hlen&%Hwf&?&Hcols&?)".
+    iDestruct "Hinv" as "(%L&%cols&%gs&%Hlen&%Hwf&?&Hcols&?)".
     iDestruct (ghost_map_lookup with "Hcols Hc") as %Hcoll.
     rewrite lookup_map_seq_0 in Hcoll.
-    iDestruct ("Hsim" with "Hc [$]") as "$". iExists _, _. iFrame.
+    iDestruct ("Hsim" with "Hc [$]") as "$". iExists _, _, _. iFrame.
     iPureIntro. rewrite insert_length. split; [done|].
     apply: na_locs_wf_store; [done | done | by right | done | done | done | done |done].
   Qed.
@@ -425,7 +434,7 @@ Section fix_heap.
     iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
     iExists _, _, _. iSplitR. { eauto with head_step. }
     simpl. iFrame.
-    iDestruct "Hinv" as (L cols Hlen Hwf ?) "(Hcols&Hb&HL)".
+    iDestruct "Hinv" as (L cols gs Hlen Hwf ?) "(Hcols&[Hb HL]&Hgs)".
     iMod (ghost_map_insert (length T_s) ∅ with "Hcols") as "[Hcols Hcol']".
     { apply lookup_map_seq_None. lia. }
     rewrite -Hlen -(map_seq_snoc 0).
@@ -435,7 +444,7 @@ Section fix_heap.
     iDestruct ("Hval" with "Hc") as "$".
     iSplitR "Hsim Hcol'"; last first.
     { iModIntro. iSplit; [|done]. iApply "Hsim". by rewrite Nat.add_0_r. }
-    iExists _, _. iFrame. iModIntro.
+    iExists _, _, _. iFrame. iModIntro.
     repeat iSplit; try iPureIntro.
     - rewrite !app_length insert_length /=. lia.
     - by apply na_locs_wf_fork.
@@ -450,6 +459,7 @@ Section fix_heap.
     n > 0 →
     length vs_t = n →
     length vs_s = n →
+    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t n -∗
     †l_s …s n -∗
     l_t ↦t∗ vs_t -∗
@@ -458,20 +468,21 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros (Hn Ht Hs) "Hs_t Hs_s Hl_t Hl_s Hval Hsim". iApply sim_update_si.
+    iIntros (Hn Ht Hs Hb) "Hs_t Hs_s Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
-    iDestruct "Hinv" as (L cols ? ? HL) "(Hcols & Hbij)".
+    iDestruct "Hinv" as (L cols gs ? ? HL) "(Hcols & Hbij & Hgs)".
     iMod (heap_bij_insertN with "Hbij Hl_t Hl_s Hval Hs_t Hs_s") as "[Hbij #?]"; [done..| |].
     - move => o ? HLs. rewrite /alloc_rel_pred combine_na_locs_list_None //.
       move => π' cols' Hcols.
       destruct (cols' !! (l_s +ₗ o)) eqn: Hk => //.
       exfalso. have /=[??]:= HL _ _ _ _ Hcols Hk. by apply: HLs.
     - iModIntro. iDestruct ("Hsim" with "[//]") as "$". iFrame.
-      iExists _, _. iFrame. iPureIntro. split_and!; [done..|].
+      iExists _, _, _. iFrame. iPureIntro. split_and!; [done..|].
       by apply: na_locs_in_L_extend.
   Qed.
 
   Lemma sim_bij_insert π l_t l_s v_t v_s e_t e_s Φ :
+    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t 1 -∗
     †l_s …s 1 -∗
     l_t ↦t v_t -∗
@@ -480,24 +491,11 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros "Hs_t Hs_s Hl_t Hl_s Hv".
-    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | | | ].
+    iIntros (?) "Hs_t Hs_s Hl_t Hl_s Hv".
+    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | done | | | ].
     - by rewrite heap_mapsto_vec_singleton.
     - by rewrite heap_mapsto_vec_singleton.
     - by iApply big_sepL2_singleton.
-  Qed.
-
-  Lemma sim_bij_freeable_ne l1 l_t2 l_s2 Φ n:
-    l_t2 ↔h l_s2 -∗
-    †l1…?s n -∗
-    (⌜loc_block l1 ≠ loc_block l_s2⌝ -∗ †l1…?s n -∗ Φ) -∗
-    update_si Φ.
-  Proof.
-    iIntros "Hbij Hf HΦ" (P_t σ_t P_s σ_s T_s) "($&$&$&$&Hinv)".
-    iDestruct "Hinv" as (L cols ???) "[? Hb]".
-    iDestruct (heap_bij_freeable_ne with "Hbij Hf Hb") as %?.
-    iModIntro. iDestruct ("HΦ" with "[//] Hf") as "$".
-    iExists _, _. by iFrame.
   Qed.
 
   Lemma sim_bij_freeable_ne_val l1 v_t2 v_s2 Φ n:
@@ -507,12 +505,19 @@ Section fix_heap.
     update_si Φ.
   Proof.
     iIntros "Hbij Hf HΦ" (P_t σ_t P_s σ_s T_s) "($&$&$&$&Hinv)".
-    iDestruct "Hinv" as (L cols ???) "[? Hb]".
+    iDestruct "Hinv" as (L cols ????) "(?&Hb&?)".
     case_match; [case_match|..].
     5: iDestruct (gen_val_rel_loc_source with "Hbij") as (? ->) "Hbij".
     5: iDestruct (heap_bij_freeable_ne with "Hbij Hf Hb") as %?.
     all: iModIntro; iDestruct ("HΦ" with "[//] Hf") as "$".
-    all: iExists _, _; by iFrame.
+    all: iExists _, _, _; by iFrame.
   Qed.
+
+  Lemma sim_bij_freeable_ne l1 l_t2 l_s2 Φ n:
+    l_t2 ↔h l_s2 -∗
+    †l1…?s n -∗
+    (⌜loc_block l1 ≠ loc_block l_s2⌝ -∗ †l1…?s n -∗ Φ) -∗
+    update_si Φ.
+  Proof. apply (sim_bij_freeable_ne_val _ (LitV $ LitLoc l_t2) (LitV $ LitLoc l_s2)). Qed.
 
 End fix_heap.

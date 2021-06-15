@@ -175,7 +175,7 @@ Section data_race.
     target_alloc li_t as "Hli_t" "Hfi_t". sim_pures.
     iApply sim_update_si. iApply (sim_bij_freeable_ne_val with "Hrel1 Hfi_s"). iIntros (Hne3) "Hfi_s".
     iApply sim_update_si. iApply (sim_bij_freeable_ne_val with "Hrel1 Hfr_s"). iIntros (Hne1) "Hfr_s".
-    iApply (sim_bij_insert with "Hfi_t Hfi_s Hli_t Hli_s []"); [done|]. iIntros "#Hbiji".
+    iApply (sim_bij_insert with "Hfi_t Hfi_s Hli_t Hli_s []"); [done..|]. iIntros "#Hbiji".
     source_while. to_sim.
     sim_bind (subst_map _ _) (subst_map _ _).
     iApply (sim_refl with "[] [Hc]");
@@ -207,7 +207,7 @@ Section data_race.
       iDestruct (gen_val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
       source_store.
       target_load. target_alloc lr_t as "Hlr_t" "Hfr_t". sim_pures.
-      iApply (sim_bij_insert with "Hfr_t Hfr_s Hlr_t Hlr_s []"); [done|]. iIntros "#Hbijr".
+      iApply (sim_bij_insert with "Hfr_t Hfr_s Hlr_t Hlr_s []"); [done..|]. iIntros "#Hbijr".
       sim_bind (! _)%E (! _)%E. iApply (sim_bij_load with "Hbiji Hc"); [|done|].
       { rewrite lookup_insert_ne //. by destruct l_s, li_s => -[??]. }
       iIntros (v_t v_s) "Hv1 Hc". sim_val.

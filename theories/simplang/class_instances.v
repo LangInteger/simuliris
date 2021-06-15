@@ -64,6 +64,7 @@ Section irreducible.
            end; congruence.
 
   Ltac decide_goal :=
+    try apply _;
     repeat match goal with
            | |- Decision (_ ∧ _) => apply and_dec
            | |- Decision (_ ∨ _) => apply or_dec
@@ -176,6 +177,10 @@ Section irreducible.
 
   Global Instance irreducible_var (x : string) P σ :
     IrredUnless False P (Var x) σ.
+  Proof. prove_irred_unless. Qed.
+
+  Global Instance irreducible_global_var (x : string) P σ :
+    IrredUnless (x ∈ σ.(globals)) P (GlobalVar x) σ.
   Proof. prove_irred_unless. Qed.
 
   Global Instance irreducible_call v v2 P σ :
@@ -310,7 +315,7 @@ Section irreducible.
     IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (FreeN (Val v_n) (Val v_l)) σ | 10.
   Proof.
     eapply irred_unless_weaken; last apply irreducible_freeN.
-    intros (l & ? & ? & ? &? &?); eauto.
+    intros (l & ? & ? & ? &? &?); eauto 8.
   Qed.
 End irreducible.
 

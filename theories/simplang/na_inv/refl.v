@@ -28,7 +28,7 @@ Section refl.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //; simpl in Hs; simplify_eq.
-    all: try by iApply pure_log_rel_structural; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heap_bij_loc_func, heap_bij_loc_inj, heap_bij_loc_shift.
+    all: try by iApply pure_log_rel_structural; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heap_bij_loc_func, heap_bij_loc_inj, heap_bij_loc_shift, sim_bij_global_rel_law.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
     all: try iDestruct "IH2" as "[IH2 IH3]".
@@ -43,7 +43,7 @@ Section refl.
       iIntros (??????) "Ht Hv Hcont".
       target_alloc l_t as "Hl_t" "Ha_t"; first done.
       source_alloc l_s as "Hl_s" "Ha_s"; first done.
-      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
+      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | done | | ].
       { iDestruct "Hv" as "#Hv".
         rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
         generalize (Z.to_nat n) => n'.

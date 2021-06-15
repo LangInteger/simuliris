@@ -38,8 +38,8 @@ Section reorder.
     target_alloc l2_t as "Hl2_t" "Ha2_t".
     sim_pures.
 
-    iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hv1"); iIntros "#Hbij_1".
-    iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hv2"); iIntros "#Hbij_2".
+    iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hv1"); [done|]; iIntros "#Hbij_1".
+    iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hv2"); [done|]; iIntros "#Hbij_2".
 
     iApply sim_wand; [ iApply sim_call; [done | done | simpl; by eauto ] |].
     by iIntros (??) "$".

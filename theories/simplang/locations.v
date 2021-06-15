@@ -68,33 +68,3 @@ Lemma loc_eta l : (Loc (loc_block l) (loc_idx l)) = l.
 Proof.  by destruct l. Qed.
 Lemma Loc_add b i : Loc b 0 +ₗ i = Loc b i.
 Proof. done. Qed.
-(*
-Definition fresh_block {X} (σ : gmap loc X) (bs : gset block) : block :=
-  let loclst : list loc := elements (dom _ σ : gset loc) in
-  let blockset : gset block := foldr (λ l, ({[loc_block l]} ∪.)) bs loclst in
-  AllocBlfresh blockset.
-
-Ltac learn_fresh :=
-  match goal with |- context [ fresh ?X ] =>
-    let H := fresh in
-    pose proof is_fresh X as H; move: (fresh X) H
-  end.
-
-Lemma is_fresh_block {X} (σ : gmap loc X) bs i :
-  σ !! (Loc (fresh_block σ bs) i) = None.
-Proof.
-  apply not_elem_of_dom.
-  rewrite /fresh_block /=. learn_fresh => f Hf Hin. apply Hf.
-  rewrite <-elem_of_elements in Hin.
-  induction (elements (dom (gset loc) σ)) => //=; set_solver.
-Qed.
-
-Lemma is_fresh_block_blocks {X} (σ : gmap loc X) bs :
-  fresh_block σ bs ∉ bs.
-Proof.
-  rewrite /fresh_block. learn_fresh => f Hf.
-  induction ((elements (dom (gset loc) σ))) => //. set_solver.
-Qed.
-
-Global Opaque fresh_block.
-*)

@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl.
+From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl gen_global_rel.
 
 (** * Reflexivity theorem for pure expressions
 This file defines a notion of pure expressions and proves a
@@ -15,7 +15,7 @@ Section log_rel.
   Definition pure_expr_head_wf (e : expr_head) : Prop :=
     match e with
     | ValHead v => val_wf v
-    | VarHead _ | LetHead _ | UnOpHead _ | BinOpHead _ | IfHead | WhileHead
+    | VarHead _ | GlobalVarHead _ | LetHead _ | UnOpHead _ | BinOpHead _ | IfHead | WhileHead
     | PairHead | FstHead | SndHead | InjLHead | InjRHead | MatchHead _ _ => True
     | _ => False
     end.
@@ -24,15 +24,17 @@ Section log_rel.
     loc_rel_func_law loc_rel →
     loc_rel_inj_law loc_rel →
     loc_rel_offset_law loc_rel →
+    gen_global_rel_law loc_rel →
     log_rel_structural loc_rel thread_own pure_expr_head_wf.
   Proof.
-    intros ??? e_t e_s head_t head_s Hwf Hs. iIntros "IH".
+    intros ???? e_t e_s head_t head_s Hwf Hs. iIntros "IH".
     destruct e_t; simpl in Hs; destruct e_s => //=; simpl in Hs; simplify_eq.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
     all: try iDestruct "IH2" as "[IH2 IH3]".
     - (* Val *) iApply log_rel_val. by iApply val_wf_sound.
     - (* Var *) by iApply log_rel_var.
+    - (* GlobalVar *) by iApply log_rel_global_var.
     - (* Let *) by iApply (log_rel_let with "IH IH1").
     - (* UnOp *) by iApply (log_rel_unop with "IH").
     - (* BinOp *) by iApply (log_rel_binop with "IH IH1").
