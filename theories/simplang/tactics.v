@@ -65,8 +65,9 @@ Global Hint Extern 1 (head_step _ _ _ _ _ _) => econstructor : head_step.
 Global Hint Extern 0 (head_step _ (AllocN _ _) _ _ _ _) => apply alloc_fresh : head_step.
 
 Module W.
-  (** A version of [expr] that allows computing substitutions and free
-  variables even for expressions containing unknown code. *)
+  (** A version of [expr] that allows computing substitutions and
+  whether an expression is closed even for expressions containing
+  unknown code. *)
   Inductive expr :=
   (** Unknown expression e *)
   | Expr (e : simp_lang.expr)
@@ -294,7 +295,7 @@ Module W.
   Proof. move => <-. by rewrite to_expr_combine_subst_map_empty. Qed.
 
   (** This function computes the free variables of [e]. Note that this
-  function returns to few free variables for unknown expressions [Expr
+  function returns too few free variables for unknown expressions [Expr
   e]. Thus, we don't have a soundness proof like in the other cases,
   but this function is still useful for the [log_rel] tactic. *)
   Fixpoint free_vars (e : expr) : list string :=
