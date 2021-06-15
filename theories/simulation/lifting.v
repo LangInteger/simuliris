@@ -134,6 +134,16 @@ Section lang.
     move => ??. left. by apply: stuck_reach_stuck.
   Qed.
 
+  Lemma reach_or_stuck_pure e e' n σ p ϕ Φ {Hpure : PureExec ϕ n e e'}:
+    ϕ → reach_or_stuck p e' σ Φ → reach_or_stuck p e σ Φ.
+  Proof.
+    intros Hϕ Hreach. specialize (Hpure Hϕ).
+    induction Hpure as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH]; first done.
+    destruct Hstep as [Hsafe Hdet]. destruct (Hsafe p σ) as (e_s2' & σ_s2' & efs & Hprim).
+    specialize (Hdet _ _ _ _ _ Hprim) as (-> & -> & ->).
+    eapply reach_or_stuck_step; first done. by apply IH.
+  Qed.
+
 End lang.
 
 #[global]

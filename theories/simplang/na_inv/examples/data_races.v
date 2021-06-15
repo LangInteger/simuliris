@@ -17,6 +17,7 @@ Section data_race.
     option 1: add comparsion in target (and make op sem for that realistic)
 *)
 
+
   Definition remove_store_and_load_opt : expr :=
     let: "v2" := !"l2" in
     let: "r" := "v2" + "v2" in
@@ -45,6 +46,58 @@ Section data_race.
 
     destruct (decide (l1_s = l2_s)); simplify_eq.
   Abort.
+
+  Definition remove_load_opt : expr :=
+    let: "v" := !"l" in
+    let: "r" := "v" + "v" in
+    "l" <- "r";;
+    "r".
+
+  Definition remove_load : expr :=
+    "l" <- !"l" + !"l";;
+    !"l".
+
+  Lemma remove_load_sim:
+    ⊢ log_rel remove_load_opt remove_load.
+  Proof.
+    log_rel.
+    iIntros "%v_t %v_s #Hv_l !# %π Hc". simpl_subst.
+
+    source_bind (! _)%E. iApply source_red_irred_unless; first done. iIntros ([l_s ->]).
+    iPoseProof (gen_val_rel_loc_source with "Hv_l") as (l_t ->) "#Hl". iApply source_red_base. iModIntro.
+    to_sim. iApply (sim_bij_exploit_store with "Hl Hc"); [|done|].
+    { intros. reach_or_stuck_fill (_ <- _)%E => /=.
+      (* skip over first load *)
+      eapply (reach_or_stuck_bind P_s _ _ _ [BinOpREctx _ _; StoreREctx _ _]).
+      eapply reach_or_stuck_irred; first apply _; first done.
+      intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
+      eapply reach_or_stuck_refl. simpl.
+
+      (* skip over snd load *)
+      eapply (reach_or_stuck_bind P_s _ _ _ [BinOpLEctx _ _; StoreREctx _ _]).
+      eapply reach_or_stuck_load; [done.. | ]. eapply reach_or_stuck_refl. simpl.
+
+      (* skip over add *)
+      eapply (reach_or_stuck_bind P_s _ _ _ [StoreREctx _ _]).
+      eapply reach_or_stuck_irred; first apply _; first done.
+      intros [(z & ->) _].
+      eapply reach_or_stuck_pure; first apply _; first done.
+      eapply reach_or_stuck_refl. simpl.
+
+      apply: reach_or_stuck_refl. apply post_in_ectx_intro. naive_solver.
+    }
+    iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc". do 2 source_load. target_load.
+    source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
+    iIntros "[(%z & ->) _]". iPoseProof (gen_val_rel_litint_source with "Hv") as "->".
+    sim_pures. source_store. to_target. target_let. target_binop.
+    (* TODO: something weird is going on with the simplification here.
+      Z.add is unfolded... *)
+    generalize (z + z)%Z => z'.
+    target_store. sim_pures. source_load.
+    iApply (sim_bij_release NaExcl with "Hl Hc [$] [$] []"); [ by simplify_map_eq| done| ].
+    iIntros "Hc". rewrite delete_insert //.
+    sim_val. iFrame. done.
+  Qed.
 
   Definition reg_promote_loop_opt fname : expr :=
      let: "refn" := ref ! "n" in
