@@ -186,18 +186,31 @@ Notation "f '@s' Ks" := (has_fun (hG:=gen_prog_inG_source) f Ks)
   (at level 20, format "f  @s  Ks") : bi_scope.
 
 (** Allocation size notation *)
+Notation "l '…?t' n" := (heap_block_size sheapG_heap_target l 1 n)
+  (at level 20, format "l …?t  n") : bi_scope.
+Notation "l '…t' n" := (heap_block_size sheapG_heap_target l 1 (Some n))
+  (at level 20, format "l …t  n") : bi_scope.
+Notation "l '…t' -" := (heap_block_size sheapG_heap_target l 1 None)
+  (at level 20, format "l …t  -") : bi_scope.
+Notation "l '…?s' n" := (heap_block_size sheapG_heap_source l 1 n)
+  (at level 20, format "l …?s  n") : bi_scope.
+Notation "l '…s' n" := (heap_block_size sheapG_heap_source l 1 (Some n))
+  (at level 20, format "l …s  n") : bi_scope.
+Notation "l '…s' -" := (heap_block_size sheapG_heap_source l 1 None)
+  (at level 20, format "l …s  -") : bi_scope.
+
 Notation "† l '…?t' n" := (heap_freeable sheapG_heap_target l 1 n)
-  (at level 20, format "† l …?t  n") : bi_scope.
+  (at level 21, l at level 19, format "† l …?t  n") : bi_scope.
 Notation "† l '…t' n" := (heap_freeable sheapG_heap_target l 1 (Some n))
-  (at level 20, format "† l …t  n") : bi_scope.
+  (at level 21, l at level 19, format "† l …t  n") : bi_scope.
 Notation "† l '…t' -" := (heap_freeable sheapG_heap_target l 1 None)
-  (at level 20, format "† l …t  -") : bi_scope.
+  (at level 21, l at level 19, format "† l …t  -") : bi_scope.
 Notation "† l '…?s' n" := (heap_freeable sheapG_heap_source l 1 n)
-  (at level 20, format "† l …?s  n") : bi_scope.
+  (at level 21, l at level 19, format "† l …?s  n") : bi_scope.
 Notation "† l '…s' n" := (heap_freeable sheapG_heap_source l 1 (Some n))
-  (at level 20, format "† l …s  n") : bi_scope.
+  (at level 21, l at level 19, format "† l …s  n") : bi_scope.
 Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
-  (at level 20, format "† l …s  -") : bi_scope.
+  (at level 21, l at level 19, format "† l …s  -") : bi_scope.
 
 (** Global variables
     [..._globals gs] asserts that the set of global variables in target resp. source  is [gs].
@@ -213,8 +226,8 @@ Lemma sheap_init `{!sheapGpreS Σ} P_t g_t P_s g_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
     (sheap_inv P_s (state_init g_s) T_s -∗
       state_interp P_t (state_init g_t) P_s (state_init g_s) T_s) ∗
-    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗ ([∗ map] n ↦ v ∈ g_t, global_loc n ↦t v ∗ †global_loc n …t 1) ∗
-    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗ ([∗ map] n ↦ v ∈ g_s, global_loc n ↦s v ∗ †global_loc n …s 1) ∗
+    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗ ([∗ map] n ↦ v ∈ g_t, global_loc n ↦t v ∗ global_loc n …t 1) ∗
+    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗ ([∗ map] n ↦ v ∈ g_s, global_loc n ↦s v ∗ global_loc n …s 1) ∗
     source_globals (dom _ g_s) ∗ target_globals (dom _ g_t) ∗
     progs_are P_t P_s.
 Proof.
@@ -284,7 +297,7 @@ Qed.
 
 Lemma target_red_allocN n v Ψ:
   (0 < n)%Z →
-  (∀ l, ⌜block_is_dyn l.(loc_block)⌝ -∗ l ↦t∗ (replicate (Z.to_nat n) v) -∗
+  (∀ l, l ↦t∗ (replicate (Z.to_nat n) v) -∗
     † l …t (Z.to_nat n) -∗ target_red (of_val #l) Ψ) -∗
   target_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
@@ -295,12 +308,12 @@ Proof.
   iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
   iMod (heap_alloc _ _ b with "Hσ_t") as "($&Hn&Hm)"; [done..|].
   iModIntro. iFrame. iSplitR; first done.
-  by iApply ("Hloc" with "[] Hm Hn").
+  by iApply ("Hloc" with "Hm [$Hn]").
 Qed.
 
 Lemma source_red_allocN π n v Ψ `{!sheapInvSupportsAlloc}:
   (0 < n)%Z →
-  (∀ l, ⌜block_is_dyn l.(loc_block)⌝ -∗ l ↦s∗ (replicate (Z.to_nat n) v) -∗
+  (∀ l, l ↦s∗ (replicate (Z.to_nat n) v) -∗
   † l …s Z.to_nat n -∗ source_red (of_val #l) π Ψ) -∗
   source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) π Ψ.
 Proof.
@@ -314,11 +327,11 @@ Proof.
   { move => ?. apply eq_None_not_Some => -[? /Hwf]. apply is_fresh. }
   iModIntro. iFrame.
   iSplitL "Hinv". { by iApply sheap_inv_alloc. }
-  by iApply ("Hloc" with "[] Hm Hn").
+  by iApply ("Hloc" with "Hm [$Hn]").
 Qed.
 
 Lemma target_red_alloc v Ψ:
-  (∀ l, ⌜block_is_dyn l.(loc_block)⌝ -∗ l ↦t v -∗ † l …t 1 -∗ target_red (of_val #l) Ψ) -∗
+  (∀ l, l ↦t v -∗ † l …t 1 -∗ target_red (of_val #l) Ψ) -∗
   target_red (Alloc (Val v)) Ψ.
 Proof.
   iIntros "Ht". iApply (target_red_allocN); first lia.
@@ -327,7 +340,7 @@ Proof.
 Qed.
 
 Lemma source_red_alloc π v Ψ `{!sheapInvSupportsAlloc} :
-  (∀ l, ⌜block_is_dyn l.(loc_block)⌝ -∗ l ↦s v -∗ † l …s 1 -∗ source_red (of_val #l) π Ψ) -∗
+  (∀ l, l ↦s v -∗ † l …s 1 -∗ source_red (of_val #l) π Ψ) -∗
   source_red (Alloc (Val v)) π Ψ.
 Proof.
   iIntros "Ht". iApply (source_red_allocN); first lia.
@@ -342,14 +355,14 @@ Lemma target_red_freeN vs l (n : Z) Ψ :
   († l …t - -∗ target_red (of_val #()) Ψ) -∗
   target_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) Ψ.
 Proof.
-  iIntros (->) "Hl Hn Hsim". iApply target_red_lift_head_step. rewrite Nat2Z.id.
+  iIntros (->) "Hl [% Hn] Hsim". iApply target_red_lift_head_step. rewrite Nat2Z.id.
   iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
   rewrite heap_mapsto_vec_to_st.
-  iMod (heap_free with "Hσ_t Hl Hn") as (??) "[? ?]"; [ done| ].
+  iMod (heap_free with "Hσ_t Hl Hn") as (??) "[? ?]"; [ done..| ].
   iSplitR; first by eauto with lia head_step.
   iIntros "!>" (e_t' efs σ_t') "%"; inv_head_step.
   iModIntro. iFrame. iSplitR; first done.
-    by iApply "Hsim".
+  iApply "Hsim". by iFrame.
 Qed.
 
 Lemma target_red_free v l Ψ :
@@ -370,16 +383,16 @@ Lemma source_red_freeN vs π l (n : Z) Ψ `{!sheapInvSupportsFree} :
   († l …s - -∗ source_red (of_val #()) π Ψ) -∗
   source_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) π Ψ.
 Proof.
-  iIntros (->) "Hl Hn Hsim". iApply source_red_lift_head_step. rewrite Nat2Z.id.
+  iIntros (->) "Hl [% Hn] Hsim". iApply source_red_lift_head_step. rewrite Nat2Z.id.
   iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
   iDestruct (heap_ctx_wf with "Hσ_s") as %?.
   rewrite heap_mapsto_vec_to_st.
-  iMod (heap_free with "Hσ_s Hl Hn") as (??) "[? ?]"; [ done | ].
+  iMod (heap_free with "Hσ_s Hl Hn") as (??) "[? ?]"; [ done.. | ].
   iExists (Val #()), (state_upd_heap (free_mem l _) σ_s).
   iSplitR. { iPureIntro. econstructor; eauto with lia. }
   iModIntro. iModIntro. iFrame.
   iSplitL "Hinv". { by iApply sheap_inv_free. }
-    by iApply "Hsim".
+  iApply "Hsim". by iFrame.
 Qed.
 
 Lemma source_red_free π v l Ψ `{!sheapInvSupportsFree} :

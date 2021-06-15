@@ -107,8 +107,8 @@ Section definitions.
                       (Loc b_t i)↦t[st]{#q'} v_t ∗ (Loc b_s i)↦s[st]{#q'} v_s
                     else
                       True)) ∗
-      †Loc b_t 0 …?t n ∗
-      †Loc b_s 0 …?s n).
+      Loc b_t 0 …?t n ∗
+      Loc b_s 0 …?s n).
 
   Lemma alloc_rel_mono (P' P : _ → _ → _ → Prop) b_t b_s:
     (∀ q o, P (Loc b_t o) (Loc b_s o) q → P' (Loc b_t o) (Loc b_s o) q) →
@@ -135,7 +135,7 @@ Section definitions.
     iIntros "Hσ_s Hσ_t".
     iDestruct (big_sepL2_length with "Hl_s") as %?.
 
-    iDestruct (heap_freeable_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
+    iDestruct (heap_block_size_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
     rewrite Loc_add in Hl. move: Hl => [] ?; simplify_eq/=.
     have [v_s Hv_s]:= lookup_lt_is_Some_2 vs_s n' ltac:(lia).
     have [v_t Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
@@ -168,7 +168,7 @@ Section definitions.
     iIntros "Hσ_s Hσ_t Hval".
     iDestruct (big_sepL2_length with "Hl_s") as %?.
 
-    iDestruct (heap_freeable_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
+    iDestruct (heap_block_size_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
     rewrite Loc_add in Hl. move: Hl => [] ?; simplify_eq/=.
     have [v_s Hv_s]:= lookup_lt_is_Some_2 vs_s n' ltac:(lia).
     have [v_t Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
@@ -191,22 +191,24 @@ Section definitions.
 
   Lemma alloc_rel_free b_t b_s n σ_s σ_t o (P : _ → _ → _ → Prop):
     (0 < n)%Z →
+    block_is_dyn b_s →
     (∀ m : Z, is_Some (heap σ_s !! (Loc b_s o +ₗ m)) ↔ (0 ≤ m < n)%Z) →
     (∀ q k, (0 ≤ k < n)%Z → P (Loc b_t o +ₗ k) (Loc b_s o +ₗ k) q → q = Some 1%Qp) →
     alloc_rel b_t b_s P -∗
     heap_ctx sheapG_heap_source σ_s -∗
     heap_ctx sheapG_heap_target σ_t
     ==∗
+    ⌜block_is_dyn b_t⌝ ∗
     ⌜∀ m, is_Some (heap σ_t !! (Loc b_t o +ₗ m)) ↔ (0 ≤ m < n)%Z⌝ ∗
     alloc_rel b_t b_s P ∗
     heap_ctx sheapG_heap_source (state_upd_heap (free_mem (Loc b_s o) (Z.to_nat n)) σ_s) ∗
     heap_ctx sheapG_heap_target (state_upd_heap (free_mem (Loc b_t o) (Z.to_nat n)) σ_t).
   Proof.
-    iIntros (?? HP).
+    iIntros (??? HP).
     iDestruct 1 as (n' vs_t vs_s Hlen Hb) "(Hvs & Ha_t & Ha_s)".
     iIntros "Hσ_s Hσ_t".
     iDestruct (big_sepL2_length with "Hvs") as %Hlen'.
-    iDestruct (heap_freeable_inj with "Hσ_s Ha_s") as %[? Hl]; [done..|]. move: Hl => [?]. subst.
+    iDestruct (heap_block_size_inj with "Hσ_s Ha_s") as %[? Hl]; [done..|]. move: Hl => [?]. subst.
 
     iAssert (∃ sts, Loc b_t 0 ↦t∗[sts] vs_t ∗ Loc b_s 0 ↦s∗[sts] vs_s)%I with "[Hvs]" as (?) "[Hl_t Hl_s]". {
       iDestruct (big_sepL2_exist with "Hvs") as (sts ?) "Hvs". iExists sts.
@@ -219,9 +221,9 @@ Section definitions.
       iDestruct "Hl" as "[Hl_t Hl_s]".
       iSplitL "Hl_t"; iExists _; by iFrame.
     }
-    iMod (heap_free with "Hσ_t Hl_t [Ha_t]") as (? Hlookup) "[Ha_t Hσ_t]"; [ by rewrite Hlen /= | by rewrite Hlen |].
-    iMod (heap_free with "Hσ_s Hl_s [Ha_s]") as (_ _) "[Ha_s Hσ_s]"; [done| by rewrite -Hlen' Hlen |].
-    rewrite -Hlen' Hlen Z2Nat.id; [|lia]. iFrame. iModIntro.
+    iMod (heap_free with "Hσ_t Hl_t [Ha_t]") as (? Hlookup) "[Ha_t Hσ_t]"; [ by rewrite Hlen /= | naive_solver | by rewrite Hlen |].
+    iMod (heap_free with "Hσ_s Hl_s [Ha_s]") as (_ _) "[Ha_s Hσ_s]"; [done| naive_solver| by rewrite -Hlen' Hlen |].
+    rewrite -Hlen' Hlen Z2Nat.id; [|lia]. iFrame. iModIntro. iSplit; [naive_solver|].
     rewrite Z2Nat.id in Hlookup; [|lia]. iSplit; [done|].
     iExists _, [], []. iFrame. by simpl.
   Qed.
@@ -237,7 +239,7 @@ Section definitions.
     iIntros "Hσ_s".
     iDestruct (big_sepL2_length with "Hl_s") as %?.
 
-    iDestruct (heap_freeable_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
+    iDestruct (heap_block_size_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
     rewrite Loc_add in Hl. move: Hl => [] ?; simplify_eq/=.
     have [v_s Hv_s]:= lookup_lt_is_Some_2 vs_s n' ltac:(lia).
     have [v_t Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
@@ -267,7 +269,7 @@ Section definitions.
     iIntros "Hσ_s".
     iDestruct (big_sepL2_length with "Hvs") as %?.
 
-    iDestruct (heap_freeable_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
+    iDestruct (heap_block_size_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
     rewrite Loc_add in Hl. move: Hl => [] ?; simplify_eq/=.
     have [v_s' Hv_s]:= lookup_lt_is_Some_2 vs_s n' ltac:(lia).
     have [v_t Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
@@ -333,7 +335,7 @@ Section definitions.
     iDestruct (big_sepL2_length with "Hvs") as %?.
 
     iDestruct (heap_read with "Hσ_s Hl_s") as %[??].
-    iDestruct (heap_freeable_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
+    iDestruct (heap_block_size_lookup with "Hσ_s Halloc_s") as %[n' [? Hl]]; [done..|].
     rewrite Loc_add in Hl. move: Hl => [] ?; simplify_eq/=.
     have [v_s' Hv_s]:= lookup_lt_is_Some_2 vs_s n' ltac:(lia).
     have [v_t' Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
@@ -420,27 +422,27 @@ Section laws.
     l_t ↦t∗ v_t -∗
     l_s ↦s∗ v_s -∗
     ([∗ list] vt;vs∈v_t;v_s, val_rel vt vs) -∗
-    †l_t …t n -∗
-    †l_s …s n ==∗
+    l_t …t n -∗
+    l_s …s n ==∗
     heap_bij_interp ({[(loc_block l_t, loc_block l_s)]} ∪ L) P ∗
     l_t ↔h l_s.
   Proof.
     iIntros (Hn Hl_s Hl_t Hb HP) "Hinv Ht Hs Hrel Ha_t Ha_s".
-    iDestruct (heap_freeable_idx with "Ha_t") as %?.
-    iDestruct (heap_freeable_idx with "Ha_s") as %?.
+    iDestruct (heap_block_size_idx with "Ha_t") as %?.
+    iDestruct (heap_block_size_idx with "Ha_s") as %?.
     iDestruct "Hinv" as "(Hauth & Hheap)".
     pose (b_t := loc_block l_t). pose (b_s := loc_block l_s).
     iAssert ((¬ ⌜set_Exists (λ '(b_t', b_s'), b_t = b_t') L⌝)%I) as "%Hext_t".
     { iIntros (([b_t' b_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as "Hr"; first by apply Hin.
       iDestruct "Hr" as (n' v_t' v_s' ?) "(_ & _ & Ha_t' & _)".
-      by iApply (heap_freeable_excl with "Ha_t Ha_t'").
+      by iApply (heap_block_size_excl with "Ha_t Ha_t'").
     }
     iAssert ((¬ ⌜set_Exists (λ '(b_t', b_s'), b_s = b_s') L⌝)%I) as "%Hext_s".
     { iIntros (([b_t' b_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as "Hr"; first by apply Hin.
       iDestruct "Hr" as (n' v_t' v_s' ?) "(_ & _ & _ & Ha_s')".
-      by iApply (heap_freeable_excl with "Ha_s Ha_s'").
+      by iApply (heap_block_size_excl with "Ha_s Ha_s'").
     }
     iMod ((gset_bij_own_extend b_t b_s) with "Hauth") as "[Hinv #Helem]".
     - intros b_s' Hb_s'. apply Hext_t. by exists (b_t, b_s').
@@ -463,7 +465,7 @@ Section laws.
   Lemma heap_bij_insert_globals (P : _ → _ → _ → Prop) L (gs : gmap string val) :
     (∀ n o, P (global_loc n +ₗ o) (global_loc n +ₗ o) (Some 1%Qp)) →
     heap_bij_interp L P -∗
-    ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ †global_loc n…t 1 ∗ global_loc n ↦s v ∗ †global_loc n…s 1) -∗
+    ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ global_loc n…t 1 ∗ global_loc n ↦s v ∗ global_loc n…s 1) -∗
     ([∗ map] v ∈ gs, val_rel v v)
     ==∗
     ∃ L', heap_bij_interp L' P ∗ ([∗ set] g ∈ dom _ gs, global_loc g ↔h global_loc g).
@@ -480,9 +482,9 @@ Section laws.
     iFrame.
   Qed.
 
-  Lemma heap_bij_freeable_ne l1 l_t2 l_s2 n L P:
+  Lemma heap_bij_block_size_ne l1 l_t2 l_s2 n L P:
     l_t2 ↔h l_s2 -∗
-    †l1…?s n -∗
+    l1…?s n -∗
     heap_bij_interp L P -∗
     ⌜loc_block l1 ≠ loc_block l_s2⌝.
   Proof.
@@ -490,7 +492,7 @@ Section laws.
     iDestruct (heap_bij_access with "Hint Hbij") as (?) "[Halloc _]".
     iDestruct "Halloc" as (n' vs_t vs_s Hlen ?) "(Hvs & Halloc_t & Halloc_s)".
     destruct (decide (loc_block l1 = loc_block l_s2)) => //.
-    by iDestruct (heap_freeable_excl with "Hf Halloc_s") as %?.
+    by iDestruct (heap_block_size_excl with "Hf Halloc_s") as %?.
   Qed.
 
 End laws.

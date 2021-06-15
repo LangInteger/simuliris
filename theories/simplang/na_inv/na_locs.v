@@ -341,7 +341,7 @@ Section na_alt_exec.
     2: { apply: list_lookup_insert. rewrite insert_length. by apply: lookup_lt_Some. }
     2: { done. }
     { apply _. }
-    move => [?[?[?[?[? Hs]]]]]; simplify_eq.
+    move => [?[?[?[?[? [? Hs]]]]]]; simplify_eq.
     apply: pool_reach_stuck_no_forks.
     { apply: list_lookup_insert. rewrite insert_length. by apply: lookup_lt_Some. }
     { apply: no_forks_step; [|apply no_forks_refl]. apply: fill_no_fork.
@@ -685,7 +685,7 @@ Section na_locs_wf.
     - apply: na_alt_exec_step; [naive_solver |done |done |].
       move => σ' Hhwf Hsub Hg Heq.
       eapply reach_or_stuck_irred; [apply _|done|].
-      move => [?[?[?[?[??]]]]]; simplify_eq.
+      move => [?[?[?[?[?[??]]]]]]; simplify_eq.
       apply: reach_or_stuck_head_step; [by econstructor|].
       apply: reach_or_stuck_refl; split_and!; [done| | by apply: heap_wf_free_mem |done |done].
       move => ???? /lookup_free_mem_Some[??] /lookup_free_mem_Some[??]. by apply: Heq.

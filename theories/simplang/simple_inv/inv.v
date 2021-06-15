@@ -188,9 +188,9 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs)) [% %Hsafe]]".
-    have [m[?[[<-][[<-][??]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+    have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iPoseProof (heap_bij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
-    iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (?) "(Halloc & Hσ_s & Hσ_t)"; [done..|].
+    iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (??) "(Halloc & Hσ_s & Hσ_t)"; [done..|].
     iModIntro; iSplit; first by eauto with head_step lia.
     iIntros (e_t' efs σ_t') "%"; inv_head_step.
     iModIntro. iExists _, _, _.
@@ -202,7 +202,6 @@ Section fix_heap.
     n > 0 →
     length vs_t = n →
     length vs_s = n →
-    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t n -∗
     †l_s …s n -∗
     l_t ↦t∗ vs_t -∗
@@ -211,14 +210,13 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros (Hn Ht Hs Hb) "Hs_t Hs_s Hl_t Hl_s Hval Hsim". iApply sim_update_si.
+    iIntros (Hn Ht Hs) "[% Hs_t] [% Hs_s] Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & (%L&%gs&Hinv&#Hgs))".
     iMod (heap_bij_insertN with "Hinv Hl_t Hl_s Hval Hs_t Hs_s") as "[Hb #Ha]"; [done .. | ].
     iModIntro. iFrame. iDestruct ("Hsim" with "[//]") as "$". iExists _, gs. by iFrame "Hgs".
   Qed.
 
   Lemma sim_bij_insert π l_t l_s v_t v_s e_t e_s Φ :
-    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t 1 -∗
     †l_s …s 1 -∗
     l_t ↦t v_t -∗
@@ -227,8 +225,8 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros (?) "Hs_t Hs_s Hl_t Hl_s Hv".
-    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | done | | | ].
+    iIntros "Hs_t Hs_s Hl_t Hl_s Hv".
+    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done |  | | ].
     - by rewrite heap_mapsto_vec_singleton.
     - by rewrite heap_mapsto_vec_singleton.
     - by iApply big_sepL2_singleton.

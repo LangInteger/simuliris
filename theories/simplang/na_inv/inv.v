@@ -399,11 +399,11 @@ Section fix_heap.
     iIntros (Hcol) "#[Hbij %Hidx] Hcol Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %Hsafe]]".
-    have [m[?[[<-][[<-][??]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+    have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcoll.
     rewrite lookup_map_seq_0 in Hcoll.
-    iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (?) "(Halloc & Hσ_s & Hσ_t)"; [done|done| |].
+    iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (??) "(Halloc & Hσ_s & Hσ_t)"; [done|done| done | |].
     { move => ? k ?. rewrite /alloc_rel_pred.
       change (Loc b_s k) with (Loc b_s 0 +ₗ k).
       erewrite na_locs_wf_combined_state_Free; [|done..| ].
@@ -459,7 +459,6 @@ Section fix_heap.
     n > 0 →
     length vs_t = n →
     length vs_s = n →
-    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t n -∗
     †l_s …s n -∗
     l_t ↦t∗ vs_t -∗
@@ -468,7 +467,7 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros (Hn Ht Hs Hb) "Hs_t Hs_s Hl_t Hl_s Hval Hsim". iApply sim_update_si.
+    iIntros (Hn Ht Hs) "[% Hs_t] [% Hs_s] Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
     iDestruct "Hinv" as (L cols gs ? ? HL) "(Hcols & Hbij & Hgs)".
     iMod (heap_bij_insertN with "Hbij Hl_t Hl_s Hval Hs_t Hs_s") as "[Hbij #?]"; [done..| |].
@@ -482,7 +481,6 @@ Section fix_heap.
   Qed.
 
   Lemma sim_bij_insert π l_t l_s v_t v_s e_t e_s Φ :
-    (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     †l_t …t 1 -∗
     †l_s …s 1 -∗
     l_t ↦t v_t -∗
@@ -491,8 +489,8 @@ Section fix_heap.
     (l_t ↔h l_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    iIntros (?) "Hs_t Hs_s Hl_t Hl_s Hv".
-    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | done | | | ].
+    iIntros "Hs_t Hs_s Hl_t Hl_s Hv".
+    iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done | | | ].
     - by rewrite heap_mapsto_vec_singleton.
     - by rewrite heap_mapsto_vec_singleton.
     - by iApply big_sepL2_singleton.
@@ -504,12 +502,12 @@ Section fix_heap.
     (⌜if v_s2 is #(LitLoc l_s2) then loc_block l1 ≠ loc_block l_s2 else True⌝ -∗ †l1…?s n -∗ Φ) -∗
     update_si Φ.
   Proof.
-    iIntros "Hbij Hf HΦ" (P_t σ_t P_s σ_s T_s) "($&$&$&$&Hinv)".
+    iIntros "Hbij [% Hf] HΦ" (P_t σ_t P_s σ_s T_s) "($&$&$&$&Hinv)".
     iDestruct "Hinv" as (L cols ????) "(?&Hb&?)".
     case_match; [case_match|..].
     5: iDestruct (gen_val_rel_loc_source with "Hbij") as (? ->) "Hbij".
-    5: iDestruct (heap_bij_freeable_ne with "Hbij Hf Hb") as %?.
-    all: iModIntro; iDestruct ("HΦ" with "[//] Hf") as "$".
+    5: iDestruct (heap_bij_block_size_ne with "Hbij Hf Hb") as %?.
+    all: iModIntro; iDestruct ("HΦ" with "[//] [$Hf]") as "$"; [done|].
     all: iExists _, _, _; by iFrame.
   Qed.
 

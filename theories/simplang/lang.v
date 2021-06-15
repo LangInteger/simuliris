@@ -184,13 +184,13 @@ Record state : Type := State {
 }.
 (** The initial heap contains only global variables as a closed
 program can only refer to global variables on the heap.  *)
-(* TODO: Allow global variables to contain arrays *)
-Definition state_init (h : gmap string val) : state :=
-  {| heap := kmap global_loc ((λ v, (RSt 0, v)) <$> h); used_dyn_blocks := ∅; globals := dom _ h |}.
+(* TODO: Allow global variables to contain arrays by using [gs : gmap string (list val)] *)
+Definition state_init (gs : gmap string val) : state :=
+  {| heap := kmap global_loc ((λ v, (RSt 0, v)) <$> gs); used_dyn_blocks := ∅; globals := dom _ gs |}.
 Definition heap_wf (σ: state) : Prop :=
   ∀ b i v, σ.(heap) !! Loc (DynBlock b) i = Some v → b ∈ σ.(used_dyn_blocks).
-Lemma state_init_wf h :
-  heap_wf (state_init h).
+Lemma state_init_wf gs :
+  heap_wf (state_init gs).
 Proof. by move => b i [st v] /= /lookup_kmap_Some [?[??]]. Qed.
 
 (** Equality and other typeclass stuff *)
@@ -879,8 +879,7 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
                (Val $ LitV $ LitLoc (dyn_loc b)) (state_upd_used_dyn_blocks ({[b]} ∪.) (state_init_heap (dyn_loc b) n v σ)) []
   | FreeNS l σ n :
      (0 < n)%Z →
-     (* TODO: Should we only allow freeing dyn blocks? *)
-     (* block_is_dyn l.(loc_block) → *)
+     block_is_dyn l.(loc_block) →
      (* always need to deallocate the full block *)
      (∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ 0 ≤ m < n)%Z →
      head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ

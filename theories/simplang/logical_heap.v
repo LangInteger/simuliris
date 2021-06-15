@@ -19,7 +19,7 @@ Definition heapUR : ucmra :=
 
 Class heapG Σ := HeapG {
   heap_inG :> inG Σ (authR heapUR);
-  heap_freeable_inG :> ghost_mapG Σ loc (option nat);
+  heap_block_size_inG :> ghost_mapG Σ loc (option nat);
   heap_globals_inG :> inG Σ (agreeR (leibnizO (gset string)));
 }.
 Definition heapΣ := #[GFunctor (authR heapUR); ghost_mapΣ loc (option nat); GFunctor (agreeR (leibnizO (gset string)))].
@@ -30,7 +30,7 @@ Proof. solve_inG. Qed.
 
 Record heap_names := {
  heap_name : gname;
- heap_freeable_name : gname;
+ heap_block_size_name : gname;
  heap_globals_name : gname;
 }.
 
@@ -38,7 +38,7 @@ Definition to_lock_stateR (x : lock_state) : lock_stateR :=
   match x with RSt n => Cinr n | WSt => Cinl (Excl ()) end.
 Definition to_heap : gmap loc (lock_state * val) → heapUR :=
   fmap (λ v, (1%Qp, to_lock_stateR (v.1), to_agree (v.2))).
-Definition heap_freeable_rel (σ : state) (hF : gmap loc (option nat)) : Prop :=
+Definition heap_block_size_rel (σ : state) (hF : gmap loc (option nat)) : Prop :=
   ∀ b i o, hF !! Loc b i = Some o →
    (if b is DynBlock b' then b' ∈ σ.(used_dyn_blocks) else True) ∧
    i = 0 ∧
@@ -61,12 +61,15 @@ Section definitions.
   Definition heap_mapsto_vec_st (l : loc) (sts : list lock_state) (q : frac) (vl : list val) : iProp Σ :=
     ([∗ list] i ↦ st; v ∈ sts; vl, heap_mapsto (l +ₗ i) st q v)%I.
 
-  Definition heap_freeable_def (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
-    ∃ b, ⌜l = Loc b 0⌝ ∗ l ↪[ γ.(heap_freeable_name) ]{# q } n.
-  Definition heap_freeable_aux : seal (@heap_freeable_def). by eexists. Qed.
-  Definition heap_freeable := unseal heap_freeable_aux.
-  Definition heap_freeable_eq : @heap_freeable = @heap_freeable_def :=
-    seal_eq heap_freeable_aux.
+  Definition heap_block_size_def (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
+    ∃ b, ⌜l = Loc b 0⌝ ∗ l ↪[ γ.(heap_block_size_name) ]{# q } n.
+  Definition heap_block_size_aux : seal (@heap_block_size_def). by eexists. Qed.
+  Definition heap_block_size := unseal heap_block_size_aux.
+  Definition heap_block_size_eq : @heap_block_size = @heap_block_size_def :=
+    seal_eq heap_block_size_aux.
+
+  Definition heap_freeable (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
+    ⌜block_is_dyn l.(loc_block)⌝ ∗ heap_block_size l q n.
 
   Definition heap_globals_def (gs : gset string) : iProp Σ :=
     own γ.(heap_globals_name) (to_agree (gs : leibnizO _)).
@@ -83,15 +86,15 @@ Section definitions.
 
   Definition heap_ctx (σ: state) : iProp Σ :=
     (∃ hF, own γ.(heap_name) (● to_heap σ.(heap))
-         ∗ ghost_map_auth γ.(heap_freeable_name) 1 hF
+         ∗ ghost_map_auth γ.(heap_block_size_name) 1 hF
          ∗ heap_globals σ.(globals)
-         ∗ ⌜heap_freeable_rel σ hF⌝
+         ∗ ⌜heap_block_size_rel σ hF⌝
          ∗ ⌜heap_wf σ⌝)%I.
 End definitions.
 
-Typeclasses Opaque heap_mapsto heap_freeable heap_mapsto_vec.
+Typeclasses Opaque heap_mapsto heap_block_size heap_mapsto_vec.
 Instance: Params (@heap_mapsto) 4 := {}.
-Instance: Params (@heap_freeable) 5 := {}.
+Instance: Params (@heap_block_size) 5 := {}.
 
 (* Notation "l ↦{ q } v" := (heap_mapsto l q v) *)
 (*   (at level 20, q at level 50, format "l  ↦{ q }  v") : bi_scope. *)
@@ -190,11 +193,14 @@ Section heap.
       (at level 20, q at level 50, format "l  ↦∗{ q }  vl") : bi_scope.
   Local Notation "l ↦∗ vl" := (heap_mapsto_vec γ l 1 vl) (at level 20) : bi_scope.
 
+  Local Notation "l …?{ q } n" := (heap_block_size γ l q n)
+  (at level 20, q at level 50, format "l …?{ q } n") : bi_scope.
+  Local Notation "l …? n" := (heap_block_size γ l 1 n) (at level 20) : bi_scope.
   Local Notation "†{ q } l …? n" := (heap_freeable γ l q n)
-  (at level 20, q at level 50, format "†{ q } l …? n") : bi_scope.
-  Local Notation "† l …? n" := (heap_freeable γ l 1 n) (at level 20) : bi_scope.
+  (at level 21, l at level 19, q at level 50, format "†{ q } l …? n") : bi_scope.
+  Local Notation "† l …? n" := (heap_freeable γ l 1 n) (at level 21, l at level 19) : bi_scope.
 
-  (** General properties of mapsto and freeable *)
+  (** General properties of mapsto and block_size *)
   Global Instance heap_mapsto_timeless l st q v : Timeless (l↦[st]{q}v).
   Proof. rewrite heap_mapsto_eq /heap_mapsto_def. apply _. Qed.
 
@@ -235,8 +241,8 @@ Section heap.
     AsFractional (l ↦∗{q} vl) (λ q, l ↦∗{q} vl)%I q.
   Proof. split. done. apply _. Qed.
 
-  Global Instance heap_freeable_timeless q b n : Timeless (heap_freeable γ b q n).
-  Proof. rewrite heap_freeable_eq /heap_freeable_def. apply _. Qed.
+  Global Instance heap_block_size_timeless q b n : Timeless (heap_block_size γ b q n).
+  Proof. rewrite heap_block_size_eq /heap_block_size_def. apply _. Qed.
 
   Lemma heap_mapsto_agree l q1 q2 v1 v2 st1 st2 : l ↦[st1]{q1} v1 ∗ l ↦[st2]{q2} v2 ⊢ ⌜v1 = v2⌝.
   Proof.
@@ -328,34 +334,34 @@ Section heap.
     by rewrite left_id.
   Qed.
 
-  Lemma heap_freeable_idx l n :
-    †l…?n -∗ ⌜loc_idx l = 0⌝.
-  Proof. rewrite heap_freeable_eq. by iIntros "(%b&->&?)". Qed.
+  Lemma heap_block_size_idx l n :
+    l…?n -∗ ⌜loc_idx l = 0⌝.
+  Proof. rewrite heap_block_size_eq. by iIntros "(%b&->&?)". Qed.
 
-  Lemma heap_freeable_excl l l' n n' :
+  Lemma heap_block_size_excl l l' n n' :
     loc_block l = loc_block l' →
-    †l…?n -∗ †l'…?n' -∗ False.
+    l…?n -∗ l'…?n' -∗ False.
   Proof.
-    rewrite heap_freeable_eq.
+    rewrite heap_block_size_eq.
     iIntros (?) "(%&->&Hl1) (%&->&Hl2)"; simplify_eq/=.
     by iDestruct (ghost_map_elem_valid_2 with "Hl1 Hl2") as %[? ?].
   Qed.
 
-  Lemma heap_freeable_rel_stable σ h l p :
-    heap_freeable_rel σ h → is_Some (σ.(heap) !! l) →
-    heap_freeable_rel (state_upd_heap <[l := p]> σ) h.
+  Lemma heap_block_size_rel_stable σ h l p :
+    heap_block_size_rel σ h → is_Some (σ.(heap) !! l) →
+    heap_block_size_rel (state_upd_heap <[l := p]> σ) h.
   Proof.
     intros REL Hσ blk o qs Hqs. destruct (REL blk o qs) as [? [? [? REL']]]; first done.
     split_and!; [done..|]=> i. rewrite -REL' lookup_insert_is_Some.
     destruct (decide (l = Loc blk i)); naive_solver.
   Qed.
 
-  Lemma heap_freeable_rel_init_mem b h n σ v:
+  Lemma heap_block_size_rel_init_mem b h n σ v:
     n ≠ O →
     b ∉ σ.(used_dyn_blocks) →
     (∀ m : Z, σ.(heap) !! (dyn_loc b +ₗ m) = None) →
-    heap_freeable_rel σ h →
-    heap_freeable_rel (State
+    heap_block_size_rel σ h →
+    heap_block_size_rel (State
                          (heap_array (dyn_loc b) (replicate n v) ∪ σ.(heap))
                          ({[b]} ∪ σ.(used_dyn_blocks))
                          σ.(globals))
@@ -387,11 +393,11 @@ Section heap.
       move => [[?[?[?[[??]?]]]]|//]; simplify_eq.
   Qed.
 
-  Lemma heap_freeable_rel_free_mem σ hF n l :
+  Lemma heap_block_size_rel_free_mem σ hF n l :
     loc_idx l = 0 →
     hF !! l = Some (Some n) →
-    heap_freeable_rel σ hF →
-    heap_freeable_rel (state_upd_heap (free_mem l n) σ) (<[l:=None]> hF).
+    heap_block_size_rel σ hF →
+    heap_block_size_rel (state_upd_heap (free_mem l n) σ) (<[l:=None]> hF).
   Proof.
     intros ? Hl REL b i qs Hlookup. destruct l as [b' ?]; simplify_eq/=.
     destruct (REL b' 0 (Some n)) as [? [? [? REL']]]; auto.
@@ -402,14 +408,14 @@ Section heap.
       split_and!; [done..|]=> i'. rewrite -REL'' lookup_free_mem_1 //=. simplify_eq/=. congruence.
   Qed.
 
-  Lemma heap_freeable_inj n1 l1 l2 n2 σ:
+  Lemma heap_block_size_inj n1 l1 l2 n2 σ:
     (0 < n1)%Z →
     (∀ m, is_Some (σ.(heap) !! (l1 +ₗ m)) ↔ (0 ≤ m < n1)%Z) →
     loc_block l1 = loc_block l2 →
-    heap_ctx γ σ -∗ †l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
+    heap_ctx γ σ -∗ l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
   Proof.
     iIntros (? Hrel1 ?) "(%hF & ? & HhF & ? & %Hrel & %) Hf".
-    rewrite heap_freeable_eq. iDestruct "Hf" as (b2 ->) "Hf".
+    rewrite heap_block_size_eq. iDestruct "Hf" as (b2 ->) "Hf".
     iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.
     iPureIntro. destruct l1 as [b1 o1]; simplify_eq.
     have [? [? [? {}Hrel2]]]:= Hrel _ _ _ Hf.
@@ -435,12 +441,12 @@ Section heap.
       rewrite /loc_add/=. naive_solver lia.
   Qed.
 
-  Lemma heap_freeable_lookup σ l l' x n :
+  Lemma heap_block_size_lookup σ l l' x n :
     σ.(heap) !! l' = Some x → loc_block l' = loc_block l →
-    heap_ctx γ σ -∗ †l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
+    heap_ctx γ σ -∗ l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
   Proof.
     iIntros (Hlo ?) "(%hF&?&HhF&Hg&%Hrel&%) Hf".
-    rewrite heap_freeable_eq. iDestruct "Hf" as (?->) "Hf".
+    rewrite heap_block_size_eq. iDestruct "Hf" as (?->) "Hf".
     iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.
     iPureIntro.
     have [? {}Hrel]:= Hrel _ _ _ Hf.
@@ -489,7 +495,7 @@ Section heap.
     (∀ m, σ.(heap) !! (dyn_loc b +ₗ m) = None) →
     heap_ctx γ σ ==∗
       heap_ctx γ (State (heap_array (dyn_loc b) (replicate (Z.to_nat n) v) ∪ σ.(heap)) ({[b]} ∪ σ.(used_dyn_blocks)) σ.(globals)) ∗
-      heap_freeable γ (dyn_loc b) 1 (Some (Z.to_nat n)) ∗
+      heap_block_size γ (dyn_loc b) 1 (Some (Z.to_nat n)) ∗
       dyn_loc b ↦∗ replicate (Z.to_nat n) v.
   Proof.
     intros ???; iDestruct 1 as (hF) "(Hvalσ & HhF & Hg & %Hrel & %Hwf)".
@@ -497,11 +503,11 @@ Section heap.
     iMod (heap_alloc_vs _ _ (Z.to_nat n) with "[$Hvalσ]") as "[Hvalσ Hmapsto]"; first done.
     iMod (ghost_map_insert (dyn_loc b) (Some _) with "HhF") as "[? ?]".
     { apply eq_None_not_Some => -[? /Hrel]. naive_solver. }
-    rewrite heap_freeable_eq heap_mapsto_vec_combine //.
+    rewrite heap_block_size_eq heap_mapsto_vec_combine //.
     2: { by destruct (Z.to_nat n). }
     iFrame. iModIntro. iSplit; [|by eauto]. iExists _. iFrame.
     iPureIntro. split.
-    - by apply heap_freeable_rel_init_mem.
+    - by apply heap_block_size_rel_init_mem.
     - by apply heap_wf_init_mem.
   Qed.
 
@@ -528,12 +534,13 @@ Section heap.
 
   Lemma heap_free σ l vl (n : Z) sts :
     n = length vl →
-    heap_ctx γ σ -∗ l ↦∗[sts] vl -∗ †l…?(Some (length vl))
+    block_is_dyn l.(loc_block) →
+    heap_ctx γ σ -∗ l ↦∗[sts] vl -∗ l …? (Some (length vl))
     ==∗ ⌜0 < n⌝%Z ∗ ⌜∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ (0 ≤ m < n)⌝%Z ∗
-        †l…?None ∗ heap_ctx γ (state_upd_heap (free_mem l (Z.to_nat n)) σ).
+        l …? None ∗ heap_ctx γ (state_upd_heap (free_mem l (Z.to_nat n)) σ).
   Proof.
     iDestruct 1 as (hF) "(Hvalσ & HhF & Hg & %REL & %Hwf)". subst.
-    rewrite heap_freeable_eq. iIntros "Hmt (%&->&Hf)".
+    rewrite heap_block_size_eq. iIntros "Hmt (%&->&Hf)".
     iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.
     move: (Hf) => /REL[?[?[??]]]. simplify_eq/=.
     iSplitR. { iPureIntro. lia. } iSplitR; first done.
@@ -543,7 +550,7 @@ Section heap.
     rewrite Nat2Z.id.
     iMod (ghost_map_update None with "HhF Hf") as "[? $]".
     iModIntro. iSplit;[by eauto|]. iExists _. iFrame. iPureIntro.
-    eauto using heap_freeable_rel_free_mem, heap_wf_free_mem.
+    eauto using heap_block_size_rel_free_mem, heap_wf_free_mem.
   Qed.
 
   Lemma heap_mapsto_lookup h l ls q v :
@@ -638,7 +645,7 @@ Section heap.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & Hg & % & %)".
     iMod (heap_read_vs with "Hσ Hmt") as "[Hσ Hmt]"; first done.
     iModIntro. iExists n'; iSplit; [done|]. iFrame.
-    iExists hF. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_insert.
+    iExists hF. iFrame. eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
   Qed.
 
   Lemma heap_read_na_2 σ l q v n :
@@ -652,7 +659,7 @@ Section heap.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & Hg & % & %)".
     iMod (heap_read_vs with "Hσ Hmt") as "[Hσ Hmt]"; first done.
     iModIntro. iExists n'; iSplit; [done|]. iFrame.
-    iExists hF. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_insert.
+    iExists hF. iFrame. eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
   Qed.
 
   Lemma heap_read_na σ l q v :
@@ -690,7 +697,7 @@ Section heap.
     iDestruct (heap_read_st_1 with "Hσ Hmt") as %?; auto.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & Hg & % & %)".
     iMod (heap_write_vs with "Hσ Hmt") as "[Hσ $]"; first done.
-    iModIntro. iExists _. iFrame. eauto 8 using heap_freeable_rel_stable, heap_wf_insert.
+    iModIntro. iExists _. iFrame. eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
   Qed.
 
   Lemma heap_write_na_1 σ l v st :
@@ -735,14 +742,14 @@ End heap.
 Lemma heap_init `{heapG Σ} gs :
   ⊢ |==> ∃ γ : heap_names, heap_ctx γ (state_init gs) ∗
     heap_globals γ (dom _ gs) ∗
-    [∗ map] n ↦ v ∈ gs, heap_mapsto γ (global_loc n) (RSt 0) 1 v ∗ heap_freeable γ (global_loc n) 1 (Some 1).
+    [∗ map] n ↦ v ∈ gs, heap_mapsto γ (global_loc n) (RSt 0) 1 v ∗ heap_block_size γ (global_loc n) 1 (Some 1).
 Proof.
   set σ := state_init gs.
   iMod (own_alloc (● (to_heap σ.(heap)) ⋅ ◯ (to_heap σ.(heap)))) as (γheap) "[Hheap Hfrag]".
   { apply auth_both_valid_discrete. split; first done. apply to_heap_valid. }
   iMod (ghost_map_alloc (kmap global_loc (const (Some 1) <$> gs))) as (γfmap) "[Hfmap Hffrag]".
   iMod (own_alloc (to_agree ((dom (gset string) gs) : leibnizO _))) as (γg) "#Hg" => //.
-  iExists {| heap_name := γheap; heap_freeable_name := γfmap; heap_globals_name := γg |}.
+  iExists {| heap_name := γheap; heap_block_size_name := γfmap; heap_globals_name := γg |}.
   iModIntro. rewrite /heap_ctx heap_globals_eq /=. iFrame "Hg". iClear "Hg".
   iSplitR "Hfrag Hffrag".
   - iExists _. iFrame. iPureIntro.
@@ -754,7 +761,7 @@ Proof.
         apply lookup_fmap_Some. naive_solver.
       * move => [? /lookup_kmap_Some[? [[??] /lookup_fmap_Some [? [? ?]]]]]; simplify_eq.
     + apply state_init_wf.
-  - rewrite heap_mapsto_eq heap_freeable_eq /heap_mapsto_def /heap_freeable_def /=.
+  - rewrite heap_mapsto_eq heap_block_size_eq /heap_mapsto_def /heap_block_size_def /=.
     iInduction gs as [|l v gs Hk] "IH" using map_ind.
     { iApply big_sepM_empty. done. }
     rewrite big_sepM_insert; last done.

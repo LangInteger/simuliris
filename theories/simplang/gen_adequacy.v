@@ -9,7 +9,7 @@ Section adequacy.
     isat (∀ `(sheapGS Σ), |==> ∃ `(sheapInv Σ) loc_rel,
       ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
       ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
-      ([∗ map] n↦v ∈ g, global_loc n ↦t v ∗ †global_loc n …t 1 ∗ global_loc n ↦s v ∗ †global_loc n …s 1) -∗
+      ([∗ map] n↦v ∈ g, global_loc n ↦t v ∗ global_loc n …t 1 ∗ global_loc n ↦s v ∗ global_loc n …s 1) -∗
       target_globals (dom _ g) -∗
       source_globals (dom _ g) ==∗
       sheap_inv p_s (state_init g) [Call f#"main" #()] ∗

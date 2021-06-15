@@ -41,7 +41,7 @@ Section refl.
       iIntros (???????) "Hv Hcont".
       target_alloc l_t as "Hl_t" "Ha_t"; first done.
       source_alloc l_s as "Hl_s" "Ha_s"; first done.
-      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | naive_solver | | ].
+      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
       { iDestruct "Hv" as "#Hv".
         rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
         generalize (Z.to_nat n) => n'.
