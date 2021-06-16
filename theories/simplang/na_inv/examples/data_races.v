@@ -68,21 +68,21 @@ Section data_race.
     to_sim. iApply (sim_bij_exploit_store with "Hl Hc"); [|done|].
     { intros. reach_or_stuck_fill (_ <- _)%E => /=.
       (* skip over first load *)
-      eapply (reach_or_stuck_bind P_s _ _ _ [BinOpREctx _ _; StoreREctx _ _]).
+      reach_or_stuck_bind (! _)%E.
       eapply reach_or_stuck_irred; first apply _; first done.
       intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
       eapply reach_or_stuck_refl. simpl.
 
       (* skip over snd load *)
-      eapply (reach_or_stuck_bind P_s _ _ _ [BinOpLEctx _ _; StoreREctx _ _]).
-      eapply reach_or_stuck_load; [done.. | ]. eapply reach_or_stuck_refl. simpl.
+      reach_or_stuck_bind (! _)%E.
+      eapply reach_or_stuck_load; [done.. | ]. eapply reach_or_stuck_refl.
 
       (* skip over add *)
-      eapply (reach_or_stuck_bind P_s _ _ _ [StoreREctx _ _]).
+      reach_or_stuck_bind (_ + _)%E.
       eapply reach_or_stuck_irred; first apply _; first done.
       intros [(z & ->) _].
       eapply reach_or_stuck_pure; first apply _; first done.
-      eapply reach_or_stuck_refl. simpl.
+      eapply reach_or_stuck_refl.
 
       apply: reach_or_stuck_refl. apply post_in_ectx_intro. naive_solver.
     }
