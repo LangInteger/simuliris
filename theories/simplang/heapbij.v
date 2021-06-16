@@ -465,8 +465,10 @@ Section laws.
   Lemma heap_bij_insert_globals (P : _ → _ → _ → Prop) L (gs : gmap string val) :
     (∀ n o, P (global_loc n +ₗ o) (global_loc n +ₗ o) (Some 1%Qp)) →
     heap_bij_interp L P -∗
-    ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
-                       global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) -∗
+    ([∗ map] n↦v ∈ gs,
+      global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
+      global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)
+    ) -∗
     ([∗ map] v ∈ gs, val_rel v v)
     ==∗
     ∃ L', heap_bij_interp L' P ∗ ([∗ set] g ∈ dom _ gs, global_loc g ↔h global_loc g).
