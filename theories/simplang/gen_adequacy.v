@@ -5,13 +5,14 @@ From simuliris.simplang Require Import parallel_subst gen_val_rel wf.
 
 (** Generic adequacy theorem for sheap-based logical relations. *)
 Section adequacy.
-  Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s:
+  Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s :
     isat (∀ `(sheapGS Σ) gs,
       ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
       |==> ∃ `(sheapInv Σ) loc_rel,
       ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
       ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
-      ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ global_loc n …t 1 ∗ global_loc n ↦s v ∗ global_loc n …s 1) -∗
+      ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
+                          global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) -∗
       target_globals (dom _ gs) -∗
       source_globals (dom _ gs) ==∗
       sheap_inv p_s (state_init gs) [Call f#"main" #()] ∗

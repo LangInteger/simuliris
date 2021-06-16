@@ -107,8 +107,8 @@ Section definitions.
                       (Loc b_t i)↦t[st]{#q'} v_t ∗ (Loc b_s i)↦s[st]{#q'} v_s
                     else
                       True)) ∗
-      Loc b_t 0 …?t n ∗
-      Loc b_s 0 …?s n).
+      target_block_size (Loc b_t 0) n ∗
+      source_block_size (Loc b_s 0) n).
 
   Lemma alloc_rel_mono (P' P : _ → _ → _ → Prop) b_t b_s:
     (∀ q o, P (Loc b_t o) (Loc b_s o) q → P' (Loc b_t o) (Loc b_s o) q) →
@@ -422,8 +422,8 @@ Section laws.
     l_t ↦t∗ v_t -∗
     l_s ↦s∗ v_s -∗
     ([∗ list] vt;vs∈v_t;v_s, val_rel vt vs) -∗
-    l_t …t n -∗
-    l_s …s n ==∗
+    target_block_size l_t (Some n) -∗
+    source_block_size l_s (Some n) ==∗
     heap_bij_interp ({[(loc_block l_t, loc_block l_s)]} ∪ L) P ∗
     l_t ↔h l_s.
   Proof.
@@ -465,7 +465,8 @@ Section laws.
   Lemma heap_bij_insert_globals (P : _ → _ → _ → Prop) L (gs : gmap string val) :
     (∀ n o, P (global_loc n +ₗ o) (global_loc n +ₗ o) (Some 1%Qp)) →
     heap_bij_interp L P -∗
-    ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ global_loc n…t 1 ∗ global_loc n ↦s v ∗ global_loc n…s 1) -∗
+    ([∗ map] n↦v ∈ gs, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
+                        global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) -∗
     ([∗ map] v ∈ gs, val_rel v v)
     ==∗
     ∃ L', heap_bij_interp L' P ∗ ([∗ set] g ∈ dom _ gs, global_loc g ↔h global_loc g).
@@ -484,7 +485,7 @@ Section laws.
 
   Lemma heap_bij_block_size_ne l1 l_t2 l_s2 n L P:
     l_t2 ↔h l_s2 -∗
-    l1…?s n -∗
+    source_block_size l1 n -∗
     heap_bij_interp L P -∗
     ⌜loc_block l1 ≠ loc_block l_s2⌝.
   Proof.

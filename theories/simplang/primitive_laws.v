@@ -186,18 +186,8 @@ Notation "f '@s' Ks" := (has_fun (hG:=gen_prog_inG_source) f Ks)
   (at level 20, format "f  @s  Ks") : bi_scope.
 
 (** Allocation size notation *)
-Notation "l '…?t' n" := (heap_block_size sheapG_heap_target l 1 n)
-  (at level 20, format "l …?t  n") : bi_scope.
-Notation "l '…t' n" := (heap_block_size sheapG_heap_target l 1 (Some n))
-  (at level 20, format "l …t  n") : bi_scope.
-Notation "l '…t' -" := (heap_block_size sheapG_heap_target l 1 None)
-  (at level 20, format "l …t  -") : bi_scope.
-Notation "l '…?s' n" := (heap_block_size sheapG_heap_source l 1 n)
-  (at level 20, format "l …?s  n") : bi_scope.
-Notation "l '…s' n" := (heap_block_size sheapG_heap_source l 1 (Some n))
-  (at level 20, format "l …s  n") : bi_scope.
-Notation "l '…s' -" := (heap_block_size sheapG_heap_source l 1 None)
-  (at level 20, format "l …s  -") : bi_scope.
+Notation target_block_size l := (heap_block_size sheapG_heap_target l 1).
+Notation source_block_size l := (heap_block_size sheapG_heap_source l 1).
 
 Notation "† l '…?t' n" := (heap_freeable sheapG_heap_target l 1 n)
   (at level 21, l at level 19, format "† l …?t  n") : bi_scope.
@@ -226,8 +216,10 @@ Lemma sheap_init `{!sheapGpreS Σ} P_t g_t P_s g_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
     (sheap_inv P_s (state_init g_s) T_s -∗
       state_interp P_t (state_init g_t) P_s (state_init g_s) T_s) ∗
-    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗ ([∗ map] n ↦ v ∈ g_t, global_loc n ↦t v ∗ global_loc n …t 1) ∗
-    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗ ([∗ map] n ↦ v ∈ g_s, global_loc n ↦s v ∗ global_loc n …s 1) ∗
+    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
+    ([∗ map] n ↦ v ∈ g_t, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1)) ∗
+    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
+    ([∗ map] n ↦ v ∈ g_s, global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) ∗
     source_globals (dom _ g_s) ∗ target_globals (dom _ g_t) ∗
     progs_are P_t P_s.
 Proof.

@@ -193,9 +193,7 @@ Section heap.
       (at level 20, q at level 50, format "l  ↦∗{ q }  vl") : bi_scope.
   Local Notation "l ↦∗ vl" := (heap_mapsto_vec γ l 1 vl) (at level 20) : bi_scope.
 
-  Local Notation "l …?{ q } n" := (heap_block_size γ l q n)
-  (at level 20, q at level 50, format "l …?{ q } n") : bi_scope.
-  Local Notation "l …? n" := (heap_block_size γ l 1 n) (at level 20) : bi_scope.
+  Local Notation block_size := (heap_block_size γ).
   Local Notation "†{ q } l …? n" := (heap_freeable γ l q n)
   (at level 21, l at level 19, q at level 50, format "†{ q } l …? n") : bi_scope.
   Local Notation "† l …? n" := (heap_freeable γ l 1 n) (at level 21, l at level 19) : bi_scope.
@@ -334,13 +332,13 @@ Section heap.
     by rewrite left_id.
   Qed.
 
-  Lemma heap_block_size_idx l n :
-    l…?n -∗ ⌜loc_idx l = 0⌝.
+  Lemma heap_block_size_idx l q n :
+    block_size l q n -∗ ⌜loc_idx l = 0⌝.
   Proof. rewrite heap_block_size_eq. by iIntros "(%b&->&?)". Qed.
 
   Lemma heap_block_size_excl l l' n n' :
     loc_block l = loc_block l' →
-    l…?n -∗ l'…?n' -∗ False.
+    block_size l 1 n -∗ block_size l' 1 n' -∗ False.
   Proof.
     rewrite heap_block_size_eq.
     iIntros (?) "(%&->&Hl1) (%&->&Hl2)"; simplify_eq/=.
@@ -412,7 +410,7 @@ Section heap.
     (0 < n1)%Z →
     (∀ m, is_Some (σ.(heap) !! (l1 +ₗ m)) ↔ (0 ≤ m < n1)%Z) →
     loc_block l1 = loc_block l2 →
-    heap_ctx γ σ -∗ l2…?n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
+    heap_ctx γ σ -∗ block_size l2 1 n2 -∗ ⌜n2 = Some (Z.to_nat n1) ∧ l1 = l2⌝.
   Proof.
     iIntros (? Hrel1 ?) "(%hF & ? & HhF & ? & %Hrel & %) Hf".
     rewrite heap_block_size_eq. iDestruct "Hf" as (b2 ->) "Hf".
@@ -441,9 +439,9 @@ Section heap.
       rewrite /loc_add/=. naive_solver lia.
   Qed.
 
-  Lemma heap_block_size_lookup σ l l' x n :
+  Lemma heap_block_size_lookup σ l l' x n q:
     σ.(heap) !! l' = Some x → loc_block l' = loc_block l →
-    heap_ctx γ σ -∗ l…?n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
+    heap_ctx γ σ -∗ block_size l q n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
   Proof.
     iIntros (Hlo ?) "(%hF&?&HhF&Hg&%Hrel&%) Hf".
     rewrite heap_block_size_eq. iDestruct "Hf" as (?->) "Hf".
@@ -495,7 +493,7 @@ Section heap.
     (∀ m, σ.(heap) !! (dyn_loc b +ₗ m) = None) →
     heap_ctx γ σ ==∗
       heap_ctx γ (State (heap_array (dyn_loc b) (replicate (Z.to_nat n) v) ∪ σ.(heap)) ({[b]} ∪ σ.(used_dyn_blocks)) σ.(globals)) ∗
-      heap_block_size γ (dyn_loc b) 1 (Some (Z.to_nat n)) ∗
+      block_size (dyn_loc b) 1 (Some (Z.to_nat n)) ∗
       dyn_loc b ↦∗ replicate (Z.to_nat n) v.
   Proof.
     intros ???; iDestruct 1 as (hF) "(Hvalσ & HhF & Hg & %Hrel & %Hwf)".
@@ -535,9 +533,9 @@ Section heap.
   Lemma heap_free σ l vl (n : Z) sts :
     n = length vl →
     block_is_dyn l.(loc_block) →
-    heap_ctx γ σ -∗ l ↦∗[sts] vl -∗ l …? (Some (length vl))
+    heap_ctx γ σ -∗ l ↦∗[sts] vl -∗ block_size l 1 (Some (length vl))
     ==∗ ⌜0 < n⌝%Z ∗ ⌜∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ (0 ≤ m < n)⌝%Z ∗
-        l …? None ∗ heap_ctx γ (state_upd_heap (free_mem l (Z.to_nat n)) σ).
+        block_size l 1 None ∗ heap_ctx γ (state_upd_heap (free_mem l (Z.to_nat n)) σ).
   Proof.
     iDestruct 1 as (hF) "(Hvalσ & HhF & Hg & %REL & %Hwf)". subst.
     rewrite heap_block_size_eq. iIntros "Hmt (%&->&Hf)".
