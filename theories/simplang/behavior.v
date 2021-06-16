@@ -14,7 +14,7 @@ Section ctx_rel.
   pointers. However, this is not a real restriction as [main] can
   store pointers in global variables. (In fact, it would be good
   enough to 0-initialize all global variables.) *)
-  Let init_state (σ_t σ_s : state) : Prop :=
+  Definition init_state (σ_t σ_s : state) : Prop :=
     ∃ gs, map_Forall (λ _ v, val_wf v) gs ∧ σ_t = state_init gs ∧ σ_s = state_init gs.
 
   Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=

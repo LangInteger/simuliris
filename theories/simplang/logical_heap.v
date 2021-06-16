@@ -195,8 +195,8 @@ Section heap.
 
   Local Notation block_size := (heap_block_size γ).
   Local Notation "†{ q } l …? n" := (heap_freeable γ l q n)
-  (at level 21, l at level 19, q at level 50, format "†{ q } l …? n") : bi_scope.
-  Local Notation "† l …? n" := (heap_freeable γ l 1 n) (at level 21, l at level 19) : bi_scope.
+  (at level 20, q at level 50, format "†{ q } l …? n") : bi_scope.
+  Local Notation "† l …? n" := (heap_freeable γ l 1 n) (at level 20) : bi_scope.
 
   (** General properties of mapsto and block_size *)
   Global Instance heap_mapsto_timeless l st q v : Timeless (l↦[st]{q}v).

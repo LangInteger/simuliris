@@ -190,17 +190,17 @@ Notation target_block_size l := (heap_block_size sheapG_heap_target l 1).
 Notation source_block_size l := (heap_block_size sheapG_heap_source l 1).
 
 Notation "† l '…?t' n" := (heap_freeable sheapG_heap_target l 1 n)
-  (at level 21, l at level 19, format "† l …?t  n") : bi_scope.
+  (at level 20, format "† l …?t  n") : bi_scope.
 Notation "† l '…t' n" := (heap_freeable sheapG_heap_target l 1 (Some n))
-  (at level 21, l at level 19, format "† l …t  n") : bi_scope.
+  (at level 20, format "† l …t  n") : bi_scope.
 Notation "† l '…t' -" := (heap_freeable sheapG_heap_target l 1 None)
-  (at level 21, l at level 19, format "† l …t  -") : bi_scope.
+  (at level 20, format "† l …t  -") : bi_scope.
 Notation "† l '…?s' n" := (heap_freeable sheapG_heap_source l 1 n)
-  (at level 21, l at level 19, format "† l …?s  n") : bi_scope.
+  (at level 20, format "† l …?s  n") : bi_scope.
 Notation "† l '…s' n" := (heap_freeable sheapG_heap_source l 1 (Some n))
-  (at level 21, l at level 19, format "† l …s  n") : bi_scope.
+  (at level 20, format "† l …s  n") : bi_scope.
 Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
-  (at level 21, l at level 19, format "† l …s  -") : bi_scope.
+  (at level 20, format "† l …s  -") : bi_scope.
 
 (** Global variables
     [..._globals gs] asserts that the set of global variables in target resp. source  is [gs].
@@ -212,29 +212,29 @@ Notation target_global := (heap_global sheapG_heap_target).
 Notation source_globals := (heap_globals sheapG_heap_source).
 Notation source_global := (heap_global sheapG_heap_source).
 
-Lemma sheap_init `{!sheapGpreS Σ} P_t g_t P_s g_s T_s :
+Lemma sheap_init `{!sheapGpreS Σ} P_t gs_t P_s gs_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
-    (sheap_inv P_s (state_init g_s) T_s -∗
-      state_interp P_t (state_init g_t) P_s (state_init g_s) T_s) ∗
+    (sheap_inv P_s (state_init gs_s) T_s -∗
+      state_interp P_t (state_init gs_t) P_s (state_init gs_s) T_s) ∗
     ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
-    ([∗ map] n ↦ v ∈ g_t, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1)) ∗
+    ([∗ map] n ↦ v ∈ gs_t, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1)) ∗
     ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
-    ([∗ map] n ↦ v ∈ g_s, global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) ∗
-    source_globals (dom _ g_s) ∗ target_globals (dom _ g_t) ∗
+    ([∗ map] n ↦ v ∈ gs_s, global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) ∗
+    source_globals (dom _ gs_s) ∗ target_globals (dom _ gs_t) ∗
     progs_are P_t P_s.
 Proof.
-  iMod (heap_init g_t) as (γheap_tgt) "(Hheap_tgt & #Hg_tgt & Hptsto_tgt)".
-  iMod (heap_init g_s) as (γheap_src) "(Hheap_src & #Hg_src & Hptsto_src)".
-  iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_tgt #Hprog_src]".
+  iMod (heap_init gs_t) as (γheap_tgt) "(Hheap_t & #Hgs_t & Hptsto_t)".
+  iMod (heap_init gs_s) as (γheap_src) "(Hheap_s & #Hgs_s & Hptsto_s)".
+  iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_t #Hprog_s]".
   iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %".
   iFrame. iSplitL; last iSplit; last iSplit.
   - iIntros "?". rewrite /state_interp /=. iFrame "∗#".
   - by iApply has_prog_all_funs.
   - by iApply has_prog_all_funs.
-  - iFrame "Hg_tgt Hg_src".
-    rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(#Hprog_tgt2 & #Hprog_src2 & _)".
-    iDestruct (has_prog_agree with "Hprog_tgt Hprog_tgt2") as %->.
-    iDestruct (has_prog_agree with "Hprog_src Hprog_src2") as %->.
+  - iFrame "Hgs_t Hgs_s".
+    rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(#Hprog_t2 & #Hprog_s2 & _)".
+    iDestruct (has_prog_agree with "Hprog_t Hprog_t2") as %->.
+    iDestruct (has_prog_agree with "Hprog_s Hprog_s2") as %->.
     done.
 Qed.
 

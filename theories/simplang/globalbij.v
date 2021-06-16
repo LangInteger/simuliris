@@ -15,8 +15,8 @@ Section globalbij.
   Let log_rel := (gen_log_rel loc_rel thread_own).
 
   Definition globalbij : iProp Σ :=
-     ∃ g_t g_s, ⌜g_s ⊆ g_t⌝ ∗ target_globals g_t ∗ source_globals g_s ∗
-     [∗ set] g∈g_s, loc_rel (global_loc g) (global_loc g).
+     ∃ gs_t gs_s, ⌜gs_s ⊆ gs_t⌝ ∗ target_globals gs_t ∗ source_globals gs_s ∗
+     [∗ set] g∈gs_s, loc_rel (global_loc g) (global_loc g).
 
   Global Instance globalbij_persistent: Persistent globalbij.
   Proof. apply _. Qed.
@@ -34,7 +34,7 @@ Section globalbij.
     iApply source_red_update_si.
     iIntros (?????) "($&$&$&$&Hinv)". iDestruct (Hrel with "Hinv") as "#Hbij".
     iFrame. iModIntro.
-    iDestruct "Hbij" as (g_t g_s) "(%Hsub&Hgs_t&Hgs_s&Hrel)".
+    iDestruct "Hbij" as (gs_t gs_s) "(%Hsub&Hgs_t&Hgs_s&Hrel)".
     iApply source_red_global. iIntros "#Hg_s".
     iDestruct (heap_global_in with "Hgs_s Hg_s") as %Hin. move: (Hin) => /Hsub?.
     iDestruct (heap_global_intro with "Hgs_t") as "#Hg_t"; [done|].
