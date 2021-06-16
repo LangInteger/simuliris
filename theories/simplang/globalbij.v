@@ -53,3 +53,5 @@ Section globalbij.
     iApply sim_expr_base. iApply lift_post_val. iFrame.
   Qed.
 End globalbij.
+
+Typeclasses Opaque globalbij.
