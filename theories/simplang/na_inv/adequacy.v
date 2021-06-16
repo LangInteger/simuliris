@@ -24,26 +24,27 @@ Global Instance subG_naΣ Σ :
   subG naΣ Σ → naGpreS Σ.
 Proof. solve_inG. Qed.
 
-Lemma prog_rel_adequacy Σ `{!naGpreS Σ} (p_t p_s : prog) gs :
-  isat (∀ `(naGS Σ),
+Lemma prog_rel_adequacy Σ `{!naGpreS Σ} (p_t p_s : prog) :
+  isat (∀ `(naGS Σ) gs,
+    ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
     ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
     ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
     target_globals (dom (gset string) gs) -∗
     source_globals (dom (gset string) gs) ==∗
     ([∗ map] v∈gs, val_rel v v) ∗ prog_rel p_t p_s
   ) →
-  beh_rel gs p_t p_s.
+  beh_rel p_t p_s.
 Proof.
   intros Hprog. apply simplang_adequacy.
   eapply sat_mono, Hprog. clear Hprog.
-  iIntros "Hprog_rel %".
+  iIntros "Hprog_rel % %gs %".
   iMod (heapbij_init (λ _, alloc_rel_pred [∅])) as (?) "Hbij".
   iMod (ghost_map_alloc) as (γcols) "[Hcols Hcol]".
   set HΣ := (NaGS Σ _ _ _ γcols).
   iModIntro. iExists na_inv, heapbij.loc_rel.
   iSpecialize ("Hprog_rel" $! HΣ).
   iIntros "Hp_t Hp_s Hmt #Hgs_t #Hgs_s".
-  iMod ("Hprog_rel" with "[$] [$] [$] [$]") as "[#Hvs $]".
+  iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs $]".
   iMod (heap_bij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
   iModIntro. iSplitL "Hbij Hcols".
   - rewrite /sheap_inv. iExists _, [∅], _. iFrame.
@@ -60,9 +61,9 @@ Theorem log_rel_adequacy Σ `{!naGpreS Σ} e_t e_s :
   (∀ `(naGS Σ), ⊢ log_rel e_t e_s) →
   ctx_rel e_t e_s.
 Proof.
-  intros Hrel C fname x p gs Hpwf HCwf Hvars Hgs.
+  intros Hrel C fname x p Hpwf HCwf Hvars.
   apply (prog_rel_adequacy Σ). eapply isat_intro.
-  iIntros (?) "_ _ _ _ !#".
+  iIntros (? gs Hgs) "_ _ _ _ !#".
   iSplit. { iApply big_sepM_intro. iIntros "!>" (???). iApply val_wf_sound. by apply: Hgs. }
   iIntros "!# %f %K_s %π".
   iDestruct (Hrel _) as "Hrel". clear Hrel.
