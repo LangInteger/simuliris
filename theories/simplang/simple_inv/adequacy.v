@@ -45,7 +45,7 @@ Proof.
   iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs $]".
   iMod (heap_bij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
   iModIntro. iSplitL "Hbij"; [|iSplitR; [done|]].
-  - iExists _, _. by iFrame "∗Hgs_t Hgs_s Hls".
+  - iExists _. iFrame. iExists _,_. by iFrame "#".
   - iIntros (??) "$".
 Qed.
 

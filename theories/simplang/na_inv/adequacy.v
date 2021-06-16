@@ -47,10 +47,11 @@ Proof.
   iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs $]".
   iMod (heap_bij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
   iModIntro. iSplitL "Hbij Hcols".
-  - rewrite /sheap_inv. iExists _, [∅], _. iFrame.
-    repeat iSplit; try done; iPureIntro.
-    + apply: na_locs_wf_init.
-    + apply: na_locs_in_L_init.
+  - rewrite /sheap_inv. iExists _, [∅]. iFrame.
+    repeat iSplit; try done.
+    + iPureIntro. apply: na_locs_wf_init.
+    + iPureIntro. apply: na_locs_in_L_init.
+    + iExists _, _. by iFrame "#".
   - rewrite map_seq_cons big_sepM_insert //.
     iDestruct "Hcol" as "[Hcol _]". iFrame.
     iSplit; [done|]. iIntros (??) "[? $]".

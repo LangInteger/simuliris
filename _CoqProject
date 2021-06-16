@@ -33,10 +33,10 @@ theories/simplang/tactics.v
 theories/simplang/class_instances.v
 theories/simplang/proofmode.v
 theories/simplang/gen_val_rel.v
-theories/simplang/gen_global_rel.v
 theories/simplang/gen_refl.v
 theories/simplang/pure_refl.v
 theories/simplang/heapbij.v
+theories/simplang/globalbij.v
 theories/simplang/parallel_subst.v
 theories/simplang/gen_log_rel.v
 theories/simplang/gen_adequacy.v

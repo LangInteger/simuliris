@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl gen_global_rel.
+From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl globalbij.
 
 (** * Reflexivity theorem for pure expressions
 This file defines a notion of pure expressions and proves a
@@ -24,7 +24,7 @@ Section log_rel.
     loc_rel_func_law loc_rel →
     loc_rel_inj_law loc_rel →
     loc_rel_offset_law loc_rel →
-    gen_global_rel_law loc_rel →
+    sheap_inv_contains_globalbij loc_rel →
     log_rel_structural loc_rel thread_own pure_expr_head_wf.
   Proof.
     intros ???? e_t e_s head_t head_s Hwf Hs. iIntros "IH".
