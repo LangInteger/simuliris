@@ -14,15 +14,15 @@ Section globalbij.
   Context (thread_own : thread_id → iProp Σ).
   Let log_rel := (gen_log_rel loc_rel thread_own).
 
-  Definition globalbij : iProp Σ :=
+  Definition globalbij_interp : iProp Σ :=
      ∃ gs_t gs_s, ⌜gs_s ⊆ gs_t⌝ ∗ target_globals gs_t ∗ source_globals gs_s ∗
      [∗ set] g∈gs_s, loc_rel (global_loc g) (global_loc g).
 
-  Global Instance globalbij_persistent: Persistent globalbij.
+  Global Instance globalbij_interp_persistent: Persistent globalbij_interp.
   Proof. apply _. Qed.
 
   Definition sheap_inv_contains_globalbij : Prop :=
-    ∀ P_s σ_s T_s, sheap_inv P_s σ_s T_s -∗ globalbij.
+    ∀ P_s σ_s T_s, sheap_inv P_s σ_s T_s -∗ globalbij_interp.
 
   Lemma source_red_global' n Ψ π :
     sheap_inv_contains_globalbij →
@@ -54,4 +54,4 @@ Section globalbij.
   Qed.
 End globalbij.
 
-Typeclasses Opaque globalbij.
+Typeclasses Opaque globalbij_interp.

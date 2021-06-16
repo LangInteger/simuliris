@@ -12,6 +12,10 @@ Section log_rel.
   Context (thread_own : thread_id → iProp Σ).
   Let val_rel := (gen_val_rel loc_rel).
 
+  (** [pure_expr_head_wf] characterizes pure expressions. Note that
+  [GlobalVar] is considered pure even though it reads to [globals]
+  field of the state and thus [pure_log_rel_structural] requires the
+  [sheap_inv_contains_globalbij] precondition. *)
   Definition pure_expr_head_wf (e : expr_head) : Prop :=
     match e with
     | ValHead v => val_wf v

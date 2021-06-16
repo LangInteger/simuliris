@@ -30,8 +30,8 @@ Section definitions.
         ⌜na_locs_wf cols P_s σ_s T_s⌝ ∗
         ⌜na_locs_in_L cols L⌝ ∗
         ghost_map_auth naGS_col_name 1 (map_seq 0 cols) ∗
-        heap_bij_interp L (λ _, alloc_rel_pred cols) ∗
-        globalbij loc_rel)%I.
+        heapbij_interp L (λ _, alloc_rel_pred cols) ∗
+        globalbij_interp loc_rel)%I.
 End definitions.
 
 Section laws.
@@ -52,7 +52,7 @@ Section laws.
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as (L cols ? ? HL) "(Hcols & Hbij & Hgs)".
     iExists _. do 2 (iSplit; [done|]). iFrame.
-    iDestruct (heap_bij_access with "Hbij Hrel") as (?) "[$ Hclose]".
+    iDestruct (heapbij_access with "Hbij Hrel") as (?) "[$ Hclose]".
     iIntros (cols' σ_s' T_s' ? ? Hdom HP) "Hcols He". iExists L, cols'. iFrame. repeat (iSplit; [done|]).
     iSplit.
     { iPureIntro => ??????. efeed pose proof Hdom as Hd; [done.. | ].
@@ -82,25 +82,25 @@ Section fix_heap.
     by apply: na_locs_wf_pure.
   Qed.
 
-  Global Instance heap_bij_inv_supports_alloc : sheapInvSupportsAlloc.
+  Global Instance na_inv_supports_alloc : sheapInvSupportsAlloc.
   Proof.
     constructor. iIntros (???????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
     iExists _,_. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     by apply: na_locs_wf_alloc.
   Qed.
-  Global Instance heap_bij_inv_supports_free : sheapInvSupportsFree.
+  Global Instance na_inv_supports_free : sheapInvSupportsFree.
   Proof.
     constructor. iIntros (???????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
     iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     by apply: na_locs_wf_free.
   Qed.
-  Global Instance heap_bij_inv_supports_load o : sheapInvSupportsLoad o.
+  Global Instance na_inv_supports_load o : sheapInvSupportsLoad o.
   Proof.
     constructor. iIntros (?????????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
     iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     by apply: na_locs_wf_load.
   Qed.
-  Global Instance heap_bij_inv_supports_store : sheapInvSupportsStore Na1Ord.
+  Global Instance na_inv_supports_store : sheapInvSupportsStore Na1Ord.
   Proof.
     constructor. iIntros (????????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
     iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
@@ -466,7 +466,7 @@ Section fix_heap.
     iIntros (Hn Ht Hs) "[% Hs_t] [% Hs_s] Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
     iDestruct "Hinv" as (L cols ? ? HL) "(Hcols & Hbij & Hgs)".
-    iMod (heap_bij_insertN with "Hbij Hl_t Hl_s Hval Hs_t Hs_s") as "[Hbij #?]"; [done..| |].
+    iMod (heapbij_insertN with "Hbij Hl_t Hl_s Hval Hs_t Hs_s") as "[Hbij #?]"; [done..| |].
     - move => o ? HLs. rewrite /alloc_rel_pred combine_na_locs_list_None //.
       move => π' cols' Hcols.
       destruct (cols' !! (l_s +ₗ o)) eqn: Hk => //.
@@ -502,7 +502,7 @@ Section fix_heap.
     iDestruct "Hinv" as (L cols ???) "(?&Hb&?)".
     case_match; [case_match|..].
     5: iDestruct (gen_val_rel_loc_source with "Hbij") as (? ->) "Hbij".
-    5: iDestruct (heap_bij_block_size_ne with "Hbij Hf Hb") as %?.
+    5: iDestruct (heapbij_block_size_ne with "Hbij Hf Hb") as %?.
     all: iModIntro; iDestruct ("HΦ" with "[//] [$Hf]") as "$"; [done|].
     all: iExists _, _; by iFrame.
   Qed.

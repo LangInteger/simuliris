@@ -27,7 +27,7 @@ Proof. solve_inG. Qed.
 Section definitions.
   Context `{heapbijGS Σ}.
 
-  Definition heap_bij_auth (L : gset (block * block)) :=
+  Definition heapbij_auth (L : gset (block * block)) :=
     gset_bij_own_auth heapbijG_bij_name (DfracOwn 1) L.
   Definition block_rel (l_t : block) (l_s : block) :=
     gset_bij_own_elem heapbijG_bij_name l_t l_s.
@@ -49,42 +49,42 @@ Section laws.
     Persistent (l_t ↔h l_s).
   Proof. apply _. Qed.
 
-  Lemma heap_bij_agree b_t1 b_t2 b_s1 b_s2 :
+  Lemma heapbij_agree b_t1 b_t2 b_s1 b_s2 :
     block_rel b_t1 b_s1 -∗ block_rel b_t2 b_s2 -∗ ⌜b_t1 = b_t2 ↔ b_s1 = b_s2⌝.
   Proof.
     iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2").
   Qed.
-  Lemma heap_bij_loc_agree l_t1 l_t2 l_s1 l_s2 :
+  Lemma heapbij_loc_agree l_t1 l_t2 l_s1 l_s2 :
     l_t1 ↔h l_s1 -∗ l_t2 ↔h l_s2 -∗ ⌜l_t1 = l_t2 ↔ l_s1 = l_s2⌝.
   Proof.
     iIntros "[H1 %Heq1] [H3 %Heq2]".
-    iPoseProof (heap_bij_agree with "H1 H3") as "%Ha". iPureIntro.
+    iPoseProof (heapbij_agree with "H1 H3") as "%Ha". iPureIntro.
     destruct l_t1, l_t2, l_s1, l_s2; cbn in *; subst. naive_solver.
   Qed.
 
-  Lemma heap_bij_func b_t b_s1 b_s2 :
+  Lemma heapbij_func b_t b_s1 b_s2 :
     block_rel b_t b_s1 -∗ block_rel b_t b_s2 -∗ ⌜b_s1 = b_s2⌝.
   Proof.
-    iIntros "H1 H2". iPoseProof (heap_bij_agree with "H1 H2") as "<-"; done.
+    iIntros "H1 H2". iPoseProof (heapbij_agree with "H1 H2") as "<-"; done.
   Qed.
-  Lemma heap_bij_loc_func l_t l_s1 l_s2 :
+  Lemma heapbij_loc_func l_t l_s1 l_s2 :
     l_t ↔h l_s1 -∗ l_t ↔h l_s2 -∗ ⌜l_s1 = l_s2⌝.
   Proof.
-    iIntros "H1 H2". iPoseProof (heap_bij_loc_agree with "H1 H2") as "<-"; done.
+    iIntros "H1 H2". iPoseProof (heapbij_loc_agree with "H1 H2") as "<-"; done.
   Qed.
 
-  Lemma heap_bij_inj b_s b_t1 b_t2 :
+  Lemma heapbij_inj b_s b_t1 b_t2 :
     block_rel b_t1 b_s -∗ block_rel b_t2 b_s -∗ ⌜b_t1 = b_t2⌝.
   Proof.
-    iIntros "H1 H2". iPoseProof (heap_bij_agree with "H1 H2") as "->"; done.
+    iIntros "H1 H2". iPoseProof (heapbij_agree with "H1 H2") as "->"; done.
   Qed.
-  Lemma heap_bij_loc_inj l_s l_t1 l_t2 :
+  Lemma heapbij_loc_inj l_s l_t1 l_t2 :
     l_t1 ↔h l_s -∗ l_t2 ↔h l_s -∗ ⌜l_t1 = l_t2⌝.
   Proof.
-    iIntros "H1 H2". iPoseProof (heap_bij_loc_agree with "H1 H2") as "->"; done.
+    iIntros "H1 H2". iPoseProof (heapbij_loc_agree with "H1 H2") as "->"; done.
   Qed.
 
-  Lemma heap_bij_loc_shift l_t l_s i : l_t ↔h l_s -∗ (l_t +ₗ i) ↔h (l_s +ₗ i).
+  Lemma heapbij_loc_shift l_t l_s i : l_t ↔h l_s -∗ (l_t +ₗ i) ↔h (l_s +ₗ i).
   Proof.
     iIntros "[Hi %Hj]". iSplitL "Hi"; first done. iPureIntro.
     destruct l_t, l_s; cbn in *; lia.
@@ -369,12 +369,12 @@ Section definitions.
       apply: Hsame; [lia |done].
   Qed.
 
-  Definition heap_bij_interp (L : gset (block * block)) (P : loc → loc → option Qp → Prop)  :=
-    (heap_bij_auth L ∗ [∗ set] p ∈ L, let '(b_t, b_s) := p in alloc_rel b_t b_s P)%I.
+  Definition heapbij_interp (L : gset (block * block)) (P : loc → loc → option Qp → Prop)  :=
+    (heapbij_auth L ∗ [∗ set] p ∈ L, let '(b_t, b_s) := p in alloc_rel b_t b_s P)%I.
 End definitions.
 
 Lemma heapbij_init `{!heapbijGpreS Σ, !sheapGS Σ} P :
-  ⊢ |==> ∃ `(heapbijGS Σ), heap_bij_interp ∅ P.
+  ⊢ |==> ∃ `(heapbijGS Σ), heapbij_interp ∅ P.
 Proof.
   iMod (gset_bij_own_alloc (A:=block) (B:=block) ∅) as (γbij) "[Hbij _]".
   { apply: gset_bijective_empty. }
@@ -386,15 +386,15 @@ Section laws.
   Context `{!heapbijGS Σ, !sheapGS Σ}.
   Implicit Types (b_t b_s : block) (l_t l_s : loc).
 
-  Lemma heap_bij_access L P b_t b_s:
-    heap_bij_interp L P -∗
+  Lemma heapbij_access L P b_t b_s:
+    heapbij_interp L P -∗
     block_rel b_t b_s -∗
     ⌜(b_t, b_s) ∈ L⌝ ∗
     alloc_rel b_t b_s P ∗
     (∀ P' : _ → _ → _  → Prop,
         ⌜∀ b_t' b_s' o q, b_t' ≠ b_t → b_s' ≠ b_s → P (Loc b_t' o) (Loc b_s' o) q →
                            P' (Loc b_t' o) (Loc b_s' o) q⌝ -∗
-        alloc_rel b_t b_s P' -∗ heap_bij_interp L P').
+        alloc_rel b_t b_s P' -∗ heapbij_interp L P').
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as "(Hauth & Hheap)".
     iDestruct (gset_bij_elem_of with "Hauth Hrel") as %Hin.
@@ -411,20 +411,20 @@ Section laws.
     apply: HP => b'; naive_solver.
   Qed.
 
-  Lemma heap_bij_insertN L l_t l_s v_t v_s n (P : _ → _ → _ → Prop):
+  Lemma heapbij_insertN L l_t l_s v_t v_s n (P : _ → _ → _ → Prop):
     n > 0 →
     length v_s = n →
     length v_t = n →
     (block_is_dyn l_t.(loc_block) ↔ block_is_dyn l_s.(loc_block)) →
     (∀ o, (∀ b_s, (loc_block l_t, b_s) ∉ L) →
           (∀ b_t, (b_t, loc_block l_s) ∉ L) → P (l_t +ₗ o) (l_s +ₗ o) (Some 1%Qp)) →
-    heap_bij_interp L P -∗
+    heapbij_interp L P -∗
     l_t ↦t∗ v_t -∗
     l_s ↦s∗ v_s -∗
     ([∗ list] vt;vs∈v_t;v_s, val_rel vt vs) -∗
     target_block_size l_t (Some n) -∗
     source_block_size l_s (Some n) ==∗
-    heap_bij_interp ({[(loc_block l_t, loc_block l_s)]} ∪ L) P ∗
+    heapbij_interp ({[(loc_block l_t, loc_block l_s)]} ∪ L) P ∗
     l_t ↔h l_s.
   Proof.
     iIntros (Hn Hl_s Hl_t Hb HP) "Hinv Ht Hs Hrel Ha_t Ha_s".
@@ -462,16 +462,16 @@ Section laws.
       + apply: Hext_s. eexists _. naive_solver.
   Qed.
 
-  Lemma heap_bij_insert_globals (P : _ → _ → _ → Prop) L (gs : gmap string val) :
+  Lemma heapbij_insert_globals (P : _ → _ → _ → Prop) L (gs : gmap string val) :
     (∀ n o, P (global_loc n +ₗ o) (global_loc n +ₗ o) (Some 1%Qp)) →
-    heap_bij_interp L P -∗
+    heapbij_interp L P -∗
     ([∗ map] n↦v ∈ gs,
       global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
       global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)
     ) -∗
     ([∗ map] v ∈ gs, val_rel v v)
     ==∗
-    ∃ L', heap_bij_interp L' P ∗ ([∗ set] g ∈ dom _ gs, global_loc g ↔h global_loc g).
+    ∃ L', heapbij_interp L' P ∗ ([∗ set] g ∈ dom _ gs, global_loc g ↔h global_loc g).
   Proof.
     iIntros (HP) "Hbij Hmt Hvs".
     iInduction gs as [|g v gs] "IH" using map_ind.
@@ -480,19 +480,19 @@ Section laws.
     iDestruct "Hmt" as "[(?&?&?&?) Hmt]". iDestruct "Hvs" as "[Hv Hvs]".
     iMod ("IH" with "Hbij Hmt Hvs") as (L') "[Hbij Hs]".
     rewrite -!heap_mapsto_vec_singleton.
-    iMod (heap_bij_insertN with "Hbij [$] [$] [$Hv] [$] [$]") as "[Hbij Hl]"; [lia | done.. | naive_solver | naive_solver |done |].
+    iMod (heapbij_insertN with "Hbij [$] [$] [$Hv] [$] [$]") as "[Hbij Hl]"; [lia | done.. | naive_solver | naive_solver |done |].
     iModIntro. iExists _. iFrame. rewrite dom_insert_L big_sepS_insert ?not_elem_of_dom //.
     iFrame.
   Qed.
 
-  Lemma heap_bij_block_size_ne l1 l_t2 l_s2 n L P:
+  Lemma heapbij_block_size_ne l1 l_t2 l_s2 n L P:
     l_t2 ↔h l_s2 -∗
     source_block_size l1 n -∗
-    heap_bij_interp L P -∗
+    heapbij_interp L P -∗
     ⌜loc_block l1 ≠ loc_block l_s2⌝.
   Proof.
     iIntros "[Hbij %] Hf Hint".
-    iDestruct (heap_bij_access with "Hint Hbij") as (?) "[Halloc _]".
+    iDestruct (heapbij_access with "Hint Hbij") as (?) "[Halloc _]".
     iDestruct "Halloc" as (n' vs_t vs_s Hlen ?) "(Hvs & Halloc_t & Halloc_s)".
     destruct (decide (loc_block l1 = loc_block l_s2)) => //.
     by iDestruct (heap_block_size_excl with "Hf Halloc_s") as %?.

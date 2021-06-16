@@ -45,7 +45,7 @@ Proof.
   iSpecialize ("Hprog_rel" $! HΣ).
   iIntros "Hp_t Hp_s Hmt #Hgs_t #Hgs_s".
   iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs $]".
-  iMod (heap_bij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
+  iMod (heapbij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
   iModIntro. iSplitL "Hbij Hcols".
   - rewrite /sheap_inv. iExists _, [∅]. iFrame.
     repeat iSplit; try done.
