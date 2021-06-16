@@ -21,6 +21,9 @@ Section globalbij.
   Global Instance globalbij_interp_persistent: Persistent globalbij_interp.
   Proof. apply _. Qed.
 
+  (** If one can extract [globalbij_interp] from [sheap_inv], one can
+      prove [log_rel (GlobalVar x) (GlobalVar x)] and a stronger lemma
+      for [source_red (GlobalVar n)] (see the lemmas below). *)
   Definition sheap_inv_contains_globalbij : Prop :=
     ∀ P_s σ_s T_s, sheap_inv P_s σ_s T_s -∗ globalbij_interp.
 
