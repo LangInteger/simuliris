@@ -1016,6 +1016,14 @@ Section fix_lang.
     iModIntro. iExists e_s', σ_s'. iFrame.
   Qed.
 
+  Lemma source_red_update_si e_s Φ π :
+    update_si (source_red e_s π Φ) -∗ source_red e_s π Φ.
+  Proof.
+    iIntros "Hupd". iApply source_red_step.
+    iIntros (??????) "[Hs [% _]]". iExists _, _. rewrite list_insert_id //.
+    iMod ("Hupd" with "Hs") as "[$ $]". iPureIntro. apply: no_forks_refl.
+  Qed.
+
   Lemma source_red_pool_reach_stuck e_s π Ψ :
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s -∗ ⌜T_s !! π = Some (fill K_s e_s)⌝ ==∗
         ⌜pool_reach_stuck P_s T_s σ_s⌝) -∗

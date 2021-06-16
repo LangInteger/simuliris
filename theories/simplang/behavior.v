@@ -10,8 +10,12 @@ From simuliris.simplang Require Import lang notation parallel_subst wf gen_val_r
 Section ctx_rel.
   Context (expr_head_wf : expr_head → Prop).
 
-  (* TODO: support arbitrary but equal initial heaps. *)
-  Let init_state (σ_t σ_s : state) : Prop := σ_t = state_init ∅ ∧ σ_s = state_init ∅.
+  (** We currently don't allow global variables that initially contain
+  pointers. However, this is not a real restriction as [main] can
+  store pointers in global variables. (In fact, it would be good
+  enough to 0-initialize all global variables.) *)
+  Definition init_state (σ_t σ_s : state) : Prop :=
+    ∃ gs, map_Forall (λ _ v, val_wf v) gs ∧ σ_t = state_init gs ∧ σ_s = state_init gs.
 
   Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
     match v_t, v_s with

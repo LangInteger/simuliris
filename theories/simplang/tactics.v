@@ -78,6 +78,7 @@ Module W.
 
   | Val (v : val)
   | Var (x : string)
+  | GlobalVar (x : string)
   | Let (x : binder) (e1 e2 : expr)
   | Call (e1 : expr) (e2 : expr)
   | UnOp (op : un_op) (e : expr)
@@ -105,6 +106,7 @@ Module W.
     | SubstMap xs e => subst_map (list_to_map xs) (to_expr e)
     | Val v => simp_lang.Val v
     | Var x => simp_lang.Var x
+    | GlobalVar x => simp_lang.GlobalVar x
     | Let x e1 e2 => simp_lang.Let x (to_expr e1) (to_expr e2)
     | Call e1 e2 => simp_lang.Call (to_expr e1) (to_expr e2)
     | UnOp op e => simp_lang.UnOp op (to_expr e)
@@ -134,6 +136,7 @@ Module W.
     let e := of_expr e in constr:(SubstMap (map_to_list xs) e)
   | simp_lang.Val ?x => constr:(Val x)
   | simp_lang.Var ?x => constr:(Var x)
+  | simp_lang.GlobalVar ?x => constr:(GlobalVar x)
   | simp_lang.Let ?x ?e1 ?e2 =>
     let e1 := of_expr e1 in let e2 := of_expr e2 in constr:(Let x e1 e2)
   | simp_lang.Call ?e1 ?e2 =>
@@ -188,6 +191,7 @@ Module W.
     | SubstMap xs e => if bool_decide (x ∈ xs.*1) then SubstMap xs e else
                         SubstMap xs (subst x v e)
     | Val v => Val v
+    | GlobalVar n => GlobalVar n
     | Var y => if bool_decide (x = y) then Val v else Var y
     | Let y e1 e2 =>
       Let y (subst x v e1) (if bool_decide (BNamed x ≠ y) then subst x v e2 else e2)
@@ -251,6 +255,7 @@ Module W.
     | ClosedExpr f e Hfree => add_substmap xs $ ClosedExpr f e Hfree
     | Val v => add_substmap xs $ Val v
     | Var y => add_substmap xs $ Var y
+    | GlobalVar y => add_substmap xs $ GlobalVar y
     | Let y e1 e2 => add_substmap xs $
       Let y (combine_subst_map [] e1) (combine_subst_map [] e2)
     | UnOp op e => add_substmap xs $ UnOp op (combine_subst_map [] e)
@@ -305,6 +310,7 @@ Module W.
   | SubstMap xs e => (filter (λ v, v ∉ xs.*1) (free_vars e))
   | Val v => []
   | Var x => [x]
+  | GlobalVar x => []
   | Let x e1 e2 => free_vars e1 ++ (filter (λ v, v ∉ binder_to_list x) (free_vars e2))
   | Match e0 x1 e1 x2 e2 =>
     free_vars e0 ++
@@ -326,6 +332,7 @@ Module W.
   | SubstMap xs e => is_closed (xs.*1 ++ free) e
   | Val v => true
   | Var x => bool_decide (x ∈ free)
+  | GlobalVar x => true
   | Let x e1 e2 => is_closed free e1 && is_closed (binder_to_list x ++ free) e2
   | Match e0 x1 e1 x2 e2 =>
     is_closed free e0 &&

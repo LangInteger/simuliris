@@ -17,14 +17,17 @@ the basic laws of the program logic, assuming that [sheapInv] allows
 them. *)
 
 Class sheapGS (Σ: gFunctors) := SHeapGS {
-  sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
-  sheapG_heapG :> heapG Σ;
+  (* These instances need to have a lower priority than the sheapGpreS
+  instances as otherwise the statement of [simplang_adequacy] uses the
+  wrong instance. *)
+  sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ | 1;
+  sheapG_heapG :> heapG Σ | 1;
   sheapG_heap_target : heap_names;
   sheapG_heap_source : heap_names;
 }.
 Class sheapGpreS (Σ: gFunctors) := SHeapGpreS {
-  sbij_pre_heapG :> heapG Σ;
-  sbij_pre_progG :> gen_progGpreS Σ string ectx;
+  sbij_pre_heapG :> heapG Σ | 10;
+  sbij_pre_progG :> gen_progGpreS Σ string ectx | 10;
 }.
 Definition sheapΣ := #[heapΣ; gen_progΣ string ectx].
 Global Instance subG_sheapΣ Σ :
@@ -40,7 +43,7 @@ Class sheapInv (Σ : gFunctors) := SHeapRel {
   sheap_inv : prog → state → list expr → iProp Σ;
   sheap_inv_pure_prim_step P_s σ_s e_s T π e_s':
     T !! π = Some e_s →
-    (∀ σ_s, prim_step P_s e_s σ_s e_s' σ_s []) →
+    (∀ σ_s', σ_s'.(globals) = σ_s.(globals) → prim_step P_s e_s σ_s' e_s' σ_s' []) →
     sheap_inv P_s σ_s T -∗
     sheap_inv P_s σ_s (<[π:=e_s']>T);
   sheap_ext_rel : thread_id → val → val → iProp Σ;
@@ -82,10 +85,11 @@ Class sheapInvSupportsAlloc `{!sheapInv Σ} := {
     sheap_inv P_s σ_s T_s -∗
     sheap_inv P_s
          {| heap :=
-             heap_array (Loc (fresh_block (heap σ_s) (used_blocks σ_s)) 0)
+             heap_array (dyn_loc (fresh (used_dyn_blocks σ_s)))
                (replicate (Z.to_nat n) v) ∪ heap σ_s;
-           used_blocks := {[fresh_block (heap σ_s) (used_blocks σ_s)]} ∪ used_blocks σ_s
-         |} (<[π:=fill K_s #(Loc (fresh_block (heap σ_s) (used_blocks σ_s)) 0)]> T_s);
+           used_dyn_blocks := {[fresh (used_dyn_blocks σ_s)]} ∪ used_dyn_blocks σ_s;
+           globals := globals σ_s
+         |} (<[π:=fill K_s #(dyn_loc (fresh (used_dyn_blocks σ_s)))]> T_s);
 }.
 Class sheapInvSupportsFree `{!sheapInv Σ} := {
   sheap_inv_free P_s σ_s T_s (n : Z) (l : loc) K_s π:
@@ -182,6 +186,9 @@ Notation "f '@s' Ks" := (has_fun (hG:=gen_prog_inG_source) f Ks)
   (at level 20, format "f  @s  Ks") : bi_scope.
 
 (** Allocation size notation *)
+Notation target_block_size l := (heap_block_size sheapG_heap_target l 1).
+Notation source_block_size l := (heap_block_size sheapG_heap_source l 1).
+
 Notation "† l '…?t' n" := (heap_freeable sheapG_heap_target l 1 n)
   (at level 20, format "† l …?t  n") : bi_scope.
 Notation "† l '…t' n" := (heap_freeable sheapG_heap_target l 1 (Some n))
@@ -195,25 +202,39 @@ Notation "† l '…s' n" := (heap_freeable sheapG_heap_source l 1 (Some n))
 Notation "† l '…s' -" := (heap_freeable sheapG_heap_source l 1 None)
   (at level 20, format "† l …s  -") : bi_scope.
 
-Lemma sheap_init `{!sheapGpreS Σ} P_t h_t P_s h_s T_s :
+(** Global variables
+    [..._globals gs] asserts that the set of global variables in target resp. source  is [gs].
+    [..._global gs] asserts that [g] is a valid global variable in for the target resp. source.
+ *)
+(* TODO: Are there better notations? *)
+Notation target_globals := (heap_globals sheapG_heap_target).
+Notation target_global := (heap_global sheapG_heap_target).
+Notation source_globals := (heap_globals sheapG_heap_source).
+Notation source_global := (heap_global sheapG_heap_source).
+
+Lemma sheap_init `{!sheapGpreS Σ} P_t gs_t P_s gs_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
-    (sheap_inv P_s (state_init h_s) T_s -∗
-      state_interp P_t (state_init h_t) P_s (state_init h_s) T_s) ∗
-    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗ ([∗ map] l ↦ v ∈ h_t, l ↦t v) ∗
-    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗ ([∗ map] l ↦ v ∈ h_s, l ↦s v) ∗
+    (sheap_inv P_s (state_init gs_s) T_s -∗
+      state_interp P_t (state_init gs_t) P_s (state_init gs_s) T_s) ∗
+    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
+    ([∗ map] n ↦ v ∈ gs_t, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1)) ∗
+    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
+    ([∗ map] n ↦ v ∈ gs_s, global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) ∗
+    source_globals (dom _ gs_s) ∗ target_globals (dom _ gs_t) ∗
     progs_are P_t P_s.
 Proof.
-  iMod (heap_init h_t) as (γheap_tgt) "[Hheap_tgt Hptsto_tgt]".
-  iMod (heap_init h_s) as (γheap_src) "[Hheap_src Hptsto_src]".
-  iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_tgt #Hprog_src]".
+  iMod (heap_init gs_t) as (γheap_tgt) "(Hheap_t & #Hgs_t & Hptsto_t)".
+  iMod (heap_init gs_s) as (γheap_src) "(Hheap_s & #Hgs_s & Hptsto_s)".
+  iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_t #Hprog_s]".
   iExists (SHeapGS _ _ _ γheap_tgt γheap_src). iIntros "!> %".
   iFrame. iSplitL; last iSplit; last iSplit.
   - iIntros "?". rewrite /state_interp /=. iFrame "∗#".
   - by iApply has_prog_all_funs.
   - by iApply has_prog_all_funs.
-  - rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(#Hprog_tgt2 & #Hprog_src2 & _)".
-    iDestruct (has_prog_agree with "Hprog_tgt Hprog_tgt2") as %->.
-    iDestruct (has_prog_agree with "Hprog_src Hprog_src2") as %->.
+  - iFrame "Hgs_t Hgs_s".
+    rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(#Hprog_t2 & #Hprog_s2 & _)".
+    iDestruct (has_prog_agree with "Hprog_t Hprog_t2") as %->.
+    iDestruct (has_prog_agree with "Hprog_s Hprog_s2") as %->.
     done.
 Qed.
 
@@ -236,6 +257,34 @@ Lemma has_fun_source_agree f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 =
 Proof. apply has_fun_agree. Qed.
 
 
+(** operational lemmas for global variables *)
+Lemma target_red_global n Ψ :
+  target_global n -∗
+  target_red #(global_loc n) Ψ -∗
+  target_red (GlobalVar n) Ψ.
+Proof.
+  iIntros "Hg Hred". iApply target_red_lift_head_step.
+  iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & ?) !>".
+  iDestruct (heap_global_in_ctx with "Hσ_t Hg") as %?.
+  iSplitR; first by eauto with head_step.
+  iIntros (e_t' efs σ_t') "%"; inv_head_step.
+  iModIntro. by iFrame.
+Qed.
+
+Lemma source_red_global n Ψ π :
+  (source_global n -∗ source_red #(global_loc n) π Ψ) -∗
+  source_red (GlobalVar n) π Ψ.
+Proof.
+  iIntros "Hred". iApply source_red_lift_head_step.
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) [% %Hsafe]] !>".
+  have ?:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+  iDestruct (heap_global_intro_ctx with "Hσ_s") as "#Hg"; [done|].
+  iExists _, _. iSplit. { simpl. eauto with head_step. }
+  iModIntro. iDestruct ("Hred" with "[//]") as "$". iFrame.
+  iApply sheap_inv_pure_prim_step; [done| |done] => ??.
+  apply: fill_prim_step. apply: head_prim_step. econstructor. set_solver.
+Qed.
+
 (** operational heap lemmas *)
 
 Lemma target_red_allocN n v Ψ:
@@ -246,12 +295,12 @@ Lemma target_red_allocN n v Ψ:
 Proof.
   iIntros (Hn) "Hloc". iApply target_red_lift_head_step.
   iIntros (P_s σ_s P_t σ_t T_s) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)". iModIntro.
+  iDestruct (heap_ctx_wf with "Hσ_t") as %?.
   iSplitR. { eauto using alloc_fresh with head_step. }
   iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
-  set (l := Loc b 0).
-  iMod (heap_alloc _ _ l with "Hσ_t") as "($&Hn&Hm)"; [done..|].
+  iMod (heap_alloc _ _ b with "Hσ_t") as "($&Hn&Hm)"; [done..|].
   iModIntro. iFrame. iSplitR; first done.
-  by iApply ("Hloc" with "Hm Hn").
+  by iApply ("Hloc" with "Hm [$Hn]").
 Qed.
 
 Lemma source_red_allocN π n v Ψ `{!sheapInvSupportsAlloc}:
@@ -262,15 +311,15 @@ Lemma source_red_allocN π n v Ψ `{!sheapInvSupportsAlloc}:
 Proof.
   iIntros (Hn) "Hloc". iApply source_red_lift_head_step.
   iIntros (P_s σ_s P_t σ_t T_s K_s) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
-  iDestruct (heap_ctx_wf with "Hσ_s") as %?.
+  iDestruct (heap_ctx_wf with "Hσ_s") as %Hwf.
   iExists _, _. iSplitR. { simpl. eauto using alloc_fresh with lia head_step. }
   simpl.
-  iMod (heap_alloc _ _ (Loc (fresh_block (heap σ_s) (used_blocks σ_s)) 0) with "Hσ_s") as "($&Hn&Hm)"; [done|done| | |].
-  { apply is_fresh_block_blocks. }
-  { move => ?. apply is_fresh_block. }
+  iMod (heap_alloc _ _ (fresh (used_dyn_blocks σ_s)) with "Hσ_s") as "($&Hn&Hm)"; [done| | |].
+  { apply is_fresh. }
+  { move => ?. apply eq_None_not_Some => -[? /Hwf]. apply is_fresh. }
   iModIntro. iFrame.
   iSplitL "Hinv". { by iApply sheap_inv_alloc. }
-  by iApply ("Hloc" with "Hm Hn").
+  by iApply ("Hloc" with "Hm [$Hn]").
 Qed.
 
 Lemma target_red_alloc v Ψ:
@@ -298,14 +347,14 @@ Lemma target_red_freeN vs l (n : Z) Ψ :
   († l …t - -∗ target_red (of_val #()) Ψ) -∗
   target_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) Ψ.
 Proof.
-  iIntros (->) "Hl Hn Hsim". iApply target_red_lift_head_step. rewrite Nat2Z.id.
+  iIntros (->) "Hl [% Hn] Hsim". iApply target_red_lift_head_step. rewrite Nat2Z.id.
   iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)".
   rewrite heap_mapsto_vec_to_st.
-  iMod (heap_free with "Hσ_t Hl Hn") as (??) "[? ?]"; [ done| ].
+  iMod (heap_free with "Hσ_t Hl Hn") as (??) "[? ?]"; [ done..| ].
   iSplitR; first by eauto with lia head_step.
   iIntros "!>" (e_t' efs σ_t') "%"; inv_head_step.
   iModIntro. iFrame. iSplitR; first done.
-    by iApply "Hsim".
+  iApply "Hsim". by iFrame.
 Qed.
 
 Lemma target_red_free v l Ψ :
@@ -326,17 +375,16 @@ Lemma source_red_freeN vs π l (n : Z) Ψ `{!sheapInvSupportsFree} :
   († l …s - -∗ source_red (of_val #()) π Ψ) -∗
   source_red (FreeN (Val $ LitV $ LitInt n) (Val $ LitV (LitLoc l))) π Ψ.
 Proof.
-  iIntros (->) "Hl Hn Hsim". iApply source_red_lift_head_step. rewrite Nat2Z.id.
+  iIntros (->) "Hl [% Hn] Hsim". iApply source_red_lift_head_step. rewrite Nat2Z.id.
   iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
   iDestruct (heap_ctx_wf with "Hσ_s") as %?.
   rewrite heap_mapsto_vec_to_st.
-  iMod (heap_free with "Hσ_s Hl Hn") as (??) "[? ?]"; [ done | ].
+  iMod (heap_free with "Hσ_s Hl Hn") as (??) "[? ?]"; [ done.. | ].
   iExists (Val #()), (state_upd_heap (free_mem l _) σ_s).
-  iSplitR; first eauto with lia head_step.
-  { iPureIntro. econstructor; eauto with lia. }
+  iSplitR. { iPureIntro. econstructor; eauto with lia. }
   iModIntro. iModIntro. iFrame.
   iSplitL "Hinv". { by iApply sheap_inv_free. }
-    by iApply "Hsim".
+  iApply "Hsim". by iFrame.
 Qed.
 
 Lemma source_red_free π v l Ψ `{!sheapInvSupportsFree} :
@@ -522,7 +570,7 @@ Proof.
   iDestruct (has_prog_has_fun_agree with "HP_s Hf") as %?.
   iExists _, _. iSplit. { simpl. eauto with head_step. }
   iModIntro. iFrame.
-  iApply sheap_inv_pure_prim_step; [done| |done] => ?.
+  iApply sheap_inv_pure_prim_step; [done| |done] => ??.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
@@ -579,7 +627,7 @@ Proof.
   iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplit;[done|].
   iSplitR; first by eauto with head_step.
   iSplitL "Hsi". {
-    iApply sheap_inv_pure_prim_step; [done| |done] => ?.
+    iApply sheap_inv_pure_prim_step; [done| |done] => ??.
     apply: fill_prim_step. apply: head_prim_step. by constructor.
   }
   iApply "Hstep". iFrame.
@@ -605,7 +653,7 @@ Proof.
   iDestruct (has_prog_has_fun_agree with "HP_s Hrec") as %?.
   iFrame. iSplitR; [done|].
   iSplitR; [by eauto with head_step|].
-  iApply sheap_inv_pure_prim_step; [done| |done] => ?.
+  iApply sheap_inv_pure_prim_step; [done| |done] => ??.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
@@ -630,7 +678,7 @@ Proof.
   { eauto with head_step. }
   iExists e_s', σ_s'. inv_head_step. iFrame. iSplitR; [done|].
   iSplitR; [by eauto with head_step|].
-  iApply sheap_inv_pure_prim_step; [done| |done] => ?.
+  iApply sheap_inv_pure_prim_step; [done| |done] => ??.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
@@ -660,7 +708,7 @@ Proof.
   iExists e_s', σ_s'. inv_head_step. iFrame.
   iSplitR; [done|].
   iSplitR; [by eauto with head_step|].
-  iApply sheap_inv_pure_prim_step; [done| |done] => ?.
+  iApply sheap_inv_pure_prim_step; [done| |done] => ??.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 End lifting.

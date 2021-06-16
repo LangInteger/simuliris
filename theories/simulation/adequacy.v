@@ -308,12 +308,14 @@ Section adequacy_statement.
 
   Lemma slsls_adequacy p_t p_s:
     sat (∀ σ_t σ_s,
+      (* Assuming the initial states are picked from I. *)
+      ⌜I σ_t σ_s⌝ -∗
       (* Delay the choice of the simulation parameters *)
       |==> ∃ `(simulirisGS PROP Λ),
       (* The programs are related *)
       prog_rel p_t p_s ∗
       (* The initial states satisfy the state interpretation *)
-      (⌜I σ_t σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s [of_call main u]) ∗
+      state_interp p_t σ_t p_s σ_s [of_call main u] ∗
       (* The programs are in the state *)
       progs_are p_t p_s ∗
       (* The "unit" argument to main is related *)
@@ -327,12 +329,12 @@ Section adequacy_statement.
     destruct Hlook as [K_s Hlook].
     eapply (sat_forall _ σ_t) in Hsat.
     eapply (sat_forall _ σ_s) in Hsat.
+    eapply sat_wand in Hsat; [| by iPureIntro].
     eapply sat_bupd in Hsat.
     eapply sat_exists in Hsat as [simG Hsat].
     assert (msim (sat:=sat_frame (sat:=sat) ((∀ v_s v_t : val Λ, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝))) p_t p_s [of_call main u] σ_t [of_call main u] σ_s ∅) as Hsim.
     { rewrite /msim /sat_frame. eapply sat_mono, Hsat.
-      iIntros "(Hloc & SI & Hprogs & Hunit & $)".
-      iSpecialize ("SI" with "[//]"). iFrame.
+      iIntros "(Hloc & SI & Hprogs & Hunit & $)". iFrame.
       iSplit; first by iPureIntro; intros ??; set_solver.
       simpl. iSplit; last done.
       iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }

@@ -64,6 +64,7 @@ Section irreducible.
            end; congruence.
 
   Ltac decide_goal :=
+    try apply _;
     repeat match goal with
            | |- Decision (_ ∧ _) => apply and_dec
            | |- Decision (_ ∨ _) => apply or_dec
@@ -178,6 +179,10 @@ Section irreducible.
     IrredUnless False P (Var x) σ.
   Proof. prove_irred_unless. Qed.
 
+  Global Instance irreducible_global_var (x : string) P σ :
+    IrredUnless (x ∈ σ.(globals)) P (GlobalVar x) σ.
+  Proof. prove_irred_unless. Qed.
+
   Global Instance irreducible_call v v2 P σ :
     IrredUnless (∃ fn, v = LitV $ LitFn fn) P (Call (Val v) (Val v2)) σ.
   Proof. prove_irred_unless. Qed.
@@ -237,7 +242,7 @@ Section irreducible.
     destruct (heap σ !! l) as [ [[ |  ] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_freeN σ v_l v_n P :
-    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧
+    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block) ∧
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
@@ -248,6 +253,7 @@ Section irreducible.
     apply (exists_dec_unique n); [ naive_solver|].
     apply and_dec; [decide_goal|].
     apply and_dec; [decide_goal|].
+    apply and_dec; [apply _|].
     apply and_dec; [apply _|].
     apply forall_equiv_dec.
     - destruct (decide (map_Forall (λ l' _,
@@ -307,10 +313,10 @@ Section irreducible.
       intros (l & ? & ? & ?); eauto).
   Qed.
   Global Instance irreducible_freeN_weak σ v_l v_n P :
-    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (FreeN (Val v_n) (Val v_l)) σ | 10.
+    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block)) P (FreeN (Val v_n) (Val v_l)) σ | 10.
   Proof.
     eapply irred_unless_weaken; last apply irreducible_freeN.
-    intros (l & ? & ? & ? &? &?); eauto.
+    intros (l & ? & ? & ? &? &? &?); eauto 8.
   Qed.
 End irreducible.
 

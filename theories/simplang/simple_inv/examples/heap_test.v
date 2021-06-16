@@ -85,7 +85,7 @@ Module bij_test.
     ((#l <- #42)%E ⪯{π} #l2 <- #42 {{ val_rel }}).
   Proof.
     iIntros "H H1 H2 H3".
-    iApply (sim_bij_insert _ l l2 with "H2 H3 H H1 "); first done; iIntros "Hb".
+    iApply (sim_bij_insert _ l l2 with "H2 H3 H H1 "); [done|]; iIntros "Hb".
     iApply (sim_bij_store with "Hb []"); first done. by sim_val.
   Qed.
 

@@ -23,25 +23,30 @@ Global Instance subG_sbijΣ Σ :
   subG simpleΣ Σ → simpleGpreS Σ.
 Proof. solve_inG. Qed.
 
-Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog) :
-  isat (∀ `(simpleGS Σ),
+Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog):
+  isat (∀ `(simpleGS Σ) gs,
+    ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
     ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
     ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
-    prog_rel p_t p_s
+    target_globals (dom (gset string) gs) -∗
+    source_globals (dom (gset string) gs) ==∗
+    ([∗ map] v∈gs, val_rel v v) ∗ prog_rel p_t p_s
   ) →
   beh_rel p_t p_s.
 Proof.
   intros Hprog. apply simplang_adequacy.
   eapply sat_mono, Hprog. clear Hprog.
-  iIntros "Hprog_rel %".
-  iMod heapbij_init as (?) "Hbij". iModIntro.
+  iIntros "Hprog_rel % %gs %".
+  iMod (heapbij_init (λ _ _ q, q = Some 1%Qp)) as (?) "Hbij". iModIntro.
+  set HΣ := (SimpleGS Σ _ _).
   iExists simple_inv, heapbij.loc_rel.
-  iSpecialize ("Hprog_rel" $! (SimpleGS Σ _ _)).
-  iFrame "Hprog_rel".
-  iSplitL "Hbij".
-  { rewrite /sheap_inv /=. iExists ∅. by iFrame. }
-  iSplitR; first done.
-  iIntros (??) "$".
+  iSpecialize ("Hprog_rel" $! HΣ).
+  iIntros "Hp_t Hp_s Hmt #Hgs_t #Hgs_s".
+  iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs $]".
+  iMod (heapbij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
+  iModIntro. iSplitL "Hbij"; [|iSplitR; [done|]].
+  - iExists _. iFrame. iExists _,_. by iFrame "#".
+  - iIntros (??) "$".
 Qed.
 
 (** Adequacy for open terms. *)
@@ -51,7 +56,9 @@ Theorem log_rel_adequacy Σ `{!simpleGpreS Σ} e_t e_s :
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
   apply (prog_rel_adequacy Σ). eapply isat_intro.
-  iIntros (?) "_ _ !# %f %K_s %π".
+  iIntros (? gs Hgs) "_ _ _ _ !#".
+  iSplit. { iApply big_sepM_intro. iIntros "!>" (???). iApply val_wf_sound. by apply: Hgs. }
+  iIntros "!# %f %K_s %π".
   iDestruct (Hrel _) as "Hrel". clear Hrel.
   destruct (decide (f = fname)) as [->|Hne].
     rewrite !lookup_insert.

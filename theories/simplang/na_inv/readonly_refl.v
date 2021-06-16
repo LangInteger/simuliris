@@ -33,7 +33,7 @@ Section refl.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //; simpl in Hs; simplify_eq.
-    all: try by iApply pure_log_rel_structural; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heap_bij_loc_func, heap_bij_loc_inj, heap_bij_loc_shift.
+    all: try by iApply pure_log_rel_structural; unfold loc_rel_func_law, loc_rel_inj_law, loc_rel_offset_law; eauto using heapbij_loc_func, heapbij_loc_inj, heapbij_loc_shift, sim_bij_contains_globalbij.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
     all: try iDestruct "IH2" as "[IH2 IH3]".
@@ -56,7 +56,7 @@ Section refl.
       + move: (Hin _ _ _ Heq) => [i [v_t [v_s Hms]]].
         iDestruct (big_sepL_lookup_acc with "Hms") as "[Hl Hms]"; [done|].
         iDestruct "Hl" as "(Hl_t & Hl_s & #Hv' & Hl')".
-        iDestruct (heap_bij_loc_inj with "Hv Hl'") as %?; subst.
+        iDestruct (heapbij_loc_inj with "Hv Hl'") as %?; subst.
         to_source. iApply (source_red_load with "Hl_s"); [destruct o0; naive_solver|]. iIntros "Hl_s".
         to_target. iApply (target_red_load with "Hl_t"); [destruct o0; naive_solver|]. iIntros "Hl_t".
         to_sim. iApply ("Hcont" with "[-] Hv'"). iFrame.
