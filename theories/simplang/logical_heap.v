@@ -475,7 +475,7 @@ Section heap.
     etrans; first apply (IH (l +ₗ 1)).
     { intros. by rewrite loc_add_assoc. }
     rewrite loc_add_0 -insert_singleton_op; last first.
-    { rewrite -equiv_None big_opL_commute equiv_None big_opL_None=> l' v' ?.
+    { rewrite -None_equiv_eq big_opL_commute None_equiv_eq big_opL_None=> l' v' ?.
       rewrite lookup_singleton_None -{2}(loc_add_0 l). apply not_inj; lia. }
     rewrite -insert_union_singleton_l -insert_union_l.
     rewrite to_heap_insert. setoid_rewrite loc_add_assoc.
