@@ -65,11 +65,11 @@ Proof.
   source_bind (Write _ _).
   (* gain knowledge about the length *)
   iApply source_red_irred_unless; first done. iIntros (Hsize).
-  iApply (source_write_local with "Htag Hs"); [by rewrite repeat_length | done | ].
+  iApply (source_write_local with "Htag Hs"); [by rewrite replicate_length | done | ].
   iIntros "Hs Htag". source_finish.
 
   target_bind (Write _ _).
-  iApply (target_write_local with "Htag Ht"); [ by rewrite repeat_length | lia| ].
+  iApply (target_write_local with "Htag Ht"); [ by rewrite replicate_length | lia| ].
   iIntros "Ht Htag". target_finish.
 
   sim_pures. iApply ("Hsim" with "[//] [] Htag Ht Hs").
@@ -101,11 +101,11 @@ Proof.
   { iApply source_red_irred_unless; first done. by iIntros. }
   (* gain knowledge about the length *)
   iApply source_red_irred_unless; first done. iIntros (Hsize).
-  iApply (source_write_local with "Htag Hs"); [by rewrite repeat_length | done | ].
+  iApply (source_write_local with "Htag Hs"); [by rewrite replicate_length | done | ].
   iIntros "Hs Htag". source_finish.
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
   iPoseProof (value_rel_length with "Hv") as "%Hlen".
-  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [ by rewrite repeat_length | lia| ].
+  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [ by rewrite replicate_length | lia| ].
   sim_pures.
 
   target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first lia.
@@ -143,7 +143,7 @@ Proof.
   iApply (source_copy_any with "Htag_i Hi_s"); first done. iIntros (v_s') "%Hv_s' Hi_s Htag_i". source_finish.
   sim_pures.
 
-  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "". sim_pures.
+  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
   sim_val. iModIntro. destruct Hv_s' as [-> | ->]; iApply big_sepL2_singleton; done.
 Qed.
 
@@ -175,11 +175,11 @@ Proof.
   { iApply source_red_irred_unless; first done. by iIntros. }
   (* gain knowledge about the length *)
   iApply source_red_irred_unless; first done. iIntros (Hsize).
-  iApply (source_write_local with "Htag Hs"); [by rewrite repeat_length | done | ].
+  iApply (source_write_local with "Htag Hs"); [by rewrite replicate_length | done | ].
   iIntros "Hs Htag". source_finish.
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
   iPoseProof (value_rel_length with "Hv") as "%Hlen".
-  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [ by rewrite repeat_length | lia| ].
+  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [ by rewrite replicate_length | lia| ].
   sim_pures.
 
   target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first lia.
@@ -221,11 +221,11 @@ Proof.
   (* resolve the deferred read in the source *)
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
   source_pures. source_bind (Copy _).
-  iApply (source_copy_resolve_deferred with "Htag_i Hi_s Hdeferred"); first done. 
-  { iApply big_sepL2_singleton. done. } 
+  iApply (source_copy_resolve_deferred with "Htag_i Hi_s Hdeferred"); first done.
+  { iApply big_sepL2_singleton. done. }
   iIntros (v_s') "Hv' Hi_s Htag_i". source_finish.
   sim_pures.
 
-  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "". sim_pures.
+  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
   sim_val. iModIntro. done.
 Qed.

@@ -7,7 +7,7 @@ Set Default Proof Using "Type".
 (* Assuming x : &mut i32 *)
 Definition ex1_down_unopt : ectx :=
   λ: "i",
-    let: "c" := InitCall in 
+    let: "c" := InitCall in
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (&mut int) "i" in
 
@@ -32,7 +32,7 @@ Definition ex1_down_unopt : ectx :=
 
 Definition ex1_down_opt : ectx :=
   λ: "i",
-    let: "c" := InitCall in 
+    let: "c" := InitCall in
     let: "x" := new_place (&mut int) "i" in
     retag_place "x" (RefPtr Mutable) int FnEntry "c";;
     Call #[ScFnPtr "f"] #[] ;;
@@ -75,7 +75,7 @@ Proof.
   iApply sim_irred_unless; first done.
   iIntros ((_ & ot & i & -> & _)).
   iPoseProof (value_rel_singleton_source with "Hv") as (sc_t) "[-> Hscrel]".
-  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[-> Htagged]". 
+  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[-> Htagged]".
   iApply (sim_retag_fnentry with "Hscrel Hcall"); [cbn; lia| done | ].
   iIntros (t_i v_t v_s Hlen_t Hlen_s) "#Hvrel Hcall Htag_i Hi_t Hi_s _".
   iApply sim_expr_base.
@@ -85,7 +85,7 @@ Proof.
 
   (* do the source load *)
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
-  source_pures. source_bind (Copy _).  
+  source_pures. source_bind (Copy _).
   iApply (source_copy_any with "Htag_i Hi_s"); first done. iIntros (v_s' Hv_s') "Hi_s Htag_i". source_finish.
   sim_pures.
 
@@ -95,31 +95,24 @@ Proof.
   (* do the target load *)
   target_apply (Copy (Place _ _ _)) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
   target_pures. target_apply (Copy _) (target_copy_protected with "Hcall Htag_i Hi_t") "Hi_t Hcall Htag_i"; first done.
-  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert.  set_solver. } 
-  sim_pures. 
+  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert.  set_solver. }
+  sim_pures.
 
   (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
-  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "". sim_pures.
+  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
   iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s Hvrel"); [ | apply lookup_insert | ].
-  { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. } 
+  { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. }
   iIntros "Hcall Htag_i Hi_t Hi_s".
-  iApply (sim_remove_empty_calls _ t_i with "Hcall"). 
-  { rewrite lookup_insert. done. } 
-  { rewrite Hlen_t. set_solver. } 
+  iApply (sim_remove_empty_calls _ t_i with "Hcall").
+  { rewrite lookup_insert. done. }
+  { rewrite Hlen_t. set_solver. }
   iIntros "Hcall".
   sim_apply (EndCall _) (EndCall _) (sim_endcall with "[Hcall]") "".
-  { replace (delete t_i _) with (∅ : gmap ptr_id (gset loc)); first done. 
+  { replace (delete t_i _) with (∅ : gmap ptr_id (gset loc)); first done.
     apply map_eq. intros t'. rewrite delete_insert_delete delete_insert; done.
-  } 
-  sim_pures. 
-  sim_val. iModIntro. destruct Hv_s' as [-> | ->]; first done. 
-  iApply big_sepL2_forall. iSplit. { rewrite replicate_length. iPureIntro. lia. } 
-  iIntros (k sc_t sc_s). rewrite lookup_replicate. iIntros "Hsc (-> & _)". 
-  (* TODO: fix the pointer refined by poison thing in the relation *)
-  (*destruct sc_t; done.*)
-  
-  (*iApply big_sepL2_singleton; done.*)
-
-Abort.
-
-
+  }
+  sim_pures.
+  sim_val. iModIntro. destruct Hv_s' as [-> | ->]; first done.
+  iApply big_sepL2_forall. iSplit. { rewrite replicate_length. iPureIntro. lia. }
+  iIntros (k sc_t sc_s). rewrite lookup_replicate. iIntros "Hsc (-> & _)". destruct sc_t;done.
+Qed.

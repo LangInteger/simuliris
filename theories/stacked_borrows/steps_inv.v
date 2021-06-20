@@ -2,24 +2,24 @@ From simuliris.stacked_borrows Require Export notation defs.
 From simuliris.stacked_borrows Require Import steps_progress steps_retag.
 From iris.prelude Require Import options.
 
-Lemma head_free_inv (P : prog) l bor T σ σ' e' efs : 
+Lemma head_free_inv (P : prog) l bor T σ σ' e' efs :
   head_step P (Free (PlaceR l bor T)) σ e' σ' efs →
-  ∃ α', 
+  ∃ α',
     memory_deallocated σ.(sst) σ.(scs) l bor (tsize T) = Some α' ∧
     (∀ m : Z, is_Some (shp σ !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧
-    e' = #[☠]%E ∧ 
+    e' = #[☠]%E ∧
     σ' = mkState (free_mem l (tsize T) σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc) ∧
     efs = [].
 Proof. intros Hhead. inv_head_step. eauto 8. Qed.
 
 Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
   head_step P (Copy (PlaceR l t T)) σ e σ' efs →
-  efs = [] ∧ 
+  efs = [] ∧
   ((∃ v α', read_mem l (tsize T) (shp σ) = Some v ∧
   memory_read (sst σ) (scs σ) l t (tsize T) = Some α' ∧
   (*v <<t snp σ ∧*)
   σ' = mkState (shp σ) α' (scs σ) (snp σ) (snc σ) ∧
-  e = (ValR v)) ∨ 
+  e = (ValR v)) ∨
   e = ValR (replicate (tsize T) ScPoison) ∧ memory_read (sst σ) (scs σ) l t (tsize T) = None ∧ σ' = σ).
 Proof. intros Hhead. inv_head_step; first by eauto 10. destruct σ; eauto 10. Qed.
 
@@ -59,4 +59,12 @@ Lemma head_end_call_inv (P : prog) e' σ σ' efs c :
   efs = [] ∧
   e' = (#[☠])%E ∧
   σ' = state_upd_calls (.∖ {[ c ]}) σ.
+Proof. intros Hhead. inv_head_step. eauto. Qed.
+
+Lemma head_alloc_inv (P : prog) T σ σ' e' efs :
+  head_step P (Alloc T) σ e' σ' efs →
+  let l := (fresh_block σ.(shp), 0) in
+  efs = [] ∧
+  e' = Place l (Tagged σ.(snp)) T ∧
+  σ' = mkState (init_mem l (tsize T) σ.(shp)) (init_stacks σ.(sst) l (tsize T) (Tagged σ.(snp))) σ.(scs) (S σ.(snp)) σ.(snc).
 Proof. intros Hhead. inv_head_step. eauto. Qed.

@@ -21,14 +21,83 @@ Implicit Types f : fname.
 
 Context (Ω : result → result → iProp Σ).
 
-
 Lemma sim_alloc_public T Φ π :
   (∀ t l, t $$ tk_pub -∗
     rrel (PlaceR l (Tagged t) T) (PlaceR l (Tagged t) T) -∗
     Place l (Tagged t) T ⪯{π, Ω} Place l (Tagged t) T [{ Φ }]) -∗
   Alloc T ⪯{π, Ω} Alloc T [{ Φ }].
 Proof.
-Admitted.
+  iIntros "Hsim".
+  iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iModIntro.
+  destruct Hsafe as [Hpool Hsafe].
+  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
+  iSplitR. { iPureIntro. do 3 eexists. eapply alloc_head_step. }
+  iIntros (e_t' efs_t σ_t') "%Hhead_t".
+  specialize (head_alloc_inv _ _ _ _ _ _ Hhead_t) as (-> & -> & ->).
+
+  (* allocate tag *)
+  iDestruct "Hbor" as "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  assert (M_tag !! σ_t.(snp) = None).
+  { destruct (M_tag !! σ_t.(snp)) as [[tk' []] | ] eqn:Hs; last done. exfalso.
+    apply Htag_interp in Hs as (_ & ? & _); lia.
+  }
+  iMod (tkmap_insert tk_pub σ_t.(snp) () ltac:(done) with "Htag_auth") as "[Htag_auth #Ht]".
+  iModIntro.
+  pose (l := (fresh_block σ_t.(shp), 0)). pose (nt := σ_t.(snp)).
+  pose (α' := init_stacks σ_t.(sst) l (tsize T) (Tagged nt)).
+  pose (σ_s' := (mkState (init_mem l (tsize T) σ_s.(shp)) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc))).
+  assert (Hhead_s : head_step P_s (Alloc T) σ_s (Place l (Tagged nt) T) σ_s' []).
+  { subst σ_s' nt α' l. rewrite -Hsst_eq -Hsnp_eq. rewrite -(fresh_block_det σ_s σ_t); last done.
+    eapply alloc_head_step.
+  }
+  iExists _, [], _. iSplitR; first done. simpl. iFrame "HP_t HP_s".
+  iSplitR "Hsim Ht"; first last.
+  { iSplitL; last done. iApply ("Hsim" with "Ht"). iSplit; last done.
+    iSplitR; first done. iRight. iExists nt, nt. iFrame "Ht". eauto.
+  }
+  (* re-establish the invariants *)
+  iExists M_call, (<[nt := (tk_pub, ())]> M_tag), M_t, M_s.
+  iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
+  iSplit; last iSplit; last iSplit; last iSplit; last iSplit.
+  - (* tainted *)
+    subst σ_s' α' nt. rewrite -Hsst_eq -Hsnp_eq.
+    by iApply tag_tainted_interp_alloc.
+  - (* state rel *)
+    rewrite -{2}(map_empty_union M_t).
+    subst σ_s' α' nt. rewrite -{2}Hsst_eq.
+    iApply sim_alloc_state_rel_update; last done.
+    intros t (s & Hs) ->. congruence.
+  - (* call interp *)
+    iPureIntro. apply sim_alloc_call_set_interp_update; done.
+  - (* tag interp *)
+    iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s). split_and!.
+    { simpl. intros t tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
+      - (* new tag: as these are public, the locations under this tag are not directly controlled *)
+        split_and!; [ lia | lia | | |].
+        + intros l' sc_t Hsc_t. exfalso. specialize (Hdom_t nt l' ltac:(eauto)) as (? &?). subst nt. congruence.
+        + intros l' sc_t Hsc_t. exfalso. specialize (Hdom_s nt l' ltac:(eauto)) as (? &?). subst nt. congruence.
+        + apply dom_agree_on_tag_not_elem.
+          * intros l'. destruct (M_t !! (nt, l')) eqn:Hs; last done.
+            destruct (Hdom_t nt l' ltac:(eauto)) as (? & ?).
+            subst nt. congruence.
+          * intros l'. destruct (M_s !! (nt, l')) eqn:Hs; last done.
+            destruct (Hdom_s nt l' ltac:(eauto)) as (? & ?).
+            subst nt. congruence.
+      - (* old tag *)
+        specialize (Htag_interp _ _ Hsome) as (? & ? & Hcontrol_t & Hcontrol_s & Hag).
+        split_and!; [lia | lia | .. | done].
+        + intros l' sc_t Hcontrol%Hcontrol_t. eapply loc_controlled_alloc_update; done.
+        + intros l' sc_s Hcontrol%Hcontrol_s. subst α' nt σ_s' l.
+          rewrite -Hsnp_eq -Hsst_eq -(fresh_block_det _ _ Hdom_eq).
+          eapply loc_controlled_alloc_update; [ done | lia | done].
+    }
+    { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
+    { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
+  - iPureIntro. by eapply head_step_wf.
+  - iPureIntro. by eapply head_step_wf.
+Qed.
 
 Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
@@ -81,15 +150,54 @@ Proof.
     specialize (for_each_dealloc_lookup_Some _ _ _ _ _ Hstack_s _ _ Hstk') as (_ & Hstk).
     right. right. eauto.
   - (* re-establish the state relation *)
-    admit.
+    iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hsrel)".
+    iSplitR. { iPureIntro. simpl. apply free_mem_dom. done. }
+    simpl. do 4 (iSplitR; first done).
+    iIntros (l (sc & Hsome)).
+    destruct (free_mem_lookup_case l l_s (tsize T_s) σ_t.(shp)) as [[Hi Heq] | (i & _ & -> & ?)]; last congruence.
+    rewrite Heq in Hsome. iDestruct ("Hsrel" $! l with "[]") as "[Hpubl | Hprivl]"; first by eauto.
+    + iLeft. iIntros (sc_t Hsc_t). simpl in *.
+      rewrite Heq in Hsc_t. simplify_eq.
+      iDestruct ("Hpubl" $! sc Hsome) as (sc_s) "[%Hsc_s Hscr]".
+      iExists sc_s. iSplitR; last done.
+      iPureIntro.
+      destruct (free_mem_lookup_case l l_s (tsize T_s) σ_s.(shp)) as [[_ Heq'] | (i' & Hi' & -> & _)].
+      2: { specialize (Hi i' Hi'). congruence. }
+      rewrite Heq' Hsc_s. done.
+    + iRight. done.
   - (* re-establish the call set interpretation *)
-    admit.
+    iPureIntro.
+    iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (? & HM'). split; first done.
+    intros t L HL. specialize (HM' _ _ HL) as (? & HM'). split; first done.
+    intros l Hl. specialize (HM' l Hl) as (stk & pm & Hstk & Hit & Hpm).
+    destruct (for_each_true_lookup_case_2 _ _ _ _ _ Hstack_t) as [EQ1 EQ2].
+    (* from Hstack_s, l cannot be in the affected range because it is protected by c,
+      so α' !! l = σt.(sst) !! l. *)
+    destruct (block_case l_s l (tsize T_s)) as [Hneq|(i & Hi & ->)].
+    + rewrite EQ2//. eauto.
+    + exfalso. clear EQ2.
+      specialize (EQ1 _ Hi) as (stk1 & stk' & Eqstk1 & Eqstk' & Hdealloc).
+      rewrite Eqstk1 in Hstk. simplify_eq.
+      move : Hdealloc. destruct (dealloc1 stk bor_s σ_t.(scs)) eqn:Eqd; last done.
+      intros _.
+      destruct (dealloc1_Some stk bor_s σ_t.(scs)) as (it & Eqit & ? & FA & GR).
+      { by eexists. }
+      rewrite ->Forall_forall in FA. apply (FA _ Hit).
+      rewrite /is_active_protector /= /is_active bool_decide_true //.
   - (* re-establish the tag interpretation *)
-    admit.
+    destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s).
+    iPureIntro. split_and!; [ | done | done].
+    intros t tk Ht. simpl. specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrol_t & Hcontrol_s & Hag).
+    split_and!; [done | done | | | done].
+    + intros l sc_t Hsc_t%Hcontrol_t.
+      eapply loc_controlled_dealloc_update; [ apply Hstack_t | done | | done].
+      intros [-> _]. rewrite Hpub in Ht. congruence.
+    + intros l sc_s Hsc_s%Hcontrol_s.
+      eapply loc_controlled_dealloc_update; [apply Hstack_s | done | | done].
+      intros [-> _]. rewrite Hpub in Ht. congruence.
   - iPureIntro. by eapply head_step_wf.
   - iPureIntro. by eapply head_step_wf.
-Admitted.
-
+Qed.
 
 Lemma sim_copy_public_controlled_update σ l l' (bor : tag) (T : type) (α' : stacks) (t : ptr_id) (tk : tag_kind) sc :
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α' →
