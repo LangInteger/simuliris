@@ -4,24 +4,14 @@ Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 
+(** This file defines a simple value relation for encoding sums using
+  pairs and shows a simple example program. This example is not fully
+  worked out (the relation does not have support for heap operations),
+  and there is no reflexivity or adequacy theorem proven.*)
+
 
 Section fix_bi.
-Context `{sheapGS Σ} (π : thread_id).
-Program Instance : sheapInv Σ := {|
-  sheap_inv _ _ _ _ _ := ⌜True⌝%I;
- |}.
-Next Obligation. done. Qed.
-Global Instance : sheapInvConst.
-Proof. done. Qed.
-
-(* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
-
-Definition inj1_enc : ectx := (λ: "x", (#1, "x"))%E.
-Definition inj2_enc : ectx := (λ: "x", (#2, "x"))%E.
-
-Definition diverge : ectx := (λ: "x", Call "diverge" "x")%E.
-
-(** the value relation determining which values can be passed to a function *)
+Context `{sheapGS Σ}.
 Inductive val_rel_pure : val → val → Prop :=
   | val_rel_lit l : val_rel_pure (LitV l) (LitV l)
   | val_rel_injL v1 v2 : val_rel_pure v1 v2 → val_rel_pure ((#1, v1)%V) (InjLV v2)
@@ -32,8 +22,22 @@ Inductive val_rel_pure : val → val → Prop :=
       val_rel_pure ((v1, v2)%V) ((v1', v2')%V).
 Local Hint Constructors val_rel_pure : core.
 Definition val_rel v1 v2 : iProp Σ := (⌜val_rel_pure v1 v2⌝)%I.
+Program Instance : sheapInv Σ := {|
+  sheap_inv _ _ _ := ⌜True⌝%I;
+  sheap_ext_rel _ := val_rel;
+ |}.
+Next Obligation. done. Qed.
+Global Instance : sheapInvStateIndependent.
+Proof. done. Qed.
 
-Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{π, val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.
+(* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
+
+Definition inj1_enc : ectx := (λ: "x", (#1, "x"))%E.
+Definition inj2_enc : ectx := (λ: "x", (#2, "x"))%E.
+
+Definition diverge : ectx := (λ: "x", Call "diverge" "x")%E.
+
+(** the value relation determining which values can be passed to a function *)
 
 Definition mul2_source :=
   (λ: "x",
@@ -52,9 +56,9 @@ Definition mul2_target :=
 Definition source_prog : gmap string ectx := {[ "inj1_enc" := inj1_enc; "diverge" := diverge; "mul2" := mul2_source ]}.
 Definition target_prog : gmap string ectx := {[ "diverge" := diverge; "mul2" := mul2_target]}.
 
-Lemma mul2_sim:
+Lemma mul2_sim π:
   ⊢ ∀ v_t v_s, val_rel v_t v_s -∗
-    fill mul2_target (of_val v_t) ⪯ fill mul2_source (of_val v_s) {{ λ v_t' v_s', val_rel v_t' v_s' }}.
+    fill mul2_target (of_val v_t) ⪯{π} fill mul2_source (of_val v_s) {{ λ v_t' v_s', val_rel v_t' v_s' }}.
 Proof.
   iIntros (?? Hval). rewrite /mul2_target /mul2_source.
   sim_pures.
@@ -73,17 +77,18 @@ Proof.
     by sim_pures; sim_val.
 Qed.
 
-Definition source_client := (λ: "x", Call (##"mul2") (InjL "x"))%E.
-Definition target_client := (λ: "x", Call (## "mul2") (Call (##"inj1_enc") "x"))%E.
+Definition source_client := (λ: "x", Call (f#"mul2") (InjL "x"))%E.
+Definition target_client := (λ: "x", Call (f#"mul2") (Call (f#"inj1_enc") "x"))%E.
 
-Lemma client_sim (n : Z) :
+Lemma client_sim (n : Z) π :
   "target_client" @t target_client -∗
   "source_client" @s source_client -∗
   "inj1_enc" @t inj1_enc -∗
-  Call (##"target_client") #n ⪯ Call (##"source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
+  Call (f#"target_client") #n ⪯{π} Call (f#"source_client") #n {{ λ v_t v_s, val_rel v_t v_s }}.
 Proof.
   iIntros "Htarget Hsource Hinj1_t".
   target_call. target_call. source_call. sim_pures.
-  iApply sim_call; eauto.
+  iApply sim_wand; [ iApply sim_call; [done..|]; eauto |].
+  eauto.
 Qed.
 End fix_bi.

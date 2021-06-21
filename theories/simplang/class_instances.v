@@ -5,19 +5,6 @@ From simuliris.simplang Require Import tactics.
 
 (** * Instances of the [IrredUnless] class *)
 
-(* TODO: upstream this somewhere? *)
-Definition exists_dec_unique {A} (x : A) (P : _ → Prop) : (∀ y, P y → P x) → Decision (P x) → Decision (∃ y, P y).
-Proof.
-  intros Hx Hdec.
-  refine (cast_if (decide (P x))).
-  - abstract by eexists _.
-  - abstract naive_solver.
-Defined.
-
-Lemma forall_equiv_dec {X} (P Q : X → Prop) (HPQ : Decision (∀ x, P x → Q x)) (HQP : Decision (∀ x, Q x → P x)) :
-  Decision (∀ x, P x ↔ Q x).
-Proof. destruct HPQ as [HPQ | HPQ]; destruct HQP as [HQP | HQP]; [left; naive_solver | right; naive_solver..]. Qed.
-
 Section irreducible.
   Implicit Types (e : expr) (v : val) (σ : state).
 
@@ -30,6 +17,26 @@ Section irreducible.
     - destruct to_class as [ [] | ] eqn:Heq';
         [ by rewrite (to_class_val _ _ Heq') in Heq | done | done].
   Qed.
+End irreducible.
+
+Ltac solve_sub_redexes_are_values :=
+  let K := fresh "K" in
+  let e' := fresh "e'" in
+  let Heq := fresh "Heq" in
+  let Hv := fresh "Hv" in
+  let IH := fresh "IH" in
+  let Ki := fresh "Ki" in
+  let Ki' := fresh "Ki'" in
+  intros K e' Heq Hv;
+  destruct K as [ | Ki K]; first (done);
+  exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
+  [destruct Ki; inversion Heq; subst; cbn in *; congruence
+  | eapply IH; first (by rewrite Heq);
+    rewrite language_to_val_eq; apply fill_item_val_none;
+      by rewrite -language_to_val_eq].
+
+Section irreducible.
+  Implicit Types (e : expr) (v : val) (σ : state).
 
   (* slightly hacky proof tactic for irreducibility, solving goals of the form [SIrreducible _ _ _ _].
     Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
@@ -40,23 +47,10 @@ Section irreducible.
     let e_s' := fresh "e_s'" in
     let σ_s' := fresh "σ_s'" in
     let Hhead := fresh "Hhead" in
-    let K := fresh "K" in
-    let e' := fresh "e'" in
-    let Heq := fresh "Heq" in
-    let Hv := fresh "Hv" in
-    let IH := fresh "IH" in
-    let Ki := fresh "Ki" in
-    let Ki' := fresh "Ki'" in
     intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
     [ (*this need not complete the proof and may generate a proof obligation *)
       inversion Hhead; subst; try by (apply ϕ; eauto)
-    | intros K e' Heq Hv; clear ϕ;
-      destruct K as [ | Ki K]; first (done);
-      exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
-      [destruct Ki; inversion Heq; subst; cbn in *; congruence
-      | eapply IH; first (by rewrite Heq);
-        rewrite language_to_val_eq; apply fill_item_val_none;
-        by rewrite -language_to_val_eq]
+    | solve_sub_redexes_are_values
     ].
 
   (** Tactic support for proving goals of the form [IrredUnless] by
@@ -70,6 +64,7 @@ Section irreducible.
            end; congruence.
 
   Ltac decide_goal :=
+    try apply _;
     repeat match goal with
            | |- Decision (_ ∧ _) => apply and_dec
            | |- Decision (_ ∨ _) => apply or_dec
@@ -184,6 +179,10 @@ Section irreducible.
     IrredUnless False P (Var x) σ.
   Proof. prove_irred_unless. Qed.
 
+  Global Instance irreducible_global_var (x : string) P σ :
+    IrredUnless (x ∈ σ.(globals)) P (GlobalVar x) σ.
+  Proof. prove_irred_unless. Qed.
+
   Global Instance irreducible_call v v2 P σ :
     IrredUnless (∃ fn, v = LitV $ LitFn fn) P (Call (Val v) (Val v2)) σ.
   Proof. prove_irred_unless. Qed.
@@ -243,7 +242,7 @@ Section irreducible.
     destruct (heap σ !! l) as [ [[ |  ] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_freeN σ v_l v_n P :
-    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧
+    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block) ∧
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
@@ -255,9 +254,10 @@ Section irreducible.
     apply and_dec; [decide_goal|].
     apply and_dec; [decide_goal|].
     apply and_dec; [apply _|].
+    apply and_dec; [apply _|].
     apply forall_equiv_dec.
     - destruct (decide (map_Forall (λ l' _,
-       (loc_chunk l' = loc_chunk l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
+       (loc_block l' = loc_block l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
                                    ) σ.(heap))) as [Hm|Hm]; last first.
       + right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
         have Hi : i = (l +ₗ (loc_idx i - loc_idx l)).
@@ -289,6 +289,13 @@ Section irreducible.
     - right. intros (n' & [= <-] & Hn'); lia.
   Qed.
 
+  Global Instance irreducible_storeScNa1 o σ v_l P (v : val) `{!TCFastDone (o ≠ Na2Ord)} :
+    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store o (Val $ v_l) (Val v)) σ.
+  Proof. unfold TCFastDone in *. destruct o; try done; apply _. Qed.
+  Global Instance irreducible_loadScNa1 o σ v_l P `{!TCFastDone (o ≠ Na2Ord)}:
+    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load o $ Val v_l) σ.
+  Proof. unfold TCFastDone in *. destruct o; try done; apply _. Qed.
+
   (** for the usual use case with [sim_irred_unless], we will not actually have the state and program
     in context, thus the application of the above instances will fail.
     Therefore, we provide weaker instances for these cases.
@@ -306,10 +313,10 @@ Section irreducible.
       intros (l & ? & ? & ?); eauto).
   Qed.
   Global Instance irreducible_freeN_weak σ v_l v_n P :
-    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (FreeN (Val v_n) (Val v_l)) σ | 10.
+    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block)) P (FreeN (Val v_n) (Val v_l)) σ | 10.
   Proof.
     eapply irred_unless_weaken; last apply irreducible_freeN.
-    intros (l & ? & ? & ? &? &?); eauto.
+    intros (l & ? & ? & ? &? &? &?); eauto 8.
   Qed.
 End irreducible.
 

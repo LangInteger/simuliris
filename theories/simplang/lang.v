@@ -64,6 +64,7 @@ Inductive expr :=
   (* Base lambda calculus *)
     (* instead of lambda abstractions, we have let expressions and calls *)
   | Var (x : string)
+  | GlobalVar (x : string)
   | Let (x : binder) (e1 e2 : expr)
   | Call (e1 : expr) (e2 : expr)
   (* Base types and their operations *)
@@ -176,10 +177,21 @@ Global Arguments vals_compare_safe !_ !_ /.
 (** The state: heaps of [lock_state * val]s. *)
 Inductive lock_state :=
 | WSt | RSt (n : nat).
-Record state : Type := {
+Record state : Type := State {
   heap: gmap loc (lock_state * val);
-  used_blocks: gset block;
+  used_dyn_blocks: gset dyn_block;
+  globals: gset string;
 }.
+(** The initial heap contains only global variables as a closed
+program can only refer to global variables on the heap.  *)
+(* TODO: Allow global variables to contain arrays by using [gs : gmap string (list val)] *)
+Definition state_init (gs : gmap string val) : state :=
+  {| heap := kmap global_loc ((λ v, (RSt 0, v)) <$> gs); used_dyn_blocks := ∅; globals := dom _ gs |}.
+Definition heap_wf (σ: state) : Prop :=
+  ∀ b i v, σ.(heap) !! Loc (DynBlock b) i = Some v → b ∈ σ.(used_dyn_blocks).
+Lemma state_init_wf gs :
+  heap_wf (state_init gs).
+Proof. by move => b i [st v] /= /lookup_kmap_Some [?[??]]. Qed.
 
 (** Equality and other typeclass stuff *)
 Lemma to_of_val v : to_val (of_val v) = Some v.
@@ -294,89 +306,10 @@ Proof.
      end).
  refine (inj_countable' enc dec _). intros v. induction v; simplify_eq/=; by f_equal.
 Qed.
-(*
-Global Instance expr_countable : Countable expr.
-Proof.
-  (* (string + binder) + (lit + ((un_op + bin_op)) + order) *)
- set (enc :=
-   fix go e :=
-     match e with
-     | Val v => GenNode 0 [gov v]
-     | Var x => GenLeaf (inl (inl x))
-     | Let x e1 e2 => GenNode 1 [GenLeaf (inl (inr x)); go e1; go e2]
-     | UnOp op e => GenNode 3 [GenLeaf (inr (inr (inl (inl op)))); go e]
-     | BinOp op e1 e2 => GenNode 4 [GenLeaf (inr (inr (inl (inr op)))); go e1; go e2]
-     | If e0 e1 e2 => GenNode 5 [go e0; go e1; go e2]
-     | Pair e1 e2 => GenNode 6 [go e1; go e2]
-     | Fst e => GenNode 7 [go e]
-     | Snd e => GenNode 8 [go e]
-     | InjL e => GenNode 9 [go e]
-     | InjR e => GenNode 10 [go e]
-     | Match e0 x1 e1 x2 e2 => GenNode 11 [go e0; GenLeaf (inl (inr x1)); go e1; GenLeaf (inl (inr x2)); go e2]
-     | Fork e => GenNode 12 [go e]
-     | AllocN e1 e2 => GenNode 13 [go e1; go e2]
-     | FreeN e1 e2 => GenNode 14 [go e1; go e2]
-     | Load o e => GenNode 15 [GenLeaf (inr (inr (inr o))); go e]
-     | Store o e1 e2 => GenNode 16 [GenLeaf (inr (inr (inr o))); go e1; go e2]
-     | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
-     | FAA e1 e2 => GenNode 18 [go e1; go e2]
-     | Call e1 e2 => GenNode 19 [go e1; go e2]
-     | While e0 e1 => GenNode 20 [go e0; go e1]
-     end
-   with gov v :=
-     match v with
-     | LitV l => GenLeaf (inr (inl l))
-     | PairV v1 v2 => GenNode 1 [gov v1; gov v2]
-     | InjLV v => GenNode 2 [gov v]
-     | InjRV v => GenNode 3 [gov v]
-     end
-   for go).
- set (dec :=
-   fix go e :=
-     match e with
-     | GenNode 0 [v] => Val (gov v)
-     | GenLeaf (inl (inl x)) => Var x
-     | GenNode 1 [GenLeaf (inl (inr x)); e1; e2] => Let x (go e1) (go e2)
-     | GenNode 3 [GenLeaf (inr (inr (inl (inl op)))); e] => UnOp op (go e)
-     | GenNode 4 [GenLeaf (inr (inr (inl (inr op)))); e1; e2] => BinOp op (go e1) (go e2)
-     | GenNode 5 [e0; e1; e2] => If (go e0) (go e1) (go e2)
-     | GenNode 6 [e1; e2] => Pair (go e1) (go e2)
-     | GenNode 7 [e] => Fst (go e)
-     | GenNode 8 [e] => Snd (go e)
-     | GenNode 9 [e] => InjL (go e)
-     | GenNode 10 [e] => InjR (go e)
-     | GenNode 11 [e0; GenLeaf (inl (inr x1)); e1; GenLeaf (inl (inr x2)); e2] => Match (go e0) x1 (go e1) x2 (go e2)
-     | GenNode 12 [e] => Fork (go e)
-     | GenNode 13 [e1; e2] => AllocN (go e1) (go e2)
-     | GenNode 14 [e1; e2] => FreeN (go e1) (go e2)
-     | GenNode 15 [GenLeaf (inr (inr (inr o))); e] => Load o (go e)
-     | GenNode 16 [GenLeaf (inr (inr (inr o))); e1; e2] => Store o (go e1) (go e2)
-     | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
-     | GenNode 18 [e1; e2] => FAA (go e1) (go e2)
-     | GenNode 19 [e1; e2] => Call (go e1) (go e2)
-     | GenNode 20 [e0; e1] => While (go e0) (go e1)
-     | _ => Val $ LitV LitUnit (* dummy *)
-     end
-   with gov v :=
-     match v with
-     | GenLeaf (inr (inl l)) => LitV l
-     | GenNode 1 [v1; v2] => PairV (gov v1) (gov v2)
-     | GenNode 2 [v] => InjLV (gov v)
-     | GenNode 3 [v] => InjRV (gov v)
-     | _ => LitV LitUnit (* dummy *)
-     end
-   for go).
- refine (inj_countable' enc dec _).
- refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
-     [exact (gov v)|done..].
- - destruct v; by f_equal.
-Qed.
-*)
 
 Global Instance : Inhabited lock_state := populate (RSt 0).
 Global Instance state_inhabited : Inhabited state :=
-  populate {| heap := inhabitant; used_blocks := inhabitant |}.
+  populate {| heap := inhabitant; used_dyn_blocks := inhabitant; globals := inhabitant |}.
 Global Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
 Global Instance expr_inhabited : Inhabited expr := populate (Val inhabitant).
 
@@ -388,68 +321,275 @@ Canonical Structure exprO := leibnizO expr.
 (** Evaluation contexts *)
 Inductive ectx_item :=
   (* we can evaluate the expression that x will be bound to *)
-  | LetCtx (x : binder) (e2 : expr)
-  | CallLCtx (v2 : val)
+  | LetEctx (x : binder) (e2 : expr)
+  | CallLEctx (v2 : val)
+  | CallREctx (e1 : expr)
+  | UnOpEctx (op : un_op)
+  | BinOpLEctx (op : bin_op) (v2 : val)
+  | BinOpREctx (op : bin_op) (e1 : expr)
+  | IfEctx (e1 e2 : expr)
+  (* Deliberately nothing for While; that reduces *before* the condition reduces! *)
+  | PairLEctx (v2 : val)
+  | PairREctx (e1 : expr)
+  | FstEctx
+  | SndEctx
+  | InjLEctx
+  | InjREctx
+  | MatchEctx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
+  | AllocNLEctx (v2 : val)
+  | AllocNREctx (e1 : expr)
+  | FreeNLEctx (v2 : val)
+  | FreeNREctx (e1 : expr)
+  | LoadEctx (o : order)
+  | StoreLEctx (o : order) (v2 : val)
+  | StoreREctx (o : order) (e1 : expr)
+  | CmpXchgLEctx (v1 : val) (v2 : val)
+  | CmpXchgMEctx (e0 : expr) (v2 : val)
+  | CmpXchgREctx (e0 : expr) (e1 : expr)
+  | FaaLEctx (v2 : val)
+  | FaaREctx (e1 : expr).
+
+Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
+  match Ki with
+  | LetEctx x e2 => Let x e e2
+  | UnOpEctx op => UnOp op e
+  | BinOpLEctx op v2 => BinOp op e (Val v2)
+  | BinOpREctx op e1 => BinOp op e1 e
+  | IfEctx e1 e2 => If e e1 e2
+  | PairLEctx v2 => Pair e (Val v2)
+  | PairREctx e1 => Pair e1 e
+  | FstEctx => Fst e
+  | SndEctx => Snd e
+  | InjLEctx => InjL e
+  | InjREctx => InjR e
+  | MatchEctx x1 e1 x2 e2 => Match e x1 e1 x2 e2
+  | AllocNLEctx v2 => AllocN e (Val v2)
+  | AllocNREctx e1 => AllocN e1 e
+  | FreeNLEctx v2 => FreeN e (Val v2)
+  | FreeNREctx e1 => FreeN e1 e
+  | LoadEctx o => Load o e
+  | StoreLEctx o v2 => Store o e (Val v2)
+  | StoreREctx o e1 => Store o e1 e
+  | CmpXchgLEctx v1 v2 => CmpXchg e (Val v1) (Val v2)
+  | CmpXchgMEctx e0 v2 => CmpXchg e0 e (Val v2)
+  | CmpXchgREctx e0 e1 => CmpXchg e0 e1 e
+  | FaaLEctx v2 => FAA e (Val v2)
+  | FaaREctx e1 => FAA e1 e
+  | CallLEctx v2 => Call e (Val v2)
+  | CallREctx e1 => Call e1 e
+  end.
+
+(** General contexts *)
+Inductive ctx_item :=
+  | LetLCtx (x : binder) (e2 : expr)
+  | LetRCtx (x : binder) (e1 : expr)
+  | CallLCtx (e2 : expr)
   | CallRCtx (e1 : expr)
   | UnOpCtx (op : un_op)
-  | BinOpLCtx (op : bin_op) (v2 : val)
+  | BinOpLCtx (op : bin_op) (e2 : expr)
   | BinOpRCtx (op : bin_op) (e1 : expr)
-  | IfCtx (e1 e2 : expr)
-  (* Deliberately nothing for While; that reduces *before* the condition reduces! *)
-  | PairLCtx (v2 : val)
+  | IfLCtx (e1 e2 : expr)
+  | IfMCtx (e0 e2 : expr)
+  | IfRCtx (e0 e1 : expr)
+  | WhileLCtx (e1 : expr)
+  | WhileRCtx (e0 : expr)
+  | PairLCtx (v2 : expr)
   | PairRCtx (e1 : expr)
   | FstCtx
   | SndCtx
   | InjLCtx
   | InjRCtx
-  | MatchCtx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
-  | AllocNLCtx (v2 : val)
+  | MatchLCtx (x1 : binder) (e1 : expr) (x2 : binder) (e2 : expr)
+  | MatchMCtx (e0 : expr) (x1 : binder) (x2 : binder) (e2 : expr)
+  | MatchRCtx (e0 : expr) (x1 : binder) (e1 : expr) (x2 : binder)
+  | ForkCtx
+  | AllocNLCtx (v2 : expr)
   | AllocNRCtx (e1 : expr)
-  | FreeNLCtx (v2 : val)
+  | FreeNLCtx (v2 : expr)
   | FreeNRCtx (e1 : expr)
   | LoadCtx (o : order)
-  | StoreLCtx (o : order) (v2 : val)
+  | StoreLCtx (o : order) (v2 : expr)
   | StoreRCtx (o : order) (e1 : expr)
-  | CmpXchgLCtx (v1 : val) (v2 : val)
-  | CmpXchgMCtx (e0 : expr) (v2 : val)
+  | CmpXchgLCtx (v1 : expr) (v2 : expr)
+  | CmpXchgMCtx (e0 : expr) (v2 : expr)
   | CmpXchgRCtx (e0 : expr) (e1 : expr)
-  | FaaLCtx (v2 : val)
+  | FaaLCtx (v2 : expr)
   | FaaRCtx (e1 : expr).
 
-Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
-  match Ki with
-  | LetCtx x e2 => Let x e e2
+Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
+  match Ci with
+  | LetLCtx x e2 => Let x e e2
+  | LetRCtx x e1 => Let x e1 e
+  | CallLCtx e2 => Call e e2
+  | CallRCtx e1 => Call e1 e
   | UnOpCtx op => UnOp op e
-  | BinOpLCtx op v2 => BinOp op e (Val v2)
+  | BinOpLCtx op e2 => BinOp op e e2
   | BinOpRCtx op e1 => BinOp op e1 e
-  | IfCtx e1 e2 => If e e1 e2
-  | PairLCtx v2 => Pair e (Val v2)
+  | IfLCtx e1 e2 => If e e1 e2
+  | IfMCtx e0 e2 => If e0 e e2
+  | IfRCtx e0 e1 => If e0 e1 e
+  | WhileLCtx e1 => While e e1
+  | WhileRCtx e0 => While e0 e
+  | PairLCtx e2 => Pair e e2
   | PairRCtx e1 => Pair e1 e
   | FstCtx => Fst e
   | SndCtx => Snd e
   | InjLCtx => InjL e
   | InjRCtx => InjR e
-  | MatchCtx x1 e1 x2 e2 => Match e x1 e1 x2 e2
-  | AllocNLCtx v2 => AllocN e (Val v2)
+  | MatchLCtx x1 e1 x2 e2 => Match e x1 e1 x2 e2
+  | MatchMCtx e0 x1 x2 e2 => Match e0 x1 e x2 e2
+  | MatchRCtx e0 x1 e1 x2 => Match e0 x1 e1 x2 e
+  | ForkCtx => Fork e
+  | AllocNLCtx e2 => AllocN e e2
   | AllocNRCtx e1 => AllocN e1 e
-  | FreeNLCtx v2 => FreeN e (Val v2)
+  | FreeNLCtx e2 => FreeN e e2
   | FreeNRCtx e1 => FreeN e1 e
   | LoadCtx o => Load o e
-  | StoreLCtx o v2 => Store o e (Val v2)
+  | StoreLCtx o e2 => Store o e e2
   | StoreRCtx o e1 => Store o e1 e
-  | CmpXchgLCtx v1 v2 => CmpXchg e (Val v1) (Val v2)
-  | CmpXchgMCtx e0 v2 => CmpXchg e0 e (Val v2)
+  | CmpXchgLCtx e1 e2 => CmpXchg e e1 e2
+  | CmpXchgMCtx e0 e2 => CmpXchg e0 e e2
   | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
-  | FaaLCtx v2 => FAA e (Val v2)
+  | FaaLCtx e2 => FAA e e2
   | FaaRCtx e1 => FAA e1 e
-  | CallLCtx v2 => Call e (Val v2)
-  | CallRCtx e1 => Call e1 e
   end.
+
+Definition ctx := list ctx_item.
+Definition fill_ctx (C : ctx) (e : expr) : expr :=
+  foldl (flip fill_ctx_item) e C.
+
+Lemma fill_ctx_app C1 C2 e :
+  fill_ctx (C1 ++ C2) e = fill_ctx C2 (fill_ctx C1 e).
+Proof. apply foldl_app. Qed.
+
+(** Splitting an expression into information about the head expression and subexpressions. *)
+Inductive expr_head :=
+  | ValHead (v : val)
+  | VarHead (x : string)
+  | GlobalVarHead (x : string)
+  | LetHead (x : binder)
+  | CallHead
+  | UnOpHead (op : un_op)
+  | BinOpHead (op : bin_op)
+  | IfHead
+  | WhileHead
+  | PairHead
+  | FstHead
+  | SndHead
+  | InjLHead
+  | InjRHead
+  | MatchHead (x1 : binder) (x2 : binder)
+  | ForkHead
+  | AllocNHead
+  | FreeNHead
+  | LoadHead (o : order)
+  | StoreHead (o : order)
+  | CmpXchgHead
+  | FAAHead
+.
+
+Definition expr_split_head (e : expr) : (expr_head * list expr) :=
+  match e with
+  | Val v => (ValHead v, [])
+  | Var x => (VarHead x, [])
+  | GlobalVar x => (GlobalVarHead x, [])
+  | Let x e1 e2 => (LetHead x, [e1; e2])
+  | Call e1 e2 => (CallHead, [e1; e2])
+  | UnOp op e => (UnOpHead op, [e])
+  | BinOp op e1 e2 => (BinOpHead op, [e1; e2])
+  | If e0 e1 e2 => (IfHead, [e0;e1;e2])
+  | While e0 e1 => (WhileHead, [e0; e1])
+  | Pair e1 e2 => (PairHead, [e1; e2])
+  | Fst e => (FstHead, [e])
+  | Snd e => (SndHead, [e])
+  | InjL e => (InjLHead, [e])
+  | InjR e => (InjRHead, [e])
+  | Match e0 x1 e1 x2 e2 => (MatchHead x1 x2, [e0;e1;e2])
+  | Fork e => (ForkHead, [e])
+  | AllocN e1 e2 => (AllocNHead, [e1; e2])
+  | FreeN e1 e2 => (FreeNHead, [e1; e2])
+  | Load o e => (LoadHead o, [e])
+  | Store o e1 e2 => (StoreHead o, [e1; e2])
+  | CmpXchg e0 e1 e2 => (CmpXchgHead, [e0;e1;e2])
+  | FAA e1 e2 => (FAAHead, [e1; e2])
+  end.
+
+Global Instance expr_split_head_inj : Inj (=) (=) expr_split_head.
+Proof. move => [^ e1] [^ e2] => //=; move => [*]; by simplify_eq. Qed.
+
+Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
+  match Ki with
+  | LetEctx x e => (LetHead x, [e])
+  | CallLEctx v => (CallHead, [Val v])
+  | CallREctx e => (CallHead, [e])
+  | UnOpEctx op => (UnOpHead op, [])
+  | BinOpLEctx op v => (BinOpHead op, [Val v])
+  | BinOpREctx op e => (BinOpHead op, [e])
+  | IfEctx e1 e2 => (IfHead, [e1; e2])
+  | PairLEctx v => (PairHead, [Val v])
+  | PairREctx e => (PairHead, [e])
+  | FstEctx => (FstHead, [])
+  | SndEctx => (SndHead, [])
+  | InjLEctx => (InjLHead, [])
+  | InjREctx => (InjRHead, [])
+  | LoadEctx o => (LoadHead o, [])
+  | MatchEctx x1 e1 x2 e2 => (MatchHead x1 x2, [e1; e2])
+  | AllocNLEctx v => (AllocNHead, [Val v])
+  | AllocNREctx e => (AllocNHead, [e])
+  | FreeNLEctx v => (FreeNHead, [Val v])
+  | FreeNREctx e => (FreeNHead, [e])
+  | StoreLEctx o v => (StoreHead o, [Val v])
+  | StoreREctx o e => (StoreHead o, [e])
+  | CmpXchgLEctx v1 v2 => (CmpXchgHead, [Val v1; Val v2])
+  | CmpXchgMEctx e1 v2 => (CmpXchgHead, [e1; Val v2])
+  | CmpXchgREctx e1 e2 => (CmpXchgHead, [e1; e2])
+  | FaaLEctx v => (FAAHead, [Val v])
+  | FaaREctx e => (FAAHead, [e])
+  end.
+
+Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
+  match Ci with
+  | LetLCtx x e2 => (LetHead x, [e2])
+  | LetRCtx x e1 => (LetHead x, [e1])
+  | CallLCtx e2 => (CallHead, [e2])
+  | CallRCtx e1 => (CallHead, [e1])
+  | UnOpCtx op => (UnOpHead op, [])
+  | BinOpLCtx op e2 => (BinOpHead op, [e2])
+  | BinOpRCtx op e1 => (BinOpHead op, [e1])
+  | IfLCtx e1 e2 => (IfHead, [e1; e2])
+  | IfMCtx e0 e2 => (IfHead, [e0; e2])
+  | IfRCtx e0 e1 => (IfHead, [e0; e1])
+  | WhileLCtx e1 => (WhileHead, [e1])
+  | WhileRCtx e0 => (WhileHead, [e0])
+  | PairLCtx v2 => (PairHead, [v2])
+  | PairRCtx e1 => (PairHead, [e1])
+  | FstCtx => (FstHead, [])
+  | SndCtx => (SndHead, [])
+  | InjLCtx => (InjLHead, [])
+  | InjRCtx => (InjRHead, [])
+  | MatchLCtx x1 e1 x2 e2 => (MatchHead x1 x2, [e1; e2])
+  | MatchMCtx e0 x1 x2 e2 => (MatchHead x1 x2, [e0; e2])
+  | MatchRCtx e0 x1 e1 x2 => (MatchHead x1 x2, [e0; e1])
+  | ForkCtx => (ForkHead, [])
+  | AllocNLCtx v2 => (AllocNHead, [v2])
+  | AllocNRCtx e1 => (AllocNHead, [e1])
+  | FreeNLCtx v2 => (FreeNHead, [v2])
+  | FreeNRCtx e1 => (FreeNHead, [e1])
+  | LoadCtx o => (LoadHead o, [])
+  | StoreLCtx o v2 => (StoreHead o, [v2])
+  | StoreRCtx o e1 => (StoreHead o, [e1])
+  | CmpXchgLCtx v1 v2 => (CmpXchgHead, [v1; v2])
+  | CmpXchgMCtx e0 v2 => (CmpXchgHead, [e0; v2])
+  | CmpXchgRCtx e0 e1 => (CmpXchgHead, [e0; e1])
+  | FaaLCtx v2 => (FAAHead, [v2])
+  | FaaRCtx e1 => (FAAHead, [e1])
+  end.
+
 
 (** Substitution *)
 Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   match e with
-  | Val _ => e
+  | Val _ | GlobalVar _ => e
   | Var y => if decide (x = y) then Val v else Var y
   | Let y e1 e2 =>
      Let y (subst x v e1) (if decide (BNamed x ≠ y) then subst x v e2 else e2)
@@ -539,11 +679,11 @@ Definition bin_op_eval (op : bin_op) (v1 v2 : val) : option val :=
 
 
 Definition state_upd_heap (f: gmap loc (lock_state * val) → gmap loc (lock_state * val)) (σ: state) : state :=
-  {| heap := f σ.(heap); used_blocks := σ.(used_blocks) |}.
+  {| heap := f σ.(heap); used_dyn_blocks := σ.(used_dyn_blocks); globals := σ.(globals) |}.
 Global Arguments state_upd_heap _ !_ /.
-Definition state_upd_used_blocks (f: gset block → gset block) (σ: state) : state :=
-  {| heap := σ.(heap); used_blocks := f σ.(used_blocks) |}.
-Global Arguments state_upd_used_blocks _ !_ /.
+Definition state_upd_used_dyn_blocks (f: gset dyn_block → gset dyn_block) (σ: state) : state :=
+  {| heap := σ.(heap); used_dyn_blocks := f σ.(used_dyn_blocks); globals := σ.(globals) |}.
+Global Arguments state_upd_used_dyn_blocks _ !_ /.
 
 Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (lock_state * val) :=
   match vs with
@@ -609,36 +749,47 @@ Fixpoint free_mem (l : loc) (n : nat) (σ : gmap loc (lock_state * val))
   | S n => delete l (free_mem (l +ₗ 1) n σ)
   end.
 Lemma lookup_free_mem_1 l l' n σ :
-  loc_chunk l ≠ loc_chunk l' → (free_mem l n σ) !! l' = σ !! l'.
+  loc_block l ≠ loc_block l' → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
   intros Hneq. rewrite lookup_delete_ne; last by congruence.
   by apply IH.
 Qed.
 Lemma lookup_free_mem_2 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = None.
+  loc_block l = loc_block l' → (loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z → (free_mem l n σ) !! l' = None.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first lia.
-  intros Hchunk Hi.
+  intros Hblock Hi.
   destruct (decide (loc_idx l = loc_idx l')) as [Heq | Hneq].
   - rewrite lookup_delete_None; left. destruct l, l'; simpl in *; congruence.
   - rewrite lookup_delete_ne; last congruence. apply IH; first done. destruct l, l'; simpl in *; lia.
 Qed.
 Lemma lookup_free_mem_3 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l' < loc_idx l)%Z → (free_mem l n σ) !! l' = σ !! l'.
+  loc_block l = loc_block l' → (loc_idx l' < loc_idx l)%Z → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hchunk Hi. rewrite lookup_delete_ne.
+  intros Hblock Hi. rewrite lookup_delete_ne.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
 Qed.
 Lemma lookup_free_mem_4 l l' (n : nat) σ :
-  loc_chunk l = loc_chunk l' → (loc_idx l' >= loc_idx l + n)%Z → (free_mem l n σ) !! l' = σ !! l'.
+  loc_block l = loc_block l' → (loc_idx l' >= loc_idx l + n)%Z → (free_mem l n σ) !! l' = σ !! l'.
 Proof.
   induction n as [ | n IH] in l |-*; cbn; first done.
-  intros Hchunk Hi. rewrite lookup_delete_ne.
+  intros Hblock Hi. rewrite lookup_delete_ne.
   - apply IH; first done. destruct l, l'; cbn in *; lia.
   - destruct l, l'; cbn in *; intros [=]. lia.
+Qed.
+Lemma lookup_free_mem_Some l l' n σ v:
+  free_mem l n σ !! l' = Some v ↔ σ !! l' = Some v ∧ (loc_block l ≠ loc_block l' ∨ ¬(loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z).
+Proof.
+  destruct (decide (loc_block l = loc_block l')).
+  2: { rewrite lookup_free_mem_1 //. naive_solver. }
+  destruct (decide (loc_idx l' < loc_idx l)%Z).
+  { rewrite lookup_free_mem_3 //. naive_solver lia. }
+  destruct (decide (loc_idx l' >= loc_idx l + n)%Z).
+  { rewrite lookup_free_mem_4 //. naive_solver lia. }
+  rewrite lookup_free_mem_2 //; [|lia]. naive_solver lia.
 Qed.
 
 Lemma delete_free_mem σ l n o:
@@ -649,6 +800,23 @@ Proof.
   induction n as [|n IH] in o, HO|-* => //=. rewrite delete_commute. f_equal.
   rewrite loc_add_assoc IH; [done | lia].
 Qed.
+
+Lemma heap_wf_init_mem b n σ v:
+  heap_wf σ →
+  heap_wf $ State (heap_array (dyn_loc b) (replicate n v) ∪ σ.(heap)) ({[b]} ∪ σ.(used_dyn_blocks)) σ.(globals).
+Proof.
+  move => Hwf b' i' v' /lookup_union_Some_raw [/heap_array_lookup[?[?[?[[??][??]]]]]|[??]].
+  - set_solver.
+  - set_unfold. right. by apply: Hwf.
+Qed.
+Lemma heap_wf_free_mem l n σ:
+  heap_wf σ →
+  heap_wf $ state_upd_heap (free_mem l n) σ.
+Proof. move => Hwf b' i' v' /lookup_free_mem_Some [??]. by apply: Hwf. Qed.
+Lemma heap_wf_insert σ l p :
+  heap_wf σ → is_Some (σ.(heap) !! l) →
+  heap_wf $ state_upd_heap <[l := p]> σ.
+Proof. move => Hwf [??] ??? /lookup_insert_Some[[??]|[??]]; simplify_eq; by apply: Hwf. Qed.
 
 (** Building actual evaluation contexts out of ectx_items *)
 Definition ectx := list ectx_item.
@@ -667,6 +835,9 @@ Notation "e1 ;; e2" := (Let BAnon e1%E e2%E)
   (at level 100, e2 at level 200,
    format "'[' '[hv' '[' e1 ']' ;;  ']' '/' e2 ']'") : expr_scope.
 Inductive head_step (P : prog) : expr → state → expr → state → list expr → Prop :=
+  | GlobalVarS n σ :
+     n ∈ σ.(globals) →
+     head_step P (GlobalVar n) σ (Val $ LitV $ LitLoc $ global_loc n) σ []
   | PairS v1 v2 σ :
      head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ []
   | InjLS v σ :
@@ -701,13 +872,14 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
   | ForkS e σ:
      head_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
   | AllocNS n v σ b :
-      (0 < n)%Z →
-      b ∉ σ.(used_blocks) →
-     (∀ i, σ.(heap) !! (Loc b i) = None) →
+     (0 < n)%Z →
+     b ∉ σ.(used_dyn_blocks) →
+     (∀ i, σ.(heap) !! (dyn_loc b +ₗ i) = None) →
      head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               (Val $ LitV $ LitLoc (Loc b 0)) (state_upd_used_blocks ({[b]} ∪.) (state_init_heap (Loc b 0) n v σ)) []
+               (Val $ LitV $ LitLoc (dyn_loc b)) (state_upd_used_dyn_blocks ({[b]} ∪.) (state_init_heap (dyn_loc b) n v σ)) []
   | FreeNS l σ n :
      (0 < n)%Z →
+     block_is_dyn l.(loc_block) →
      (* always need to deallocate the full block *)
      (∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ 0 ≤ m < n)%Z →
      head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
@@ -855,14 +1027,16 @@ Proof.
 Qed.
 
 Lemma alloc_fresh P v n σ :
-  let l := Loc (fresh_block σ.(heap) σ.(used_blocks)) 0 in
+  let l := dyn_loc (fresh σ.(used_dyn_blocks)) in
   (0 < n)%Z →
+  heap_wf σ →
   head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
-            (Val $ LitV $ LitLoc l) (state_upd_used_blocks ({[l.(loc_chunk)]} ∪.) (state_init_heap l n v σ)) [].
+            (Val $ LitV $ LitLoc l)
+            (state_upd_used_dyn_blocks ({[(fresh σ.(used_dyn_blocks))]} ∪.) (state_init_heap l n v σ)) [].
 Proof.
-  intros. apply AllocNS; first done.
-  - apply is_fresh_block_blocks.
-  - apply is_fresh_block.
+  intros l Hn Hwf. apply AllocNS; first done.
+  - apply is_fresh.
+  - move => i. apply eq_None_not_Some => -[? /Hwf]. apply is_fresh.
 Qed.
 
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:

@@ -55,8 +55,8 @@ Lemma sim_new_place_local `{sborGS Σ} T v_t v_s π Φ :
     t $$ tk_local -∗
     l ↦t∗[tk_local]{t} v_t -∗
     l ↦s∗[tk_local]{t} v_s -∗
-    PlaceR l (Tagged t) T ⪯{π, rrel} PlaceR l (Tagged t) T [{ Φ }]) -∗
-  new_place T #v_t ⪯{π, rrel} new_place T #v_s [{ Φ }].
+    PlaceR l (Tagged t) T ⪯{π} PlaceR l (Tagged t) T [{ Φ }]) -∗
+  new_place T #v_t ⪯{π} new_place T #v_s [{ Φ }].
 Proof.
   iIntros (Hlen_eq) "Hsim".
   rewrite /new_place. sim_bind (Alloc _) (Alloc _).
@@ -89,7 +89,7 @@ Qed.
    currently we don't use it since, in order to apply it, we'd need to use UB that happens during its execution...
 *)
 Lemma sim_opt1 `{sborGS Σ} π :
-  ⊢ sim_ectx rrel π ex1_opt ex1_unopt rrel.
+  ⊢ sim_ectx π ex1_opt ex1_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
@@ -124,7 +124,7 @@ Proof.
   source_apply (Write _ _) (source_write_local with "Htag Hs") "Hs Htag"; [done | done | ].
   sim_pures.
 
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
   iIntros (r_t r_s) "_". sim_pures.
 
   target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
@@ -135,7 +135,7 @@ Proof.
   sim_apply (Write _ _) (Write _ _) (sim_write_unique_unprotected with "Htag_i Hi_t Hi_s") "Htag_i Hi_t Hi_s".
   sim_pures.
 
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
   iIntros (r_t' r_s') "_". sim_pures.
 
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
@@ -163,7 +163,7 @@ Definition ex1_opt' : ectx :=
     "v".
 
 Lemma sim_opt1' `{sborGS Σ} π :
-  ⊢ sim_ectx rrel π ex1_opt' ex1_unopt rrel.
+  ⊢ sim_ectx π ex1_opt' ex1_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
@@ -198,7 +198,7 @@ Proof.
   source_apply (Write _ _) (source_write_local with "Htag Hs") "Hs Htag"; [done | done | ].
   sim_pures.
 
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
   iIntros (r_t r_s) "_". sim_pures.
 
   target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
@@ -215,7 +215,7 @@ Proof.
   iApply (target_copy_deferred with "Htag_i Hi_t"); first done. iIntros (v_t') "Hdeferred Hi_t Htag_i". target_finish.
   sim_pures.
 
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
   iIntros (r_t' r_s') "_". sim_pures.
 
   (* resolve the deferred read in the source *)

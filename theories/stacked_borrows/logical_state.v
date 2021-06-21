@@ -85,7 +85,7 @@ Section bijection_lemmas.
   Local Notation state_rel := (state_rel sc_rel).
 
   Lemma state_rel_get_pure Mtag Mt Mcall σ_t σ_s :
-    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧ 
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧
       σ_s.(snp) = σ_t.(snp) ∧ σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs)⌝.
   Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
   Lemma state_rel_stacks_eq Mtag Mt Mcall σ_t σ_s :
@@ -452,7 +452,7 @@ Section heap_defs.
   Proof. intros Ht Hs. split; intros l; rewrite Ht Hs; congruence. Qed.
 
   (* TODO: move somewhere? *)
-  Lemma lookup_difference_is_Some `{Countable K} (V : Type) (M1 M2 : gmap K V) (k : K) : 
+  Lemma lookup_difference_is_Some `{Countable K} (V : Type) (M1 M2 : gmap K V) (k : K) :
     is_Some ((M1 ∖ M2) !! k) ↔ is_Some (M1 !! k) ∧ M2 !! k = None.
   Proof. rewrite /is_Some. setoid_rewrite lookup_difference_Some. naive_solver. Qed.
 
@@ -460,7 +460,7 @@ Section heap_defs.
     dom_agree_on_tag M1_t M1_s t → dom_agree_on_tag M2_t M2_s t →
     dom_agree_on_tag (M1_t ∖ M2_t) (M1_s ∖ M2_s) t.
   Proof.
-    intros [H1a H1b] [H2a H2b]. split; intros l. 
+    intros [H1a H1b] [H2a H2b]. split; intros l.
     all: rewrite !lookup_difference_is_Some !eq_None_not_Some; naive_solver.
   Qed.
 
@@ -655,7 +655,7 @@ Section state_interp.
     ghost_map_auth heap_view_source_name 1 M_s.
 
   Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
-  (* since multiple parts of the interpretation need access to these maps, 
+  (* since multiple parts of the interpretation need access to these maps,
     we own the authoritative parts here and not in the interpretations below *)
    ∃ (M_call : gmap call_id (gmap ptr_id (gset loc)))
      (M_tag : gmap ptr_id (tag_kind * unit))
@@ -673,8 +673,8 @@ Section state_interp.
     ⌜state_wf σ_t⌝.
 
   Lemma bor_interp_get_pure σ_t σ_s :
-    bor_interp σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧ σ_s.(snp) = σ_t.(snp) ∧ 
-    σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧ 
+    bor_interp σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧ σ_s.(snp) = σ_t.(snp) ∧
+    σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧
     dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝.
   Proof.
     iIntros "(% & % & % & % & ? & _ & Hstate & _ & _ & % & %)".
@@ -747,18 +747,18 @@ Proof.
   specialize (array_tag_map_lookup1 l t v t' l' ltac:(eauto)) as [Heq _]; congruence.
 Qed.
 
-Lemma array_tag_map_lookup_None' l t v l' : 
+Lemma array_tag_map_lookup_None' l t v l' :
   (∀ i:nat, (i < length v)%nat → l +ₗ i ≠ l') →
   array_tag_map l t v !! (t, l') = None.
-Proof. 
+Proof.
   intros Hneq. destruct (array_tag_map _ _ _ !! _) eqn:Heq; last done. exfalso.
   specialize (array_tag_map_lookup2 l t v t l' ltac:(eauto)) as [_ (i & Hi & ->)].
-  eapply Hneq; last reflexivity. done. 
+  eapply Hneq; last reflexivity. done.
 Qed.
 
 Lemma array_tag_map_lookup_None2 l t t' v l' :
   array_tag_map l t v !! (t', l') = None →
-  t ≠ t' ∨ (∀ i: nat, (i < length v)%nat → l +ₗ i ≠ l'). 
+  t ≠ t' ∨ (∀ i: nat, (i < length v)%nat → l +ₗ i ≠ l').
 Proof.
 Admitted.
 
@@ -812,17 +812,17 @@ Lemma ghost_map_array_tag_delete `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
   ghost_map_auth γh 1 (M ∖ array_tag_map l t v).
 Proof.
-  iIntros "Hauth Helems". 
-  iApply (ghost_map_delete_big (array_tag_map l t v) with "Hauth [Helems]"). 
-  iInduction v as [ | sc v] "IH" forall (l); first done. 
-  simpl. iApply big_sepM_insert. 
-  { destruct (_ !! _) eqn:Heq; last done. 
+  iIntros "Hauth Helems".
+  iApply (ghost_map_delete_big (array_tag_map l t v) with "Hauth [Helems]").
+  iInduction v as [ | sc v] "IH" forall (l); first done.
+  simpl. iApply big_sepM_insert.
+  { destruct (_ !! _) eqn:Heq; last done.
     specialize (array_tag_map_lookup2 (l +ₗ 1) t v t l ltac:(eauto)) as [_ (i & _ & Hl)].
-    destruct l. injection Hl. lia. 
-  } 
-  rewrite shift_loc_0_nat. iDestruct "Helems" as "[$ Helems]".  
-  iApply "IH". iApply (big_sepL_mono with "Helems"). 
-  iIntros (i sc' Hi). simpl. 
+    destruct l. injection Hl. lia.
+  }
+  rewrite shift_loc_0_nat. iDestruct "Helems" as "[$ Helems]".
+  iApply "IH". iApply (big_sepL_mono with "Helems").
+  iIntros (i sc' Hi). simpl.
   rewrite shift_loc_assoc. replace (Z.of_nat (S i)) with (1 + i) by lia; done.
 Qed.
 
@@ -852,9 +852,9 @@ Section val_rel.
     | ScInt z1, ScInt z2 => ⌜z1 = z2⌝
     | ScFnPtr f1, ScFnPtr f2 => ⌜f1  = f2⌝
     | ScPtr l1 p1, ScPtr l2 p2 =>
-        (* through [state_rel]: 
-          * the stacks are the same, 
-          * the allocation size is the same, 
+        (* through [state_rel]:
+          * the stacks are the same,
+          * the allocation size is the same,
           * and the locations are related (i.e.: if tagged, then it is public)
         *)
         ⌜l1 = l2⌝ ∗
@@ -977,27 +977,26 @@ Class sborGS (Σ: gFunctors) := SBorG {
   sborG_stateG :> bor_stateGS Σ;
 }.
 
-Global Program Instance sborGS_simulirisG `{!sborGS Σ} : simulirisG (iPropI Σ) bor_lang := {
+Global Program Instance sborGS_simulirisGS `{!sborGS Σ} : simulirisGS (iPropI Σ) bor_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
-    (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
-     gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
+    (has_prog (hG := gen_prog_inG_target) P_t ∗
+     has_prog (hG := gen_prog_inG_source) P_s ∗
      bor_interp sc_rel σ_t σ_s
     )%I;
+  ext_rel π r_t r_s := rrel r_t r_s;
 }.
 Next Obligation.
-Admitted.
-
+  iIntros (?????????? Hthread Hprim). simpl. eauto.
+Qed.
 
 (** Program assertions *)
-Notation "f '@t' Kt" := (hasfun (hG:=gen_prog_inG_target) f Kt)
+Notation "f '@t' Kt" := (has_fun (hG:=gen_prog_inG_target) f Kt)
   (at level 20, format "f  @t  Kt") : bi_scope.
-Notation "f '@s' Ks" := (hasfun (hG:=gen_prog_inG_source) f Ks)
+Notation "f '@s' Ks" := (has_fun (hG:=gen_prog_inG_source) f Ks)
   (at level 20, format "f  @s  Ks") : bi_scope.
 
 Lemma hasfun_target_agree `{sborGS Σ} f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
-Proof. apply hasfun_agree. Qed.
+Proof. apply has_fun_agree. Qed.
 
 Lemma hasfun_source_agree `{sborGS Σ} f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
-Proof. apply hasfun_agree. Qed.
-
-
+Proof. apply has_fun_agree. Qed.

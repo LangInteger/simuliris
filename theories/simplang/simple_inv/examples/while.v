@@ -1,17 +1,18 @@
-From simuliris.simplang Require Import lang notation tactics class_instances heap_bij.
+From simuliris.simplang Require Import lang notation tactics class_instances.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import log_rel.
+From simuliris.simplang Require Import gen_log_rel.
+From simuliris.simplang.simple_inv Require Import inv.
 
 Section fix_bi.
-  Context `{sbijG Σ}.
+  Context `{!simpleGS Σ}.
 
   Definition loop_test n : expr :=
     let: "n" := Alloc #n in
     While (#0 < ! "n") ("n" <- ! "n" - #1).
 
   Lemma loop (n : nat) π :
-    ⊢ loop_test n ⪯{π, val_rel} #() {{ val_rel }}.
+    ⊢ loop_test n ⪯{π} #() {{ val_rel }}.
   Proof.
     rewrite /loop_test.
     target_alloc l as "Hl" "_". sim_pures.
@@ -50,7 +51,7 @@ Section fix_bi.
   Qed.
 
   Lemma mul_sim (n m : nat) π :
-    ⊢ mul_loop #n #m ⪯{π, val_rel} #n * #m {{ val_rel }}.
+    ⊢ mul_loop #n #m ⪯{π} #n * #m {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
     sim_pures. target_alloc l_n as "Hln" "Ha_n". target_alloc l_acc as "Hlacc" "Ha_acc".
@@ -83,7 +84,7 @@ Section fix_bi.
   Qed.
 
   Lemma mul_sim' (n m : nat) π :
-    ⊢ #(n * m) ⪯{π, val_rel} mul_loop #n #m  {{ val_rel }}.
+    ⊢ #(n * m) ⪯{π} mul_loop #n #m  {{ val_rel }}.
   Proof.
     rewrite /mul_loop.
     sim_pures. source_alloc l_n as "Hln" "Ha_n". source_alloc l_acc as "Hlacc" "Ha_acc".
@@ -104,7 +105,7 @@ Section fix_bi.
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
     while: !"cont" do
-      "cont" <- Call ##"external" #()
+      "cont" <- Call f#"external" #()
     od.
 
   Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
@@ -112,23 +113,23 @@ Section fix_bi.
   Definition input_rec : ectx :=
     λ: "cont",
       if: "cont" then
-        let: "cont" := Call ##"external" #() in
-        Call ##"rec" "cont"
+        let: "cont" := Call f#"external" #() in
+        Call f#"rec" "cont"
       else #().
 
   (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
-    log_rel input_loop (Call ##"rec" #true).
+    log_rel input_loop (Call f#"rec" #true).
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π).
+    iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
-    iApply (sim_while_rec _ _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
+    iApply (sim_while_rec _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
 
     discr_source.
-    iIntros ((b & ->)); iPoseProof (val_rel_litbool_source with "Hv") as "->"; sim_pures.
+    iIntros ((b & ->)); iPoseProof (gen_val_rel_litbool_source with "Hv") as "->"; sim_pures.
     target_load. destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.
@@ -139,17 +140,17 @@ Section fix_bi.
 
   Lemma loop_rec' :
     "rec" @t input_rec -∗
-    log_rel (Call ##"rec" #true) input_loop.
+    log_rel (Call f#"rec" #true) input_loop.
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π).
+    iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
-    iApply (sim_rec_while _ _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
+    iApply (sim_rec_while _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.
 
     source_load.
     discr_source.
-    iIntros ((b & ->)); iPoseProof (val_rel_litbool_source with "Hv") as "->"; sim_pures.
+    iIntros ((b & ->)); iPoseProof (gen_val_rel_litbool_source with "Hv") as "->"; sim_pures.
     destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.

@@ -47,7 +47,7 @@ Definition ex1_down_opt : ectx :=
 (*Lemma value_rel_poison *)
 
 Lemma sim_opt1_down `{sborGS Σ} π :
-  ⊢ sim_ectx rrel π ex1_down_opt ex1_down_unopt rrel.
+  ⊢ sim_ectx π ex1_down_opt ex1_down_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
@@ -89,7 +89,7 @@ Proof.
   iApply (source_copy_any with "Htag_i Hi_s"); first done. iIntros (v_s' Hv_s') "Hi_s Htag_i". source_finish.
   sim_pures.
 
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
   iIntros (r_t r_s) "_". sim_pures.
 
   (* do the target load *)
@@ -103,7 +103,7 @@ Proof.
   iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s Hvrel"); [ | apply lookup_insert | ].
   { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. }
   iIntros "Hcall Htag_i Hi_t Hi_s".
-  iApply (sim_remove_empty_calls _ t_i with "Hcall").
+  iApply (sim_remove_empty_calls t_i with "Hcall").
   { rewrite lookup_insert. done. }
   { rewrite Hlen_t. set_solver. }
   iIntros "Hcall".

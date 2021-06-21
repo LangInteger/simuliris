@@ -51,7 +51,7 @@ Definition ex2_opt : ectx :=
   .
 
 Lemma sim_opt2 `{sborGS Σ} π :
-  ⊢ sim_ectx rrel π ex2_opt ex2_unopt rrel.
+  ⊢ sim_ectx π ex2_opt ex2_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
@@ -95,7 +95,7 @@ Proof.
 
   sim_pures. target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
   source_apply (Copy _) (source_copy_local with "Htag Hs") "Hs Htag"; first done. sim_pures.
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR [ScPtr i _]) (ValR [ScPtr i _])) "".
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR [ScPtr i _]) (ValR [ScPtr i _])) "".
   { iApply big_sepL2_singleton. iApply "Hsc_i". }
   iIntros (r_t r_s) "_". sim_pures.
 
@@ -108,7 +108,7 @@ Proof.
   iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s Hvrel"); [ | apply lookup_insert | ].
   { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. }
   iIntros "Hcall Htag_i Hi_t Hi_s".
-  iApply (sim_remove_empty_calls _ t_i with "Hcall").
+  iApply (sim_remove_empty_calls t_i with "Hcall").
   { rewrite lookup_insert. done. }
   { rewrite Hlen_t. set_solver. }
   iIntros "Hcall".
@@ -162,7 +162,7 @@ Definition ex2_opt' : ectx :=
 
 
 Lemma sim_opt2' `{sborGS Σ} π :
-  ⊢ sim_ectx rrel π ex2_opt' ex2_unopt' rrel.
+  ⊢ sim_ectx π ex2_opt' ex2_unopt' rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
   sim_pures.
@@ -206,7 +206,7 @@ Proof.
 
   sim_pures. target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
   source_apply (Copy _) (source_copy_local with "Htag Hs") "Hs Htag"; first done. sim_pures.
-  sim_apply (Call _ _) (Call _ _) (sim_call _ _ (ValR [ScPtr i _]) (ValR [ScPtr i _])) "".
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR [ScPtr i _]) (ValR [ScPtr i _])) "".
   { iApply big_sepL2_singleton. iApply "Hsc_i". }
   iIntros (r_t r_s) "_". sim_pures.
 

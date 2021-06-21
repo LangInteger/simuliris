@@ -1,4 +1,5 @@
-From iris.base_logic.lib Require Import ghost_map.
+From iris.algebra Require Import agree gmap.
+From iris.base_logic Require Import iprop own.
 From iris.proofmode Require Import tactics.
 From iris.prelude Require Import options.
 
@@ -7,12 +8,19 @@ From iris.prelude Require Import options.
   It provides a persistent token f @ K asserting that there is a function f with body K.
 *)
 
-Class gen_progGpreS (F C : Type) (Σ : gFunctors) `{Countable F} := {
-  gen_prog_preG_inG :> ghost_mapG Σ F C;
+Local Definition gen_progR (F C : Type) `{Countable F} := agreeR (gmapO F (leibnizO C)).
+Class gen_progGpreS (Σ : gFunctors) (F C : Type) `{Countable F} := {
+  gen_prog_pre_inG :> inG Σ (gen_progR F C);
 }.
+Definition gen_progΣ (F C : Type) `{Countable F} := #[GFunctor (gen_progR F C)].
 
+Global Instance subG_gen_progΣ Σ (F C : Type) `{Countable F} :
+  subG (gen_progΣ F C) Σ → gen_progGpreS Σ F C.
+Proof. solve_inG. Qed.
+
+(* TODO: [Σ] should be the first parameter. *)
 Class gen_progGS_named (F C : Type) (Σ : gFunctors) (gen_prog_name : gname) `{Countable F} := GenProgGSNamed {
-  gen_prog_preNameG :> gen_progGpreS F C Σ
+  gen_prog_preNameG :> gen_progGpreS Σ F C
 }.
 
 Class gen_sim_progGS (F C_t C_s : Type) (Σ : gFunctors) `{Countable F} := GenSimProgG {
@@ -29,17 +37,17 @@ Global Arguments gen_prog_name_target {F C_t C_s Σ _ _} _ : assert.
 Section definitions.
   Context `{Countable F, gen_prog_name : gname, hG : !gen_progGS_named F C Σ gen_prog_name }.
 
-  Definition gen_prog_interp (P : gmap F C) : iProp Σ :=
-    ghost_map_auth gen_prog_name 1 P.
+  Definition has_prog (p : gmap F C) : iProp Σ :=
+    own gen_prog_name ((to_agree p) : gen_progR F C).
 
-  Definition hasfun_def (fname : F) (K: C) : iProp Σ :=
-    fname ↪[gen_prog_name]□ K.
-  Definition hasfun_aux : seal (@hasfun_def). Proof. by eexists. Qed.
-  Definition hasfun := hasfun_aux.(unseal).
-  Definition hasfun_eq : @hasfun = @hasfun_def := hasfun_aux.(seal_eq).
+  Definition has_fun_def (fname : F) (K: C) : iProp Σ :=
+    ∃ P, ⌜P !! fname = Some K⌝ ∗ has_prog P.
+  Definition has_fun_aux : seal (@has_fun_def). Proof. by eexists. Qed.
+  Definition has_fun := has_fun_aux.(unseal).
+  Definition has_fun_eq : @has_fun = @has_fun_def := has_fun_aux.(seal_eq).
 End definitions.
 
-Local Notation "f @ K" := (hasfun f K)
+Local Notation "f @ K" := (has_fun f K)
   (at level 20, format "f  @  K") : bi_scope.
 
 Section gen_prog.
@@ -47,70 +55,58 @@ Section gen_prog.
   Implicit Types P Q : iProp Σ.
   Implicit Types p : gmap F C.
 
-  (** General properties of hasfun *)
-  Global Instance hasfun_timeless f K : Timeless (f @ K).
-  Proof. rewrite hasfun_eq. apply _. Qed.
-  Global Instance hasfun_persistent f K : Persistent (f @ K).
-  Proof. rewrite hasfun_eq. apply _. Qed.
+  (** General properties of has_fun *)
+  Global Instance has_fun_timeless f K : Timeless (f @ K).
+  Proof. rewrite has_fun_eq. apply _. Qed.
+  Global Instance has_fun_persistent f K : Persistent (f @ K).
+  Proof. rewrite has_fun_eq. apply _. Qed.
 
-  Lemma hasfun_agree f K1 K2 : f @ K1 -∗ f @ K2 -∗ ⌜K1 = K2⌝.
-  Proof. rewrite hasfun_eq. iApply ghost_map_elem_agree. Qed.
-
-  Lemma gen_prog_valid p f K : gen_prog_interp p -∗ f @ K -∗ ⌜p !! f = Some K⌝.
+  Lemma has_prog_agree p1 p2 : has_prog p1 -∗ has_prog p2 -∗ ⌜p1 = p2⌝.
   Proof.
-    iIntros "Hp Hl". rewrite /gen_prog_interp hasfun_eq.
-    by iDestruct (ghost_map_lookup with "Hp Hl") as %?.
+    iIntros "Hp1 Hp2".
+    iDestruct (own_valid_2 with "Hp1 Hp2") as %Hval.
+    setoid_rewrite to_agree_op_valid_L in Hval. done.
   Qed.
 
-  (** The following lemmas should usually only be needed for initial allocation,
-    as functions will not be added at intermediate points. *)
-  Lemma gen_prog_alloc p f K :
-    p !! f = None →
-    gen_prog_interp p ==∗ gen_prog_interp (<[f:=K]>p) ∗ f @ K.
+  Lemma has_fun_agree f K1 K2 : f @ K1 -∗ f @ K2 -∗ ⌜K1 = K2⌝.
   Proof.
-    iIntros (Hpl). rewrite /gen_prog_interp hasfun_eq /hasfun_def /=.
-    iIntros "Hp".
-    iMod (ghost_map_insert_persist f with "Hp") as "[Hp Hf]"; first done.
-    iModIntro. by iFrame "Hf".
+    rewrite has_fun_eq. iIntros "(%p1 & %HK1 & Hp1) (%p2 & %HK2 & Hp2)".
+    iDestruct (has_prog_agree with "Hp1 Hp2") as %->.
+    rewrite HK1 in HK2. injection HK2 as [= ->]. done.
   Qed.
 
-  Lemma gen_prog_alloc_big p p' :
-    p' ##ₘ p →
-    gen_prog_interp p ==∗
-    gen_prog_interp (p' ∪ p) ∗ ([∗ map] f ↦ K ∈ p', f @ K).
+  Lemma has_prog_has_fun_agree p f K : has_prog p -∗ f @ K -∗ ⌜p !! f = Some K⌝.
   Proof.
-    revert p; induction p' as [| f K p' Hf IH] using map_ind; iIntros (p Hdisj) "Hp".
-    { rewrite left_id_L. auto. }
-    iMod (IH with "Hp") as "[Hp'p Hp']"; first by eapply map_disjoint_insert_l.
-    decompose_map_disjoint.
-    rewrite !big_opM_insert // -insert_union_l //.
-    by iMod (gen_prog_alloc with "Hp'p") as "($ & $)";
-      first by apply lookup_union_None.
+    rewrite /has_prog has_fun_eq. iIntros "Hp (%p2 & %HK2 & Hp2)".
+    iDestruct (has_prog_agree with "Hp Hp2") as %->. done.
+  Qed.
+
+  Lemma has_prog_all_funs p :
+    has_prog p -∗ ([∗ map] f ↦ K ∈ p, f @ K).
+  Proof.
+    iIntros "#Hp".
+    iApply big_sepM_intro. iIntros "!# %f %K %Hf".
+    rewrite has_fun_eq. iExists p. eauto.
   Qed.
 End gen_prog.
 
-Lemma gen_prog_init_names `{Countable F, !gen_progGpreS F C Σ} p :
+Lemma gen_prog_init_names `{Countable F, !gen_progGpreS Σ F C} p :
   ⊢ |==> ∃ γp : gname,
-    let hG := GenProgGSNamed F C Σ γp in
-    gen_prog_interp p ∗ ([∗ map] f ↦ K ∈ p, f @ K).
+    let hG := GenProgGSNamed F C Σ γp in has_prog p.
 Proof.
-  iMod (ghost_map_alloc_empty (K:=F) (V:=C)) as (γp) "Hp".
-  iExists γp.
-  iAssert (gen_prog_interp (hG:=GenProgGSNamed _ _ _ γp _ _ _) ∅) with "[Hp]" as "Hinterp";
-    first by iFrame "Hp".
-  iMod (gen_prog_alloc_big with "Hinterp") as "(Hinterp & $)".
-  { apply map_disjoint_empty_r. }
-  rewrite right_id_L. done.
+  iMod (own_alloc ((to_agree p) : gen_progR F C)) as (γ) "#Hown".
+  { done. }
+  iExists γ.
+  set HG := GenProgGSNamed _ _ _ γ _ _ _.
+  iModIntro. by iFrame "#".
 Qed.
 
-Lemma gen_prog_init `{Countable F, !gen_progGpreS F C_t Σ, !gen_progGpreS F C_s Σ} P_t P_s :
+Lemma gen_sim_prog_init `{Countable F, !gen_progGpreS Σ F C_t, !gen_progGpreS Σ F C_s} P_t P_s :
   ⊢ |==> ∃ _ : gen_sim_progGS F C_t C_s Σ,
-    (gen_prog_interp (hG:=gen_prog_inG_target) P_t ∗
-    ([∗ map] f ↦ K ∈ P_t, hasfun (hG:=gen_prog_inG_target) f K)) ∗
-    (gen_prog_interp (hG:=gen_prog_inG_source) P_s ∗
-    ([∗ map] f ↦ K ∈ P_s, hasfun (hG:=gen_prog_inG_source) f K)).
+    has_prog (hG:=gen_prog_inG_target) P_t ∗
+    has_prog (hG:=gen_prog_inG_source) P_s.
 Proof.
   iMod (gen_prog_init_names P_t) as (γt) "Hinit_t".
   iMod (gen_prog_init_names P_s) as (γs) "Hinit_s".
-  iExists (GenSimProgG _ _ _ _ γt γs). iModIntro; iFrame.
+  iExists (GenSimProgG _ _ _ _ γt γs). by iFrame.
 Qed.

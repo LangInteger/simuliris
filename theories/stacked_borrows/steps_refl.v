@@ -18,13 +18,11 @@ Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
 Implicit Types f : fname.
 
-Context (Ω : result → result → iProp Σ).
-
 Lemma sim_alloc_public T Φ π :
   (∀ t l, t $$ tk_pub -∗
     rrel (PlaceR l (Tagged t) T) (PlaceR l (Tagged t) T) -∗
-    Place l (Tagged t) T ⪯{π, Ω} Place l (Tagged t) T [{ Φ }]) -∗
-  Alloc T ⪯{π, Ω} Alloc T [{ Φ }].
+    Place l (Tagged t) T ⪯{π} Place l (Tagged t) T [{ Φ }]) -∗
+  Alloc T ⪯{π} Alloc T [{ Φ }].
 Proof.
   iIntros "Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
@@ -100,8 +98,8 @@ Qed.
 
 Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
-  #[☠] ⪯{π, Ω} #[☠] [{ Φ }] -∗
-  Free (Place l_t bor_t T_t) ⪯{π, Ω} Free (Place l_s bor_s T_s) [{ Φ }].
+  #[☠] ⪯{π} #[☠] [{ Φ }] -∗
+  Free (Place l_t bor_t T_t) ⪯{π} Free (Place l_s bor_s T_s) [{ Φ }].
 Proof.
   iIntros "[#Hscrel ->] Hsim".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> ->].
@@ -255,8 +253,8 @@ Qed.
 
 Lemma sim_copy_public Φ π l_t bor_t T_t l_s bor_s T_s :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
-  (∀ v_t v_s, value_rel v_t v_s -∗ v_t ⪯{π, Ω} ValR v_s [{ Φ }]) -∗
-  Copy (PlaceR l_t bor_t T_t) ⪯{π, Ω} Copy (PlaceR l_s bor_s T_s) [{ Φ }].
+  (∀ v_t v_s, value_rel v_t v_s -∗ v_t ⪯{π} ValR v_s [{ Φ }]) -∗
+  Copy (PlaceR l_t bor_t T_t) ⪯{π} Copy (PlaceR l_s bor_s T_s) [{ Φ }].
 Proof.
   iIntros "#Hrel Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
@@ -454,8 +452,8 @@ Qed.
 Lemma sim_write_public Φ π l_t bor_t T_t l_s bor_s T_s v_t' v_s' :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
   value_rel v_t' v_s' -∗
-  (#[☠] ⪯{π, Ω} #[☠] [{ Φ }]) -∗
-  Write (Place l_t bor_t T_t) v_t' ⪯{π, Ω} Write (Place l_s bor_s T_s) v_s' [{ Φ }].
+  (#[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  Write (Place l_t bor_t T_t) v_t' ⪯{π} Write (Place l_s bor_s T_s) v_s' [{ Φ }].
 Proof.
   iIntros "Hrel #Hvrel Hsim". iDestruct "Hrel" as "[#Hscrel ->]".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> ->].
@@ -667,8 +665,8 @@ Qed.
 Lemma sim_retag_public l_t l_s ot os c kind T rkind π Φ :
   value_rel [ScPtr l_t ot] [ScPtr l_s os] -∗
   (∀ nt, value_rel [ScPtr l_t nt] [ScPtr l_s nt] -∗
-    #[ScPtr l_t nt] ⪯{π, Ω} #[ScPtr l_s nt] [{ Φ }]) -∗
-  Retag #[ScPtr l_t ot] #[ScCallId c] kind T rkind ⪯{π, Ω} Retag #[ScPtr l_s os] #[ScCallId c] kind T rkind [{ Φ }].
+    #[ScPtr l_t nt] ⪯{π} #[ScPtr l_s nt] [{ Φ }]) -∗
+  Retag #[ScPtr l_t ot] #[ScCallId c] kind T rkind ⪯{π} Retag #[ScPtr l_s os] #[ScCallId c] kind T rkind [{ Φ }].
 Proof.
   rewrite {1}/value_rel big_sepL2_singleton.
   iIntros "#Hscrel Hsim".
@@ -758,8 +756,8 @@ Qed.
 
 Lemma sim_init_call π Φ :
   (∀ c, c @@ ∅ -∗
-    #[ScCallId c] ⪯{π, Ω} #[ScCallId c] [{ Φ }]) -∗
-  InitCall ⪯{π, Ω} InitCall [{ Φ }].
+    #[ScCallId c] ⪯{π} #[ScCallId c] [{ Φ }]) -∗
+  InitCall ⪯{π} InitCall [{ Φ }].
 Proof.
   iIntros "Hsim". iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & _ & _)".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
@@ -819,8 +817,8 @@ Qed.
 
 Lemma sim_endcall c π Φ :
   c @@ ∅ -∗ (* needs to be empty so we don't trip private locations *)
-  #[☠] ⪯{π, Ω} #[☠] [{ Φ }] -∗
-  EndCall #[ScCallId c] ⪯{π, Ω} EndCall #[ScCallId c] [{ Φ }].
+  #[☠] ⪯{π} #[☠] [{ Φ }] -∗
+  EndCall #[ScCallId c] ⪯{π} EndCall #[ScCallId c] [{ Φ }].
 Proof.
   iIntros "Hcall Hsim". iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & _ & _)".
   iMod (bor_interp_end_call with "Hbor Hcall") as "[%Hc_in Hbor]". iModIntro.
@@ -838,10 +836,10 @@ Qed.
 
 (** Call *)
 Lemma sim_call fn (r_t r_s : result) π Φ :
-  Ω r_t r_s -∗
-  (∀ r_t r_s : result, Ω r_t r_s -∗ Φ (of_result r_t) (of_result r_s)) -∗
-  Call #[ScFnPtr fn] r_t ⪯{π, Ω} Call #[ScFnPtr fn] r_s [{ Φ }].
+  rrel r_t r_s -∗
+  (∀ r_t r_s : result, rrel r_t r_s -∗ Φ (of_result r_t) (of_result r_s)) -∗
+  Call #[ScFnPtr fn] r_t ⪯{π} Call #[ScFnPtr fn] r_s [{ Φ }].
 Proof.
-  iIntros "Hval Hsim". iApply (sim_lift_call _ _ _ fn r_t r_s with "Hval"). by iApply "Hsim".
+  iIntros "Hval Hsim". iApply (sim_lift_call _ fn r_t r_s with "[Hval]"); first done. by iApply "Hsim".
 Qed.
 End lifting.

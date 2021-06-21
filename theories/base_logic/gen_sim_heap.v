@@ -16,13 +16,13 @@ Import uPred.
 (** The CMRAs we need, and the global ghost names we are using. *)
 
 Class gen_heapGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
-  gen_heap_preG_inG :> inG Σ (gmap_viewR L (leibnizO V));
-  gen_meta_preG_inG :> inG Σ (gmap_viewR L gnameO);
-  gen_meta_data_preG_inG :> inG Σ (reservation_mapR (agreeR positiveO));
+  gen_heap_pre_heapG :> inG Σ (gmap_viewR L (leibnizO V));
+  gen_heap_pre_metaG :> inG Σ (gmap_viewR L gnameO);
+  gen_heap_pre_dataG :> inG Σ (reservation_mapR (agreeR positiveO));
 }.
 
 Class gen_heapGS_named (L V : Type) (Σ : gFunctors) (gen_heap_name : gname) (gen_meta_name : gname)  `{Countable L} := GenHeapGSNamed {
-  gen_heap_preNameG :> gen_heapGpreS L V Σ
+  gen_heap_named_GpreS :> gen_heapGpreS L V Σ
 }.
 
 (** Variant for refinements between two languages *)

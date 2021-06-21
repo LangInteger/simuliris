@@ -1,5 +1,6 @@
 From stdpp Require Export gmap.
-From simuliris.simplang Require Import lang.
+From simuliris.simplang Require Export lang notation.
+
 
 (** * Parallel substitution for SimpLang *)
 (** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
@@ -8,6 +9,7 @@ Fixpoint subst_map (xs : gmap string val) (e : expr) : expr :=
   match e with
   | Var y => if xs !! y is Some v then Val v else Var y
   | Val v => Val v
+  | GlobalVar n => GlobalVar n
   | Let x1 e1 e2 => Let x1 (subst_map xs e1) (subst_map (binder_delete x1 xs) e2)
   | UnOp op e => UnOp op (subst_map xs e)
   | BinOp op e1 e2 => BinOp op (subst_map xs e1) (subst_map xs e2)
@@ -96,6 +98,15 @@ Proof.
   exact: subst_subst_map.
 Qed.
 
+Lemma subst_map_subst_map xs ys e :
+  subst_map xs (subst_map ys e) = subst_map (ys ∪ xs) e.
+Proof.
+  revert e.
+  induction ys as [|x v ys HNone IH] using map_ind => e.
+  { by rewrite left_id subst_map_empty. }
+  by rewrite -insert_union_l -[in X in _ = X]subst_map_subst -IH subst_map_subst.
+Qed.
+
 (** "Free variables" and their interaction with subst_map *)
 Local Definition binder_to_ctx (x : binder) : gset string :=
   if x is BNamed s then {[s]} else ∅.
@@ -103,6 +114,7 @@ Local Definition binder_to_ctx (x : binder) : gset string :=
 Fixpoint free_vars (e : expr) : gset string :=
   match e with
   | Val v => ∅
+  | GlobalVar n => ∅
   | Var x => {[x]}
   | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
   | Match e0 x1 e1 x2 e2 =>
@@ -117,6 +129,10 @@ Fixpoint free_vars (e : expr) : gset string :=
   | If e0 e1 e2 | CmpXchg e0 e1 e2 =>
      free_vars e0 ∪ free_vars e1 ∪ free_vars e2
   end.
+
+(* Just fill with any value, it does not make a difference. *)
+Definition free_vars_ectx (K : ectx) : gset string :=
+  free_vars (fill K #()).
 
 Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string val) :
   (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
@@ -170,4 +186,21 @@ Lemma free_vars_subst x v e :
   free_vars (subst x v e) = free_vars e ∖ {[x]}.
 Proof.
   induction e=>/=; repeat case_decide; set_solver.
+Qed.
+
+Lemma free_vars_subst_map xs e :
+  free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
+Proof.
+  induction xs as [| x v xs HNone IH ] using map_ind.
+  - rewrite subst_map_empty. set_solver.
+  - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
+Qed.
+
+Lemma free_vars_fill K e :
+  free_vars (fill K e) = free_vars_ectx K ∪ free_vars e.
+Proof.
+  revert e. induction K as [|Ki K] using rev_ind; intros e; simpl.
+  { simpl. rewrite /free_vars_ectx /= left_id_L. done. }
+  rewrite /free_vars_ectx !fill_app /=. destruct Ki; simpl.
+  all: rewrite !IHK; set_solver+.
 Qed.

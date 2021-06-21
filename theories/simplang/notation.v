@@ -12,17 +12,14 @@ Coercion Var : string >-> expr.
 
 (** Define some derived forms. *)
 Notation Seq e1 e2 := (Let BAnon e1 e2) (only parsing).
-Notation SeqCtx e2 := (LetCtx BAnon e2) (only parsing).
+Notation SeqEctx e2 := (LetEctx BAnon e2) (only parsing).
 Notation Alloc e := (AllocN (Val $ LitV $ LitInt 1) e) (only parsing).
 Notation Free e := (FreeN (Val $ LitV $ LitInt 1) e) (only parsing).
 (** Compare-and-set (CAS) returns just a boolean indicating success or failure. *)
 Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing).
 
-(* No scope for the values, does not conflict and scope is often not inferred
-properly. *)
 Notation "# l" := (LitV l%Z%V%stdpp) (at level 8, format "# l").
-(* to avoid collisions with binders *)
-Notation "## l" := (LitV (LitFn l%stdpp)) (at level 8, format "## l").
+Notation "f# l" := (LitV (LitFn l%stdpp)) (at level 8, format "f# l").
 
 (** Syntax inspired by Coq/Ocaml. Constructions with higher precedence come
     first. *)
@@ -93,7 +90,7 @@ Notation "'if:' e1 'then' e2 'else' e3" := (If e1%E e2%E e3%E)
 (* The breaking point '/  ' makes sure that the body of the λ: is indented
 by two spaces in case the whole λ: does not fit on a single line. *)
 (* Note: this is a context for use with the function call mechanism of SimpLang. *)
-Notation "λ: x , e" := ([LetCtx x%binder e%E])
+Notation "λ: x , e" := ([LetEctx x%binder e%E])
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
 Bind Scope expr_scope with ectx.

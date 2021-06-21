@@ -20,8 +20,6 @@ Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
 Implicit Types f : fname.
 
-Context (Ω : result → result → iProp Σ).
-
 
 (** ** Retags *)
 (** *** Retags without protectors *)
@@ -199,8 +197,8 @@ Lemma sim_retag_default mut T l_t l_s c ot π Φ :
     l_t ↦t∗[tk]{nt} v_t -∗
     l_s ↦s∗[tk]{nt} v_s -∗
     (if mut is Immutable then sc_rel (ScPtr l_t (Tagged nt)) (ScPtr l_s (Tagged nt)) else True) -∗
-    #[ScPtr l_t (Tagged nt)] ⪯{π, Ω} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
-  Retag #[ScPtr l_t ot] #[ScCallId c] pk T Default ⪯{π, Ω} Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default [{ Φ }].
+    #[ScPtr l_t (Tagged nt)] ⪯{π} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
+  Retag #[ScPtr l_t ot] #[ScCallId c] pk T Default ⪯{π} Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default [{ Φ }].
 Proof.
   intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
@@ -459,8 +457,8 @@ Lemma sim_retag_fnentry mut T l_t l_s c M ot π Φ :
     l_t ↦t∗[tk]{nt} v_t -∗
     l_s ↦s∗[tk]{nt} v_s -∗
     (if mut is Immutable then sc_rel (ScPtr l_t (Tagged nt)) (ScPtr l_s (Tagged nt)) else True) -∗
-    #[ScPtr l_t (Tagged nt)] ⪯{π, Ω} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
-  Retag #[ScPtr l_t ot] #[ScCallId c] pk T FnEntry ⪯{π, Ω} Retag #[ScPtr l_s ot] #[ScCallId c] pk T FnEntry [{ Φ }].
+    #[ScPtr l_t (Tagged nt)] ⪯{π} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
+  Retag #[ScPtr l_t ot] #[ScCallId c] pk T FnEntry ⪯{π} Retag #[ScPtr l_s ot] #[ScCallId c] pk T FnEntry [{ Φ }].
 Proof.
   intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hcid Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
@@ -509,8 +507,8 @@ Lemma sim_protected_unprotectN M L l c t tk v_t v_s  π Φ e_t e_s :
   l ↦t∗[tk]{t} v_t -∗
   l ↦s∗[tk]{t} v_s -∗
   value_rel v_t v_s -∗
-  (c @@ (<[t := L ∖ (seq_loc_set l (length v_t)) ]> M) -∗ t $$ tk -∗ l ↦t∗[tk]{t} v_t -∗ l ↦s∗[tk]{t} v_s -∗ e_t ⪯{π, Ω} e_s [{ Φ }]) -∗
-  e_t ⪯{π, Ω} e_s [{ Φ }].
+  (c @@ (<[t := L ∖ (seq_loc_set l (length v_t)) ]> M) -∗ t $$ tk -∗ l ↦t∗[tk]{t} v_t -∗ l ↦s∗[tk]{t} v_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
+  e_t ⪯{π} e_s [{ Φ }].
 Proof.
   iIntros (Hl HL) "Hc Htag Ht Hs #Hvrel Hsim".
   iApply sim_update_si. rewrite /update_si. iIntros (?????) "(HP_t & HP_s & Hbor)".
@@ -571,8 +569,8 @@ Lemma sim_protected_unprotect M L l c t tk sc_t sc_s π Φ e_t e_s :
   l ↦t[tk]{t} sc_t -∗
   l ↦s[tk]{t} sc_s -∗
   sc_rel sc_t sc_s -∗
-  (c @@ (<[t := L ∖ {[ l ]} ]> M) -∗ t $$ tk -∗ l ↦t[tk]{t} sc_t -∗ l ↦s[tk]{t} sc_s -∗ e_t ⪯{π, Ω} e_s [{ Φ }]) -∗
-  e_t ⪯{π, Ω} e_s [{ Φ }].
+  (c @@ (<[t := L ∖ {[ l ]} ]> M) -∗ t $$ tk -∗ l ↦t[tk]{t} sc_t -∗ l ↦s[tk]{t} sc_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
+  e_t ⪯{π} e_s [{ Φ }].
 Proof.
   iIntros (Hin HL) "Hc Htag Ht Hs Hrel Hsim".
   iApply (sim_protected_unprotectN M L l c t tk [sc_t] [sc_s] with "Hc Htag [Ht] [Hs] [Hrel] [Hsim]").
@@ -589,8 +587,8 @@ Lemma sim_remove_empty_calls t L M c e_t e_s π Φ :
   M !! t = Some L →
   L = ∅ →
   c @@ M -∗
-  (c @@ (delete t M) -∗ e_t ⪯{π, Ω} e_s [{ Φ }]) -∗
-  e_t ⪯{π, Ω} e_s [{ Φ }].
+  (c @@ (delete t M) -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
+  e_t ⪯{π} e_s [{ Φ }].
 Proof.
   iIntros (Ht ->) "Hc Hsim".
   iApply sim_update_si. rewrite /update_si. iIntros (?????) "(HP_t & HP_s & Hbor)".
@@ -634,8 +632,8 @@ Lemma sim_write_unique_unprotected π l_t l_s t T v_t v_s v_t' v_s' Φ :
   t $$ tk_unq -∗
   l_t ↦t∗[tk_unq]{t} v_t -∗
   l_s ↦s∗[tk_unq]{t} v_s -∗
-  (t $$ tk_unq -∗ l_t ↦t∗[tk_unq]{t} v_t' -∗ l_s ↦s∗[tk_unq]{t} v_s' -∗ #[☠] ⪯{π, Ω} #[☠] [{ Φ }]) -∗
-  Write (Place l_t (Tagged t) T) #v_t' ⪯{π, Ω} Write (Place l_s (Tagged t) T) #v_s' [{ Φ }].
+  (t $$ tk_unq -∗ l_t ↦t∗[tk_unq]{t} v_t' -∗ l_s ↦s∗[tk_unq]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  Write (Place l_t (Tagged t) T) #v_t' ⪯{π} Write (Place l_s (Tagged t) T) #v_s' [{ Φ }].
 Proof.
 Admitted.
 
@@ -1038,8 +1036,8 @@ Lemma sim_alloc_local T Φ π :
   (∀ t l, t $$ tk_local -∗
     l ↦t∗[tk_local]{t} replicate (tsize T) ScPoison -∗
     l ↦s∗[tk_local]{t} replicate (tsize T) ScPoison -∗
-    Place l (Tagged t) T ⪯{π, Ω} Place l (Tagged t) T [{ Φ }]) -∗
-  Alloc T ⪯{π, Ω} Alloc T [{ Φ }].
+    Place l (Tagged t) T ⪯{π} Place l (Tagged t) T [{ Φ }]) -∗
+  Alloc T ⪯{π} Alloc T [{ Φ }].
 Proof.
   iIntros "Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
@@ -1176,8 +1174,8 @@ Lemma sim_free_local l t T v_t v_s Φ π :
   t $$ tk_local -∗
   l ↦t∗[tk_local]{t} v_t -∗
   l ↦s∗[tk_local]{t} v_s -∗
-  (t $$ tk_local -∗ #[☠] ⪯{π, Ω} #[☠] [{ Φ }]) -∗
-  Free (Place l (Tagged t) T) ⪯{π, Ω} Free (Place l (Tagged t) T) [{ Φ }].
+  (t $$ tk_local -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  Free (Place l (Tagged t) T) ⪯{π} Free (Place l (Tagged t) T) [{ Φ }].
 Proof.
   iIntros (Hlen_t Hlen_s) "Htag Ht Hs Hsim".
   iApply sim_lift_head_step_both. iIntros (??????) "[(HP_t & HP_s & Hbor) %Hsafe]".
