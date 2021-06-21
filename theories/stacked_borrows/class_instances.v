@@ -61,6 +61,11 @@ Section pure_exec.
     PureExec (0 ≤ i ∧ el !! Z.to_nat i = Some e) 1 (Case #[i] el) e.
   Proof. solve_pure_exec; naive_solver. Qed.
 
+  (* not an instance as we usually don't want it to reduce in order to apply coinduction lemmas *)
+  Lemma pure_while e1 e2 :
+    PureExec True 1 (while: e1 do e2 od) (if: e1 then e2;; while: e1 do e2 od else #[☠]).
+  Proof. solve_pure_exec. Qed.
+
 End pure_exec.
 
 (** IrredUnless *)
@@ -240,11 +245,11 @@ Section irreducible.
     IrredUnless ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T)) (* ∧ v <<t σ.(snp) *)) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
   Proof.
     prove_irred_unless.
-    2: { destruct memory_read; eauto. } 
+    2: { destruct memory_read; eauto. }
     destruct (read_mem l (tsize T) σ.(shp)) eqn:Heq1; last finish_decision.
     destruct (memory_read _ _ _ _ _) eqn:Heq2.
     2: { right; intros (v' & [= ->] & (? & [=]) (* & _ *)). }
-    finish_decision. 
+    finish_decision.
     (*destruct (decide (v <<t σ.(snp))); finish_decision.*)
   Qed.
 
@@ -277,12 +282,12 @@ Section irreducible.
   (* TODO: "weak" instances that do not talk about the heap *)
   Global Instance irreducible_write_weak P σ l t T v :
     IrredUnless (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
-  Proof. 
+  Proof.
     eapply irred_unless_weaken; last apply irreducible_write. tauto.
   Qed.
   Global Instance irreducible_retag_weak P σ v v' pk T rk :
     IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag (Val v) (Val v') pk T rk) σ | 10.
-  Proof. 
+  Proof.
     eapply irred_unless_weaken; last apply irreducible_retag.
     intros (c & ot & l & -> & -> & _). eauto.
   Qed.

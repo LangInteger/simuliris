@@ -842,4 +842,45 @@ Lemma sim_call fn (r_t r_s : result) π Φ :
 Proof.
   iIntros "Hval Hsim". iApply (sim_lift_call _ fn r_t r_s with "[Hval]"); first done. by iApply "Hsim".
 Qed.
+
+
+(** Coinduction on while loops *)
+Lemma sim_while_while inv c_t c_s b_t b_s π Ψ : 
+  inv -∗
+  □ (inv -∗ 
+      (if: c_t then b_t ;; while: c_t do b_t od else #[☠])%E ⪯{π}
+      (if: c_s then b_s ;; while: c_s do b_s od else #[☠])%E
+        [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv) }]) -∗ 
+  (while: c_t do b_t od ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
+Proof.
+  iIntros "Hinv_init #Hstep".
+  iApply (sim_lift_head_coind (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
+  { iFrame. eauto. }
+  iModIntro. iIntros (?? ?? ?? ??) "(-> & -> & Hinv) (Hstate & [% %])".
+  iModIntro. iSplitR. 
+  { iPureIntro. eexists _, _, _. econstructor. econstructor. }
+  iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
+  assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
+  { eexists _, _. econstructor. econstructor. }
+  iModIntro. iExists e_s', σ_s'. iFrame. iSplit;[done|].
+  iSplitR; first done. inv_head_step. iFrame "Hstate".
+  iApply "Hstep". iFrame.
+Qed.
+
+
+(** fork *)
+Lemma sim_fork π e_t e_s Ψ :
+  #[☠] ⪯{π} #[☠] [{ Ψ }] -∗
+  (∀ π', e_t ⪯{π'} e_s {{ rrel }}) -∗
+  Fork e_t ⪯{π} Fork e_s [{ Ψ }].
+Proof.
+  iIntros "Hval Hsim". iApply sim_lift_head_step_both.
+  iIntros (??????) "[Hstate [% %]] !>".
+  iSplitR. { iPureIntro. eexists _, _, _. econstructor. econstructor. }
+  iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
+  iModIntro. iExists _, _, _. iSplitR. { iPureIntro. econstructor. econstructor. }
+  simpl. iFrame. iSplitL; last done.
+  iApply "Hsim".
+Qed.
+
 End lifting.

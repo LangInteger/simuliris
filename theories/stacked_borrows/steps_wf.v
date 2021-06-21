@@ -24,8 +24,8 @@ Lemma wf_mem_tag_mono h :
 Proof. move => ??? WF ??? /WF /=. lia. Qed.
 
 (** Alloc *)
-Lemma alloc_step_wf (σ σ': state) e e' l bor T:
-  mem_expr_step σ.(shp) e (AllocEvt l bor T) σ'.(shp) e' →
+Lemma alloc_step_wf (σ σ': state) e e' l bor T efs:
+  mem_expr_step σ.(shp) e (AllocEvt l bor T) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (AllocEvt l bor T)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -37,14 +37,10 @@ Proof.
   destruct (tsize T) eqn:Eqs.
   - inversion IS; clear IS; simplify_eq; constructor; simpl;
       try rewrite Eqs /=; try by apply WF.
-    (*+ eapply wf_mem_tag_mono; [|by apply WF]. simpl; lia.*)
     + eapply wf_stack_item_mono; [..|by apply WF]; [simpl; lia|done].
   - inversion IS; clear IS; simplify_eq; constructor; cbn -[init_mem].
     + rewrite Eqs init_stacks_foldr init_mem_foldr.
       apply foldr_gmap_insert_dom, WF.
-    (*+ intros ?? bor. rewrite init_mem_foldr.*)
-      (*intros [|Eq]%foldr_gmap_insert_lookup; [done|].*)
-      (*move : (state_wf_mem_tag _ WF _ _ _ Eq). destruct bor; simpl; lia.*)
     + intros ??. rewrite init_stacks_foldr.
       intros [->|Eq]%foldr_gmap_insert_lookup; split.
       * intros si ->%elem_of_list_singleton. simpl. split; [lia|done].
@@ -59,8 +55,8 @@ Proof.
 Qed.
 
 (** Dealloc *)
-Lemma dealloc_step_wf σ σ' e e' l bor T :
-  mem_expr_step σ.(shp) e (DeallocEvt l bor T) σ'.(shp) e' →
+Lemma dealloc_step_wf σ σ' e e' l bor T efs :
+  mem_expr_step σ.(shp) e (DeallocEvt l bor T) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (DeallocEvt l bor T)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -74,9 +70,6 @@ Proof.
   rewrite (memory_deallocated_delete α cids' l bor (tsize T) α'); [|done].
   constructor; simpl.
   - rewrite free_mem_foldr. apply foldr_gmap_delete_dom, WF.
-  (*- intros ???. rewrite free_mem_foldr.*)
-    (*intros Eq%foldr_gmap_delete_lookup.*)
-    (*apply (state_wf_mem_tag _ WF _ _ _ Eq).*)
   - intros ?? Eq%foldr_gmap_delete_lookup.
     apply (state_wf_stack_item _ WF _ _ Eq).
   - intros ?? Eq%foldr_gmap_delete_lookup.
@@ -85,8 +78,8 @@ Proof.
 Qed.
 
 (** Copy *)
-Lemma copy_step_wf σ σ' e e' l bor T vl :
-  mem_expr_step σ.(shp) e (CopyEvt l bor T vl) σ'.(shp) e' →
+Lemma copy_step_wf σ σ' e e' l bor T vl efs :
+  mem_expr_step σ.(shp) e (CopyEvt l bor T vl) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (CopyEvt l bor T vl)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -97,17 +90,15 @@ Proof.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
   inversion IS; clear IS; simplify_eq.
-  (*split; [|done].*)
   constructor; simpl.
   - rewrite -(for_each_dom α l (tsize T) _ _ ACC). by apply WF.
-  (*- apply WF.*)
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
   - apply WF.
 Qed.
 
-Lemma failed_copy_step_wf σ σ' e e' l bor T :
-  mem_expr_step σ.(shp) e (FailedCopyEvt l bor T) σ'.(shp) e' →
+Lemma failed_copy_step_wf σ σ' e e' l bor T efs :
+  mem_expr_step σ.(shp) e (FailedCopyEvt l bor T) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (FailedCopyEvt l bor T)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -180,8 +171,8 @@ Proof.
     split; [done|]. by apply EQ2.
 Qed.
 
-Lemma write_step_wf σ σ' e e' l bor T vl :
-  mem_expr_step σ.(shp) e (WriteEvt l bor T vl) σ'.(shp) e' →
+Lemma write_step_wf σ σ' e e' l bor T vl efs :
+  mem_expr_step σ.(shp) e (WriteEvt l bor T vl) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (WriteEvt l bor T vl)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -195,27 +186,14 @@ Proof.
   constructor; simpl.
   - rewrite -(for_each_dom α l (tsize T) _ _ ACC).
     rewrite write_mem_dom; [by apply WF|done].
-  (*- move => l0 l' bor'. destruct (write_mem_lookup l vl h) as [IN OUT].*)
-    (*case (decide (l0.1 = l.1)) => Eq1.*)
-    (*+ have Eql0: l0 = (l +ₗ (l0.2 - l.2)).*)
-      (*{ rewrite /shift_loc -Eq1. destruct l0; simpl. f_equal. by lia. }*)
-      (*case (decide (0 ≤ l0.2 - l.2 < length vl)) => [[Le Lt]|NLe].*)
-      (** rewrite Eql0 -(Z2Nat.id _ Le) IN.*)
-        (*intros Eq%elem_of_list_lookup_2. apply (BOR _ _ Eq).*)
-        (*rewrite -(Nat2Z.id (length vl)) -Z2Nat.inj_lt; [done|lia..].*)
-      (** rewrite OUT; [by apply (state_wf_mem_tag _ WF)|].*)
-        (*move => i Lt Eq. rewrite Eql0 in Eq. apply shift_loc_inj in Eq.*)
-        (*apply NLe. rewrite Eq. lia.*)
-    (*+ rewrite OUT; [by apply (state_wf_mem_tag _ WF)|].*)
-      (*move => ? _ Eq. apply Eq1. rewrite Eq. by apply shift_loc_block.*)
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
   - apply WF.
 Qed.
 
 (** Call *)
-Lemma initcall_step_wf σ σ' e e' n :
-  mem_expr_step σ.(shp) e (InitCallEvt n) σ'.(shp) e' →
+Lemma initcall_step_wf σ σ' e e' n efs :
+  mem_expr_step σ.(shp) e (InitCallEvt n) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (InitCallEvt n)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -226,8 +204,6 @@ Proof.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
-  (* have EqN: nxtc !! fresh (dom (gset nat) nxtc) = None
-    by apply (not_elem_of_dom (D:= gset nat)), is_fresh. *)
   constructor; simpl; [apply WF..|intros ?? Eq; split|apply WF|].
   - intros ? In.
     destruct ((proj1 (state_wf_stack_item _ WF _ _ Eq)) _ In) as [SI1 SI2].
@@ -238,8 +214,8 @@ Proof.
 Qed.
 
 (** EndCall *)
-Lemma endcall_step_wf σ σ' e e' n :
-  mem_expr_step σ.(shp) e (EndCallEvt n) σ'.(shp) e' →
+Lemma endcall_step_wf σ σ' e e' n efs :
+  mem_expr_step σ.(shp) e (EndCallEvt n) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (EndCallEvt n)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -930,8 +906,8 @@ Proof.
     (split; [by rewrite -Eq1|done..]).
 Qed.
 
-Lemma retag_step_wf σ σ' e e' l ot nt pk T kind c :
-  mem_expr_step σ.(shp) e (RetagEvt l ot nt pk T kind c) σ'.(shp) e' →
+Lemma retag_step_wf σ σ' e e' l ot nt pk T kind c efs :
+  mem_expr_step σ.(shp) e (RetagEvt l ot nt pk T kind c) σ'.(shp) e' efs →
   bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
            (RetagEvt l ot nt pk T kind c)
            σ'.(sst) σ'.(scs) σ'.(snp) σ'.(snc) →
@@ -971,6 +947,6 @@ Proof.
   - eapply initcall_step_wf; eauto.
   - eapply endcall_step_wf; eauto.
   - eapply retag_step_wf; eauto.
-  - by inversion ExprStep.
+  - inversion ExprStep.
   (* - eapply syscall_step_wf; eauto. *)
 Qed.

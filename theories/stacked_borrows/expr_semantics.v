@@ -33,7 +33,8 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
       Let x1 (subst x es e1)
                  (if bool_decide (BNamed x ≠ x1) then subst x es e2 else e2)
   | Case e el => Case (subst x es e) (fmap (subst x es) el)
-  (* | Fork e => Fork (subst x es e) *)
+  | Fork e => Fork (subst x es e) 
+  | While e1 e2 => While (subst x es e1) (subst x es e2)
   (* | SysCall id => SysCall id *)
   end.
 
@@ -98,7 +99,9 @@ Inductive ectx_item :=
 | RetagRCtx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
 | RetagLCtx (r2 : result) (pkind : pointer_kind) (T : type) (kind : retag_kind)
 | LetCtx (x : binder) (e2 : expr)
-| CaseCtx (el : list expr).
+| CaseCtx (el : list expr)
+(* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
+.
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
@@ -289,23 +292,23 @@ Proof.
   apply foldr_permutation; [apply _..|set_solver|done].
 Qed.
 
-Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → Prop :=
+Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → Prop :=
 | BinOpPS op (l1 l2 l': scalar) :
     bin_op_eval h op l1 l2 l' →
-    pure_expr_step P h (BinOp op #[l1] #[l2]) #[l']
+    pure_expr_step P h (BinOp op #[l1] #[l2]) #[l'] []
 (* TODO: add more operations for values *)
 | ProjPS (i: Z) (v : value) (s : scalar)
     (DEFINED: 0 ≤ i ∧ v !! (Z.to_nat i) = Some s) :
-    pure_expr_step P h (Proj (Val v) #[i]) #[s]
+    pure_expr_step P h (Proj (Val v) #[i]) #[s] []
 | ConcPS v1 v2 :
     pure_expr_step P h (Conc (Val v1) (Val v2))
-                       (Val (v1 ++ v2))
+                       (Val (v1 ++ v2)) []
 | RefPS l lbor T :
     (* is_Some (h !! l) → *)
-    pure_expr_step P h (Ref (Place l lbor T)) #[ScPtr l lbor]
+    pure_expr_step P h (Ref (Place l lbor T)) #[ScPtr l lbor] []
 | DerefPS l lbor T
     (* (DEFINED: ∀ (i: nat), (i < tsize T)%nat → l +ₗ i ∈ dom (gset loc) h) *) :
-    pure_expr_step P h (Deref #[ScPtr l lbor] T) (Place l lbor T)
+    pure_expr_step P h (Deref #[ScPtr l lbor] T) (Place l lbor T) []
 (* | FieldBS l lbor T path off T'
     (FIELD: field_access T path = Some (off, T')) :
     pure_expr_step FNs h (Field (Place l lbor T) path)
@@ -313,57 +316,62 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → Prop :=
 | LetPS x e1 e2 e' :
     is_Some (to_result e1) →
     subst' x e1 e2 = e' →
-    pure_expr_step P h (let: x := e1 in e2) e'
+    pure_expr_step P h (let: x := e1 in e2) e' []
 | CasePS i el e :
     0 ≤ i →
     el !! (Z.to_nat i) = Some e →
-    pure_expr_step P h (case: #[i] of el) e
+    pure_expr_step P h (case: #[i] of el) e []
 | CallPS fn e2 K:
     P !! fn = Some K →
     is_Some (to_result e2) →
     pure_expr_step P h (Call #[ScFnPtr fn] e2)
-                        (fill K e2).
+                        (fill K e2) []
+| WhilePS e1 e2 :
+    (* unfold by one step *)
+    pure_expr_step P h (While e1 e2) (if: e1 then (e2;; while: e1 do e2 od) else #[☠]) []
+| ForkPS (e : expr) :
+    pure_expr_step P h (Fork e) #[☠] [e]
+  .
 
-Inductive mem_expr_step (h: mem) : expr → event → mem → expr → Prop :=
+Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr → Prop :=
 | InitCallBS (c: call_id):
     mem_expr_step
               h InitCall
               (InitCallEvt c)
-              h (Val $ [ScCallId c])
+              h (Val $ [ScCallId c]) []
 | EndCallBS (call: call_id) e :
     to_value e = Some [ScCallId call] →
-    mem_expr_step h (EndCall e) (EndCallEvt call) h #[☠]
+    mem_expr_step h (EndCall e) (EndCallEvt call) h #[☠] []
 | CopyBS l lbor T (v: value)
     (READ: read_mem l (tsize T) h = Some v) :
-    mem_expr_step h (Copy (Place l lbor T)) (CopyEvt l lbor T v) h (Val v)
+    mem_expr_step h (Copy (Place l lbor T)) (CopyEvt l lbor T v) h (Val v) []
 | FailedCopyBS l lbor T :
     (* failed copies lead to poison, but still of the appropriate length *)
-    mem_expr_step h (Copy (Place l lbor T)) (FailedCopyEvt l lbor T) h (Val $ replicate (tsize T) ScPoison)
+    mem_expr_step h (Copy (Place l lbor T)) (FailedCopyEvt l lbor T) h (Val $ replicate (tsize T) ScPoison) []
 | WriteBS l lbor T v (LEN: length v = tsize T)
     (DEFINED: ∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) h) :
     mem_expr_step
               h (Place l lbor T <- Val v)
               (WriteEvt l lbor T v)
-              (write_mem l v h) #[☠]
+              (write_mem l v h) #[☠] []
 | AllocBS lbor T :
     let l := (fresh_block h, 0) in
     mem_expr_step
               h (Alloc T)
               (AllocEvt l lbor T)
-              (init_mem l (tsize T) h) (Place l lbor T)
+              (init_mem l (tsize T) h) (Place l lbor T) []
 | DeallocBS T l lbor :
     (∀ m, is_Some (h !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) →
     mem_expr_step
               h (Free (Place l lbor T))
               (DeallocEvt l lbor T)
-              (free_mem l (tsize T) h) #[☠]
+              (free_mem l (tsize T) h) #[☠] []
 | RetagBS l otag ntag pkind T kind c :
     mem_expr_step
               h (Retag #[ScPtr l otag] #[ScCallId c] pkind T kind)
               (RetagEvt l otag ntag pkind T kind c)
-              h #[ScPtr l ntag]
-(* | ForkBS e h:
-    expr_step (Fork e) h SilentEvt (Lit LitPoison) h [e] *)
+              h #[ScPtr l ntag] []
+
 (* observable behavior *)
 (* | SysCallBS id h:
     expr_step (SysCall id) h (SysCallEvt id) (Lit LitPoison) h [] *)

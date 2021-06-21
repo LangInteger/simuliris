@@ -157,10 +157,11 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
   (* | Field e path, Field e' path' => expr_beq e e' && bool_decide (path = path') *)
   (* | CAS e0 e1 e2, CAS e0' e1' e2' =>
       expr_beq e0 e0' && expr_beq e1 e1' && expr_beq e2 e2' *)
-  (* | Fork e, Fork e' => expr_beq e e' *)
+  | Fork e, Fork e' => expr_beq e e'
   | Alloc T, Alloc T' => bool_decide (T = T')
   | Free e, Free e' | EndCall e, EndCall e' => expr_beq e e'
   | InitCall, InitCall => true
+  | While e1 e2, While e1' e2' => expr_beq e1 e1' && expr_beq e2 e2'
   (* | SysCall id, SysCall id' => bool_decide (id = id') *)
   | _, _ => false
   end.
@@ -168,8 +169,8 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
 Lemma expr_beq_correct (e1 e2 : expr) : expr_beq e1 e2 ↔ e1 = e2.
 Proof.
   revert e1 e2; fix FIX 1;
-    destruct e1 as [| |? el1| | | | | | | | | | (* | *) | | | | |? el1],
-             e2 as [| |? el2| | | | | | | | | | (* | *) | | | | |? el2];
+    destruct e1 as [| |? el1| | | | | | | | | | (* | *) | | | | |? el1 | | ],
+             e2 as [| |? el2| | | | | | | | | | (* | *) | | | | |? el2 | | ];
     simpl; try done;
     rewrite ?andb_True ?bool_decide_spec ?FIX;
     try (split; intro; [destruct_and?|split_and?]; congruence).
@@ -215,8 +216,9 @@ Proof.
                       GenLeaf $ inr $ inr $ inl kind; go e1; go e2]
       | Let x e1 e2 => GenNode 16 [GenLeaf$ inr $ inr $ inr x; go e1; go e2]
       | Case e el => GenNode 17 (go e :: (go <$> el))
-      (* | Fork e => GenNode 23 [go e]
-      | SysCall id => GenNode 24 [GenLeaf $ inr $ inr id] *)
+      | Fork e => GenNode 23 [go e]
+      | While e1 e2 => GenNode 24 [go e1; go e2]
+    (*| SysCall id => GenNode 24 [GenLeaf $ inr $ inr id] *)
      end)
     (fix go s := match s with
      | GenNode 0 [GenLeaf (inl (inl (inl (inl x))))] => Var x
@@ -246,8 +248,9 @@ Proof.
         Retag (go e1) (go e2) pk T kind
      | GenNode 16 [GenLeaf (inr (inr (inr x))); e1; e2] => Let x (go e1) (go e2)
      | GenNode 17 (e :: el) => Case (go e) (go <$> el)
-     (* | GenNode 23 [e] => Fork (go e)
-     | GenNode 24 [GenLeaf (inr (inr id))] => SysCall id *)
+     | GenNode 23 [e] => Fork (go e)
+     | GenNode 24 [e1; e2] => While (go e1) (go e2)
+    (* | GenNode 24 [GenLeaf (inr (inr id))] => SysCall id *)
      | _ => (#[☠])%E
      end) _).
   fix FIX 1. intros []; f_equal=>//; revert el; clear -FIX.
@@ -345,14 +348,14 @@ Section head_step.
 
 Inductive head_step (P : prog) :
   expr → state → expr → state → list expr → Prop :=
-  | HeadPureS σ e e'
-      (ExprStep: pure_expr_step P σ.(shp) e e')
-    : head_step P e σ e' σ []
-  | HeadImpureS σ e e' ev h' α' cids' nxtp' nxtc'
-      (ExprStep : mem_expr_step σ.(shp) e ev h' e')
+  | HeadPureS σ e e' efs
+      (ExprStep: pure_expr_step P σ.(shp) e e' efs)
+    : head_step P e σ e' σ efs 
+  | HeadImpureS σ e e' ev h' α' cids' nxtp' nxtc' efs
+      (ExprStep : mem_expr_step σ.(shp) e ev h' e' efs)
       (InstrStep: bor_step σ.(sst) σ.(scs) σ.(snp) σ.(snc)
                            ev α' cids' nxtp' nxtc')
-    : head_step P e σ e' (mkState h' α' cids' nxtp' nxtc') [].
+    : head_step P e σ e' (mkState h' α' cids' nxtp' nxtc') efs.
 
 Lemma result_head_stuck P e1 σ1 e2 σ2 efs :
   head_step P e1 σ1 e2 σ2 efs → to_result e1 = None.
@@ -527,5 +530,3 @@ Notation "λ: x , e" := ([LetCtx x%binder e%E])
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
 Bind Scope expr_scope with ectx.
-
-

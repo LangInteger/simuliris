@@ -63,6 +63,8 @@ Notation "'case:' e0 'of' el" := (Case e0%E el%E)
   (at level 102, e0, el at level 150) : expr_scope.
 Notation "'if:' e0 'then' e1 'else' e2" := (Case e0%E [e2%E;e1%E])
   (only parsing, at level 102, e0, e1, e2 at level 150) : expr_scope.
+Notation "'while:' e1 'do' e2 'od'" := (While e1%E e2%E)
+  (at level 102, e1, e2 at level 150) : expr_scope.
 Notation "☠" := ScPoison : sc_scope.
 
 (* Notation "! e" := (Read e%E) (at level 9, format "! e") : expr_scope. *)

@@ -628,7 +628,7 @@ Lemma sim_write_unique_unprotected π l_t l_s t T v_t v_s v_t' v_s' Φ :
   t $$ tk_unq -∗
   l_t ↦t∗[tk_unq]{t} v_t -∗
   l_s ↦s∗[tk_unq]{t} v_s -∗
-  (* crucial: without protectors, we need to write related values, as the locations 
+  (* crucial: without protectors, we need to write related values, as the locations
     will need to be public in the state_rel -- after all, there is no protector, so it can't be private! *)
   value_rel v_t' v_s' -∗
   (t $$ tk_unq -∗ l_t ↦t∗[tk_unq]{t} v_t' -∗ l_s ↦s∗[tk_unq]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
@@ -668,9 +668,9 @@ Lemma target_write_protected v_t v_t' T l t c M Ψ :
 Proof.
 Admitted.
 
-(* note: in principle we don't need the protectors since that will just be source UB, 
+(* note: in principle we don't need the protectors since that will just be source UB,
     but we need the protector to be able to write anything into the location, without
-    a sidecondition on what is currently in the target location, to be able to 
+    a sidecondition on what is currently in the target location, to be able to
     establish the state relation.
 *)
 Lemma source_write_protected v_s v_s' T l t Ψ c M π :
@@ -1207,4 +1207,34 @@ Proof.
   iFrame. iSplitL; last done. by iApply "Hsim".
 Qed.
 
+
+(** operational lemmas for calls *)
+Lemma target_red_call f K_t v Ψ :
+  f @t K_t -∗
+  target_red (fill K_t #v) Ψ -∗
+  target_red (Call #[ScFnPtr f] #v) Ψ.
+Proof.
+  iIntros "Hf Hred". iApply target_red_lift_head_step.
+  iIntros (?????) "(HP_t & HP_s & ?) !>".
+  iDestruct (has_prog_has_fun_agree with "HP_t Hf") as %?.
+  iSplitR. { iPureIntro. eexists _, _, _. econstructor. econstructor; first done. eauto. }
+  iIntros (e_t' efs σ_t') "%"; inv_head_step.
+  iModIntro. by iFrame.
+Qed.
+
+Lemma source_red_call π f K_s v Ψ :
+  f @s K_s -∗
+  source_red (fill K_s #v) π Ψ -∗
+  source_red (Call #[ScFnPtr f] #v) π Ψ.
+Proof.
+  iIntros "Hf Hred". iApply source_red_lift_head_step.
+  iIntros (??????) "[(HP_t & HP_s & ?) [% %]] !>".
+  iDestruct (has_prog_has_fun_agree with "HP_s Hf") as %?.
+  iExists _, _. iSplit. { iPureIntro. econstructor. econstructor; first done. eauto. }
+  iModIntro. iFrame.
+Qed.
+
 End lifting.
+
+
+

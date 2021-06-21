@@ -152,7 +152,9 @@ Inductive expr :=
 (* case *)
 | Case (e : expr) (el: list expr)
 (* concurrency *)
-(*| Fork (e : expr)*)
+| Fork (e : expr)
+(* While *)
+| While (e1 e2 : expr)
 (* observable behavior *)
 (* | SysCall (id: nat) *)
 .
@@ -179,6 +181,7 @@ Arguments Free _%E.
 Arguments Retag _%E _%E _ _ _.
 Arguments Let _%binder _%E _%E.
 Arguments Case _%E _%E.
+Arguments While _%E _%E.
 (* Arguments Fork _%E. *)
 
 (** Closedness *)
@@ -186,12 +189,12 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   match e with
   | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
-  | BinOp _ e1 e2 | (* AtomWrite e1 e2 | *) Write e1 e2
+  | BinOp _ e1 e2 | (* AtomWrite e1 e2 | *) Write e1 e2 | While e1 e2 
       | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
-  | Copy e  | Deref e _ | Ref e (* | Field e _ *)
+  | Fork e | Copy e  | Deref e _ | Ref e (* | Field e _ *)
       | Free e | EndCall e (* | AtomRead e | Fork e *)
       => is_closed X e
   (* | CAS e0 e1 e2 => is_closed X e0 && is_closed X e1 && is_closed X e2 *)
