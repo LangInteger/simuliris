@@ -11,7 +11,7 @@ From simuliris.stacked_borrows Require Export primitive_laws notation.
 
 
 Section sim.
-Context `{!sborG Σ}.
+Context `{!sborGS Σ}.
 Context (Ω : result → result → iProp Σ).
 (*Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{Ω} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.*)
 (*Local Notation "et '⪯' es [{ Φ }]" := (et ⪯{Ω} es [{Φ}])%I (at level 40, Φ at level 200) : bi_scope.*)
@@ -132,9 +132,6 @@ Proof.
   rewrite envs_entails_eq=> ->. intros Hs.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
-
-(* TODO: heap tactics *)
-
 
 
 (** Switching between judgments *)

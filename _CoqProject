@@ -77,7 +77,8 @@ theories/stacked_borrows/steps_inv.v
 theories/stacked_borrows/tactics.v 
 theories/stacked_borrows/class_instances.v
 theories/stacked_borrows/tkmap_view.v
-theories/stacked_borrows/heap.v
+theories/stacked_borrows/logical_state.v
+theories/stacked_borrows/inv_accessors.v
 theories/stacked_borrows/steps_refl.v
 theories/stacked_borrows/steps_opt.v
 theories/stacked_borrows/primitive_laws.v

@@ -1,0 +1,1003 @@
+(** This file provides the basic heap and ghost state support for the BorIngLang program logic. *)
+From iris.proofmode Require Export tactics.
+From iris.bi.lib Require Import fractional.
+From iris.base_logic.lib Require Import ghost_map.
+From simuliris.base_logic Require Export gen_sim_prog.
+From simuliris.simulation Require Export slsls.
+From simuliris.simulation Require Import lifting.
+From iris.prelude Require Import options.
+From simuliris.stacked_borrows Require Import tkmap_view.
+From simuliris.stacked_borrows Require Export defs.
+From simuliris.stacked_borrows Require Import steps_progress steps_retag.
+
+(** * BorLang ghost state *)
+Class bor_stateGS Σ := {
+  (* Maintaining the locations protected by each call id *)
+  call_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
+  call_name : gname;
+
+  (* tag ownership *)
+  tag_inG :> tkmapG Σ ptr_id unit;
+  tag_name : gname;
+
+  (* A view of parts of the heap, conditional on the ptr_id *)
+  heap_view_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
+  heap_view_source_name : gname;
+  heap_view_target_name : gname;
+
+  (* Tainted tags: a set of tag * source location *)
+  tainted_tag_collection :> ghost_mapG Σ (ptr_id * loc) unit;
+  tainted_tags_name : gname;
+}.
+
+Section state_bijection.
+  Context `{bor_stateGS Σ}.
+
+  Context (sc_rel : scalar → scalar → iProp Σ).
+
+  Section defs.
+    (* We need all the maps from the tag interpretation here....
+     TODO: can we make that more beautiful? all the different invariants are interleaved in subtle ways, which makes modular reasoning really hard... *)
+    Context (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) (Mcall_t : gmap call_id (gmap ptr_id (gset loc))).
+
+
+    Definition call_set_in (M : gmap ptr_id (gset loc)) t l :=
+      ∃ L, M !! t = Some L ∧ l ∈ L.
+    Definition call_set_in' (M : gmap call_id (gmap ptr_id (gset loc))) c t l :=
+      ∃ M', M !! c = Some M' ∧ call_set_in M' t l.
+    Definition pub_loc σ_t σ_s (l : loc) : iProp Σ :=
+      ∀ sc_t, ⌜σ_t.(shp) !! l = Some sc_t⌝ → ∃ sc_s, ⌜σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
+    Definition priv_loc t (l : loc) : Prop :=
+      ∃ tk, M_tag !! t = Some (tk, tt) ∧ is_Some (M_t !! (t, l)) ∧
+        (* local *)
+        (tk = tk_local ∨
+        (* unique with protector *)
+        (tk = tk_unq ∧ ∃ c, call_set_in' Mcall_t c t l)).
+
+    (* This definition enforces quite strict requirements on the state:
+      - the domains of the heaps shp are the same
+      - the stacks are the same
+      - the call counter is the same
+      - the tag counter is the same
+      - the set of ongoing calls is the same
+      - there's a relation on the scalars stored at locations ([pub_loc]), except when the location is currently controlled by a tag ([priv_loc]).
+
+      Note that, while the definition may appear asymmetric in source and target, due to the well-formedness on states [state_wf] and the relation of the tag maps enforced below, it really is symmetric in practice.
+    *)
+    Definition state_rel σ_t σ_s : iProp Σ :=
+        ⌜dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝ ∗
+        ⌜σ_s.(sst) = σ_t.(sst)⌝ ∗
+        ⌜σ_s.(snp) = σ_t.(snp)⌝ ∗
+        ⌜σ_s.(snc) = σ_t.(snc)⌝ ∗
+        ⌜σ_s.(scs) = σ_t.(scs)⌝ ∗
+        (* private / public locations of the target *)
+        ∀ l, ⌜is_Some (σ_t.(shp) !! l)⌝ → pub_loc σ_t σ_s l ∨ ⌜∃ t, priv_loc t l⌝.
+
+    Global Instance state_rel_persistent σ_t σ_s `{∀ sc_t sc_s, Persistent (sc_rel sc_t sc_s)} :
+      Persistent (state_rel σ_t σ_s).
+    Proof. intros. apply _. Qed.
+  End defs.
+End state_bijection.
+
+Section bijection_lemmas.
+  Context `{bor_stateGS Σ}.
+  Context (sc_rel : scalar → scalar → iProp Σ).
+  Local Notation state_rel := (state_rel sc_rel).
+
+  Lemma state_rel_get_pure Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧ 
+      σ_s.(snp) = σ_t.(snp) ∧ σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_stacks_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_snp_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(snp) = σ_t.(snp)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_snc_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(snc) = σ_t.(snc)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_calls_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(scs) = σ_t.(scs)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+  Lemma state_rel_dom_eq Mtag Mt Mcall σ_t σ_s :
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜dom (gset loc) σ_t.(shp) = dom (gset loc) σ_s.(shp)⌝.
+  Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
+
+  Lemma state_rel_upd_pub_both M_tag M_t Mcall_t σ_t σ_s l sc_t sc_s :
+    sc_rel sc_t sc_s -∗
+    state_rel M_tag M_t Mcall_t σ_t σ_s -∗
+    state_rel M_tag M_t Mcall_t (state_upd_mem (<[l := sc_t]>) σ_t) (state_upd_mem (<[l := sc_s]>) σ_s).
+  Proof.
+    iIntros "Hs (%Hshp & % & % & % & % & Hrel)". rewrite /state_rel /=.
+    iSplitR. { iPureIntro. by rewrite !dom_insert_L Hshp. }
+    do 4 (iSplitR; first done).
+    iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
+    - iLeft. iIntros (sc_t') "%Hsc_t'". iExists sc_s.
+      iSplitR. { iPureIntro. by rewrite lookup_insert. }
+      move :Hsc_t'; rewrite lookup_insert => [= <-] //.
+    - rewrite lookup_insert_ne in Hsome; last done.
+      iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | Hpriv]".
+      + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done | done]. iApply "Hpub".
+      + iRight. done.
+  Qed.
+
+  Lemma priv_loc_upd_insert Mtag Mt Mcall t l t' l' sc :
+    priv_loc Mtag Mt Mcall t l →
+    priv_loc Mtag (<[(t',l') := sc]> Mt) Mcall t l.
+  Proof.
+    rewrite /priv_loc. intros (tk & Ht & Hs & Hinv). exists tk.
+    split_and!; [ done | | done].
+    apply lookup_insert_is_Some. destruct (decide ((t', l') = (t, l))); eauto.
+  Qed.
+
+  Lemma state_rel_upd_priv_target M_tag M_t Mcall σ_t σ_s l t sc :
+    is_Some (σ_t.(shp) !! l) →
+    priv_loc M_tag M_t Mcall t l →
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    state_rel M_tag (<[(t, l) := sc]> M_t) Mcall (state_upd_mem (<[l := sc]>) σ_t) σ_s.
+  Proof.
+    iIntros (Hs Hpriv) "(%Hshp & % & % & % & % & Hrel)". rewrite /state_rel /=.
+    iSplitR. { iPureIntro. rewrite dom_insert_lookup_L; done. }
+    do 4 (iSplitR; first done).
+    iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
+    - iRight. iExists t. iPureIntro. apply priv_loc_upd_insert. done.
+    - rewrite lookup_insert_ne in Hsome; last done.
+      iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | %Hpriv']".
+      + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done ]. iApply "Hpub".
+      + iRight. iPureIntro. destruct Hpriv' as (t' & Hpriv'). exists t'.
+        by eapply priv_loc_upd_insert.
+  Qed.
+
+  Lemma state_rel_upd_priv_source M_tag M_t Mcall σ_t σ_s l t sc :
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
+    ⌜priv_loc M_tag M_t Mcall t l⌝ -∗
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    state_rel M_tag M_t Mcall σ_t (state_upd_mem (<[l := sc]>) σ_s).
+  Proof.
+    iIntros (Hs Hpriv) "(%Hshp & % & % & % & % & Hrel)". rewrite /state_rel /=.
+    iSplitR. { iPureIntro. rewrite dom_insert_lookup_L; [ by rewrite Hshp| ].
+      rewrite lookup_lookup_total_dom; first by eauto.
+      rewrite Hshp. by apply elem_of_dom.
+    }
+    do 4 (iSplitR; first done).
+    iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
+    - iRight. iExists t. done.
+    - iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | %Hpriv']".
+      + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done ]. iApply "Hpub".
+      + iRight. iPureIntro. destruct Hpriv' as (t' & Hpriv'). exists t'. done.
+  Qed.
+
+  Lemma state_rel_pub_if_not_priv M_tag M_t Mcall σ_t σ_s l :
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    ⌜∀ t, ¬ priv_loc M_tag M_t Mcall t l⌝ -∗
+    pub_loc sc_rel σ_t σ_s l.
+  Proof.
+    iIntros (Hs) "(%& % & % & % & % & Hrel) %Hnpriv".
+    iPoseProof ("Hrel" $! l with "[//]") as "[Hpub | %Hpriv]"; first done.
+    destruct Hpriv as (t & Hpriv). exfalso; by eapply Hnpriv.
+  Qed.
+
+  Lemma state_rel_heap_lookup_Some M_tag M_t Mcall σ_t σ_s :
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    ∀ l, ⌜is_Some (σ_t.(shp) !! l)⌝ ↔ ⌜is_Some (σ_s.(shp) !! l)⌝.
+  Proof.
+    iIntros "(%Hshp & _)". iPureIntro. move => l. cbn. by rewrite -!elem_of_dom Hshp.
+  Qed.
+
+  Lemma state_rel_pub_or_priv M_tag M_t Mcall σ_t σ_s l :
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
+    state_rel M_tag M_t Mcall σ_t σ_s -∗
+    pub_loc sc_rel σ_t σ_s l ∨ ⌜∃ t, priv_loc M_tag M_t Mcall t l⌝.
+  Proof.
+    iIntros "Hsome Hstate". iDestruct "Hstate" as "(_ & _ & _ & _ & _ & Hl)".
+    by iApply "Hl".
+  Qed.
+
+  Lemma pub_loc_lookup σ_t σ_s l :
+    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
+    pub_loc sc_rel σ_t σ_s l -∗
+    ∃ sc_t sc_s, ⌜σ_t.(shp) !! l = Some sc_t ∧ σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    iIntros (Hs) "Hpub". destruct Hs as (sc_t & Ht).
+    iDestruct ("Hpub" $! sc_t with "[//]") as (sc_s) "[%Hs Hsc]".
+    iExists sc_t, sc_s. eauto.
+  Qed.
+
+End bijection_lemmas.
+
+(** Interpretation for call ids *)
+Section call_defs.
+  Context {Σ} (call_gname : gname) {call_inG : ghost_mapG Σ (call_id) (gmap ptr_id (gset loc))}.
+
+  Implicit Types (c : call_id) (pid : ptr_id) (pm : permission).
+
+  Definition call_set_is (c : call_id) (M : gmap ptr_id (gset loc)) :=
+    ghost_map_elem call_gname c (DfracOwn 1) M.
+
+  (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below. *)
+  Definition call_set_interp (M : gmap call_id (gmap ptr_id (gset loc))) (σ : state) : Prop :=
+    ∀ c (M' : gmap ptr_id (gset loc)), M !! c = Some M' →
+      c ∈ σ.(scs) ∧
+      (* for every ptr_id *)
+      ∀ t (L : gset loc), M' !! t = Some L →
+        (t < σ.(snp))%nat ∧
+        (* for every protected location [l], there needs to be a protector in the stack *)
+        ∀ (l : loc), l ∈ L → ∃ s pm, σ.(sst) !! l = Some s ∧
+          mkItem pm (Tagged t) (Some c) ∈ s ∧ pm ≠ Disabled.
+
+  Definition loc_protected_by σ t l c :=
+    c ∈ σ.(scs) ∧ (t < σ.(snp))%nat ∧ ∃ stk pm, σ.(sst) !! l = Some stk ∧
+      mkItem pm (Tagged t) (Some c) ∈ stk ∧ pm ≠ Disabled.
+  Lemma call_set_interp_access M σ c t l :
+    call_set_interp M σ →
+    call_set_in' M c t l →
+    loc_protected_by σ t l c.
+  Proof.
+    intros Hinterp (M' & HM_some & L & HM'_some & Hin).
+    specialize (Hinterp _ _ HM_some) as (? & Hinterp).
+    specialize (Hinterp _ _ HM'_some) as (? & Hinterp).
+    specialize (Hinterp _ Hin). done.
+  Qed.
+
+  Lemma call_set_interp_remove c M σ :
+    call_set_interp M σ →
+    call_set_interp (delete c M) (state_upd_calls (.∖ {[c]}) σ).
+  Proof.
+    intros Hinterp c' M' Hsome. destruct (decide (c' = c)) as [-> | Hneq].
+    { rewrite lookup_delete in Hsome. done. }
+    rewrite lookup_delete_ne in Hsome; last done.
+    apply Hinterp in Hsome as (Hin & Hpid).
+    split.
+    { destruct σ; cbn in *. apply elem_of_difference; split; first done. by apply not_elem_of_singleton. }
+    intros t S HS.
+    apply Hpid in HS as (Ht & Hlookup). split; first by destruct σ.
+    intros l Hl. apply Hlookup in Hl as (s & pm & Hsst & Hs & Hpm).
+    exists s, pm. split_and!; [ | done..]. by destruct σ.
+  Qed.
+End call_defs.
+
+Notation "c '@@' M" := (call_set_is call_name c M) (at level 50).
+
+
+(** Interpretation for heap assertions under control of tags.
+    The interpretation of the tag map and the "heap view" fragments are interlinked.
+ *)
+Section heap_defs.
+  (** The assumption on the location still being valid for tag [t], i.e., [t] not being disabled. *)
+  (* Note: That the stack is still there needs to be part of the precondition [bor_state_pre].
+    Otherwise, we will not be able to prove reflexivity for deallocation:
+      that needs to be able to remove stacks from the state without updating all the ghost state that may still make assumptions about it.
+  *)
+  Definition bor_state_pre (l : loc) (t : ptr_id) (tk : tag_kind) (σ : state) :=
+    match tk with
+    | tk_local => True
+    | _ => ∃ st pm pro, σ.(sst) !! l = Some st ∧
+        mkItem pm (Tagged t) pro ∈ st ∧ pm ≠ Disabled
+    end.
+
+  Lemma loc_protected_bor_state_pre l t c σ tk :
+    loc_protected_by σ t l c → bor_state_pre l t tk σ.
+  Proof.
+    intros (_ & _ & (stk & pm & ?)). destruct tk; [| | done]; rewrite /bor_state_pre; eauto.
+  Qed.
+
+  Definition bor_state_own (l : loc) (t : ptr_id) (tk : tag_kind) (σ : state) :=
+    match tk with
+    | tk_local => σ.(sst) !! l = Some ([mkItem Unique (Tagged t) None])
+    | tk_unq => ∃ st, σ.(sst) !! l = Some st ∧ ∃ opro st',
+        st = mkItem Unique (Tagged t) opro :: st'
+    | tk_pub => ∃ st, σ.(sst) !! l = Some st ∧ t ∈ active_SRO st
+    end.
+
+  Lemma bor_state_own_some_stack l t tk σ :
+    bor_state_own l t tk σ → ∃ stk, σ.(sst) !! l = Some stk.
+  Proof. rewrite /bor_state_own. destruct tk; naive_solver. Qed.
+
+  (** Location [l] is controlled by tag [t] at kind [tk] with scalar [sc]. *)
+  Definition loc_controlled (l : loc) (t : ptr_id) (tk : tag_kind) (sc : scalar) (σ : state) :=
+    (bor_state_pre l t tk σ → bor_state_own l t tk σ ∧ σ.(shp) !! l = Some sc).
+
+  Lemma loc_controlled_local l t sc σ :
+    loc_controlled l t tk_local sc σ →
+    σ.(sst) !! l = Some [mkItem Unique (Tagged t) None] ∧
+    σ.(shp) !! l = Some sc.
+  Proof. intros Him. specialize (Him I) as (Hbor & Hmem). split;done. Qed.
+
+  Lemma loc_controlled_unq l t sc s σ :
+    loc_controlled l t tk_unq sc σ →
+    σ.(sst) !! l = Some s →
+    (∃ pm opro, mkItem pm (Tagged t) opro ∈ s ∧ pm ≠ Disabled) →
+    (∃ s' op, s = (mkItem Unique (Tagged t) op) :: s') ∧
+    σ.(shp) !! l = Some sc.
+  Proof.
+    intros Him Hstk (pm & opro & Hpm).
+    edestruct Him as (Hown & ?). { rewrite /bor_state_pre. eauto. }
+    split; last done.
+    destruct Hown as (st' & opro' & st'' & Hst' & ->). simplify_eq. eauto.
+  Qed.
+
+  Lemma loc_controlled_pub l t sc σ s :
+    loc_controlled l t tk_pub sc σ →
+    σ.(sst) !! l = Some s →
+    (∃ pm opro, mkItem pm (Tagged t) opro ∈ s ∧ pm ≠ Disabled) →
+    t ∈ active_SRO s ∧
+    σ.(shp) !! l = Some sc.
+  Proof.
+    intros Him Hst (pm & opro & Hin & Hpm).
+    edestruct Him as (Hown & ?). { rewrite /bor_state_pre; eauto 8. }
+    split; last done. destruct Hown as (st' & Hst' & Hsro).
+    simplify_eq. eauto.
+  Qed.
+
+  Lemma loc_controlled_mem_insert_ne l l' t tk sc sc' σ :
+    l ≠ l' →
+    loc_controlled l t tk sc σ →
+    loc_controlled l t tk sc (state_upd_mem <[l' := sc']> σ).
+  Proof.
+    intros Hneq Him Hpre.
+    apply Him in Hpre as [Hown Hmem]. split; first done.
+    rewrite lookup_insert_ne; done.
+  Qed.
+  Lemma loc_controlled_mem_insert l t tk sc sc' σ :
+    loc_controlled l t tk sc σ →
+    loc_controlled l t tk sc' (state_upd_mem <[l := sc']> σ).
+  Proof.
+    intros Him Hpre. apply Him in Hpre as [Hown Hmem]. split; first done.
+    rewrite lookup_insert; done.
+  Qed.
+
+  Section local.
+  (** Facts about local tags  *)
+  Lemma loc_controlled_local_unique l t t' sc sc' σ :
+    loc_controlled l t tk_local sc σ →
+    loc_controlled l t' tk_local sc' σ →
+    t' = t ∧ sc' = sc.
+  Proof.
+    intros Hcontrol Hcontrol'. specialize (Hcontrol I) as [Hown Hmem].
+    specialize (Hcontrol' I) as [Hown' Hmem'].
+    split; last by simplify_eq.
+    move : Hown Hown'. rewrite /bor_state_own // => -> [=] //.
+  Qed.
+
+  Lemma loc_controlled_local_pre l t t' tk' sc σ :
+    loc_controlled l t tk_local sc σ →
+    bor_state_pre l t' tk' σ →
+    tk' = tk_local ∨ t' = t.
+  Proof.
+    intros [Heq _]%loc_controlled_local.
+    destruct tk'; last by eauto.
+    - intros (st' &  pm & opro &  Hst & Hin & Hpm).
+      move : Hst Hin. rewrite Heq.
+      move => [= <-] /elem_of_list_singleton [=]; eauto.
+    - intros (st' &  pm & opro &  Hst & Hin & Hpm).
+      move : Hst Hin. rewrite Heq.
+      move => [= <-] /elem_of_list_singleton [=]; eauto.
+  Qed.
+  Lemma loc_controlled_local_own l t t' tk' sc σ :
+    loc_controlled l t tk_local sc σ →
+    bor_state_own l t' tk' σ →
+    (tk' = tk_unq ∨ tk' = tk_local) ∧ t = t'.
+  Proof.
+    intros [Heq _]%loc_controlled_local. destruct tk'.
+    - move => [st' []]. rewrite Heq => [= <-] //.
+    - move => [st' [Heq' [opro [st'' ]]]]. move : Heq'. rewrite Heq => [= <-] [= ->] //; eauto.
+    - rewrite /bor_state_own Heq => [=]; eauto.
+  Qed.
+
+  (* having local ownership of a location is authoritative, in the sense that we can update memory without hurting other tags that control this location. *)
+  Lemma loc_controlled_local_authoritative l t t' tk' sc sc' σ f :
+    loc_controlled l t tk_local sc (state_upd_mem f σ) →
+    loc_controlled l t' tk' sc' σ →
+    t ≠ t' →
+    loc_controlled l t' tk' sc' (state_upd_mem f σ).
+  Proof.
+    intros Hcontrol Hcontrol' Hneq [Hown Hmem]%Hcontrol'. split; first done.
+    by edestruct (loc_controlled_local_own l t t' tk' sc (state_upd_mem f σ)) as [_ <-].
+  Qed.
+  End local.
+
+  (** Domain agreement for the two heap views for source and target *)
+  Definition dom_agree_on_tag (M_t M_s : gmap (ptr_id * loc) scalar) (t : ptr_id) :=
+    (∀ l, is_Some (M_t !! (t, l)) → is_Some (M_s !! (t, l))) ∧
+    (∀ l, is_Some (M_s !! (t, l)) → is_Some (M_t !! (t, l))).
+
+  Lemma dom_agree_on_tag_upd_ne_target M_t M_s t t' l sc :
+    t ≠ t' →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag (<[(t, l) := sc]> M_t) M_s t'.
+  Proof.
+    intros Hneq [Htgt Hsrc]. split => l'' Hsome.
+    - apply Htgt. move : Hsome. rewrite lookup_insert_is_Some. by intros [[= -> <-] | [_ ?]].
+    - apply lookup_insert_is_Some. right. split; first congruence. by apply Hsrc.
+  Qed.
+  Lemma dom_agree_on_tag_upd_ne_source M_t M_s t t' l sc :
+    t ≠ t' →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag M_t (<[(t, l) := sc]> M_s) t'.
+  Proof.
+    intros Hneq [Htgt Hsrc]. split => l'' Hsome.
+    - apply lookup_insert_is_Some. right. split; first congruence. by apply Htgt.
+    - apply Hsrc. move : Hsome. rewrite lookup_insert_is_Some. by intros [[= -> <-] | [_ ?]].
+  Qed.
+  Lemma dom_agree_on_tag_upd_target M_t M_s t l sc :
+    is_Some (M_t !! (t, l)) →
+    dom_agree_on_tag M_t M_s t →
+    dom_agree_on_tag (<[(t, l) := sc]> M_t) M_s t.
+  Proof.
+    intros Hs [Htgt Hsrc]. split => l''.
+    - rewrite lookup_insert_is_Some. intros [[= <-] | [_ ?]]; by apply Htgt.
+    - intros Hsome. rewrite lookup_insert_is_Some'. right; by apply Hsrc.
+  Qed.
+  Lemma dom_agree_on_tag_upd_source M_t M_s t l sc :
+    is_Some (M_s !! (t, l)) →
+    dom_agree_on_tag M_t M_s t →
+    dom_agree_on_tag M_t (<[(t, l) := sc]> M_s) t.
+  Proof.
+    intros Hs [Htgt Hsrc]. split => l''.
+    - intros Hsome. rewrite lookup_insert_is_Some'. right; by apply Htgt.
+    - rewrite lookup_insert_is_Some. intros [[= <-] | [_ ?]]; by apply Hsrc.
+  Qed.
+  Lemma dom_agree_on_tag_lookup_target M_t M_s t l :
+    dom_agree_on_tag M_t M_s t → is_Some (M_t !! (t, l)) → is_Some (M_s !! (t, l)).
+  Proof. intros Hag Hsome. apply Hag, Hsome. Qed.
+  Lemma dom_agree_on_tag_lookup_source M_t M_s t l :
+    dom_agree_on_tag M_t M_s t → is_Some (M_s !! (t, l)) → is_Some (M_t !! (t, l)).
+  Proof. intros Hag Hsome. apply Hag, Hsome. Qed.
+
+  Lemma dom_agree_on_tag_not_elem M_t M_s t :
+    (∀ l, M_t !! (t, l) = None) → (∀ l, M_s !! (t, l) = None) →
+    dom_agree_on_tag M_t M_s t.
+  Proof. intros Ht Hs. split; intros l; rewrite Ht Hs; congruence. Qed.
+
+  (* TODO: move somewhere? *)
+  Lemma lookup_difference_is_Some `{Countable K} (V : Type) (M1 M2 : gmap K V) (k : K) : 
+    is_Some ((M1 ∖ M2) !! k) ↔ is_Some (M1 !! k) ∧ M2 !! k = None.
+  Proof. rewrite /is_Some. setoid_rewrite lookup_difference_Some. naive_solver. Qed.
+
+  Lemma dom_agree_on_tag_difference M1_t M1_s M2_t M2_s t :
+    dom_agree_on_tag M1_t M1_s t → dom_agree_on_tag M2_t M2_s t →
+    dom_agree_on_tag (M1_t ∖ M2_t) (M1_s ∖ M2_s) t.
+  Proof.
+    intros [H1a H1b] [H2a H2b]. split; intros l. 
+    all: rewrite !lookup_difference_is_Some !eq_None_not_Some; naive_solver.
+  Qed.
+
+  (* TODO: move? *)
+  Lemma lookup_union_Some_l' `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) (v : V) :
+    (M1 ∪ M2) !! k = Some v → M2 !! k = None → M1 !! k = Some v.
+  Proof.
+    destruct (M1 !! k) as [ v' | ] eqn:Hv'.
+    - specialize (lookup_union_Some_l M1 M2 _ _ Hv') as ->. move => [= ->]. done.
+    - rewrite lookup_union_r; last done. congruence.
+  Qed.
+  (* TODO: move? *)
+  Lemma lookup_union_is_Some `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) :
+    is_Some ((M1 ∪ M2) !! k) ↔ is_Some (M1 !! k) ∨ is_Some (M2 !! k).
+  Proof.
+    split.
+    - intros (v & Hv). destruct (M1 !! k) eqn:HM1; first by eauto.
+      right. erewrite <-lookup_union_r; eauto.
+    - intros [(v & HM1) | (v & HM2)].
+      + rewrite (lookup_union_Some_l _ _ _ _ HM1); eauto.
+      + destruct (M1 !! k) eqn:HM1. { rewrite (lookup_union_Some_l _ _ _ _ HM1); eauto. }
+        rewrite lookup_union_r; eauto.
+  Qed.
+
+  Lemma dom_agree_on_tag_union M1_t M1_s M2_t M2_s t :
+    dom_agree_on_tag M1_t M1_s t → dom_agree_on_tag M2_t M2_s t →
+    dom_agree_on_tag (M1_t ∪ M2_t) (M1_s ∪ M2_s) t.
+  Proof.
+    intros [H1a H1b] [H2a H2b]. split; intros l; rewrite !lookup_union_is_Some; naive_solver.
+  Qed.
+
+
+  (** The main interpretation for tags *)
+  Definition tag_interp (M : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) σ_t σ_s : Prop :=
+    (∀ (t : ptr_id) tk, M !! t = Some (tk, ()) →
+      (* tags are valid *)
+      (t < σ_t.(snp))%nat ∧ (t < σ_s.(snp))%nat ∧
+      (* at all locations, the values agree, and match the physical state assuming the tag currently has control over the location *)
+      (∀ l sc_t, M_t !! (t, l) = Some sc_t → loc_controlled l t tk sc_t σ_t) ∧
+      (∀ l sc_s, M_s !! (t, l) = Some sc_s → loc_controlled l t tk sc_s σ_s) ∧
+      dom_agree_on_tag M_t M_s t) ∧
+    (∀ (t : ptr_id) (l : loc), is_Some (M_t !! (t, l)) → is_Some (M !! t)) ∧
+    (∀ (t : ptr_id) (l : loc), is_Some (M_s !! (t, l)) → is_Some (M !! t)).
+End heap_defs.
+
+
+Notation "p '$$' tk" := (tkmap_elem tag_name p tk ()) (at level 50).
+
+Definition tk_to_frac (tk : tag_kind) :=
+  match tk with
+  | tk_pub => DfracDiscarded
+  | _ => DfracOwn 1
+  end.
+Notation "l '↦t[' tk ']{' t } sc" := (ghost_map_elem heap_view_target_name (t, l) (tk_to_frac tk) sc)
+  (at level 20, format "l  ↦t[ tk ]{ t }  sc") : bi_scope.
+Notation "l '↦s[' tk ']{' t } sc" := (ghost_map_elem heap_view_source_name (t, l) (tk_to_frac tk) sc)
+  (at level 20, format "l  ↦s[ tk ]{ t }  sc") : bi_scope.
+
+
+Section tainted_tags.
+  Context `{bor_stateGS Σ}.
+  (** Interpretation for tainted tags.
+    A tag [t] is tainted for a location [l] when invariantly, the stack for [l] can never contain
+     an item tagged with [t] again. *)
+
+  Definition tag_tainted_for (t : ptr_id) (l : loc) :=
+    ghost_map_elem tainted_tags_name (t, l) DfracDiscarded tt.
+  (* tag [t] is not in [l]'s stack, and can never be in that stack again *)
+  Definition tag_tainted_interp (σ_s : state) : iProp Σ :=
+    ∃ (M : gmap (ptr_id * loc) unit), ghost_map_auth tainted_tags_name 1 M ∗
+      ∀ (t : ptr_id) (l : loc), ⌜is_Some (M !! (t, l))⌝ -∗
+        ⌜(t < σ_s.(snp))%nat⌝ ∗
+        (* we have a persistent element here to remove sideconditions from the insert lemma *)
+        tag_tainted_for t l ∗
+        ⌜∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk →
+          tg it ≠ Tagged t ∨ perm it = Disabled⌝.
+
+  (* the result of a read in the target: either the tag was invalid, and it now must be invalid for the source, too,
+      or the result [v_t'] agrees with what we expected to get ([v_t]). *)
+  Definition deferred_read (v_t v_t' : value) l t : iProp Σ :=
+    (∃ i : nat, ⌜(i < length v_t)%nat ∧ length v_t = length v_t'⌝ ∗ tag_tainted_for t (l +ₗ i)) ∨ ⌜v_t' = v_t⌝.
+
+  Lemma tag_tainted_interp_insert σ_s t l :
+    (t < σ_s.(snp))%nat →
+    (∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk → tg it ≠ Tagged t ∨ perm it = Disabled) →
+    tag_tainted_interp σ_s ==∗
+    tag_tainted_interp σ_s ∗ tag_tainted_for t l.
+  Proof.
+    iIntros (Ht Hnot_in) "(%M & Hauth & #Hinterp)".
+    destruct (M !! (t, l)) as [[] | ] eqn:Hlookup.
+    - iModIntro. iPoseProof ("Hinterp" $! t l with "[]") as "(_ & $ & _)"; first by eauto.
+      iExists M. iFrame "Hauth Hinterp".
+    - iMod (ghost_map_insert (t, l) () Hlookup with "Hauth") as "[Hauth He]".
+      iMod (ghost_map_elem_persist with "He") as "#He". iFrame "He".
+      iModIntro. iExists (<[(t, l) := ()]> M). iFrame "Hauth".
+      iIntros (t' l' [[= <- <-] | [Hneq Hsome]]%lookup_insert_is_Some).
+      { iFrame "He". eauto. }
+      iApply "Hinterp". done.
+  Qed.
+
+  Lemma tag_tainted_interp_lookup σ_s t l :
+    tag_tainted_for t l -∗
+    tag_tainted_interp σ_s -∗
+    ⌜(t < σ_s.(snp))%nat⌝ ∗
+    ⌜∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk → tg it ≠ Tagged t ∨ perm it = Disabled⌝.
+  Proof.
+    iIntros "Helem (%M & Hauth & Hinterp)".
+    iPoseProof (ghost_map_lookup with "Hauth Helem") as "%Hlookup".
+    iPoseProof ("Hinterp" $! t l with "[]") as "(% & _ & %)"; by eauto.
+  Qed.
+
+  Definition is_fresh_tag σ tg :=
+    match tg with
+    | Untagged => True
+    | Tagged t => σ.(snp) ≤ t
+    end.
+  Lemma tag_tainted_interp_preserve σ_s σ_s' :
+    σ_s'.(snp) ≥ σ_s.(snp) →
+    (∀ l stk', σ_s'.(sst) !! l = Some stk' → ∀ it, it ∈ stk' →
+      is_fresh_tag σ_s it.(tg) ∨ it.(perm) = Disabled ∨
+        ∃ stk, σ_s.(sst) !! l = Some stk ∧ it ∈ stk) →
+    tag_tainted_interp σ_s -∗ tag_tainted_interp σ_s'.
+  Proof.
+    iIntros (Hge Hupd) "(%M & Hauth & Hinterp)".
+    iExists M. iFrame "Hauth". iIntros (t l Hsome).
+    iDestruct ("Hinterp" $! t l with "[//]") as "(%Hlt & $ & %Hsst)".
+    iSplit; iPureIntro; first lia.
+    intros stk' it Hstk' Hit.
+    specialize (Hupd _ _ Hstk' _ Hit) as [Hfresh | [Hdisabled | (stk & Hstk & Hit')]].
+    - left. destruct (tg it) as [t' | ]; last done. intros [= ->].
+      simpl in Hfresh. lia.
+    - right; done.
+    - eapply Hsst; done.
+  Qed.
+
+  Lemma tag_tainted_interp_tagged_sublist σ_s σ_s' :
+    σ_s'.(snp) ≥ σ_s.(snp) →
+    (∀ l stk', σ_s'.(sst) !! l = Some stk' →
+      ∃ stk, σ_s.(sst) !! l = Some stk ∧
+        tagged_sublist stk' stk) →
+    tag_tainted_interp σ_s -∗ tag_tainted_interp σ_s'.
+  Proof.
+    iIntros (Hge Hupd). iApply tag_tainted_interp_preserve; first done.
+    intros l stk' Hstk' it Hit.
+    destruct (Hupd _ _ Hstk') as (stk & Hstk & Hsubl).
+    destruct (Hsubl _ Hit) as (it' & Hit' & Htg & Hprot & Hperm).
+    destruct (decide (perm it = Disabled)) as [ | Hperm'%Hperm]; first by eauto.
+    right; right. exists stk. split; first done.
+    destruct it, it'; simpl in *; simplify_eq. done.
+  Qed.
+
+  Lemma tag_tainted_interp_retag σ_s c l old rk pk T new α' nxtp' :
+    retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l old rk pk T = Some (new, α', nxtp') →
+    tag_tainted_interp σ_s -∗ tag_tainted_interp (mkState σ_s.(shp) α' σ_s.(scs) nxtp' σ_s.(snc)).
+  Proof.
+    iIntros (Hretag).
+    iApply (tag_tainted_interp_preserve); simpl.
+    { specialize (retag_change_nxtp _ _ _ _ _ _ _ _ _ _ _ _ Hretag). lia. }
+    intros l' stk' Hstk' it Hit.
+    specialize (retag_item_in _ _ _ _ _ _ _ _ _ _ _ _ Hretag l' stk') as Ht.
+    destruct (decide (perm it = Disabled)) as [Hdisabled | Hndisabled]; first by eauto.
+    destruct (tg it) as [t | ] eqn:Htg; last by (left; done).
+    destruct (decide (t < σ_s.(snp))%nat) as [Hlt | Hnlt].
+    - right; right. eapply (Ht t it); done.
+    - left. simpl. lia.
+  Qed.
+
+  Lemma tag_tainted_interp_alloc σ l n :
+    let nt := Tagged σ.(snp) in
+    tag_tainted_interp σ -∗ tag_tainted_interp (mkState (init_mem l n σ.(shp)) (init_stacks σ.(sst) l n nt) σ.(scs) (S σ.(snp)) σ.(snc)).
+  Proof.
+    intros nt. iIntros "Htainted".
+    iApply (tag_tainted_interp_preserve σ with "Htainted"). { simpl. lia. }
+    intros l' stk' Hstk' it Hit.
+    specialize (init_stacks_lookup_case _ _ _ _ _ _ Hstk') as [(Hstk'' & Hi) | (i & Hi & ->)].
+    + right. right. eauto.
+    + left. simpl. move : Hstk'. rewrite (proj1 (init_stacks_lookup _ _ _ _)); last done.
+      intros [= <-]. move : Hit. rewrite elem_of_list_singleton => -> /=. lia.
+  Qed.
+End tainted_tags.
+
+
+Section state_interp.
+  Context `{bor_stateGS Σ} (sc_rel : scalar → scalar → iProp Σ).
+  (** The main combined interpretation for the borrow semantics *)
+
+  (* Ownership of the authoritative parts. *)
+  Definition bor_auth (M_call : gmap call_id (gmap ptr_id (gset loc))) (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) : iProp Σ :=
+    ghost_map_auth call_name 1 M_call ∗
+    tkmap_auth tag_name 1 M_tag ∗
+    ghost_map_auth heap_view_target_name 1 M_t ∗
+    ghost_map_auth heap_view_source_name 1 M_s.
+
+  Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
+  (* since multiple parts of the interpretation need access to these maps, 
+    we own the authoritative parts here and not in the interpretations below *)
+   ∃ (M_call : gmap call_id (gmap ptr_id (gset loc)))
+     (M_tag : gmap ptr_id (tag_kind * unit))
+     (M_t M_s : gmap (ptr_id * loc) scalar),
+    bor_auth M_call M_tag M_t M_s ∗
+
+    tag_tainted_interp σ_s ∗
+
+    state_rel sc_rel M_tag M_t M_call σ_t σ_s ∗
+    (* due to the [state_rel], enforcing this on [σ_t] also does the same for [σ_s] *)
+    ⌜call_set_interp M_call σ_t⌝ ∗
+    ⌜tag_interp M_tag M_t M_s σ_t σ_s⌝ ∗
+
+    ⌜state_wf σ_s⌝ ∗
+    ⌜state_wf σ_t⌝.
+
+  Lemma bor_interp_get_pure σ_t σ_s :
+    bor_interp σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧ σ_s.(snp) = σ_t.(snp) ∧ 
+    σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧ 
+    dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝.
+  Proof.
+    iIntros "(% & % & % & % & ? & _ & Hstate & _ & _ & % & %)".
+    iPoseProof (state_rel_get_pure with "Hstate") as "%".
+    iPoseProof (state_rel_dom_eq with "Hstate") as "<-".
+    iPureIntro. tauto.
+  Qed.
+
+  Lemma bor_interp_get_state_wf σ_t σ_s :
+    bor_interp σ_t σ_s -∗
+    ⌜state_wf σ_t⌝ ∗ ⌜state_wf σ_s⌝.
+  Proof. iIntros "(% & % & % & % & ? & ? & Hstate & _ & _ & % & %)". eauto. Qed.
+
+End state_interp.
+
+
+(** Array generalizes pointsto connectives to lists of scalars *)
+Definition array_tag `{!bor_stateGS Σ} γh (t : ptr_id) (l : loc) (dq : dfrac) (scs : list scalar) : iProp Σ :=
+  ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc)%I.
+Notation "l '↦t∗[' tk ']{' t } scs" := (array_tag heap_view_target_name t l (tk_to_frac tk) scs)
+  (at level 20, format "l  ↦t∗[ tk ]{ t }  scs") : bi_scope.
+Notation "l '↦s∗[' tk ']{' t } scs" := (array_tag heap_view_source_name t l (tk_to_frac tk) scs)
+  (at level 20, format "l  ↦s∗[ tk ]{ t }  scs") : bi_scope.
+
+
+(** [array_tag_map] is the main way we interface with [array_tag] by having a representation of
+  the stored memory fragment. *)
+Fixpoint array_tag_map (l : loc) (t : ptr_id) (v : list scalar) : gmap (ptr_id * loc) scalar :=
+  match v with
+  | [] => ∅
+  | sc :: v' => <[(t, l) := sc]> (array_tag_map (l +ₗ 1) t v')
+  end.
+Lemma array_tag_map_lookup1 l t v t' l' :
+  is_Some (array_tag_map l t v !! (t', l')) →
+  t' = t ∧ l.1 = l'.1 ∧ l.2 ≤ l'.2 < l.2 + length v.
+Proof.
+  induction v as [ | sc v IH] in l |-*.
+  - simpl. rewrite lookup_empty. intros [? [=]].
+  - simpl. move => [sc0 ]. rewrite lookup_insert_Some. move => [[[= <- <-] Heq] | [Hneq Ht]]; first lia.
+    move : (IH (l +ₗ 1) ltac:(eauto)). destruct l. simpl. lia.
+Qed.
+Lemma array_tag_map_lookup2 l t v t' l' :
+  is_Some (array_tag_map l t v !! (t', l')) →
+  t' = t ∧ ∃ i, (i < length v)%nat ∧ l' = l +ₗ i.
+Proof.
+  intros (-> & H1 & H2)%array_tag_map_lookup1.
+  split; first done. exists (Z.to_nat (l'.2 - l.2)).
+  destruct l, l';  rewrite /shift_loc; simpl in *. split.
+  - lia.
+  - apply pair_equal_spec. split; lia.
+Qed.
+
+Lemma array_tag_map_lookup_Some l t v (i : nat) :
+  (i < length v)%nat →
+  array_tag_map l t v !! (t, l +ₗ i) = v !! i.
+Proof.
+  induction v as [ | sc v IH] in l, i |-*.
+  - simpl. lia.
+  - simpl. intros Hi. destruct i as [ | i].
+    + rewrite shift_loc_0_nat. rewrite lookup_insert. done.
+    + rewrite lookup_insert_ne; first last. { destruct l; simpl; intros [= ?]; lia. }
+      move : (IH (l +ₗ 1) i ltac:(lia)). rewrite shift_loc_assoc.
+      by replace (Z.of_nat (S i)) with (1 + i) by lia.
+Qed.
+
+Lemma array_tag_map_lookup_None t t' l v :
+  t ≠ t' → ∀ l', array_tag_map l t v !! (t', l') = None.
+Proof.
+  intros Hneq l'. destruct (array_tag_map l t v !! (t', l')) eqn:Harr; last done.
+  specialize (array_tag_map_lookup1 l t v t' l' ltac:(eauto)) as [Heq _]; congruence.
+Qed.
+
+Lemma array_tag_map_lookup_None' l t v l' : 
+  (∀ i:nat, (i < length v)%nat → l +ₗ i ≠ l') →
+  array_tag_map l t v !! (t, l') = None.
+Proof. 
+  intros Hneq. destruct (array_tag_map _ _ _ !! _) eqn:Heq; last done. exfalso.
+  specialize (array_tag_map_lookup2 l t v t l' ltac:(eauto)) as [_ (i & Hi & ->)].
+  eapply Hneq; last reflexivity. done. 
+Qed.
+
+Lemma array_tag_map_lookup_None2 l t t' v l' :
+  array_tag_map l t v !! (t', l') = None →
+  t ≠ t' ∨ (∀ i: nat, (i < length v)%nat → l +ₗ i ≠ l'). 
+Proof.
+Admitted.
+
+Lemma dom_agree_on_tag_array_tag_map l t v_t v_s :
+  length v_t = length v_s →
+  dom_agree_on_tag (array_tag_map l t v_t) (array_tag_map l t v_s) t.
+Proof.
+  intros Hlen. split; intros l'.
+  - intros (_ & (i & Hi & ->))%array_tag_map_lookup2. rewrite array_tag_map_lookup_Some; last lia.
+    apply lookup_lt_is_Some_2. lia.
+  - intros (_ & (i & Hi & ->))%array_tag_map_lookup2. rewrite array_tag_map_lookup_Some; last lia.
+    apply lookup_lt_is_Some_2. lia.
+Qed.
+
+(** Array update lemmas for the heap views *)
+Lemma ghost_map_array_tag_lookup `{!bor_stateGS Σ} (γh : gname) (q : Qp) (M : gmap (ptr_id * loc) scalar) (scs : list scalar) (t : ptr_id) (l : loc) dq :
+  ghost_map_auth γh q M -∗
+  ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc) -∗
+  ⌜∀ i : nat, (i < length scs)%nat → M !! (t, l +ₗ i) = scs !! i⌝.
+Proof.
+  iIntros "Hauth Helem". iInduction scs as [ |sc scs ] "IH" forall (l) "Hauth Helem".
+  - iPureIntro; cbn. lia.
+  - rewrite big_sepL_cons. iDestruct "Helem" as "[Hsc Hscs]".
+    iPoseProof (ghost_map_lookup with "Hauth Hsc") as "%Hl".
+    iDestruct ("IH" $! (l +ₗ 1) with "Hauth [Hscs]") as "%IH".
+    { iApply (big_sepL_mono with "Hscs"). intros i sc' Hs. cbn. rewrite shift_loc_assoc.
+      replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done. }
+    iPureIntro. intros i Hle. destruct i; first done.
+    replace (Z.of_nat $ S i) with (1 + i)%Z by lia. cbn in *. rewrite -(IH i); last lia.
+    by rewrite shift_loc_assoc.
+Qed.
+
+Lemma ghost_map_array_tag_update `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v v' : list scalar) (t : ptr_id) (l : loc) :
+  ghost_map_auth γh 1 M -∗
+  ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
+  ([∗ list] i ↦ sc' ∈ v', ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc') ∗
+  ghost_map_auth γh 1 (array_tag_map l t v' ∪ M).
+Proof.
+Admitted.
+
+Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) :
+  (∀ i : nat, (i < length v)%nat → M !! (t, l +ₗ i) = None) →
+  ghost_map_auth γh 1 M  ==∗
+  ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ∗
+  ghost_map_auth γh 1 (array_tag_map l t v ∪ M).
+Proof.
+Admitted.
+
+Lemma ghost_map_array_tag_delete `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) :
+  ghost_map_auth γh 1 M -∗
+  ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
+  ghost_map_auth γh 1 (M ∖ array_tag_map l t v).
+Proof.
+  iIntros "Hauth Helems". 
+  iApply (ghost_map_delete_big (array_tag_map l t v) with "Hauth [Helems]"). 
+  iInduction v as [ | sc v] "IH" forall (l); first done. 
+  simpl. iApply big_sepM_insert. 
+  { destruct (_ !! _) eqn:Heq; last done. 
+    specialize (array_tag_map_lookup2 (l +ₗ 1) t v t l ltac:(eauto)) as [_ (i & _ & Hl)].
+    destruct l. injection Hl. lia. 
+  } 
+  rewrite shift_loc_0_nat. iDestruct "Helems" as "[$ Helems]".  
+  iApply "IH". iApply (big_sepL_mono with "Helems"). 
+  iIntros (i sc' Hi). simpl. 
+  rewrite shift_loc_assoc. replace (Z.of_nat (S i)) with (1 + i) by lia; done.
+Qed.
+
+Lemma ghost_map_array_tag_tk `{!bor_stateGS Σ} (γh : gname) (v : list scalar) (t : ptr_id) (l : loc) tk :
+  ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
+  ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (tk_to_frac tk) sc).
+Proof.
+  destruct tk; cbn; [ | by eauto | by eauto].
+  iInduction v as [| sc v] "IH" forall (l); first by eauto.
+  rewrite !big_sepL_cons. iIntros "[Hh Hr]".
+  iMod (ghost_map_elem_persist with "Hh") as "$".
+  iMod ("IH" $! (l +ₗ 1) with "[Hr]") as "Hr".
+  - iApply (big_sepL_mono with "Hr"). intros i sc' Hs. simpl. rewrite shift_loc_assoc.
+    by replace (Z.of_nat (S i)) with (1 + i) by lia.
+  - iModIntro.
+    iApply (big_sepL_mono with "Hr"). intros i sc' Hs. simpl. rewrite shift_loc_assoc.
+    by replace (Z.of_nat (S i)) with (1 + i) by lia.
+Qed.
+
+
+Section val_rel.
+  Context `{bor_stateGS Σ}.
+  (** Value relation *)
+
+  Definition sc_rel (sc1 sc2 : scalar) : iProp Σ :=
+    match sc1, sc2 with
+    | ScInt z1, ScInt z2 => ⌜z1 = z2⌝
+    | ScFnPtr f1, ScFnPtr f2 => ⌜f1  = f2⌝
+    | ScPtr l1 p1, ScPtr l2 p2 =>
+        (* through [state_rel]: 
+          * the stacks are the same, 
+          * the allocation size is the same, 
+          * and the locations are related (i.e.: if tagged, then it is public)
+        *)
+        ⌜l1 = l2⌝ ∗
+        (⌜p1 = Untagged⌝ ∗ ⌜p2 = Untagged⌝ ∨
+        (∃ t1 t2, ⌜p1 = Tagged t1⌝ ∗ ⌜p2 = Tagged t2⌝ ∗
+        ⌜t1 = t2⌝ ∗
+        t1 $$ tk_pub))
+        (* what the [tk_pub] gives us is that the locations store related values *)
+    | ScCallId c, ScCallId c' => ⌜c = c'⌝
+    (* [ScPoison] can be refined by anything *)
+    | _ , ScPoison => True
+    | _, _ => False
+    end.
+
+  Definition value_rel (v1 v2 : value) : iProp Σ := [∗ list] sc_t; sc_s ∈ v1; v2, sc_rel sc_t sc_s.
+
+  Definition rrel (r1 r2 : result) : iProp Σ :=
+    match r1, r2 with
+    | ValR v1, ValR v2 => value_rel v1 v2
+    | PlaceR l1 bor1 T1, PlaceR l2 bor2 T2 =>
+      (* places must be related in a similar way as pointers: either untagged or public. Types should be equal. *)
+      sc_rel (ScPtr l1 bor1) (ScPtr l2 bor2) ∧ ⌜T1 = T2⌝
+    | _, _ => False
+    end.
+
+  Global Instance sc_rel_persistent sc_t sc_s : Persistent (sc_rel sc_t sc_s).
+  Proof. destruct sc_t, sc_s; apply _. Qed.
+  Global Instance value_rel_persistent v_t v_s : Persistent (value_rel v_t v_s).
+  Proof. apply _. Qed.
+  Global Instance rrel_persistent r_t r_s : Persistent (rrel r_t r_s).
+  Proof. destruct r_t, r_s; apply _. Qed.
+
+  (* Inversion lemmas *)
+  Lemma sc_rel_ptr_source sc_t l_s t_s :
+    sc_rel sc_t (ScPtr l_s t_s) -∗ ⌜sc_t = ScPtr l_s t_s⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+  Proof.
+    iIntros "Hrel". destruct sc_t; [done | done | | done | done ].
+    iDestruct "Hrel" as "(-> & [[-> ->] | (% & %t & -> & -> & -> & ?)])"; iFrame; done.
+  Qed.
+  Lemma sc_rel_fnptr_source sc_t fn :
+    sc_rel sc_t (ScFnPtr fn) -∗ ⌜sc_t = ScFnPtr fn⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_t; [done | done | done | | done].
+    by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_int_source sc_t z :
+    sc_rel sc_t (ScInt z) -∗ ⌜sc_t = ScInt z⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_t; [ done | | done..].
+    by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_cid_source sc_t c :
+    sc_rel sc_t (ScCallId c) -∗ ⌜sc_t = ScCallId c⌝.
+  Proof. iIntros "Hrel"; destruct sc_t; [done.. | ]. by iDestruct "Hrel" as "->". Qed.
+
+  Lemma sc_rel_poison_target sc_s :
+    sc_rel (ScPoison) sc_s -∗ ⌜sc_s = ScPoison⌝.
+  Proof. iIntros "Hrel". destruct sc_s; done. Qed.
+
+  Lemma rrel_place_source r_t l_s t_s T :
+    rrel r_t (PlaceR l_s t_s T) -∗
+    ∃ l_t, ⌜r_t = PlaceR l_t t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+  Proof.
+    iIntros "Hrel".
+    destruct r_t as [ | l_t t' T']; first done. iDestruct "Hrel" as "(#H & ->)".
+    iDestruct (sc_rel_ptr_source with "H") as "[%Heq Htag]".
+    injection Heq as [= -> ->]. iExists l_s. eauto.
+  Qed.
+  Lemma rrel_value_source r_t v_s :
+    rrel r_t (ValR v_s) -∗
+    ∃ v_t, ⌜r_t = ValR v_t⌝ ∗ value_rel v_t v_s.
+  Proof.
+    iIntros "Hrel". destruct r_t as [ v_t | ]; last done.
+    iExists v_t. iFrame "Hrel". done.
+  Qed.
+
+  Lemma value_rel_length v_t v_s :
+    value_rel v_t v_s -∗ ⌜length v_t = length v_s⌝.
+  Proof. iApply big_sepL2_length. Qed.
+  Lemma value_rel_empty :
+    ⊢ value_rel [] [].
+  Proof. by iApply big_sepL2_nil. Qed.
+
+  Lemma value_rel_singleton_source v_t sc_s :
+    value_rel v_t [sc_s] -∗ ∃ sc_t, ⌜v_t = [sc_t]⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    iIntros "Hv". iPoseProof (value_rel_length with "Hv") as "%Hlen".
+    destruct v_t as [ | sc_t []]; [done | | done ].
+    iExists sc_t. iSplitR "Hv"; first done. iRevert "Hv". rewrite /value_rel big_sepL2_singleton. eauto.
+  Qed.
+
+  Lemma value_rel_lookup v_t v_s (i : nat) :
+    i < length v_t →
+    value_rel v_t v_s -∗
+    ∃ sc_t sc_s, ⌜v_t !! i = Some sc_t⌝ ∗ ⌜v_s !! i = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    iIntros (Hi) "Hvrel". rewrite /value_rel big_sepL2_forall.
+    iDestruct "Hvrel" as "[%Hlen Hvrel]".
+    iSpecialize ("Hvrel" $! i (v_t !!! i) (v_s !!! i)). iExists (v_t !!! i), (v_s !!! i).
+    assert (v_t !! i = Some (v_t !!! i)) as Heq.
+    { apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
+    assert (v_s !! i = Some (v_s !!! i)) as Heq'.
+    { apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
+    iSplit; first done. iSplit; first done. iApply "Hvrel"; done.
+  Qed.
+
+  Lemma value_rel_lookup_total (v_t v_s : list scalar) (i : nat) :
+    i < length v_t → value_rel v_t v_s -∗ sc_rel (v_t !!! i) (v_s !!! i).
+  Proof.
+    iIntros (Hi) "Hvrel". rewrite /value_rel big_sepL2_forall.
+    iDestruct "Hvrel" as "[%Hlen Hvrel]".
+    iApply ("Hvrel" $! i (v_t !!! i) (v_s !!! i)).
+    all: iPureIntro; apply list_lookup_lookup_total; apply lookup_lt_is_Some_2; lia.
+  Qed.
+End val_rel.
+
+Class sborGS (Σ: gFunctors) := SBorG {
+  (* program assertions *)
+  sborG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
+  sborG_stateG :> bor_stateGS Σ;
+}.
+
+Global Program Instance sborGS_simulirisG `{!sborGS Σ} : simulirisG (iPropI Σ) bor_lang := {
+  state_interp P_t σ_t P_s σ_s T_s :=
+    (gen_prog_interp (hG := gen_prog_inG_target) P_t ∗
+     gen_prog_interp (hG := gen_prog_inG_source) P_s ∗
+     bor_interp sc_rel σ_t σ_s
+    )%I;
+}.
+Next Obligation.
+Admitted.
+
+
+(** Program assertions *)
+Notation "f '@t' Kt" := (hasfun (hG:=gen_prog_inG_target) f Kt)
+  (at level 20, format "f  @t  Kt") : bi_scope.
+Notation "f '@s' Ks" := (hasfun (hG:=gen_prog_inG_source) f Ks)
+  (at level 20, format "f  @s  Ks") : bi_scope.
+
+Lemma hasfun_target_agree `{sborGS Σ} f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
+Proof. apply hasfun_agree. Qed.
+
+Lemma hasfun_source_agree `{sborGS Σ} f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
+Proof. apply hasfun_agree. Qed.
+
+

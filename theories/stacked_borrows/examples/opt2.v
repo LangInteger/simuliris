@@ -50,7 +50,7 @@ Definition ex2_opt : ectx :=
     "v"
   .
 
-Lemma sim_opt2 `{sborG Σ} π :
+Lemma sim_opt2 `{sborGS Σ} π :
   ⊢ sim_ectx rrel π ex2_opt ex2_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
@@ -161,7 +161,7 @@ Definition ex2_opt' : ectx :=
   .
 
 
-Lemma sim_opt2' `{sborG Σ} π :
+Lemma sim_opt2' `{sborGS Σ} π :
   ⊢ sim_ectx rrel π ex2_opt' ex2_unopt' rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".

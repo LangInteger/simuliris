@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Import proofmode defs lang heap.
+From simuliris.stacked_borrows Require Import primitive_laws proofmode.
 Set Default Proof Using "Type".
 
 (** Moving read of mutable reference up across code not using that ref. *)
@@ -47,7 +47,7 @@ Definition ex1_opt : ectx :=
     Free "x" ;;
     "v".
 
-Lemma sim_new_place_local `{sborG Σ} T v_t v_s π Φ :
+Lemma sim_new_place_local `{sborGS Σ} T v_t v_s π Φ :
   ⌜length v_t = length v_s⌝ -∗
   (∀ t l,
     ⌜length v_s = tsize T⌝ -∗
@@ -88,7 +88,7 @@ Qed.
   then we could use the above generic lemma for [new_place].
    currently we don't use it since, in order to apply it, we'd need to use UB that happens during its execution...
 *)
-Lemma sim_opt1 `{sborG Σ} π :
+Lemma sim_opt1 `{sborGS Σ} π :
   ⊢ sim_ectx rrel π ex1_opt ex1_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
@@ -162,7 +162,7 @@ Definition ex1_opt' : ectx :=
     Free "x" ;;
     "v".
 
-Lemma sim_opt1' `{sborG Σ} π :
+Lemma sim_opt1' `{sborGS Σ} π :
   ⊢ sim_ectx rrel π ex1_opt' ex1_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".

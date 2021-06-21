@@ -1,17 +1,16 @@
 From iris.proofmode Require Export tactics.
-From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_prog.
 From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
-From iris.prelude Require Import options.
 From simuliris.stacked_borrows Require Import tkmap_view.
 From simuliris.stacked_borrows Require Export defs.
 From simuliris.stacked_borrows Require Import steps_progress steps_retag steps_inv.
-From simuliris.stacked_borrows Require Import heap.
+From simuliris.stacked_borrows Require Import logical_state inv_accessors.
+From iris.prelude Require Import options.
 
 Section lifting.
-Context `{!sborG Σ}.
+Context `{!sborGS Σ}.
 Implicit Types P Q : iProp Σ.
 Implicit Types Φ : expr → expr → iProp Σ.
 Implicit Types σ σ_s σ_t : state.
@@ -67,10 +66,10 @@ Proof.
   - (* state rel *)
     rewrite -{2}(map_empty_union M_t).
     subst σ_s' α' nt. rewrite -{2}Hsst_eq.
-    iApply sim_alloc_state_rel_update; last done.
+    iApply state_rel_alloc_update; last done.
     intros t (s & Hs) ->. congruence.
   - (* call interp *)
-    iPureIntro. apply sim_alloc_call_set_interp_update; done.
+    iPureIntro. apply call_set_interp_alloc_update; done.
   - (* tag interp *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s). split_and!.
     { simpl. intros t tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
@@ -199,6 +198,7 @@ Proof.
   - iPureIntro. by eapply head_step_wf.
 Qed.
 
+(** TODO: generalize, move, and use it for the opt lemmas too *)
 Lemma sim_copy_public_controlled_update σ l l' (bor : tag) (T : type) (α' : stacks) (t : ptr_id) (tk : tag_kind) sc :
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α' →
   state_wf σ →
@@ -392,6 +392,7 @@ Proof.
 Qed.
 
 (** Write *)
+(* TODO: generalize, move, and use for opt steps too *)
 Lemma loc_controlled_write_public σ bor tk l l' T α' sc v t :
   state_wf σ →
   (bor = Tagged t → tk = tk_pub) →
@@ -647,9 +648,9 @@ Proof.
       - (* old tags are preserved *)
         simpl. specialize (Htag_interp _ _ Hsome') as (? & ? & Hcontrolled_t & Hcontrolled_s & Hdom).
         split_and!; [lia | lia | | | ].
-        + intros. eapply retag_loc_controlled_preserved; [ done | done | | done | by apply Hcontrolled_t].
+        + intros. eapply loc_controlled_retag_update; [ done | done | | done | by apply Hcontrolled_t].
           intros <-. move : Hpub. rewrite /untagged_or_public. congruence.
-        + intros. eapply retag_loc_controlled_preserved; [ done | done | | done | by apply Hcontrolled_s].
+        + intros. eapply loc_controlled_retag_update; [ done | done | | done | by apply Hcontrolled_s].
           intros <-. move : Hpub. rewrite /untagged_or_public. congruence.
         + done.
     }

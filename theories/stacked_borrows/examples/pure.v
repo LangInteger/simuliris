@@ -2,7 +2,7 @@ From simuliris.stacked_borrows Require Import proofmode.
 
 (** * Some trivial tests to check that the proofmode works *)
 Section boring_lang.
-Context `{sborG Σ}.
+Context `{sborGS Σ}.
 
 Definition val_rel (r1 r2 : result) : iProp Σ := ⌜r1 = r2⌝.
 (*Local Notation "et '⪯' es {{ Φ }}" := (et ⪯{val_rel} es {{Φ}})%I (at level 40, Φ at level 200) : bi_scope.*)

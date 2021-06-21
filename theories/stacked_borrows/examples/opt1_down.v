@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Import proofmode defs lang heap.
+From simuliris.stacked_borrows Require Import primitive_laws proofmode.
 Set Default Proof Using "Type".
 
 (** Moving a read of a mutable reference down across code that *may* use that ref. *)
@@ -46,7 +46,7 @@ Definition ex1_down_opt : ectx :=
 
 (*Lemma value_rel_poison *)
 
-Lemma sim_opt1_down `{sborG Σ} π :
+Lemma sim_opt1_down `{sborGS Σ} π :
   ⊢ sim_ectx rrel π ex1_down_opt ex1_down_unopt rrel.
 Proof.
   iIntros (r_t r_s) "Hrel".
