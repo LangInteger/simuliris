@@ -150,8 +150,8 @@ Section bijection_lemmas.
   Qed.
 
   Lemma state_rel_upd_priv_source M_tag M_t Mcall σ_t σ_s l t sc :
-    ⌜is_Some (σ_t.(shp) !! l)⌝ -∗
-    ⌜priv_loc M_tag M_t Mcall t l⌝ -∗
+    is_Some (σ_t.(shp) !! l) →
+    priv_loc M_tag M_t Mcall t l →
     state_rel M_tag M_t Mcall σ_t σ_s -∗
     state_rel M_tag M_t Mcall σ_t (state_upd_mem (<[l := sc]>) σ_s).
   Proof.
@@ -255,6 +255,17 @@ Section call_defs.
     apply Hpid in HS as (Ht & Hlookup). split; first by destruct σ.
     intros l Hl. apply Hlookup in Hl as (s & pm & Hsst & Hs & Hpm).
     exists s, pm. split_and!; [ | done..]. by destruct σ.
+  Qed.
+
+  Lemma loc_protected_by_source (sc_rel : scalar → scalar → iProp Σ) Mtag Mt Mcall σ_t σ_s :
+    state_rel sc_rel Mtag Mt Mcall σ_t σ_s -∗
+    ∀ t l c,
+    ⌜loc_protected_by σ_t t l c⌝ -∗
+    ⌜loc_protected_by σ_s t l c⌝.
+  Proof.
+    iIntros "(%Hdom_eq & %Hsst_eq & %Hsnp_eq & %Hsnc_eq & %Hscs_eq & _)".
+    iIntros (t l c) "%Hprot". destruct Hprot as (Hc & Ht & (stk & pm & Hstk & Hit & Hpm)).
+    iPureIntro. rewrite /loc_protected_by. rewrite Hscs_eq Hsnp_eq Hsst_eq. eauto 8.
   Qed.
 End call_defs.
 
@@ -375,15 +386,28 @@ Section heap_defs.
       move : Hst Hin. rewrite Heq.
       move => [= <-] /elem_of_list_singleton [=]; eauto.
   Qed.
-  Lemma loc_controlled_local_own l t t' tk' sc σ :
-    loc_controlled l t tk_local sc σ →
+  Lemma bor_state_local_own_exclusive l t t' tk' σ :
+    bor_state_own l t tk_local σ →
     bor_state_own l t' tk' σ →
     (tk' = tk_unq ∨ tk' = tk_local) ∧ t = t'.
   Proof.
-    intros [Heq _]%loc_controlled_local. destruct tk'.
+    intros Heq. destruct tk'.
     - move => [st' []]. rewrite Heq => [= <-] //.
     - move => [st' [Heq' [opro [st'' ]]]]. move : Heq'. rewrite Heq => [= <-] [= ->] //; eauto.
     - rewrite /bor_state_own Heq => [=]; eauto.
+  Qed.
+  Lemma bor_state_unq_own_exclusive l t t' tk' σ :
+    bor_state_own l t tk_unq σ →
+    bor_state_own l t' tk' σ →
+    (tk' = tk_unq ∨ tk' = tk_local) ∧ t = t'.
+  Proof.
+    intros (stk & Hstk & (opro & stk' & ->)).
+    destruct tk'; simpl.
+    - intros (stk'' & Hstk'' & Hact). rewrite Hstk in Hstk''. injection Hstk'' as [= <-].
+      simpl in Hact. done.
+    - intros (stk'' & Hstk'' & (opro' & stk''' & ->)).
+      rewrite Hstk'' in Hstk. injection Hstk as [= -> -> ->]. eauto.
+    - rewrite Hstk. intros [= -> -> ->]. eauto.
   Qed.
 
   (* having local ownership of a location is authoritative, in the sense that we can update memory without hurting other tags that control this location. *)
@@ -394,7 +418,20 @@ Section heap_defs.
     loc_controlled l t' tk' sc' (state_upd_mem f σ).
   Proof.
     intros Hcontrol Hcontrol' Hneq [Hown Hmem]%Hcontrol'. split; first done.
-    by edestruct (loc_controlled_local_own l t t' tk' sc (state_upd_mem f σ)) as [_ <-].
+    edestruct (bor_state_local_own_exclusive l t t' tk' (state_upd_mem f σ)) as [_ <-]; [apply Hcontrol |..]; done.
+  Qed.
+
+  Lemma loc_controlled_protected_authoritative l t t' tk' sc sc' σ f c :
+    loc_protected_by (state_upd_mem f σ) t l c →
+    loc_controlled l t tk_unq sc (state_upd_mem f σ) →
+    loc_controlled l t' tk' sc' σ →
+    t ≠ t' →
+    loc_controlled l t' tk' sc' (state_upd_mem f σ).
+  Proof.
+    intros Hprot Hcontrol Hcontrol' Hneq [Hown Hmem]%Hcontrol'. split; first done.
+    specialize (loc_protected_bor_state_pre _ _ _ _ tk_unq Hprot) as Hpre.
+    apply Hcontrol in Hpre as [Hown' Hmem'].
+    edestruct (bor_state_unq_own_exclusive l t t' tk' (state_upd_mem f σ)) as [_ <-]; done.
   Qed.
   End local.
 
@@ -760,7 +797,15 @@ Lemma array_tag_map_lookup_None2 l t t' v l' :
   array_tag_map l t v !! (t', l') = None →
   t ≠ t' ∨ (∀ i: nat, (i < length v)%nat → l +ₗ i ≠ l').
 Proof.
-Admitted.
+  induction v as [ | sc v IH] in l |-*; simpl.
+  - intros _. right. intros i Hi; lia.
+  - rewrite lookup_insert_None. intros [Ha%IH Hneq].
+    destruct Ha; first by eauto. move: Hneq. rewrite pair_equal_spec not_and_l.
+    intros [ ? | Hneq]; first by eauto.
+    right. intros i Hi. destruct i as [ | i].
+    + rewrite shift_loc_0_nat. done.
+    + replace (Z.of_nat (S i)) with (1 + i)%Z by lia. rewrite -shift_loc_assoc. apply H. lia.
+Qed.
 
 Lemma dom_agree_on_tag_array_tag_map l t v_t v_s :
   length v_t = length v_s →
@@ -774,12 +819,12 @@ Proof.
 Qed.
 
 (** Array update lemmas for the heap views *)
-Lemma ghost_map_array_tag_lookup `{!bor_stateGS Σ} (γh : gname) (q : Qp) (M : gmap (ptr_id * loc) scalar) (scs : list scalar) (t : ptr_id) (l : loc) dq :
+Lemma ghost_map_array_tag_lookup `{!bor_stateGS Σ} (γh : gname) (q : Qp) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) dq :
   ghost_map_auth γh q M -∗
-  ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc) -∗
-  ⌜∀ i : nat, (i < length scs)%nat → M !! (t, l +ₗ i) = scs !! i⌝.
+  ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) dq sc) -∗
+  ⌜∀ i : nat, (i < length v)%nat → M !! (t, l +ₗ i) = v !! i⌝.
 Proof.
-  iIntros "Hauth Helem". iInduction scs as [ |sc scs ] "IH" forall (l) "Hauth Helem".
+  iIntros "Hauth Helem". iInduction v as [ |sc v ] "IH" forall (l) "Hauth Helem".
   - iPureIntro; cbn. lia.
   - rewrite big_sepL_cons. iDestruct "Helem" as "[Hsc Hscs]".
     iPoseProof (ghost_map_lookup with "Hauth Hsc") as "%Hl".
@@ -791,13 +836,43 @@ Proof.
     by rewrite shift_loc_assoc.
 Qed.
 
+Lemma array_tag_map_union_commute (l : loc) (sc : scalar) (t : ptr_id) (v : list scalar) (M : gmap (ptr_id * loc) scalar) (i : Z) :
+  i > 0 →
+  <[(t, l) := sc]> (array_tag_map (l +ₗ i) t v) ∪ M = array_tag_map (l +ₗ i) t v ∪ (<[(t, l) := sc]> M).
+Proof.
+  intros Hi. induction v as [ | sc' v IH] in l, i, Hi |-*; simpl.
+  - rewrite insert_union_singleton_l. rewrite -map_union_assoc. rewrite !map_empty_union.
+    by rewrite insert_union_singleton_l.
+  - rewrite insert_commute. 2: { intros [= Heq]. destruct l; simpl in *. injection Heq. lia. }
+    rewrite shift_loc_assoc. rewrite -insert_union_l. rewrite (IH l (i + 1)%Z); last lia.
+    rewrite -insert_union_l. done.
+Qed.
+
 Lemma ghost_map_array_tag_update `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v v' : list scalar) (t : ptr_id) (l : loc) :
+  length v = length v' →
   ghost_map_auth γh 1 M -∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
   ([∗ list] i ↦ sc' ∈ v', ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc') ∗
   ghost_map_auth γh 1 (array_tag_map l t v' ∪ M).
 Proof.
-Admitted.
+  iIntros (Hlen) "Hauth Helems". iInduction v as [ | sc v ] "IH" forall (l v' M Hlen) "Hauth Helems".
+  - destruct v'; simpl in Hlen; last done. rewrite big_sepL_nil.
+    simpl. rewrite map_empty_union. eauto.
+  - rewrite big_sepL_cons. iDestruct "Helems" as "[Hsc Helems]".
+    destruct v' as [ | sc' v']; simpl in Hlen; first done.
+    iMod (ghost_map_update sc' with "Hauth Hsc") as "[Hauth Hsc]".
+    iMod ("IH" $! (l +ₗ 1) v' (<[(t, l +ₗ 0%nat):=sc']> M) with "[] Hauth [Helems]") as "[Helems Hauth]";
+      first (iPureIntro; lia).
+    { iApply (big_sepL_mono with "Helems"). intros i sc'' Hs. cbn. rewrite shift_loc_assoc.
+      replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done. }
+    iModIntro. simpl. iFrame "Hsc".
+    iSplitL "Helems".
+    { iApply (big_sepL_mono with "Helems"). intros i sc'' Hs. cbn. rewrite shift_loc_assoc.
+      replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done. }
+    enough (array_tag_map (l +ₗ 1) t v' ∪ <[(t, l +ₗ 0%nat):=sc']> M = <[(t, l):=sc']> (array_tag_map (l +ₗ 1) t v') ∪ M) as ->;
+      first done.
+    rewrite array_tag_map_union_commute; last done. rewrite shift_loc_0_nat. done.
+Qed.
 
 Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) :
   (∀ i : nat, (i < length v)%nat → M !! (t, l +ₗ i) = None) →
@@ -805,7 +880,22 @@ Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ∗
   ghost_map_auth γh 1 (array_tag_map l t v ∪ M).
 Proof.
-Admitted.
+  iIntros (Hnone) "Hauth". iInduction v as [ | sc v ] "IH" forall (M l Hnone) "Hauth".
+  - rewrite big_sepL_nil. iModIntro. rewrite map_empty_union. iFrame.
+  - rewrite big_sepL_cons.
+    iMod ("IH" $! M (l +ₗ 1) with "[] Hauth") as "[Helems Hauth]".
+    { iPureIntro. intros i Hi. rewrite shift_loc_assoc. replace (1 + i)%Z with (Z.of_nat (S i)) by lia. apply Hnone.
+      simpl; lia.
+    }
+    iMod (ghost_map_insert (t, l +ₗ 0%nat) sc with "Hauth") as "[Hauth Helem]".
+    { rewrite lookup_union_None; split.
+      - apply array_tag_map_lookup_None'. intros i Hi. destruct l; intros [= ?]. lia.
+      - apply Hnone. simpl; lia.
+    }
+    iModIntro. iFrame "Helem". rewrite shift_loc_0_nat. simpl. rewrite insert_union_l. iFrame "Hauth".
+    iApply (big_sepL_mono with "Helems"). intros i sc'' Hs. cbn. rewrite shift_loc_assoc.
+    replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done.
+Qed.
 
 Lemma ghost_map_array_tag_delete `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) :
   ghost_map_auth γh 1 M -∗
