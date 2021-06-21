@@ -624,14 +624,13 @@ Qed.
 
 (** ** Write lemmas *)
 
-(* note: this is a new lemma. we do not care about relating the values - we only care for the source expression requiring that [t] is still on top!
-  TODO: can we make that more general/nicer?
-    One option (not needed for our optimizations, though): also use deferred UB, but would require changing op sem.
-*)
 Lemma sim_write_unique_unprotected π l_t l_s t T v_t v_s v_t' v_s' Φ :
   t $$ tk_unq -∗
   l_t ↦t∗[tk_unq]{t} v_t -∗
   l_s ↦s∗[tk_unq]{t} v_s -∗
+  (* crucial: without protectors, we need to write related values, as the locations 
+    will need to be public in the state_rel -- after all, there is no protector, so it can't be private! *)
+  value_rel v_t' v_s' -∗
   (t $$ tk_unq -∗ l_t ↦t∗[tk_unq]{t} v_t' -∗ l_s ↦s∗[tk_unq]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
   Write (Place l_t (Tagged t) T) #v_t' ⪯{π} Write (Place l_s (Tagged t) T) #v_s' [{ Φ }].
 Proof.
@@ -669,13 +668,19 @@ Lemma target_write_protected v_t v_t' T l t c M Ψ :
 Proof.
 Admitted.
 
-(* doesn't need protectors: if the item isn't there anymore, it will be UB *)
-Lemma source_write_unique v_s v_s' T l t Ψ π :
+(* note: in principle we don't need the protectors since that will just be source UB, 
+    but we need the protector to be able to write anything into the location, without
+    a sidecondition on what is currently in the target location, to be able to 
+    establish the state relation.
+*)
+Lemma source_write_protected v_s v_s' T l t Ψ c M π :
   length v_s = tsize T →
   length v_s' = tsize T →
+  (∀ i: nat, (i < tsize T)%nat → call_set_in M t (l +ₗ i)) →
+  c @@ M -∗
   t $$ tk_unq -∗
   l ↦s∗[tk_unq]{t} v_s -∗
-  (l ↦s∗[tk_unq]{t} v_s' -∗ t $$ tk_unq -∗ source_red #[☠] π Ψ)%E -∗
+  (l ↦s∗[tk_unq]{t} v_s' -∗ c @@ M -∗ t $$ tk_unq -∗ source_red #[☠] π Ψ)%E -∗
   source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
 Admitted.

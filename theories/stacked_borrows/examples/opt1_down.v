@@ -44,8 +44,6 @@ Definition ex1_down_opt : ectx :=
     "v"
   .
 
-(*Lemma value_rel_poison *)
-
 Lemma sim_opt1_down `{sborGS Σ} π :
   ⊢ sim_ectx π ex1_down_opt ex1_down_unopt rrel.
 Proof.

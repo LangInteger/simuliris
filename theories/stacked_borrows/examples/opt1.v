@@ -132,7 +132,8 @@ Proof.
   sim_pures.
 
   (* we need to do the writes symmetrically: we cannot know if the tag is still on top *)
-  sim_apply (Write _ _) (Write _ _) (sim_write_unique_unprotected with "Htag_i Hi_t Hi_s") "Htag_i Hi_t Hi_s".
+  sim_apply (Write _ _) (Write _ _) (sim_write_unique_unprotected with "Htag_i Hi_t Hi_s") "Htag_i Hi_t Hi_s";
+    first by iApply big_sepL2_singleton.
   sim_pures.
 
   sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
@@ -206,7 +207,8 @@ Proof.
   sim_pures.
 
   (* we need to do the writes symmetrically: we cannot know if the tag is still on top *)
-  sim_apply (Write _ _) (Write _ _) (sim_write_unique_unprotected with "Htag_i Hi_t Hi_s") "Htag_i Hi_t Hi_s".
+  sim_apply (Write _ _) (Write _ _) (sim_write_unique_unprotected with "Htag_i Hi_t Hi_s") "Htag_i Hi_t Hi_s";
+    first by iApply big_sepL2_singleton.
   sim_pures.
 
   (* deferred read in the target *)
