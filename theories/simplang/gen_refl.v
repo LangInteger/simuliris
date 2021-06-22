@@ -111,8 +111,21 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "[Ht Hv1]".
-    destruct o; sim_pures; discr_source; try val_discr_source "Hv1"; try val_discr_source "Hv2"; sim_pures; [sim_val; by iFrame .. | | ].
-    - iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
+    destruct o; sim_pures; discr_source; try val_discr_source "Hv1"; try val_discr_source "Hv2"; sim_pures; try (sim_val; by iFrame); [| | |].
+    - (* Quot *)
+      source_binop.
+      { rewrite /bin_op_eval /=. rewrite decide_False //. }
+      target_binop.
+      { rewrite /bin_op_eval /=. rewrite decide_False //. }
+      sim_val; by iFrame.
+    - (* Rem *)
+      source_binop.
+      { rewrite /bin_op_eval /=. rewrite decide_False //. }
+      target_binop.
+      { rewrite /bin_op_eval /=. rewrite decide_False //. }
+      sim_val; by iFrame.
+    - (* Eq *)
+      iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
       { iPoseProof (gen_val_rel_val_is_unboxed with "Hv1") as "%Hv1".
         iPoseProof (gen_val_rel_val_is_unboxed with "Hv2") as "%Hv2".
         iPureIntro. by rewrite /vals_compare_safe Hv1 Hv2.
@@ -120,7 +133,8 @@ Section log_rel.
       sim_pures; sim_val. iFrame. case_bool_decide; subst.
       * iDestruct (gen_val_rel_func with "Hv1 Hv2") as %->; [done|]. by case_bool_decide.
       * case_bool_decide; [|done]; subst. by iDestruct (gen_val_rel_inj with "Hv1 Hv2") as %?.
-    - sim_val. iModIntro; simpl. iFrame. by iApply Hshift.
+    - (* Offset *)
+      sim_val. iModIntro; simpl. iFrame. by iApply Hshift.
   Qed.
 
   Lemma log_rel_if e1_t e1_s e2_t e2_s e3_t e3_s :

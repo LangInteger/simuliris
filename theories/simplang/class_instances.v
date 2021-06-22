@@ -62,7 +62,8 @@ Section irreducible.
            | H : ∃ _, _ |- _ => destruct H
            | H: _ ∨ _ |- _ => destruct H
            | H : _ ∧ _ |- _ => destruct H
-           end; congruence.
+           | H : ?f _ = ?f _ |- _ => injection H as ?
+           end; first [ congruence | lia ].
 
   Ltac decide_goal :=
     try apply _;
@@ -78,7 +79,13 @@ Section irreducible.
         match goal with
         | |- context[v] => destruct v as [[] | | | ]
         end
-    end; rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
+    end;
+    (* Special heck for quot/rem *)
+    try match goal with
+    | |- context[LitV (LitInt ?n) = LitV (LitInt _) ∧ _ ≠ 0%Z] =>
+      destruct (decide (n = 0))
+    end;
+    rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
 
   Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | prove_irred].
 
@@ -113,14 +120,16 @@ Section irreducible.
     IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MinusOp (Val v1) (Val v2)) σ.
   Proof. prove_irred_unless; solve_binop v1 v2. Qed.
   Global Instance irreducible_rem v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp RemOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
+      P (BinOp RemOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. naive_solver. Qed.
   Global Instance irreducible_mult v1 v2 P σ :
     IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MultOp (Val v1) (Val v2)) σ.
   Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_quot v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp QuotOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
+      P (BinOp QuotOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. naive_solver. Qed.
 
   Global Instance irreducible_and v1 v2 P σ :
     IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
