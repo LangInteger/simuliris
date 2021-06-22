@@ -1,6 +1,7 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.stacked_borrows Require Import proofmode tactics.
 From simuliris.stacked_borrows Require Import parallel_subst primitive_laws wf.
+From iris.prelude Require Import options.
 
 (** * Logical relation
  This file defines the top-level "logical relation" which lifts the

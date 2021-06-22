@@ -1,6 +1,8 @@
 From stdpp Require Export gmap.
 From simuliris.stacked_borrows Require Export lang notation.
 
+From iris.prelude Require Import options.
+
 (** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
 
 (** Induction scheme for expressions *)
@@ -91,7 +93,7 @@ Proof.
   - case_bool_decide.
     + simplify_eq/=. rewrite lookup_insert. destruct r; done.
     + rewrite lookup_insert_ne //.
-  - destruct b; simpl. done.
+  - destruct b; simpl. { done. }
     case_bool_decide.
     + rewrite IHe2. f_equal. rewrite delete_insert_ne //.
       intros ?. apply H. f_equal. done.
@@ -228,7 +230,7 @@ Proof.
   induction e using expr_ind=>/=; repeat case_decide; try set_solver.
   { subst. rewrite bool_decide_true //. destruct r; set_solver. }
   rewrite IHe difference_union_distr_l_L. f_equal.
-  induction H as [|? ? ? H]. set_solver-.
+  induction H as [|? ? ? H]. { set_solver-. }
   rewrite fmap_cons !foldl_union_cons difference_union_distr_l_L. by f_equal.
 Qed.
 
