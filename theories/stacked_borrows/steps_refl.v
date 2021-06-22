@@ -390,65 +390,6 @@ Proof.
 Qed.
 
 (** Write *)
-(* TODO: generalize, move, and use for opt steps too *)
-Lemma loc_controlled_write_public σ bor tk l l' T α' sc v t :
-  state_wf σ →
-  (bor = Tagged t → tk = tk_pub) →
-  memory_written σ.(sst) σ.(scs) l' bor (tsize T) = Some α' →
-  length v = tsize T →
-  loc_controlled l t tk sc σ →
-  loc_controlled l t tk sc (mkState (write_mem l' v σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc)).
-Proof.
-  rewrite /loc_controlled //= => Hwf Hpub Hstack Hlen Hcontrol.
-  destruct (write_mem_lookup_case l' v σ.(shp) l) as [(i & Hi & -> & Hwrite_i) | (Hi & ->)];
-      first last.
-  { (* l is NOT written to *)
-    destruct (for_each_lookup _ _ _ _ _ Hstack) as (_ & _ & Hstack_eq).
-    rewrite /bor_state_pre /bor_state_own. rewrite !Hstack_eq. 2: intros; apply Hi; lia.
-    apply Hcontrol.
-  }
-  (* considering one of the written-to locations *)
-  intros Hpre.
-  specialize (for_each_access1 _ _ _ _ _ _ _ Hstack) as Hsub.
-  destruct Hcontrol as (Hown & Hmem).
-  { destruct tk; simpl in *; [ | | done].
-    all: destruct Hpre as (stk & pm & opro & (stk' & -> & Hsubl & _)%Hsub & Hit & Hpm).
-    all: apply Hsubl in Hit as ([pm' tg' opro'] & Hit2 & Htg & Hprot & Hperm).
-    all: exists stk', pm', opro'; simpl in *; rewrite Htg.
-    all:  split_and!; [done | done | rewrite Hperm; done].
-  }
-  (* we now lead this to a contradiction: the write was UB/the tags are contradictory *)
-  specialize (for_each_lookup _ _ _ _ _ Hstack) as (Ha & _).
-  destruct tk; simpl in *.
-  * (* public *)
-    destruct Hpre as (stk' & pm & opro & Hstk' & Hit & Hpm).
-    exfalso. destruct Hown as (stk & Hstk & Hactive).
-    specialize (Ha i _ ltac:(lia) Hstk) as (stk'' & Hstk'' & Hacc).
-    destruct access1 as [[n ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
-    simplify_eq.
-    eapply access1_write_remove_incompatible_active_SRO; [ | done | apply Hacc_eq | done ].
-    by eapply Hwf.
-  * (* unique *)
-    destruct Hpre as (stk' & pm & opro & Hstk' & Hit & Hpm).
-    exfalso. destruct Hown as (stk & Hstk & Hprot).
-    specialize (Ha i _ ltac:(lia) Hstk) as (stk'' & Hstk'' & Hacc).
-    destruct access1 as [[n ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
-    simplify_eq.
-    destruct Hprot as (opro' & stk'' & ->).
-    eapply access1_write_remove_incompatible_head;
-      [ | eexists; eexists; reflexivity | apply Hacc_eq | | done].
-    { by eapply Hwf. }
-    (* contradiction, since t is public *)
-    intros <-. discriminate Hpub. done.
-  * (* local *)
-    exfalso.
-    specialize (Ha i _ ltac:(lia) Hown) as (stk'' & Hstk'' & Hacc).
-    destruct access1 as [[n ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
-    specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%elem_of_list_singleton & Htg & _).
-    (* contradiction, since t is public *)
-    simpl in Htg. subst bor. discriminate Hpub. done.
-Qed.
-
 Lemma sim_write_public Φ π l_t bor_t T_t l_s bor_s T_s v_t' v_s' :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
   value_rel v_t' v_s' -∗
@@ -462,13 +403,11 @@ Proof.
   destruct Hsafe as [Hpool Hsafe].
   specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (Hread_s & (α' & Hstack_s) & Hwell_tagged_s & Hlen_s').
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
-  (*iPoseProof (value_rel_tag_values_included_iff with "Hvrel") as "%Htag_included".*)
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iSplitR.
   { iPureIntro. do 3 eexists. eapply write_head_step'; [lia | |].
-    (*- rewrite -Hsnp_eq. apply Htag_included. done.*)
     - rewrite -Hdom_eq. intros n Hn. apply Hread_s. lia.
     - instantiate (1 := α'). rewrite -Hsst_eq -Hscs_eq. done.
   }
@@ -532,11 +471,11 @@ Proof.
     specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrolled_t & Hcontrolled_s & Hdom).
     split_and!; [ done | done | | | done ].
     + intros l sc_t Hcontrol%Hcontrolled_t.
-      eapply loc_controlled_write_public; [ apply Hwf_t | | apply Hstack_t| lia | done].
-      intros ->. rewrite Hpub in Ht. congruence.
+      eapply loc_controlled_write_update; [ apply Hwf_t | | apply Hstack_t| lia | done].
+      intros [-> _]. rewrite Hpub in Ht. congruence.
     + intros l sc_s Hcontrol%Hcontrolled_s.
-      eapply loc_controlled_write_public; [ apply Hwf_s | | apply Hstack_s| lia | done].
-      intros ->. rewrite Hpub in Ht. congruence.
+      eapply loc_controlled_write_update; [ apply Hwf_s | | apply Hstack_s| lia | done].
+      intros [-> _]. rewrite Hpub in Ht. congruence.
   - (* source state wf *)
     iPureIntro. eapply head_step_wf; done.
   - (* target state wf *)
@@ -845,19 +784,19 @@ Qed.
 
 
 (** Coinduction on while loops *)
-Lemma sim_while_while inv c_t c_s b_t b_s π Ψ : 
+Lemma sim_while_while inv c_t c_s b_t b_s π Ψ :
   inv -∗
-  □ (inv -∗ 
+  □ (inv -∗
       (if: c_t then b_t ;; while: c_t do b_t od else #[☠])%E ⪯{π}
       (if: c_s then b_s ;; while: c_s do b_s od else #[☠])%E
-        [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv) }]) -∗ 
+        [{ λ e_t e_s, Ψ e_t e_s ∨ (⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv) }]) -∗
   (while: c_t do b_t od ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
   iIntros "Hinv_init #Hstep".
   iApply (sim_lift_head_coind (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
   { iFrame. eauto. }
   iModIntro. iIntros (?? ?? ?? ??) "(-> & -> & Hinv) (Hstate & [% %])".
-  iModIntro. iSplitR. 
+  iModIntro. iSplitR.
   { iPureIntro. eexists _, _, _. econstructor. econstructor. }
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
   assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).

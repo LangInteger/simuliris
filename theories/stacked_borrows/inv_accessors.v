@@ -396,6 +396,66 @@ Section lemmas.
   Qed.
 
   (** * Write lemmas *)
+  Lemma loc_controlled_write_update σ bor tk l l' n α' sc v t :
+    state_wf σ →
+    (bor = Tagged t ∧ (∃ i:nat, l = l' +ₗ i ∧ (i < n)%nat) → tk = tk_pub) →
+    memory_written σ.(sst) σ.(scs) l' bor n = Some α' →
+    length v = n →
+    loc_controlled l t tk sc σ →
+    loc_controlled l t tk sc (mkState (write_mem l' v σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc)).
+  Proof.
+    rewrite /loc_controlled //= => Hwf Hpub Hstack Hlen Hcontrol.
+    destruct (write_mem_lookup_case l' v σ.(shp) l) as [(i & Hi & -> & Hwrite_i) | (Hi & ->)];
+        first last.
+    { (* l is NOT written to *)
+      destruct (for_each_lookup _ _ _ _ _ Hstack) as (_ & _ & Hstack_eq).
+      rewrite /bor_state_pre /bor_state_own. rewrite !Hstack_eq. 2: intros; apply Hi; lia.
+      apply Hcontrol.
+    }
+    (* considering one of the written-to locations *)
+    intros Hpre.
+    specialize (for_each_access1 _ _ _ _ _ _ _ Hstack) as Hsub.
+    destruct Hcontrol as (Hown & Hmem).
+    { destruct tk; simpl in *; [ | | done].
+      all: destruct Hpre as (stk & pm & opro & (stk' & -> & Hsubl & _)%Hsub & Hit & Hpm).
+      all: apply Hsubl in Hit as ([pm' tg' opro'] & Hit2 & Htg & Hprot & Hperm).
+      all: exists stk', pm', opro'; simpl in *; rewrite Htg.
+      all:  split_and!; [done | done | rewrite Hperm; done].
+    }
+    (* we now lead this to a contradiction: the write was UB/the tags are contradictory *)
+    specialize (for_each_lookup _ _ _ _ _ Hstack) as (Ha & _).
+    destruct tk; simpl in *.
+    * (* public *)
+      destruct Hpre as (stk' & pm & opro & Hstk' & Hit & Hpm).
+      exfalso. destruct Hown as (stk & Hstk & Hactive).
+      specialize (Ha i _ ltac:(lia) Hstk) as (stk'' & Hstk'' & Hacc).
+      destruct access1 as [[n' ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
+      simplify_eq.
+      eapply access1_write_remove_incompatible_active_SRO; [ | done | apply Hacc_eq | done ].
+      by eapply Hwf.
+    * (* unique *)
+      destruct Hpre as (stk' & pm & opro & Hstk' & Hit & Hpm).
+      exfalso. destruct Hown as (stk & Hstk & Hprot).
+      specialize (Ha i _ ltac:(lia) Hstk) as (stk'' & Hstk'' & Hacc).
+      destruct access1 as [[n' ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
+      simplify_eq.
+      destruct Hprot as (opro' & stk'' & ->).
+      eapply access1_write_remove_incompatible_head;
+        [ | eexists; eexists; reflexivity | apply Hacc_eq | | done].
+      { by eapply Hwf. }
+      (* contradiction, since t is public *)
+      intros <-. enough (tk_unq = tk_pub) by congruence.
+      apply Hpub. split; first done. eauto.
+    * (* local *)
+      exfalso.
+      specialize (Ha i _ ltac:(lia) Hown) as (stk'' & Hstk'' & Hacc).
+      destruct access1 as [[n' ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
+      specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%elem_of_list_singleton & Htg & _).
+      (* contradiction, since t is public *)
+      simpl in Htg. subst bor. enough (tk_local = tk_pub) by congruence.
+      apply Hpub. split; first done. exists i. split; first done. lia.
+  Qed.
+
   Lemma state_upd_mem_compose f g σ :
     state_upd_mem f (state_upd_mem g σ) = state_upd_mem (f ∘ g) σ.
   Proof. destruct σ. done. Qed.
@@ -1074,5 +1134,28 @@ Proof.
 Qed.
 
 
+Lemma memory_written_access1 (stks : stacks) l n t calls :
+  (∀ i: nat, (i < n)%nat → ∃ stk, stks !! (l +ₗ i) = Some stk ∧ ∃ m, access1 stk AccessWrite (Tagged t) calls = Some (m, stk)) →
+  memory_written stks calls l (Tagged t) n = Some stks.
+Proof.
+  induction n as [ | n IH]; cbn; first done.
+  intros Hacc1. destruct (Hacc1 n ltac:(lia)) as (stkn & Hl & (m & Hacc1_n)). rewrite Hl.
+  cbn. rewrite Hacc1_n. cbn.
+  rewrite insert_id; last done. apply IH. intros i Hi. apply Hacc1. lia.
+Qed.
+
+Lemma bor_state_own_access1_write l t tk stk σ :
+  tk = tk_local ∨ tk = tk_unq →
+  bor_state_own l t tk σ →
+  σ.(sst) !! l = Some stk →
+  ∃ n, access1 stk AccessWrite (Tagged t) σ.(scs) = Some (n, stk).
+Proof.
+  intros Htk Hown. destruct tk; cbn in *.
+  - naive_solver.
+  - destruct Hown as (st & Hsst & (opro & st' & H)). simplify_eq. rewrite Hsst => [= <-].
+    eapply tag_unique_head_access. eexists; eauto.
+  - rewrite Hown => [= <-].
+    eapply tag_unique_head_access. eexists; eauto.
+Qed.
 End lemmas.
 
