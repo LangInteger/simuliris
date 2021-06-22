@@ -3,6 +3,7 @@ From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import gen_log_rel.
 From simuliris.simplang.simple_inv Require Import inv.
+From iris.prelude Require Import options.
 
 Section fix_bi.
   Context `{!simpleGS Σ}.

@@ -2,8 +2,9 @@ From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 From simuliris.stacked_borrows Require Export lang_base notation.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 (*** STACKED BORROWS SEMANTICS ---------------------------------------------***)
 

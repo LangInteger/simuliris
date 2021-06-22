@@ -51,6 +51,7 @@ theories/simplang/na_inv/adequacy.v
 theories/simplang/na_inv/readonly_refl.v
 theories/simplang/na_inv/examples/data_races.v
 theories/simplang/na_inv/examples/remove_alloc.v
+theories/simplang/na_inv/examples/program_transformations_in_weak_memory_models.v
 
 theories/simplang/simple_inv/inv.v
 theories/simplang/simple_inv/refl.v
@@ -89,7 +90,7 @@ theories/stacked_borrows/steps_inv.v
 
 
 
-theories/stacked_borrows/tactics.v 
+theories/stacked_borrows/tactics.v
 theories/stacked_borrows/class_instances.v
 theories/stacked_borrows/tkmap_view.v
 theories/stacked_borrows/logical_state.v
@@ -106,4 +107,3 @@ theories/stacked_borrows/examples/opt2.v
 theories/stacked_borrows/examples/opt2_down.v
 theories/stacked_borrows/examples/opt3.v
 theories/stacked_borrows/examples/opt3_down.v
-

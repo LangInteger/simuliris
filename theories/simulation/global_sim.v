@@ -284,7 +284,7 @@ Section fix_lang.
     set (F_curry := curry4 F).
     assert (NonExpansive F_curry) as Hne; first by eapply @curry4_ne, _.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
-    remember (Φ, π, e_t, e_s) as p. rewrite -Heqp; clear Φ π e_t e_s Heqp.
+    remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (greatest_fixpoint_strong_coind _ F_curry with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry.
@@ -315,7 +315,7 @@ Section fix_lang.
     set (F_curry := curry4 F).
     assert (NonExpansive F_curry); first by eapply @curry4_ne, _.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
-    remember (Φ, π, e_t, e_s) as p. rewrite -Heqp; clear Φ π e_t e_s Heqp.
+    remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (least_fixpoint_strong_ind _ F_curry with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry {1}/uncurry4 {1}/curry4.
@@ -393,7 +393,7 @@ Section fix_lang.
     ⊢ (Φ e_t e_s) -∗ gsim_expr_inner G L Φ π e_t e_s.
   Proof.
     iIntros "He". rewrite /gsim_expr. iIntros (??????) "[Hstate [% %]]".
-    iModIntro. iLeft. iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro. constructor.
+    iModIntro. iLeft. iExists e_s, _. rewrite list_insert_id //. iFrame. iPureIntro. constructor.
   Qed.
 
   Lemma gsim_expr_base Φ π e_t e_s :

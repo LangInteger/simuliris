@@ -1,9 +1,10 @@
 From simuliris.simulation Require Export language.
 From iris.algebra Require Import ofe.
+From iris.prelude Require Import options.
 
 From simuliris.stacked_borrows Require Export expr_semantics bor_semantics.
 
-Set Default Proof Using "Type".
+
 
 Module bor_lang.
 

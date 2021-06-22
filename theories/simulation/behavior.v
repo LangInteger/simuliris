@@ -1,6 +1,7 @@
+From Coq.Logic Require Import Classical.
 From stdpp Require Import strings.
 From simuliris.simulation Require Import fairness language.
-From Coq.Logic Require Import Classical.
+From iris.prelude Require Import options.
 
 Section beh.
   Context {Λ : language}.
@@ -67,7 +68,7 @@ Section beh.
     - remember BehUndefined as b. induction 1 as [| | |??????? IH]; [|done..|].
       { eexists _, _, _. split; last done.
         constructor. }
-      subst b. specialize (IH eq_refl).
+      subst. specialize (IH eq_refl).
       eapply pool_steps_reach_stuck; last done.
       eapply pool_steps_single. done.
     - intros (T' & σ' & I' & Hsteps & Hstuck).
@@ -90,7 +91,7 @@ Section beh.
     split.
     - remember (BehReturn v) as b. induction 1 as [| | |??????? IH]; try done; [|].
       { eexists _, _, _. simplify_eq/=. constructor. }
-      subst b. specialize (IH eq_refl).
+      subst. specialize (IH eq_refl).
       destruct IH as (T'' & σ'' & J & Hsteps).
       eexists T'', _, _. eapply pool_steps_trans; last done.
       eapply pool_steps_single. done.

@@ -1,6 +1,7 @@
 From simuliris.simulation Require Import lifting.
 From simuliris.stacked_borrows Require Import proofmode lang.
-Set Default Proof Using "Type".
+From iris.prelude Require Import options.
+
 
 (** Moving a write to a mutable reference up across unknown code. *)
 

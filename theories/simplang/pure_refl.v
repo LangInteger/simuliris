@@ -1,6 +1,7 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl globalbij.
+From iris.prelude Require Import options.
 
 (** * Reflexivity theorem for pure expressions
 This file defines a notion of pure expressions and proves a
@@ -8,7 +9,7 @@ reflexivity theorem for them. *)
 
 Section log_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (loc_rel : loc → loc → iProp Σ) `{!∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
+  Context (loc_rel : loc → loc → iProp Σ) {Hpers : ∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
   Context (thread_own : thread_id → iProp Σ).
   Let val_rel := (gen_val_rel loc_rel).
 
@@ -30,7 +31,7 @@ Section log_rel.
     loc_rel_offset_law loc_rel →
     sheap_inv_contains_globalbij loc_rel →
     log_rel_structural loc_rel thread_own pure_expr_head_wf.
-  Proof.
+  Proof using Hpers.
     intros ???? e_t e_s head_t head_s Hwf Hs. iIntros "IH".
     destruct e_t; simpl in Hs; destruct e_s => //=; simpl in Hs; simplify_eq.
     all: try iDestruct "IH" as "[IH IH1]".

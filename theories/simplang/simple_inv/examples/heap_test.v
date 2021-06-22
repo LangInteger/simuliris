@@ -2,6 +2,7 @@ From simuliris.simplang Require Import lang notation tactics class_instances pro
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang.simple_inv Require inv.
+From iris.prelude Require Import options.
 
 (** Some very trivial tests for the heap tactics *)
 

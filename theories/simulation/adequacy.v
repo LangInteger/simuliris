@@ -3,9 +3,11 @@ From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import
   fairness relations language behavior global_sim fairness_adequacy.
+From iris.prelude Require Import options.
 Import bi.
 
-
+(* The default 'Type' does not pick up enough assumptions. *)
+Set Default Proof Using "Type*".
 
 Section meta_level_simulation.
 

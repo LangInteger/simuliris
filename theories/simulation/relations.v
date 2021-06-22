@@ -1,4 +1,5 @@
 From stdpp Require Import prelude relations.
+From iris.prelude Require Import options.
 
 (* TODO: upstream *)
 (* This file contains various abstract results about
@@ -41,7 +42,7 @@ Lemma rtc_pair_ind {A B: Type} (R : relation (A * B)) (P : A → B → A → B �
   (∀ x y x' y' x'' y'', R (x, y) (x', y') → rtc R (x', y') (x'', y'') → P x' y' x'' y'' → P x y x'' y'') →
   rtc R (x, y) (x', y') → P x y x' y'.
 Proof.
-  intros Base IH Hrtc. remember (x, y) as p. remember (x', y') as p'.
+  intros Base IH Hrtc. remember (x, y) as p eqn:Heqp. remember (x', y') as p' eqn:Heqp'.
   revert x x' y y' Heqp Heqp'. induction Hrtc as [[]|[] [] []]; naive_solver.
 Qed.
 
@@ -50,7 +51,7 @@ Lemma tc_pair_ind {A B: Type} (R : relation (A * B)) (P : A → B → A → B �
   (∀ x y x' y' x'' y'', R (x, y) (x', y') → tc R (x', y') (x'', y'') → P x' y' x'' y'' → P x y x'' y'') →
   ∀ x y x' y', tc R (x, y) (x', y') → P x y x' y'.
 Proof.
-  intros Base IH x y x' y' Htc. remember (x, y) as p. remember (x', y') as p'.
+  intros Base IH x y x' y' Htc. remember (x, y) as p eqn:Heqp. remember (x', y') as p' eqn:Heqp'.
   revert x x' y y' Heqp Heqp'. induction Htc as [[] []|[] [] []]; naive_solver.
 Qed.
 

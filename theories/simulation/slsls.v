@@ -373,7 +373,7 @@ Section fix_lang.
     set (F_curry := curry4 F).
     assert (NonExpansive F_curry) as Hne; first by eapply @curry4_ne, _.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
-    remember (Φ, π, e_t, e_s) as p. rewrite -Heqp; clear Φ π e_t e_s Heqp.
+    remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (greatest_fixpoint_strong_coind _ F_curry with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry.
@@ -404,7 +404,7 @@ Section fix_lang.
     set (F_curry := curry4 F).
     assert (NonExpansive F_curry); first by eapply @curry4_ne, _.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
-    remember (Φ, π, e_t, e_s) as p. rewrite -Heqp; clear Φ π e_t e_s Heqp.
+    remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (least_fixpoint_strong_ind _ F_curry with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry {1}/uncurry4 {1}/curry4.
@@ -485,7 +485,7 @@ Section fix_lang.
     ⊢ (Φ e_t e_s) -∗ sim_expr_inner G L Φ π e_t e_s.
   Proof.
     iIntros "He". rewrite /sim_expr. iIntros (??????) "[Hstate [% %]]".
-    iModIntro. iLeft. iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro. constructor.
+    iModIntro. iLeft. iExists e_s, _. rewrite list_insert_id //. iFrame. iPureIntro. constructor.
   Qed.
 
   Lemma sim_expr_base Φ e_t e_s π :
@@ -1003,6 +1003,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_step Ψ e_s π :
+    (* FIXME: this is inconsistent, it should quantify over the target things first. *)
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
@@ -1057,7 +1058,7 @@ Section fix_lang.
   Proof.
     iIntros "Hstuck". iApply source_red_reach_stuck.
     iIntros (?????) "SI". iMod ("Hstuck" with "SI") as "%Hstuck". iModIntro.
-    iPureIntro. exists [e_s], σ_s, []. split; eauto using Pool_steps_refl.
+    iPureIntro. eexists [e_s], _, []. split; eauto using Pool_steps_refl.
     exists e_s, 0. split; done.
   Qed.
 
@@ -1197,10 +1198,10 @@ Section fix_lang.
     iApply (target_red_ind _ (λ e_t, target_red (fill K_t e_t) Ψ)%I); last by rewrite target_red_eq /flip.
     iModIntro. clear e_t. iIntros (e_t) "IH". rewrite target_red_eq /flip target_red_def_unfold.
     iIntros (?????) "Hstate". iMod ("IH" with "Hstate") as "IH".
-    iDestruct "IH" as "[[% Hstep] | [Hstate Hred]]"; first last.
+    iDestruct "IH" as "[[%Hred Hstep] | [Hstate Hred]]"; first last.
     - rewrite target_red_def_unfold.
       iMod ("Hred" with "Hstate") as "[Hstep | Hred]"; iModIntro; eauto.
-    - rename H into Hred. iModIntro. iLeft. iSplitR; first by eauto using fill_reducible.
+    - iModIntro. iLeft. iSplitR; first by eauto using fill_reducible.
       iIntros (e_t' σ_t' efs_t) "%Hprim".
       eapply fill_reducible_prim_step in Hprim as (e_t'' & -> & H); last done.
       by iMod ("Hstep" with "[% //]").

@@ -1,5 +1,6 @@
 From stdpp Require Import fin_maps.
 From simuliris.simplang Require Import lang parallel_subst notation.
+From iris.prelude Require Import options.
 
 
 (** The tactic [reshape_expr e tac] decomposes the expression [e] into an

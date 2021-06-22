@@ -1,8 +1,10 @@
 From simuliris.simplang Require Import lang notation tactics class_instances proofmode.
 From iris Require Import bi.bi.
-Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
+From iris.prelude Require Import options.
+
+Import bi.
 
 (** This file defines a simple value relation for encoding sums using
   pairs and shows a simple example program. This example is not fully

@@ -1,6 +1,7 @@
 From simuliris.stacked_borrows Require Export defs.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 Definition tagged_sublist (stk1 stk2: stack) :=
   ∀ it1, it1 ∈ stk1 → ∃ it2,
@@ -63,7 +64,7 @@ Lemma stack_item_tagged_NoDup_singleton it:
   stack_item_tagged_NoDup [it].
 Proof.
   rewrite /stack_item_tagged_NoDup filter_cons filter_nil.
-  case decide => ? /=. apply NoDup_singleton. apply NoDup_nil_2.
+  case decide => ? /=; first by apply NoDup_singleton. apply NoDup_nil_2.
 Qed.
 
 Lemma stack_item_tagged_NoDup_cons_1 it stk :

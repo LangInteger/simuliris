@@ -1,6 +1,7 @@
 From simuliris.simulation Require Import language lifting.
 From simuliris.stacked_borrows Require Export lang.
 From simuliris.stacked_borrows Require Import tactics.
+From iris.prelude Require Import options.
 
 
 

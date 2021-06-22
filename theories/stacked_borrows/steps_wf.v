@@ -1,7 +1,8 @@
 From simuliris.stacked_borrows Require Import helpers.
 From simuliris.stacked_borrows Require Export defs steps_foreach steps_list steps_access.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 Lemma wf_init_state : state_wf init_state.
 Proof.
@@ -488,18 +489,21 @@ Proof.
   - case access1 as [[n1 stk1]|] eqn:Eq1; [|done]. cbn -[item_insert_dedup].
     intros ? ND. simplify_eq.
     apply item_insert_dedup_tagged_NoDup.
-    by eapply access1_tag_fresh_stack. by eapply access1_stack_item_tagged_NoDup.
+    + by eapply access1_tag_fresh_stack.
+    + by eapply access1_stack_item_tagged_NoDup.
   - case find_first_write_incompatible as [n1|]; [|done].
     simpl. intros ? ND. simplify_eq.
     by apply item_insert_dedup_tagged_NoDup.
   - case access1 as [[n1 stk1]|] eqn:Eq1; [|done]. cbn -[item_insert_dedup].
     intros ? ND. simplify_eq.
     apply item_insert_dedup_tagged_NoDup.
-    by eapply access1_tag_fresh_stack. by eapply access1_stack_item_tagged_NoDup.
+    + by eapply access1_tag_fresh_stack.
+    + by eapply access1_stack_item_tagged_NoDup.
   - case access1 as [[n1 stk1]|] eqn:Eq1; [|done]. cbn -[item_insert_dedup].
     intros ? ND. simplify_eq.
     apply item_insert_dedup_tagged_NoDup.
-    by eapply access1_tag_fresh_stack. by eapply access1_stack_item_tagged_NoDup.
+    + by eapply access1_tag_fresh_stack.
+    + by eapply access1_stack_item_tagged_NoDup.
 Qed.
 
 Definition tag_fresh t (α: stacks) l n :=

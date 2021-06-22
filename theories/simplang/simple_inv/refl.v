@@ -2,6 +2,7 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst gen_log_rel wf gen_refl pure_refl.
 From simuliris.simplang.simple_inv Require Import inv.
+From iris.prelude Require Import options.
 
 (** * Reflexivity theorem for the heap bijection value relation *)
 

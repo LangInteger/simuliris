@@ -1,5 +1,6 @@
 From simuliris.stacked_borrows Require Import lang.
 From stdpp Require Import fin_maps.
+From iris.prelude Require Import options.
 
 
 (** The tactic [reshape_expr e tac] decomposes the expression [e] into an

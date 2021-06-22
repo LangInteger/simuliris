@@ -1,4 +1,5 @@
 From simuliris.simplang Require Import lang.
+From iris.prelude Require Import options.
 
 (** * "Well-formed" values and expressions.
 These definitions basically form our type system. Their main job is to

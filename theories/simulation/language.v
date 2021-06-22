@@ -502,7 +502,7 @@ Section language.
   Proof.
     split.
     - intros Hstep; eauto using pool_steps.
-    - inversion 1 as [|??????????Hsteps]; subst; inversion Hsteps; by subst.
+    - inversion 1 as [|????????? Hsteps]. subst; inversion Hsteps; by subst.
   Qed.
 
   Lemma pool_steps_trans p T T' T'' σ σ' σ'' I J:
@@ -757,7 +757,7 @@ Section language.
     pool_reach_stuck p (<[i := fill K e]> T) σ.
   Proof.
     intros Hlook (T' & σ' & I & Hsteps & Hstuck).
-    eapply pool_steps_fill_context with (K := K) in Hsteps as (e' & Hlook' & Hsteps); last done.
+    eapply (pool_steps_fill_context _ _ K) in Hsteps as (e' & Hlook' & Hsteps); last done.
     exists (<[i:=fill K e']> T'), σ', I; split; first done.
     destruct Hstuck as (e'' & j & Hlook'' & Hstuck).
     destruct (decide (i = j)).
@@ -848,7 +848,7 @@ Section language.
   Lemma fill_reach_stuck p e σ K :
     reach_stuck p e σ → reach_stuck p (fill K e) σ.
   Proof.
-    intros Hreach; eapply fill_reach_stuck_pool with (T := [e]) (i := 0); done.
+    intros Hreach; eapply (fill_reach_stuck_pool _ [e] 0); done.
   Qed.
 
   Lemma no_forks_pool_steps_single_thread p e σ e' σ':
@@ -933,7 +933,7 @@ Section language.
     safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ K, p !! f = Some K.
   Proof.
     intros H1 (I & Hsteps)%no_forks_pool_steps_single_thread.
-    eapply pool_safe_call_in_prg with (i := 0) in Hsteps; eauto.
+    eapply (pool_safe_call_in_prg _ _ _ _ 0) in Hsteps; eauto.
   Qed.
 
   Lemma no_forks_val p v σ e' σ' :
@@ -1005,6 +1005,12 @@ Section reach_or_stuck.
     post_in_ectx Φ e σ.
   Proof. eexists empty_ectx, e. rewrite fill_empty. naive_solver. Qed.
 
+  Lemma post_in_ectx_mono (Φ1 Φ2 : expr Λ → state Λ → Prop) e σ:
+    post_in_ectx Φ1 e σ →
+    (∀ e σ, Φ1 e σ → Φ2 e σ) →
+    post_in_ectx Φ2 e σ.
+  Proof. move => [?[?[??]]] ?. eexists _, _. naive_solver. Qed.
+
   (** [reach_or_stuck P e σ Φ] says that starting from e in state σ,
   one can either reach e' in σ' such that Φ e' σ' holds or there is an
   execution where e gets stuck. *)
@@ -1014,6 +1020,10 @@ Section reach_or_stuck.
   Lemma reach_or_stuck_refl p e σ (Φ : _ → _ → Prop):
     Φ e σ → reach_or_stuck p e σ Φ.
   Proof. move => ?. right. eexists _, _ => /=. split; [|done]. by apply: no_forks_refl. Qed.
+
+  Lemma reach_or_stuck_mono p e σ (Φ1 Φ2 : _ → _ → Prop):
+    reach_or_stuck p e σ Φ1 → (∀ e σ, Φ1 e σ → Φ2 e σ) → reach_or_stuck p e σ Φ2.
+  Proof. move => [?|?]; [by left|right]. naive_solver. Qed.
 
   Lemma reach_or_stuck_no_forks p e σ e' σ' (Φ : _ → _ → Prop):
     no_forks p e σ e' σ' → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
@@ -1056,7 +1066,7 @@ Section reach_or_stuck.
       done.
   Qed.
 
-  Lemma pool_reach_stuck_reach_or_stuck π p T e σ Φ:
+  Lemma pool_reach_stuck_reach_or_stuck Φ π p T e σ:
     T !! π = Some e →
     reach_or_stuck p e σ Φ →
     (∀ e' σ', Φ e' σ' → pool_reach_stuck p (<[π := e']>T) σ') →

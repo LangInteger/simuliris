@@ -2,6 +2,7 @@
 
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij ghost_map.
+From iris.prelude Require Import options.
 
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls global_sim.
@@ -69,7 +70,7 @@ Proof.
   iIntros "!# %f %K_s %π".
   iDestruct (Hrel _) as "Hrel". clear Hrel.
   destruct (decide (f = fname)) as [->|Hne].
-    rewrite !lookup_insert.
+  - rewrite !lookup_insert.
     iIntros ([= <-]). iExists _. iSplitR; first done.
     (* TODO Factor this into a general lemma? *)
     iIntros (v_t v_s) "[Hc #Hval] /=".

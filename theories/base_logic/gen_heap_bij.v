@@ -19,9 +19,9 @@ Section gset_bij.
     iIntros "Hauth Helem". rewrite gset_bij_own_auth_eq gset_bij_own_elem_eq.
     (* TODO: is there a more elegant way to do this? *)
     iPoseProof (own_op with "[$Hauth $Helem]") as "Ha".
-    iPoseProof (own_valid_r with "Ha") as "[Ha %]".
+    iPoseProof (own_valid_r with "Ha") as "[Ha %Hval]".
     iPoseProof (own_op with "Ha") as "[Hauth Helem]".
-    iFrame. iPureIntro. revert H2. rewrite bij_both_dfrac_valid.
+    iFrame. iPureIntro. revert Hval. rewrite bij_both_dfrac_valid.
     intros (_ & _ & ?); done.
   Qed.
 End gset_bij.
@@ -115,7 +115,7 @@ Section laws.
   Proof.
     iIntros "Hinv Ht Hs Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
     iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_t = l_t') L⌝)%I) as "%Hext_t".
-    { iIntros "%". destruct H3 as ([l_t' l_s'] & Hin & <-).
+    { iIntros (([l_t' l_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(Hcon & _ & _)"; first by apply Hin.
       iPoseProof (mapsto_valid_2  with "Ht Hcon") as "%Hcon"; exfalso.
       destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.

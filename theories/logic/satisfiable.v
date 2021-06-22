@@ -1,5 +1,6 @@
 From iris Require Import upred base_logic.bi bi.bi.
 From iris.proofmode Require Import tactics.
+From iris.prelude Require Import options.
 Import bi.
 
 (* Satisfiability *)
@@ -22,6 +23,8 @@ Section satisfiable.
     Arguments sat _%I.
 
     (* derived *)
+    Set Default Proof Using "Type*".
+
     Global Instance sat_if: Proper ((⊢) ==> impl) sat.
     Proof. intros P Q Hent Hsat; by eapply sat_mono. Qed.
 

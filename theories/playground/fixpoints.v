@@ -1,4 +1,5 @@
-From iris.prelude Require Import prelude options.
+From iris.prelude Require Import prelude.
+From iris.prelude Require Import options.
 
 Class Lattice (L: Type) (leq: relation L) `{!Equiv L} := {
   sup: (L → Prop) → L;

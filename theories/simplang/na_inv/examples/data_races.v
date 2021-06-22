@@ -1,10 +1,12 @@
 From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel parallel_subst wf.
 From iris Require Import bi.bi.
-Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang.na_inv Require Export inv.
 From simuliris.simplang.na_inv Require Import readonly_refl adequacy.
+From iris.prelude Require Import options.
+
+Import bi.
 
 (** * Examples for exploiting UB of data-races. *)
 
@@ -39,7 +41,7 @@ Section data_race.
     sim_bind (! _)%E (! _)%E. iApply sim_irred_unless; first done. iIntros ([l1_s ->]).
     iPoseProof (gen_val_rel_loc_source with "Hv1") as (l_t1 ->) "#Hl1".
     iApply (sim_bij_exploit_load with "Hl1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_refl. by apply: post_in_ectx_intro. }
+    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hl1_t Hl1_s Hv Hc". source_load. target_load. sim_val. sim_pures.
     sim_bind (Val v_t) (_ <- _)%E. iApply sim_irred_unless; first done. iIntros ([l2_s ->]).
     iPoseProof (gen_val_rel_loc_source with "Hv2") as (l_t2 ->) "#Hl2".
@@ -84,6 +86,7 @@ Section data_race.
       eapply reach_or_stuck_pure; first apply _; first done.
       eapply reach_or_stuck_refl.
 
+      apply: reach_or_stuck_irred; [done|] => ?.
       apply: reach_or_stuck_refl. apply post_in_ectx_intro. naive_solver.
     }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc". do 2 source_load. target_load.
@@ -197,6 +200,7 @@ Section data_race.
       do 3 iApply source_red_base. do 3 iModIntro.
       iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
         intros. reach_or_stuck_fill (! _)%E => /=.
+        apply: reach_or_stuck_irred; [done|] => ?.
         apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
       }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".

@@ -1,7 +1,8 @@
 From simuliris.simulation Require Import lifting.
 From simuliris.stacked_borrows Require Import proofmode lang.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 (** Moving read of shared ref up across code that *may* use that ref. *)
 

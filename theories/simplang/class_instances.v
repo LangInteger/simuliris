@@ -2,6 +2,7 @@ From stdpp Require Import gmap.
 From simuliris.simulation Require Import language lifting.
 From simuliris.simplang Require Export lang.
 From simuliris.simplang Require Import tactics.
+From iris.prelude Require Import options.
 
 (** * Instances of the [IrredUnless] class *)
 
@@ -61,7 +62,8 @@ Section irreducible.
            | H : ∃ _, _ |- _ => destruct H
            | H: _ ∨ _ |- _ => destruct H
            | H : _ ∧ _ |- _ => destruct H
-           end; congruence.
+           | H : ?f _ = ?f _ |- _ => injection H as ?
+           end; first [ congruence | lia ].
 
   Ltac decide_goal :=
     try apply _;
@@ -77,7 +79,13 @@ Section irreducible.
         match goal with
         | |- context[v] => destruct v as [[] | | | ]
         end
-    end; rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
+    end;
+    (* Special heck for quot/rem *)
+    try match goal with
+    | |- context[LitV (LitInt ?n) = LitV (LitInt _) ∧ _ ≠ 0%Z] =>
+      destruct (decide (n = 0))
+    end;
+    rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
 
   Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | prove_irred].
 
@@ -112,14 +120,16 @@ Section irreducible.
     IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MinusOp (Val v1) (Val v2)) σ.
   Proof. prove_irred_unless; solve_binop v1 v2. Qed.
   Global Instance irreducible_rem v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp RemOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
+      P (BinOp RemOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. naive_solver. Qed.
   Global Instance irreducible_mult v1 v2 P σ :
     IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MultOp (Val v1) (Val v2)) σ.
   Proof. prove_irred_unless. solve_binop v1 v2. Qed.
   Global Instance irreducible_quot v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp QuotOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
+      P (BinOp QuotOp (Val v1) (Val v2)) σ.
+  Proof. prove_irred_unless. solve_binop v1 v2. naive_solver. Qed.
 
   Global Instance irreducible_and v1 v2 P σ :
     IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
@@ -246,7 +256,7 @@ Section irreducible.
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
-    apply irred_unless_irred_dec; last (prove_irred; apply ϕ; eauto 8).
+    apply irred_unless_irred_dec; last (prove_irred; by eauto 8).
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct v_n as [[n | | | | | ]  | | | ]; try decide_goal.
     apply (exists_dec_unique l); [ naive_solver|].
@@ -268,7 +278,7 @@ Section irreducible.
         destruct l; simpl; lia.
     - destruct (decide (n > 0)%Z) as [Hn|]; first last. { left. intros m ?. lia. }
       replace n with (Z.of_nat (Z.to_nat n)) by lia. generalize (Z.to_nat n) as n'. clear n Hn.
-      induction n' as [ | n IH]. { left. lia. }
+      intros n. induction n as [ | n IH]. { left. lia. }
       destruct (σ.(heap) !! (l +ₗ n)) eqn:Hn; first last.
       { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. rewrite Hn. intros (? & [=]). }
       destruct IH as [IH | IH].

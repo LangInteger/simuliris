@@ -1,6 +1,7 @@
-From iris.prelude Require Import options prelude.
+From Coq Require Import Logic.Epsilon.
 From stdpp Require Import gmap.
-Require Import Coq.Logic.Epsilon.
+From iris.prelude Require Import prelude.
+From iris.prelude Require Import options.
 
 
 Class Language := {

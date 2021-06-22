@@ -1,5 +1,6 @@
 From stdpp Require Export countable binders gmap.
 From iris.prelude Require Import prelude options.
+From iris.prelude Require Import options.
 
 (*Global Open Scope general_if_scope.*)
 From simuliris.stacked_borrows Require Export type locations.

@@ -208,9 +208,11 @@ Proof. reflexivity. Qed.
 
 Lemma of_to_call e f v : to_call e = Some (f, v) → of_call f v = e.
 Proof.
-  destruct e => //=. destruct e1 => //=.
+  destruct e => //=.
+  match goal with |- context[to_fname ?e] => destruct e => //= end.
   match goal with |- context[Val ?v] => destruct v as [[] | | |] => //= end.
-  destruct e2 => //=. by intros [= <- <-].
+  match goal with |- context[to_val ?e] => destruct e => //= end.
+  by intros [= <- <-].
 Qed.
 
 Global Instance lock_state_eq_dec : EqDecision lock_state.
@@ -631,8 +633,8 @@ Definition bin_op_eval_int (op : bin_op) (n1 n2 : Z) : option base_lit :=
   | PlusOp => Some $ LitInt (n1 + n2)
   | MinusOp => Some $ LitInt (n1 - n2)
   | MultOp => Some $ LitInt (n1 * n2)
-  | QuotOp => Some $ LitInt (n1 `quot` n2)
-  | RemOp => Some $ LitInt (n1 `rem` n2)
+  | QuotOp => if decide (n2 = 0) then None else Some $ LitInt (n1 `quot` n2)
+  | RemOp => if decide (n2 = 0) then None else Some $ LitInt (n1 `rem` n2)
   | AndOp => Some $ LitInt (Z.land n1 n2)
   | OrOp => Some $ LitInt (Z.lor n1 n2)
   | XorOp => Some $ LitInt (Z.lxor n1 n2)
@@ -931,25 +933,28 @@ Proof.
   + destruct e; try discriminate 1; first by inversion 1.
     rewrite /to_class; simpl. destruct to_fname, to_val; simpl; congruence.
   + destruct e; try discriminate 1. rewrite /to_class; simpl.
-    destruct e1; simpl.
-    { destruct v as [[ | | | | |fn] | | | ]; simpl; try congruence.
-      destruct e2; try discriminate 1. by inversion 1. }
-    all: congruence.
+    match goal with |- context[to_fname ?e] => destruct e => //= end.
+    match goal with |- context[to_fname (Val ?xv)] => rename xv into v end.
+    destruct v as [[ | | | | |fn] | | | ]; simpl; try congruence.
+    match goal with |- context[to_val ?e] => destruct e => //= end.
+    by inversion 1.
 Qed.
 
 Lemma to_class_val e v : to_class e = Some (ExprVal v) → to_val e = Some v.
 Proof.
   destruct e; simpl; try discriminate 1.
   - by inversion 1.
-  - destruct e1; rewrite /to_class; simpl.
-    { destruct to_fname; destruct e2; try discriminate 1. }
-    all: discriminate 1.
+  - match goal with |- context[Call ?e _] => destruct e => //= end.
+    rewrite /to_class; simpl.
+    destruct to_fname; last done.
+    match goal with |- context[to_val ?e] => destruct e => //= end.
 Qed.
 Lemma to_class_call e f v : to_class e = Some (ExprCall f v) → to_call e = Some (f, v).
 Proof.
   destruct e; rewrite /to_class; simpl; try discriminate 1.
   destruct to_fname; simpl; try discriminate 1.
-  destruct e2; simpl; try discriminate 1. by inversion 1.
+  match goal with |- context[to_val ?e] => destruct e => //= end.
+  by inversion 1.
 Qed.
 
 Lemma to_val_class e v : to_val e = Some v → to_class e = Some (ExprVal v).
@@ -982,9 +987,9 @@ Qed.
 Lemma fill_val K e :
   is_Some (to_val (fill K e)) → is_Some (to_val e).
 Proof.
-  induction K in e |-*; intros [v ?].
+  induction K as [|Ki K IH] in e |-*; intros [v ?].
   - simplify_option_eq; eauto.
-  - eapply fill_item_val, IHK, mk_is_Some, H.
+  - eapply fill_item_val, IH, mk_is_Some. eauto.
 Qed.
 Lemma fill_val_none K e :
   to_val e = None → to_val (fill K e) = None.
@@ -1067,7 +1072,7 @@ Proof.
   - apply of_to_class.
   - intros p v ???? H%val_head_stuck. cbn in H. congruence.
   - intros p f v ???. split.
-    + cbn. inversion 1; subst. exists K. eauto.
+    + cbn. inversion 1; subst. eauto.
     + intros (K & ? & -> & -> & ->). cbn. by constructor.
   - done.
   - intros ???. by rewrite -fill_app.
@@ -1089,6 +1094,8 @@ Proof.
         - cbn in IH. by apply IH, fill_item_val_none.
       }
       rewrite Heq in H. destruct K; first done.
+      rename select string into fn_name.
+      rename select val into arg.
       enough (Some (fn_name, arg) = None) by congruence. by apply H.
   - intros p K K' e1' e1_redex σ1 e2 σ2 efs H. destruct to_class as [ [] | ] eqn:Heq; first done.
     + intros _ Hstep.
@@ -1097,7 +1104,8 @@ Proof.
     + intros _ Hstep. eapply fill_eq; [ | apply Hstep | apply H].
       destruct to_val eqn:Hval; last done. apply to_val_class in Hval; congruence.
   - intros ?????? H.
-    destruct (to_val e) eqn:Heq. { right. exists v. by apply to_val_class. }
+    match goal with |- context[to_class ?e] => destruct (to_val e) eqn:Heq end.
+    { right. eexists. by apply to_val_class. }
     left. by eapply head_ectx_step_no_val.
 Qed.
 End simp_lang.
