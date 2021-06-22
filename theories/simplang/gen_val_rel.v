@@ -121,14 +121,18 @@ Tactic Notation "val_discr_source" constr(H) :=
          iPoseProof (gen_val_rel_litfn_source with H) as "->" |
          iPoseProof (gen_val_rel_litunit_source with H) as "->" |
          iPoseProof (gen_val_rel_litpoison_source with H) as "->" |
-         idtac].
+         let H' := iFresh in
+         iPoseProof (gen_val_rel_loc_source with H) as (? ->) H';
+         try iClear H; iRename H' into H].
 Tactic Notation "val_discr_target" constr(H) :=
   first [iPoseProof (gen_val_rel_litint_target with H) as "->" |
          iPoseProof (gen_val_rel_litbool_target with H) as "->" |
          iPoseProof (gen_val_rel_litfn_target with H) as "->" |
          iPoseProof (gen_val_rel_litunit_target with H) as "->" |
          iPoseProof (gen_val_rel_litpoison_target with H) as "->" |
-         idtac].
+         let H' := iFresh in
+         iPoseProof (gen_val_rel_loc_target with H) as (? ->) H';
+         try iClear H; iRename H' into H].
 
 Section gen_val_rel.
   Context {Σ} (loc_rel : loc → loc → iProp Σ).
@@ -137,10 +141,8 @@ Section gen_val_rel.
   Lemma gen_val_rel_func v1 v2 v3 : loc_rel_func_law loc_rel → val_rel v1 v2 -∗ val_rel v1 v3 -∗ ⌜v2 = v3⌝.
   Proof.
     iIntros (Hf) "Hv1 Hv2".
-    iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); val_discr_source "Hv1"; val_discr_target "Hv2"; try done.
-    - iPoseProof (gen_val_rel_loc_source with "Hv1") as (?) "(-> & Hl1)".
-      iPoseProof (gen_val_rel_loc_target with "Hv2") as (?) "(-> & Hl2)".
-      by iPoseProof (Hf with "Hl1 Hl2") as "->".
+    iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); try val_discr_source "Hv1"; try val_discr_target "Hv2"; try done.
+    - by iPoseProof (Hf with "Hv1 Hv2") as "->".
     - iPoseProof (gen_val_rel_pair_source with "Hv1") as (??) "(-> & Hv1_1 & Hv1_2)".
       iPoseProof (gen_val_rel_pair_target with "Hv2") as (??) "(-> & Hv2_1 & Hv2_2)".
       iPoseProof ("IH" with "Hv1_1 Hv2_1") as "->".
@@ -155,10 +157,8 @@ Section gen_val_rel.
   Lemma gen_val_rel_inj v1 v2 v3 : loc_rel_inj_law loc_rel → val_rel v2 v1 -∗ val_rel v3 v1 -∗ ⌜v2 = v3⌝.
   Proof.
     iIntros (Hi) "Hv1 Hv2".
-    iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); val_discr_target "Hv1"; val_discr_source "Hv2"; try done.
-    - iPoseProof (gen_val_rel_loc_target with "Hv1") as (?) "(-> & Hl1)".
-      iPoseProof (gen_val_rel_loc_source with "Hv2") as (?) "(-> & Hl2)".
-      by iPoseProof (Hi with "Hl1 Hl2") as "->".
+    iInduction v2 as [[n2 | b2 | | | l2 | f2 ] | v2_1 v2_2 | v2 | v2] "IH" forall (v1 v3); try val_discr_target "Hv1"; try val_discr_source "Hv2"; try done.
+    - by iPoseProof (Hi with "Hv1 Hv2") as "->".
     - iPoseProof (gen_val_rel_pair_target with "Hv1") as (??) "(-> & Hv1_1 & Hv1_2)".
       iPoseProof (gen_val_rel_pair_source with "Hv2") as (??) "(-> & Hv2_1 & Hv2_2)".
       iPoseProof ("IH" with "Hv1_1 Hv2_1") as "->".

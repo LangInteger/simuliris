@@ -61,7 +61,7 @@ Section refl.
       iApply (log_rel_store with "IH IH1").
       iIntros (??????) "Ht Hl Hv Hcont".
       match goal with | o : order |- _ => destruct o => // end.
-      + by iApply (sim_bij_store_sc with "Hl Ht Hv").
+      + by iApply (sim_bij_store_sc_empty with "Hl Ht Hv").
       + by iApply (sim_bij_store_na with "Hl Ht Hv").
   Qed.
 
