@@ -578,9 +578,9 @@ Section na_locs_wf.
     na_locs_wf cols P_s σ_s T_s →
     cols !! π = Some col →
     o = Na1Ord ∨ (o = ScOrd ∧
-     (∀ (l_s : loc) l_t ns σ_s,
-        col !! l_s = Some (l_t, ns) →
-        reach_or_stuck P_s (fill K_s #()) σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = (if ns is NaExcl then Store Na1Ord #l_s v' else Load Na1Ord #l_s))))) →
+     (∀ (l_s' : loc) l_t' ns σ_s,
+        col !! l_s' = Some (l_t', ns) →
+        reach_or_stuck P_s (fill K_s #()) σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = (if ns is NaExcl then Store Na1Ord #l_s' v' else Load Na1Ord #l_s'))))) →
     heap σ_s !! l_s = Some (RSt 0, v) →
     T_s !! π = Some (fill K_s (Store o #l_s v')) →
     pool_safe P_s T_s σ_s →

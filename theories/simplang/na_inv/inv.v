@@ -261,9 +261,9 @@ Section fix_heap.
 
   Lemma sim_bij_store_sc K_t K_s π l_t l_s v_t v_s Φ col :
     col !! l_s = None →
-    (∀ (l_s : loc) l_t ns P_s σ_s,
-        col !! l_s = Some (l_t, ns) →
-        reach_or_stuck P_s (fill K_s #()) σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = (if ns is NaExcl then Store Na1Ord #l_s v' else Load Na1Ord #l_s)))) →
+    (∀ (l_s' : loc) l_t' ns P_s σ_s,
+        col !! l_s' = Some (l_t', ns) →
+        reach_or_stuck P_s (fill K_s #()) σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = (if ns is NaExcl then Store Na1Ord #l_s' v' else Load Na1Ord #l_s')))) →
     l_t ↔h l_s -∗
     na_locs π col -∗
     val_rel v_t v_s -∗
