@@ -79,7 +79,6 @@ theories/stacked_borrows/notation.v
 theories/stacked_borrows/expr_semantics.v
 theories/stacked_borrows/bor_semantics.v
 theories/stacked_borrows/lang.v
-theories/stacked_borrows/wf.v
 theories/stacked_borrows/defs.v
 theories/stacked_borrows/steps_foreach.v
 theories/stacked_borrows/steps_list.v
@@ -88,6 +87,9 @@ theories/stacked_borrows/steps_wf.v
 theories/stacked_borrows/steps_progress.v
 theories/stacked_borrows/steps_retag.v
 theories/stacked_borrows/steps_inv.v
+
+theories/stacked_borrows/wf.v
+theories/stacked_borrows/parallel_subst.v
 
 
 

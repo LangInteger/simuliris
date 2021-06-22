@@ -1,0 +1,249 @@
+From stdpp Require Export gmap.
+From simuliris.stacked_borrows Require Export lang notation.
+
+(** Definitions and proofs mostly yoinked from https://gitlab.mpi-sws.org/FP/stacked-borrows/-/blob/master/theories/lang/subst_map.v *)
+
+(** Induction scheme for expressions *)
+Lemma expr_ind (P : expr → Prop):
+  (∀ v, P (Val v)) →
+  (∀ x, P (Var x)) →
+  (∀ e1 e2, P e1 → P e2 → P (Call e1 e2)) →
+  (P (InitCall)) →
+  (∀ e, P e → P (EndCall e)) →
+  (∀ l tg ty, P (Place l tg ty)) →
+  (∀ o e1 e2, P e1 → P e2 → P (BinOp o e1 e2)) →
+  (∀ e1 e2, P e1 → P e2 → P (Proj e1 e2)) →
+  (∀ e1 e2, P e1 → P e2 → P (Conc e1 e2)) →
+  (∀ e ty, P e → P (Deref e ty)) →
+  (∀ e, P e → P (Ref e)) →
+  (∀ e, P e → P (Copy e)) →
+  (∀ e1 e2, P e1 → P e2 → P (Write e1 e2)) →
+  (∀ ty, P (Alloc ty)) →
+  (∀ e, P e → P (Free e)) →
+  (∀ e1 e2 pk T rk, P e1 → P e2 → P (Retag e1 e2 pk T rk)) →
+  (∀ b e1 e2, P e1 → P e2 → P (Let b e1 e2)) →
+  (∀ e el, P e → Forall P el → P (Case e el)) →
+  (∀ e1 e2, P e1 → P e2 → P (While e1 e2)) →
+  (∀ e, P e → P (Fork e)) →
+  ∀ e, P e.
+Proof.
+  intros. revert e. fix REC 1. destruct e; try
+  (* Find head symbol, then find lemma for that symbol.
+     We have to be this smart because we can't use the unguarded [REC]! *)
+  match goal with
+  | |- P (?head _ _ _ _ _) =>
+    match goal with H : context[head] |- _ => apply H; try done end
+  | |- P (?head _ _ _ _) =>
+    match goal with H : context[head] |- _ => apply H; try done end
+  | |- P (?head _ _ _) =>
+    match goal with H : context[head] |- _ => apply H; try done end
+  | |- P (?head _ _) =>
+    match goal with H : context[head] |- _ => apply H; try done end
+  | |- P (?head _) =>
+    match goal with H : context[head] |- _ => apply H; try done end
+  | |- P (?head) =>
+    match goal with H : context[head] |- _ => apply H; try done end
+  end.
+  (* remaining case: The [Forall]. *)
+  induction el; eauto using Forall.
+Qed.
+
+(** * Parallel substitution*)
+
+Fixpoint subst_map (xs : gmap string value) (e : expr) : expr :=
+  match e with
+  | Var y => if xs !! y is Some v then Val v else Var y
+  | Val v => Val v
+  | Let x1 e1 e2 => Let x1 (subst_map xs e1) (subst_map (binder_delete x1 xs) e2)
+  | Call e1 e2 => Call (subst_map xs e1) (subst_map xs e2)
+  | InitCall => InitCall
+  | EndCall e => EndCall (subst_map xs e)
+  | Place l tag T => Place l tag T
+  | BinOp op e1 e2 => BinOp op (subst_map xs e1) (subst_map xs e2)
+  | Proj e1 e2 => Proj (subst_map xs e1) (subst_map xs e2)
+  | Conc e1 e2 => Conc (subst_map xs e1) (subst_map xs e2)
+  | Copy e => Copy (subst_map xs e)
+  | Write e1 e2 => Write (subst_map xs e1) (subst_map xs e2)
+  | Alloc T => Alloc T
+  | Free e => Free (subst_map xs e)
+  | Deref e T => Deref (subst_map xs e) T
+  | Ref e => Ref (subst_map xs e)
+  | Retag e1 e2 pk T kind => Retag (subst_map xs e1) (subst_map xs e2) pk T kind
+  | Case e el => Case (subst_map xs e) (fmap (subst_map xs) el)
+  | While e0 e1 => While (subst_map xs e0) (subst_map xs e1)
+  | Fork e => Fork (subst_map xs e)
+  end.
+
+Lemma subst_map_empty e :
+  subst_map ∅ e = e.
+Proof.
+  induction e using expr_ind; simpl; f_equal; eauto.
+  - match goal with |- context[binder_delete ?x ∅] => destruct x; first done end.
+    simpl; rewrite delete_empty; done.
+  - induction H; first done. simpl. by f_equal.
+Qed.
+
+Lemma subst_map_subst map x (v : value) (e : expr) :
+  subst_map map (subst x v e) = subst_map (<[x:=v]>map) e.
+Proof.
+  revert x v map; induction e using expr_ind; intros xx r map; simpl;
+  try (f_equal; eauto).
+  all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first done end.
+  - case_bool_decide.
+    + simplify_eq/=. by rewrite lookup_insert.
+    + rewrite lookup_insert_ne; done.
+  - case_bool_decide.
+    + rewrite delete_insert_ne; last by congruence. done.
+    + simplify_eq/=. by rewrite delete_insert_delete.
+  - induction H; first done. simpl. f_equal; done.
+Qed.
+
+Lemma subst_subst_map x (v : value) map e :
+  subst x v (subst_map (delete x map) e) =
+  subst_map (<[x:=v]>map) e.
+Proof.
+  revert map v x; induction e using expr_ind; intros map v0 xx; simpl;
+  try (f_equal; eauto).
+  all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first by auto end.
+  - match goal with |- context[delete _ _ !! ?s] => rename s into x end.
+    destruct (decide (xx=x)) as [->|Hne].
+    + rewrite lookup_delete // lookup_insert //. simpl.
+      rewrite bool_decide_true //.
+    + rewrite lookup_delete_ne // lookup_insert_ne //.
+      destruct (map !! x) as [rr|].
+      * by destruct rr.
+      * simpl. rewrite bool_decide_false //.
+  - case_bool_decide.
+    + rewrite delete_insert_ne //; last congruence. rewrite delete_commute. eauto.
+    + simplify_eq. rewrite delete_idemp delete_insert_delete. done.
+  - induction H; first done. simpl. f_equal; done.
+Qed.
+
+Lemma subst'_subst_map b (v : value) map e :
+  subst' b v (subst_map (binder_delete b map) e) =
+  subst_map (binder_insert b v map) e.
+Proof.
+  destruct b; first done.
+  exact: subst_subst_map.
+Qed.
+
+Lemma subst_map_subst_map xs ys e :
+  subst_map xs (subst_map ys e) = subst_map (ys ∪ xs) e.
+Proof.
+  revert e.
+  induction ys as [|x v ys HNone IH] using map_ind => e.
+  { by rewrite left_id subst_map_empty. }
+  by rewrite -insert_union_l -[in X in _ = X]subst_map_subst -IH subst_map_subst.
+Qed.
+
+(** "Free variables" and their interaction with subst_map *)
+Local Definition binder_to_ctx (x : binder) : gset string :=
+  if x is BNamed s then {[s]} else ∅.
+
+Fixpoint free_vars (e : expr) : gset string :=
+  match e with
+  | Val v => ∅
+  | Var x => {[x]}
+  | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
+  | InitCall | Place _ _ _ | Alloc _ => ∅
+  | Fork e | Copy e | Free e | Deref e _ | Ref e | EndCall e =>
+     free_vars e
+  | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Proj e1 e2 | Conc e1 e2
+    | Write e1 e2 | Retag e1 e2 _ _ _ =>
+     free_vars e1 ∪ free_vars e2
+  | Case e el =>
+    (free_vars e) ∪ foldl (λ s ei, s ∪ free_vars ei) ∅ el
+  end.
+
+(* Just fill with any value, it does not make a difference. *)
+Definition free_vars_ectx (K : ectx) : gset string :=
+  free_vars (fill K #[☠]).
+
+Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string value) :
+  (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
+  binder_delete y xs1 !! x = binder_delete y xs2 !! x.
+Proof.
+  destruct y as [|s]; first done. simpl.
+  destruct (decide (s = x)) as [->|Hne].
+  - rewrite !lookup_delete //.
+  - rewrite !lookup_delete_ne //. eauto.
+Qed.
+
+Lemma foldl_union_cons {A} `{Countable B}
+  (f : A → gset B) (s: gset B) (a : A) (xs : list A) :
+  foldl (λ s a, s ∪ f a) s (a :: xs) =
+  f a ∪ foldl (λ s a, s ∪ f a) s xs.
+Proof.
+  revert a s. induction xs as [|x xs IH] => a s.
+  - simpl. set_solver.
+  - simpl. rewrite -IH /=. f_equal. set_solver.
+Qed.
+
+Lemma subst_map_free_vars (xs1 xs2 : gmap string value) (e : expr) :
+  (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
+  subst_map xs1 e = subst_map xs2 e.
+Proof.
+  revert xs1 xs2; induction e using expr_ind=>/= xs1 xs2 Heq;
+  try solve [
+    (* trivial cases *)
+    done
+  | (* variable case *)
+    rewrite Heq; [done|set_solver]
+  | (* recursive cases *)
+    f_equal;
+    repeat lazymatch goal with x : binder |- _ => destruct x end;
+    intuition eauto using binder_delete_eq with set_solver
+  ].
+  f_equal.
+  - apply IHe => x Ine. apply Heq. set_solver+Ine.
+  - induction H; first done. simpl. f_equal.
+    + apply H => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
+    + apply IHForall => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
+Qed.
+
+Lemma subst_map_closed xs e :
+  free_vars e = ∅ →
+  subst_map xs e = e.
+Proof.
+  intros Hclosed.
+  trans (subst_map ∅ e).
+  - apply subst_map_free_vars. rewrite Hclosed. done.
+  - apply subst_map_empty.
+Qed.
+
+Lemma subst_free_vars x (v : value) e :
+  x ∉ free_vars e →
+  subst x v e = e.
+Proof.
+  intros Hfree.
+  rewrite -(subst_map_empty (subst x v e)).
+  rewrite subst_map_subst.
+  rewrite (subst_map_free_vars _ ∅); first by apply subst_map_empty.
+  intros y ?. rewrite lookup_insert_ne //. set_solver.
+Qed.
+
+Lemma free_vars_subst x (v : value) e :
+  free_vars (subst x v e) = free_vars e ∖ {[x]}.
+Proof.
+  induction e using expr_ind=>/=; repeat case_decide; try set_solver.
+  rewrite IHe difference_union_distr_l_L. f_equal.
+  induction H as [|? ? ? H]. set_solver-.
+  rewrite fmap_cons !foldl_union_cons difference_union_distr_l_L. by f_equal.
+Qed.
+
+Lemma free_vars_subst_map xs e :
+  free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
+Proof.
+  induction xs as [| x v xs HNone IH] using map_ind.
+  - rewrite subst_map_empty. set_solver.
+  - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
+Qed.
+
+Lemma free_vars_fill K e :
+  free_vars (fill K e) = free_vars_ectx K ∪ free_vars e.
+Proof.
+  revert e. induction K as [|Ki K IH] using rev_ind; intros e; simpl.
+  { simpl. rewrite /free_vars_ectx /= left_id_L. done. }
+  rewrite /free_vars_ectx !fill_app /=. destruct Ki; simpl.
+  all: rewrite !IH; set_solver+.
+Qed.
