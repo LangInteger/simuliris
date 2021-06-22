@@ -551,7 +551,7 @@ Definition retag_place
 by two spaces in case the whole λ: does not fit on a single line. *)
 (* Note: this is a context for use with the function call mechanism of SimpLang. *)
 (* FIXME: why is this not in notation.v? *)
-Notation "λ: x , e" := ([LetCtx x%binder e%E])
+Notation "λ: x , e" := ([LetEctx x%binder e%E])
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
 Bind Scope expr_scope with ectx.

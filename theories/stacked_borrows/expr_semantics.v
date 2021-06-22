@@ -81,51 +81,51 @@ Qed.
 
 (** Evaluation contexts *)
 Inductive ectx_item :=
-| CallLCtx (r2 : result)
-| CallRCtx (e1 : expr)
-| EndCallCtx
-| BinOpRCtx (op : bin_op) (e1 : expr)
-| BinOpLCtx (op : bin_op) (r2 : result)
-| ProjRCtx (e1 : expr)
-| ProjLCtx (r2 : result)
-| ConcRCtx (e1 : expr)
-| ConcLCtx (r2 : result)
-| CopyCtx
-| WriteRCtx (e1 : expr)
-| WriteLCtx (r2 : result)
-| FreeCtx
-| DerefCtx (T : type)
-| RefCtx
-(* | FieldCtx (path : list nat) *)
-| RetagRCtx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
-| RetagLCtx (r2 : result) (pkind : pointer_kind) (T : type) (kind : retag_kind)
-| LetCtx (x : binder) (e2 : expr)
-| CaseCtx (el : list expr)
+| CallLEctx (r2 : result)
+| CallREctx (e1 : expr)
+| EndCallEctx
+| BinOpREctx (op : bin_op) (e1 : expr)
+| BinOpLEctx (op : bin_op) (r2 : result)
+| ProjREctx (e1 : expr)
+| ProjLEctx (r2 : result)
+| ConcREctx (e1 : expr)
+| ConcLEctx (r2 : result)
+| CopyEctx
+| WriteREctx (e1 : expr)
+| WriteLEctx (r2 : result)
+| FreeEctx
+| DerefEctx (T : type)
+| RefEctx
+(* | FieldEctx (path : list nat) *)
+| RetagREctx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+| RetagLEctx (r2 : result) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+| LetEctx (x : binder) (e2 : expr)
+| CaseEctx (el : list expr)
 (* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
 .
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
-  | CallLCtx r2 => Call e (of_result r2)
-  | CallRCtx e1 => Call e1 e
-  | EndCallCtx => EndCall e
-  | BinOpRCtx op e1 => BinOp op e1 e
-  | BinOpLCtx op r2 => BinOp op e (of_result r2)
-  | ProjRCtx e1 => Proj e1 e
-  | ProjLCtx r2 => Proj e (of_result r2)
-  | ConcRCtx e1 => Conc e1 e
-  | ConcLCtx r2 => Conc e (of_result r2)
-  | CopyCtx => Copy e
-  | WriteRCtx e1 => Write e1 e
-  | WriteLCtx r2 => Write e (of_result r2)
-  | FreeCtx => Free e
-  | DerefCtx T => Deref e T
-  | RefCtx => Ref e
-  (* | FieldCtx path => Field e path *)
-  | RetagLCtx r2 pk T kind => Retag e (of_result r2) pk T kind
-  | RetagRCtx e1 pk T kind => Retag e1 e pk T kind
-  | LetCtx x e2 => Let x e e2
-  | CaseCtx el => Case e el
+  | CallLEctx r2 => Call e (of_result r2)
+  | CallREctx e1 => Call e1 e
+  | EndCallEctx => EndCall e
+  | BinOpREctx op e1 => BinOp op e1 e
+  | BinOpLEctx op r2 => BinOp op e (of_result r2)
+  | ProjREctx e1 => Proj e1 e
+  | ProjLEctx r2 => Proj e (of_result r2)
+  | ConcREctx e1 => Conc e1 e
+  | ConcLEctx r2 => Conc e (of_result r2)
+  | CopyEctx => Copy e
+  | WriteREctx e1 => Write e1 e
+  | WriteLEctx r2 => Write e (of_result r2)
+  | FreeEctx => Free e
+  | DerefEctx T => Deref e T
+  | RefEctx => Ref e
+  (* | FieldEctx path => Field e path *)
+  | RetagLEctx r2 pk T kind => Retag e (of_result r2) pk T kind
+  | RetagREctx e1 pk T kind => Retag e1 e pk T kind
+  | LetEctx x e2 => Let x e e2
+  | CaseEctx el => Case e el
   end.
 
 (** Building actual evaluation contexts out of ectx_items *)
