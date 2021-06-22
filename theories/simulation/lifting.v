@@ -152,7 +152,7 @@ Section lang.
     induction Hsteps.
     - rewrite /safe in Hsafe. contradict Hsafe.
       apply irreducible_reach_stuck; done.
-    - apply IHHsteps; [ |done..]. eapply safe_prim_step; done.
+    - eauto using safe_prim_step.
   Qed.
 
   Lemma pool_safe_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ} T π K:
@@ -229,7 +229,7 @@ Section fix_sim.
     intros Hp Hϕ. specialize (Hp Hϕ).
     induction Hp as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH]; first done.
     rewrite IH. iIntros "Hs". iApply source_red_step.
-    iIntros (??????) "[Hstate [% %]]". iModIntro. iExists e_s2, σ_s.
+    iIntros (P_s σ_s ????) "[Hstate [% %]]". iModIntro. iExists e_s2, σ_s.
     iFrame.
     destruct (Hstep) as [Hred Hdet]. destruct (Hred P_s σ_s) as (e_s' & σ_s' & efs & Hs).
     specialize (Hdet _ _ _ _ _ Hs) as [-> [-> ->]].
@@ -242,10 +242,10 @@ Section fix_sim.
     ϕ → target_red e2 Ψ -∗ target_red e1 Ψ.
   Proof.
     intros Hp Hϕ. specialize (Hp Hϕ).
-    induction Hp as [ e_t2 | n e_t1 e_t2 e_t3 Hstep _ IH]; first done.
+    induction Hp as [ e_t2 | n e_t1 e_t2 e_t3 Hpstep _ IH]; first done.
     rewrite IH. iIntros "Ht". iApply target_red_step.
-    iIntros (?????) "Hstate". iModIntro. iSplitR. { iPureIntro. apply Hstep. }
-    iIntros (???) "%". iModIntro. apply Hstep in H as [-> [-> ->]]. by iFrame.
+    iIntros (?????) "Hstate". iModIntro. iSplitR. { iPureIntro. apply Hpstep. }
+    iIntros (???) "%Hstep". iModIntro. apply Hpstep in Hstep as [-> [-> ->]]. by iFrame.
   Qed.
 
   (** Primitive reduction *)
@@ -285,7 +285,7 @@ Section fix_sim.
     iApply sim_step_target. iIntros (??????) "[Hstate [% %]]".
     iMod ("Ha" with "[$Hstate//]") as "[Hred Hev]". iModIntro. iFrame.
     iIntros (e_t' efs_t σ_t') "Htarget". iMod ("Hev" with "Htarget") as "[Hstate Hev]".
-    iModIntro; iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro; constructor.
+    iModIntro; iExists e_s, _. rewrite list_insert_id //. iFrame. iPureIntro; constructor.
   Qed.
 
   Lemma sim_lift_prim_step_source e_t e_s Φ π :
@@ -377,7 +377,7 @@ Section fix_sim.
   Proof.
     intros Hunless Hval. iIntros "Hs".
     rewrite source_red_unfold.
-    iIntros (??????) "[Hstate [% %Hnreach]]".
+    iIntros (P_s σ_s ????) "[Hstate [% %Hnreach]]".
     assert (¬ irreducible P_s e_s σ_s) as Hn.
     { unfold pool_safe in Hnreach. contradict Hnreach.
       apply: pool_reach_stuck_reach_stuck; [|done].
@@ -394,7 +394,7 @@ Section fix_sim.
   Proof.
     intros Hunless Hval. iIntros "Hs".
     rewrite sim_expr_unfold /safe.
-    iIntros (??????) "[Hstate [% %Hnreach]]".
+    iIntros (P_t σ_t P_s σ_s ??) "[Hstate [% %Hnreach]]".
     assert (¬ irreducible P_s e_s σ_s) as Hn.
     { unfold pool_safe in Hnreach. contradict Hnreach.
       apply: pool_reach_stuck_reach_stuck; [|done].
@@ -441,7 +441,7 @@ Section fix_sim.
   Proof.
     iIntros "Hom Hv".
     rewrite sim_expr_unfold. iIntros (??????) "[? [% %]]". iModIntro. iRight; iRight.
-    iExists fn, empty_ectx, v_t, empty_ectx, v_s, σ_s.
+    iExists fn, empty_ectx, v_t, empty_ectx, v_s, _.
     rewrite !fill_empty. iFrame.
     iSplitR; first done. iSplitR; first (iPureIntro; constructor).
     rewrite list_insert_id; [|done]. iFrame.
