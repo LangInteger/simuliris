@@ -90,7 +90,7 @@ theories/stacked_borrows/steps_inv.v
 
 theories/stacked_borrows/wf.v
 theories/stacked_borrows/parallel_subst.v
-
+theories/stacked_borrows/log_rel.v
 
 
 theories/stacked_borrows/tactics.v
