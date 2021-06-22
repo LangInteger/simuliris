@@ -23,13 +23,6 @@ Section lemmas.
     dom (gset loc) (init_mem l n h) = dom (gset loc) h ∪ dom (gset loc) (init_mem l n ∅).
   Proof. apply set_eq. intros l'. rewrite init_mem_dom. done. Qed.
 
-  Lemma fresh_block_not_elem_dom h i :
-    (fresh_block h, i) ∉ dom (gset loc) h.
-  Proof.
-    rewrite /fresh_block.
-    rewrite -elem_of_elements.
-  Admitted.
-
   Lemma fresh_block_det σ_s σ_t :
     dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp) →
     fresh_block σ_s.(shp) = fresh_block σ_t.(shp).
@@ -56,7 +49,7 @@ Section lemmas.
     specialize (elem_of_dom σ.(sst) ((fresh_block (shp σ), 0) +ₗ i)).
     rewrite Hl'. intros (_ &Ha). specialize (Ha ltac:(eauto)).
     move : Ha. rewrite -state_wf_dom; last done.
-    apply fresh_block_not_elem_dom.
+    apply is_fresh_block.
   Qed.
 
   Lemma init_mem_preserve σ n :
@@ -70,7 +63,7 @@ Section lemmas.
     intros i Hi ->.
     specialize (elem_of_dom σ.(shp) ((fresh_block (shp σ), 0) +ₗ i)).
     rewrite Hsc. intros (_ &Ha). specialize (Ha ltac:(eauto)).
-    move : Ha. apply fresh_block_not_elem_dom.
+    move : Ha. apply is_fresh_block.
   Qed.
 
   Lemma loc_controlled_alloc_update σ l' n (t : ptr_id) (tk : tag_kind) sc :

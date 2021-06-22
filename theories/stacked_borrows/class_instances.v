@@ -1,6 +1,9 @@
 From simuliris.simulation Require Import language lifting.
 From simuliris.stacked_borrows Require Export lang.
 From simuliris.stacked_borrows Require Import tactics.
+(* TODO should we really import things from the simplang folder here?
+  require this for the [forall_equiv_dec] lemma *)
+From simuliris.simplang Require Import base.
 From iris.prelude Require Import options.
 
 
@@ -264,11 +267,23 @@ Section irreducible.
     IrredUnless False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_irred_unless. Qed.
   Global Instance irreducible_write P σ l t T v :
-    IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ v <<t σ.(snp) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+    IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; [ | prove_irred].
-    (* TODO*)
-  Admitted.
+    destruct (decide (length v = tsize T)); last finish_decision.
+    destruct (decide (is_Some (memory_written (sst σ) (scs σ) l t (tsize T)))); last finish_decision.
+    enough (Decision (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom (gset loc) (shp σ))) as [ | ]; [by finish_decision.. | ].
+    clear e i. generalize (length v) as n.
+    intros n. induction n as [ | n IH]. { left. lia. }
+    destruct (decide (l +ₗ n ∈ (dom (gset loc) σ.(shp)))); first last.
+    { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. done. }
+    destruct IH as [IH | IH].
+    + left. intros m Hm. destruct (decide (Z.of_nat n = m)) as [<- | Hneq]; first by eauto.
+      apply IH. lia.
+    + destruct (decide (0 < n)) as [Hgt | Hlt].
+      * right. contradict IH. intros m Hm. apply IH. lia.
+      * left. intros m Hm.  assert (m = 0%nat) as -> by lia. assert (n = 0%nat) as -> by lia. eauto.
+  Qed.
 
   Global Instance irreducible_free_val P σ v :
     IrredUnless False P (Free (Val v)) σ.
@@ -276,11 +291,28 @@ Section irreducible.
   Global Instance irreducible_free P σ l t T :
     IrredUnless ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
   Proof.
-    prove_irred_unless.
-    (* TODO: use some stuff on maps *)
-  Admitted.
+    prove_irred_unless. generalize (tsize T) as n => n.
+    apply forall_equiv_dec.
+    - destruct (decide (map_Forall (λ l' _,
+       (l'.1 = l.1 → l.2 ≤ l'.2 < l.2 + n)%Z) σ.(shp))) as [Hm|Hm]; last first.
+      + right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
+        have Hi : i = (l +ₗ (i.2 - l.2)).
+        { rewrite /shift_loc. destruct i, l => /=; f_equal; [ done | lia]. }
+        rewrite Hi in Hheap. eapply mk_is_Some, Hm in Hheap. lia.
+      + left. intros m (x & Hsome).
+        specialize (map_Forall_lookup_1 _ _ _ _ Hm Hsome eq_refl).
+        destruct l; simpl; lia.
+    - induction n as [ | n IH]. { left. lia. }
+      destruct (σ.(shp) !! (l +ₗ n)) eqn:Hs; first last.
+      { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. rewrite Hs. intros (? & [=]). }
+      destruct IH as [IH | IH].
+      + left. intros m Hm. destruct (decide (Z.of_nat n = m)) as [<- | Hneq]; first by eauto.
+        apply IH. lia.
+      + destruct (decide (0 < n)) as [Hgt | Hlt].
+        * right. contradict IH. intros m Hm. apply IH. lia.
+        * left. intros m Hm. replace m with (Z.of_nat n) by lia. eauto.
+  Qed.
 
-  (* TODO: "weak" instances that do not talk about the heap *)
   Global Instance irreducible_write_weak P σ l t T v :
     IrredUnless (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
   Proof.
@@ -292,6 +324,4 @@ Section irreducible.
     eapply irred_unless_weaken; last apply irreducible_retag.
     intros (c & ot & l & -> & -> & _). eauto.
   Qed.
-
-
 End irreducible.

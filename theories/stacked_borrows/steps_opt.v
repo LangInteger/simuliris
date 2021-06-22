@@ -684,7 +684,7 @@ Proof.
 
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (Hread_s & (α' & Hstack_s) & Hwell_tagged_s & Hlen_s').
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (Hread_s & (α' & Hstack_s) & Hlen_s').
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
@@ -1544,6 +1544,3 @@ Proof.
 Qed.
 
 End lifting.
-
-
-
