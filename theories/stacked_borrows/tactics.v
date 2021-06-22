@@ -11,6 +11,7 @@ Ltac reshape_expr e tac :=
     match e with
     | _                               => tac K e
     | Call ?e (Val ?v)                => add_item (CallLEctx (ValR v)) K e
+    | Call ?e (of_result ?v)          => add_item (CallLEctx v) K e
     | Call ?e (Place ?l ?t ?T)        => add_item (CallLEctx (PlaceR l t T)) K e
     | Call ?e1 ?e2                    => add_item (CallREctx e1) K e2
     | EndCall ?e                      => add_item (EndCallEctx) K e

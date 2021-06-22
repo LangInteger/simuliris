@@ -101,6 +101,28 @@ Lemma tac_sim_place_no_bupd l_t l_s t_t t_s T_t T_s Φ Δ π :
   envs_entails Δ (Place l_t t_t T_t ⪯{π} Place l_s t_s T_s {{ Φ }}).
 Proof. rewrite envs_entails_eq => ->. iIntros "H". by iApply sim_place_result. Qed.
 
+Lemma sim_result v_t v_s Φ π :
+  Φ v_t v_s -∗ of_result v_t ⪯{π} of_result v_s {{ Φ }}.
+Proof. iIntros "H". iApply sim_expr_base. by iApply lift_post_val. Qed.
+Lemma tac_sim_result v_t v_s Φ Δ π :
+  envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (of_result v_t ⪯{π} of_result v_s {{ Φ }}).
+Proof.
+  rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_result.
+Qed.
+Lemma tac_sim_result_no_bupd v_t v_s Φ Δ π :
+  envs_entails Δ (Φ v_t v_s) → envs_entails Δ (of_result v_t ⪯{π} of_result v_s {{ Φ }}).
+Proof. rewrite envs_entails_eq => ->. by iApply sim_result. Qed.
+
+Lemma tac_sim_bind_val K_t K_s Δ Φ e_t f_t e_s f_s π :
+  f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
+  f_s = (λ e_s, fill K_s e_s) →
+  envs_entails Δ (e_t ⪯{π} e_s {{ λ e_t' e_s', f_t e_t' ⪯{π} f_s e_s' [{ Φ }] }})%I →
+  envs_entails Δ (fill K_t e_t ⪯{π} fill K_s e_s [{ Φ }]).
+Proof.
+  rewrite envs_entails_eq=> -> ->. intros Hs.
+  iIntros "H". iApply (sim_bind e_t e_s K_t K_s Φ). by iApply Hs.
+Qed.
+
 Lemma tac_sim_bind K_t K_s Δ Φ e_t f_t e_s f_s π :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   f_s = (λ e_s, fill K_s e_s) →
@@ -235,6 +257,15 @@ Ltac sim_result_head :=
       eapply tac_sim_place_no_bupd
   | |- envs_entails _ (sim _ _ (Place _) (Place _)) =>
       eapply tac_sim_place
+
+  | |- envs_entails _ (sim (λ _ _, bupd _) _ (of_result _) (of_result _)) =>
+      eapply tac_sim_result_no_bupd
+  | |- envs_entails _ (sim (λ _ _, sim_expr _ _ _ _) _ (of_result _) (of_result _)) =>
+      eapply tac_sim_result_no_bupd
+  | |- envs_entails _ (sim (λ _ _, sim _ _ _ _) _ (of_result _) (of_result _)) =>
+      eapply tac_sim_result_no_bupd
+  | |- envs_entails _ (sim _ _ (of_result _) (of_result _)) =>
+      eapply tac_sim_result
   end.
 
 Tactic Notation "sim_expr_eval" tactic3(t) :=
@@ -451,7 +482,7 @@ Ltac sim_pures := (try target_pures); (try source_pures); try (to_sim; sim_finis
 
 (** ** Bind tactics *)
 
-Ltac sim_bind_core K_t K_s :=
+Ltac sim_bind_core tac_sim_bind K_t K_s :=
   lazymatch eval hnf in K_t with
   | [] => lazymatch eval hnf in K_s with
           | [] => idtac
@@ -460,19 +491,24 @@ Ltac sim_bind_core K_t K_s :=
   | _ => eapply (tac_sim_bind K_t K_s); [simpl; reflexivity| simpl; reflexivity | ]
   end.
 
-Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
+Tactic Notation "sim_bind_base" constr(tac_sim_bind) open_constr(efoc_t) open_constr(efoc_s) :=
   iStartProof;
   to_sim;
   lazymatch goal with
   | |- envs_entails _ (sim_expr ?Q ?π ?e_t ?e_s) =>
     first [ reshape_expr e_t ltac:(fun K_t e_t' => unify e_t' efoc_t;
-                                    first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s; sim_bind_core K_t K_s)
+                                    first [ reshape_expr e_s ltac:(fun K_s e_s' => unify e_s' efoc_s; sim_bind_core tac_sim_bind K_t K_s)
                                            (* TODO: fix error handling *)
                                            | fail 1 "sim_bind: cannot find" efoc_s "in" e_s]
                                   )
           | fail 1 "sim_bind: cannot find" efoc_t "in" e_t ]
   | _ => fail "sim_bind: not a 'sim'"
   end.
+
+Tactic Notation "sim_bind" open_constr(efoc_t) open_constr(efoc_s) :=
+  sim_bind_base tac_sim_bind efoc_t efoc_s.
+Tactic Notation "sim_bind_val" open_constr(efoc_t) open_constr(efoc_s) :=
+  sim_bind_base tac_sim_bind_val efoc_t efoc_s.
 
 Ltac target_bind_core K_t :=
   lazymatch eval hnf in K_t with
