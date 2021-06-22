@@ -50,9 +50,9 @@ Qed.
 
 (** * Parallel substitution*)
 
-Fixpoint subst_map (xs : gmap string value) (e : expr) : expr :=
+Fixpoint subst_map (xs : gmap string result) (e : expr) : expr :=
   match e with
-  | Var y => if xs !! y is Some v then Val v else Var y
+  | Var y => if xs !! y is Some v then of_result v else Var y
   | Val v => Val v
   | Let x1 e1 e2 => Let x1 (subst_map xs e1) (subst_map (binder_delete x1 xs) e2)
   | Call e1 e2 => Call (subst_map xs e1) (subst_map xs e2)
@@ -83,30 +83,30 @@ Proof.
   - induction H; first done. simpl. by f_equal.
 Qed.
 
-Lemma subst_map_subst map x (v : value) (e : expr) :
-  subst_map map (subst x v e) = subst_map (<[x:=v]>map) e.
+Lemma subst_map_subst map x (r : result) (e : expr) :
+  subst_map map (subst x r e) = subst_map (<[x:=r]>map) e.
 Proof.
-  revert x v map; induction e using expr_ind; intros xx r map; simpl;
+  revert x r map; induction e using expr_ind; intros xx r map; simpl;
   try (f_equal; eauto).
-  all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first done end.
   - case_bool_decide.
-    + simplify_eq/=. by rewrite lookup_insert.
-    + rewrite lookup_insert_ne; done.
-  - case_bool_decide.
-    + rewrite delete_insert_ne; last by congruence. done.
-    + simplify_eq/=. by rewrite delete_insert_delete.
+    + simplify_eq/=. rewrite lookup_insert. destruct r; done.
+    + rewrite lookup_insert_ne //.
+  - destruct b; simpl. done.
+    case_bool_decide.
+    + rewrite IHe2. f_equal. rewrite delete_insert_ne //.
+      intros ?. apply H. f_equal. done.
+    + simplify_eq/=. rewrite delete_insert_delete //.
   - induction H; first done. simpl. f_equal; done.
 Qed.
 
-Lemma subst_subst_map x (v : value) map e :
-  subst x v (subst_map (delete x map) e) =
-  subst_map (<[x:=v]>map) e.
+Lemma subst_subst_map x (r : result) map e :
+  subst x r (subst_map (delete x map) e) =
+  subst_map (<[x:=r]>map) e.
 Proof.
-  revert map v x; induction e using expr_ind; intros map v0 xx; simpl;
+  revert map r x; induction e using expr_ind; intros map v0 xx; simpl;
   try (f_equal; eauto).
   all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first by auto end.
-  - match goal with |- context[delete _ _ !! ?s] => rename s into x end.
-    destruct (decide (xx=x)) as [->|Hne].
+  - destruct (decide (xx=x)) as [->|Hne].
     + rewrite lookup_delete // lookup_insert //. simpl.
       rewrite bool_decide_true //.
     + rewrite lookup_delete_ne // lookup_insert_ne //.
@@ -119,9 +119,9 @@ Proof.
   - induction H; first done. simpl. f_equal; done.
 Qed.
 
-Lemma subst'_subst_map b (v : value) map e :
-  subst' b v (subst_map (binder_delete b map) e) =
-  subst_map (binder_insert b v map) e.
+Lemma subst'_subst_map b (r : result) map e :
+  subst' b r (subst_map (binder_delete b map) e) =
+  subst_map (binder_insert b r map) e.
 Proof.
   destruct b; first done.
   exact: subst_subst_map.
@@ -159,7 +159,7 @@ Fixpoint free_vars (e : expr) : gset string :=
 Definition free_vars_ectx (K : ectx) : gset string :=
   free_vars (fill K #[☠]).
 
-Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string value) :
+Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string result) :
   (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
   binder_delete y xs1 !! x = binder_delete y xs2 !! x.
 Proof.
@@ -179,7 +179,7 @@ Proof.
   - simpl. rewrite -IH /=. f_equal. set_solver.
 Qed.
 
-Lemma subst_map_free_vars (xs1 xs2 : gmap string value) (e : expr) :
+Lemma subst_map_free_vars (xs1 xs2 : gmap string result) (e : expr) :
   (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
   subst_map xs1 e = subst_map xs2 e.
 Proof.
@@ -211,7 +211,7 @@ Proof.
   - apply subst_map_empty.
 Qed.
 
-Lemma subst_free_vars x (v : value) e :
+Lemma subst_free_vars x (v : result) e :
   x ∉ free_vars e →
   subst x v e = e.
 Proof.
@@ -222,10 +222,11 @@ Proof.
   intros y ?. rewrite lookup_insert_ne //. set_solver.
 Qed.
 
-Lemma free_vars_subst x (v : value) e :
-  free_vars (subst x v e) = free_vars e ∖ {[x]}.
+Lemma free_vars_subst x (r : result) e :
+  free_vars (subst x r e) = free_vars e ∖ {[x]}.
 Proof.
   induction e using expr_ind=>/=; repeat case_decide; try set_solver.
+  { subst. rewrite bool_decide_true //. destruct r; set_solver. }
   rewrite IHe difference_union_distr_l_L. f_equal.
   induction H as [|? ? ? H]. set_solver-.
   rewrite fmap_cons !foldl_union_cons difference_union_distr_l_L. by f_equal.
