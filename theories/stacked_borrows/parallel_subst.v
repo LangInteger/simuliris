@@ -138,6 +138,10 @@ Proof.
   by rewrite -insert_union_l -[in X in _ = X]subst_map_subst -IH subst_map_subst.
 Qed.
 
+Lemma subst_map_of_result map (r : result) :
+  subst_map map (of_result r) = of_result r.
+Proof. by destruct r. Qed.
+
 (** "Free variables" and their interaction with subst_map *)
 Local Definition binder_to_ctx (x : binder) : gset string :=
   if x is BNamed s then {[s]} else ∅.
