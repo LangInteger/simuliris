@@ -1,5 +1,6 @@
 From stdpp Require Export gmap.
 From simuliris.simplang Require Export lang notation.
+From iris.prelude Require Import options.
 
 
 (** * Parallel substitution for SimpLang *)

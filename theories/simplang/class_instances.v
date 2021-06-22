@@ -2,6 +2,7 @@ From stdpp Require Import gmap.
 From simuliris.simulation Require Import language lifting.
 From simuliris.simplang Require Export lang.
 From simuliris.simplang Require Import tactics.
+From iris.prelude Require Import options.
 
 (** * Instances of the [IrredUnless] class *)
 

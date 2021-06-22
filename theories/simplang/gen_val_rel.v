@@ -2,6 +2,7 @@ From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import iprop.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import notation parallel_subst.
+From iris.prelude Require Import options.
 
 (** * Structural value relation
 This file defines [gen_val_rel] that structually lifts a relation

@@ -1,4 +1,5 @@
 From stdpp Require Import prelude relations.
+From iris.prelude Require Import options.
 
 (* TODO: upstream *)
 (* This file contains various abstract results about

@@ -1,6 +1,7 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_log_rel gen_val_rel.
+From iris.prelude Require Import options.
 
 (** * Bijection between global variables
 
@@ -10,7 +11,7 @@ the reflexivity of [GlobalVar x]. *)
 
 Section globalbij.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (loc_rel : loc → loc → iProp Σ) `{!∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
+  Context (loc_rel : loc → loc → iProp Σ) {Hpers : ∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
   Context (thread_own : thread_id → iProp Σ).
   Let log_rel := (gen_log_rel loc_rel thread_own).
 
@@ -19,7 +20,7 @@ Section globalbij.
      [∗ set] g∈gs_s, loc_rel (global_loc g) (global_loc g).
 
   Global Instance globalbij_interp_persistent: Persistent globalbij_interp.
-  Proof. apply _. Qed.
+  Proof using Hpers. apply _. Qed.
 
   (** If one can extract [globalbij_interp] from [sheap_inv], one can
       prove [log_rel (GlobalVar x) (GlobalVar x)] and a stronger lemma
@@ -32,7 +33,7 @@ Section globalbij.
     (target_global n -∗ source_global n -∗ loc_rel (global_loc n) (global_loc n) -∗
        source_red #(global_loc n) π Ψ) -∗
     source_red (GlobalVar n) π Ψ.
-  Proof.
+  Proof using Hpers.
     iIntros (Hrel) "Hred".
     iApply source_red_update_si.
     iIntros (?????) "($&$&$&$&Hinv)". iDestruct (Hrel with "Hinv") as "#Hbij".
@@ -48,7 +49,7 @@ Section globalbij.
   Lemma log_rel_global_var x :
     sheap_inv_contains_globalbij →
     ⊢ log_rel (GlobalVar x) (GlobalVar x).
-  Proof.
+  Proof using Hpers.
     iIntros (Hrel ? xs) "!# Hs Ht"; simpl.
     iApply source_red_sim_expr. iApply source_red_global'; [done|]. iIntros "#Hg_t #Hg_s Hv".
     iApply source_red_base. iModIntro.

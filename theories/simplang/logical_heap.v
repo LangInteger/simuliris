@@ -8,7 +8,8 @@ From iris.base_logic Require Export lib.own.
 From iris.base_logic.lib Require Import ghost_map.
 From iris.proofmode Require Export tactics.
 From simuliris.simplang Require Export lang.
-Set Default Proof Using "Type".
+From iris.prelude Require Import options.
+
 Import uPred.
 
 Definition lock_stateR : cmra :=
@@ -50,7 +51,7 @@ Section definitions.
 
   Definition heap_mapsto_def (l : loc) (st : lock_state) (q : frac) (v: val) : iProp Σ :=
     own γ.(heap_name) (◯ {[ l := (q, to_lock_stateR st, to_agree v) ]}).
-  Definition heap_mapsto_aux : seal (@heap_mapsto_def). by eexists. Qed.
+  Definition heap_mapsto_aux : seal (@heap_mapsto_def). Proof. by eexists. Qed.
   Definition heap_mapsto := unseal heap_mapsto_aux.
   Definition heap_mapsto_eq : @heap_mapsto = @heap_mapsto_def :=
     seal_eq heap_mapsto_aux.
@@ -63,7 +64,7 @@ Section definitions.
 
   Definition heap_block_size_def (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
     ∃ b, ⌜l = Loc b 0⌝ ∗ l ↪[ γ.(heap_block_size_name) ]{# q } n.
-  Definition heap_block_size_aux : seal (@heap_block_size_def). by eexists. Qed.
+  Definition heap_block_size_aux : seal (@heap_block_size_def). Proof. by eexists. Qed.
   Definition heap_block_size := unseal heap_block_size_aux.
   Definition heap_block_size_eq : @heap_block_size = @heap_block_size_def :=
     seal_eq heap_block_size_aux.
@@ -73,13 +74,13 @@ Section definitions.
 
   Definition heap_globals_def (gs : gset string) : iProp Σ :=
     own γ.(heap_globals_name) (to_agree (gs : leibnizO _)).
-  Definition heap_globals_aux : seal (@heap_globals_def). by eexists. Qed.
+  Definition heap_globals_aux : seal (@heap_globals_def). Proof. by eexists. Qed.
   Definition heap_globals := unseal heap_globals_aux.
   Definition heap_globals_eq : @heap_globals = @heap_globals_def :=
     seal_eq heap_globals_aux.
   Definition heap_global_def (g : string) : iProp Σ :=
     ∃ gs, ⌜g ∈ gs⌝ ∗ heap_globals gs.
-  Definition heap_global_aux : seal (@heap_global_def). by eexists. Qed.
+  Definition heap_global_aux : seal (@heap_global_def). Proof. by eexists. Qed.
   Definition heap_global := unseal heap_global_aux.
   Definition heap_global_eq : @heap_global = @heap_global_def :=
     seal_eq heap_global_aux.
@@ -224,7 +225,7 @@ Section heap.
   Proof. intros p q. by apply heap_mapsto_split. Qed.
   Global Instance heap_mapsto_as_fractional l q v:
     AsFractional (l ↦{q} v) (λ q, l ↦{q} v)%I q.
-  Proof. split. done. apply _. Qed.
+  Proof. split; first done. apply _. Qed.
 
 
   Global Instance heap_mapsto_vec_timeless l st q vl : Timeless (l ↦∗[st]{q} vl).
@@ -237,7 +238,7 @@ Section heap.
   Qed.
   Global Instance heap_mapsto_vec_as_fractional l q vl:
     AsFractional (l ↦∗{q} vl) (λ q, l ↦∗{q} vl)%I q.
-  Proof. split. done. apply _. Qed.
+  Proof. split; first done. apply _. Qed.
 
   Global Instance heap_block_size_timeless q b n : Timeless (heap_block_size γ b q n).
   Proof. rewrite heap_block_size_eq /heap_block_size_def. apply _. Qed.
@@ -544,7 +545,8 @@ Section heap.
     iSplitR. { iPureIntro. lia. } iSplitR; first done.
     iDestruct (heap_mapsto_vec_st_length with "Hmt") as %?.
     iMod (heap_free_vs with "[Hmt Hvalσ]") as "Hvalσ"; [done| |].
-    { rewrite heap_mapsto_vec_st_combine //. iFrame. destruct vl; simpl in * => //; lia. }
+    { rewrite heap_mapsto_vec_st_combine //; first by iFrame.
+      destruct vl; simpl in * => //; lia. }
     rewrite Nat2Z.id.
     iMod (ghost_map_update None with "HhF Hf") as "[? $]".
     iModIntro. iSplit;[by eauto|]. iExists _. iFrame. iPureIntro.
@@ -566,7 +568,9 @@ Section heap.
       [/Some_pair_included [_ Hincl] /to_agree_included->].
     destruct ls as [|n], ls'' as [|n''],
        Hincl as [[[|n'|]|] [=]%leibniz_equiv]; subst.
-    by exists O. eauto. exists O. by rewrite Nat.add_0_r.
+    - by exists O.
+    - eauto.
+    - exists O. by rewrite Nat.add_0_r.
   Qed.
 
   Lemma heap_mapsto_lookup_1 h l ls v :

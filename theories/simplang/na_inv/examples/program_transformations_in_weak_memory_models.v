@@ -1,9 +1,11 @@
 From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel.
 From iris Require Import bi.bi.
-Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang.na_inv Require Export inv readonly_refl.
+From iris.prelude Require Import options.
+
+Import bi.
 
 (** * Eliminations and reorderings from "Program Transformations in Weak Memory Models" by Jaroslav Sevcik *)
 
@@ -94,7 +96,7 @@ Section eliminations.
       eapply reach_or_stuck_irred; first apply _; first done.
       intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
       eapply reach_or_stuck_refl.
-      eapply reach_or_stuck_head_step. by econstructor. simpl. simpl_subst.
+      eapply reach_or_stuck_head_step; first by econstructor. simpl. simpl_subst.
       reach_or_stuck_fill (_ <- _)%E.
       apply: reach_or_stuck_irred; [done|] => ?.
       apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.

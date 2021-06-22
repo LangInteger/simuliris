@@ -2,6 +2,7 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst gen_log_rel gen_refl pure_refl wf.
 From simuliris.simplang.na_inv Require Export inv.
+From iris.prelude Require Import options.
 
 (** * Reflexivity theorem for read only expressions *)
 

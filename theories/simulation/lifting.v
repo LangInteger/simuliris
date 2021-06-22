@@ -1,8 +1,9 @@
 From simuliris.simulation Require Import language slsls.
 From iris Require Import bi.bi bi.lib.fixpoint.
-Import bi.
+From iris.prelude Require Import options.
 From iris.proofmode Require Import tactics.
 
+Import bi.
 
 
 (* TODO move to language.v? *)

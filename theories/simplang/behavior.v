@@ -1,5 +1,6 @@
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import iprop.
+From iris.prelude Require Import options.
 
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import behavior.

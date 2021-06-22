@@ -1,6 +1,7 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf.
+From iris.prelude Require Import options.
 
 (** * Lemmas for proving [log_rel]
     This file provides a set of lemmas for proving [gen_log_rel loc_rel
@@ -9,13 +10,13 @@ From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel
 
 Section log_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
-  Context (loc_rel : loc → loc → iProp Σ) `{!∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
+  Context (loc_rel : loc → loc → iProp Σ) {Hpers : ∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
   Context (thread_own : thread_id → iProp Σ).
   Let val_rel := (gen_val_rel loc_rel).
   Let log_rel := (gen_log_rel loc_rel thread_own).
 
   Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
-  Proof.
+  Proof using Hpers.
     intros Hv.
     iInduction v as [[] | | | ] "IH"; try by (simpl; try iApply "IH").
     simpl. destruct Hv as [H1 H2]. iSplit; [by iApply "IH" | by iApply "IH1"].
@@ -49,7 +50,7 @@ Section log_rel.
     iApply (sim_wand with Hp).
 
   Lemma log_rel_var x : ⊢ log_rel (Var x) (Var x).
-  Proof.
+  Proof using Hpers.
     iIntros (? xs) "!# Hs Ht"; simpl.
     iDestruct (subst_map_rel_lookup _ x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
     rewrite !lookup_fmap Hv /=. sim_val. by iFrame.
@@ -57,7 +58,7 @@ Section log_rel.
 
   Lemma log_rel_let x e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Let x e1_t e2_t) (Let x e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -75,7 +76,7 @@ Section log_rel.
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
     (∀ π v_t v_s, ext_rel π v_t v_s ⊣⊢ thread_own π ∗ val_rel v_t v_s) →
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Hext) "#IH1 #IH2". iIntros (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -89,7 +90,7 @@ Section log_rel.
 
   Lemma log_rel_unop e_t e_s o :
     log_rel e_t e_s -∗ log_rel (UnOp o e_t) (UnOp o e_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -102,7 +103,7 @@ Section log_rel.
     loc_rel_inj_law loc_rel →
     loc_rel_offset_law loc_rel →
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Hfunc Hinj Hshift). iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -127,7 +128,7 @@ Section log_rel.
     log_rel e2_t e2_s -∗
     log_rel e3_t e3_s -∗
     log_rel (If e1_t e2_t e3_t) (If e1_s e2_s e3_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH1 #IH2 #IH3" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -141,7 +142,7 @@ Section log_rel.
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
     log_rel (While e1_t e2_t) (While e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     iApply (sim_while_while _ _ _ _ _ (thread_own π)%I with "[$]").
     iModIntro; iIntros "Ht".
@@ -159,7 +160,7 @@ Section log_rel.
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
     log_rel (Pair e1_t e2_t) (Pair e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -172,7 +173,7 @@ Section log_rel.
 
   Lemma log_rel_fst e_t e_s :
     log_rel e_t e_s -∗ log_rel (Fst e_t) (Fst e_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -182,7 +183,7 @@ Section log_rel.
   Qed.
   Lemma log_rel_snd e_t e_s :
     log_rel e_t e_s -∗ log_rel (Snd e_t) (Snd e_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -193,7 +194,7 @@ Section log_rel.
 
   Lemma log_rel_injl e_t e_s :
     log_rel e_t e_s -∗ log_rel (InjL e_t) (InjL e_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -201,7 +202,7 @@ Section log_rel.
   Qed.
   Lemma log_rel_injr e_t e_s :
     log_rel e_t e_s -∗ log_rel (InjR e_t) (InjR e_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -213,7 +214,7 @@ Section log_rel.
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
     log_rel (Match e_t x1 e1_t x2 e2_t) (Match e_s x1 e1_s x2 e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros "#IH #IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e_t) (subst_map _ e_s)  "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -248,7 +249,7 @@ Section log_rel.
      (∀ π', thread_own π' -∗ e_t ⪯{π'} e_s {{ λ v_t v_s, thread_own π' ∗ val_rel v_t v_s }}) -∗
      Fork e_t ⪯{π} Fork e_s [{ Ψ }]) →
     log_rel e_t e_s -∗ log_rel (Fork e_t) (Fork e_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Hfork). iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     iApply (Hfork with "Ht"); first by iIntros "?"; sim_pures; sim_val; iFrame.
     iIntros (?) "Ht". iApply (sim_wand with "(IH [] Ht)"); eauto.
@@ -260,7 +261,7 @@ Section log_rel.
      (∀ l_t l_s, thread_own π -∗ loc_rel l_t l_s -∗ #l_t ⪯{π} #l_s [{ Ψ }]) -∗
      AllocN #n v_t ⪯{π} AllocN #n v_s [{ Ψ }]) →
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (AllocN e1_t e2_t) (AllocN e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Halloc). iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -279,7 +280,7 @@ Section log_rel.
      (thread_own π -∗ #() ⪯{π} #() [{ Ψ }]) -∗
      FreeN #n #l_t ⪯{π} FreeN #n #l_s [{ Ψ }]) →
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (FreeN e1_t e2_t) (FreeN e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Hfree). iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -299,7 +300,7 @@ Section log_rel.
      (∀ v_t v_s, thread_own π -∗ val_rel v_t v_s -∗ v_t ⪯{π} v_s [{ Ψ }]) -∗
      Load o #l_t ⪯{π} Load o #l_s [{ Ψ }]) →
     log_rel e_t e_s -∗ log_rel (Load o e_t) (Load o e_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Hload). iIntros "#IH" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -315,7 +316,7 @@ Section log_rel.
      (thread_own π -∗ #() ⪯{π} #() [{ Ψ }]) -∗
      Store o #l_t v_t ⪯{π} Store o #l_s v_s [{ Ψ }]) →
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Store o e1_t e2_t) (Store o e1_s e2_s).
-  Proof.
+  Proof using Hpers.
     iIntros (Hstore). iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
@@ -330,5 +331,7 @@ Section log_rel.
 
   Lemma log_rel_val v_t v_s :
     val_rel v_t v_s -∗ log_rel (Val v_t) (Val v_s).
-  Proof. iIntros "#Hv" (? xs) "!# #Hs Ht"; simpl. sim_val; by iFrame. Qed.
+  Proof using Hpers.
+    iIntros "#Hv" (? xs) "!# #Hs Ht"; simpl. sim_val; by iFrame.
+  Qed.
 End log_rel.

@@ -1,5 +1,6 @@
 From stdpp Require Import binders.
 From iris.proofmode Require Import tactics.
+From iris.prelude Require Import options.
 
 (* TODO: upstream the following definitions *)
 Ltac get_head e :=
