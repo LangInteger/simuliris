@@ -30,18 +30,15 @@ Section log_rel.
   Lemma gen_val_rel_val_is_unboxed v_t v_s : val_rel v_t v_s -∗ ⌜val_is_unboxed v_t ↔ val_is_unboxed v_s⌝.
   Proof.
     iIntros "Hv".
-    destruct v_s as [[] | | | ]; val_discr_source "Hv"; [ done .. | |done | | |].
-    - by iPoseProof (gen_val_rel_loc_source with "Hv") as (?) "(-> & _)".
+    destruct v_s as [[] | | | ]; try val_discr_source "Hv"; [ done.. | | |].
     - by iPoseProof (gen_val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
     - iPoseProof (gen_val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
-      destruct v_s as [[] | | | ]; val_discr_source "Hv"; [done.. | | done | | |].
-      + by iPoseProof (gen_val_rel_loc_source with "Hv") as (?) "(-> & _)".
+      destruct v_s as [[] | | | ]; try val_discr_source "Hv"; [done.. | | |].
       + by iPoseProof (gen_val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
       + by iPoseProof (gen_val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
       + by iPoseProof (gen_val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
     - iPoseProof (gen_val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
-      destruct v_s as [[] | | | ]; val_discr_source "Hv"; [done.. | | done | | |].
-      + by iPoseProof (gen_val_rel_loc_source with "Hv") as (?) "(-> & _)".
+      destruct v_s as [[] | | | ]; try val_discr_source "Hv"; [done.. | | |].
       + by iPoseProof (gen_val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
       + by iPoseProof (gen_val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
       + by iPoseProof (gen_val_rel_injr_source with "Hv") as (?) "(-> & Hv)".
@@ -113,7 +110,7 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "[Ht Hv1]".
-    destruct o; sim_pures; discr_source; val_discr_source "Hv1"; val_discr_source "Hv2"; sim_pures; [sim_val; by iFrame .. | | ].
+    destruct o; sim_pures; discr_source; try val_discr_source "Hv1"; try val_discr_source "Hv2"; sim_pures; [sim_val; by iFrame .. | | ].
     - iAssert (⌜vals_compare_safe v_t1 v_t2⌝)%I as "%".
       { iPoseProof (gen_val_rel_val_is_unboxed with "Hv1") as "%Hv1".
         iPoseProof (gen_val_rel_val_is_unboxed with "Hv2") as "%Hv2".
@@ -122,8 +119,7 @@ Section log_rel.
       sim_pures; sim_val. iFrame. case_bool_decide; subst.
       * iDestruct (gen_val_rel_func with "Hv1 Hv2") as %->; [done|]. by case_bool_decide.
       * case_bool_decide; [|done]; subst. by iDestruct (gen_val_rel_inj with "Hv1 Hv2") as %?.
-    - iPoseProof (gen_val_rel_loc_source with "Hv1") as (l_t) "(-> & Hl)".
-      sim_pures. sim_val. iModIntro; simpl. iFrame. by iApply Hshift.
+    - sim_val. iModIntro; simpl. iFrame. by iApply Hshift.
   Qed.
 
   Lemma log_rel_if e1_t e1_s e2_t e2_s e3_t e3_s :

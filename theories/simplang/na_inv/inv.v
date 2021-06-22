@@ -113,7 +113,7 @@ Section fix_heap.
   Proof. by iIntros (???) "(%L&%cols&?&?&?&?&?&$)". Qed.
 
   Lemma sim_bij_exploit_store π l_t (l_s : loc) Φ e_s e_t col:
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ σ' = σ_s))) →
+    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ ∃ v, σ_s.(heap) !! l_s = Some (RSt 0, v)))) →
     col !! l_s = None →
     l_t ↔h l_s -∗
     na_locs π col -∗
@@ -125,18 +125,18 @@ Section fix_heap.
     destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_update_si_strong. iIntros (??????) "($&$&$&Hσ_s&Hinv) [%HT %Hsafe]".
     iDestruct (heap_ctx_wf with "Hσ_s") as %?.
-    have [? [?[[? [? [-> [? [-> ->]]]]] {}Hsafe]]]:= pool_safe_reach_or_stuck _ _ _ _ _ _ ltac:(done) ltac:(done) ltac:(done) ltac:(done).
-    rewrite fill_comp in Hsafe.
-    have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(by eapply list_lookup_insert, lookup_lt_Some) ltac:(done).
+    have [?[?[[?[?[_ [?[_ [??]]]]]] _]]]:= pool_safe_reach_or_stuck _ _ _ _ _ _ ltac:(done) ltac:(done) ltac:(done) ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcols. rewrite lookup_map_seq_0 in Hcols.
     move: (Hcols) => /(lookup_lt_Some _ _ _) ?.
     set (cols' := <[π := (<[Loc b_s o := (Loc b_t o, NaExcl)]>col)]> cols).
-    efeed pose proof na_locs_wf_combined_state_store as Hcom; [done|done |  |done|done | done |]; [done|].
+    efeed pose proof na_locs_wf_combined_state_store as Hcom; [done|done |  |done|done| |]. 2: {
+      move => ??. apply: reach_or_stuck_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
+    } { done. }
     rewrite Hcol /= in Hcom.
     iMod (alloc_rel_remove_frac (λ _, alloc_rel_pred cols') with "Halloc Hσ_s") as (v_t) "(?&?&?&?&?)".
     { done. }
-    { rewrite /alloc_rel_pred => q. by rewrite Hcom. }
+    { rewrite /alloc_rel_pred => q. by erewrite Hcom. }
     { by rewrite /alloc_rel_pred combine_na_locs_list_insert //= Hcom. }
     { move => q o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
     { done. }
@@ -145,14 +145,15 @@ Section fix_heap.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
-    - by apply: na_locs_wf_insert_store.
+    - apply: na_locs_wf_insert_store; [done..| by rewrite list_insert_id | ].
+      move => ?. apply: reach_or_stuck_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     - move => ???? /list_lookup_insert_Some[[?[??]]|[??]] Hl'; simplify_eq; [|naive_solver].
       move: Hl' => /lookup_insert_Some[[??]|[??]]; simplify_map_eq; naive_solver.
     - move => ????. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[??]; simplify_eq.
   Qed.
 
   Lemma sim_bij_exploit_load π l_t (l_s : loc) Φ e_s e_t col:
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', e' = (Load Na1Ord #l_s) ∧ σ' = σ_s))) →
+    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', e' = (Load Na1Ord #l_s) ∧ ∃ n v, σ_s.(heap) !! l_s = Some (RSt n, v)))) →
     col !! l_s = None →
     l_t ↔h l_s -∗
     na_locs π col -∗
@@ -164,13 +165,13 @@ Section fix_heap.
     destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_update_si_strong. iIntros (??????) "($&$&$&Hσ_s&Hinv) [%HT %Hsafe]".
     iDestruct (heap_ctx_wf with "Hσ_s") as %?.
-    have [? [? [[? [? [-> [-> ->]]]] {}Hsafe]]]:= pool_safe_reach_or_stuck _ _ _ _ _ _ ltac:(done) ltac:(done) ltac:(done) ltac:(done).
-    rewrite fill_comp in Hsafe.
-    have [l[v[n [[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(by eapply list_lookup_insert, lookup_lt_Some) ltac:(done).
+    have [?[?[[?[?[_ [_ [?[??]]]]]] _]]]:= pool_safe_reach_or_stuck _ _ _ _ _ _ ltac:(done) ltac:(done) ltac:(done) ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcols. rewrite lookup_map_seq_0 in Hcols.
     move: (Hcols) => /(lookup_lt_Some _ _ _) ?.
-    efeed pose proof na_locs_wf_combined_state_load as Hcom; [done|done | |done|done |done |]; [done|].
+    efeed pose proof na_locs_wf_combined_state_load as Hcom; [done|done | |done|done | |]. 2: {
+      move => ??. apply: reach_or_stuck_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
+    } { done. }
     destruct Hcom as [q Hcom]. rewrite Hcol /= in Hcom.
     set (q1 := (default 1%Qp (q ≫= (λ q', 1 - q')%Qp))).
     set (cols' := <[π := (<[Loc b_s o := (Loc b_t o, NaRead (q1 / 2)%Qp)]>col)]> cols).
@@ -193,7 +194,8 @@ Section fix_heap.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
-    - by apply: na_locs_wf_insert_load.
+    - apply: na_locs_wf_insert_load; [done..| by rewrite list_insert_id | ].
+      move => ?. apply: reach_or_stuck_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     - move => ???? /list_lookup_insert_Some[[?[??]]|[??]] Hl'; simplify_eq; [|naive_solver].
       move: Hl' => /lookup_insert_Some[[??]|[??]]; simplify_map_eq; naive_solver.
     - move => ????. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[??]; simplify_eq.
@@ -245,7 +247,7 @@ Section fix_heap.
   Proof.
     iIntros (?) "#Hbij Hc Hv Hsim".
     iApply (sim_bij_exploit_store with "Hbij Hc"); [|done|].
-    { intros. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t' v_s') "Hlt Hls Hv' Hc".
     iApply source_red_sim_expr.
     iApply (source_red_store_na with "Hls"). iIntros "Hls".
@@ -257,17 +259,22 @@ Section fix_heap.
     iIntros "Hc". rewrite delete_insert //. by iApply "Hsim".
   Qed.
 
-  Lemma sim_bij_store_sc π l_t l_s v_t v_s Φ :
+  Lemma sim_bij_store_sc K_t K_s π l_t l_s v_t v_s Φ col :
+    col !! l_s = None →
+    (∀ (l_s : loc) l_t ns P_s σ_s,
+        col !! l_s = Some (l_t, ns) →
+        reach_or_stuck P_s (fill K_s #()) σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = (if ns is NaExcl then Store Na1Ord #l_s v' else Load Na1Ord #l_s)))) →
     l_t ↔h l_s -∗
-    na_locs π ∅ -∗
+    na_locs π col -∗
     val_rel v_t v_s -∗
-    (na_locs π ∅ -∗ #() ⪯{π} #() [{ Φ }]) -∗
-    Store ScOrd (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯{π} Store ScOrd (Val $ LitV (LitLoc l_s)) (Val v_s) [{ Φ }].
+    (na_locs π col -∗ fill K_t #() ⪯{π} fill K_s #() [{ Φ }]) -∗
+    fill K_t (Store ScOrd (Val $ LitV (LitLoc l_t)) (Val v_t)) ⪯{π} fill K_s (Store ScOrd (Val $ LitV (LitLoc l_s)) (Val v_s)) [{ Φ }].
   Proof.
-    iIntros "#[Hbij %Hidx] Hcol Hv Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %Hsafe]]".
+    iIntros (Hl Hcol) "#[Hbij %Hidx] Hcol Hv Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
+    iApply sim_lift_prim_step_both.
+    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [%HT %Hsafe]]".
     iDestruct (heap_ctx_wf with "Hσ_s") as %?.
+    rewrite fill_comp in HT.
     have [m[?[[<-]?]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
 
@@ -279,19 +286,34 @@ Section fix_heap.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (st' v' ? ?) "#Hv'"; [done| |]; simplify_eq.
     { move => ?. rewrite /alloc_rel_pred /= Hcom; naive_solver. }
 
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit.
+    { iPureIntro. eexists _, _, _. apply: fill_prim_step. apply: head_prim_step. by econstructor. }
+    iIntros (e_t' efs σ_t' [?[??]]%head_reducible_prim_step_ctx); [|by eauto with head_step]; inv_head_step.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hv") as "(Halloc&Hσ_t&Hσ_s)"; [done| |].
     { move => ?. by rewrite /alloc_rel_pred /= Hcom. }
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR.
+    { iPureIntro. apply: fill_prim_step. apply: head_prim_step. by econstructor. }
     iDestruct ("Hsim" with "Hcol") as "$".
     iFrame => /=. rewrite !right_id.
     iApply ("Hclose" with "[%] [%] [%] [%] Hcols Halloc").
     - by rewrite insert_length.
-    - apply: (na_locs_wf_store σ_s); [done |done | by right | done | done | done | done | done ].
+    - rewrite fill_comp. apply: (na_locs_wf_store σ_s); [done |done | | done | done | done | done | done ].
+      right. split; [done|]. move => ?????. rewrite -fill_comp. apply: fill_reach_or_stuck. naive_solver.
     - naive_solver.
     - naive_solver.
+  Qed.
+
+  Lemma sim_bij_store_sc_empty π l_t l_s v_t v_s Φ :
+    l_t ↔h l_s -∗
+    na_locs π ∅ -∗
+    val_rel v_t v_s -∗
+    (na_locs π ∅ -∗ #() ⪯{π} #() [{ Φ }]) -∗
+    (Store ScOrd (Val $ LitV (LitLoc l_t)) (Val v_t)) ⪯{π} (Store ScOrd (Val $ LitV (LitLoc l_s)) (Val v_s)) [{ Φ }].
+  Proof.
+    iIntros "????". rewrite -(fill_empty (Store _ #l_t _)) -(fill_empty (Store _ #l_s _)).
+    iApply (sim_bij_store_sc with "[$] [$] [$]"); [done|done|].
+     by rewrite !fill_empty.
   Qed.
 
   Lemma sim_bij_store_sc_source π l_s v_s v_s' Φ :
@@ -324,7 +346,7 @@ Section fix_heap.
   Proof.
     iIntros (?) "#Hbij Hc Hsim".
     iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|].
-    { intros. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hlt Hls #Hv Hc".
     iApply source_red_sim_expr.
     iApply (source_red_load_na with "Hls"). iIntros "Hls".

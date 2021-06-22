@@ -1005,6 +1005,12 @@ Section reach_or_stuck.
     post_in_ectx Φ e σ.
   Proof. eexists empty_ectx, e. rewrite fill_empty. naive_solver. Qed.
 
+  Lemma post_in_ectx_mono (Φ1 Φ2 : expr Λ → state Λ → Prop) e σ:
+    post_in_ectx Φ1 e σ →
+    (∀ e σ, Φ1 e σ → Φ2 e σ) →
+    post_in_ectx Φ2 e σ.
+  Proof. move => [?[?[??]]] ?. eexists _, _. naive_solver. Qed.
+
   (** [reach_or_stuck P e σ Φ] says that starting from e in state σ,
   one can either reach e' in σ' such that Φ e' σ' holds or there is an
   execution where e gets stuck. *)
@@ -1014,6 +1020,10 @@ Section reach_or_stuck.
   Lemma reach_or_stuck_refl p e σ (Φ : _ → _ → Prop):
     Φ e σ → reach_or_stuck p e σ Φ.
   Proof. move => ?. right. eexists _, _ => /=. split; [|done]. by apply: no_forks_refl. Qed.
+
+  Lemma reach_or_stuck_mono p e σ (Φ1 Φ2 : _ → _ → Prop):
+    reach_or_stuck p e σ Φ1 → (∀ e σ, Φ1 e σ → Φ2 e σ) → reach_or_stuck p e σ Φ2.
+  Proof. move => [?|?]; [by left|right]. naive_solver. Qed.
 
   Lemma reach_or_stuck_no_forks p e σ e' σ' (Φ : _ → _ → Prop):
     no_forks p e σ e' σ' → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
@@ -1056,7 +1066,7 @@ Section reach_or_stuck.
       done.
   Qed.
 
-  Lemma pool_reach_stuck_reach_or_stuck π p T e σ Φ:
+  Lemma pool_reach_stuck_reach_or_stuck Φ π p T e σ:
     T !! π = Some e →
     reach_or_stuck p e σ Φ →
     (∀ e' σ', Φ e' σ' → pool_reach_stuck p (<[π := e']>T) σ') →
