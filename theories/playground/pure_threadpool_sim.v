@@ -385,7 +385,7 @@ Lemma local_all_stutter_target_no_fork P j e_t e_s e_s' O D:
   local_all P O D.
 Proof.
   intros Hlook Hstep Hlocal.
-  eapply local_all_intro_source with (I := [j]) (P' := (<[j := (e_t, e_s')]> P)).
+  eapply (local_all_intro_source _ (<[j := (e_t, e_s')]> P) [j]).
   - rewrite list_fmap_insert //=. eapply pool_steps_single, pool_step_iff.
     exists e_s, e_s', []. split; first done. split; first rewrite list_lookup_fmap Hlook //.
     by rewrite right_id.
@@ -403,7 +403,7 @@ Proof.
   intros Hlook Hsteps. revert P Hlook. induction Hsteps as [e_s|e_s e_s' e_s'' Hstep Hsteps IH]; intros P Hlook.
   - rewrite list_insert_id //.
   - intros Hlocal. eapply local_all_stutter_target_no_fork; eauto.
-    eapply local_all_weaken with (O := O); last set_solver.
+    eapply (local_all_weaken _ O); last set_solver.
     eapply IH.
     + eapply list_lookup_insert, lookup_lt_Some, Hlook.
     + by rewrite list_insert_insert.

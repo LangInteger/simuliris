@@ -78,7 +78,7 @@ Fixpoint tsize (T: type) : nat :=
 Lemma tsize_product_cons T Ts :
   (tsize (Product (T :: Ts)) = tsize T + tsize (Product Ts))%nat.
 Proof.
-  rewrite /= -{1}(Nat.add_0_r (tsize T)). remember O as n. clear Heqn.
+  rewrite /= -{1}(Nat.add_0_r (tsize T)). remember O as n eqn:Heqn. clear Heqn.
   revert n. induction Ts as [|Tc Ts IH]; intros n; [done|].
   by rewrite /= -Nat.add_assoc IH.
 Qed.
@@ -215,22 +215,22 @@ Fixpoint type_beq (T T': type) : bool :=
   end.
 Lemma type_beq_correct (T1 T2 : type) : type_beq T1 T2 ↔ T1 = T2.
 Proof.
-  revert T1 T2; fix FIX 1;
+  revert T1 T2; fix FIX 1; intros T1 T2;
     destruct T1 as [| | |Ts1|Ts1|Ts1],
              T2 as [| | |Ts2|Ts2|Ts2];
     simpl; try done;
     rewrite ?andb_True ?bool_decide_spec ?FIX;
     try (split; intro; [destruct_and?|split_and?]; congruence).
   - match goal with |- context [?F Ts1 Ts2] => assert (F Ts1 Ts2 ↔ Ts1 = Ts2) end.
-    { revert Ts2. induction Ts1 as [|Ts1h Ts1q]; destruct Ts2; try done.
+    { revert Ts2. induction Ts1 as [|Ts1h Ts1q]; intros Ts2; destruct Ts2; try done.
       specialize (FIX Ts1h). naive_solver. }
     clear FIX. naive_solver.
   - match goal with |- context [?F Ts1 Ts2] => assert (F Ts1 Ts2 ↔ Ts1 = Ts2) end.
-    { revert Ts2. induction Ts1 as [|Ts1h Ts1q]; destruct Ts2; try done.
+    { revert Ts2. induction Ts1 as [|Ts1h Ts1q]; intros Ts2; destruct Ts2; try done.
       specialize (FIX Ts1h). naive_solver. }
     clear FIX. naive_solver.
   - match goal with |- context [?F Ts1 Ts2] => assert (F Ts1 Ts2 ↔ Ts1 = Ts2) end.
-    { revert Ts2. induction Ts1 as [|Ts1h Ts1q]; destruct Ts2; try done.
+    { revert Ts2. induction Ts1 as [|Ts1h Ts1q]; intros Ts2; destruct Ts2; try done.
       specialize (FIX Ts1h). naive_solver. }
     clear FIX. naive_solver.
 Qed.
@@ -258,7 +258,7 @@ Proof.
      | GenNode 5 Ts => Sum (go <$> Ts)
      | _ => FixedSize 0
      end) _).
-  fix FIX 1. intros []; f_equal=>//; revert Ts; clear -FIX.
+  fix FIX 1. intros [| | |Ts|Ts|Ts]; f_equal=>//; revert Ts; clear -FIX.
   - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
   - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
   - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.

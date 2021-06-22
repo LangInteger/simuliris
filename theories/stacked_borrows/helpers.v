@@ -9,8 +9,8 @@ Lemma foldr_gmap_insert_dom `{Countable K} {A B C: Type}
   dom (gset K) (foldr (λ (c: C) ma, <[f c := a]> ma) ma cs)
   ≡ dom (gset K) (foldr (λ (c: C) mb, <[f c := b]> mb) mb cs).
 Proof.
-  intros. induction cs; simpl; [done|].
-  by rewrite 2!dom_insert IHcs.
+  intros. induction cs as [|c cs IH]; simpl; [done|].
+  by rewrite 2!dom_insert IH.
 Qed.
 
 Lemma foldr_gmap_insert_lookup `{Countable K} {A C: Type}
@@ -49,8 +49,8 @@ Lemma foldr_gmap_delete_dom `{Countable K} {A B C: Type}
   dom (gset K) (foldr (λ (c: C) ma, delete (f c) ma) ma cs)
   ≡ dom (gset K) (foldr (λ (c: C) mb, delete (f c) mb) mb cs).
 Proof.
-  intros. induction cs; simpl; [done|].
-  by rewrite 2!dom_delete IHcs.
+  intros. induction cs as [|c cs IH]; simpl; [done|].
+  by rewrite 2!dom_delete IH.
 Qed.
 
 Lemma dom_map_insert_is_Some `{FinMapDom K M D} {A} (m : M A) i x :

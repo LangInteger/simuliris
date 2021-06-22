@@ -63,7 +63,7 @@ Program Definition div_exec_extend {p T σ i T' σ'} (f: div_exec p T' σ')
   (Hstep : pool_step p T σ i T' σ') : div_exec p T σ :=
   {| the_exec n := match n return _ with 0 => (T, σ, i) | S n => f n end |}.
 Next Obligation.
-  intros. split; first done. split; first done.
+  intros p T σ i T' σ' f. split; first done. split; first done.
   intros [|n].
   - simpl. destruct (exec_diverges _ _ _ f) as (? & ? & _).
     congruence.
@@ -383,10 +383,6 @@ Section delay_based_fairness.
   Proof.
     induction 1; eauto.
   Qed.
-
-
-
-
 
 
   (* we prove the transitive closure delay version and
@@ -746,9 +742,6 @@ Section delay_based_fairness.
   Qed.
 
 
-
-
-
   (* we state the relationships between the fairness notions *)
   Theorem fair_div_coind_delay_iff p T σ:
     fair_div_coind p T σ ↔ (∃ D, fair_div_delay p T D σ).
@@ -785,5 +778,3 @@ Section delay_based_fairness.
 
 End delay_based_fairness.
 End fairness.
-
-

@@ -502,7 +502,7 @@ Section language.
   Proof.
     split.
     - intros Hstep; eauto using pool_steps.
-    - inversion 1 as [|??????????Hsteps]; subst; inversion Hsteps; by subst.
+    - inversion 1 as [|????????? Hsteps]. subst; inversion Hsteps; by subst.
   Qed.
 
   Lemma pool_steps_trans p T T' T'' σ σ' σ'' I J:
@@ -757,7 +757,7 @@ Section language.
     pool_reach_stuck p (<[i := fill K e]> T) σ.
   Proof.
     intros Hlook (T' & σ' & I & Hsteps & Hstuck).
-    eapply pool_steps_fill_context with (K := K) in Hsteps as (e' & Hlook' & Hsteps); last done.
+    eapply (pool_steps_fill_context _ _ K) in Hsteps as (e' & Hlook' & Hsteps); last done.
     exists (<[i:=fill K e']> T'), σ', I; split; first done.
     destruct Hstuck as (e'' & j & Hlook'' & Hstuck).
     destruct (decide (i = j)).
@@ -848,7 +848,7 @@ Section language.
   Lemma fill_reach_stuck p e σ K :
     reach_stuck p e σ → reach_stuck p (fill K e) σ.
   Proof.
-    intros Hreach; eapply fill_reach_stuck_pool with (T := [e]) (i := 0); done.
+    intros Hreach; eapply (fill_reach_stuck_pool _ [e] 0); done.
   Qed.
 
   Lemma no_forks_pool_steps_single_thread p e σ e' σ':
@@ -933,7 +933,7 @@ Section language.
     safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ K, p !! f = Some K.
   Proof.
     intros H1 (I & Hsteps)%no_forks_pool_steps_single_thread.
-    eapply pool_safe_call_in_prg with (i := 0) in Hsteps; eauto.
+    eapply (pool_safe_call_in_prg _ _ _ _ 0) in Hsteps; eauto.
   Qed.
 
   Lemma no_forks_val p v σ e' σ' :
