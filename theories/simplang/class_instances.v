@@ -246,7 +246,7 @@ Section irreducible.
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
-    apply irred_unless_irred_dec; last (prove_irred; apply ϕ; eauto 8).
+    apply irred_unless_irred_dec; last (prove_irred; by eauto 8).
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct v_n as [[n | | | | | ]  | | | ]; try decide_goal.
     apply (exists_dec_unique l); [ naive_solver|].
@@ -268,7 +268,7 @@ Section irreducible.
         destruct l; simpl; lia.
     - destruct (decide (n > 0)%Z) as [Hn|]; first last. { left. intros m ?. lia. }
       replace n with (Z.of_nat (Z.to_nat n)) by lia. generalize (Z.to_nat n) as n'. clear n Hn.
-      induction n' as [ | n IH]. { left. lia. }
+      intros n. induction n as [ | n IH]. { left. lia. }
       destruct (σ.(heap) !! (l +ₗ n)) eqn:Hn; first last.
       { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. rewrite Hn. intros (? & [=]). }
       destruct IH as [IH | IH].

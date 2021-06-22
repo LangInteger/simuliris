@@ -417,7 +417,7 @@ Section heap.
     iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.
     iPureIntro. destruct l1 as [b1 o1]; simplify_eq.
     have [? [? [? {}Hrel2]]]:= Hrel _ _ _ Hf.
-    destruct n2; simplify_eq/=; last first. {
+    destruct n2 as [n|]; simplify_eq/=; last first. {
       have [_ [|? Hl]]:= Hrel1 0; [lia|].
       have [/=[|] ]:= Hrel2 o1%Z; last lia.
       rewrite loc_add_0 in Hl. naive_solver.
@@ -444,7 +444,7 @@ Section heap.
     heap_ctx γ σ -∗ block_size l q n -∗ ⌜∃ n' : nat, n' < default 0 n ∧ l' = l +ₗ n'⌝.
   Proof.
     iIntros (Hlo ?) "(%hF&?&HhF&Hg&%Hrel&%) Hf".
-    rewrite heap_block_size_eq. iDestruct "Hf" as (?->) "Hf".
+    rewrite heap_block_size_eq. iDestruct "Hf" as (b ->) "Hf".
     iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.
     iPureIntro.
     have [? {}Hrel]:= Hrel _ _ _ Hf.

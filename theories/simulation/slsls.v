@@ -1003,6 +1003,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_step Ψ e_s π :
+    (* FIXME: this is inconsistent, it should quantify over the target things first. *)
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
