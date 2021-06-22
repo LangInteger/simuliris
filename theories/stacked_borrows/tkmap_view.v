@@ -14,7 +14,8 @@ From simuliris.stacked_borrows Require Export defs.
   - tk_loc: the tag is local
  *)
 (* TODO: allow a local update from tk_unq to tk_pub *)
-Definition tagKindR := csumR (csumR (exclR unitO) (exclR unitO)) unitR.
+Definition tagKindR := csumR (exclR unitO) (csumR (exclR unitO) unitR).
+
 
 Canonical Structure tag_kindO := leibnizO tag_kind.
 
@@ -23,9 +24,9 @@ Proof. apply _. Qed.
 
 Definition to_tgkR (tk: tag_kind) : tagKindR :=
   match tk with
-  | tk_unq => Cinl $ Cinl $ Excl ()
-  | tk_pub => Cinr ()
-  | tk_local => Cinl $ Cinr $ Excl ()
+  | tk_unq => Cinr $ Cinl $ Excl ()
+  | tk_pub => Cinr $ Cinr ()
+  | tk_local => Cinl $ Excl ()
   end.
 
 Lemma to_tgkR_valid tk : ✓ (to_tgkR tk).
@@ -44,20 +45,31 @@ Qed.
 
 Lemma tgkR_validN_inv tkr n : ✓{n} tkr → ∃ tk, tkr ≡ to_tgkR tk.
 Proof.
-  rewrite -cmra_discrete_valid_iff. destruct tkr as [[ ] | | ]; simpl; try by move => [].
-  - destruct c; last move => []. destruct o; intros. exists tk_unq. done.
+  rewrite -cmra_discrete_valid_iff. destruct tkr as [ | [] | ]; simpl; try by move => [].
   - destruct c; last move => []. destruct o; intros. exists tk_local. done.
+  - destruct c; last move => []. destruct o; intros. exists tk_unq. done.
   - destruct c. intros. exists tk_pub; done.
 Qed.
 
 Global Instance to_tgkR_unq_excl : Exclusive (to_tgkR tk_unq).
-Proof. intros [[ [] | [] | ] | | ]; simpl; [ intros [] ..]. Qed.
+Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
 Global Instance to_tgkR_local_excl : Exclusive (to_tgkR tk_local).
-Proof. intros [[ [] | [] | ] | | ]; simpl; [ intros [] ..]. Qed.
+Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
 Lemma to_tgkR_op_validN n tk tk' : ✓{n} (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
 Proof. destruct tk, tk'; simpl; by intros []. Qed.
 Lemma to_tgkR_op_valid tk tk' : ✓ (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
 Proof. destruct tk, tk'; simpl; by intros []. Qed.
+
+Lemma tagKindR_incl_eq (k1 k2: tagKindR):
+  ✓ k2 → k1 ≼ k2 → k1 ≡ k2.
+Proof.
+  move => VAL /csum_included
+    [?|[[? [? [? [? INCL]]]]|[x1 [x2 [? [? INCL]]]]]]; subst; [done|..].
+  - exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
+  - move : INCL => /csum_included
+      [? |[[? [? [? [? INCL]]]]|[[] [[] [? [? LE]]]]]]; subst; [done|..|done].
+    exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
+Qed.
 
 
 Local Definition tkmap_view_fragUR (K : Type) `{Countable K} (V : ofe) : ucmra :=
@@ -70,6 +82,7 @@ Section rel.
 
   Local Definition tkmap_view_rel_raw n m f : Prop :=
     map_Forall (λ k dv, ∃ v tk, dv.2 ≡{n}≡ to_agree v ∧ dv.1 ≡{n}≡ to_tgkR tk ∧ m !! k = Some (tk, v)) f.
+
 
   Local Lemma tkmap_view_rel_raw_mono n1 n2 m1 m2 f1 f2 :
     tkmap_view_rel_raw n1 m1 f1 →
@@ -84,26 +97,32 @@ Section rel.
     specialize (Hf' k). rewrite Hk in Hf'.
     apply option_includedN in Hf'.
     destruct Hf' as [[=]|(? & [tk' va'] & [= <-] & Hf1 & Hincl)].
-    specialize (Hrel _ _ Hf1) as (v & Hagree & Hdval & Hm1). simpl in *.
+    specialize (Hrel _ _ Hf1) as (v & tk0 & Hagree & Htk & Hm1). simpl in *.
     specialize (Hm k).
-    (*edestruct (dist_Some_inv_l _ _ _ _ Hm Hm1) as (v' & Hm2 & Hv).*)
-    (*exists v'. rewrite assoc. split; last done.*)
-    (*rewrite -Hv.*)
-    (*destruct Hincl as [[Heqq Heqva]|[Hinclq Hinclva]%pair_includedN].*)
-    (*- simpl in *. split.*)
-      (*+ rewrite Heqva. eapply dist_le; last eassumption. done.*)
-      (*+ rewrite <-discrete_iff in Heqq; last by apply _.*)
-        (*fold_leibniz. subst q'. done.*)
-    (*- split.*)
-      (*+ etrans; last first.*)
-        (*{ eapply dist_le; last eassumption. done. }*)
-        (*eapply agree_valid_includedN; last done.*)
-        (*eapply cmra_validN_le; last eassumption.*)
-        (*rewrite Hagree. done.*)
-      (*+ rewrite <-cmra_discrete_included_iff in Hinclq.*)
-        (*eapply cmra_valid_included; done.*)
-  (*Qed.*)
-  Admitted.
+    edestruct (dist_Some_inv_l _ _ _ _ Hm Hm1) as ((tk'' & v') & Hm2 & Hv).
+    destruct Hv as [Htk0 Hv]; simpl in *.
+    exists v', tk''. rewrite !assoc. split; last done.
+    rewrite -Hv.
+    destruct Hincl as [[Heqq Heqva]|[Hinclq Hinclva]%pair_includedN].
+    - simpl in *. split_and!.
+      + rewrite Heqva. eapply dist_le; last eassumption. done.
+      + rewrite <-discrete_iff in Heqq; last by apply _.
+        simplify_eq. rewrite -Htk0.
+        eapply dist_le'; done.
+    - split_and!.
+      + etrans; last first.
+        { eapply dist_le; last eassumption. done. }
+        eapply agree_valid_includedN; last done.
+        eapply cmra_validN_le; last eassumption.
+        rewrite Hagree. done.
+      + rewrite <-cmra_discrete_included_iff in Hinclq.
+        clear -Htk0 Htk Hinclq Hn.
+        rewrite -Htk0.
+        etrans. 2: { eapply dist_le; done. }
+        apply discrete_iff; first apply _. eapply tagKindR_incl_eq; last done.
+        apply discrete_iff in Htk; last apply _. rewrite Htk.
+        apply to_tgkR_valid.
+  Qed.
 
   Local Lemma tkmap_view_rel_raw_valid n m f :
     tkmap_view_rel_raw n m f → ✓{n} f.

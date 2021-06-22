@@ -1,4 +1,5 @@
 From simuliris.stacked_borrows Require Export steps_wf.
+From Equations Require Import Equations.
 From iris.prelude Require Import options.
 
 
@@ -191,8 +192,17 @@ Lemma read_mem_values' l n h v :
   (∀ i, (i < n)%nat → h !! (l +ₗ i) = v !! i) →
   read_mem l n h = Some v.
 Proof.
-  intros Hlen Hs.
-Admitted.
+  intros <- Hs.
+  destruct (read_mem_is_Some l (length v) h) as (v' & Hv').
+  { intros m Hm. apply elem_of_dom. rewrite Hs; last done.
+    apply lookup_lt_is_Some_2. done.
+  }
+  enough (v' = v) as -> by done.
+  apply read_mem_values in Hv' as [Hlen Hv'].
+  eapply list_eq_same_length; [reflexivity | lia | ].
+  intros i sc sc' Hi.
+  rewrite -Hs; last lia. rewrite -Hv'; last lia. intros -> [= ->]. done.
+Qed.
 
 Lemma replace_check'_is_Some cids acc stk :
   (∀ it, it ∈ stk → it.(perm) = Unique → item_inactive_protector cids it) →
