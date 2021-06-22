@@ -1,6 +1,7 @@
-From iris.prelude Require Import options prelude.
+From iris.prelude Require Import prelude.
 From simuliris.playground Require Import fixpoints language.
 From stdpp Require Import gmap.
+From iris.prelude Require Import options.
 
 Section fair_termination_preservation.
 
