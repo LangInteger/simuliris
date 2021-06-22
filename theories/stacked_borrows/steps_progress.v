@@ -1,6 +1,7 @@
 From simuliris.stacked_borrows Require Export steps_wf.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 (* TODO: do we need non-empty condition? ie (tsize T) > 0? *)
 Lemma alloc_head_step P σ T :
@@ -117,7 +118,7 @@ Proof.
               ((∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom (gset loc) h) ↔
                is_Some gov))).
   - naive_solver.
-  - intros. split. naive_solver. by intros; lia.
+  - intros. split; first naive_solver. by intros; lia.
   - intros l1 n1 h2 l2 n2 oacc IH [acc Eqacc]. rewrite Eqacc /=.
     split.
     + intros BLK.

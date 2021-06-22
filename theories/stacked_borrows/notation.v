@@ -1,5 +1,6 @@
 From iris.prelude Require Import prelude options.
 From simuliris.stacked_borrows Require Export lang_base.
+From iris.prelude Require Import options.
 
 Coercion of_result : result >-> expr.
 Coercion Var : string >-> expr.

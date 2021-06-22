@@ -1,6 +1,7 @@
 From simuliris.stacked_borrows Require Export defs steps_foreach steps_list.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 Lemma access1_in_stack stk kind t cids n stk' :
    access1 stk kind t cids = Some (n, stk') →

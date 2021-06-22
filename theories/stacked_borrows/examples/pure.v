@@ -1,4 +1,5 @@
 From simuliris.stacked_borrows Require Import proofmode.
+From iris.prelude Require Import options.
 
 (** * Some trivial tests to check that the proofmode works *)
 Section boring_lang.

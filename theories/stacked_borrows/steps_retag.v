@@ -1,6 +1,7 @@
 From simuliris.stacked_borrows Require Export defs steps_foreach steps_list steps_wf steps_progress.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 Definition tag_on_top (stks: stacks) l t pm : Prop :=
   ∃ prot, (stks !! l) ≫= head = Some (mkItem pm (Tagged t) prot).
@@ -142,7 +143,7 @@ Proof.
     last by rewrite /is_tagged Eqt.
   rewrite fmap_cons NoDup_cons. intros [NI ?].
   apply NI, elem_of_list_fmap. exists it'. split; [rewrite Eqt' Eqt //|].
-  apply elem_of_list_filter. split. by rewrite /is_tagged Eqt'. by rewrite <-SUB.
+  apply elem_of_list_filter. split; first by rewrite /is_tagged Eqt'. by rewrite <-SUB.
 Qed.
 
 Lemma replace_check'_head_preserving stk stk' acc stk0 cids pm pm' t opro:
@@ -241,7 +242,7 @@ Proof.
         last by rewrite /is_tagged Eq.
       rewrite fmap_cons NoDup_cons. intros [NI ?].
       apply NI, elem_of_list_fmap. exists it. split; [rewrite Eqt Eq //|].
-      apply elem_of_list_filter. split. by rewrite /is_tagged Eqt. by rewrite <-SUB.
+      apply elem_of_list_filter. split; first by rewrite /is_tagged Eqt. by rewrite <-SUB.
     + apply IH; auto. by eapply stack_item_tagged_NoDup_cons_1.
 Qed.
 
@@ -516,8 +517,8 @@ Proof.
   destruct it.(tg) eqn:Eqt; simpl;
     [rewrite elem_of_union elem_of_singleton; intros [|IN]; [subst|]|]; simpl.
   - set_solver.
-  - rewrite elem_of_union. right. apply IH. done. by rewrite /find_granting Eql.
-  - intros ?. apply IH. done. by rewrite /find_granting Eql.
+  - rewrite elem_of_union. right. apply IH; first done. by rewrite /find_granting Eql.
+  - intros ?. apply IH; first done. by rewrite /find_granting Eql.
 Qed.
 
 Lemma find_first_write_incompatible_active_SRO stk pm idx :
@@ -603,7 +604,9 @@ Proof.
   have Eq1: list_find (matched_grant kind t) stk =
     Some (O, mkItem Unique t opro).
   { apply list_find_Some_not_earlier. split; last split.
-    rewrite Eqstk //. done. intros; lia. }
+    - rewrite Eqstk //.
+    - done.
+    - intros; lia. }
   have Eq2: find_granting stk kind t = Some (O, Unique).
   { rewrite /= /find_granting Eq1 //. }
   rewrite Eq2 /=.
@@ -634,7 +637,8 @@ Proof.
   rewrite /= /access1.
    have Eq1: is_Some (list_find (matched_grant AccessRead (Tagged t)) stk).
   { apply (list_find_elem_of _ _ it1).
-    by eapply elem_of_list_lookup_2. by rewrite /matched_grant Eqp1. }
+    - by eapply elem_of_list_lookup_2.
+    - by rewrite /matched_grant Eqp1. }
   destruct Eq1 as [[n2 it2] Eq2].
   have Eq3: find_granting stk AccessRead (Tagged t) = Some (n2, it2.(perm)).
   { rewrite /= /find_granting Eq2 //. }
@@ -648,7 +652,8 @@ Proof.
     intros it [k Eqk]%elem_of_list_lookup_1.
     have Ltk : (k < n2)%nat.
     { rewrite -(take_length_le stk n2).
-      by eapply lookup_lt_Some. apply Nat.lt_le_incl; by eapply lookup_lt_Some. }
+      - by eapply lookup_lt_Some.
+      - apply Nat.lt_le_incl; by eapply lookup_lt_Some. }
     have HL: stk !! k = Some it. { rewrite -(lookup_take _ n2) //. }
     have Ltk2: (k < i1)%nat. { eapply Nat.lt_le_trans; eauto. }
     by rewrite (HL1 _ _ Ltk2 HL).

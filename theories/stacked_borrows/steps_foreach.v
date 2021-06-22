@@ -1,6 +1,6 @@
 From simuliris.stacked_borrows Require Export defs.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
 
 Lemma init_mem_foldr' l n h (m: nat):
   init_mem (l +ₗ m) n h =

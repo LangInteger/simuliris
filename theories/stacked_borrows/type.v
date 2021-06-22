@@ -1,8 +1,9 @@
 From Coq Require Import Program ssreflect.
 From stdpp Require Export list countable.
 From simuliris.stacked_borrows Require Export helpers.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 Inductive mutability := Mutable | Immutable.
 Inductive ref_kind :=
@@ -61,7 +62,7 @@ Proof.
     setoid_rewrite elem_of_list_singleton. naive_solver.
   - split.
     + apply Max.max_case; [by left|by right].
-    + move => i' /elem_of_cons [->|In']. apply Nat.le_max_l.
+    + move => i' /elem_of_cons [->|In']; first by apply Nat.le_max_l.
       etrans; first by apply MAX. apply Nat.le_max_r.
 Qed.
 
@@ -499,7 +500,7 @@ Lemma sub_sum_types_elem_of_2 n T Ts:
   (n, T) ∈ sub_sum_types (Sum Ts) ↔
   (n = 0 ∧ T = Sum Ts) ∨ (0 < n ∧ ∃ Tc, Tc ∈ Ts ∧ (n - 1, T) ∈ sub_sum_types Tc).
 Proof.
-  split. apply sub_sum_types_elem_of.
+  split; first by apply sub_sum_types_elem_of.
   rewrite {1}/sub_sum_types /=. intros [IN|IN].
   - destruct IN. subst. by left.
   - cbn. right. rewrite foldl_inner_app_elem_of_inv. right.

@@ -1,7 +1,8 @@
 From Coq Require Import ssreflect.
 From stdpp Require Export list gmap.
+From iris.prelude Require Import options.
 
-Set Default Proof Using "Type".
+
 
 Lemma foldr_gmap_insert_dom `{Countable K} {A B C: Type}
   (ma: gmap K A) (mb: gmap K B) (a: A) (b: B) (cs: list C) (f: C → K):
@@ -152,7 +153,9 @@ Lemma list_subseteq_nil_inv {A: Type} (x: list A):
   x ⊆ [] → x = [].
 Proof.
   intros. eapply anti_symm; last first.
-  by apply sublist_nil_l. by apply list_subseteq_nil_sublist. apply _.
+  - by apply sublist_nil_l.
+  - by apply list_subseteq_nil_sublist.
+  - apply _.
 Qed.
 
 Lemma NoDup_sublist {A: Type} (x y: list A) (SUB: sublist x y) :
