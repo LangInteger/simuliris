@@ -51,6 +51,21 @@ Section log_rel.
     destruct to_fname; [destruct to_result | ]; done.
   Qed.
 
+  Tactic Notation "val_discr_source" constr(H) :=
+    let H' := iFresh in
+    first [
+      iPoseProof (rrel_singleton_source with H) as (? ->) H';
+      try iClear H; iRename H' into H;
+      first [iPoseProof (sc_rel_ptr_source with H) as "[-> ?]" |
+            iPoseProof (sc_rel_fnptr_source with H) as "->" |
+            iPoseProof (sc_rel_int_source with H) as "->" |
+            iPoseProof (sc_rel_cid_source with H) as "->" |
+            iPoseProof (sc_rel_poison_target with H) as "->"
+            ] |
+      iPoseProof (rrel_place_source with H) as (->) H';
+      try iClear H; iRename H' into H
+    ].
+
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
@@ -61,7 +76,9 @@ Section log_rel.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "#Hv2".
-  Admitted.
+    discr_source; first by apply call_not_val. val_discr_source "Hv2".
+    iApply (sim_call with "Hv1"). iIntros (??) "Hr". by iApply lift_post_val.
+  Qed.
 
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
@@ -73,6 +90,16 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "Hv1".
+    destruct o; sim_pures; try discr_source;
+      try val_discr_source "Hv1"; try val_discr_source "Hv2"; sim_pures;
+      try (sim_val; by iFrame);
+      try (iApply sim_value_result; iClear "#"; by rewrite /rrel /value_rel /=).
+    - (* TODO : irred_unless_eq doesn't work here, because of scoping *)
+      admit.
+    - iApply sim_value_result. iClear "#".
+      (* TODO: lemma *)
+      rewrite /rrel /value_rel /=. iSplit; [|done]. iSplit; [done|].
+      case_match; [|eauto]. iRight. eauto with iFrame.
   Admitted.
 
   Lemma log_rel_while e1_t e1_s e2_t e2_s :
@@ -115,7 +142,14 @@ Section log_rel.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
-  Admitted.
+    discr_source. val_discr_source "Hv".
+    iApply (sim_free_public with "[Hv]").
+    - iClear "#".
+      (* TODO lemma *)
+      rewrite /rrel /value_rel /=. iSplit; [|done]. iSplit; [done|].
+      case_match; [|eauto]. iRight. eauto with iFrame.
+    - sim_val. by rewrite /rrel /value_rel /=.
+  Qed.
 
   Lemma log_rel_result v_t v_s :
     rrel v_t v_s ⊢ log_rel (of_result v_t) (of_result v_s).

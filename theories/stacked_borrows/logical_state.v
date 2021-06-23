@@ -1007,12 +1007,12 @@ Section val_rel.
 
   Lemma rrel_place_source r_t l_s t_s T :
     rrel r_t (PlaceR l_s t_s T) -∗
-    ∃ l_t, ⌜r_t = PlaceR l_t t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+    ⌜r_t = PlaceR l_s t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
   Proof.
     iIntros "Hrel".
     destruct r_t as [ | l_t t' T']; first done. iDestruct "Hrel" as "(#H & ->)".
     iDestruct (sc_rel_ptr_source with "H") as "[%Heq Htag]".
-    injection Heq as [= -> ->]. iExists l_s. eauto.
+    injection Heq as [= -> ->]. eauto.
   Qed.
   Lemma rrel_value_source r_t v_s :
     rrel r_t (ValR v_s) -∗
@@ -1035,6 +1035,14 @@ Section val_rel.
     iIntros "Hv". iPoseProof (value_rel_length with "Hv") as "%Hlen".
     destruct v_t as [ | sc_t []]; [done | | done ].
     iExists sc_t. iSplitR "Hv"; first done. iRevert "Hv". rewrite /value_rel big_sepL2_singleton. eauto.
+  Qed.
+
+  Lemma rrel_singleton_source r_t sc_s :
+    rrel r_t (ValR [sc_s]) -∗
+    ∃ sc_t, ⌜r_t = ValR [sc_t]⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    rewrite rrel_value_source. setoid_rewrite value_rel_singleton_source.
+    iDestruct 1 as (v_t -> sc_t ->) "?". eauto.
   Qed.
 
   Lemma value_rel_lookup v_t v_s (i : nat) :
