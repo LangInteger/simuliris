@@ -183,6 +183,7 @@ Proof.
   - rewrite !lookup_delete_ne //. eauto.
 Qed.
 
+(* TODO: move to std++ *)
 Lemma foldl_union_cons {A} `{Countable B}
   (f : A → gset B) (s: gset B) (a : A) (xs : list A) :
   foldl (λ s a, s ∪ f a) s (a :: xs) =
