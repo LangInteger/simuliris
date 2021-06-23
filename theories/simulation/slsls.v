@@ -813,12 +813,15 @@ Section fix_lang.
   Proof. iIntros "H Hv". iApply (sim_expr_mono with "Hv H"). Qed.
 
   (** Update the SI. Useful when we use the SI to encode invariants. *)
-  Lemma sim_update_si_strong e_t e_s Φ π :
+  Definition update_si_strong e_s π (P : PROP) : PROP :=
     (∀ P_t σ_t P_s σ_s T_s K_s,
         state_interp P_t σ_t P_s σ_s T_s -∗
         ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝ ==∗
-        state_interp P_t σ_t P_s σ_s T_s ∗ e_t ⪯{π} e_s [{ Φ }])
-    -∗ e_t ⪯{π} e_s [{ Φ }].
+        state_interp P_t σ_t P_s σ_s T_s ∗ P).
+  Instance update_si_strong_proper e π : Proper ((≡) ==> (≡)) (update_si_strong e π).
+  Proof. solve_proper. Qed.
+  Lemma sim_update_si_strong e_t e_s Φ π :
+    update_si_strong e_s π (e_t ⪯{π} e_s [{ Φ }]) -∗ e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hupd". rewrite {2}(sim_expr_unfold Φ π e_t e_s).
     iIntros (??????) "[Hstate %Hnreach]". iMod ("Hupd" with "Hstate [//]") as "[Hstate Hsim]".
