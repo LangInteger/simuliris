@@ -159,7 +159,7 @@ Section refl.
     - (* Conc *)
       admit.
     - (* BinOp *)
-      admit.
+      by iApply (log_rel_binop with "IH IH1").
     - (* Deref *)
       admit.
     - (* Ref *)
@@ -175,7 +175,7 @@ Section refl.
     - (* Retag *)
       admit.
     - (* Let *)
-      admit.
+      by iApply (log_rel_let with "IH IH1").
     - (* Case *)
       admit.
     - (* Fork *)
@@ -184,7 +184,7 @@ Section refl.
       iIntros (?). iApply (sim_wand with "[Hfork]"). { by iApply "Hfork". }
       iIntros (??) "$".
     - (* While *)
-      admit.
+      by iApply (log_rel_while with "IH IH1").
   Admitted.
 
   Corollary log_rel_refl e :
