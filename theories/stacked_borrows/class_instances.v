@@ -201,6 +201,10 @@ Section irreducible.
       apply list_lookup_alt. split; [ lia | done].
     + right. intros (? & ? & [= ->] & ? & Hs%list_lookup_alt). lia.
   Qed.
+  Global Instance irred_proj_place l t T v2 P σ : 
+    IrredUnless False P (Proj (Place l t T) (Val v2)) σ.
+  Proof. prove_irred_unless. Qed.
+
   Global Instance irred_ref_val v P σ :
     IrredUnless False P (Ref (Val v)) σ.
   Proof. prove_irred_unless. Qed.

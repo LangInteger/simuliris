@@ -381,10 +381,18 @@ Tactic Notation "target_pure" open_constr(efoc) :=
 (*Tactic Notation "target_op" := target_unop || target_binop.*)
 Tactic Notation "target_let" := target_pure (Let (BNamed _) _ _).
 Tactic Notation "target_seq" := target_pure (Let BAnon _ _).
+Tactic Notation "target_proj" := target_pure (Proj _ _).
+Tactic Notation "target_case" := target_pure (Case _ _).
 (*Tactic Notation "target_proj" := target_pure (Fst _) || target_pure (Snd _).*)
 (*Tactic Notation "target_match" := target_pure (Match _ _ _ _ _).*)
 (*Tactic Notation "target_inj" := target_pure (InjL _) || target_pure (InjR _).*)
 (*Tactic Notation "target_pair" := target_pure (Pair _ _).*)
+
+Tactic Notation "target_while" :=
+  let Hwhile := fresh "H" in
+  pose (Hwhile := pure_while);
+  target_pure (While _ _);
+  clear Hwhile.
 
 Ltac target_pures :=
   iStartProof;
@@ -418,10 +426,18 @@ Tactic Notation "source_pure" open_constr(efoc) :=
 (*Tactic Notation "source_op" := source_unop || source_binop.*)
 Tactic Notation "source_let" := source_pure (Let (BNamed _) _ _).
 Tactic Notation "source_seq" := source_pure (Let BAnon _ _).
+Tactic Notation "source_proj" := source_pure (Proj _ _).
+Tactic Notation "source_case" := source_pure (Case _ _).
 (*Tactic Notation "source_proj" := source_pure (Fst _) || source_pure (Snd _).*)
 (*Tactic Notation "source_match" := source_pure (Match _ _ _ _ _).*)
 (*Tactic Notation "source_inj" := source_pure (InjL _) || source_pure (InjR _).*)
 (*Tactic Notation "source_pair" := source_pure (Pair _ _).*)
+
+Tactic Notation "source_while" :=
+  let Hwhile := fresh "H" in
+  pose (Hwhile := pure_while);
+  source_pure (While _ _);
+  clear Hwhile.
 
 Ltac source_pures :=
   iStartProof;
