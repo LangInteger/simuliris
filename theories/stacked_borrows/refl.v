@@ -52,17 +52,16 @@ Section log_rel.
   Qed.
 
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
-    (∀ π v_t v_s, ext_rel π v_t v_s ⊣⊢ rrel v_t v_s) →
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
-    iIntros (Hext) "#IH1 #IH2". iIntros (? xs) "!# #Hs"; simpl.
+    iIntros "#IH1 #IH2". iIntros (? xs) "!# #Hs"; simpl.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "#Hv1".
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "#Hv2".
-  Abort.
+  Admitted.
 
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
@@ -74,12 +73,148 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "Hv1".
-  Abort.
+  Admitted.
+
+  Lemma log_rel_while e1_t e1_s e2_t e2_s :
+    log_rel e1_t e1_s -∗
+    log_rel e2_t e2_s -∗
+    log_rel (While e1_t e2_t) (While e1_s e2_s).
+  Proof.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
+    iApply (sim_while_while emp%I with "[//]").
+    iModIntro; iIntros "_".
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
+    iIntros (v_t v_s) "Hv".
+  Admitted.
+
+  Lemma log_rel_fork e_t e_s :
+    (∀ e_s e_t π Ψ,
+     (#[☠] ⪯{π} #[☠] [{ Ψ }]) -∗
+     (∀ π', e_t ⪯{π'} e_s {{ λ v_t v_s, rrel v_t v_s }}) -∗
+     Fork e_t ⪯{π} Fork e_s [{ Ψ }]) →
+    log_rel e_t e_s -∗ log_rel (Fork e_t) (Fork e_s).
+  Proof.
+    iIntros (Hfork). iIntros "#IH" (? xs) "!# #Hs"; simpl.
+    iApply Hfork.
+    { by sim_pures; sim_val; iClear "#"; rewrite /rrel /value_rel /=; iFrame. }
+    iIntros (?). iApply (sim_wand with "(IH [])"); eauto.
+  Qed.
+
+  Lemma log_rel_alloc T :
+    ⊢ log_rel (Alloc T) (Alloc T).
+  Proof.
+    iIntros (? xs) "!# #Hs"; simpl. iApply sim_alloc_public.
+    iIntros (t l) "Hp Hr". sim_val. by iFrame.
+  Qed.
+
+  Lemma log_rel_free e_t e_s :
+    log_rel e_t e_s ⊢ log_rel (Free e_t) (Free e_s).
+  Proof.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
+    iIntros (v_t v_s) "Hv".
+  Admitted.
 
   Lemma log_rel_result v_t v_s :
-    rrel v_t v_s -∗ log_rel (of_result v_t) (of_result v_s).
+    rrel v_t v_s ⊢ log_rel (of_result v_t) (of_result v_s).
   Proof.
     iIntros "#Hv" (? xs) "!# #Hs"; simpl. rewrite !subst_map_of_result.
     sim_val ; by iFrame.
   Qed.
 End log_rel.
+
+Definition expr_head_wf (e : expr_head) : Prop :=
+  match e with
+  | ValHead v => value_wf v
+  | InitCallHead => False   (* administrative *)
+  | EndCallHead => False    (* administrative *)
+  | PlaceHead _ _ _ => False (* no literal pointers *)
+  | _ => True
+  end.
+
+Notation expr_wf := (gen_expr_wf expr_head_wf).
+Notation ectx_wf := (gen_ectx_wf expr_head_wf).
+Notation ctx_wf := (gen_ctx_wf expr_head_wf).
+
+Section refl.
+  Context `{!sborGS Σ}.
+
+  Theorem sb_log_rel_structural : log_rel_structural expr_head_wf.
+  Proof.
+    intros e_t e_s ?? Hwf Hs. iIntros "IH".
+    destruct e_s, e_t => //; simpl in Hs; simplify_eq.
+    all: try iDestruct "IH" as "[IH IH1]".
+    all: try iDestruct "IH1" as "[IH1 IH2]".
+    all: try iDestruct "IH2" as "[IH2 IH3]".
+    - (* Value *)
+      iApply (log_rel_result (ValR _) (ValR _)). by iApply value_wf_sound.
+    - (* Var *)
+      by iApply log_rel_var.
+    - (* Call *)
+      by iApply (log_rel_call with "IH IH1").
+    - (* Proj *)
+      admit.
+    - (* Conc *)
+      admit.
+    - (* BinOp *)
+      admit.
+    - (* Deref *)
+      admit.
+    - (* Ref *)
+      admit.
+    - (* Copy *)
+      admit.
+    - (* Write *)
+      admit.
+    - (* Alloc *)
+      by iApply log_rel_alloc.
+    - (* Free *)
+      by iApply log_rel_free.
+    - (* Retag *)
+      admit.
+    - (* Let *)
+      admit.
+    - (* Case *)
+      admit.
+    - (* Fork *)
+      iApply (log_rel_fork with "IH").
+      iIntros (????) "Hsim Hfork". iApply (sim_fork with "Hsim").
+      iIntros (?). iApply (sim_wand with "[Hfork]"). { by iApply "Hfork". }
+      iIntros (??) "$".
+    - (* While *)
+      admit.
+  Admitted.
+
+  Corollary log_rel_refl e :
+    expr_wf e →
+    ⊢ log_rel e e.
+  Proof.
+    intros ?. iApply log_rel_refl; first by apply sb_log_rel_structural. done.
+  Qed.
+
+  Corollary log_rel_ctx C e_t e_s :
+    ctx_wf C →
+    log_rel e_t e_s -∗ log_rel (fill_ctx C e_t) (fill_ctx C e_s).
+  Proof.
+    intros ?. iApply log_rel_ctx; first by apply sb_log_rel_structural. done.
+  Qed.
+
+  Corollary log_rel_ectx K e_t e_s :
+    ectx_wf K →
+    log_rel e_t e_s -∗ log_rel (fill K e_t) (fill K e_s).
+  Proof.
+    intros ?. iApply log_rel_ectx; first by apply sb_log_rel_structural. done.
+  Qed.
+
+  Lemma log_rel_closed_1 e_t e_s π :
+    free_vars e_t ∪ free_vars e_s = ∅ →
+    log_rel e_t e_s ⊢ e_t ⪯{π} e_s {{ λ v_t v_s, rrel v_t v_s }}.
+  Proof.
+    iIntros (?) "#Hrel".
+    iApply sim_mono; last iApply (log_rel_closed_1 with "Hrel"); [|done..].
+    iIntros (v_t v_s) "$".
+  Qed.
+
+End refl.
