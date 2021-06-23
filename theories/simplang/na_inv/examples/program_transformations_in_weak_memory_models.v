@@ -29,13 +29,17 @@ Section eliminations.
   Definition E_IR_s (v : Z) : expr := let: "r" := !"x" in let: "r" := #v in "r".
   Definition E_IR_t (v : Z) : expr := let: "r" := #v in "r".
 
-  (* Stronger version of E_WaR that we should be able to prove by
+  (* Below are some SC versions of the above transformations. They
+  should be provable, but are not really interesting as they don't
+  contain NA accesses. *)
+
+  (* SC version of E_WaR that we should be able to prove by
   choosing the schedule where there is no thread between the two (has
   nothing to do with data races). *)
   Definition E_WaR_s1 : expr := let: "r" := !ˢᶜ "x" in "x" <-ˢᶜ "r";; "r".
   Definition E_WaR_t1 : expr := let: "r" := !ˢᶜ "x" in                "r".
 
-  (* Stronger version of E_WaR if "r" is unused. *)
+  (* Version of E_WaR if "r" is unused. *)
   Definition E_WaR_s2 : expr := let: "r" := !"x" in "x" <- "r".
   Definition E_WaR_t2 : expr := #().
 
@@ -43,13 +47,13 @@ Section eliminations.
   Definition E_WaR_s3 : expr := let: "r" := !ˢᶜ"x" in "x" <-ˢᶜ "r".
   Definition E_WaR_t3 : expr := #().
 
-  (* Stronger version of E_WbW that we should be able to prove by
+  (* SC version of E_WbW that we should be able to prove by
   choosing the schedule where there is no thread between the two (has
   nothing to do with data races). *)
   Definition E_WbW_s1 : expr := "x" <-ˢᶜ "r1";; "x" <-ˢᶜ "r2".
   Definition E_WbW_t1 : expr := "x" <-ˢᶜ "r2".
 
-  (* Streonger version of E_IR that we should be able to prove. *)
+  (* SC version of E_IR that we should be able to prove. *)
   Definition E_IR_s1 (v : Z) : expr := let: "r" := !ˢᶜ "x" in let: "r" := #v in "r".
   Definition E_IR_t1 (v : Z) : expr := let: "r" := #v in "r".
 
@@ -96,7 +100,7 @@ Section eliminations.
       eapply reach_or_stuck_irred; first apply _; first done.
       intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
       eapply reach_or_stuck_refl.
-      eapply reach_or_stuck_head_step; first by econstructor. simpl. simpl_subst.
+      eapply reach_or_stuck_head_step; [by econstructor|]. simpl. simpl_subst.
       reach_or_stuck_fill (_ <- _)%E.
       apply: reach_or_stuck_irred; [done|] => ?.
       apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
@@ -144,8 +148,15 @@ Section reorderings.
   Context `{naGS Σ}.
   (** Reorderings from figure 4.7. *)
 
-  (* In the related work, this only works for o1 ≠ ScOrd. We can do it
-  for o1 ≠ ScOrd ∨ o2 ≠ ScOrd. *)
+  (* The following requires the relevant memory locations to be global
+  variables. This is also what Program Transformations does and it
+  allows us to easily express the constraint that two locations are
+  different. In principle, these transformations should work for
+  arbitrary pointers where we know that they are disjoint (except for
+  R_RR which also works for overlapping pointers). *)
+
+  (* In Program Transformations, this only works for o1 = Na1Ord. We can do it
+  for o1 = Na1Ord ∨ o2 = Na1Ord. *)
   Definition R_RR_s (o1 o2 : order) (x y : string) : expr :=
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     let: "r1" := Load o1 "x" in let: "r2" := Load o2 "y" in ("r1", "r2").
@@ -153,7 +164,8 @@ Section reorderings.
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     let: "r2" := Load o2 "y" in let: "r1" := Load o1 "x" in ("r1", "r2").
 
-  (* We need x ≠ y. In the related work, this only works for o2 ≠ ScOrd. *)
+  (* This transformations requires x ≠ y and o2 = Na1Ord (both in
+  Program Transformations and here). *)
   Definition R_WW_s (o1 o2 : order) (x y : string) : expr :=
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     Store o1 "x" "r1";; Store o2 "y" "r2".
@@ -161,7 +173,8 @@ Section reorderings.
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     Store o2 "y" "r2";; Store o1 "x" "r1".
 
-  (* We need x ≠ y. In the related work, this only works for o1 ≠ ScOrd ∨ o2 ≠ ScOrd. *)
+  (* This transformations requires x ≠ y and o1 = Na1Ord ∨ o2 = Na1Ord (both in
+  Program Transformations and here). *)
   Definition R_WR_s (o1 o2 : order) (x y : string) : expr :=
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     Store o1 "x" "r1";; let: "r2" := Load o2 "y" in "r2".
@@ -169,7 +182,8 @@ Section reorderings.
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     let: "r2" := Load o2 "y" in Store o1 "x" "r1";; "r2".
 
-  (* We need x ≠ y. In the related work, this only works for o1 ≠ ScOrd ∧ o2 ≠ ScOrd. *)
+  (* Program Transformations requires x ≠ y and o1 = Na1Ord ∧ o2 =
+  Na1Ord for this optimization. We can do it for x ≠ y and o2 = Na1Ord. *)
   Definition R_RW_s (o1 o2 : order) (x y : string) : expr :=
     let: "x" := (GlobalVar x) in let: "y" := (GlobalVar y) in
     let: "r1" := Load o1 "x" in Store o2 "y" "r2";; "r1".
@@ -179,7 +193,7 @@ Section reorderings.
 
   Lemma R_RR_sim o1 o2 x y:
     o1 ≠ Na2Ord → o2 ≠ Na2Ord →
-    o1 = Na1Ord ∨ o2 = Na1Ord → (* This is stronger than related work. *)
+    o1 = Na1Ord ∨ o2 = Na1Ord →
     ⊢ log_rel (R_RR_t o1 o2 x y) (R_RR_s o1 o2 x y).
   Proof.
     move => ?? Hor. log_rel.
@@ -229,7 +243,7 @@ Section reorderings.
   Lemma R_WW_sim o1 o2 x y:
     x ≠ y →
     o1 ≠ Na2Ord → o2 ≠ Na2Ord →
-    o2 ≠ ScOrd →
+    o2 = Na1Ord →
     ⊢ log_rel (R_WW_t o1 o2 x y) (R_WW_s o1 o2 x y).
   Proof.
     move => ????. log_rel.
@@ -332,10 +346,10 @@ Section reorderings.
   Lemma R_RW_sim o1 o2 x y:
     x ≠ y →
     o1 ≠ Na2Ord → o2 ≠ Na2Ord →
-    o1 = Na1Ord ∧ o2 = Na1Ord →
+    o2 = Na1Ord →
     ⊢ log_rel (R_RW_t o1 o2 x y) (R_RW_s o1 o2 x y).
   Proof.
-    move => ??? Hor. log_rel.
+    move => ??? Ho. log_rel.
     iIntros "%r1_t %r1_s #Hr1 !# %π Hc".
     source_bind (GlobalVar _).
     iApply source_red_global'; [|apply sim_bij_contains_globalbij|]; [apply _|].
@@ -348,15 +362,15 @@ Section reorderings.
     target_bind (GlobalVar _). iApply target_red_global; [done|].
     sim_pures. sim_pures.
 
-    destruct Hor; simplify_eq.
+    simplify_eq.
     iApply (sim_bij_exploit_store with "Hy Hc"); [|done|].
     { intros. reach_or_stuck_bind (Load _ _)%E.
-        eapply reach_or_stuck_irred; first apply _; first done.
-        intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
-        apply: reach_or_stuck_refl.
-        apply: reach_or_stuck_head_step; [ by econstructor|] => /=. simpl_subst.
-        reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred; [done|] => ?.
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      eapply reach_or_stuck_irred; first apply _; first done.
+      intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
+      apply: reach_or_stuck_refl.
+      apply: reach_or_stuck_head_step; [ by econstructor|] => /=. simpl_subst.
+      reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred; [done|] => ?.
+      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     target_store. sim_pures. sim_bind (Load _ _) (Load _ _).
     iApply (sim_bij_load with "Hx Hc"); [|done|].

@@ -37,10 +37,11 @@ Implicit Type (σ: state).
 
 Lemma is_closed_subst X e x es : is_closed X e → x ∉ X → subst x es e = e.
 Proof.
-  revert e X. fix FIX 1; destruct e=> X /=; rewrite ?bool_decide_spec ?andb_True=> He ?;
+  revert e X. fix FIX 1. intros e; destruct e=> X /=; rewrite ?bool_decide_spec ?andb_True=> He ?;
     repeat case_bool_decide; simplify_eq/=; f_equal;
     try by intuition eauto with set_solver.
-  - case He=> _. clear He. induction el=>//=. rewrite andb_True=>?.
+  - case He=> _. clear He. rename select (list expr) into el.
+    induction el=>//=. rewrite andb_True=>?.
     f_equal; intuition eauto with set_solver.
 Qed.
 
@@ -169,14 +170,14 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
 
 Lemma expr_beq_correct (e1 e2 : expr) : expr_beq e1 e2 ↔ e1 = e2.
 Proof.
-  revert e1 e2; fix FIX 1;
+  revert e1 e2; fix FIX 1; intros e1 e2;
     destruct e1 as [| |? el1| | | | | | | | | | (* | *) | | | | |? el1 | | ],
              e2 as [| |? el2| | | | | | | | | | (* | *) | | | | |? el2 | | ];
     simpl; try done;
     rewrite ?andb_True ?bool_decide_spec ?FIX;
     try (split; intro; [destruct_and?|split_and?]; congruence).
   - match goal with |- context [?F el1 el2] => assert (F el1 el2 ↔ el1 = el2) end.
-    { revert el2. induction el1 as [|el1h el1q]; destruct el2; try done.
+    { revert el2. induction el1 as [|el1h el1q]; intros el2; destruct el2; try done.
       specialize (FIX el1h). naive_solver. }
     clear FIX. naive_solver.
 Qed.
@@ -254,7 +255,7 @@ Proof.
     (* | GenNode 24 [GenLeaf (inr (inr id))] => SysCall id *)
      | _ => (#[☠])%E
      end) _).
-  fix FIX 1. intros []; f_equal=>//; revert el; clear -FIX.
+  fix FIX 1. intros []; f_equal=>//; rename select (list expr) into el; revert el; clear -FIX.
   - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
 Qed.
 
@@ -309,11 +310,12 @@ Lemma list_expr_result_eq_inv rl1 rl2 e1 e2 el1 el2 :
   fmap of_result rl1 ++ e1 :: el1 = fmap of_result rl2 ++ e2 :: el2 →
   rl1 = rl2 ∧ el1 = el2.
 Proof.
-  revert rl2; induction rl1; destruct rl2; intros H1 H2; inversion 1.
+  revert rl2; induction rl1 as [|?? IH]; intros rl2; destruct rl2 as [|? rl2];
+    intros H1 H2; inversion 1.
   - done.
   - subst. by rewrite to_of_result in H1.
   - subst. by rewrite to_of_result in H2.
-  - destruct (IHrl1 rl2); auto. split; f_equal; auto. by apply (inj of_result).
+  - destruct (IH rl2); auto. split; f_equal; auto. by apply (inj of_result).
 Qed.
 
 Lemma fill_item_no_result_inj Ki1 Ki2 e1 e2 :
@@ -360,12 +362,19 @@ Inductive head_step (P : prog) :
 
 Lemma result_head_stuck P e1 σ1 e2 σ2 efs :
   head_step P e1 σ1 e2 σ2 efs → to_result e1 = None.
-Proof. destruct 1; inversion ExprStep; naive_solver. Qed.
+Proof.
+  destruct 1.
+  - rename select (pure_expr_step _ _ _ _ _) into Hstep; inversion Hstep; naive_solver.
+  - rename select (mem_expr_step _ _ _ _ _ _) into Hstep; inversion Hstep; naive_solver.
+Qed.
 
 Lemma head_ctx_step_result P Ki e σ1 e2 σ2 efs :
   head_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_result e).
 Proof.
-  destruct Ki; inversion_clear 1; inversion_clear ExprStep;
+  destruct Ki; inversion_clear 1;
+    (rename select (pure_expr_step _ _ _ _ _) into Hstep ||
+     rename select (mem_expr_step _ _ _ _ _ _) into Hstep);
+    inversion_clear Hstep;
     simplify_option_eq; eauto using is_Some_to_value_result.
 Qed.
 
@@ -412,8 +421,10 @@ Proof.
     - cbn. destruct to_fname; cbn; last done. destruct to_result; cbn; done.
     - cbn. inversion 1; done.
   + destruct e; try discriminate 1. rewrite /to_class; simpl.
-    destruct e1; simpl.
-    { destruct v as [ | [] [ | ]]; simpl; try congruence.
+    match goal with |- context[to_fname ?e] => destruct e; simpl end.
+    { rename select value into v.
+      destruct v as [ | [] [ | ]]; simpl; try congruence.
+      rename select expr into e2.
       destruct e2; try discriminate 1; cbn; by inversion 1.
     }
     all: congruence.
@@ -423,8 +434,10 @@ Lemma to_class_result e r : to_class e = Some (ExprVal r) → to_result e = Some
 Proof.
   destruct e; simpl; try discriminate 1.
   - by inversion 1.
-  - destruct e1; rewrite /to_class; simpl.
-    { destruct to_fname; destruct e2; try discriminate 1. }
+  - match goal with |- context[Call ?e _] => destruct e end;
+    rewrite /to_class; simpl.
+    { rename select expr into e2.
+      destruct to_fname; destruct e2; try discriminate 1. }
     all: discriminate 1.
   - by inversion 1.
 Qed.
@@ -432,7 +445,8 @@ Lemma to_class_call e f r : to_class e = Some (ExprCall f r) → to_call e = Som
 Proof.
   destruct e; rewrite /to_class; simpl; try discriminate 1.
   destruct to_fname; simpl; try discriminate 1.
-  destruct e2; simpl; try discriminate 1; by inversion 1.
+  match goal with |- context[to_result ?e] => destruct e end;
+  simpl; try discriminate 1; by inversion 1.
 Qed.
 
 Lemma to_result_class e r : to_result e = Some r → to_class e = Some (ExprVal r).
@@ -470,7 +484,11 @@ Proof.
   - apply of_to_class.
   - intros p v ???? H%result_head_stuck. rewrite to_of_result in H. congruence.
   - intros p f v ????. split.
-    + cbn. inversion 1; subst; inversion ExprStep; subst. exists K. eauto.
+    + cbn. inversion 1; subst;
+      (rename select (pure_expr_step _ _ _ _ _) into Hstep ||
+       rename select (mem_expr_step _ _ _ _ _ _) into Hstep);
+      inversion_clear Hstep;
+      subst. eauto.
     + intros (K & ? & -> & -> & ->). cbn. constructor; constructor; [done | rewrite to_of_result; eauto].
   - done.
   - intros ???. by rewrite -fill_app.
@@ -487,11 +505,15 @@ Proof.
         revert Hres. revert Ki e.
         induction K as [ | ?? IH]; cbn; intros Ki e Hres.
         - destruct Ki; cbn; try reflexivity.
-          { destruct e; [ | reflexivity..]. destruct v as [ |[] ]; done. }
+          { destruct e; [ | reflexivity..].
+            rename select value into v.
+            destruct v as [ |[] ]; done. }
           rewrite Hres. by destruct to_fname.
         - cbn in IH. by apply IH, fill_item_no_result.
       }
       rewrite Heq in H. destruct K; first done.
+      rename select string into fn_name.
+      rename select result into arg.
       enough (Some (fn_name, arg) = None) by congruence. by apply H.
   - intros p K K' e1' e1_redex σ1 e2 σ2 efs H. destruct to_class as [ [] | ] eqn:Heq; first done.
     + intros _ Hstep.
@@ -500,7 +522,8 @@ Proof.
     + intros _ Hstep. eapply fill_eq; [ | apply Hstep | apply H].
       destruct to_result eqn:Hres; last done. apply to_result_class in Hres; congruence.
   - intros ?????? H.
-    destruct (to_result e) eqn:Heq. { right. exists r. by apply to_result_class. }
+    match goal with |- context[to_class ?e] => destruct (to_result e) eqn:Heq end.
+    { right. eexists. by apply to_result_class. }
     left. by eapply head_ectx_step_no_result.
 Qed.
 End head_step.
@@ -527,6 +550,7 @@ Definition retag_place
 (* The breaking point '/  ' makes sure that the body of the λ: is indented
 by two spaces in case the whole λ: does not fit on a single line. *)
 (* Note: this is a context for use with the function call mechanism of SimpLang. *)
+(* FIXME: why is this not in notation.v? *)
 Notation "λ: x , e" := ([LetCtx x%binder e%E])
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.

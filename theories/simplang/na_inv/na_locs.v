@@ -75,9 +75,15 @@ Fixpoint combine_na_locs_list (cols : list (gmap loc (loc * na_locs_state))) (l_
 
 Section combine_na_locs.
   Global Instance combine_na_locs_commute : Comm (=) combine_na_locs.
-  Proof. rewrite /combine_na_locs. move => [?|] [?|] //=; repeat case_match => //. by rewrite (comm _ q). Qed.
+  Proof.
+    rewrite /combine_na_locs. move => [?|] [?|] //=; repeat case_match => //.
+    by rewrite (comm (B:=Qp)).
+  Qed.
   Global Instance combine_na_locs_assoc : Assoc (=) combine_na_locs.
-  Proof.  rewrite /combine_na_locs. move => [?|] [?|] [?|] //=; repeat case_match => //=; simplify_eq => //. by rewrite assoc. Qed.
+  Proof.
+    rewrite /combine_na_locs. move => [?|] [?|] [?|] //=; repeat case_match => //=; simplify_eq => //.
+    by rewrite assoc.
+  Qed.
 
   Lemma combine_na_locs_list_None cols l:
     (∀ π col, cols !! π = Some col → col !! l = None) →

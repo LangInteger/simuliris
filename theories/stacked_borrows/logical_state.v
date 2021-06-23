@@ -804,7 +804,8 @@ Proof.
     intros [ ? | Hneq]; first by eauto.
     right. intros i Hi. destruct i as [ | i].
     + rewrite shift_loc_0_nat. done.
-    + replace (Z.of_nat (S i)) with (1 + i)%Z by lia. rewrite -shift_loc_assoc. apply H. lia.
+    + replace (Z.of_nat (S i)) with (1 + i)%Z by lia. rewrite -shift_loc_assoc.
+      eauto with lia.
 Qed.
 
 Lemma dom_agree_on_tag_array_tag_map l t v_t v_s :
@@ -831,7 +832,7 @@ Proof.
     iDestruct ("IH" $! (l +ₗ 1) with "Hauth [Hscs]") as "%IH".
     { iApply (big_sepL_mono with "Hscs"). intros i sc' Hs. cbn. rewrite shift_loc_assoc.
       replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done. }
-    iPureIntro. intros i Hle. destruct i; first done.
+    iPureIntro. intros i Hle. destruct i as [|i]; first done.
     replace (Z.of_nat $ S i) with (1 + i)%Z by lia. cbn in *. rewrite -(IH i); last lia.
     by rewrite shift_loc_assoc.
 Qed.

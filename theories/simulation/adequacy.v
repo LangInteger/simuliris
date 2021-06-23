@@ -272,7 +272,8 @@ Section meta_level_simulation.
     (* first we exectute the simulation to v_t *)
     intros Hsim Hstuck Htgt; eapply msim_steps in Hsim as (T_s' & σ_s' & J1 & Hsrc & Hsim); [|eauto..].
     (* then we add finish all the threads where the target has been evaluated to a value *)
-    eapply msim_finish_source with (U := threads T_t' ∖ active_threads T_t') in Hsim as (T_s'' & σ_s'' & J2 & Hsrc' & Hsim); first last.
+    eapply (msim_finish_source _ _ _ _ (threads T_t' ∖ active_threads T_t')) in Hsim
+      as (T_s'' & σ_s'' & J2 & Hsrc' & Hsim); first last.
     - by eapply pool_steps_safe.
     - intros i [Ht Hact]%elem_of_difference.
       eapply threads_spec in Ht as [e Hlook].
@@ -282,7 +283,7 @@ Section meta_level_simulation.
     - exists T_s'', σ_s'', (J1 ++ J2), (V ∪ threads T_t' ∖ active_threads T_t').
       repeat split; eauto using pool_steps_trans.
       intros i v_t Hlook.
-      eapply msim_proj_val with (i := i) in Hsim as (v_t' & v_s & Hlook1 & Hlook2 & Hsat).
+      eapply (msim_proj_val _ _ _ _ i) in Hsim as (v_t' & v_s & Hlook1 & Hlook2 & Hsat).
       3: { eapply pool_steps_safe; [done|]. by eapply pool_steps_safe. }
       { exists v_s. split; first done. rewrite Hlook1 in Hlook.
         by eapply Some_inj, of_val_inj in Hlook as ->. }

@@ -167,7 +167,7 @@ Section lemmas.
       l_s ↦s∗[tk_local]{nt} replicate (tsize T) ScPoison.
   Proof.
     intros l_t l_s nt Hwf_t' Hwf_s'.
-    iIntros "(% & % & % & % & (Hcall_auth & Htag_auth & Ht_auth & Hs_auth) & Htainted & #Hstate & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Ht_auth & Hs_auth) & Htainted & #Hstate & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     destruct Htag_interp as (Htag_interp & Ht_dom& Hs_dom).
     assert (M_tag !! nt = None) as M_tag_none.
     { destruct (M_tag !! nt) as [[? []] | ]eqn:Hs; last done.
@@ -457,8 +457,8 @@ Section lemmas.
     l.2 < l'.2 →
     <[ l := sc ]> (write_mem l' v M) = write_mem l' v (<[ l := sc ]> M).
   Proof.
-    induction v in l, l', sc, M |-*; cbn; first done.
-    intros Hl. rewrite (IHv l (l' +ₗ 1)); first last.
+    induction v as [|? v IH] in l, l', sc, M |-*; cbn; first done.
+    intros Hl. rewrite (IH l (l' +ₗ 1)); first last.
     { destruct l', l; cbn in *; lia. }
     rewrite insert_commute; first done. intros ->; lia.
   Qed.
@@ -495,7 +495,7 @@ Section lemmas.
     l ↦t[tk_local]{t} sc' ∗
     t $$ tk_local.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom).
@@ -577,7 +577,7 @@ Section lemmas.
     l ↦s[tk_local]{t} sc' ∗
     t $$ tk_local.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom).
@@ -668,7 +668,7 @@ Section lemmas.
     c @@ M ∗
     t $$ tk_unq.
   Proof.
-    iIntros (Hl) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hl) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Hcall Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hcall".
@@ -766,7 +766,7 @@ Section lemmas.
     c @@ M ∗
     t $$ tk_unq.
   Proof.
-    iIntros (Hl) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hl) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Hcall Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hcall".
