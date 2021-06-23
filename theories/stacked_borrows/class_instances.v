@@ -91,6 +91,13 @@ Section irreducible.
         [ by rewrite (to_class_result _ _ Heq') in Heq | done | done].
   Qed.
 
+  Lemma of_result_value r v : of_result r = Val v → r = ValR v.
+  Proof. destruct r; simpl; [by inversion 1|done]. Qed.
+  Lemma of_result_place r l tg T : of_result r = Place l tg T → r = PlaceR l tg T.
+  Proof. destruct r; simpl; [done|by inversion 1]. Qed.
+  Lemma to_val_of_result r : to_val (of_result r) = Some r.
+  Proof. by rewrite /to_val /= /to_class to_of_result. Qed.
+
   (* slightly hacky proof tactic for irreducibility, solving goals of the form [SIrreducible _ _ _ _].
     Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
   Ltac prove_irred :=
@@ -109,11 +116,12 @@ Section irreducible.
     let Ki' := fresh "Ki'" in
     intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
     [ (*this need not complete the proof and may generate a proof obligation *)
-      inv_head_step; try by (apply ϕ; eauto 8)
+      inv_head_step; try by (apply ϕ; eauto 8 using of_result_value, of_result_place)
     | intros K e' Heq Hv; clear ϕ;
       destruct K as [ | Ki K]; first (done);
       exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
-      [destruct Ki; inversion Heq; subst; cbn in *; congruence
+      [destruct Ki; inversion Heq; subst; cbn in *;
+        try rewrite to_val_of_result in Hv; congruence
       | eapply IH; first (by rewrite Heq);
         rewrite language_to_val_eq; apply fill_item_no_result;
         by rewrite -language_to_val_eq]
@@ -139,6 +147,12 @@ Section irreducible.
            | |- Decision True => apply True_dec
            end;
     repeat match goal with
+    | v : result |- _ =>
+        match goal with
+        | |- context[v] => destruct v
+        end
+    end;
+    repeat match goal with
     | v : value |- _ =>
         match goal with
         | |- context[v] => destruct v as [ | [] []]
@@ -163,33 +177,33 @@ Section irreducible.
     IrredUnless (False) P (Case (Place l t T) el) σ.
   Proof. prove_irred_unless. Qed.
 
-  Global Instance irred_unless_add v1 v2 P σ :
-    IrredUnless (∃ z1 z2, v1 = [ScInt z1] ∧ v2 = [ScInt z2]) P (BinOp AddOp (Val v1) (Val v2)) σ.
+  Global Instance irred_unless_add r1 r2 P σ :
+    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp AddOp r1 r2) σ.
   Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_sub v1 v2 P σ :
-    IrredUnless (∃ z1 z2, v1 = [ScInt z1] ∧ v2 = [ScInt z2]) P (BinOp SubOp (Val v1) (Val v2)) σ.
+  Global Instance irred_unless_sub r1 r2 P σ :
+    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp SubOp r1 r2) σ.
   Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_lt v1 v2 P σ :
-    IrredUnless (∃ z1 z2, v1 = [ScInt z1] ∧ v2 = [ScInt z2]) P (BinOp LtOp (Val v1) (Val v2)) σ.
+  Global Instance irred_unless_lt r1 r2 P σ :
+    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp LtOp r1 r2) σ.
   Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_le v1 v2 P σ :
-    IrredUnless (∃ z1 z2, v1 = [ScInt z1] ∧ v2 = [ScInt z2]) P (BinOp LeOp (Val v1) (Val v2)) σ.
+  Global Instance irred_unless_le r1 r2 P σ :
+    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp LeOp r1 r2) σ.
   Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_offset v1 v2 P σ :
-    IrredUnless (∃ l t z, v1 = [ScPtr l t] ∧ v2 = [ScInt z]) P (BinOp OffsetOp (Val v1) (Val v2)) σ.
+  Global Instance irred_unless_offset r1 r2 P σ :
+    IrredUnless (∃ l t z, r1 = ValR [ScPtr l t] ∧ r2 = ValR [ScInt z]) P (BinOp OffsetOp r1 r2) σ.
   Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_eq v1 v2 P σ :
-    IrredUnless (∃ sc1 sc2, v1 = [sc1] ∧ v2 = [sc2] ∧ (scalar_eq σ.(shp) sc1 sc2 ∨ scalar_neq sc1 sc2)) P (BinOp EqOp (Val v1) (Val v2)) σ.
+  Global Instance irred_unless_eq r1 r2 P σ :
+    IrredUnless (∃ sc1 sc2, r1 = ValR [sc1] ∧ r2 = ValR [sc2] ∧ (scalar_eq σ.(shp) sc1 sc2 ∨ scalar_neq sc1 sc2)) P (BinOp EqOp r1 r2) σ.
   Proof.
     apply irred_unless_irred_dec; [ | prove_irred].
-    destruct v1 as [ | sc1 []]; try finish_decision.
-    destruct v2 as [ | sc2 []]; try finish_decision.
+    destruct r1 as [[ | sc1 []]|]; try finish_decision.
+    destruct r2 as [[ | sc2 []]|]; try finish_decision.
     destruct (decide (scalar_eq σ.(shp) sc1 sc2)); first by eauto 8.
     destruct (decide (scalar_neq sc1 sc2)); finish_decision.
   Qed.
 
   Global Instance irred_proj v v2 P σ :
-    IrredUnless (∃ i s, v2 = [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj (Val v) (Val v2)) σ.
+    IrredUnless (∃ i s, v2 = [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj (of_result v) (of_result v2)) σ.
   Proof.
     apply irred_unless_irred_dec; [| prove_irred].
     destruct v2 as [ | s2 []]; [ decide_goal | | decide_goal].
@@ -215,11 +229,11 @@ Section irreducible.
     IrredUnless (∃ l t, v = [ScPtr l t]) P (Deref (Val v) T) σ.
   Proof. prove_irred_unless. Qed.
 
-  Global Instance irreducible_call_val v v2 P σ :
-    IrredUnless (∃ fn, v = [ScFnPtr fn]) P (Call (Val v) (Val v2)) σ.
+  Global Instance irreducible_call_val r r2 P σ :
+    IrredUnless (∃ fn, r = ValR [ScFnPtr fn]) P (Call r r2) σ.
   Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_call_place v l t T P σ :
-    IrredUnless (∃ fn, v = [ScFnPtr fn]) P (Call (Val v) (Place l t T)) σ.
+  Global Instance irreducible_call_place r l t T P σ :
+    IrredUnless (∃ fn, r = ValR [ScFnPtr fn]) P (Call r (Place l t T)) σ.
   Proof. prove_irred_unless. Qed.
 
 
@@ -297,8 +311,8 @@ Section irreducible.
       * left. intros m Hm.  assert (m = 0%nat) as -> by lia. assert (n = 0%nat) as -> by lia. eauto.
   Qed.
 
-  Global Instance irreducible_free_val P σ v :
-    IrredUnless False P (Free (Val v)) σ.
+  Global Instance irreducible_free_val P σ r :
+    IrredUnless (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
   Proof. prove_irred_unless. Qed.
   Global Instance irreducible_free P σ l t T :
     IrredUnless ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
