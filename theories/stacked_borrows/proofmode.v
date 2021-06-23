@@ -249,13 +249,13 @@ Ltac sim_result_head :=
       eapply tac_sim_value_no_bupd
   | |- envs_entails _ (sim _ _ (Val _) (Val _)) =>
       eapply tac_sim_value
-  | |- envs_entails _ (sim (λ _ _, bupd _) _ (Place _) (Place _)) =>
+  | |- envs_entails _ (sim (λ _ _, bupd _) _ (Place _ _ _) (Place _ _ _)) =>
       eapply tac_sim_place_no_bupd
-  | |- envs_entails _ (sim (λ _ _, sim_expr _ _ _ _) _ (Place _) (Place _)) =>
+  | |- envs_entails _ (sim (λ _ _, sim_expr _ _ _ _) _ (Place _ _ _) (Place _ _ _)) =>
       eapply tac_sim_place_no_bupd
-  | |- envs_entails _ (sim (λ _ _, sim _ _ _ _) _ (Place _) (Place _)) =>
+  | |- envs_entails _ (sim (λ _ _, sim _ _ _ _) _ (Place _ _ _) (Place _ _ _)) =>
       eapply tac_sim_place_no_bupd
-  | |- envs_entails _ (sim _ _ (Place _) (Place _)) =>
+  | |- envs_entails _ (sim _ _ (Place _ _ _) (Place _ _ _)) =>
       eapply tac_sim_place
 
   | |- envs_entails _ (sim (λ _ _, bupd _) _ (of_result _) (of_result _)) =>
@@ -312,15 +312,15 @@ Ltac target_result_head :=
       eapply tac_target_red_base_no_bupd
   | |- envs_entails _ (target_red (Val _) _) =>
       eapply tac_target_red_base
-  | |- envs_entails _ (target_red (Place _) (λ _, bupd _)) =>
+  | |- envs_entails _ (target_red (Place _ _ _) (λ _, bupd _)) =>
       eapply tac_target_red_base_no_bupd
-  | |- envs_entails _ (target_red (Place _) (λ _, sim_expr _ _ _ _)) =>
+  | |- envs_entails _ (target_red (Place _ _ _) (λ _, sim_expr _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
-  | |- envs_entails _ (target_red (Place _) (λ _, sim _ _ _ _)) =>
+  | |- envs_entails _ (target_red (Place _ _ _) (λ _, sim _ _ _ _)) =>
       eapply tac_target_red_base_no_bupd
-  | |- envs_entails _ (target_red (Place _) (λ _, target_red _ _)) =>
+  | |- envs_entails _ (target_red (Place _ _ _) (λ _, target_red _ _)) =>
       eapply tac_target_red_base_no_bupd
-  | |- envs_entails _ (target_red (Place _) _) =>
+  | |- envs_entails _ (target_red (Place _ _ _) _) =>
       eapply tac_target_red_base
   end.
 
@@ -351,15 +351,15 @@ Ltac source_result_head :=
       eapply tac_source_red_base_no_bupd
   | |- envs_entails _ (source_red (Val _) _ _) =>
       eapply tac_source_red_base; try iIntros (_ _)
-  | |- envs_entails _ (source_red (Place _) _ (λ _, bupd _)) =>
+  | |- envs_entails _ (source_red (Place _ _ _) _ (λ _, bupd _)) =>
       eapply tac_source_red_base_no_bupd
-  | |- envs_entails _ (source_red (Place _) _ (λ _, sim_expr _ _ _ _)) =>
+  | |- envs_entails _ (source_red (Place _ _ _) _ (λ _, sim_expr _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd
-  | |- envs_entails _ (source_red (Place _) _ (λ _, sim _ _ _ _)) =>
+  | |- envs_entails _ (source_red (Place _ _ _) _ (λ _, sim _ _ _ _)) =>
       eapply tac_source_red_base_no_bupd
-  | |- envs_entails _ (source_red (Place _) _ (λ _, source_red _ _ _)) =>
+  | |- envs_entails _ (source_red (Place _ _ _) _ (λ _, source_red _ _ _)) =>
       eapply tac_source_red_base_no_bupd
-  | |- envs_entails _ (source_red (Place _) _ _) =>
+  | |- envs_entails _ (source_red (Place _ _ _) _ _) =>
       eapply tac_source_red_base; try iIntros (_ _)
   end.
 

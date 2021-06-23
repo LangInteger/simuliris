@@ -29,7 +29,8 @@ Lemma expr_ind (P : expr → Prop):
   (∀ e, P e → P (Fork e)) →
   ∀ e, P e.
 Proof.
-  intros. revert e. fix REC 1. destruct e; try
+  intros Hvl Hvr HC HIC HE HP HBi HPr HCo HD HR HCopy HW HA HF HRT HL HCA HWHL HFo.
+  fix REC 1. intros []; try
   (* Find head symbol, then find lemma for that symbol.
      We have to be this smart because we can't use the unguarded [REC]! *)
   match goal with
@@ -47,7 +48,7 @@ Proof.
     match goal with H : context[head] |- _ => apply H; try done end
   end.
   (* remaining case: The [Forall]. *)
-  induction el; eauto using Forall.
+  match goal with |- Forall _ ?el => induction el; eauto using Forall end.
 Qed.
 
 (** * Parallel substitution*)
@@ -82,7 +83,9 @@ Proof.
   induction e using expr_ind; simpl; f_equal; eauto.
   - match goal with |- context[binder_delete ?x ∅] => destruct x; first done end.
     simpl; rewrite delete_empty; done.
-  - induction H; first done. simpl. by f_equal.
+  - match goal with H : Forall _ _ |- _ =>
+      induction H; first done; simpl; by f_equal
+    end.
 Qed.
 
 Lemma subst_map_subst map x (r : result) (e : expr) :
@@ -93,12 +96,13 @@ Proof.
   - case_bool_decide.
     + simplify_eq/=. rewrite lookup_insert. destruct r; done.
     + rewrite lookup_insert_ne //.
-  - destruct b; simpl. { done. }
-    case_bool_decide.
-    + rewrite IHe2. f_equal. rewrite delete_insert_ne //.
-      intros ?. apply H. f_equal. done.
+  - match goal with |- context[binder_delete ?x _] => destruct x; simpl; first done end.
+    case_bool_decide as NEq.
+    + rewrite delete_insert_ne //. intros ?. apply NEq. f_equal. done.
     + simplify_eq/=. rewrite delete_insert_delete //.
-  - induction H; first done. simpl. f_equal; done.
+  - match goal with H : Forall _ _ |- _ =>
+      induction H; first done; simpl; by f_equal
+    end.
 Qed.
 
 Lemma subst_subst_map x (r : result) map e :
@@ -107,18 +111,22 @@ Lemma subst_subst_map x (r : result) map e :
 Proof.
   revert map r x; induction e using expr_ind; intros map v0 xx; simpl;
   try (f_equal; eauto).
-  all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first by auto end.
-  - destruct (decide (xx=x)) as [->|Hne].
+  - match goal with |- context[delete _ _ !! ?x] =>
+      destruct (decide (xx=x)) as [->|Hne]
+    end.
     + rewrite lookup_delete // lookup_insert //. simpl.
       rewrite bool_decide_true //.
     + rewrite lookup_delete_ne // lookup_insert_ne //.
-      destruct (map !! x) as [rr|].
+      destruct (map !! _) as [rr|].
       * by destruct rr.
       * simpl. rewrite bool_decide_false //.
-  - case_bool_decide.
+  - match goal with |- context[binder_delete ?x _] => destruct x; simpl; first by auto end.
+    case_bool_decide.
     + rewrite delete_insert_ne //; last congruence. rewrite delete_commute. eauto.
     + simplify_eq. rewrite delete_idemp delete_insert_delete. done.
-  - induction H; first done. simpl. f_equal; done.
+  - match goal with H : Forall _ _ |- _ =>
+      induction H; first done; simpl; by f_equal
+    end.
 Qed.
 
 Lemma subst'_subst_map b (r : result) map e :
@@ -180,9 +188,8 @@ Lemma foldl_union_cons {A} `{Countable B}
   foldl (λ s a, s ∪ f a) s (a :: xs) =
   f a ∪ foldl (λ s a, s ∪ f a) s xs.
 Proof.
-  revert a s. induction xs as [|x xs IH] => a s.
-  - simpl. set_solver.
-  - simpl. rewrite -IH /=. f_equal. set_solver.
+  revert a s. induction xs as [|x xs IH] => a s /=; [set_solver|].
+  rewrite -IH /=. f_equal. set_solver.
 Qed.
 
 Lemma subst_map_free_vars (xs1 xs2 : gmap string result) (e : expr) :
@@ -201,10 +208,15 @@ Proof.
     intuition eauto using binder_delete_eq with set_solver
   ].
   f_equal.
-  - apply IHe => x Ine. apply Heq. set_solver+Ine.
-  - induction H; first done. simpl. f_equal.
-    + apply H => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
-    + apply IHForall => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
+  - match goal with IH : ∀ _ _ _, subst_map _ _ = _ |- _ =>
+      apply IH => x Ine
+    end.
+    apply Heq. set_solver+Ine.
+  - match goal with FA : Forall _ _ |- _ =>
+      induction FA as [|? ? H' FA' IH]; first done; simpl; f_equal
+    end.
+    + apply H' => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
+    + apply IH => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
 Qed.
 
 Lemma subst_map_closed xs e :
@@ -233,8 +245,10 @@ Lemma free_vars_subst x (r : result) e :
 Proof.
   induction e using expr_ind=>/=; repeat case_decide; try set_solver.
   { subst. rewrite bool_decide_true //. destruct r; set_solver. }
-  rewrite IHe difference_union_distr_l_L. f_equal.
-  induction H as [|? ? ? H]. { set_solver-. }
+  match goal with IH : free_vars _ = _ |- _ => rewrite IH difference_union_distr_l_L end.
+  f_equal.
+  match goal with FA : Forall _ _ |- _ => induction FA end.
+  { set_solver-. }
   rewrite fmap_cons !foldl_union_cons difference_union_distr_l_L. by f_equal.
 Qed.
 

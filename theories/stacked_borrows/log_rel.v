@@ -51,7 +51,7 @@ Section open_rel.
     rrel v_t v_s -∗
     subst_map_rel X (binder_insert x (v_t, v_s) map).
   Proof.
-    iIntros "#Hmap #Hval". destruct x; first done. simpl.
+    iIntros "#Hmap #Hval". destruct x as [|s]; first done. simpl.
     iApply big_sepS_intro. iIntros "!# %s' %Hs'".
     destruct (decide (s = s')) as [->|Hne].
     - rewrite lookup_insert. done.
@@ -231,7 +231,7 @@ Section log_rel_structural.
     - admit.
   Admitted.
 
-  (* TODO dup from simplang base.v*)
+  (* TODO dup from simplang base.v *)
   Lemma fst_map_zip {A B C} `{!EqDecision A} `{!Countable A} (m1 : gmap A B) (m2 : gmap A C) :
     (∀ k : A, is_Some (m1 !! k) → is_Some (m2 !! k)) →
     fst <$> map_zip m1 m2 = m1.
