@@ -144,6 +144,7 @@ Inductive ctx_item :=
   | LetRCtx (x : binder) (e1 : expr)
   | CallLCtx (e2 : expr)
   | CallRCtx (e1 : expr)
+  | EndCallCtx
   | BinOpLCtx (op : bin_op) (e2 : expr)
   | BinOpRCtx (op : bin_op) (e1 : expr)
   | ProjLCtx (e2 : expr)
@@ -171,6 +172,7 @@ Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   | LetRCtx x e1 => Let x e1 e
   | CallLCtx e2 => Call e e2
   | CallRCtx e1 => Call e1 e
+  | EndCallCtx => EndCall e
   | BinOpLCtx op e2 => BinOp op e e2
   | BinOpRCtx op e1 => BinOp op e1 e
   | ProjLCtx e2 => Proj e e2
@@ -280,6 +282,7 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   | LetRCtx x e1 => (LetHead x, [e1])
   | CallLCtx e2 => (CallHead, [e2])
   | CallRCtx e1 => (CallHead, [e1])
+  | EndCallCtx => (EndCallHead, [])
   | BinOpLCtx op e2 => (BinOpHead op, [e2])
   | BinOpRCtx op e1 => (BinOpHead op, [e1])
   | ProjLCtx e2 => (ProjHead, [e2])
