@@ -53,7 +53,7 @@ Section open_rel.
     val_rel v_t v_s -∗
     subst_map_rel X (binder_insert x (v_t, v_s) map).
   Proof.
-    iIntros "#Hmap #Hval". destruct x; first done. simpl.
+    iIntros "#Hmap #Hval". destruct x as [|s]; first done. simpl.
     iApply big_sepS_intro. iIntros "!# %s' %Hs'".
     destruct (decide (s = s')) as [->|Hne].
     - rewrite lookup_insert. done.

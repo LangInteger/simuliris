@@ -136,7 +136,7 @@ Lemma sublist_head_preserving t it it' stk stk' :
   is_stack_head it stk'.
 Proof.
   intros SUB Eqt' Eqt In' ND.
-  induction SUB as [|???? IH|???? IH]; [done|..]; intros [stk1 ?]; simplify_eq;
+  induction SUB as [|???? IH|??? SUB IH]; [done|..]; intros [stk1 ?]; simplify_eq;
     [by eexists|].
   exfalso. move : ND.
   rewrite /stack_item_tagged_NoDup filter_cons decide_True;
@@ -229,7 +229,7 @@ Lemma sublist_active_SRO_preserving t it stk stk' :
   t ∈ active_SRO stk → t ∈ active_SRO stk'.
 Proof.
   intros SUB Eqt In' ND.
-  induction SUB as [|it1 stk1 stk2 ? IH|it1 stk1 stk2 ? IH]; [done|..].
+  induction SUB as [|it1 stk1 stk2 ? IH|it1 stk1 stk2 SUB IH]; [done|..].
   - intros [? Eq]%active_SRO_cons_elem_of. apply active_SRO_cons_elem_of.
     split; [done|]. destruct Eq as [?|Eq]; [by left|].
     apply elem_of_cons in In' as [?|In'].
@@ -666,7 +666,7 @@ Lemma tag_on_top_write σ l tg stks :
   tag_on_top stks l tg Unique.
 Proof.
   rewrite /memory_written /tag_on_top /= shift_loc_0.
-  destruct (sst σ !! l) eqn:Hlk; last done. simpl.
+  destruct (sst σ !! l) as [s|] eqn:Hlk; last done. simpl.
   destruct s as [|it st]; first done. simpl.
   destruct it as [perm tg' prot']. intros [prot ?]; simplify_eq/=.
   edestruct tag_unique_head_access as [n ->].

@@ -92,7 +92,8 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS; clear IS; simplify_eq.
   constructor; simpl.
-  - rewrite -(for_each_dom α l (tsize T) _ _ ACC). by apply WF.
+  - rename select (memory_read _ _ _ _ _ = _) into ACC.
+    rewrite -(for_each_dom α l (tsize T) _ _ ACC). by apply WF.
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
   - apply WF.
@@ -185,7 +186,8 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
   constructor; simpl.
-  - rewrite -(for_each_dom α l (tsize T) _ _ ACC).
+  - rename select (memory_written _ _ _ _ _ = _) into ACC.
+    rewrite -(for_each_dom α l (tsize T) _ _ ACC).
     rewrite write_mem_dom; [by apply WF|done].
   - eapply for_each_access1_stack_item; eauto. apply WF.
   - eapply for_each_access1_non_empty; eauto. apply WF.
@@ -206,7 +208,7 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
   constructor; simpl; [apply WF..|intros ?? Eq; split|apply WF|].
-  - intros ? In.
+  - intros si In.
     destruct ((proj1 (state_wf_stack_item _ WF _ _ Eq)) _ In) as [SI1 SI2].
     split; [done|]. move : SI2. destruct si.(protector); [simpl; lia|done].
   - apply (state_wf_stack_item _ WF _ _ Eq).
@@ -278,7 +280,7 @@ Qed.
 Lemma item_insert_dedup_subseteq stk new n :
   item_insert_dedup stk new n ⊆ new :: stk.
 Proof.
-  intros. destruct n; simpl.
+  intros. destruct n as [|n]; simpl.
   - destruct stk; [done|case decide => [<-|_]]; set_solver.
   - have ?: take (S n) stk ++ new :: drop (S n) stk ⊆ new :: stk.
     { intros x.
@@ -685,7 +687,7 @@ Proof.
     intros UN. eapply unsafe_action_stacks_unchanged; eauto.
   - naive_solver.
   - (* Product case *)
-    clear. intros ??????????? IH1 IH2 ??? HF0.
+    clear. intros l f a ???????? IH1 IH2 α' l' c' HF0.
     case visit_freeze_sensitive' as [alc|] eqn:Eqa; [|done].
     intros VS. destruct alc as [a1 [l1 c1]]. simpl in VS.
     destruct (IH2 a1 l1 c1 HF0 eq_refl) as [Le2 IH2'].
@@ -848,14 +850,14 @@ Lemma reborrow_wf_stack α nxtc cids nxtp l old T kind new bar α'
   dom (gset loc) α ≡ dom (gset loc) α' ∧
   wf_stacks α' nxtp nxtc ∧ wf_non_empty α'.
 Proof.
-  rewrite /reborrow. destruct kind as [[]| |].
+  rewrite /reborrow. destruct kind as [[]| |mutbl].
   - by eapply reborrowN_wf_stack; eauto.
   - by eapply reborrowN_wf_stack; eauto.
   - intros VS. revert VS NEW. apply visit_freeze_sensitive_wf_stack.
     + intros. by apply tag_fresh_split.
     + intros ?????. apply for_each_lookup.
     + intros ???????. by eapply reborrowN_wf_stack.
-  - destruct mutable.
+  - destruct mutbl.
     + by eapply reborrowN_wf_stack; eauto.
     + intros VS. revert VS NEW. apply visit_freeze_sensitive_wf_stack.
       * intros. by apply tag_fresh_split.
@@ -942,7 +944,8 @@ Qed. *)
 Lemma head_step_wf P σ σ' e e' efs :
   head_step P e σ e' σ' efs → state_wf σ → state_wf σ'.
 Proof.
-  intros HS WF. inversion HS; [by subst|]. simplify_eq. destruct ev.
+  intros HS WF. inversion HS; [by subst|]. simplify_eq.
+  rename select event into ev. destruct ev.
   - eapply alloc_step_wf; eauto.
   - eapply dealloc_step_wf; eauto.
   - eapply copy_step_wf; eauto.
@@ -951,6 +954,6 @@ Proof.
   - eapply initcall_step_wf; eauto.
   - eapply endcall_step_wf; eauto.
   - eapply retag_step_wf; eauto.
-  - inversion ExprStep.
+  - rename select (mem_expr_step _ _ _ _ _ _) into Hstep. inversion Hstep.
   (* - eapply syscall_step_wf; eauto. *)
 Qed.

@@ -51,7 +51,11 @@ Section pure_exec.
 
   Global Instance pure_proj v i s :
     PureExec (0 ≤ i ∧ v !! (Z.to_nat i) = Some s) 1 (Proj (Val (v : list scalar)) (#[ScInt i])) (#[s]).
-  Proof. solve_pure_exec. destruct H, DEFINED; rewrite H2 in H0. naive_solver. Qed.
+  Proof.
+    solve_pure_exec. destruct_and!.
+    match goal with H1: ?t = Some _, H2: ?t = Some _ |- _ => rewrite H1 in H2 end.
+    naive_solver.
+  Qed.
   Global Instance pure_conc v1 v2 :
     PureExec True 1 (Conc #v1 #v2) (#(v1 ++ v2)).
   Proof. solve_pure_exec. Qed.
@@ -147,7 +151,7 @@ Section irreducible.
     IrredUnless (∃ i e, v = [ScInt i] ∧ 0 ≤ i ∧ el !! Z.to_nat i = Some e) P (Case (Val v) el) σ.
   Proof.
     prove_irred_unless.
-    decide_goal.
+    rename select Z into n.
     destruct (decide (0 ≤ n)) as [ H0 | H0]; first last.
     { right; intros (? & ? & [= ->] & ? & ?); lia. }
     destruct (decide (n < length el)) as [H1 | H1].
@@ -219,6 +223,7 @@ Section irreducible.
     IrredUnless (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs)) P (EndCall (Val v)) σ.
   Proof.
     prove_irred_unless.
+    rename select nat into c.
     destruct (decide (c ∈ σ.(scs))); finish_decision.
   Qed.
 
@@ -227,6 +232,9 @@ Section irreducible.
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag (Val v) (Val v') pk T rk) σ.
   Proof.
     prove_irred_unless.
+    rename select nat into c.
+    rename select loc into l.
+    rename select tag into tg.
     destruct (decide (c ∈ σ.(scs))); last finish_decision.
     destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
     + left. eauto 8.
@@ -270,10 +278,10 @@ Section irreducible.
     IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
   Proof.
     apply irred_unless_irred_dec; [ | prove_irred].
-    destruct (decide (length v = tsize T)); last finish_decision.
-    destruct (decide (is_Some (memory_written (sst σ) (scs σ) l t (tsize T)))); last finish_decision.
+    destruct (decide (length v = tsize T)) as [Heq|]; last finish_decision.
+    destruct (decide (is_Some (memory_written (sst σ) (scs σ) l t (tsize T)))) as [Hsome|]; last finish_decision.
     enough (Decision (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom (gset loc) (shp σ))) as [ | ]; [by finish_decision.. | ].
-    clear e i. generalize (length v) as n.
+    clear Heq Hsome. generalize (length v) as n.
     intros n. induction n as [ | n IH]. { left. lia. }
     destruct (decide (l +ₗ n ∈ (dom (gset loc) σ.(shp)))); first last.
     { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. done. }

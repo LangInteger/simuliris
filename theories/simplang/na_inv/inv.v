@@ -102,7 +102,7 @@ Section fix_heap.
   Qed.
   Global Instance na_inv_supports_store : sheapInvSupportsStore Na1Ord.
   Proof.
-    constructor. iIntros (????????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
+    constructor. iIntros (??????? π ????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
     iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
     have [|??]:= lookup_lt_is_Some_2 cols π. { rewrite Hlen. by apply: lookup_lt_Some. }
     apply: na_locs_wf_store; [done | done | by left | done | done |done | done |done].
@@ -184,7 +184,7 @@ Section fix_heap.
     { rewrite /alloc_rel_pred combine_na_locs_list_insert // Hcom /=. destruct q => /=.
       - unfold q1 => /=. simplify_eq/=. destruct q'' => //; simplify_eq/=. symmetry in Hcom'.
         move: Hcom' => /Qp_sub_Some Hq. rewrite Hq /=.
-        rewrite (comm _ _ q) -assoc Qp_div_2. symmetry. by apply/Qp_sub_Some.
+        rewrite [(_/2 + _)%Qp](comm) -assoc Qp_div_2. symmetry. by apply/Qp_sub_Some.
       - by rewrite /q1 /= Qp_div_2.
     }
     { move => q' o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
@@ -223,7 +223,7 @@ Section fix_heap.
     { move => q' /=. rewrite /alloc_rel_pred (combine_na_locs_list_delete _ _ _ _ _ _ Hl_s Hcols) /=.
       rewrite -/cols' /q /combine_na_locs.
       repeat case_match; simplify_eq => //.
-      - move => <-. by rewrite assoc (comm _ q1).
+      - move => <-. rewrite assoc. f_equal. apply: comm.
       - by move => ->.
     }
     { move => q' o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
@@ -272,7 +272,7 @@ Section fix_heap.
   Proof.
     iIntros (Hl Hcol) "#[Hbij %Hidx] Hcol Hv Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_prim_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [%HT %Hsafe]]".
+    iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [%HT %Hsafe]]".
     iDestruct (heap_ctx_wf with "Hσ_s") as %?.
     rewrite fill_comp in HT.
     have [m[?[[<-]?]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
@@ -323,7 +323,7 @@ Section fix_heap.
     source_red (Store ScOrd (Val $ LitV (LitLoc l_s)) (Val v_s)) π Φ.
   Proof.
     iIntros "Hl Hc Hsim". iApply source_red_lift_head_step.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
+    iIntros (P_s σ_s ????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
     iDestruct (heap_ctx_wf with "Hσ_s") as %?.
     iDestruct (heap_read_1 with "Hσ_s Hl") as %?.
     iExists _, _. iSplit; [iPureIntro; by econstructor|].
@@ -367,7 +367,7 @@ Section fix_heap.
   Proof.
     iIntros (Hcol) "#[Hbij %Hidx] Hcol Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %Hsafe]]".
+    iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %Hsafe]]".
     have [m[?[?[[<-]?]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
 
@@ -447,7 +447,7 @@ Section fix_heap.
     Fork e_t ⪯{π} Fork e_s [{ Ψ }].
   Proof.
     iIntros "Hc Hval Hsim". iApply sim_lift_head_step_both.
-    iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
+    iIntros (P_t P_s σ_t σ_s T_s K_s) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
     iSplitR. { eauto with head_step. }
     iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
     iExists _, _, _. iSplitR. { eauto with head_step. }

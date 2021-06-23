@@ -192,6 +192,7 @@ Definition unsafe_action
    the boolean flag `false`. *)
 Section def.
 Context {A: Type}.
+Local Unset Mangle Names. (* work around https://github.com/mattam82/Coq-Equations/issues/407 *)
 Equations visit_freeze_sensitive'
   (l: loc) (f: A → loc → nat → bool → option A)
   (a: A) (last cur_dist: nat) (T: type) : option (A * (nat * nat)) :=
@@ -382,7 +383,7 @@ Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp).
 Proof.
   rewrite /tag_values_included. induction v as [ | sc v IH].
   - left; intros l tg Ha. exfalso. by eapply not_elem_of_nil.
-  - destruct sc.
+  - destruct sc as [| |l tg| |].
     1,2,4,5: destruct IH as [IH | IH]; [left | right]; setoid_rewrite elem_of_cons; [intros ?? [ [=] | ]| contradict IH]; eauto.
     destruct (decide (tg <t nxtp)) as [Hd | Hd]; destruct IH as [IH | IH]; [left | right | right | right]; setoid_rewrite elem_of_cons; [ | by eauto..].
     intros ?? [[= -> ->] | He]; [done | by eapply IH].

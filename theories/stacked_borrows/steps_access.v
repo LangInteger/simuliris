@@ -179,7 +179,7 @@ Lemma free_mem_lookup l n h :
 Proof.
   revert l. induction n as [|n IH]; intros l; simpl.
   { split; intros ??; by [lia|]. } split.
-  - intros i Lt. destruct i.
+  - intros i Lt. destruct i as [|i].
     + rewrite shift_loc_0 lookup_delete //.
     + rewrite lookup_delete_ne.
       * specialize (IH (l +ₗ 1))as [IH _].

@@ -67,15 +67,17 @@ Proof.
   (* generate additional conditions on the shape of the source expression *)
   iApply sim_irred_unless; first done.
   iIntros "%Ha"; destruct Ha as (v' & [-> | ->]).
-  - inversion Hval; subst.
+  - inversion_clear Hval; subst.
     sim_pures.
     iApply sim_irred_unless; first done. iIntros "%Ha"; destruct Ha as [(n & ->) _].
-    inversion H2; subst.
+    rename select (val_rel_pure _ _) into Hval.
+    inversion Hval; subst.
     by sim_pures; sim_val.
-  - inversion Hval; subst.
+  - inversion_clear Hval; subst.
     sim_pures.
     iApply sim_irred_unless; first done. iIntros "%Ha"; destruct Ha as [(n & ->) _].
-    inversion H2; subst.
+    rename select (val_rel_pure _ _) into Hval.
+    inversion Hval; subst.
     by sim_pures; sim_val.
 Qed.
 

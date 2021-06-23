@@ -31,7 +31,7 @@ Section log_rel.
   Lemma gen_val_rel_val_is_unboxed v_t v_s : val_rel v_t v_s -∗ ⌜val_is_unboxed v_t ↔ val_is_unboxed v_s⌝.
   Proof.
     iIntros "Hv".
-    destruct v_s as [[] | | | ]; try val_discr_source "Hv"; [ done.. | | |].
+    destruct v_s as [[] | |v_s|v_s]; try val_discr_source "Hv"; [ done.. | | |].
     - by iPoseProof (gen_val_rel_pair_source with "Hv") as (??) "(-> & Hv1 & Hv2)".
     - iPoseProof (gen_val_rel_injl_source with "Hv") as (?) "(-> & Hv)".
       destruct v_s as [[] | | | ]; try val_discr_source "Hv"; [done.. | | |].
@@ -147,7 +147,8 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "[Ht Hv]".
-    discr_source. val_discr_source "Hv". destruct x; sim_pures.
+    discr_source. val_discr_source "Hv". rename select bool into b.
+    destruct b; sim_pures.
     + iApply ("IH2" with "[] Ht"). iApply (subst_map_rel_weaken with "[$]"). set_solver.
     + iApply ("IH3" with "[] Ht"). iApply (subst_map_rel_weaken with "[$]"). set_solver.
   Qed.
@@ -158,12 +159,14 @@ Section log_rel.
     log_rel (While e1_t e2_t) (While e1_s e2_s).
   Proof using Hpers.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
-    iApply (sim_while_while _ _ _ _ _ (thread_own π)%I with "[$]").
+    iApply (sim_while_while _ _ _ _ _ (thread_own _)%I with "[$]").
     iModIntro; iIntros "Ht".
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "[Ht Hv]".
-    discr_source. val_discr_source "Hv". destruct x; sim_pures.
+    discr_source. val_discr_source "Hv".
+    rename select bool into b.
+    destruct b; sim_pures.
     + smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] Ht)".
       { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
       iIntros (? ?) "[Ht _]"; sim_pures. iApply sim_expr_base. iRight. by eauto.
@@ -236,8 +239,11 @@ Section log_rel.
     discr_source.
     + iPoseProof (gen_val_rel_injl_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
       rewrite !subst'_subst_map.
-      rewrite -(binder_insert_fmap fst (v_t', x)).
-      rewrite -(binder_insert_fmap snd (v_t', x)).
+      match goal with |- context[gen_val_rel loc_rel (InjLV ?vt) (InjLV ?vs)] =>
+        rename vt into v_t'; rename vs into v_s'
+      end.
+      rewrite -(binder_insert_fmap fst (v_t', v_s')).
+      rewrite -(binder_insert_fmap snd (v_t', v_s')).
       iApply ("IH1" with "[] Ht").
       iApply (subst_map_rel_insert with "[] [//]").
       iApply (subst_map_rel_weaken with "[$]").
@@ -246,8 +252,11 @@ Section log_rel.
       destruct (decide (x1 = x')) as [<-|Hne]; set_solver.
     + iPoseProof (gen_val_rel_injr_source with "Hv") as (v_t') "(-> & ?)". sim_pures.
       rewrite !subst'_subst_map.
-      rewrite -(binder_insert_fmap fst (v_t', x)).
-      rewrite -(binder_insert_fmap snd (v_t', x)).
+      match goal with |- context[gen_val_rel loc_rel (InjRV ?vt) (InjRV ?vs)] =>
+        rename vt into v_t'; rename vs into v_s'
+      end.
+      rewrite -(binder_insert_fmap fst (v_t', v_s')).
+      rewrite -(binder_insert_fmap snd (v_t', v_s')).
       iApply ("IH2" with "[] Ht").
       iApply (subst_map_rel_insert with "[] [//]").
       iApply (subst_map_rel_weaken with "[$]").

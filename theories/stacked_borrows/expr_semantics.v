@@ -217,20 +217,21 @@ Global Hint Constructors scalar_neq : core.
 Global Hint Constructors bin_op_eval : core.
 Global Instance scalar_eq_dec h sc1 sc2 : Decision (scalar_eq h sc1 sc2).
 Proof.
-  destruct sc1, sc2; try by (right; intros H; inversion H).
-  - destruct (decide (n = n0)) as [ -> | ]; [left; eauto | right; intros H; inversion H; done].
-  - destruct (decide (l = l0)) as [<- | Hneq]; first by left; eauto.
-    destruct (h !! l) eqn:Heq; last left; eauto.
-    destruct (h !! l0) eqn:Heq'; last left; eauto.
+  destruct sc1 as [|n1|l1| |], sc2 as [|n2|l2| |]; try by (right; intros H; inversion H).
+  - destruct (decide (n1 = n2)) as [ -> | ];
+    [left; eauto | right; intros H; inversion H; done].
+  - destruct (decide (l1 = l2)) as [<- | Hneq]; first by left; eauto.
+    destruct (h !! l1) eqn:Heq; last left; eauto.
+    destruct (h !! l2) eqn:Heq'; last left; eauto.
     right. intros H; inversion H; subst; congruence.
 Qed.
 Global Instance scalar_neq_dec sc1 sc2 : Decision (scalar_neq sc1 sc2).
 Proof.
-  destruct sc1, sc2; try by (right; intros H; inversion H).
-  - destruct (decide (n = n0)) as [-> | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
-  - destruct (decide (n = 0)) as [-> | Hneq]; [left; eauto | right; intros H; inversion H; congruence].
-  - destruct (decide (n = 0)) as [-> | Hneq]; [left; eauto | right; intros H; inversion H; congruence].
-  - destruct (decide (l = l0)) as [<- | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
+  destruct sc1 as [|n1|l1| |], sc2 as [|n2|l2| |]; try by (right; intros H; inversion H).
+  - destruct (decide (n1 = n2)) as [-> | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
+  - destruct (decide (n1 = 0)) as [-> | Hneq]; [left; eauto | right; intros H; inversion H; congruence].
+  - destruct (decide (n2 = 0)) as [-> | Hneq]; [left; eauto | right; intros H; inversion H; congruence].
+  - destruct (decide (l1 = l2)) as [<- | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
 Qed.
 
 
@@ -261,6 +262,8 @@ Fixpoint write_mem l (v: value) h: mem :=
   | s :: v => write_mem (l +ₗ 1) v (<[l := s]> h)
   end.
 
+Section no_mangle.
+Local Unset Mangle Names. (* work around https://github.com/mattam82/Coq-Equations/issues/407 *)
 Equations read_mem (l: loc) (n: nat) h: option value :=
   read_mem l n h := go l n (Some [])
   where go : loc → nat → option value → option value :=
@@ -269,7 +272,7 @@ Equations read_mem (l: loc) (n: nat) h: option value :=
           acc ← oacc ;
           v ← h !! l;
           go (l +ₗ 1) n (Some (acc ++ [v])).
-
+End no_mangle.
 
 Definition fresh_block (h : mem) : block :=
   let loclst : list loc := elements (dom (gset loc) h) in

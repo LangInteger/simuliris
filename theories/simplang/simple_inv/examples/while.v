@@ -17,7 +17,7 @@ Section fix_bi.
   Proof.
     rewrite /loop_test.
     target_alloc l as "Hl" "_". sim_pures.
-    iInduction n as [ | ] "IH" forall "Hl".
+    iInduction n as [|n] "IH" forall "Hl".
     - target_while. target_load. by sim_pures; sim_val.
     - target_while. target_load. sim_pures. target_load. target_store. sim_pures.
       assert (Z.sub (Z.of_nat (S n)) (Zpos xH) = Z.of_nat n) as -> by lia.
@@ -40,7 +40,7 @@ Section fix_bi.
     target_red (while: #0 < !#l_n do #l_acc <- !#l_acc + #m;; #l_n <- !#l_n - #1 od)%E
       (λ e_t', ⌜e_t' = #()⌝ ∗ l_n ↦t #0 ∗ l_acc ↦t #(n0 * m)).
   Proof.
-    iIntros "Hn Hm". iInduction n as [ | ] "IH" forall "Hn Hm".
+    iIntros "Hn Hm". iInduction n as [|n] "IH" forall "Hn Hm".
     - target_while. sim_pures. target_load. sim_pures.
       assert (n0 - 0%nat = n0)%Z as -> by lia.
       iModIntro. by iFrame.
@@ -73,7 +73,7 @@ Section fix_bi.
     source_red (while: #0 < !#l_n do #l_acc <- !#l_acc + #m;; #l_n <- !#l_n - #1 od)%E π
       (λ e_s', ⌜e_s' = #()⌝ ∗ l_n ↦s #0 ∗ l_acc ↦s #(n0 * m)).
   Proof.
-    iIntros "Hn Hm". iInduction n as [ | ] "IH" forall "Hn Hm".
+    iIntros "Hn Hm". iInduction n as [|n] "IH" forall "Hn Hm".
     - source_while. sim_pures. source_load. sim_pures.
       assert (n0 - 0%nat = n0)%Z as -> by lia.
       iModIntro. by iFrame.
@@ -134,8 +134,8 @@ Section fix_bi.
     target_load. destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.
-      iIntros (??) "Hv". target_store. sim_pures. iApply sim_expr_base.
-      iRight. iExists v_s. eauto.
+      iIntros (v_t v_s) "Hv". target_store. sim_pures. iApply sim_expr_base.
+      iRight. iExists _. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
 
@@ -155,7 +155,7 @@ Section fix_bi.
     destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_wand; first by iApply sim_call.
-      iIntros (??) "Hv". source_store. sim_pures. iApply sim_expr_base.
+      iIntros (v_t v_s) "Hv". source_store. sim_pures. iApply sim_expr_base.
       iRight. iExists v_t. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.

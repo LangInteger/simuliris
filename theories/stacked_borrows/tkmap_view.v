@@ -45,9 +45,9 @@ Qed.
 
 Lemma tgkR_validN_inv tkr n : ✓{n} tkr → ∃ tk, tkr ≡ to_tgkR tk.
 Proof.
-  rewrite -cmra_discrete_valid_iff. destruct tkr as [ | [] | ]; simpl; try by move => [].
-  - destruct c; last move => []. destruct o; intros. exists tk_local. done.
-  - destruct c; last move => []. destruct o; intros. exists tk_unq. done.
+  rewrite -cmra_discrete_valid_iff. destruct tkr as [c | [c|c|] | ]; simpl; try by move => [].
+  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_local. done.
+  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq. done.
   - destruct c. intros. exists tk_pub; done.
 Qed.
 

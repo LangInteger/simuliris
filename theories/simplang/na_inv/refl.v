@@ -41,7 +41,7 @@ Section refl.
       iIntros (????) "Ht Hsim Hfork". by iApply (sim_bij_fork with "Ht Hsim").
     - (* AllocN *)
       iApply (log_rel_allocN with "IH IH1").
-      iIntros (??????) "Ht Hv Hcont".
+      iIntros (n ?????) "Ht Hv Hcont".
       target_alloc l_t as "Hl_t" "Ha_t"; first done.
       source_alloc l_s as "Hl_s" "Ha_s"; first done.
       iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
