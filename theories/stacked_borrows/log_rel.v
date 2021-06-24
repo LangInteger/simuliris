@@ -104,7 +104,7 @@ Section open_rel.
     { iSpecialize ("Hsim" $! (ValR [☠%S]) (ValR [☠%S])).
       rewrite ->subst_free_vars by set_solver.
       rewrite ->subst_free_vars by set_solver.
-      iApply "Hsim"; eauto. by rewrite {2}/rrel /= /value_rel /=. }
+      iApply "Hsim"; eauto. rewrite rrel_value_rel. iApply value_rel_poison. }
     iDestruct (subst_map_rel_lookup x with "Hxs") as (v_t v_s Hv) "Hrel"; first done.
     iSpecialize ("Hsim" $! v_t v_s with "Hrel").
     iSpecialize ("Hsim" $! π xs with "[Hxs]").
