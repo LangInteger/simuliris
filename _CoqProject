@@ -102,6 +102,7 @@ theories/stacked_borrows/wf.v
 theories/stacked_borrows/parallel_subst.v
 theories/stacked_borrows/log_rel.v
 theories/stacked_borrows/refl.v
+theories/stacked_borrows/behavior.v
 
 theories/stacked_borrows/examples/pure.v
 theories/stacked_borrows/examples/opt1.v
