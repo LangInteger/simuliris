@@ -107,3 +107,4 @@ theories/stacked_borrows/examples/opt2.v
 theories/stacked_borrows/examples/opt2_down.v
 theories/stacked_borrows/examples/opt3.v
 theories/stacked_borrows/examples/opt3_down.v
+theories/stacked_borrows/examples/coinductive.v

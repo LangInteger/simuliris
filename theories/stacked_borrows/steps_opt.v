@@ -48,7 +48,7 @@ Lemma bor_interp_retag_default σ_t σ_s c l ot T α' mut :
   bor_interp sc_rel (mkState σ_t.(shp) α' σ_t.(scs) (S σ_t.(snp)) σ_t.(snc)) (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
 Proof.
   intros pk pm tk Hretag Hc_in Hfreeze Hwf'_t Hwf'_s.
-  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
 
   iDestruct "Hscrel" as "[_ Hrel]".
   iAssert (⌜untagged_or_public M_tag ot⌝)%I as %Hpub.
@@ -113,7 +113,7 @@ Proof.
 
   (* re-establishing the interpretation *)
   iExists M_call, (<[ nt := (tk, ()) ]> M_tag), (array_tag_map l nt v_t ∪ M_t), (array_tag_map l nt v_s ∪ M_s).
-  iFrame. iSplitL.
+  iFrame. iSplitL "Htainted".
   { (* tainted *) iApply (tag_tainted_interp_retag with "Htainted"); done. }
   iSplitL.
   { (* state relation *)
@@ -281,7 +281,7 @@ Lemma bor_interp_retag_fnentry σ_t σ_s l ot c T α' M mut :
   bor_interp sc_rel (mkState σ_t.(shp) α' σ_t.(scs) (S σ_t.(snp)) σ_t.(snc)) (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
 Proof.
   intros pk pm tk L Hretag Hfreeze Hwf'_t Hwf'_s.
-  iIntros "Hscrel Hcid Hbor". iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iIntros "Hscrel Hcid Hbor". iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
 
   iDestruct "Hscrel" as "[_ Hrel]".
   iAssert (⌜untagged_or_public M_tag ot⌝)%I as %Hpub.
@@ -519,7 +519,7 @@ Proof.
   iPoseProof (bor_interp_readN_target_protected with "Hbor Ht Htag Hc") as "(%Hv_t & %)".
   { intros i Hi. exists L. split; first done. apply Hl. lia. }
 
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
   iPoseProof (ghost_map_lookup with "Hcall_auth Hc") as "%HcM".
   iMod (ghost_map_update M' with "Hcall_auth Hc") as "[Hcall_auth Hc]".
   iModIntro. iFrame "HP_t HP_s". iSplitR "Hsim Hc Ht Htag Hs"; last by iApply ("Hsim" with "Hc Htag Ht Hs").
@@ -593,7 +593,7 @@ Proof.
   iIntros (Ht ->) "Hc Hsim".
   iApply sim_update_si. rewrite /update_si. iIntros (?????) "(HP_t & HP_s & Hbor)".
   set (M' := delete t M).
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
   iPoseProof (ghost_map_lookup with "Hcall_auth Hc") as "%HcM".
   iMod (ghost_map_update M' with "Hcall_auth Hc") as "[Hcall_auth Hc]".
   iModIntro. iFrame "HP_t HP_s". iSplitR "Hsim Hc"; last by iApply ("Hsim" with "Hc").
@@ -725,7 +725,7 @@ Proof.
 
   (* update the ghost state.
     no separate lemma for, this is quite an atomic operation. *)
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iMod (ghost_map_array_tag_update _ _ _ v_t' with "Htag_t_auth Ht") as "[Ht Htag_t_auth]"; first lia.
   iMod (ghost_map_array_tag_update _ _ _ v_s' with "Htag_s_auth Hs") as "[Hs Htag_s_auth]"; first lia.
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%".
@@ -745,12 +745,14 @@ Proof.
     the write_public lemma *)
   iExists M_call, M_tag, (array_tag_map l t v_t' ∪ M_t), (array_tag_map l t v_s' ∪ M_s).
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplit; last iSplit; last iSplit; last iSplit; last iSplit.
+  iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
   - (* tainted *)
     subst σ_s'. iApply (tag_tainted_interp_tagged_sublist with "Htainted"); simpl; first lia.
     intros l' stk' Hstk'.
     specialize (for_each_access1 _ _ _ _ _ _ _ Hstack_s _ _ Hstk') as (stk & Hstk & Hsubl & _).
     eauto.
+  - (* pub cid *)
+    iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
   - (* state rel *)
     rewrite /state_rel; simpl. iSplitL.
     { iPureIntro. apply gset_leibniz. rewrite !write_mem_dom; [by rewrite Hdom_eq | done..]. }
@@ -1251,7 +1253,7 @@ Proof.
       specialize (Hst _ perm opro Hstk) as [Hnotin | ->]; last done.
       exfalso. apply Hnotin. naive_solver.
     }
-    iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & _)".
+    iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & _)".
     iSplitR.
     { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; done. }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
@@ -1332,7 +1334,7 @@ Proof.
   iFrame.
   iDestruct "Hdef" as "[(%i & %Hi & Htainted) | ->]"; first last.
   { iSplitL "Hbor"; first by destruct σ_s. iApply ("Hsim" with "Hv Hs Htag"). }
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htaint_interp & #Hsrel & %Hcall_interp & %Htag_interp & _ & %Hwf_t)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htaint_interp & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & %Hwf_t)".
   iPoseProof (tag_tainted_interp_lookup with "Htainted Htaint_interp") as "[%Ht %Hstk]".
   iPoseProof (value_rel_length with "Hv") as "%".
   exfalso.
@@ -1396,13 +1398,13 @@ Lemma bor_interp_free_local t v_t v_s l σ_t σ_s α' n :
 Proof.
   intros Hstack_t Hstack_s Hlen_t Hlen_s σ_t' σ_s' Hwf_t' Hwf_s'.
   iIntros "Htag Ht Hs Hbor".
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htaint_interp & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htaint_interp & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
   iMod (ghost_map_array_tag_delete with "Htag_t_auth Ht") as "Htag_t_auth".
   iMod (ghost_map_array_tag_delete with "Htag_s_auth Hs") as "Htag_s_auth".
   iModIntro. iFrame "Htag".
   iExists M_call, M_tag, (M_t ∖ array_tag_map l t v_t), (M_s ∖ array_tag_map l t v_s).
   iFrame.
-  iSplitL.
+  iSplitL "Htaint_interp".
   { (* tainted *)
     iApply (tag_tainted_interp_preserve σ_s with "Htaint_interp"). { simpl. lia. }
     intros l' stk' Hstk' it Hit. right. right.
