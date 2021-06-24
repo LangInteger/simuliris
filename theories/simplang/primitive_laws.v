@@ -20,16 +20,16 @@ Class sheapGS (Σ: gFunctors) := SHeapGS {
   (* These instances need to have a lower priority than the sheapGpreS
   instances as otherwise the statement of [simplang_adequacy] uses the
   wrong instance. *)
-  sheapG_gen_progG :> gen_sim_progGS string ectx ectx Σ | 1;
+  sheapG_gen_progG :> gen_sim_progGS string (string*expr) (string*expr) Σ | 1;
   sheapG_heapG :> heapG Σ | 1;
   sheapG_heap_target : heap_names;
   sheapG_heap_source : heap_names;
 }.
 Class sheapGpreS (Σ: gFunctors) := SHeapGpreS {
   sbij_pre_heapG :> heapG Σ | 10;
-  sbij_pre_progG :> gen_progGpreS Σ string ectx | 10;
+  sbij_pre_progG :> gen_progGpreS Σ string (string*expr) | 10;
 }.
-Definition sheapΣ := #[heapΣ; gen_progΣ string ectx].
+Definition sheapΣ := #[heapΣ; gen_progΣ string (string*expr)].
 Global Instance subG_sheapΣ Σ :
   subG sheapΣ Σ → sheapGpreS Σ.
 Proof. solve_inG. Qed.
@@ -216,9 +216,9 @@ Lemma sheap_init `{!sheapGpreS Σ} P_t gs_t P_s gs_s T_s :
   ⊢@{iPropI Σ} |==> ∃ `(!sheapGS Σ), ∀ `(!sheapInv Σ),
     (sheap_inv P_s (state_init gs_s) T_s -∗
       state_interp P_t (state_init gs_t) P_s (state_init gs_s) T_s) ∗
-    ([∗ map] f ↦ K ∈ P_t, f @t K) ∗
+    ([∗ map] f ↦ fn ∈ P_t, f @t fn) ∗
     ([∗ map] n ↦ v ∈ gs_t, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1)) ∗
-    ([∗ map] f ↦ K ∈ P_s, f @s K) ∗
+    ([∗ map] f ↦ fn ∈ P_s, f @s fn) ∗
     ([∗ map] n ↦ v ∈ gs_s, global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) ∗
     source_globals (dom _ gs_s) ∗ target_globals (dom _ gs_t) ∗
     progs_are P_t P_s.
@@ -547,9 +547,9 @@ Proof.
 Qed.
 
 (** operational lemmas for calls *)
-Lemma target_red_call f K_t v Ψ :
-  f @t K_t -∗
-  target_red (fill K_t (Val v)) Ψ -∗
+Lemma target_red_call f x e v Ψ :
+  f @t (x, e) -∗
+  target_red (subst x v e) Ψ -∗
   target_red (Call (Val $ LitV $ LitFn f) (Val v)) Ψ.
 Proof.
   iIntros "Hf Hred". iApply target_red_lift_head_step.
@@ -560,9 +560,9 @@ Proof.
   iModIntro. by iFrame.
 Qed.
 
-Lemma source_red_call π f K_s v Ψ :
-  f @s K_s -∗
-  source_red (fill K_s (Val v)) π Ψ -∗
+Lemma source_red_call π f x e v Ψ :
+  f @s (x, e) -∗
+  source_red (subst x v e) π Ψ -∗
   source_red (Call (Val $ LitV $ LitFn f) (Val v)) π Ψ.
 Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.
@@ -634,11 +634,11 @@ Proof.
 Qed.
 
 
-Lemma sim_while_rec b_t c_t v_s (K_s : ectx) (inv : val → iProp Σ) Ψ rec_n π :
+Lemma sim_while_rec b_t c_t v_s x_s (body_s : expr) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_s -∗
-  rec_n @s K_s -∗
+  rec_n @s (x_s, body_s) -∗
   □ (∀ v_s', inv v_s' -∗
-    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π} (fill K_s v_s')%E
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π} (subst x_s v_s' body_s)%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call f#rec_n (Val v_s')⌝ ∗ inv v_s') }]) -∗
   (while: c_t do b_t od ⪯{π} Call f#rec_n v_s [{ Ψ }])%E.
 Proof.
@@ -648,7 +648,7 @@ Proof.
   iSpecialize ("Hstep" with "Hinv").
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
-  iModIntro. iExists (fill K_s v_s'), σ_s.
+  iModIntro. iExists (subst x_s v_s' body_s), σ_s.
 
   iDestruct (has_prog_has_fun_agree with "HP_s Hrec") as %?.
   iFrame. iSplitR; [done|].
@@ -657,11 +657,11 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_while b_s c_s v_t (K_t : ectx) (inv : val → iProp Σ) Ψ rec_n π :
+Lemma sim_rec_while b_s c_s v_t x_t (body_t : expr) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_t -∗
-  rec_n @t K_t -∗
+  rec_n @t (x_t, body_t) -∗
   □ (∀ v_t', inv v_t' -∗
-    (fill K_t v_t')%E ⪯{π}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
+    (subst x_t v_t' body_t)%E ⪯{π}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t', ⌜e_t = Call f#rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t') }]) -∗
   ( Call f#rec_n v_t ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
@@ -682,12 +682,12 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_rec v_t v_s (K_t K_s : ectx) (inv : val → val → iProp Σ) Ψ rec_t rec_s π :
+Lemma sim_rec_rec v_t v_s x_t x_s (body_t body_s : expr) (inv : val → val → iProp Σ) Ψ rec_t rec_s π :
   inv v_t v_s -∗
-  rec_t @t K_t -∗
-  rec_s @s K_s -∗
+  rec_t @t (x_t, body_t) -∗
+  rec_s @s (x_s, body_s) -∗
   □ (∀ v_t' v_s', inv v_t' v_s' -∗
-    (fill K_t v_t')%E ⪯{π} (fill K_s v_s')%E
+    (subst x_t v_t' body_t)%E ⪯{π} (subst x_s v_s' body_s)%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t' v_s', ⌜e_t = Call f#rec_t (Val v_t')⌝ ∗ ⌜e_s = Call f#rec_s (Val v_s')⌝ ∗ inv v_t' v_s') }]) -∗
   ( Call f#rec_t v_t ⪯{π} Call f#rec_s v_s [{ Ψ }])%E.
 Proof.

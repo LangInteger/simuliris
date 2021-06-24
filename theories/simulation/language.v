@@ -20,22 +20,35 @@ Section language_mixin.
   Context (comp_ectx : ectx → ectx → ectx).
   Context (fill : ectx → expr → expr).
 
-  (** A program is a map from function names to function bodies. *)
-  Local Notation mixin_prog := (gmap string ectx).
+  Context (subst_map : gmap string val → expr → expr).
+  Context (free_vars : expr → gset string).
+
+  (** A program is a map from function names to function bodies.
+      A function body is a string (the argument name) and the function code. *)
+  Local Notation mixin_prog := (gmap string (string * expr)).
 
   Context (head_step : mixin_prog → expr → state → expr → state → list expr → Prop).
 
   Record LanguageMixin := {
+    (** Expression classification *)
     mixin_to_of_class c : to_class (of_class c) = Some c;
     mixin_of_to_class e c : to_class e = Some c → of_class c = e;
 
+    (** Reduction behavior of the special classes of expressions *)
     (** mixin_val_head_step is not an iff because the backward direction is trivial *)
     mixin_val_head_step p v σ1 e2 σ2 efs :
       head_step p (of_class (ExprVal v)) σ1 e2 σ2 efs → False;
     mixin_call_head_step p f v σ1 e2 σ2 efs :
       head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
-      ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1 ∧ efs = [];
+      ∃ (x : string) (e : expr),
+        p !! f = Some (x, e) ∧ e2 = subst_map {[x:=v]} e ∧ σ2 = σ1 ∧ efs = [];
 
+    (** Substitution and free variables *)
+    mixin_subst_map_free_vars (xs1 xs2 : gmap string val) (e : expr) :
+      (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
+      subst_map xs1 e = subst_map xs2 e;
+
+    (** Evaluation contexts *)
     mixin_fill_empty e : fill empty_ectx e = e;
     mixin_fill_comp K1 K2 e : fill K1 (fill K2 e) = fill (comp_ectx K1 K2) e;
     mixin_fill_inj K : Inj (=) (=) (fill K);
@@ -69,7 +82,7 @@ Section language_mixin.
 End language_mixin.
 
 Arguments mixin_expr_class : clear implicits.
-Local Notation mixin_prog ectx := (gmap string ectx).
+Local Notation mixin_prog expr := (gmap string (string * expr)).
 
 Structure language := Language {
   expr : Type;
@@ -82,10 +95,12 @@ Structure language := Language {
   empty_ectx : ectx;
   comp_ectx : ectx → ectx → ectx;
   fill : ectx → expr → expr;
-  head_step : mixin_prog ectx → expr → state → expr → state → list expr → Prop;
+  subst_map : gmap string val → expr → expr;
+  free_vars : expr → gset string;
+  head_step : mixin_prog expr → expr → state → expr → state → list expr → Prop;
 
   language_mixin :
-    LanguageMixin (val:=val) of_class to_class empty_ectx comp_ectx fill head_step
+    LanguageMixin (val:=val) of_class to_class empty_ectx comp_ectx fill subst_map free_vars head_step
 }.
 
 Declare Scope expr_scope.
@@ -94,16 +109,18 @@ Bind Scope expr_scope with expr.
 Declare Scope val_scope.
 Bind Scope val_scope with val.
 
-Arguments Language {_ _ _ _ _ _ _ _ _ _} _.
+Arguments Language {expr _ _ _ _ _ _ _ _ _ free_vars head_step}.
 Arguments of_class {_} _.
 Arguments to_class {_} _.
 Arguments empty_ectx {_}.
 Arguments comp_ectx {_} _ _.
 Arguments fill {_} _ _.
+Arguments subst_map {_}.
+Arguments free_vars {_}.
 Arguments head_step {_} _ _ _ _ _ _.
 
 Definition expr_class (Λ : language) := mixin_expr_class Λ.(val).
-Definition prog (Λ : language) := (mixin_prog Λ.(ectx)).
+Definition prog (Λ : language) := (mixin_prog Λ.(expr)).
 
 Definition to_val {Λ : language} (e : expr Λ) :=
   match to_class e with
@@ -148,7 +165,7 @@ Section language.
   Proof. apply language_mixin. Qed.
   Lemma call_head_step p f v σ1 e2 σ2 efs :
     head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
-    ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1 ∧ efs = nil.
+    ∃ x e, p !! f = Some (x, e) ∧ e2 = subst_map {[x:=v]} e ∧ σ2 = σ1 ∧ efs = nil.
   Proof. apply language_mixin. Qed.
 
   Lemma fill_empty e : fill empty_ectx e = e.
@@ -193,11 +210,11 @@ Section language.
   Qed.
   Lemma call_head_step_inv p f v σ1 e2 σ2 efs :
     head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs →
-    ∃ K, p !! f = Some K ∧ e2 = fill K (of_class (ExprVal v)) ∧ σ2 = σ1 ∧ efs = [].
+    ∃ x e, p !! f = Some (x, e) ∧ e2 = subst_map {[x:=v]} e ∧ σ2 = σ1 ∧ efs = nil.
   Proof. eapply call_head_step. Qed.
-  Lemma call_head_step_intro p f v K σ1 :
-    p !! f = Some K →
-    head_step p (of_call f v) σ1 (fill K (of_val v)) σ1 [].
+  Lemma call_head_step_intro p f v x e σ1 :
+    p !! f = Some (x, e) →
+    head_step p (of_call f v) σ1 (subst_map {[x:=v]} e) σ1 [].
   Proof. intros ?. eapply call_head_step; eexists; eauto. Qed.
 
   Definition head_reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
@@ -400,7 +417,7 @@ Section language.
 
   Lemma prim_step_call_inv p K f v e' σ σ' efs :
     prim_step p (fill K (of_call f v)) σ e' σ' efs →
-    ∃ K_f, p !! f = Some K_f ∧ e' = fill K (fill K_f (of_val v)) ∧ σ' = σ ∧ efs = [].
+    ∃ x_f e_f, p !! f = Some (x_f, e_f) ∧ e' = fill K (subst_map {[x_f:=v]} e_f) ∧ σ' = σ ∧ efs = [].
   Proof.
     intros (K' & e1 & e2 & Hctx & -> & Hstep)%prim_step_inv.
     eapply step_by_val in Hstep as H'; eauto; last apply to_val_of_call.
@@ -409,8 +426,8 @@ Section language.
     destruct (fill_class K'' e1) as [->|Hval].
     - apply is_call_is_class. erewrite of_to_call_flip; eauto.
     - rewrite fill_empty in Hctx. subst e1.
-      apply call_head_step_inv in Hstep as (K_f & ? & -> & -> & ->).
-      exists K_f. rewrite -fill_comp fill_empty. naive_solver.
+      apply call_head_step_inv in Hstep as (x_f & e_f & ? & -> & -> & ->).
+      exists x_f, e_f. rewrite -fill_comp fill_empty. naive_solver.
     - unfold is_Some in Hval. erewrite val_head_stuck in Hval; naive_solver.
   Qed.
 
@@ -785,9 +802,9 @@ Section language.
     pool_safe p T σ →
     pool_steps p T σ I T' σ' →
     T' !! i = Some (fill K (of_call f v)) →
-    ∃ K', p !! f = Some K'.
+    ∃ x' e', p !! f = Some (x', e').
   Proof.
-    destruct (p !! f) eqn: Hloook; eauto.
+    destruct (p !! f) as [[x' e']|] eqn: Hloook; first by eauto.
     intros Hsafe Hsteps Hlook. exfalso; eapply Hsafe.
     exists T', σ', I; split; first done.
     exists (fill K (of_call f v)), i.
@@ -796,7 +813,7 @@ Section language.
     intros  e'' σ'' efs Hstep.
     pose proof (prim_step_call_inv p empty_ectx f v e'' σ' σ'' efs) as Hinv.
     rewrite fill_empty in Hinv.
-    eapply Hinv in Hstep as (K_f & Hprg & _); naive_solver.
+    eapply Hinv in Hstep as (x_f & e_f & Hprg & _); naive_solver.
   Qed.
 
 
@@ -930,7 +947,7 @@ Section language.
   Qed.
 
   Lemma safe_call_in_prg p K e σ σ' f v:
-    safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ K, p !! f = Some K.
+    safe p e σ → no_forks p e σ (fill K (of_call f v)) σ' → ∃ x e, p !! f = Some (x, e).
   Proof.
     intros H1 (I & Hsteps)%no_forks_pool_steps_single_thread.
     eapply (pool_safe_call_in_prg _ _ _ _ 0) in Hsteps; eauto.

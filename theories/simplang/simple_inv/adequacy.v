@@ -5,7 +5,7 @@ From iris.base_logic.lib Require Import gset_bij.
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls global_sim.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import gen_adequacy behavior wf parallel_subst gen_refl.
+From simuliris.simplang Require Import gen_adequacy behavior wf gen_refl.
 From simuliris.simplang.simple_inv Require Import inv refl.
 From iris.prelude Require Import options.
 
@@ -58,25 +58,27 @@ Proof.
   apply (prog_rel_adequacy Σ). eapply isat_intro.
   iIntros (? gs Hgs) "_ _ _ _ !#".
   iSplit. { iApply big_sepM_intro. iIntros "!>" (???). iApply val_wf_sound. by apply: Hgs. }
-  iIntros "!# %f %K_s %π".
+  rewrite /prog_rel.
+  iIntros "!# %f %arg %body".
   iDestruct (Hrel _) as "Hrel". clear Hrel.
   destruct (decide (f = fname)) as [->|Hne].
   - rewrite !lookup_insert.
-    iIntros ([= <-]). iExists _. iSplitR; first done.
+    iIntros ([= <- <-]). iExists _, _. iSplitR; first done.
     (* TODO Factor this into a general lemma? *)
-    iIntros (v_t v_s) "#Hval /=".
-    iApply log_rel_closed_1.
-    { simpl. set_solver. }
-    iApply log_rel_let.
-    { iApply log_rel_val. done. }
-    iApply log_rel_ctx; done.
+    iIntros (v_t v_s π) "#Hval /=".
+    iApply sim_wand.
+    + iApply (gen_log_rel_singleton with "[Hrel] Hval []"); first done.
+      * by iApply log_rel_ctx.
+      * done.
+    + simpl. iIntros (??). rewrite left_id. auto.
   - rewrite !lookup_insert_ne //.
-    iIntros (Hf). rename K_s into K. iExists K. iSplit; first done.
+    iIntros (Hf). iExists arg, body. iSplit; first done.
     specialize (Hpwf _ _ Hf). destruct Hpwf as [HKwf HKclosed].
     (* TODO Factor this into a lemma? *)
-    iIntros (v_t v_s) "#Hval /=".
-    iApply log_rel_closed_1.
-    { rewrite !free_vars_fill HKclosed. set_solver+. }
-    iApply log_rel_ectx; first done.
-    iApply log_rel_val; done.
+    iIntros (v_t v_s π) "#Hval /=".
+    iApply sim_wand.
+    + iApply (gen_log_rel_singleton with "[Hrel] Hval []"); first set_solver.
+      * by iApply log_rel_refl.
+      * done.
+    + simpl. iIntros (??). rewrite left_id. auto.
 Qed.

@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel wf.
+From simuliris.simplang Require Import primitive_laws gen_val_rel wf.
 From iris.prelude Require Import options.
 
 (** * Logical relation
@@ -39,10 +39,20 @@ Section open_rel.
     destruct (map !! x) as [[v_t v_s]|]; last done. eauto.
   Qed.
 
-  Lemma subst_map_rel_weaken {X1} X2 map :
+  Lemma subst_map_rel_weaken X1 X2 map :
     X2 ⊆ X1 →
     subst_map_rel X1 map -∗ subst_map_rel X2 map.
   Proof. iIntros (HX). iApply big_sepS_subseteq. done. Qed.
+
+  Lemma subst_map_rel_singleton X x v_t v_s :
+    X ⊆ {[x]} →
+    val_rel v_t v_s -∗
+    subst_map_rel X {[x:=(v_t, v_s)]}.
+  Proof.
+    iIntros (?) "Hrel".
+    iApply (subst_map_rel_weaken {[x]}); first done.
+    rewrite /subst_map_rel big_sepS_singleton lookup_singleton. done.
+  Qed.
 
   (* TODO: use [binder_delete], once we can [delete] on [gset]. *)
   Definition binder_delete_gset (b : binder) (X : gset string) :=
@@ -93,6 +103,20 @@ Section open_rel.
     { iIntros "#Hrel !#" (π). iApply gen_log_rel_closed_1; done. }
     iIntros "#Hsim" (π xs) "!# Hxs".
     rewrite !subst_map_closed //; set_solver.
+  Qed.
+
+  Lemma gen_log_rel_singleton e_t e_s v_t v_s arg π :
+    free_vars e_t ∪ free_vars e_s ⊆ {[ arg ]} →
+    gen_log_rel e_t e_s -∗
+    val_rel v_t v_s -∗
+    thread_own π -∗ 
+    subst_map {[arg := v_t]} e_t ⪯{π} subst_map {[arg := v_s]} e_s
+      {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}.
+  Proof.
+    iIntros (?) "Hlog Hval Hπ".
+    iDestruct ("Hlog" $! _ {[arg := (v_t, v_s)]} with "[Hval] Hπ") as "Hsim".
+    { by iApply subst_map_rel_singleton. }
+    rewrite !fmap_insert !fmap_empty. done.
   Qed.
 
   (** Substitute away a single variable in an [gen_log_rel].

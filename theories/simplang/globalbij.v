@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws gen_log_rel gen_val_rel.
+From simuliris.simplang Require Import primitive_laws gen_log_rel gen_val_rel.
 From iris.prelude Require Import options.
 
 (** * Bijection between global variables

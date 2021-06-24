@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf.
+From simuliris.simplang Require Import primitive_laws gen_val_rel gen_log_rel wf.
 From iris.prelude Require Import options.
 
 (** * Lemmas for proving [log_rel]

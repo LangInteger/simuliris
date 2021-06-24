@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst primitive_laws gen_val_rel gen_log_rel wf gen_refl globalbij.
+From simuliris.simplang Require Import primitive_laws gen_val_rel gen_log_rel wf gen_refl globalbij.
 From iris.prelude Require Import options.
 
 (** * Reflexivity theorem for pure expressions

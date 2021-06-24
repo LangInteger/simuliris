@@ -37,7 +37,6 @@ theories/simplang/gen_refl.v
 theories/simplang/pure_refl.v
 theories/simplang/heapbij.v
 theories/simplang/globalbij.v
-theories/simplang/parallel_subst.v
 theories/simplang/gen_log_rel.v
 theories/simplang/gen_adequacy.v
 theories/simplang/behavior.v

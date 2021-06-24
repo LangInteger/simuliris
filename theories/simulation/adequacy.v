@@ -329,7 +329,7 @@ Section adequacy_statement.
   Proof.
     intros Hsat σ_t σ_s HI Hsafe.
     eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
-    destruct Hlook as [K_s Hlook].
+    destruct Hlook as (x_s & e_s & Hlook).
     eapply (sat_forall _ σ_t) in Hsat.
     eapply (sat_forall _ σ_s) in Hsat.
     eapply sat_wand in Hsat; [| by iPureIntro].
@@ -340,7 +340,7 @@ Section adequacy_statement.
       iIntros "(Hloc & SI & Hprogs & Hunit & $)". iFrame.
       iSplit; first by iPureIntro; intros ??; set_solver.
       simpl. iSplit; last done.
-      iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto. }
+      iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto.  }
     split; last split.
     - intros Hfair. eapply (msim_fair_divergence (sat:=sat_frame _)); eauto.
     - intros v_t T_t σ_t' J Hsteps.

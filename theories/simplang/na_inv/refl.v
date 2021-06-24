@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import parallel_subst gen_log_rel gen_refl pure_refl wf.
+From simuliris.simplang Require Import gen_log_rel gen_refl pure_refl wf.
 From simuliris.simplang.na_inv Require Export inv.
 From iris.prelude Require Import options.
 
@@ -9,8 +9,8 @@ From iris.prelude Require Import options.
 Definition expr_head_wf (e : expr_head) : Prop :=
   match e with
   | ValHead v => val_wf v
-  (* Na2Ord is an intermediate ordering that should only arise during
-  execution and programs should not use it directly. *)
+  (* Na2Ord is an intermediate (administrative) ordering that should only arise
+  during execution and programs should not use it directly. *)
   | LoadHead o => o ≠ Na2Ord
   | StoreHead o => o ≠ Na2Ord
   | CmpXchgHead => False   (* currently not supported *)
@@ -80,19 +80,4 @@ Section refl.
     intros ?. iApply gen_log_rel_ctx; first by apply na_log_rel_structural. done.
   Qed.
 
-  Corollary log_rel_ectx K e_t e_s :
-    ectx_wf K →
-    log_rel e_t e_s -∗ log_rel (fill K e_t) (fill K e_s).
-  Proof.
-    intros ?. iApply gen_log_rel_ectx; first by apply na_log_rel_structural. done.
-  Qed.
-
-  Lemma log_rel_closed_1 e_t e_s π :
-    free_vars e_t ∪ free_vars e_s = ∅ →
-    log_rel e_t e_s -∗ na_locs π ∅ -∗ e_t ⪯{π} e_s {{ λ v_t v_s, na_locs π ∅ ∗ val_rel v_t v_s }}.
-  Proof.
-    iIntros (?) "#Hrel Hc".
-    iApply sim_mono; last iApply (gen_log_rel_closed_1 with "Hrel Hc"); [|done].
-    iIntros (v_t v_s) "[$ $]".
-  Qed.
 End refl.

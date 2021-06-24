@@ -1,4 +1,4 @@
-From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel parallel_subst wf.
+From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel wf.
 From iris Require Import bi.bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.

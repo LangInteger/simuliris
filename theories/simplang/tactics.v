@@ -1,5 +1,5 @@
-From stdpp Require Import fin_maps.
-From simuliris.simplang Require Import lang parallel_subst notation.
+From stdpp Require Import fin_maps fin_map_dom.
+From simuliris.simplang Require Import lang notation.
 From iris.prelude Require Import options.
 
 
@@ -349,7 +349,7 @@ Module W.
   end.
 
   Lemma to_expr_is_closed xs e:
-    is_closed xs e → parallel_subst.free_vars (to_expr e) ⊆ list_to_set xs.
+    is_closed xs e → language.free_vars (to_expr e) ⊆ list_to_set xs.
   Proof.
     elim: e xs => [^ e] //= xs Hx.
     all: destruct_and?.
@@ -360,7 +360,7 @@ Module W.
   Qed.
 
   Lemma to_expr_is_closed_empty e:
-    is_closed [] e → parallel_subst.free_vars (to_expr e) = ∅.
+    is_closed [] e → language.free_vars (to_expr e) = ∅.
   Proof. move => /to_expr_is_closed. set_solver. Qed.
 
 End W.

@@ -4,7 +4,7 @@ From iris.prelude Require Import options.
 
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import behavior.
-From simuliris.simplang Require Import lang notation parallel_subst wf gen_val_rel.
+From simuliris.simplang Require Import lang notation wf gen_val_rel.
 
 (** Define "observable behavior" and a generic notion of contextual refinement.
 *)
@@ -42,10 +42,15 @@ Section ctx_rel.
       <hole> will be the function argument. *)
   Definition gen_ctx_rel (e_t e_s : expr) :=
     ∀ (C : ctx) (fname x : string) (p : prog),
-      map_Forall (λ _ K, gen_ectx_wf expr_head_wf K ∧ free_vars_ectx K = ∅) p →
+      (* The other functions need to be well-formed and closed *)
+      map_Forall (λ _ '(arg, body), gen_expr_wf expr_head_wf body ∧ free_vars body ⊆ {[arg]}) p →
+      (* The context needs to be well-formed *)
       gen_ctx_wf expr_head_wf C →
+      (* The context needs to close our expressions *)
       free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
-      beh_rel (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
+      (* Then we demand [beh_rel] if putting our expressions into a context to
+         obtain a whole function and that function into a program *)
+      beh_rel (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).
 
   Lemma gen_val_rel_obs {Σ} loc_rel v_t v_s :
     gen_val_rel loc_rel v_t v_s ⊢@{iPropI Σ} ⌜obs_val v_t v_s⌝.

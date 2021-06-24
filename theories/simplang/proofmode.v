@@ -372,9 +372,9 @@ Proof.
   rewrite Hi. iIntros "Hs". iApply source_red_base; eauto.
 Qed.
 
-Lemma tac_target_red_call Δ i K b f v K_t Ψ :
-  envs_lookup i Δ = Some (b, f @t K_t)%I →
-  envs_entails Δ (target_red (fill K (fill K_t (Val v))) Ψ) →
+Lemma tac_target_red_call Δ i K b f v x e Ψ :
+  envs_lookup i Δ = Some (b, f @t (x, e))%I →
+  envs_entails Δ (target_red (fill K (subst x v e)) Ψ) →
   envs_entails Δ (target_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) Ψ).
 Proof.
   rewrite envs_entails_eq=> ? Hi.
@@ -387,9 +387,9 @@ Proof.
     iApply target_red_base. iSpecialize ("Hs" with "Hf"); eauto.
 Qed.
 
-Lemma tac_source_red_call π Δ i K b f v K_s Ψ :
-  envs_lookup i Δ = Some (b, f @s K_s)%I →
-  envs_entails Δ (source_red (fill K (fill K_s (Val v))) π Ψ) →
+Lemma tac_source_red_call π Δ i K b f v x e Ψ :
+  envs_lookup i Δ = Some (b, f @s (x, e))%I →
+  envs_entails Δ (source_red (fill K (subst x v e)) π Ψ) →
   envs_entails Δ (source_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) π Ψ).
 Proof.
   rewrite envs_entails_eq=> ? Hi.

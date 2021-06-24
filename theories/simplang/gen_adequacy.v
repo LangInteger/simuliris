@@ -1,7 +1,6 @@
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls global_sim adequacy.
-From simuliris.simplang Require Import proofmode tactics behavior.
-From simuliris.simplang Require Import parallel_subst gen_val_rel wf.
+From simuliris.simplang Require Import proofmode tactics behavior gen_val_rel wf.
 From iris.prelude Require Import options.
 
 (** Generic adequacy theorem for sheap-based logical relations. *)

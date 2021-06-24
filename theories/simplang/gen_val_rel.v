@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import iprop.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import notation parallel_subst.
+From simuliris.simplang Require Import notation.
 From iris.prelude Require Import options.
 
 (** * Structural value relation
