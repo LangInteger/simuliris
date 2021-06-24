@@ -1078,9 +1078,12 @@ Section val_rel.
     ⊣⊢ sc_rel (ScPtr l1 tg1) (ScPtr l2 tg2) ∧ ⌜ T1 = T2 ⌝.
   Proof. done. Qed.
 
+  Lemma value_rel_singleton sc_1 sc_2:
+    value_rel [sc_1] [sc_2 ] ⊣⊢ sc_rel sc_1 sc_2.
+  Proof. by rewrite /value_rel /= right_id. Qed.
   (* Some reflexivity lemmas for [value_rel] and [rrel] *)
 
-  Local Ltac solve_value_rel := rewrite /value_rel /=; eauto.
+  Local Ltac solve_value_rel := rewrite value_rel_singleton; eauto.
   Lemma value_rel_poison :
     ⊢ value_rel [☠%S] [☠%S].
   Proof. solve_value_rel. Qed.
@@ -1104,7 +1107,7 @@ Section val_rel.
   Lemma value_rel_ptr l tg :
     match tg with | Tagged t => t $$ tk_pub | Untagged => True end
     ⊢ value_rel [ScPtr l tg] [ScPtr l tg].
-  Proof. by rewrite (sc_rel_ptr l) /value_rel big_sepL2_singleton. Qed.
+  Proof. by rewrite (sc_rel_ptr l) value_rel_singleton. Qed.
 
   Lemma rrel_place l tg T :
     match tg with | Tagged t => t $$ tk_pub | Untagged => True end

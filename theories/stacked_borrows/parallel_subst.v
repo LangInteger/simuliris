@@ -193,6 +193,21 @@ Proof.
   rewrite -IH /=. f_equal. set_solver.
 Qed.
 
+Lemma free_vars_case_1 e el :
+  free_vars e ⊆ free_vars (Case e el).
+Proof. rewrite /=. set_solver. Qed.
+
+Lemma free_vars_case_2 e el e' :
+  e' ∈ el → free_vars e' ⊆ free_vars (Case e el).
+Proof.
+  revert e'. induction el as [|e1 el IH] => e'.
+  - by intros ?%not_elem_of_nil.
+  - intros [<-|Inel]%elem_of_cons.
+    + rewrite {2}/free_vars foldl_union_cons -/free_vars. set_solver.
+    + etrans; first by apply (IH _ Inel).
+      rewrite {2}/free_vars foldl_union_cons -/free_vars. set_solver.
+Qed.
+
 Lemma subst_map_free_vars (xs1 xs2 : gmap string result) (e : expr) :
   (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
   subst_map xs1 e = subst_map xs2 e.

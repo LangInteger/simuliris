@@ -329,6 +329,10 @@ Section irreducible.
       * left. intros m Hm.  assert (m = 0%nat) as -> by lia. assert (n = 0%nat) as -> by lia. eauto.
   Qed.
 
+  Global Instance irreducible_write_result P σ r r' :
+    IrredUnless (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
+  Proof. prove_irred_unless. Qed.
+
   Global Instance irreducible_free_val P σ r :
     IrredUnless (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
   Proof. prove_irred_unless. Qed.

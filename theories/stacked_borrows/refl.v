@@ -88,7 +88,8 @@ Section log_rel.
             iApply value_rel_int |
             iApply value_rel_fnptr |
             iApply value_rel_callid |
-            iApply value_rel_ptr
+            iApply value_rel_ptr |
+            iApply value_rel_singleton
            ] |
       iApply rrel_place
     ];
@@ -125,8 +126,9 @@ Section log_rel.
     iDestruct (value_rel_length with "Hv1") as %EqL.
     iDestruct (value_rel_lookup with "Hv1") as (sc_t sc_s Eqt Eqs) "Hsc".
     {  rewrite EqL. eapply Nat2Z.inj_lt, lookup_lt_Some; eauto. }
-    sim_pures.
-  Admitted.
+    (* TODO: I don't know how to fix sim_pures to do this. *)
+    target_proj; [done|]. source_proj; [done|]. solve_rrel_refl.
+  Qed.
 
   Lemma log_rel_conc e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Conc e1_t e2_t) (Conc e1_s e2_s).
@@ -189,7 +191,10 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "Hv1".
-  Admitted.
+    discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
+    iApply (sim_write_public with "[Hv1] Hv2"). { by iApply rrel_place. }
+    solve_rrel_refl.
+  Qed.
 
   Lemma log_rel_retag e1_t e1_s e2_t e2_s pk T k :
     log_rel e1_t e1_s -∗
@@ -208,6 +213,34 @@ Section log_rel.
     iIntros (t) "Hv". sim_val. done.
   Qed.
 
+  Lemma log_rel_case e_t e_s el_t el_s :
+    log_rel e_t e_s -∗
+    ([∗ list] e_t';e_s' ∈ el_t;el_s, log_rel e_t' e_s') -∗
+    log_rel (Case e_t el_t) (Case e_s el_s).
+  Proof.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl subst_map.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
+    iIntros (v_t v_s) "Hv".
+    discr_source. val_discr_source "Hv".
+    iDestruct (big_sepL2_length with "IH2") as %EqL.
+    rename select Z into i.
+    rename select (_ !! _ = Some _) into Eqe_s'.
+    assert (∃ e_t', (subst_map (fst <$> xs) <$> el_t) !! Z.to_nat i = Some e_t')
+      as [? Eqe_t'].
+    { apply lookup_lt_is_Some_2. apply lookup_lt_Some in Eqe_s'.
+      revert Eqe_s'. by rewrite 2!fmap_length EqL. }
+    (* TODO sim_pures? *)
+    target_case; [done|]. source_case; [done|]. sim_pures.
+    eapply list_lookup_fmap_inv in Eqe_s' as (e_s' & -> & Hls).
+    eapply list_lookup_fmap_inv in Eqe_t' as (e_t' & -> & Hlt).
+    iApply (big_sepL2_lookup _ _ _ _ _ _ Hlt Hls with "IH2").
+    iApply (subst_map_rel_weaken with "[$]").
+    apply elem_of_list_lookup_2 in Hls, Hlt.
+    apply (free_vars_case_2 e_s) in Hls. apply (free_vars_case_2 e_t) in Hlt.
+    set_solver+Hls Hlt.
+  Qed.
+
   Lemma log_rel_while e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -219,18 +252,9 @@ Section log_rel.
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "Hv".
-  Admitted.
-
-  Lemma log_rel_case e_t e_s el_t el_s :
-    log_rel e_t e_s -∗
-    ([∗ list] e_t';e_s' ∈ el_t;el_s, log_rel e_t' e_s') -∗
-    log_rel (Case e_t el_t) (Case e_s el_s).
-  Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
-    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "#Hv".
     discr_source. val_discr_source "Hv".
+    rename select Z into i.
+    rename select (_ !! _ = Some _) into Eqe_s'.
   Admitted.
 
   Lemma log_rel_fork e_t e_s :
