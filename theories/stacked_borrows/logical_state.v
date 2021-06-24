@@ -1007,12 +1007,12 @@ Section val_rel.
 
   Lemma rrel_place_source r_t l_s t_s T :
     rrel r_t (PlaceR l_s t_s T) -∗
-    ∃ l_t, ⌜r_t = PlaceR l_t t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+    ⌜r_t = PlaceR l_s t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
   Proof.
     iIntros "Hrel".
     destruct r_t as [ | l_t t' T']; first done. iDestruct "Hrel" as "(#H & ->)".
     iDestruct (sc_rel_ptr_source with "H") as "[%Heq Htag]".
-    injection Heq as [= -> ->]. iExists l_s. eauto.
+    injection Heq as [= -> ->]. eauto.
   Qed.
   Lemma rrel_value_source r_t v_s :
     rrel r_t (ValR v_s) -∗
@@ -1037,6 +1037,14 @@ Section val_rel.
     iExists sc_t. iSplitR "Hv"; first done. iRevert "Hv". rewrite /value_rel big_sepL2_singleton. eauto.
   Qed.
 
+  Lemma rrel_singleton_source r_t sc_s :
+    rrel r_t (ValR [sc_s]) -∗
+    ∃ sc_t, ⌜r_t = ValR [sc_t]⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    rewrite rrel_value_source. setoid_rewrite value_rel_singleton_source.
+    iDestruct 1 as (v_t -> sc_t ->) "?". eauto.
+  Qed.
+
   Lemma value_rel_lookup v_t v_s (i : nat) :
     i < length v_t →
     value_rel v_t v_s -∗
@@ -1059,6 +1067,59 @@ Section val_rel.
     iDestruct "Hvrel" as "[%Hlen Hvrel]".
     iApply ("Hvrel" $! i (v_t !!! i) (v_s !!! i)).
     all: iPureIntro; apply list_lookup_lookup_total; apply lookup_lt_is_Some_2; lia.
+  Qed.
+
+  (* Unfolding rrel *)
+  Lemma rrel_value_rel v1 v2 :
+    rrel #v1 #v2 ⊣⊢ value_rel v1 v2.
+  Proof. done. Qed.
+  Lemma rrel_sc_rel l1 tg1 T1 l2 tg2 T2 :
+    rrel (PlaceR l1 tg1 T1) (PlaceR l2 tg2 T2)
+    ⊣⊢ sc_rel (ScPtr l1 tg1) (ScPtr l2 tg2) ∧ ⌜ T1 = T2 ⌝.
+  Proof. done. Qed.
+
+  Lemma value_rel_singleton sc_1 sc_2:
+    value_rel [sc_1] [sc_2 ] ⊣⊢ sc_rel sc_1 sc_2.
+  Proof. by rewrite /value_rel /= right_id. Qed.
+  (* Some reflexivity lemmas for [value_rel] and [rrel] *)
+
+  Local Ltac solve_value_rel := rewrite value_rel_singleton; eauto.
+  Lemma value_rel_poison :
+    ⊢ value_rel [☠%S] [☠%S].
+  Proof. solve_value_rel. Qed.
+  Lemma value_rel_int z :
+    ⊢ value_rel [ScInt z] [ScInt z].
+  Proof. solve_value_rel. Qed.
+  Lemma value_rel_fnptr fn :
+    ⊢ value_rel [ScFnPtr fn] [ScFnPtr fn].
+  Proof. solve_value_rel. Qed.
+  Lemma value_rel_callid c :
+    ⊢ value_rel [ScCallId c] [ScCallId c].
+  Proof. solve_value_rel. Qed.
+
+  Lemma sc_rel_ptr l tg :
+    match tg with | Tagged t => t $$ tk_pub | Untagged => True end
+    ⊢ sc_rel (ScPtr l tg) (ScPtr l tg).
+  Proof.
+    iIntros "Hr". iSplit; [done|].
+    case_match; [|eauto]. iRight. eauto with iFrame.
+  Qed.
+  Lemma value_rel_ptr l tg :
+    match tg with | Tagged t => t $$ tk_pub | Untagged => True end
+    ⊢ value_rel [ScPtr l tg] [ScPtr l tg].
+  Proof. by rewrite (sc_rel_ptr l) value_rel_singleton. Qed.
+
+  Lemma rrel_place l tg T :
+    match tg with | Tagged t => t $$ tk_pub | Untagged => True end
+    ⊢ rrel (PlaceR l tg T) (PlaceR l tg T).
+  Proof. rewrite (sc_rel_ptr l) rrel_sc_rel. eauto. Qed.
+
+  Lemma value_rel_app v_t1 v_s1 v_t2 v_s2 :
+    value_rel v_t1 v_s1 -∗ value_rel v_t2 v_s2 -∗ value_rel (v_t1 ++ v_t2) (v_s1 ++ v_s2).
+  Proof.
+    iIntros "Hv1 Hv2".
+    iDestruct (value_rel_length with "Hv1") as %EqL.
+    rewrite /value_rel. iApply (big_sepL2_app with "Hv1 Hv2").
   Qed.
 End val_rel.
 

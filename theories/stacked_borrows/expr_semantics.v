@@ -81,51 +81,51 @@ Qed.
 
 (** Evaluation contexts *)
 Inductive ectx_item :=
-| CallLCtx (r2 : result)
-| CallRCtx (e1 : expr)
-| EndCallCtx
-| BinOpRCtx (op : bin_op) (e1 : expr)
-| BinOpLCtx (op : bin_op) (r2 : result)
-| ProjRCtx (e1 : expr)
-| ProjLCtx (r2 : result)
-| ConcRCtx (e1 : expr)
-| ConcLCtx (r2 : result)
-| CopyCtx
-| WriteRCtx (e1 : expr)
-| WriteLCtx (r2 : result)
-| FreeCtx
-| DerefCtx (T : type)
-| RefCtx
-(* | FieldCtx (path : list nat) *)
-| RetagRCtx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
-| RetagLCtx (r2 : result) (pkind : pointer_kind) (T : type) (kind : retag_kind)
-| LetCtx (x : binder) (e2 : expr)
-| CaseCtx (el : list expr)
+| CallLEctx (r2 : result)
+| CallREctx (e1 : expr)
+| EndCallEctx
+| BinOpREctx (op : bin_op) (e1 : expr)
+| BinOpLEctx (op : bin_op) (r2 : result)
+| ProjREctx (e1 : expr)
+| ProjLEctx (r2 : result)
+| ConcREctx (e1 : expr)
+| ConcLEctx (r2 : result)
+| CopyEctx
+| WriteREctx (e1 : expr)
+| WriteLEctx (r2 : result)
+| FreeEctx
+| DerefEctx (T : type)
+| RefEctx
+(* | FieldEctx (path : list nat) *)
+| RetagREctx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+| RetagLEctx (r2 : result) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+| LetEctx (x : binder) (e2 : expr)
+| CaseEctx (el : list expr)
 (* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
 .
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
-  | CallLCtx r2 => Call e (of_result r2)
-  | CallRCtx e1 => Call e1 e
-  | EndCallCtx => EndCall e
-  | BinOpRCtx op e1 => BinOp op e1 e
-  | BinOpLCtx op r2 => BinOp op e (of_result r2)
-  | ProjRCtx e1 => Proj e1 e
-  | ProjLCtx r2 => Proj e (of_result r2)
-  | ConcRCtx e1 => Conc e1 e
-  | ConcLCtx r2 => Conc e (of_result r2)
-  | CopyCtx => Copy e
-  | WriteRCtx e1 => Write e1 e
-  | WriteLCtx r2 => Write e (of_result r2)
-  | FreeCtx => Free e
-  | DerefCtx T => Deref e T
-  | RefCtx => Ref e
-  (* | FieldCtx path => Field e path *)
-  | RetagLCtx r2 pk T kind => Retag e (of_result r2) pk T kind
-  | RetagRCtx e1 pk T kind => Retag e1 e pk T kind
-  | LetCtx x e2 => Let x e e2
-  | CaseCtx el => Case e el
+  | CallLEctx r2 => Call e (of_result r2)
+  | CallREctx e1 => Call e1 e
+  | EndCallEctx => EndCall e
+  | BinOpREctx op e1 => BinOp op e1 e
+  | BinOpLEctx op r2 => BinOp op e (of_result r2)
+  | ProjREctx e1 => Proj e1 e
+  | ProjLEctx r2 => Proj e (of_result r2)
+  | ConcREctx e1 => Conc e1 e
+  | ConcLEctx r2 => Conc e (of_result r2)
+  | CopyEctx => Copy e
+  | WriteREctx e1 => Write e1 e
+  | WriteLEctx r2 => Write e (of_result r2)
+  | FreeEctx => Free e
+  | DerefEctx T => Deref e T
+  | RefEctx => Ref e
+  (* | FieldEctx path => Field e path *)
+  | RetagLEctx r2 pk T kind => Retag e (of_result r2) pk T kind
+  | RetagREctx e1 pk T kind => Retag e1 e pk T kind
+  | LetEctx x e2 => Let x e e2
+  | CaseEctx el => Case e el
   end.
 
 (** Building actual evaluation contexts out of ectx_items *)
@@ -137,6 +137,172 @@ Definition fill (K : ectx) (e : expr) : expr := foldl (flip fill_item) e K.
 
 Lemma fill_app (K1 K2 : ectx) e : fill (K1 ++ K2) e = fill K2 (fill K1 e).
 Proof. apply foldl_app. Qed.
+
+(** General contexts *)
+Inductive ctx_item :=
+  | LetLCtx (x : binder) (e2 : expr)
+  | LetRCtx (x : binder) (e1 : expr)
+  | CallLCtx (e2 : expr)
+  | CallRCtx (e1 : expr)
+  | EndCallCtx
+  | BinOpLCtx (op : bin_op) (e2 : expr)
+  | BinOpRCtx (op : bin_op) (e1 : expr)
+  | ProjLCtx (e2 : expr)
+  | ProjRCtx (e1 : expr)
+  | ConcLCtx (e2 : expr)
+  | ConcRCtx (e1 : expr)
+  | CopyCtx
+  | WriteLCtx (e2 : expr)
+  | WriteRCtx (e1 : expr)
+  | FreeCtx
+  | DerefCtx (T : type)
+  | RefCtx
+  | RetagLCtx (e2 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+  | RetagRCtx (e1 : expr) (pkind : pointer_kind) (T : type) (kind : retag_kind)
+  | CaseLCtx (el : list expr)
+  | CaseRCtx (e : expr) (el1 el2 : list expr)
+  | WhileLCtx (e1 : expr)
+  | WhileRCtx (e0 : expr)
+  | ForkCtx
+  .
+
+Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
+  match Ci with
+  | LetLCtx x e2 => Let x e e2
+  | LetRCtx x e1 => Let x e1 e
+  | CallLCtx e2 => Call e e2
+  | CallRCtx e1 => Call e1 e
+  | EndCallCtx => EndCall e
+  | BinOpLCtx op e2 => BinOp op e e2
+  | BinOpRCtx op e1 => BinOp op e1 e
+  | ProjLCtx e2 => Proj e e2
+  | ProjRCtx e1 => Proj e1 e
+  | ConcLCtx e2 => Conc e e2
+  | ConcRCtx e1 => Conc e1 e
+  | CopyCtx => Copy e
+  | WriteLCtx e2 => Write e e2
+  | WriteRCtx e1 => Write e1 e
+  | FreeCtx => Free e
+  | DerefCtx T => Deref e T
+  | RefCtx => Ref e
+  | RetagLCtx e2 pk T k => Retag e e2 pk T k
+  | RetagRCtx e1 pk T k => Retag e1 e pk T k
+  | CaseLCtx el => Case e el
+  | CaseRCtx e0 el1 el2 => Case e0 (el1 ++ e :: el2)
+  | WhileLCtx e1 => While e e1
+  | WhileRCtx e0 => While e0 e
+  | ForkCtx => Fork e
+  end.
+
+Definition ctx := list ctx_item.
+Definition fill_ctx (C : ctx) (e : expr) : expr :=
+  foldl (flip fill_ctx_item) e C.
+
+Lemma fill_ctx_app C1 C2 e :
+  fill_ctx (C1 ++ C2) e = fill_ctx C2 (fill_ctx C1 e).
+Proof. apply foldl_app. Qed.
+
+(** Splitting an expression into information about the head expression and subexpressions. *)
+Inductive expr_head :=
+  | ValHead (v : value)
+  | VarHead (x : string)
+  | LetHead (x : binder)
+  | CallHead
+  | InitCallHead
+  | EndCallHead
+  | ProjHead
+  | ConcHead
+  | BinOpHead (op : bin_op)
+  | PlaceHead (l : loc) (tg : tag) (T : type)
+  | DerefHead (T : type)
+  | RefHead
+  | CopyHead
+  | WriteHead
+  | AllocHead (T : type)
+  | FreeHead
+  | RetagHead (pk : pointer_kind) (T : type) (kind : retag_kind)
+  | CaseHead
+  | ForkHead
+  | WhileHead
+.
+
+Definition expr_split_head (e : expr) : (expr_head * list expr) :=
+  match e with
+  | Val v => (ValHead v, [])
+  | Var x => (VarHead x, [])
+  | Let x e1 e2 => (LetHead x, [e1; e2])
+  | Call e1 e2 => (CallHead, [e1; e2])
+  | BinOp op e1 e2 => (BinOpHead op, [e1; e2])
+  | InitCall => (InitCallHead, [])
+  | EndCall e => (EndCallHead, [e])
+  | Proj e1 e2 => (ProjHead, [e1; e2])
+  | Conc e1 e2 => (ConcHead, [e1; e2])
+  | Place l tg T => (PlaceHead l tg T, [])
+  | Deref e T => (DerefHead T, [e])
+  | Ref e => (RefHead, [e])
+  | Copy e => (CopyHead, [e])
+  | Write e1 e2 => (WriteHead, [e1; e2])
+  | Fork e => (ForkHead, [e])
+  | Alloc T => (AllocHead T, [])
+  | Free e => (FreeHead, [e])
+  | Retag e1 e2 pk T k => (RetagHead pk T k, [e1; e2])
+  | Case e el => (CaseHead, e :: el)
+  | While e0 e1 => (WhileHead, [e0; e1])
+  end.
+
+Global Instance expr_split_head_inj : Inj (=) (=) expr_split_head.
+Proof. move => [^ e1] [^ e2] => //=; move => [*]; by simplify_eq. Qed.
+
+Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
+  match Ki with
+  | LetEctx x e => (LetHead x, [e])
+  | CallLEctx r => (CallHead, [of_result r])
+  | CallREctx e => (CallHead, [e])
+  | EndCallEctx => (EndCallHead, [])
+  | BinOpLEctx op r => (BinOpHead op, [of_result r])
+  | BinOpREctx op e => (BinOpHead op, [e])
+  | ProjREctx e => (ProjHead, [e])
+  | ProjLEctx r => (ProjHead, [of_result r])
+  | ConcREctx e => (ConcHead, [e])
+  | ConcLEctx r => (ConcHead, [of_result r])
+  | CopyEctx => (CopyHead, [])
+  | WriteLEctx r => (WriteHead, [of_result r])
+  | WriteREctx e => (WriteHead, [e])
+  | FreeEctx => (FreeHead, [])
+  | DerefEctx T => (DerefHead T, [])
+  | RefEctx => (RefHead, [])
+  | RetagREctx e1 pk T k => (RetagHead pk T k, [e1])
+  | RetagLEctx r2 pk T k => (RetagHead pk T k, [of_result r2])
+  | CaseEctx el => (CaseHead, el)
+  end.
+
+Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
+  match Ci with
+  | LetLCtx x e2 => (LetHead x, [e2])
+  | LetRCtx x e1 => (LetHead x, [e1])
+  | CallLCtx e2 => (CallHead, [e2])
+  | CallRCtx e1 => (CallHead, [e1])
+  | EndCallCtx => (EndCallHead, [])
+  | BinOpLCtx op e2 => (BinOpHead op, [e2])
+  | BinOpRCtx op e1 => (BinOpHead op, [e1])
+  | ProjLCtx e2 => (ProjHead, [e2])
+  | ProjRCtx e1 => (ProjHead, [e1])
+  | ConcLCtx e2 => (ConcHead, [e2])
+  | ConcRCtx e1 => (ConcHead, [e1])
+  | CopyCtx => (CopyHead, [])
+  | WriteLCtx e2 => (WriteHead, [e2])
+  | WriteRCtx e1 => (WriteHead, [e1])
+  | FreeCtx => (FreeHead, [])
+  | DerefCtx T => (DerefHead T, [])
+  | RefCtx => (RefHead, [])
+  | RetagRCtx e1 pk T k => (RetagHead pk T k, [e1])
+  | RetagLCtx e2 pk T k => (RetagHead pk T k, [e2])
+  | CaseLCtx el => (CaseHead, el)
+  | CaseRCtx e el1 el2 => (CaseHead, e :: el1 ++ el2)
+  | WhileLCtx e1 => (WhileHead, [e1])
+  | WhileRCtx e0 => (WhileHead, [e0])
+  | ForkCtx => (ForkHead, [])
+  end.
 
 (** Global static function table *)
 Definition function := ectx.
