@@ -6,8 +6,6 @@ From iris.prelude Require Import options.
 Definition expr_head_wf (e : expr_head) : Prop :=
   match e with
   | ValHead v => value_wf v
-  (* | InitCallHead => False   (* administrative *) *)
-  | EndCallHead => False    (* administrative *)
   | PlaceHead _ _ _ => False (* no literal pointers *)
   | _ => True
   end.
@@ -115,6 +113,17 @@ Section log_rel.
     iApply sim_init_call.
     iIntros (c) "Hc". solve_rrel_refl.
   Qed.
+
+  Lemma log_rel_endcall e_t e_s :
+    log_rel e_t e_s ⊢ log_rel (EndCall e_t) (EndCall e_s).
+  Proof.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
+    { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
+    iIntros (v_t v_s) "#Hv".
+    discr_source. val_discr_source "Hv".
+    iApply sim_endcall.
+  Admitted.
 
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
@@ -346,6 +355,8 @@ Section refl.
       by iApply (log_rel_call with "IH IH1").
     - (* InitCall *)
       by iApply log_rel_initcall.
+    - (* EndCall *)
+      by iApply (log_rel_endcall with "IH").
     - (* Proj *)
       by iApply (log_rel_proj with "IH IH1").
     - (* Conc *)
