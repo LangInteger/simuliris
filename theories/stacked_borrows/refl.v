@@ -77,16 +77,25 @@ Section log_rel.
     ];
     eauto.
 
+  Tactic Notation "sc_discr_target" constr(H) :=
+    first [iPoseProof (sc_rel_ptr_target with H) as "[[-> ?] |-> ]" |
+          iPoseProof (sc_rel_fnptr_target with H) as "[ -> |-> ]" |
+          iPoseProof (sc_rel_int_target with H) as "[ -> | ->]" |
+          iPoseProof (sc_rel_cid_target with H) as "[(-> & ?) |-> ]" |
+          iPoseProof (sc_rel_poison_target with H) as "->"
+          ].
+  Tactic Notation "sc_discr_source" constr(H) :=
+      first [iPoseProof (sc_rel_ptr_source with H) as "[-> ?]" |
+            iPoseProof (sc_rel_fnptr_source with H) as "->" |
+            iPoseProof (sc_rel_int_source with H) as "->" |
+            iPoseProof (sc_rel_cid_source with H) as "(-> & ?)" |
+            iPoseProof (sc_rel_poison_target with H) as "->"
+            ].
   Tactic Notation "val_discr_source" constr(H) :=
     let H' := iFresh in
     first [
       iPoseProof (rrel_singleton_source with H) as (? ->) H';
-      first [iPoseProof (sc_rel_ptr_source with H') as "[-> ?]" |
-            iPoseProof (sc_rel_fnptr_source with H') as "->" |
-            iPoseProof (sc_rel_int_source with H') as "->" |
-            iPoseProof (sc_rel_cid_source with H') as "(-> & ?)" |
-            iPoseProof (sc_rel_poison_target with H') as "->"
-            ] |
+        sc_discr_source H' |
       iPoseProof (rrel_place_source with H) as (->) H' |
       iPoseProof (rrel_value_source with H) as (? ->) H'
     ];
@@ -127,6 +136,112 @@ Section log_rel.
     sim_finish. sim_val. iModIntro. iApply value_rel_poison.
   Qed.
 
+
+  (** a bit of work for eqop *)
+  Lemma bor_interp_scalar_eq_source σ_t σ_s sc1_t sc1_s sc2_t sc2_s :
+    scalar_eq σ_s.(shp) sc1_s sc2_s →
+    sc_rel sc1_t sc1_s -∗
+    sc_rel sc2_t sc2_s -∗
+    bor_interp sc_rel σ_t σ_s -∗
+    ⌜scalar_eq σ_t.(shp) sc1_t sc2_t⌝.
+  Proof.
+    iIntros (Hsc_eq) "Hsc1 Hsc2 Hbor".
+    iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+    destruct Hp as (_ & _ & _ & _ & _ & _ & Hdom_eq).
+    inversion Hsc_eq; subst; sc_discr_source "Hsc1"; sc_discr_source "Hsc2".
+    - done.
+    - done.
+    - iPureIntro. constructor 3.
+      apply not_elem_of_dom. rewrite -Hdom_eq. apply not_elem_of_dom. done.
+    - iPureIntro. constructor 4.
+      apply not_elem_of_dom. rewrite -Hdom_eq. apply not_elem_of_dom. done.
+  Qed.
+
+  Lemma scalar_neq_source sc1_t sc1_s sc2_t sc2_s :
+    scalar_neq sc1_s sc2_s →
+    sc_rel sc1_t sc1_s -∗
+    sc_rel sc2_t sc2_s -∗
+    ⌜scalar_neq sc1_t sc2_t⌝.
+  Proof.
+    iIntros (Hsc_eq) "Hsc1 Hsc2".
+    inversion Hsc_eq; subst; sc_discr_source "Hsc1"; sc_discr_source "Hsc2"; done.
+  Qed.
+
+  Lemma bor_interp_scalar_eq_target σ_t σ_s sc1_t sc1_s sc2_t sc2_s :
+    sc1_s ≠ ScPoison →
+    sc2_s ≠ ScPoison →
+    scalar_eq σ_t.(shp) sc1_t sc2_t →
+    sc_rel sc1_t sc1_s -∗
+    sc_rel sc2_t sc2_s -∗
+    bor_interp sc_rel σ_t σ_s -∗
+    ⌜scalar_eq σ_s.(shp) sc1_s sc2_s⌝.
+  Proof.
+    iIntros (? ? Hsc_eq) "Hsc1 Hsc2 Hbor".
+    iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+    destruct Hp as (_ & _ & _ & _ & _ & _ & Hdom_eq).
+    inversion Hsc_eq; subst; sc_discr_target "Hsc1"; try congruence; sc_discr_target "Hsc2"; try congruence.
+    - done.
+    - done.
+    - iPureIntro. constructor 3.
+      apply not_elem_of_dom. rewrite Hdom_eq. apply not_elem_of_dom. done.
+    - iPureIntro. constructor 4.
+      apply not_elem_of_dom. rewrite Hdom_eq. apply not_elem_of_dom. done.
+  Qed.
+
+  Lemma scalar_neq_target sc1_t sc1_s sc2_t sc2_s :
+    sc1_s ≠ ScPoison →
+    sc2_s ≠ ScPoison →
+    scalar_neq sc1_t sc2_t →
+    sc_rel sc1_t sc1_s -∗
+    sc_rel sc2_t sc2_s -∗
+    ⌜scalar_neq sc1_s sc2_s⌝.
+  Proof.
+    iIntros (? ? Hsc_eq) "Hsc1 Hsc2".
+    inversion Hsc_eq; subst; sc_discr_target "Hsc1"; try congruence; sc_discr_target "Hsc2"; try congruence.
+    all: done.
+  Qed.
+
+  Lemma sim_eq_op r1_t r1_s r2_t r2_s Φ π :
+    rrel r1_t r1_s -∗
+    rrel r2_t r2_s -∗
+    (∀ sc_t sc_s, sc_rel sc_t sc_s -∗ #[sc_t] ⪯{π} #[sc_s] [{ Φ }]) -∗
+    (r1_t = r2_t)%E ⪯{π} (r1_s = r2_s)%E [{ Φ }].
+  Proof.
+    iIntros "#Hr1 #Hr2 Hsim".
+    iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
+    specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool ltac:(done)) as (sc1_s & sc2_s & -> & -> & Heq).
+    val_discr_source "Hr1". val_discr_source "Hr2".
+    assert (sc1_s ≠ ScPoison ∧ sc2_s ≠ ScPoison) as [Hsc1_npoison Hsc2_npoison].
+    { split; intros ->; destruct Heq as [ Heq | Heq]; inversion Heq. }
+    iPoseProof (value_rel_singleton_source with "Hr1") as (sc1_t) "[-> Hsc1]".
+    iPoseProof (value_rel_singleton_source with "Hr2") as (sc2_t) "[-> Hsc2]".
+    iClear "Hr1 Hr2". destruct Heq as [Heq_s | Hneq_s].
+    - iModIntro.
+      iPoseProof (bor_interp_scalar_eq_source _ _ _ _ _ _ Heq_s with "Hsc1 Hsc2 Hbor") as "%Heq_t".
+      iSplitR. { iPureIntro. do 3 eexists. econstructor. econstructor. eapply BinOpEqTrue. done. }
+      iIntros (? ? ? ?). inv_head_step.
+      (* note: evaluation is non-deterministic here; we have to mirror the behavior in the source *)
+      + iModIntro. iExists _, _, _.
+        iSplitR. { iPureIntro. econstructor; econstructor; eapply BinOpEqTrue. done. }
+        iFrame. iSplitL; last done. iApply "Hsim". done.
+      + iModIntro. iExists _, _, _.
+        iPoseProof (scalar_neq_target with "Hsc1 Hsc2") as "%"; [done.. | ].
+        iSplitR. { iPureIntro. econstructor; econstructor; eapply BinOpEqFalse. done. }
+        iFrame. iSplitL; last done. by iApply "Hsim".
+    - iModIntro.
+      iPoseProof (scalar_neq_source with "Hsc1 Hsc2") as "%Hneq_t"; first done.
+      iSplitR. { iPureIntro. do 3 eexists. econstructor. econstructor. eapply BinOpEqFalse. done. }
+      iIntros (? ? ? ?). inv_head_step.
+      (* note: evaluation is non-deterministic here; we have to mirror the behavior in the source *)
+      + iModIntro. iExists _, _, _.
+        iPoseProof (bor_interp_scalar_eq_target with "Hsc1 Hsc2 Hbor") as "%"; [done..|].
+        iSplitR. { iPureIntro. econstructor; econstructor; eapply BinOpEqTrue. done. }
+        iFrame. iSplitL; last done. iApply "Hsim". done.
+      + iModIntro. iExists _, _, _.
+        iSplitR. { iPureIntro. econstructor; econstructor; eapply BinOpEqFalse. done. }
+        iFrame. iSplitL; last done. by iApply "Hsim".
+  Qed.
+
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
   Proof.
@@ -140,8 +255,9 @@ Section log_rel.
     destruct o; sim_pures;
       try (discr_source; val_discr_source "Hv1"; val_discr_source "Hv2";
             sim_pures; solve_rrel_refl).
-    (* TODO : irred_unless_eq doesn't work here, because of scoping *)
-  Admitted.
+    iApply (sim_eq_op with "Hv1 Hv2"). iIntros (??) "Hsc". sim_pures.
+    solve_rrel_refl.
+  Qed.
 
   Lemma log_rel_proj e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Proj e1_t e2_t) (Proj e1_s e2_s).

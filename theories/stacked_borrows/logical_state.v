@@ -1150,6 +1150,28 @@ Section val_rel.
     sc_rel (ScPoison) sc_s -∗ ⌜sc_s = ScPoison⌝.
   Proof. iIntros "Hrel". destruct sc_s; done. Qed.
 
+  Lemma sc_rel_ptr_target sc_s l_t t_t :
+    sc_rel (ScPtr l_t t_t) sc_s -∗ (⌜sc_s = ScPtr l_t t_t⌝ ∗ (if t_t is Tagged t then t $$ tk_pub else True)) ∨ ⌜sc_s = ScPoison⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_s; [ by iRight | done | | done | done ].
+    iDestruct "Hrel" as "(-> & [[-> ->] | (% & %t & -> & -> & -> & ?)])"; iLeft; iFrame; done.
+  Qed.
+  Lemma sc_rel_fnptr_target sc_s fn :
+    sc_rel (ScFnPtr fn) sc_s -∗ ⌜sc_s = ScFnPtr fn⌝ ∨ ⌜sc_s = ScPoison⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_s; [by iRight | done | done | | done].
+    iLeft. by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_int_target sc_s z :
+    sc_rel (ScInt z) sc_s -∗ ⌜sc_s = ScInt z⌝ ∨ ⌜sc_s = ScPoison⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_s; [ by iRight | | done..].
+    iLeft. by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_cid_target sc_s c :
+    sc_rel (ScCallId c) sc_s -∗ (⌜sc_s = ScCallId c⌝ ∗ pub_cid c) ∨ ⌜sc_s = ScPoison⌝.
+  Proof. iIntros "Hrel"; destruct sc_s; [ by iRight | done.. | ]. iLeft. by iDestruct "Hrel" as "[-> $]". Qed.
+
   Lemma rrel_place_source r_t l_s t_s T :
     rrel r_t (PlaceR l_s t_s T) -∗
     ⌜r_t = PlaceR l_s t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
