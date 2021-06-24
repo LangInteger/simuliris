@@ -231,17 +231,6 @@ Section log_rel_structural.
     - admit.
   Admitted.
 
-  (* TODO dup from simplang base.v *)
-  Lemma fst_map_zip {A B C} `{!EqDecision A} `{!Countable A} (m1 : gmap A B) (m2 : gmap A C) :
-    (∀ k : A, is_Some (m1 !! k) → is_Some (m2 !! k)) →
-    fst <$> map_zip m1 m2 = m1.
-  Proof. move => ?. by apply: map_fmap_zip_with_l. Qed.
-
-  Lemma snd_map_zip {A B C} `{!EqDecision A} `{!Countable A} (m1 : gmap A B) (m2 : gmap A C) :
-    (∀ k : A, is_Some (m2 !! k) → is_Some (m1 !! k)) →
-    snd <$> map_zip m1 m2 = m2.
-  Proof. move => ?. by apply: map_fmap_zip_with_r. Qed.
-
   Corollary sim_refl π m1 m2 e Φ :
     dom (gset _) m1 = dom (gset _) m2 →
     free_vars e ⊆ dom (gset _) m1 →
