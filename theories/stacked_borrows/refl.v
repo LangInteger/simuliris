@@ -18,7 +18,7 @@ Section log_rel.
   Context `{!sborGS Σ}.
 
   Lemma scalar_wf_sound sc : scalar_wf sc → ⊢ sc_rel sc sc.
-  Proof. intros Hwf. destruct sc; auto. done. Qed.
+  Proof. intros Hwf. destruct sc; auto; simpl in *; done. Qed.
 
   Lemma value_wf_sound v : value_wf v → ⊢ value_rel v v.
   Proof.
@@ -84,7 +84,7 @@ Section log_rel.
       first [iPoseProof (sc_rel_ptr_source with H') as "[-> ?]" |
             iPoseProof (sc_rel_fnptr_source with H') as "->" |
             iPoseProof (sc_rel_int_source with H') as "->" |
-            iPoseProof (sc_rel_cid_source with H') as "->" |
+            iPoseProof (sc_rel_cid_source with H') as "(-> & ?)" |
             iPoseProof (sc_rel_poison_target with H') as "->"
             ] |
       iPoseProof (rrel_place_source with H) as (->) H' |
@@ -111,7 +111,8 @@ Section log_rel.
   Proof.
     iIntros (? xs) "!# #Hs"; simpl.
     iApply sim_init_call.
-    iIntros (c) "Hc". solve_rrel_refl.
+    iIntros (c) "Hc". iApply (sim_cid_make_public with "Hc").
+    iIntros "#Hsc". solve_rrel_refl. iModIntro. iDestruct "Hsc" as "[_ $]".
   Qed.
 
   Lemma log_rel_endcall e_t e_s :
@@ -122,8 +123,9 @@ Section log_rel.
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t v_s) "#Hv".
     discr_source. val_discr_source "Hv".
-    iApply sim_endcall.
-  Admitted.
+    iApply (sim_endcall with "Hv").
+    sim_finish. sim_val. iModIntro. iApply value_rel_poison.
+  Qed.
 
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).

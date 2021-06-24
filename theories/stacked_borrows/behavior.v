@@ -60,7 +60,10 @@ Section ctx_rel.
 
   Lemma sc_rel_obs `{!sborGS Σ} sc_t sc_s :
     sc_rel sc_t sc_s ⊢@{iPropI Σ} ⌜ obs_scalar sc_t sc_s ⌝.
-  Proof. destruct sc_t, sc_s; by eauto. Qed.
+  Proof.
+    destruct sc_t, sc_s; try by eauto.
+    rewrite sc_rel_cid_source. iIntros "[<- _]". eauto.
+  Qed.
 
   Lemma rrel_obs `{!sborGS Σ} r_t r_s :
     rrel r_t r_s ⊢@{iPropI Σ} ⌜ obs_result r_t r_s ⌝.

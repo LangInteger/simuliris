@@ -74,7 +74,7 @@ Proof.
     subst σ_s' α' nt. rewrite -Hsst_eq -Hsnp_eq.
     by iApply tag_tainted_interp_alloc.
   - (* pub cid *)
-    iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done. 
+    iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.
   - (* state rel *)
     rewrite -{2}(map_empty_union M_t).
     subst σ_s' α' nt. rewrite -{2}Hsst_eq.
@@ -550,7 +550,7 @@ Proof.
   iExists M_call, M_tag', M_t, M_s.
   iFrame "Htag_t_auth Hc Htag_auth Htag_s_auth". iSplitL "Htainted".
   { (* tainted *) iApply (tag_tainted_interp_retag with "Htainted"). done. }
-  iSplitL "Hpub_cid". { iFrame "Hpub_cid". } 
+  iSplitL "Hpub_cid". { iFrame "Hpub_cid". }
   iSplitL.
   { (* state relation *)
     rewrite /state_rel. simpl. iDestruct "Hsrel" as "(-> & %Hs_eq & %Hsnp_eq & -> & -> & Hsrel)".
@@ -678,8 +678,8 @@ Proof.
   iMod (ghost_map_insert σ_t.(snc) ∅ Hfresh with "Hc") as "[Hc Hcall]".
   iModIntro. iFrame "Hcall".
   iExists (<[σ_t.(snc) := ∅]> M_call), M_tag, M_t, M_s. iFrame.
-  iSplitL "Hpub_cid". 
-  { (* pub cid *) iApply (pub_cid_interp_preserve_initcall with "Hpub_cid"); done. } 
+  iSplitL "Hpub_cid".
+  { (* pub cid *) iApply (pub_cid_interp_preserve_initcall with "Hpub_cid"); done. }
   iSplitL.
   { iDestruct "Hsrel" as "(H1 & H2 & H3 & H4 & %H5 & H6)". rewrite /state_rel. simpl.
     iFrame "H1 H2 H3".
@@ -735,14 +735,17 @@ Proof.
   iFrame.
 Qed.
 
-Lemma sim_cid_make_public c :
-  c @@ ∅ -∗ update_si (sc_rel (ScCallId c) (ScCallId c)).  
+Lemma sim_cid_make_public c e_t e_s π Φ :
+  c @@ ∅ -∗
+  (sc_rel (ScCallId c) (ScCallId c) -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
+  e_t ⪯{π} e_s [{ Φ }].
 Proof.
-  iIntros "Hown". iIntros (P_t σ_t P_s σ_s T_s) "(HP_t & HP_s & Hbor)". 
+  iIntros "Hown Hsim". iApply sim_update_si. iIntros (P_t σ_t P_s σ_s T_s) "(HP_t & HP_s & Hbor)".
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
   iMod (call_id_make_public with "Hpub_cid Hown") as "[#Hpub Hpub_cid]".
-  iModIntro. iSplitL. 
-  { iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s. iFrame. eauto. } 
+  iModIntro. iSplitR "Hsim".
+  { iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s. iFrame. eauto. }
+  iApply "Hsim".
   simpl. eauto.
 Qed.
 
@@ -759,8 +762,8 @@ Proof.
   iSplitR.
   { destruct (Hcall_interp _ _ Hlookup) as (? & _). done. }
   iExists (delete c M_call), M_tag, M_t, M_s. iFrame.
-  iSplitL "Hpub_cid". 
-  { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. } 
+  iSplitL "Hpub_cid".
+  { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(H1 & H2 & H3 & H4 & %H5 & H6)". rewrite /state_rel. cbn.
     iFrame "H1 H2 H3 H4".
@@ -810,11 +813,11 @@ Qed.
 Lemma bor_interp_end_call c σ_t σ_s :
   c ∈ σ_s.(scs) →
   bor_interp sc_rel σ_t σ_s -∗
-  pub_cid c ==∗ 
+  pub_cid c ==∗
   ⌜c ∈ σ_t.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
 Proof.
   iIntros (Hin_s) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
-  specialize (state_wf_cid_agree _ Hwf_s _ Hin_s) as Hlt_s. 
+  specialize (state_wf_cid_agree _ Hwf_s _ Hin_s) as Hlt_s.
   iPoseProof (state_rel_calls_eq with "Hsrel") as "%Hscs_eq".
   iPoseProof (state_rel_snc_eq with "Hsrel") as "%Hsnc_eq".
   iPoseProof (pub_cid_endcall with "Hcall Hpub_cid") as "[Hcall Hpub_cid]"; [done | lia | lia | ].
@@ -826,8 +829,8 @@ Proof.
   iSplitR.
   { destruct (Hcall_interp _ _ Hlookup) as (? & _). done. }
   iExists (delete c M_call), M_tag, M_t, M_s. iFrame.
-  iSplitL "Hpub_cid". 
-  { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. } 
+  iSplitL "Hpub_cid".
+  { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(H1 & H2 & H3 & H4 & %H5 & H6)". rewrite /state_rel. cbn.
     iFrame "H1 H2 H3 H4".

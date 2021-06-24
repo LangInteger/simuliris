@@ -1239,8 +1239,9 @@ Section val_rel.
     ⊢ value_rel [ScFnPtr fn] [ScFnPtr fn].
   Proof. solve_value_rel. Qed.
   Lemma value_rel_callid c :
+    pub_cid c
     ⊢ value_rel [ScCallId c] [ScCallId c].
-  Proof. solve_value_rel. Qed.
+  Proof. rewrite value_rel_singleton. iIntros "Hc"; simpl. eauto. Qed.
 
   Lemma sc_rel_ptr l tg :
     match tg with | Tagged t => t $$ tk_pub | Untagged => True end

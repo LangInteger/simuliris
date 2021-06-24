@@ -216,7 +216,13 @@ Section irreducible.
       apply list_lookup_alt. split; [ lia | done].
     + right. intros (? & ? & ? & [= ->] & [= ->] & ? & Hs%list_lookup_alt). lia.
   Qed.
-  Global Instance irred_proj_place l t T v2 P σ : 
+  Global Instance irred_proj_val v v2 P σ :
+    IrredUnless (∃ i s, v2 = [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj (Val v) (Val v2)) σ.
+  Proof.
+    eapply irred_unless_weaken; last by apply (irred_proj (ValR _) (ValR _)).
+    intros (? & ? & ? & [= <-] & [= ->] & ?); eauto.
+  Qed.
+  Global Instance irred_proj_place l t T v2 P σ :
     IrredUnless False P (Proj (Place l t T) (Val v2)) σ.
   Proof. prove_irred_unless. Qed.
 
@@ -234,8 +240,11 @@ Section irreducible.
     IrredUnless (∃ l t, r = ValR [ScPtr l t]) P (Deref r T) σ.
   Proof. prove_irred_unless. Qed.
 
-  Global Instance irreducible_call_val r r2 P σ :
+  Global Instance irreducible_call r r2 P σ :
     IrredUnless (∃ fn, r = ValR [ScFnPtr fn]) P (Call r r2) σ.
+  Proof. prove_irred_unless. Qed.
+  Global Instance irreducible_call_val v v2 P σ :
+    IrredUnless (∃ fn, v = [ScFnPtr fn]) P (Call (Val v) (Val v2)) σ.
   Proof. prove_irred_unless. Qed.
   Global Instance irreducible_call_place r l t T P σ :
     IrredUnless (∃ fn, r = ValR [ScFnPtr fn]) P (Call r (Place l t T)) σ.

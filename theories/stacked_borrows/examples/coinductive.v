@@ -65,8 +65,6 @@ fn funky_loop(x : &mut i32, f, env) {
 
 *)
 
-
-
 Lemma loop_opt1 `{sborGS Σ} π :
   ⊢ sim_ectx π loop_opt loop_unopt rrel.
 Proof.
