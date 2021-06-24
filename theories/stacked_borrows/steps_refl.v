@@ -702,18 +702,18 @@ Proof.
     - rewrite elem_of_union. apply Hcall_interp in Hsome as [Hin Ha]. split; [by eauto | done].
   }
   iSplitL. { iPureIntro. apply Htag_interp. }
-  iSplitL. { iPureIntro. destruct Hwf_s as [Hdom Hstack_item ??]. constructor; simpl; try done.
+  iSplitL. { iPureIntro. destruct Hwf_s as [Hdom Hstack_item ? Hcid_ag]. constructor; simpl; try done.
     - intros l stk Hstk. apply Hstack_item in Hstk.
       destruct Hstk as [Hstk ?]. split; last done. intros i Hi. specialize (Hstk i Hi).
       destruct tg, protector; naive_solver.
-    - intros c. rewrite elem_of_union elem_of_singleton. intros [-> | Hin%state_wf_cid_agree]; lia.
+    - intros c. rewrite elem_of_union elem_of_singleton. intros [-> | Hin%Hcid_ag]; lia.
   }
   (* TODO: duplicated proof *)
-  iPureIntro. destruct Hwf_t. constructor; simpl; try done.
-  - intros l stk Hstk. apply state_wf_stack_item in Hstk.
+  iPureIntro. destruct Hwf_t as [ ? Hstack_wf ? Hcid_ag]. constructor; simpl; try done.
+  - intros l stk Hstk. apply Hstack_wf in Hstk.
     destruct Hstk as [Hstk ?]. split; last done. intros i Hi. specialize (Hstk i Hi).
     destruct tg, protector; naive_solver.
-  - intros c. rewrite elem_of_union elem_of_singleton. intros [-> | Hin%state_wf_cid_agree]; lia.
+  - intros c. rewrite elem_of_union elem_of_singleton. intros [-> | Hin%Hcid_ag]; lia.
 Qed.
 
 Lemma sim_init_call π Φ :
@@ -721,7 +721,7 @@ Lemma sim_init_call π Φ :
     #[ScCallId c] ⪯{π} #[ScCallId c] [{ Φ }]) -∗
   InitCall ⪯{π} InitCall [{ Φ }].
 Proof.
-  iIntros "Hsim". iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & _ & _)".
+  iIntros "Hsim". iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & _ & _)".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   iMod (bor_interp_init_call with "Hbor") as "[Hc Hbor]". iModIntro.
   iSplitR.
@@ -755,7 +755,7 @@ Lemma bor_interp_end_call_own c σ_t σ_s :
   c @@ ∅ ==∗ (* we need it to be empty to avoid tripping private locations *)
   ⌜c ∈ σ_t.(scs) ∧ c ∈ σ_s.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
 Proof.
-  iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
+  iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
   iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
   iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro.
   iPoseProof (state_rel_calls_eq with "Hsrel") as "->".
@@ -765,10 +765,10 @@ Proof.
   iSplitL "Hpub_cid".
   { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
   iSplitL "Hsrel".
-  { iDestruct "Hsrel" as "(H1 & H2 & H3 & H4 & %H5 & H6)". rewrite /state_rel. cbn.
-    iFrame "H1 H2 H3 H4".
-    iSplitR. { rewrite H5. done. }
-    iIntros (l Hl). iDestruct ("H6" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
+  { iDestruct "Hsrel" as "(Hdom_eq & Hsst_eq & Hsnp_eq & Hsnc_eq & %Hscs_eq & Hl)". rewrite /state_rel. cbn.
+    iFrame "Hdom_eq Hsst_eq Hsnp_eq Hsnc_eq".
+    iSplitR. { rewrite Hscs_eq. done. }
+    iIntros (l Hl). iDestruct ("Hl" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
     - iLeft. iApply "Hpub".
     - iRight. iPureIntro. exists t.
       destruct Hpriv as (tk & Htk & Hs & [-> | [-> (c' & Hin)]]).
@@ -797,7 +797,7 @@ Lemma sim_endcall_own c π Φ :
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
   EndCall #[ScCallId c] ⪯{π} EndCall #[ScCallId c] [{ Φ }].
 Proof.
-  iIntros "Hcall Hsim". iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & _ & _)".
+  iIntros "Hcall Hsim". iApply sim_lift_head_step_both. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor) & _ & _)".
   iMod (bor_interp_end_call_own with "Hbor Hcall") as "[%Hc_in Hbor]". iModIntro.
   iSplitR.
   { iPureIntro. do 3 eexists. eapply end_call_head_step. apply Hc_in. }
@@ -816,7 +816,7 @@ Lemma bor_interp_end_call c σ_t σ_s :
   pub_cid c ==∗
   ⌜c ∈ σ_t.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
 Proof.
-  iIntros (Hin_s) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
+  iIntros (Hin_s) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
   specialize (state_wf_cid_agree _ Hwf_s _ Hin_s) as Hlt_s.
   iPoseProof (state_rel_calls_eq with "Hsrel") as "%Hscs_eq".
   iPoseProof (state_rel_snc_eq with "Hsrel") as "%Hsnc_eq".
@@ -864,7 +864,7 @@ Lemma sim_endcall π Φ c c' :
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
   EndCall #[ScCallId c'] ⪯{π} EndCall #[ScCallId c] [{ Φ }].
 Proof.
-  iIntros "#Hsc Hsim". iApply sim_lift_head_step_both. iIntros (??????) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
+  iIntros "#Hsc Hsim". iApply sim_lift_head_step_both. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
   specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool ltac:(done)) as (c0 & [= <-] & Hin_s).
   iPoseProof (sc_rel_cid_source with "Hsc") as "[%Heq Hpub]". injection Heq as [= ->].
   iMod (bor_interp_end_call with "Hbor Hpub") as "[%Hin_t Hbor]"; first done. iModIntro.
@@ -900,7 +900,7 @@ Proof.
   iIntros "Hinv_init #Hstep".
   iApply (sim_lift_head_coind (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
   { iFrame. eauto. }
-  iModIntro. iIntros (?? ?? ?? ??) "(-> & -> & Hinv) (Hstate & [% %])".
+  iModIntro. iIntros (e_t e_s P_t P_s σ_t σ_s T_s K_s) "(-> & -> & Hinv) (Hstate & [% %])".
   iModIntro. iSplitR.
   { iPureIntro. eexists _, _, _. econstructor. econstructor. }
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
