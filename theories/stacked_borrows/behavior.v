@@ -1,4 +1,3 @@
-From stdpp Require Import list.
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import iprop.
 From iris.prelude Require Import options.
