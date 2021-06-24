@@ -18,6 +18,18 @@ Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
 Implicit Types f : fname.
 
+Lemma sim_value_result v_t v_s (Φ : result → result → iProp Σ) π :
+  Φ (ValR v_t) (ValR v_s) -∗ #v_t ⪯{π} #v_s {{ Φ }}.
+Proof. iIntros "H". iApply sim_expr_base. iExists (ValR v_t), (ValR v_s). eauto. Qed.
+
+Lemma sim_place_result l_t t_t T_t l_s t_s T_s (Φ : result → result → iProp Σ) π :
+  Φ (PlaceR l_t t_t T_t) (PlaceR l_s t_s T_s) -∗ Place l_t t_t T_t ⪯{π} Place l_s t_s T_s {{ Φ }}.
+Proof. iIntros "H". iApply sim_expr_base. iExists (PlaceR _ _ _), (PlaceR _ _ _); eauto. Qed.
+
+Lemma sim_result r_t r_s (Φ : result → result → iProp Σ) π :
+  Φ r_t r_s -∗ of_result r_t ⪯{π} of_result r_s {{ Φ }}.
+Proof. iIntros "H". iApply sim_expr_base. by iApply lift_post_val. Qed.
+
 Lemma sim_alloc_public T Φ π :
   (∀ t l, t $$ tk_pub -∗
     rrel (PlaceR l (Tagged t) T) (PlaceR l (Tagged t) T) -∗
