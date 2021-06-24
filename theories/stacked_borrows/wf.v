@@ -2,6 +2,7 @@ From simuliris.stacked_borrows Require Import lang.
 From iris.prelude Require Import options.
 
 (** Enable use of [Forall] in recursion. *)
+(* TODO: move to std++ *)
 Lemma Forall_id {A: Type} (P: A → Prop) (l: list A) :
   Forall id (fmap P l) ↔ Forall P l.
 Proof.
