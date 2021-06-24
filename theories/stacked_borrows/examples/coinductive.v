@@ -9,6 +9,8 @@ Definition loop_unopt : ectx :=
     (* We do not retag "env" as we do not access it.
       For the purpose of this function, it is just "data". *)
     let: "env" := Proj "p" #[1] in
+    (* get the function ptr *)
+    let: "fn" := Proj "p" #[2] in
 
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (&int) "i" in
@@ -18,7 +20,7 @@ Definition loop_unopt : ectx :=
     *)
     retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
 
-    while: Call #[ScFnPtr "f"] (Conc "env" (Copy *{int} "x")) do
+    while: Call "fn" (Conc "env" (Copy *{int} "x")) do
       #[42]
     od;;
 
@@ -34,10 +36,11 @@ Definition loop_opt : ectx :=
   (λ: "p",
     let: "i" := Proj "p" #[0] in
     let: "env" := Proj "p" #[1] in
+    let: "fn" := Proj "p" #[2] in
     let: "x" := new_place (&int) "i" in
     retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
     let: "r" := Copy *{int} "x" in
-    while: Call #[ScFnPtr "f"] (Conc "env" "r") do
+    while: Call "fn" (Conc "env" "r") do
       #[42]
     od;;
     Free "x" ;;
@@ -85,11 +88,18 @@ Proof.
   source_proj. { simpl. done. }
   source_pures.
 
+  source_bind (Proj _ _).
+  iApply source_red_irred_unless; first done.
+  iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
+  destruct v as [ | sc_s2 v]; simpl in *; first done. injection Hsc' as [= <-].
+  source_proj. { simpl. done. }
+  source_pures.
+
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "[-> Hvrel]".
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen".
-  destruct v_t as [ | sc_t0 [ | sc_t1 v_t]]; simpl in Hlen; [ lia | lia | ].
+  destruct v_t as [ | sc_t0 [ | sc_t1 [ | sc_t2 v_t]]]; simpl in Hlen; [ lia | lia | lia | ].
   sim_pures.
-  target_proj; first done. target_pures. target_proj; first done.
+  target_proj; first done. target_pures. target_proj; first done. target_pures. target_proj; first done.
   sim_pures.
 
   (* create local location for x *)
@@ -106,7 +116,7 @@ Proof.
   source_apply (Copy _) (source_copy_local with "Hx Hs_x") "Hs_x Hx"; first done.
 
   rewrite /value_rel. rewrite !big_sepL2_cons.
-  iDestruct "Hvrel" as "(#Hsc0_rel & #Hsc1_rel & Hvrel)".
+  iDestruct "Hvrel" as "(#Hsc0_rel & #Hsc1_rel & #Hsc2_rel & Hvrel)".
 
   (* do the retag *)
   sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
@@ -150,6 +160,11 @@ Proof.
   sim_pures.
 
   (* do the call *)
+  source_bind (Call _ _).
+  iApply source_red_irred_unless. { rewrite /to_val. simpl. rewrite /to_class. simpl. destruct to_fname; simpl; done. }
+  iIntros "(%fn & %Heq)". injection Heq as [= ->].
+  iPoseProof (sc_rel_fnptr_source with "Hsc2_rel") as "->".
+  iApply source_red_base. iModIntro. to_sim.
   sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
   { iApply big_sepL2_cons. iSplitR; done. }
   iIntros (r_t r_s) "#Hres".
