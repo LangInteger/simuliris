@@ -3,6 +3,19 @@ From simuliris.stacked_borrows Require Import proofmode tactics.
 From simuliris.stacked_borrows Require Import parallel_subst primitive_laws log_rel wf.
 From iris.prelude Require Import options.
 
+Definition expr_head_wf (e : expr_head) : Prop :=
+  match e with
+  | ValHead v => value_wf v
+  (* | InitCallHead => False   (* administrative *) *)
+  | EndCallHead => False    (* administrative *)
+  | PlaceHead _ _ _ => False (* no literal pointers *)
+  | _ => True
+  end.
+
+Notation expr_wf := (gen_expr_wf expr_head_wf).
+Notation ectx_wf := (gen_ectx_wf expr_head_wf).
+Notation ctx_wf := (gen_ctx_wf expr_head_wf).
+
 Section log_rel.
   Context `{!sborGS Σ}.
 
@@ -51,6 +64,21 @@ Section log_rel.
     destruct to_fname; [destruct to_result | ]; done.
   Qed.
 
+  Local Ltac solve_rrel_refl :=
+    sim_val;
+    first [
+      iApply rrel_value_rel;
+      first [iApply value_rel_poison|
+            iApply value_rel_int |
+            iApply value_rel_fnptr |
+            iApply value_rel_callid |
+            iApply value_rel_ptr |
+            iApply value_rel_singleton
+           ] |
+      iApply rrel_place
+    ];
+    eauto.
+
   Tactic Notation "val_discr_source" constr(H) :=
     let H' := iFresh in
     first [
@@ -80,20 +108,13 @@ Section log_rel.
     iApply (sim_call with "Hv1"). iIntros (??) "Hr". by iApply lift_post_val.
   Qed.
 
-  Local Ltac solve_rrel_refl :=
-    sim_val;
-    first [
-      iApply rrel_value_rel;
-      first [iApply value_rel_poison|
-            iApply value_rel_int |
-            iApply value_rel_fnptr |
-            iApply value_rel_callid |
-            iApply value_rel_ptr |
-            iApply value_rel_singleton
-           ] |
-      iApply rrel_place
-    ];
-    eauto.
+  Lemma log_rel_initcall :
+    ⊢ log_rel InitCall InitCall.
+  Proof.
+    iIntros (? xs) "!# #Hs"; simpl.
+    iApply sim_init_call.
+    iIntros (c) "Hc". solve_rrel_refl.
+  Qed.
 
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
@@ -109,7 +130,6 @@ Section log_rel.
       try (discr_source; val_discr_source "Hv1"; val_discr_source "Hv2";
             sim_pures; solve_rrel_refl).
     (* TODO : irred_unless_eq doesn't work here, because of scoping *)
-    admit.
   Admitted.
 
   Lemma log_rel_proj e1_t e1_s e2_t e2_s :
@@ -296,19 +316,6 @@ Section log_rel.
   Qed.
 End log_rel.
 
-Definition expr_head_wf (e : expr_head) : Prop :=
-  match e with
-  | ValHead v => value_wf v
-  | InitCallHead => False   (* administrative *)
-  | EndCallHead => False    (* administrative *)
-  | PlaceHead _ _ _ => False (* no literal pointers *)
-  | _ => True
-  end.
-
-Notation expr_wf := (gen_expr_wf expr_head_wf).
-Notation ectx_wf := (gen_ectx_wf expr_head_wf).
-Notation ctx_wf := (gen_ctx_wf expr_head_wf).
-
 Section refl.
   Context `{!sborGS Σ}.
 
@@ -325,6 +332,8 @@ Section refl.
       by iApply log_rel_var.
     - (* Call *)
       by iApply (log_rel_call with "IH IH1").
+    - (* InitCall *)
+      by iApply log_rel_initcall.
     - (* Proj *)
       by iApply (log_rel_proj with "IH IH1").
     - (* Conc *)

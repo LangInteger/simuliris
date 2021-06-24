@@ -250,6 +250,14 @@ Section irreducible.
     destruct (decide (c ∈ σ.(scs))); finish_decision.
   Qed.
 
+  Global Instance irreducible_endcall_result_weak P σ r :
+    IrredUnless (∃ c, r = ValR [ScCallId c]) P (EndCall r) σ.
+  Proof.
+    prove_irred_unless.
+    rename select (to_value _ = _) into Eqr. apply Val_to_value in Eqr.
+    eauto using of_result_value.
+  Qed.
+
   Global Instance irreducible_retag P σ v v' pk T rk :
     IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag v v' pk T rk) σ.
