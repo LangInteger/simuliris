@@ -25,6 +25,10 @@ Class bor_stateGS Σ := {
   heap_view_source_name : gname;
   heap_view_target_name : gname;
 
+  (* Public call IDs *)
+  pub_call_inG :> ghost_mapG Σ call_id unit;
+  pub_call_name : gname;
+
   (* Tainted tags: a set of tag * source location *)
   tainted_tag_collection :> ghost_mapG Σ (ptr_id * loc) unit;
   tainted_tags_name : gname;
@@ -557,6 +561,146 @@ Notation "l '↦s[' tk ']{' t } sc" := (ghost_map_elem heap_view_source_name (t,
   (at level 20, format "l  ↦s[ tk ]{ t }  sc") : bi_scope.
 
 
+Section public_call_ids.
+  Context `{bor_stateGS Σ}.
+  Implicit Types (c : call_id).
+
+  Definition pub_cid (c : call_id) := ghost_map_elem pub_call_name c DfracDiscarded tt.
+  Global Instance pub_cid_persistent c : Persistent (pub_cid c).
+  Proof. apply _. Qed.
+
+  Definition call_id_is_public σ_t σ_s c : iProp Σ :=
+    (* dead call id, can never come alive *)
+    ⌜c ∉ σ_t.(scs) ∧ c ∉ σ_s.(scs) ∧ (c < σ_t.(snc))%nat ∧ (c < σ_s.(snc))%nat⌝ ∨
+    (* alive call id, empty call set *)
+    c @@ ∅.
+
+  Definition pub_cid_interp σ_t σ_s : iProp Σ :=
+    ∃ (M : gmap call_id unit),
+      ghost_map_auth pub_call_name 1 M ∗
+      (* calso containing the persistent element to make lemmas simpler *)
+      [∗ map] c ↦ _ ∈ M, (call_id_is_public σ_t σ_s c ∗ pub_cid c).
+
+
+  Lemma call_id_is_public_mono σ_t σ_s σ_t' σ_s' c :
+    ((c ∉ σ_t.(scs) ∧ (c < σ_t.(snc))%nat → c ∉ σ_t'.(scs))) →
+    ((c ∉ σ_s.(scs) ∧ (c < σ_s.(snc))%nat → c ∉ σ_s'.(scs))) →
+    (σ_t.(snc) ≤ σ_t'.(snc))%nat →
+    (σ_s.(snc) ≤ σ_s'.(snc))%nat →
+    call_id_is_public σ_t σ_s c -∗
+    call_id_is_public σ_t' σ_s' c.
+  Proof.
+    iIntros (Hpres_t Hpres_s Hle_t Hle_s) "Hpub".
+    iDestruct "Hpub" as "[%Ha | Hown]"; last by iRight.
+    iLeft. iPureIntro. destruct Ha as (Hn_t & Hn_s & ? & ?). split_and!.
+    - apply Hpres_t. done.
+    - apply Hpres_s. done.
+    - lia.
+    - lia.
+  Qed.
+
+  (* main update lemma to update the state interpretation *)
+  Lemma pub_cid_interp_preserve σ_t σ_s σ_t' σ_s' :
+    (∀ c, c ∈ σ_t'.(scs) → (σ_t.(snc) ≤ c)%nat ∨ c ∈ σ_t.(scs)) →
+    (∀ c, c ∈ σ_s'.(scs) → (σ_s.(snc) ≤ c)%nat ∨ c ∈ σ_s.(scs)) →
+    (σ_t.(snc) ≤ σ_t'.(snc))%nat →
+    (σ_s.(snc) ≤ σ_s'.(snc))%nat →
+    pub_cid_interp σ_t σ_s -∗
+    pub_cid_interp σ_t' σ_s'.
+  Proof.
+    iIntros (Hpres_t Hpres_s ? ?) "(%M & Hauth & Hpub)". iExists M. iFrame "Hauth".
+    iApply (big_sepM_mono with "Hpub"). iIntros (c [] Hlookup) "[Hpub $]".
+    iApply call_id_is_public_mono; [ | | done..].
+    - intros (Hn_t & ?). destruct (decide (c ∈ σ_t'.(scs))) as [Hin_t' | Hnotin_t'].
+      + destruct (Hpres_t c ltac:(eauto)) as [ | ]; [lia | naive_solver].
+      + naive_solver.
+    - intros (Hn_s & ?). destruct (decide (c ∈ σ_s'.(scs))) as [Hin_s' | Hnotin_s'].
+      + destruct (Hpres_s c ltac:(eauto)) as [ | ]; [lia | naive_solver].
+      + naive_solver.
+  Qed.
+
+  (* update lemma that can be used except for initcall *)
+  Lemma pub_cid_interp_preserve_sub σ_t σ_s σ_t' σ_s' :
+    σ_t'.(scs) ⊆ σ_t.(scs) →
+    σ_s'.(scs) ⊆ σ_s.(scs) →
+    (σ_t.(snc) = σ_t'.(snc))%nat →
+    (σ_s.(snc) = σ_s'.(snc))%nat →
+    pub_cid_interp σ_t σ_s -∗
+    pub_cid_interp σ_t' σ_s'.
+  Proof.
+    iIntros (Hsub_t Hsub_s ? ?). iApply pub_cid_interp_preserve; [ | | lia..].
+    - intros c Hin_t'. right. set_solver.
+    - intros c Hin_s'. right. set_solver.
+  Qed.
+
+  (* update lemma for initcall *)
+  Lemma pub_cid_interp_preserve_initcall σ_t σ_s σ_t' σ_s' :
+    σ_t'.(scs) ⊆ {[ σ_t.(snc) ]} ∪ σ_t.(scs) →
+    σ_s'.(scs) ⊆ {[ σ_s.(snc) ]} ∪ σ_s.(scs) →
+    (S σ_t.(snc) = σ_t'.(snc))%nat →
+    (S σ_s.(snc) = σ_s'.(snc))%nat →
+    pub_cid_interp σ_t σ_s -∗
+    pub_cid_interp σ_t' σ_s'.
+  Proof.
+    iIntros (Hsub_t Hsub_s ? ?). iApply pub_cid_interp_preserve; [ | | lia..].
+    - intros c Hin_t'. move : Hsub_t. rewrite elem_of_subseteq => Hsub_t.
+      apply Hsub_t in Hin_t'. move : Hin_t'. rewrite elem_of_union elem_of_singleton.
+      intros [-> | Hin]; [left; lia | by right].
+    - intros c Hin_s'. move : Hsub_s. rewrite elem_of_subseteq => Hsub_s.
+      apply Hsub_s in Hin_s'. move : Hin_s'. rewrite elem_of_union elem_of_singleton.
+      intros [-> | Hin]; [left; lia | by right].
+  Qed.
+
+  (* the main lemma for ending calls *)
+  Lemma pub_cid_endcall σ_s σ_t c :
+    c ∈ σ_s.(scs) →
+    (c < σ_s.(snc))%nat →
+    (c < σ_t.(snc))%nat →
+    pub_cid c -∗
+    pub_cid_interp σ_t σ_s -∗
+    c @@ ∅ ∗
+    pub_cid_interp (mkState σ_t.(shp) σ_t.(sst) (σ_t.(scs) ∖ {[ c ]}) σ_t.(snp) σ_t.(snc))
+      (mkState σ_s.(shp) σ_s.(sst) (σ_s.(scs) ∖ {[ c ]}) σ_s.(snp) σ_s.(snc)).
+  Proof.
+    iIntros (Hc_in Hlts Hltt) "#Hpublic (%M & Hauth & Hpub)".
+    iPoseProof (ghost_map_lookup with "Hauth Hpublic") as "%Hlookup".
+    rewrite (big_sepM_delete _ _ _ _ Hlookup). iDestruct "Hpub" as "[[Hc _] Hpubr]".
+    iDestruct "Hc" as "[ %Hdead | Halive]".
+    { (* contradictory *) exfalso. naive_solver. }
+    iFrame "Halive". iExists M. iFrame "Hauth".
+    rewrite -{2}(insert_id M c ()); last done.
+    rewrite -insert_delete.
+    rewrite big_sepM_insert; last apply lookup_delete.
+    iSplitR "Hpubr".
+    - iFrame "Hpublic". iLeft. simpl. iPureIntro. split_and!; [set_solver.. | done ].
+    - iApply (big_sepM_mono with "Hpubr").
+      iIntros (c' []). rewrite lookup_delete_Some. iIntros ([Hneq Hsome]).
+      iIntros "[Hpub $]". iDestruct "Hpub" as "[%Hpub | Hown]".
+      + iLeft. simpl. iPureIntro. destruct Hpub as (? & ? & ? & ?); split_and!; [set_solver.. | done].
+      + iRight. done.
+  Qed.
+
+  Lemma call_id_make_public σ_s σ_t c :
+    pub_cid_interp σ_t σ_s -∗
+    c @@ ∅ ==∗
+    pub_cid c ∗ pub_cid_interp σ_t σ_s.
+  Proof.
+    iIntros "(%M & Hauth & Hpub) Hcall".
+    destruct (M !! c) as [ [] | ] eqn:Hlookup.
+    - (* contradictory in principle, but we can play along *)
+      iModIntro.
+      iPoseProof (big_sepM_delete _ _ _ _ Hlookup with "Hpub") as "[[Hc #Hpublic] Hpubr]".
+      iFrame "Hpublic". iExists M. iFrame "Hauth".
+      rewrite (big_sepM_delete _ _ _ _ Hlookup). iFrame "Hpubr Hc Hpublic".
+    - iMod (ghost_map_insert _ () Hlookup with "Hauth") as "[Hauth Helem]".
+      iMod (ghost_map_elem_persist with "Helem") as "#Hpublic".
+      iModIntro. iFrame "Hpublic".
+      iExists _. iFrame "Hauth". rewrite big_sepM_insert; last done.
+      iFrame "Hpub Hpublic". by iRight.
+  Qed.
+
+End public_call_ids.
+
 Section tainted_tags.
   Context `{bor_stateGS Σ}.
   (** Interpretation for tainted tags.
@@ -700,6 +844,7 @@ Section state_interp.
     bor_auth M_call M_tag M_t M_s ∗
 
     tag_tainted_interp σ_s ∗
+    pub_cid_interp σ_t σ_s ∗
 
     state_rel sc_rel M_tag M_t M_call σ_t σ_s ∗
     (* due to the [state_rel], enforcing this on [σ_t] also does the same for [σ_s] *)
@@ -714,7 +859,7 @@ Section state_interp.
     σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧
     dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝.
   Proof.
-    iIntros "(% & % & % & % & ? & _ & Hstate & _ & _ & % & %)".
+    iIntros "(% & % & % & % & ? & _ & _ & Hstate & _ & _ & % & %)".
     iPoseProof (state_rel_get_pure with "Hstate") as "%".
     iPoseProof (state_rel_dom_eq with "Hstate") as "<-".
     iPureIntro. tauto.
@@ -723,7 +868,7 @@ Section state_interp.
   Lemma bor_interp_get_state_wf σ_t σ_s :
     bor_interp σ_t σ_s -∗
     ⌜state_wf σ_t⌝ ∗ ⌜state_wf σ_s⌝.
-  Proof. iIntros "(% & % & % & % & ? & ? & Hstate & _ & _ & % & %)". eauto. Qed.
+  Proof. iIntros "(% & % & % & % & ? & ? & ? & Hstate & _ & _ & % & %)". eauto. Qed.
 
 End state_interp.
 
@@ -954,7 +1099,7 @@ Section val_rel.
         ⌜t1 = t2⌝ ∗
         t1 $$ tk_pub))
         (* what the [tk_pub] gives us is that the locations store related values *)
-    | ScCallId c, ScCallId c' => ⌜c = c'⌝
+    | ScCallId c, ScCallId c' => ⌜c = c'⌝ ∗ pub_cid c
     (* [ScPoison] can be refined by anything *)
     | _ , ScPoison => True
     | _, _ => False
@@ -998,21 +1143,43 @@ Section val_rel.
     by iDestruct "Hrel" as "->".
   Qed.
   Lemma sc_rel_cid_source sc_t c :
-    sc_rel sc_t (ScCallId c) -∗ ⌜sc_t = ScCallId c⌝.
-  Proof. iIntros "Hrel"; destruct sc_t; [done.. | ]. by iDestruct "Hrel" as "->". Qed.
+    sc_rel sc_t (ScCallId c) -∗ ⌜sc_t = ScCallId c⌝ ∗ pub_cid c.
+  Proof. iIntros "Hrel"; destruct sc_t; [done.. | ]. by iDestruct "Hrel" as "[-> $]". Qed.
 
   Lemma sc_rel_poison_target sc_s :
     sc_rel (ScPoison) sc_s -∗ ⌜sc_s = ScPoison⌝.
   Proof. iIntros "Hrel". destruct sc_s; done. Qed.
 
+  Lemma sc_rel_ptr_target sc_s l_t t_t :
+    sc_rel (ScPtr l_t t_t) sc_s -∗ (⌜sc_s = ScPtr l_t t_t⌝ ∗ (if t_t is Tagged t then t $$ tk_pub else True)) ∨ ⌜sc_s = ScPoison⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_s; [ by iRight | done | | done | done ].
+    iDestruct "Hrel" as "(-> & [[-> ->] | (% & %t & -> & -> & -> & ?)])"; iLeft; iFrame; done.
+  Qed.
+  Lemma sc_rel_fnptr_target sc_s fn :
+    sc_rel (ScFnPtr fn) sc_s -∗ ⌜sc_s = ScFnPtr fn⌝ ∨ ⌜sc_s = ScPoison⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_s; [by iRight | done | done | | done].
+    iLeft. by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_int_target sc_s z :
+    sc_rel (ScInt z) sc_s -∗ ⌜sc_s = ScInt z⌝ ∨ ⌜sc_s = ScPoison⌝.
+  Proof.
+    iIntros "Hrel". destruct sc_s; [ by iRight | | done..].
+    iLeft. by iDestruct "Hrel" as "->".
+  Qed.
+  Lemma sc_rel_cid_target sc_s c :
+    sc_rel (ScCallId c) sc_s -∗ (⌜sc_s = ScCallId c⌝ ∗ pub_cid c) ∨ ⌜sc_s = ScPoison⌝.
+  Proof. iIntros "Hrel"; destruct sc_s; [ by iRight | done.. | ]. iLeft. by iDestruct "Hrel" as "[-> $]". Qed.
+
   Lemma rrel_place_source r_t l_s t_s T :
     rrel r_t (PlaceR l_s t_s T) -∗
-    ∃ l_t, ⌜r_t = PlaceR l_t t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+    ⌜r_t = PlaceR l_s t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
   Proof.
     iIntros "Hrel".
     destruct r_t as [ | l_t t' T']; first done. iDestruct "Hrel" as "(#H & ->)".
     iDestruct (sc_rel_ptr_source with "H") as "[%Heq Htag]".
-    injection Heq as [= -> ->]. iExists l_s. eauto.
+    injection Heq as [= -> ->]. eauto.
   Qed.
   Lemma rrel_value_source r_t v_s :
     rrel r_t (ValR v_s) -∗
@@ -1037,6 +1204,14 @@ Section val_rel.
     iExists sc_t. iSplitR "Hv"; first done. iRevert "Hv". rewrite /value_rel big_sepL2_singleton. eauto.
   Qed.
 
+  Lemma rrel_singleton_source r_t sc_s :
+    rrel r_t (ValR [sc_s]) -∗
+    ∃ sc_t, ⌜r_t = ValR [sc_t]⌝ ∗ sc_rel sc_t sc_s.
+  Proof.
+    rewrite rrel_value_source. setoid_rewrite value_rel_singleton_source.
+    iDestruct 1 as (v_t -> sc_t ->) "?". eauto.
+  Qed.
+
   Lemma value_rel_lookup v_t v_s (i : nat) :
     i < length v_t →
     value_rel v_t v_s -∗
@@ -1059,6 +1234,60 @@ Section val_rel.
     iDestruct "Hvrel" as "[%Hlen Hvrel]".
     iApply ("Hvrel" $! i (v_t !!! i) (v_s !!! i)).
     all: iPureIntro; apply list_lookup_lookup_total; apply lookup_lt_is_Some_2; lia.
+  Qed.
+
+  (* Unfolding rrel *)
+  Lemma rrel_value_rel v1 v2 :
+    rrel #v1 #v2 ⊣⊢ value_rel v1 v2.
+  Proof. done. Qed.
+  Lemma rrel_sc_rel l1 tg1 T1 l2 tg2 T2 :
+    rrel (PlaceR l1 tg1 T1) (PlaceR l2 tg2 T2)
+    ⊣⊢ sc_rel (ScPtr l1 tg1) (ScPtr l2 tg2) ∧ ⌜ T1 = T2 ⌝.
+  Proof. done. Qed.
+
+  Lemma value_rel_singleton sc_1 sc_2:
+    value_rel [sc_1] [sc_2 ] ⊣⊢ sc_rel sc_1 sc_2.
+  Proof. by rewrite /value_rel /= right_id. Qed.
+  (* Some reflexivity lemmas for [value_rel] and [rrel] *)
+
+  Local Ltac solve_value_rel := rewrite value_rel_singleton; eauto.
+  Lemma value_rel_poison :
+    ⊢ value_rel [☠%S] [☠%S].
+  Proof. solve_value_rel. Qed.
+  Lemma value_rel_int z :
+    ⊢ value_rel [ScInt z] [ScInt z].
+  Proof. solve_value_rel. Qed.
+  Lemma value_rel_fnptr fn :
+    ⊢ value_rel [ScFnPtr fn] [ScFnPtr fn].
+  Proof. solve_value_rel. Qed.
+  Lemma value_rel_callid c :
+    pub_cid c
+    ⊢ value_rel [ScCallId c] [ScCallId c].
+  Proof. rewrite value_rel_singleton. iIntros "Hc"; simpl. eauto. Qed.
+
+  Lemma sc_rel_ptr l tg :
+    match tg with | Tagged t => t $$ tk_pub | Untagged => True end
+    ⊢ sc_rel (ScPtr l tg) (ScPtr l tg).
+  Proof.
+    iIntros "Hr". iSplit; [done|].
+    case_match; [|eauto]. iRight. eauto with iFrame.
+  Qed.
+  Lemma value_rel_ptr l tg :
+    match tg with | Tagged t => t $$ tk_pub | Untagged => True end
+    ⊢ value_rel [ScPtr l tg] [ScPtr l tg].
+  Proof. by rewrite (sc_rel_ptr l) value_rel_singleton. Qed.
+
+  Lemma rrel_place l tg T :
+    match tg with | Tagged t => t $$ tk_pub | Untagged => True end
+    ⊢ rrel (PlaceR l tg T) (PlaceR l tg T).
+  Proof. rewrite (sc_rel_ptr l) rrel_sc_rel. eauto. Qed.
+
+  Lemma value_rel_app v_t1 v_s1 v_t2 v_s2 :
+    value_rel v_t1 v_s1 -∗ value_rel v_t2 v_s2 -∗ value_rel (v_t1 ++ v_t2) (v_s1 ++ v_s2).
+  Proof.
+    iIntros "Hv1 Hv2".
+    iDestruct (value_rel_length with "Hv1") as %EqL.
+    rewrite /value_rel. iApply (big_sepL2_app with "Hv1 Hv2").
   Qed.
 End val_rel.
 

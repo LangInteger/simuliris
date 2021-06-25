@@ -65,8 +65,6 @@ fn funky_loop(x : &mut i32, f, env) {
 
 *)
 
-
-
 Lemma loop_opt1 `{sborGS Σ} π :
   ⊢ sim_ectx π loop_opt loop_unopt rrel.
 Proof.
@@ -75,23 +73,23 @@ Proof.
 
   (* do the projections *)
   source_bind (Proj _ _).
-  destruct r_s; (iApply source_red_irred_unless; first done); last by iIntros "?".
+  destruct r_s as [ v_s | ]; (iApply source_red_irred_unless; first done); last by iIntros "?".
   iIntros "(%i & %sc & %Heq & _ & %Hsc)". injection Heq as [= <-].
-  destruct v as [ | sc_s0 v]; simpl in *; first done. injection Hsc as [= <-].
+  destruct v_s as [ | sc_s0 v_s]; simpl in *; first done. injection Hsc as [= <-].
   source_proj. { simpl. done. }
   source_pures.
 
   source_bind (Proj _ _).
   iApply source_red_irred_unless; first done.
   iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
-  destruct v as [ | sc_s1 v]; simpl in *; first done. injection Hsc' as [= <-].
+  destruct v_s as [ | sc_s1 v_s]; simpl in *; first done. injection Hsc' as [= <-].
   source_proj. { simpl. done. }
   source_pures.
 
   source_bind (Proj _ _).
   iApply source_red_irred_unless; first done.
   iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
-  destruct v as [ | sc_s2 v]; simpl in *; first done. injection Hsc' as [= <-].
+  destruct v_s as [ | sc_s2 v_s]; simpl in *; first done. injection Hsc' as [= <-].
   source_proj. { simpl. done. }
   source_pures.
 

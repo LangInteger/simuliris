@@ -119,7 +119,7 @@ Proof.
   { rewrite lookup_insert. done. }
   { simpl. set_solver. }
   iIntros "Hcall".
-  sim_apply (EndCall _) (EndCall _) (sim_endcall with "[Hcall]") "".
+  sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "[Hcall]") "".
   { replace (delete t_i _) with (∅ : gmap ptr_id (gset loc)); first done.
     apply map_eq. intros t'. rewrite delete_insert_delete delete_insert; done.
   }

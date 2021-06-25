@@ -167,7 +167,7 @@ Section lemmas.
       l_s ↦s∗[tk_local]{nt} replicate (tsize T) ScPoison.
   Proof.
     intros l_t l_s nt Hwf_t' Hwf_s'.
-    iIntros "(% & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Ht_auth & Hs_auth) & Htainted & #Hstate & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Ht_auth & Hs_auth) & Htainted & Hpub_cid & #Hstate & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     destruct Htag_interp as (Htag_interp & Ht_dom& Hs_dom).
     assert (M_tag !! nt = None) as M_tag_none.
     { destruct (M_tag !! nt) as [[? []] | ]eqn:Hs; last done.
@@ -195,6 +195,7 @@ Section lemmas.
     assert (l_s = l_t) as Hl_eq.
     { subst l_s l_t. rewrite (fresh_block_det _ _ Hdom_eq). done. }
     iSplitL "Htainted". { subst nt. rewrite -Hsnp_eq. by iApply tag_tainted_interp_alloc. }
+    iSplitL "Hpub_cid". { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done. }
     iSplitL.
     { (* state rel *)
       rewrite Hl_eq. iApply state_rel_alloc_update; last done.
@@ -241,7 +242,7 @@ Section lemmas.
     ⌜∀ i : nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
     ⌜∀ i:nat, (i < length scs)%nat → bor_state_own (l +ₗ i) t tk_local σ_t⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & ? & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & ? & ? & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -269,7 +270,7 @@ Section lemmas.
     ⌜∀ i : nat, (i < length v_t)%nat → σ_t.(shp) !! (l +ₗ i) = v_t !! i⌝ ∗
     ⌜∀ i:nat, (i < length v_t)%nat → bor_state_own (l +ₗ i) t tk σ_t⌝.
   Proof.
-    iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag Hcall".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -298,7 +299,7 @@ Section lemmas.
     t $$ tk -∗
     ⌜∀ i:nat, (i < length v_t)%nat → loc_controlled (l +ₗ i) t tk (v_t !!! i) σ_t⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -317,7 +318,7 @@ Section lemmas.
     t $$ tk -∗
     ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -338,7 +339,7 @@ Section lemmas.
     ⌜∀ i : nat, (i < length v_s)%nat → σ_s.(shp) !! (l +ₗ i) = v_s !! i⌝ ∗
     ⌜∀ i:nat, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk σ_s⌝.
   Proof.
-    iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag Hcall".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -369,7 +370,7 @@ Section lemmas.
     ⌜∀ i : nat, (i < length v)%nat → σ_s.(shp) !! (l +ₗ i) = v !! i⌝ ∗
     ⌜∀ i:nat, (i < length v)%nat → bor_state_own (l +ₗ i) t tk_local σ_s⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & ? & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & ? & ? & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -495,7 +496,7 @@ Section lemmas.
     l ↦t[tk_local]{t} sc' ∗
     t $$ tk_local.
   Proof.
-    iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom).
@@ -577,7 +578,7 @@ Section lemmas.
     l ↦s[tk_local]{t} sc' ∗
     t $$ tk_local.
   Proof.
-    iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom).
@@ -668,7 +669,7 @@ Section lemmas.
     c @@ M ∗
     t $$ tk_unq.
   Proof.
-    iIntros (Hl) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hl) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Hcall Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hcall".
@@ -766,7 +767,7 @@ Section lemmas.
     c @@ M ∗
     t $$ tk_unq.
   Proof.
-    iIntros (Hl) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hl) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Hcall Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hcall".
@@ -1151,4 +1152,3 @@ Proof.
     eapply tag_unique_head_access. eexists; eauto.
 Qed.
 End lemmas.
-
