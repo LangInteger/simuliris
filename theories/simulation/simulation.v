@@ -72,19 +72,3 @@ End fix_lang.
 
 Global Hint Mode progs_are - - - + + : typeclass_instances.
 Typeclasses Opaque prog_rel.
-
-(** FXME: get rid of this *)
-Section fix_lang.
-  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
-  Context {Λ : language}.
-  Context {s : simulirisGS PROP Λ}.
-
-  Set Default Proof Using "Type*".
-
-  Implicit Types (e_s e_t e: expr Λ).
-
-  Definition sim_ectx `{!Sim PROP Λ} π K_t K_s Φ :=
-    (∀ v_t v_s, ext_rel π v_t v_s -∗ sim Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
-End fix_lang.
-
-Global Arguments sim_ectx : simpl never.
