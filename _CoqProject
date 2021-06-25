@@ -100,7 +100,7 @@ theories/stacked_borrows/proofmode.v
 
 theories/stacked_borrows/wf.v
 theories/stacked_borrows/parallel_subst.v
-theories/stacked_borrows/log_rel.v
+theories/stacked_borrows/log_rel_structural.v
 theories/stacked_borrows/refl.v
 theories/stacked_borrows/behavior.v
 

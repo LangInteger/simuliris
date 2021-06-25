@@ -1,6 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.stacked_borrows Require Import proofmode tactics.
-From simuliris.stacked_borrows Require Import parallel_subst primitive_laws log_rel wf.
+From simuliris.stacked_borrows Require Import parallel_subst primitive_laws log_rel_structural wf.
 From iris.prelude Require Import options.
 
 Definition expr_head_wf (e : expr_head) : Prop :=
@@ -30,8 +30,9 @@ Section log_rel.
 
   Lemma log_rel_var x : ⊢ log_rel (Var x) (Var x).
   Proof.
-    iIntros (? xs) "!# Hs"; simpl.
-    iDestruct (subst_map_rel_lookup x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
+    rewrite /gen_log_rel.
+    iIntros (? xs) "!# Hs _"; simpl.
+    iDestruct (subst_map_rel_lookup _ x with "Hs") as (v_t v_s Hv) "Hrel"; first set_solver.
     rewrite !lookup_fmap Hv /=. sim_val. by iFrame.
   Qed.
 
@@ -42,13 +43,14 @@ Section log_rel.
   Lemma log_rel_let x e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Let x e1_t e2_t) (Let x e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "#Hv". sim_pures. rewrite !subst'_subst_map.
+    iIntros (v_t v_s) "[_ #Hv]". sim_pures. rewrite !subst'_subst_map.
     rewrite -(binder_insert_fmap fst (v_t, v_s)).
     rewrite -(binder_insert_fmap snd (v_t, v_s)).
-    iApply ("IH2" with "[]").
+    iApply ("IH2" with "[]"); last done.
     iApply (subst_map_rel_insert with "[] Hv").
     iApply (subst_map_rel_weaken with "[$]").
     destruct x as [|x]; first set_solver.
@@ -64,6 +66,7 @@ Section log_rel.
 
   Local Ltac solve_rrel_refl :=
     sim_val;
+    try rewrite (left_id True%I);
     first [
       iApply rrel_value_rel;
       first [iApply value_rel_poison|
@@ -104,21 +107,23 @@ Section log_rel.
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2". iIntros (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2". iIntros (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH2 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t1 v_s1) "#Hv1".
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [])".
+    iIntros (v_t1 v_s1) "[_ #Hv1]".
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t2 v_s2) "#Hv2".
+    iIntros (v_t2 v_s2) "[_ #Hv2]".
     discr_source; first by apply call_not_val. val_discr_source "Hv2".
-    iApply (sim_call with "Hv1"). iIntros (??) "Hr". by iApply lift_post_val.
+    iApply (sim_call with "Hv1"). iIntros (??) "Hr". iApply lift_post_val; eauto.
   Qed.
 
   Lemma log_rel_initcall :
     ⊢ log_rel InitCall InitCall.
   Proof.
-    iIntros (? xs) "!# #Hs"; simpl.
+    rewrite /gen_log_rel.
+    iIntros (? xs) "!# #Hs _"; simpl.
     iApply sim_init_call.
     iIntros (c) "Hc". iApply (sim_cid_make_public with "Hc").
     iIntros "#Hsc". solve_rrel_refl. iModIntro. iDestruct "Hsc" as "[_ $]".
@@ -127,13 +132,14 @@ Section log_rel.
   Lemma log_rel_endcall e_t e_s :
     log_rel e_t e_s ⊢ log_rel (EndCall e_t) (EndCall e_s).
   Proof.
-    iIntros "#IH" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "#Hv".
+    iIntros (v_t v_s) "[_ #Hv]".
     discr_source. val_discr_source "Hv".
     iApply (sim_endcall with "Hv").
-    sim_finish. sim_val. iModIntro. iApply value_rel_poison.
+    sim_finish. sim_val. iModIntro. iSplit; first done. iApply value_rel_poison.
   Qed.
 
 
@@ -245,13 +251,14 @@ Section log_rel.
   Lemma log_rel_binop e1_t e1_s e2_t e2_s o :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (BinOp o e1_t e2_t) (BinOp o e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    iIntros (v_t2 v_s2) "[_ Hv2]".
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t1 v_s1) "Hv1".
+    iIntros (v_t1 v_s1) "[_ Hv1]".
     destruct o; sim_pures;
       try (discr_source; val_discr_source "Hv1"; val_discr_source "Hv2";
             sim_pures; solve_rrel_refl).
@@ -262,13 +269,14 @@ Section log_rel.
   Lemma log_rel_proj e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Proj e1_t e2_t) (Proj e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    iIntros (v_t2 v_s2) "[_ Hv2]".
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t1 v_s1) "Hv1".
+    iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv2". val_discr_source "Hv1".
     iDestruct (value_rel_length with "Hv1") as %EqL.
     iDestruct (value_rel_lookup with "Hv1") as (sc_t sc_s Eqt Eqs) "Hsc".
@@ -280,25 +288,27 @@ Section log_rel.
   Lemma log_rel_conc e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Conc e1_t e2_t) (Conc e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    iIntros (v_t2 v_s2) "[_ Hv2]".
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t1 v_s1) "Hv1".
+    iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv2". val_discr_source "Hv1".
-    sim_pures. sim_val.
-    rewrite rrel_value_rel. by iApply (value_rel_app with "Hv1 Hv2").
+    sim_pures. sim_val. iSplitR; first done.
+    rewrite rrel_value_rel. iApply (value_rel_app with "Hv1 Hv2").
   Qed.
 
   Lemma log_rel_deref e_t e_s T :
     log_rel e_t e_s -∗ log_rel (Deref e_t T) (Deref e_s T).
   Proof.
-    iIntros "#IH" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "Hv".
+    iIntros (v_t v_s) "[_ Hv]".
     discr_source. val_discr_source "Hv".
     sim_pures. solve_rrel_refl.
   Qed.
@@ -306,10 +316,11 @@ Section log_rel.
   Lemma log_rel_ref e_t e_s :
     log_rel e_t e_s -∗ log_rel (Ref e_t) (Ref e_s).
   Proof.
-    iIntros "#IH" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "Hv".
+    iIntros (v_t v_s) "[_ Hv]".
     discr_source. val_discr_source "Hv".
     sim_pures. solve_rrel_refl.
   Qed.
@@ -317,13 +328,14 @@ Section log_rel.
   Lemma log_rel_copy e_t e_s :
     log_rel e_t e_s -∗ log_rel (Copy e_t) (Copy e_s).
   Proof.
-    iIntros "#IH" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e_t) (subst_map _ e_s) "(IH [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "Hv".
+    iIntros (v_t v_s) "[_ Hv]".
     discr_source. val_discr_source "Hv".
     iApply (sim_copy_public with "[Hv]"). { by iApply rrel_place. }
-    iIntros (v_t v_s) "Hv". sim_val. done.
+    iIntros (v_t v_s) "Hv". sim_val. eauto.
   Qed.
 
   Lemma log_rel_write e1_t e1_s e2_t e2_s :
@@ -331,13 +343,14 @@ Section log_rel.
     log_rel e2_t e2_s -∗
     log_rel (Write e1_t e2_t) (Write e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    iIntros (v_t2 v_s2) "[_ Hv2]".
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t1 v_s1) "Hv1".
+    iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
     iApply (sim_write_public with "[Hv1] Hv2"). { by iApply rrel_place. }
     solve_rrel_refl.
@@ -348,16 +361,17 @@ Section log_rel.
     log_rel e2_t e2_s -∗
     log_rel (Retag e1_t e2_t pk T k) (Retag e1_s e2_s pk T k).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t2 v_s2) "Hv2".
-    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [])".
+    iIntros (v_t2 v_s2) "[_ Hv2]".
+    smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t1 v_s1) "Hv1".
+    iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
     iApply (sim_retag_public with "[-]"). { by iApply value_rel_ptr. }
-    iIntros (t) "Hv". sim_val. done.
+    iIntros (t) "Hv". sim_val. eauto.
   Qed.
 
   (* TODO: this can be useful elsewhere. It's here because I'm relying on the
@@ -386,12 +400,14 @@ Section log_rel.
     ([∗ list] e_t';e_s' ∈ el_t;el_s, log_rel e_t' e_s') -∗
     log_rel (Case e_t el_t) (Case e_s el_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl subst_map.
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl subst_map.
     iApply sim_case.
-    { iApply "IH1". iApply (subst_map_rel_weaken with "[$]"). set_solver. }
+    { setoid_rewrite (left_id True%I (∗)%I). iApply "IH1"; last done.
+      iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     rewrite big_sepL2_fmap_l big_sepL2_fmap_r.
     iApply (big_sepL2_impl with "IH2").
-    iIntros (i e_t' e_s' Hlt Hls) "!# #He". iApply "He".
+    iIntros (i e_t' e_s' Hlt Hls) "!# #He". iApply "He"; last done.
     iApply (subst_map_rel_weaken with "[$]").
     apply elem_of_list_lookup_2 in Hls, Hlt.
     apply (free_vars_case_2 e_s) in Hls. apply (free_vars_case_2 e_t) in Hlt.
@@ -403,15 +419,17 @@ Section log_rel.
     log_rel e2_t e2_s -∗
     log_rel (While e1_t e2_t) (While e1_s e2_s).
   Proof.
-    iIntros "#IH1 #IH2" (? xs) "!# #Hs"; simpl.
+    rewrite /gen_log_rel.
+    iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
     iApply (sim_while_while emp%I with "[//]").
     iModIntro; iIntros "_".
     iApply sim_case.
-    { iApply "IH1". iApply (subst_map_rel_weaken with "[$]"). set_solver. }
+    { setoid_rewrite (left_id True%I (∗)%I). iApply "IH1"; last done.
+      iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     rewrite big_sepL2_cons big_sepL2_singleton. iSplitL.
     - iApply sim_expr_base. iLeft. iApply (lift_post_val _ (ValR [_]) (ValR [_])).
-      rewrite rrel_value_rel. iApply value_rel_poison.
-    - smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [])".
+      rewrite rrel_value_rel. iSplit; first done. iApply value_rel_poison.
+    - smart_sim_bind (subst_map _ e2_t) (subst_map _ e2_s) "(IH2 [] [//])".
       { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
       iIntros (? ?) "_"; sim_pures. iApply sim_expr_base. iRight. by eauto.
   Qed.
@@ -419,25 +437,28 @@ Section log_rel.
   Lemma log_rel_fork e_t e_s :
     log_rel e_t e_s ⊢ log_rel (Fork e_t) (Fork e_s).
   Proof.
-    iIntros "#IH" (? xs) "!# #Hs"; simpl.
+    rewrite /gen_log_rel.
+    iIntros "#IH" (? xs) "!# #Hs _"; simpl.
     iApply (sim_fork with "[]"). { solve_rrel_refl. }
-    iIntros (?). by iApply "IH".
+    iIntros (?). setoid_rewrite (left_id True%I (∗)%I). by iApply "IH".
   Qed.
 
   Lemma log_rel_alloc T :
     ⊢ log_rel (Alloc T) (Alloc T).
   Proof.
-    iIntros (? xs) "!# #Hs"; simpl. iApply sim_alloc_public.
+    rewrite /gen_log_rel.
+    iIntros (? xs) "!# #Hs _"; simpl. iApply sim_alloc_public.
     iIntros (t l) "Hp Hr". sim_val. by iFrame.
   Qed.
 
   Lemma log_rel_free e_t e_s :
     log_rel e_t e_s ⊢ log_rel (Free e_t) (Free e_s).
   Proof.
-    iIntros "#IH" (? xs) "!# #Hs"; simpl.
-    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [])".
+    rewrite /gen_log_rel.
+    iIntros "#IH" (? xs) "!# #Hs _"; simpl.
+    smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
-    iIntros (v_t v_s) "Hv".
+    iIntros (v_t v_s) "[_ Hv]".
     discr_source. val_discr_source "Hv".
     iApply (sim_free_public with "[Hv]"). { by iApply rrel_place. }
     solve_rrel_refl.
@@ -446,8 +467,9 @@ Section log_rel.
   Lemma log_rel_result v_t v_s :
     rrel v_t v_s ⊢ log_rel (of_result v_t) (of_result v_s).
   Proof.
-    iIntros "#Hv" (? xs) "!# #Hs"; simpl. rewrite !subst_map_of_result.
-    sim_val ; by iFrame.
+    rewrite /gen_log_rel.
+    iIntros "#Hv" (? xs) "!# #Hs _"; simpl. rewrite !subst_map_of_result.
+    sim_val; eauto with iFrame.
   Qed.
 End log_rel.
 
@@ -526,8 +548,8 @@ Section refl.
     log_rel e_t e_s ⊢ e_t ⪯{π} e_s {{ λ v_t v_s, rrel v_t v_s }}.
   Proof.
     iIntros (?) "#Hrel".
-    iApply sim_mono; last iApply (log_rel_closed_1 with "Hrel"); [|done..].
-    iIntros (v_t v_s) "$".
+    iApply sim_mono; last iApply (gen_log_rel_closed_1 with "Hrel"); [|done..].
+    iIntros (v_t v_s) "[_ $]".
   Qed.
 
 End refl.
