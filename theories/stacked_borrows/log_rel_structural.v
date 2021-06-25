@@ -3,6 +3,27 @@ From simuliris.stacked_borrows Require Import proofmode tactics.
 From simuliris.stacked_borrows Require Import parallel_subst primitive_laws wf.
 From iris.prelude Require Import options.
 
+Section tactics.
+Import iris.bi.bi.
+Import iris.proofmode.base environments classes modality_instances.
+Import bi.
+Import env_notations.
+Context {PROP : bi} `{Haffine : BiAffine PROP}.
+Implicit Types Γ : env PROP.
+Implicit Types Δ : envs PROP.
+Implicit Types P Q : PROP.
+
+(* TODO: upstream ? *)
+  Import coq_tactics.
+  Global Instance into_ih_Forall {A} (φ : A → Prop) (l : list A) Δ Φ :
+  (∀ x, x ∈ l → IntoIH (φ x) Δ (Φ x)) → IntoIH (Forall φ l) Δ (∀ x, ⌜x ∈ l⌝ -∗ Φ x) | 2.
+  Proof using PROP Haffine.
+    rewrite /IntoIH Forall_forall => HΔ Hf. apply forall_intro=> x.
+    iIntros "Henv %Hl".  iApply (HΔ with "Henv"); eauto.
+  Qed.
+End tactics.
+
+
 Section log_rel_structural.
   Context `{!sborGS Σ}.
   Context (expr_head_wf : expr_head → Prop).
@@ -22,18 +43,26 @@ Section log_rel_structural.
      ([∗list] e_t';e_s' ∈ head_t.2; head_s.2, log_rel e_t' e_s') -∗
      log_rel e_t e_s).
 
+
   Theorem log_rel_refl e :
     log_rel_structural →
     gen_expr_wf expr_head_wf e →
     ⊢ log_rel e e.
   Proof.
     intros He Hwf.
-    iInduction e as [ ] "IH" using expr_ind forall (Hwf) ; destruct Hwf; iApply He; try done; simpl.
+    iInduction e as [ ] "IH" using expr_ind forall (Hwf); destruct Hwf; iApply He; try done; simpl.
     all: try iDestruct ("IH" with "[%]") as "$".
     all: try iDestruct ("IH1" with "[%]") as "$".
     all: try naive_solver.
     (* [Case] left. *)
-  Admitted.
+    iApply big_sepL2_forall.
+    iSplitR; first done. iIntros (i e1 e2 Hs1 Hs2). simplify_eq.
+    iApply ("IH" with "[] []").
+    - iPureIntro. eapply elem_of_list_lookup; eauto.
+    - iPureIntro. match goal with H : _ ∧ Forall _ _ |- _ => destruct H as [_ Hexprs_wf] end.
+      eapply Forall_lookup_1; last done.
+      move : Hexprs_wf. rewrite Forall_fmap. done.
+  Qed.
 
   Theorem log_rel_ectx K e_t e_s :
     log_rel_structural →
@@ -51,7 +80,11 @@ Section log_rel_structural.
     all: repeat iSplit; try done.
     all: try (iApply log_rel_refl; [naive_solver|]).
     all: try naive_solver.
-  Admitted.
+    iApply big_sepL2_forall. iSplitR; first done.
+    iIntros (i e1 e2 ? ?); simplify_eq.
+    iApply log_rel_refl; first done.
+    eapply Forall_lookup_1; done.
+  Qed.
 
   Theorem log_rel_ctx C e_t e_s :
     log_rel_structural →
@@ -69,10 +102,15 @@ Section log_rel_structural.
     all: repeat iSplit; try done.
     all: try (iApply log_rel_refl; [done|]).
     all: try naive_solver.
-    - admit.
-    - admit.
-    - admit.
-  Admitted.
+
+    all: (iApply big_sepL2_forall; iSplitR; first done).
+    all: iIntros (i e1 e2 ? ?); simplify_eq.
+    all: iApply log_rel_refl; first done.
+    all: eapply Forall_lookup_1; last done.
+    - done.
+    - move: Hiwf. rewrite Forall_app. naive_solver.
+    - move: Hiwf. rewrite Forall_app. naive_solver.
+  Qed.
 
   Corollary sim_refl π m1 m2 e Φ :
     dom (gset _) m1 = dom (gset _) m2 →
