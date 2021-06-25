@@ -1,8 +1,6 @@
 From simuliris.stacked_borrows Require Export defs steps_foreach steps_list.
 From iris.prelude Require Import options.
 
-
-
 Lemma access1_in_stack stk kind t cids n stk' :
    access1 stk kind t cids = Some (n, stk') →
    ∃ it, it ∈ stk ∧ it.(tg) = t ∧ it.(perm) ≠ Disabled.

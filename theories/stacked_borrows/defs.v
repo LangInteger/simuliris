@@ -1,7 +1,9 @@
+From iris.prelude Require Export prelude.
 From simuliris.stacked_borrows Require Export class_instances tactics notation lang bor_semantics.
 From iris.prelude Require Import options.
 
-
+(* Henceforth also in the files importing us we want to use Z_scope. *)
+Global Open Scope Z_scope.
 
 Definition wf_mem_tag (h: mem) (nxtp: ptr_id) :=
   ∀ l l' pid, h !! l = Some (ScPtr l' (Tagged pid)) → (pid < nxtp)%nat.

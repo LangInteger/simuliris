@@ -2,8 +2,6 @@ From simuliris.stacked_borrows Require Export steps_wf.
 From Equations Require Import Equations.
 From iris.prelude Require Import options.
 
-
-
 (* TODO: do we need non-empty condition? ie (tsize T) > 0? *)
 Lemma alloc_head_step P σ T :
   let l := (fresh_block σ.(shp), 0) in
@@ -459,10 +457,10 @@ Proof.
   eexists. split; [done|]. by eapply write_head_step'.
 Qed.
 
-Lemma call_head_step P σ name e K :
-  P !! name = Some K →
+Lemma call_head_step P σ name e arg body :
+  P !! name = Some (arg, body) →
   is_Some (to_result e) →
-  head_step P (Call #[ScFnPtr name] e) σ (fill K e) σ [].
+  head_step P (Call #[ScFnPtr name] e) σ (subst arg e body) σ [].
 Proof. by econstructor; econstructor. Qed.
 
 Lemma init_call_head_step P σ :

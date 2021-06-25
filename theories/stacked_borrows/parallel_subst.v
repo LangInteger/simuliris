@@ -1,5 +1,6 @@
 From stdpp Require Export gmap.
-From simuliris.stacked_borrows Require Export lang notation.
+From iris.prelude Require Import prelude.
+From simuliris.stacked_borrows Require Import expr_semantics.
 
 From iris.prelude Require Import options.
 
@@ -129,6 +130,10 @@ Proof.
     end.
 Qed.
 
+Lemma subst_map_singleton x (r : result) e :
+  subst_map {[x:=r]} e = subst x r e.
+Proof. rewrite -subst_map_subst subst_map_empty //. Qed.
+
 Lemma subst'_subst_map b (r : result) map e :
   subst' b r (subst_map (binder_delete b map) e) =
   subst_map (binder_insert b r map) e.
@@ -169,10 +174,6 @@ Fixpoint free_vars (e : expr) : gset string :=
     (free_vars e) ∪ foldl (λ s ei, s ∪ free_vars ei) ∅ el
   end.
 
-(* Just fill with any value, it does not make a difference. *)
-Definition free_vars_ectx (K : ectx) : gset string :=
-  free_vars (fill K #[☠]).
-
 Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string result) :
   (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
   binder_delete y xs1 !! x = binder_delete y xs2 !! x.
@@ -207,6 +208,10 @@ Proof.
     + etrans; first by apply (IH _ Inel).
       rewrite {2}/free_vars foldl_union_cons -/free_vars. set_solver.
 Qed.
+
+Lemma free_vars_result (r : result) :
+  free_vars r = ∅.
+Proof. by destruct r. Qed.
 
 Lemma subst_map_free_vars (xs1 xs2 : gmap string result) (e : expr) :
   (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
@@ -274,13 +279,4 @@ Proof.
   induction xs as [| x v xs HNone IH] using map_ind.
   - rewrite subst_map_empty. set_solver.
   - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
-Qed.
-
-Lemma free_vars_fill K e :
-  free_vars (fill K e) = free_vars_ectx K ∪ free_vars e.
-Proof.
-  revert e. induction K as [|Ki K IH] using rev_ind; intros e; simpl.
-  { simpl. rewrite /free_vars_ectx /= left_id_L. done. }
-  rewrite /free_vars_ectx !fill_app /=. destruct Ki; simpl.
-  all: rewrite !IH; set_solver+.
 Qed.

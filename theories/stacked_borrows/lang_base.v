@@ -15,7 +15,7 @@ Delimit Scope val_scope with V.
 Delimit Scope sc_scope with S.
 Delimit Scope result_scope with R.
 
-Open Scope Z_scope.
+Local Open Scope Z_scope.
 
 (** Id to track calls *)
 Notation call_id := nat (only parsing).

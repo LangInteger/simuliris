@@ -6,8 +6,7 @@ From iris.prelude Require Import options.
 (** Moving read of mutable reference up across code not using that ref. *)
 
 (* Assuming x : &mut i32 *)
-Definition ex1_unopt : ectx :=
-  (λ: "i",
+Definition ex1_unopt : expr :=
     (* get related values i*)
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (&mut int) "i" in
@@ -33,12 +32,11 @@ Definition ex1_unopt : ectx :=
     Free "x" ;;
 
     (* Finally, return the read value *)
-    "v")%E
+    "v"
   .
 
 
-Definition ex1_opt : ectx :=
-  λ: "i",
+Definition ex1_opt : expr :=
     let: "x" := new_place (&mut int) "i" in
     retag_place "x" (RefPtr Mutable) int Default #[ScCallId 0];;
     Call #[ScFnPtr "f"] #[] ;;
@@ -48,6 +46,7 @@ Definition ex1_opt : ectx :=
     Free "x" ;;
     "v".
 
+(* TODO looks like this lemma should be put elsewhere? *)
 Lemma sim_new_place_local `{sborGS Σ} T v_t v_s π Φ :
   ⌜length v_t = length v_s⌝ -∗
   (∀ t l,
@@ -89,10 +88,11 @@ Qed.
   then we could use the above generic lemma for [new_place].
    currently we don't use it since, in order to apply it, we'd need to use UB that happens during its execution...
 *)
-Lemma sim_opt1 `{sborGS Σ} π :
-  ⊢ sim_ectx π ex1_opt ex1_unopt rrel.
+Lemma sim_opt1 `{sborGS Σ} :
+  ⊢ log_rel ex1_opt ex1_unopt.
 Proof.
-  iIntros (r_t r_s) "Hrel".
+  log_rel.
+  iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
   sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".
   iApply sim_expr_base. sim_pures.
@@ -146,14 +146,15 @@ Proof.
   sim_pures.
 
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  sim_val. iModIntro. destruct Hv_s' as [-> | ->]; iApply big_sepL2_singleton; done.
+  sim_val. iModIntro.
+  iSplit; first done.
+  destruct Hv_s' as [-> | ->]; iApply big_sepL2_singleton; done.
 Qed.
 
 
 (** A variant of this optimization (actually the one from the original formalization)
   which uses deferred UB. *)
-Definition ex1_opt' : ectx :=
-  λ: "i",
+Definition ex1_opt' : expr :=
     let: "x" := new_place (&mut int) "i" in
     retag_place "x" (RefPtr Mutable) int Default #[ScCallId 0];;
     Call #[ScFnPtr "f"] #[] ;;
@@ -164,10 +165,11 @@ Definition ex1_opt' : ectx :=
     Free "x" ;;
     "v".
 
-Lemma sim_opt1' `{sborGS Σ} π :
-  ⊢ sim_ectx π ex1_opt' ex1_unopt rrel.
+Lemma sim_opt1' `{sborGS Σ} :
+  ⊢ log_rel ex1_opt' ex1_unopt.
 Proof.
-  iIntros (r_t r_s) "Hrel".
+  log_rel.
+  iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
   sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".
   iApply sim_expr_base. sim_pures.
@@ -230,5 +232,5 @@ Proof.
   sim_pures.
 
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  sim_val. iModIntro. done.
+  sim_val. eauto.
 Qed.

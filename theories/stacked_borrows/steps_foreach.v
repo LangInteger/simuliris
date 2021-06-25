@@ -1,7 +1,6 @@
 From simuliris.stacked_borrows Require Export defs.
 From iris.prelude Require Import options.
 
-
 Lemma init_mem_foldr' l n h (m: nat):
   init_mem (l +ₗ m) n h =
   fold_right (λ (i: nat) hi, <[(l +ₗ i):=☠%S]> hi) h (seq m n).

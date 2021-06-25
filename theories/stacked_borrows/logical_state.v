@@ -3,12 +3,12 @@ From iris.proofmode Require Export tactics.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_prog.
-From simuliris.simulation Require Export slsls.
+From simuliris.simulation Require Export slsls gen_log_rel.
 From simuliris.simulation Require Import lifting.
-From iris.prelude Require Import options.
 From simuliris.stacked_borrows Require Import tkmap_view.
 From simuliris.stacked_borrows Require Export defs.
 From simuliris.stacked_borrows Require Import steps_progress steps_retag.
+From iris.prelude Require Import options.
 
 (** * BorLang ghost state *)
 Class bor_stateGS Σ := {
@@ -1291,9 +1291,10 @@ Section val_rel.
   Qed.
 End val_rel.
 
+(** Simulation / relation final setup *)
 Class sborGS (Σ: gFunctors) := SBorG {
   (* program assertions *)
-  sborG_gen_progG :> gen_sim_progGS string ectx ectx Σ;
+  sborG_gen_progG :> gen_sim_progGS string (string*expr) (string*expr) Σ;
   sborG_stateG :> bor_stateGS Σ;
 }.
 
@@ -1308,6 +1309,8 @@ Global Program Instance sborGS_simulirisGS `{!sborGS Σ} : simulirisGS (iPropI �
 Next Obligation.
   iIntros (?????????? Hthread Hprim). simpl. eauto.
 Qed.
+
+Notation log_rel := (gen_log_rel rrel (λ _, True%I)).
 
 (** Program assertions *)
 Notation "f '@t' Kt" := (has_fun (hG:=gen_prog_inG_target) f Kt)

@@ -3,8 +3,7 @@ From simuliris.stacked_borrows Require Import primitive_laws proofmode.
 From iris.prelude Require Import options.
 
 (* Assuming p : (&shr i32, T) *)
-Definition loop_unopt : ectx :=
-  (λ: "p",
+Definition loop_unopt : expr :=
     let: "i" := Proj "p" #[0] in
     (* We do not retag "env" as we do not access it.
       For the purpose of this function, it is just "data". *)
@@ -28,12 +27,11 @@ Definition loop_unopt : ectx :=
     Free "x" ;;
 
     (* finally, return something *)
-    #[42])%E
+    #[42]
   .
 
 
-Definition loop_opt : ectx :=
-  (λ: "p",
+Definition loop_opt : expr :=
     let: "i" := Proj "p" #[0] in
     let: "env" := Proj "p" #[1] in
     let: "fn" := Proj "p" #[2] in
@@ -44,7 +42,7 @@ Definition loop_opt : ectx :=
       #[42]
     od;;
     Free "x" ;;
-    #[42])%E
+    #[42]
   .
 
 (*
@@ -65,10 +63,11 @@ fn funky_loop(x : &mut i32, f, env) {
 
 *)
 
-Lemma loop_opt1 `{sborGS Σ} π :
-  ⊢ sim_ectx π loop_opt loop_unopt rrel.
+Lemma loop_opt1 `{sborGS Σ} :
+  ⊢ log_rel loop_opt loop_unopt.
 Proof.
-  iIntros (r_t r_s) "Hrel".
+  log_rel.
+  iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
 
   (* do the projections *)
@@ -189,7 +188,7 @@ Proof.
     sim_pures.
 
     sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-    sim_val. iModIntro. iApply big_sepL2_singleton; done.
+    sim_val. iModIntro. iSplit; first done. iApply big_sepL2_singleton; done.
   - (* another round *)
     source_case. { done. }
     target_case. { done. }

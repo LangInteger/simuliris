@@ -2,8 +2,6 @@ From simuliris.stacked_borrows Require Import helpers.
 From simuliris.stacked_borrows Require Export defs steps_foreach steps_list steps_access.
 From iris.prelude Require Import options.
 
-
-
 Lemma wf_init_state : state_wf init_state.
 Proof.
   constructor; simpl; try (intros ?; set_solver).

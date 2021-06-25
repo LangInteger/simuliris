@@ -52,10 +52,10 @@ Section ctx_rel.
       <hole> will be the function argument. *)
   Definition gen_ctx_rel (e_t e_s : expr) :=
     ∀ (C : ctx) (fname x : string) (p : prog),
-      map_Forall (λ _ K, gen_ectx_wf expr_head_wf K ∧ free_vars_ectx K = ∅) p →
+      map_Forall (λ _ '(arg, body), gen_expr_wf expr_head_wf body ∧ free_vars body ⊆ {[arg]}) p →
       gen_ctx_wf expr_head_wf C →
       free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
-      beh_rel (<[fname := (λ: x, fill_ctx C e_t)%E]> p) (<[fname := (λ: x, fill_ctx C e_s)%E]> p).
+      beh_rel (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).
 
   Lemma sc_rel_obs `{!sborGS Σ} sc_t sc_s :
     sc_rel sc_t sc_s ⊢@{iPropI Σ} ⌜ obs_scalar sc_t sc_s ⌝.

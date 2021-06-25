@@ -1,3 +1,4 @@
+From iris.prelude Require Import prelude.
 From simuliris.stacked_borrows Require Import lang.
 From iris.prelude Require Import options.
 

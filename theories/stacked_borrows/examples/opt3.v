@@ -6,8 +6,7 @@ From iris.prelude Require Import options.
 (** Moving a write to a mutable reference up across unknown code. *)
 
 (* Assuming x : &mut i32 *)
-Definition ex3_unopt : ectx :=
-  λ: "i",
+Definition ex3_unopt : expr :=
     let: "c" := InitCall in
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (&mut int) "i" in
@@ -34,8 +33,7 @@ Definition ex3_unopt : ectx :=
     "v"
   .
 
-Definition ex3_opt : ectx :=
-  λ: "i",
+Definition ex3_opt : expr :=
     let: "c" := InitCall in
     let: "x" := new_place (&mut int) "i" in
     retag_place "x" (RefPtr Mutable) int FnEntry "c";;
@@ -46,10 +44,11 @@ Definition ex3_opt : ectx :=
     "v"
   .
 
-Lemma sim_opt3 `{sborGS Σ} π :
-  ⊢ sim_ectx π ex3_opt ex3_unopt rrel.
+Lemma sim_opt3 `{sborGS Σ} :
+  ⊢ log_rel ex3_opt ex3_unopt.
 Proof.
-  iIntros (r_t r_s) "Hrel".
+  log_rel.
+  iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
   sim_apply InitCall InitCall sim_init_call "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
   sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".

@@ -1,12 +1,12 @@
-From simuliris.simulation Require Import language lifting.
+From simuliris.simulation Require Import language slsls lifting.
 From simuliris.stacked_borrows Require Export lang.
 From simuliris.stacked_borrows Require Import tactics.
-(* TODO should we really import things from the simplang folder here?
+(* TODO we should not import things from the simplang folder here.
   require this for the [forall_equiv_dec] lemma *)
 From simuliris.simplang Require Import base.
 From iris.prelude Require Import options.
 
-
+Local Open Scope Z_scope.
 
 (** * Instances of the [PureExec] class *)
 Section pure_exec.
@@ -49,8 +49,8 @@ Section pure_exec.
   (*Global Instance pure_eq_refl sc1 sc2 :*)
     (*PureExec 1 (BinOp EqOp (#[sc1]) (#[sc2])) (#[false]).*)
 
-  Global Instance pure_proj v i s :
-    PureExec (0 ≤ i ∧ v !! (Z.to_nat i) = Some s) 1 (Proj (Val (v : list scalar)) (#[ScInt i])) (#[s]).
+  Global Instance pure_proj (v : value) i s :
+    PureExec (0 ≤ i ∧ v !! (Z.to_nat i) = Some s) 1 (Proj (Val v) (#[ScInt i])) (#[s]).
   Proof.
     solve_pure_exec. destruct_and!.
     match goal with H1: ?t = Some _, H2: ?t = Some _ |- _ => rewrite H1 in H2 end.

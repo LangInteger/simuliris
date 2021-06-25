@@ -305,7 +305,7 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   end.
 
 (** Global static function table *)
-Definition function := ectx.
+Definition function : Type := string * expr.
 Definition prog := gmap fname function.
 
 (** The stepping relation *)
@@ -491,11 +491,11 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
     0 ≤ i →
     el !! (Z.to_nat i) = Some e →
     pure_expr_step P h (case: #[i] of el) e []
-| CallPS fn e2 K:
-    P !! fn = Some K →
+| CallPS fn e2 arg body:
+    P !! fn = Some (arg, body) →
     is_Some (to_result e2) →
     pure_expr_step P h (Call #[ScFnPtr fn] e2)
-                        (fill K e2) []
+                        (subst arg e2 body) []
 | WhilePS e1 e2 :
     (* unfold by one step *)
     pure_expr_step P h (While e1 e2) (if: e1 then (e2;; while: e1 do e2 od) else #[☠]) []

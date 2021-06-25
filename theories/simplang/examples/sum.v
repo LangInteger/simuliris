@@ -34,10 +34,10 @@ Proof. done. Qed.
 
 (* Sums are encoded as injL x -> (1, x); injR x -> (2, x); the tag encodes the constructor.  *)
 
-Definition inj1_enc : ectx := (λ: "x", (#1, "x"))%E.
-Definition inj2_enc : ectx := (λ: "x", (#2, "x"))%E.
+Definition inj1_enc := (λ: "x", (#1, "x"))%E.
+Definition inj2_enc := (λ: "x", (#2, "x"))%E.
 
-Definition diverge : ectx := (λ: "x", Call "diverge" "x")%E.
+Definition diverge := (λ: "x", Call "diverge" "x")%E.
 
 (** the value relation determining which values can be passed to a function *)
 
@@ -55,12 +55,17 @@ Definition mul2_target :=
         then (Snd "x") + #2
         else Call "diverge" #())%E.
 
-Definition source_prog : gmap string ectx := {[ "inj1_enc" := inj1_enc; "diverge" := diverge; "mul2" := mul2_source ]}.
-Definition target_prog : gmap string ectx := {[ "diverge" := diverge; "mul2" := mul2_target]}.
+Definition source_prog : prog :=
+  {[ "inj1_enc" := inj1_enc; "diverge" := diverge; "mul2" := mul2_source ]}.
+Definition target_prog : prog :=
+  {[ "diverge" := diverge; "mul2" := mul2_target]}.
+
+(* TODO: Do we want this elsewhere (and make [string*expr] a proper type)? *)
+Local Notation call f arg := (subst (fst f) arg (snd f)).
 
 Lemma mul2_sim π:
   ⊢ ∀ v_t v_s, val_rel v_t v_s -∗
-    fill mul2_target (of_val v_t) ⪯{π} fill mul2_source (of_val v_s) {{ λ v_t' v_s', val_rel v_t' v_s' }}.
+    call mul2_target v_t ⪯{π} call mul2_source v_s {{ λ v_t' v_s', val_rel v_t' v_s' }}.
 Proof.
   iIntros (?? Hval). rewrite /mul2_target /mul2_source.
   sim_pures.

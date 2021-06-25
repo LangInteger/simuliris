@@ -120,46 +120,6 @@ Section open_rel.
 
 End open_rel.
 
-(* (** Applies log_rel_subst for each element of [l],
-    introduces the new terms under some fresh names,
-    calls [cont] on the remaining goal,
-    then reverts all the fresh names. *)
-Local Ltac log_rel_subst_l l cont :=
-  match l with
-  | nil => cont ()
-  | ?x :: ?l =>
-    iApply (log_rel_subst _ _ x);
-    let v_t := fresh "v_t" in
-    let v_s := fresh "v_s" in
-    let H := iFresh in
-    iIntros (v_t v_s) "!#";
-    let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
-    iIntros pat;
-    log_rel_subst_l l ltac:(fun _ =>
-      cont ();
-      iRevert (v_t v_s) H
-    )
-  end.
-
-(** Turns an [log_rel] goal into a [sim] goal by applying a
-    suitable substitution. *)
-Ltac log_rel :=
-  iStartProof;
-  lazymatch goal with
-  | |- proofmode.environments.envs_entails _ (log_rel ?val_rel ?town ?e_t ?e_s) =>
-    let h_t := get_head e_t in try unfold h_t;
-    let h_s := get_head e_s in try unfold h_s
-  end;
-  lazymatch goal with
-  | |- proofmode.environments.envs_entails _ (log_rel ?val_rel ?town ?e_t ?e_s) =>
-    let e_t' := W.of_expr e_t in
-    let e_s' := W.of_expr e_s in
-    let free := eval vm_compute in (remove_dups (W.free_vars e_t' ++ W.free_vars e_s')) in
-    log_rel_subst_l free ltac:(fun _ =>
-        simpl; simpl_subst;
-        iApply log_rel_closed; [apply empty_union_L; split; solve_is_closed|])
-  end. *)
-
 Section log_rel_structural.
   Context `{!sborGS Σ}.
   Context (expr_head_wf : expr_head → Prop).

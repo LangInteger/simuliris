@@ -1,13 +1,12 @@
+From iris.bi Require Import bi.
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
 From simuliris.simulation Require Import slsls lifting language.
 From simuliris.stacked_borrows Require Import tactics class_instances.
-From iris.bi Require Import bi.
-Import bi.
-From iris.bi Require Import derived_laws.
-Import bi.
-From iris.prelude Require Import options.
 From simuliris.stacked_borrows Require Export primitive_laws notation.
+From iris.prelude Require Import options.
+
+Import bi.
 
 Section sim.
 Context `{!sborGS Σ}.
@@ -590,4 +589,42 @@ Ltac discr_source :=
   | |- envs_entails _ (source_red _ _) => iApply source_red_irred_unless; [try done | discr ()]
   | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
   | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  end.
+
+(** Applies gen_log_rel_subst for each element of [l],
+    introduces the new terms under some fresh names,
+    calls [cont] on the remaining goal,
+    then reverts all the fresh names. *)
+Local Ltac log_rel_subst_l l cont :=
+  match l with
+  | nil => cont ()
+  | ?x :: ?l =>
+    unshelve iApply (gen_log_rel_subst _ _ x _ _ (ValR [☠%S]) with "[]");
+    [ apply _ (* Persistency of the value relation *)
+    | by iApply value_rel_poison (* [val_rel] for the dummy value *)
+    | let v_t := fresh "v_t" in
+      let v_s := fresh "v_s" in
+      let H := iFresh in
+      iIntros (v_t v_s) "!#";
+      let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
+      iIntros pat;
+      rewrite ->!subst_map_singleton;
+      log_rel_subst_l l ltac:(fun _ =>
+        cont ();
+        iRevert (v_t v_s) H
+      )
+    ]
+  end.
+
+(** Turns an [gen_log_rel] goal into a [sim] goal by applying a
+    suitable substitution. *)
+Ltac log_rel :=
+  iStartProof;
+  lazymatch goal with
+  | |- proofmode.environments.envs_entails _ (gen_log_rel ?val_rel ?town ?e_t ?e_s) =>
+    let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
+    log_rel_subst_l free ltac:(fun _ =>
+        iApply gen_log_rel_closed;
+        (* TODO: use proper reflection instead of rewriting *)
+        [simpl; rewrite !free_vars_result; compute_done|])
   end.

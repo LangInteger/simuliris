@@ -1520,9 +1520,9 @@ Qed.
 
 
 (** operational lemmas for calls *)
-Lemma target_red_call f K_t v Ψ :
-  f @t K_t -∗
-  target_red (fill K_t #v) Ψ -∗
+Lemma target_red_call f arg body v Ψ :
+  f @t (arg, body) -∗
+  target_red (subst arg #v body) Ψ -∗
   target_red (Call #[ScFnPtr f] #v) Ψ.
 Proof.
   iIntros "Hf Hred". iApply target_red_lift_head_step.
@@ -1533,9 +1533,9 @@ Proof.
   iModIntro. by iFrame.
 Qed.
 
-Lemma source_red_call π f K_s v Ψ :
-  f @s K_s -∗
-  source_red (fill K_s #v) π Ψ -∗
+Lemma source_red_call π f arg body v Ψ :
+  f @s (arg, body) -∗
+  source_red (subst arg #v body) π Ψ -∗
   source_red (Call #[ScFnPtr f] #v) π Ψ.
 Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.

@@ -2,7 +2,7 @@ From simuliris.simulation Require Export language.
 From iris.algebra Require Import ofe.
 From iris.prelude Require Import options.
 
-From simuliris.stacked_borrows Require Export expr_semantics bor_semantics.
+From simuliris.stacked_borrows Require Export expr_semantics bor_semantics parallel_subst.
 
 
 
@@ -477,7 +477,7 @@ Proof.
   exists K''. unfold ectx_compose. cbn. by rewrite assoc.
 Qed.
 
-Lemma bor_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill head_step.
+Lemma bor_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill subst_map free_vars head_step.
 Proof.
   constructor.
   - apply to_of_class.
@@ -487,9 +487,15 @@ Proof.
     + cbn. inversion 1; subst;
       (rename select (pure_expr_step _ _ _ _ _) into Hstep ||
        rename select (mem_expr_step _ _ _ _ _ _) into Hstep);
-      inversion_clear Hstep;
-      subst. eauto.
-    + intros (K & ? & -> & -> & ->). cbn. constructor; constructor; [done | rewrite to_of_result; eauto].
+      inversion_clear Hstep; subst.
+      eexists _, _. rewrite subst_map_singleton. eauto.
+    + intros (arg & body & ? & -> & -> & ->). cbn.
+      rewrite subst_map_singleton.
+      constructor; constructor; [done | rewrite to_of_result; eauto].
+  - eapply subst_map_empty.
+  - eapply subst_map_subst_map.
+  - eapply subst_map_free_vars.
+  - eapply free_vars_subst_map.
   - done.
   - intros ???. by rewrite -fill_app.
   - apply fill_inj.
@@ -546,12 +552,3 @@ Definition retag_place
   (* read the current pointer stored in the place [p] *)
   (* retag and update [p] with the pointer with new tag *)
   "p" <- Retag (Copy "p") c pk T kind.
-
-(* The breaking point '/  ' makes sure that the body of the λ: is indented
-by two spaces in case the whole λ: does not fit on a single line. *)
-(* Note: this is a context for use with the function call mechanism of SimpLang. *)
-(* FIXME: why is this not in notation.v? *)
-Notation "λ: x , e" := ([LetEctx x%binder e%E])
-  (at level 200, x at level 1, e at level 200,
-   format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
-Bind Scope expr_scope with ectx.

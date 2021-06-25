@@ -11,8 +11,7 @@ From iris.prelude Require Import options.
  *)
 
 (* Assuming x : & i32 *)
-Definition ex2_unopt : ectx :=
-  λ: "i",
+Definition ex2_unopt : expr :=
     let: "c" := InitCall in
 
     (* "x" is the local variable that stores the pointer value "i" *)
@@ -39,8 +38,7 @@ Definition ex2_unopt : ectx :=
     "v"
   .
 
-Definition ex2_opt : ectx :=
-  λ: "i",
+Definition ex2_opt : expr :=
     let: "c" := InitCall in
     let: "x" := new_place (& int) "i" in
     retag_place "x" (RefPtr Immutable) int FnEntry "c";;
@@ -51,10 +49,11 @@ Definition ex2_opt : ectx :=
     "v"
   .
 
-Lemma sim_opt2 `{sborGS Σ} π :
-  ⊢ sim_ectx π ex2_opt ex2_unopt rrel.
+Lemma sim_opt2 `{sborGS Σ} :
+  ⊢ log_rel ex2_opt ex2_unopt.
 Proof.
-  iIntros (r_t r_s) "Hrel".
+  log_rel.
+  iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
   sim_apply InitCall InitCall (sim_init_call) "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
 
@@ -118,7 +117,8 @@ Proof.
     apply map_eq. intros t'. rewrite delete_insert_delete delete_insert; done.
   }
   sim_pures.
-  sim_val. iModIntro. destruct Hv_s' as [-> | ->]; first done.
+  sim_val. iModIntro. iSplit; first done.
+  destruct Hv_s' as [-> | ->]; first done.
   iApply big_sepL2_forall. iSplit. { rewrite replicate_length. iPureIntro. lia. }
   iIntros (k sc_t sc_s). rewrite lookup_replicate. iIntros "Hsc (-> & _)".
   destruct sc_t; done.
@@ -126,8 +126,7 @@ Qed.
 
 
 (* Assuming x : & i32 *)
-Definition ex2_unopt' : ectx :=
-  λ: "i",
+Definition ex2_unopt' : expr :=
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (& int) "i" in
     (* (x, Tagged pid_x) ↦{tk_local} i *)
@@ -151,8 +150,7 @@ Definition ex2_unopt' : ectx :=
     "v"
   .
 
-Definition ex2_opt' : ectx :=
-  λ: "i",
+Definition ex2_opt' : expr :=
     let: "x" := new_place (& int) "i" in
     retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
     let: "v" := Copy *{int} "x" in
@@ -162,10 +160,11 @@ Definition ex2_opt' : ectx :=
   .
 
 
-Lemma sim_opt2' `{sborGS Σ} π :
-  ⊢ sim_ectx π ex2_opt' ex2_unopt' rrel.
+Lemma sim_opt2' `{sborGS Σ} :
+  ⊢ log_rel ex2_opt' ex2_unopt'.
 Proof.
-  iIntros (r_t r_s) "Hrel".
+  log_rel.
+  iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
 
   sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".
@@ -220,5 +219,5 @@ Proof.
 
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
 
-  sim_val. iModIntro. done.
+  sim_val. eauto.
 Qed.
