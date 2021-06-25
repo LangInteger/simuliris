@@ -9,8 +9,9 @@ Import bi.
 
 (** * Logical relation
 
-    General definition of [log_rel] which lifts the simulation relation (the
-    "expression relation") to open terms.on open terms. *)
+    General definition of [prog_rel], relating whole programs, and [log_rel]
+    which lifts the simulation relation (the "expression relation") to open
+    terms.on open terms. *)
 
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
@@ -35,7 +36,6 @@ Section fix_lang.
   Global Instance prog_rel_persistent P_t P_s : Persistent (prog_rel P_t P_s).
   Proof. rewrite /prog_rel; apply _. Qed.
 
-  
   (** Relation on "contexts", lifted from a value relation:
       Well-formed substitutions closing source and target, with [X] denoting the
       free variables. *)

@@ -71,6 +71,22 @@ Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dis
 
 (** * SLSLS, Separation Logic Stuttering Local Simulation *)
 
+
+(* parameterized over "external" relation that restricts values passed to and
+from external function calls *)
+(* TODO: Hint Mode? *)
+Class simulirisGS (PROP : bi) (Λ : language) := SimulirisGS {
+  (* state interpretation *)
+  state_interp : prog Λ → state Λ → prog Λ → state Λ → list (expr Λ) → PROP;
+  state_interp_pure_prim_step P_t σ_t P_s σ_s e_s T π e_s':
+    T !! π = Some e_s →
+    (∀ σ_s, prim_step P_s e_s σ_s e_s' σ_s []) →
+    state_interp P_t σ_t P_s σ_s T -∗
+    state_interp P_t σ_t P_s σ_s (<[π:=e_s']>T);
+  (* external function call relation *)
+  ext_rel : thread_id → val Λ → val Λ → PROP;
+}.
+
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
@@ -85,15 +101,21 @@ Section fix_lang.
 
   Notation expr_rel := (@exprO Λ -d> @exprO Λ -d> PROP).
 
-  Global Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
+  Local Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
     (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) F).
   Proof.
     intros n Φ Φ' HΦ π π' ->%discrete_iff%leibniz_equiv e_t e_t' ->%discrete_iff%leibniz_equiv e_s e_s' ->%discrete_iff%leibniz_equiv; [|apply _..].
     eapply Hne, HΦ.
   Qed.
 
+  (** We do *not* index everything by the program function tables, instead we
+  expect the state interpretation to record that information in ghost state. *)
+  Definition progs_are (P_t P_s : prog Λ) : PROP :=
+    (□ ∀ P_t' P_s' σ_t σ_s T_s, state_interp P_t' σ_t P_s' σ_s T_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
 
-
+  Global Instance progs_are_persistent (P_s P_t : prog Λ) :
+    Persistent (progs_are P_s P_t).
+  Proof. rewrite /progs_are; apply _. Qed.
 
   (** Simulation relation with stuttering *)
   Definition lift_post (Φ: val Λ → val Λ → PROP) :=
@@ -300,10 +322,11 @@ Section fix_lang.
 
   End sim_def.
 
-  (** Instantiate Sim typeclasses *)
+  (** Instantiate Sim typeclasses. Instances are local, see hitn and comment at
+  the bottom of this file. *)
   Definition sim_expr_aux : seal greatest_def.
   Proof. by eexists. Qed.
-  Global Instance sim_expr_stutter : SimE PROP Λ := (sim_expr_aux).(unseal).
+  Local Instance sim_expr_stutter : SimE PROP Λ := (sim_expr_aux).(unseal).
   Lemma sim_expr_eq : sim_expr = λ Φ π e_t e_s, @greatest_def Φ π e_t e_s.
   Proof. rewrite -sim_expr_aux.(seal_eq) //. Qed.
 
@@ -311,7 +334,7 @@ Section fix_lang.
   Proof. iIntros "?"; iExists v_t, v_s; eauto using to_of_val. Qed.
   Definition sim_def (Φ : val Λ → val Λ → PROP) π e_t e_s  :=
     sim_expr (lift_post Φ) π e_t e_s.
-  Global Instance sim_stutter : Sim PROP Λ := sim_def.
+  Local Instance sim_stutter : Sim PROP Λ := sim_def.
 
   Lemma sim_expr_fixpoint Φ π e_t e_s:
     sim_expr Φ π e_t e_s ⊣⊢ sim_expr_inner sim_expr sim_expr Φ π e_t e_s.
@@ -1237,3 +1260,8 @@ Section fix_lang.
 End fix_lang.
 
 Arguments lift_post : simpl never.
+
+(** Coq gives up TC search prematurely for our Sim/SimE instances, so declare
+them as hint extern instead. See <https://github.com/coq/coq/pull/13952>. *)
+Global Hint Extern 0 (Sim _ _) => apply sim_stutter : typeclass_instances.
+Global Hint Extern 0 (SimE _ _) => apply sim_expr_stutter : typeclass_instances.

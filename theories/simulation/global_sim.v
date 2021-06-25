@@ -4,9 +4,10 @@ From iris.bi Require Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import fixpoints.
 From simuliris.simulation Require Import relations language.
-From simuliris.simulation Require Export simulation slsls.
+From simuliris.simulation Require Export simulation slsls gen_log_rel.
 From iris.prelude Require Import options.
 Import bi.
+
 
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
@@ -22,7 +23,7 @@ Section fix_lang.
 
   Notation expr_rel := (@exprO Λ -d> @exprO Λ -d> PROP).
 
-  Global Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
+  Local Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
     (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) F).
   Proof.
     intros n Φ Φ' HΦ π π' ->%discrete_iff%leibniz_equiv e_t e_t' ->%discrete_iff%leibniz_equiv e_s e_s' ->%discrete_iff%leibniz_equiv; [|apply _..].

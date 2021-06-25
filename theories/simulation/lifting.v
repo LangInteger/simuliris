@@ -390,8 +390,8 @@ Section fix_sim.
   Lemma sim_irred_unless ϕ e_s e_t Φ π :
     (∀ P_s σ_s, IrredUnless ϕ P_s e_s σ_s) →
     to_val e_s = None →
-    (⌜ϕ⌝ -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
-    e_t ⪯{π} e_s [{ Φ }].
+    (⌜ϕ⌝ -∗ e_t ⪯{π} e_s [{ Φ }]) ⊢@{PROP}
+     e_t ⪯{π} e_s [{ Φ }].
   Proof.
     intros Hunless Hval. iIntros "Hs".
     rewrite sim_expr_unfold /safe.

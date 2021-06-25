@@ -1,5 +1,5 @@
 From iris.prelude Require Export prelude.
-From simuliris.stacked_borrows Require Export class_instances tactics notation lang bor_semantics.
+From simuliris.stacked_borrows Require Export tactics notation lang bor_semantics.
 From iris.prelude Require Import options.
 
 (* Henceforth also in the files importing us we want to use Z_scope. *)
