@@ -6,7 +6,8 @@ From iris.prelude Require Import options.
 
 (** * Structural value relation
 This file defines [gen_val_rel] that structually lifts a relation
-[loc_rel] on locations to values. *)
+[loc_rel] on locations to values. It is used by [sheap] instances to define
+[sheap_val_rel]. *)
 
 Section gen_val_rel.
   Context {Σ} (loc_rel : loc → loc → iProp Σ).

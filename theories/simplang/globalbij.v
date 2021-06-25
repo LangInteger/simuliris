@@ -1,6 +1,6 @@
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import primitive_laws gen_log_rel gen_val_rel.
+From simuliris.simplang Require Import primitive_laws gen_val_rel.
 From iris.prelude Require Import options.
 
 (** * Bijection between global variables
@@ -13,7 +13,8 @@ Section globalbij.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
   Context (loc_rel : loc → loc → iProp Σ) {Hpers : ∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
   Context (thread_own : thread_id → iProp Σ).
-  Let log_rel := (gen_log_rel loc_rel thread_own).
+  Local Notation val_rel := (gen_val_rel loc_rel).
+  Local Notation log_rel := (gen_log_rel val_rel thread_own).
 
   Definition globalbij_interp : iProp Σ :=
      ∃ gs_t gs_s, ⌜gs_s ⊆ gs_t⌝ ∗ target_globals gs_t ∗ source_globals gs_s ∗
@@ -50,6 +51,7 @@ Section globalbij.
     sheap_inv_contains_globalbij →
     ⊢ log_rel (GlobalVar x) (GlobalVar x).
   Proof using Hpers.
+    rewrite /log_rel /gen_log_rel.
     iIntros (Hrel ? xs) "!# Hs Ht"; simpl.
     iApply source_red_sim_expr. iApply source_red_global'; [done|]. iIntros "#Hg_t #Hg_s Hv".
     iApply source_red_base. iModIntro.

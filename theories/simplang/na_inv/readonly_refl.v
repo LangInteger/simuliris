@@ -1,6 +1,6 @@
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import gen_log_rel gen_refl pure_refl wf.
+From simuliris.simplang Require Import log_rel_structural gen_refl pure_refl wf.
 From simuliris.simplang.na_inv Require Export inv.
 From iris.prelude Require Import options.
 
@@ -53,7 +53,8 @@ Section refl.
   Definition readonly_thread_own ms col (π : thread_id) : iProp Σ :=
     ⌜na_locs_in_mapsto_list ms col⌝ ∗ na_locs π col ∗ mapsto_list ms.
 
-  Theorem readonly_log_rel_structural ms col : log_rel_structural heapbij.loc_rel (readonly_thread_own ms col) readonly_wf.
+  Theorem readonly_log_rel_structural ms col :
+    log_rel_structural heapbij.loc_rel (readonly_thread_own ms col) readonly_wf.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //; simpl in Hs; simplify_eq.

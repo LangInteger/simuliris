@@ -1,12 +1,9 @@
-From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel wf.
-From iris Require Import bi.bi.
 From iris.proofmode Require Import tactics.
-From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang.na_inv Require Export inv.
-From simuliris.simplang.na_inv Require Import refl.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
+From simuliris.simplang Require Import lang notation tactics class_instances
+  proofmode log_rel_structural.
+From simuliris.simplang.na_inv Require Export inv readonly_refl refl.
 From iris.prelude Require Import options.
-
-Import bi.
 
 Section remove_alloc.
   Context `{naGS Σ}.
@@ -31,9 +28,9 @@ Section remove_alloc.
     free_vars e1 ⊆ list_to_set ["n"] →
     free_vars e2 ⊆ list_to_set ["n"] →
     free_vars e3 ⊆ list_to_set ["n"] →
-    gen_expr_wf expr_head_wf e1 →
-    gen_expr_wf expr_head_wf e2 →
-    gen_expr_wf expr_head_wf e3 →
+    expr_wf e1 →
+    expr_wf e2 →
+    expr_wf e3 →
     ⊢ log_rel (remove_alloc_opt e1 e2 e3) (remove_alloc e1 e2 e3).
   Proof.
     move => He1 He2 He3 ???. log_rel.

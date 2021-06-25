@@ -1,10 +1,11 @@
 From iris.proofmode Require Import tactics.
 From iris.bi.lib Require Import fractional.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
-From simuliris.simplang Require Export class_instances primitive_laws heapbij gen_val_rel gen_log_rel globalbij.
+From simuliris.simplang Require Export class_instances primitive_laws heapbij
+  gen_val_rel globalbij.
 
 From iris.prelude Require Import options.
 
@@ -15,7 +16,7 @@ Class simpleGS (Σ : gFunctors) := SimpleGS {
 }.
 
 Notation val_rel := (gen_val_rel loc_rel).
-Notation log_rel := (gen_log_rel loc_rel (λ _, True%I)).
+Notation log_rel := (gen_log_rel val_rel (λ _, True%I)).
 
 Section fix_heap.
   Context `{!simpleGS Σ}.

@@ -1,11 +1,9 @@
-From simuliris.simplang Require Import lang notation tactics class_instances proofmode gen_log_rel.
-From iris Require Import bi.bi.
 From iris.proofmode Require Import tactics.
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
+From simuliris.simplang Require Import lang notation tactics class_instances
+  proofmode log_rel_structural.
 From simuliris.simplang.na_inv Require Export inv readonly_refl.
 From iris.prelude Require Import options.
-
-Import bi.
 
 (** * Eliminations and reorderings from "Program Transformations in Weak Memory Models" by Jaroslav Sevcik *)
 

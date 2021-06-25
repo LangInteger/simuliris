@@ -68,6 +68,7 @@ Qed.
 Notation NonExpansive3 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) f).
 Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) f).
 
+(** * SLSLS, Separation Logic Stuttering Local Simulation *)
 
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
@@ -298,9 +299,10 @@ Section fix_lang.
 
   End sim_def.
 
+  (** Instantiate Sim typeclasses *)
   Definition sim_expr_aux : seal greatest_def.
   Proof. by eexists. Qed.
-  Global Instance sim_expr_stutter : SimE s := (sim_expr_aux).(unseal).
+  Global Instance sim_expr_stutter : SimE PROP Λ := (sim_expr_aux).(unseal).
   Lemma sim_expr_eq : sim_expr = λ Φ π e_t e_s, @greatest_def Φ π e_t e_s.
   Proof. rewrite -sim_expr_aux.(seal_eq) //. Qed.
 
@@ -308,7 +310,7 @@ Section fix_lang.
   Proof. iIntros "?"; iExists v_t, v_s; eauto using to_of_val. Qed.
   Definition sim_def (Φ : val Λ → val Λ → PROP) π e_t e_s  :=
     sim_expr (lift_post Φ) π e_t e_s.
-  Global Instance sim_stutter : Sim s := sim_def.
+  Global Instance sim_stutter : Sim PROP Λ := sim_def.
 
   Lemma sim_expr_fixpoint Φ π e_t e_s:
     sim_expr Φ π e_t e_s ⊣⊢ sim_expr_inner sim_expr sim_expr Φ π e_t e_s.
@@ -343,10 +345,10 @@ Section fix_lang.
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
         ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
         ext_rel π v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
-        sim_expr_ectx π K_t K_s' Φ)
+        (∀ v_t v_s, ext_rel π v_t v_s -∗ sim_expr Φ π (fill K_t (of_val v_t)) (fill K_s' (of_val v_s))))
     )%I.
   Proof.
-    rewrite /sim_expr_ectx sim_expr_fixpoint /sim_expr_inner //.
+    rewrite sim_expr_fixpoint /sim_expr_inner //.
   Qed.
 
   (* FIXME: should use [pointwise_relation] *)
@@ -921,14 +923,6 @@ Section fix_lang.
   Proof.
     iIntros "Hmon" (E_s E_t) "HE %v_t %v_s Hv".
     iApply (sim_mono with "Hmon"). iApply "HE". done.
-  Qed.
-
-  Lemma sim_expr_ectx_mono Φ Φ' π :
-    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
-    ∀ E_s E_t, sim_expr_ectx π E_t E_s Φ -∗ sim_expr_ectx π E_t E_s Φ'.
-  Proof.
-    iIntros "Hmon" (E_s E_t) "HE %v_t %v_s Hv".
-    iApply (sim_expr_mono with "Hmon"). iApply "HE". done.
   Qed.
 
   (** ** source_red judgment *)

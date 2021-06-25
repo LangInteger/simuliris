@@ -20,16 +20,6 @@ Section fix_lang.
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ).
 
-  Definition prog_rel P_t P_s : PROP :=
-    (□ ∀ f x_s e_s, ⌜P_s !! f = Some (x_s, e_s)⌝ →
-       ∃ x_t e_t, ⌜P_t !! f = Some (x_t, e_t)⌝ ∗
-         ∀ v_t v_s π, ext_rel π v_t v_s -∗
-           (subst_map {[x_t:=v_t]} e_t) ⪯{π} (subst_map {[x_s:=v_s]} e_s) {{ ext_rel π }})%I.
-  Typeclasses Opaque prog_rel.
-
-  Global Instance prog_rel_persistent P_s P_t : Persistent (prog_rel P_s P_t).
-  Proof. rewrite /prog_rel; apply _. Qed.
-
   Notation expr_rel := (@exprO Λ -d> @exprO Λ -d> PROP).
 
   Global Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
@@ -688,7 +678,6 @@ Section fix_lang.
       iApply sim_expr_bind. iDestruct ("Hloc" $! _ _ _ Hdef_s) as (x_f_t' e_f_t') "[% Hectx]".
       replace x_f_t' with x_f_t by naive_solver.
       replace e_f_t' with e_f_t by naive_solver.
-      rewrite /sim_ectx.
       iApply (sim_expr_mono with "[-Hval] [Hval]"); last by iApply "Hectx".
       iIntros (e_t' e_s'). iDestruct 1 as (v_t' v_s' -> ->) "Hval".
       rewrite sim_expr_eq. by iApply "Hcont".
@@ -710,5 +699,3 @@ Section fix_lang.
     iIntros (??) "Hrel". iApply "Hsim". done.
   Qed.
 End fix_lang.
-
-Typeclasses Opaque prog_rel.

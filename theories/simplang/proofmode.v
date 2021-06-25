@@ -1,14 +1,12 @@
 From iris.proofmode Require Import coq_tactics reduction.
 From iris.proofmode Require Export tactics.
-From simuliris.simulation Require Import slsls lifting language.
+From simuliris.simulation Require Import slsls lifting language gen_log_rel.
 From simuliris.simplang Require Import tactics class_instances.
 From simuliris.simplang Require Export notation primitive_laws.
 From iris.bi Require Import bi.
-Import bi.
-From iris.bi Require Import derived_laws.
-Import bi.
 From iris.prelude Require Import options.
 
+Import bi.
 
 Section sim.
 Context `{!sheapGS Σ} `{sheapInv Σ}.
@@ -1133,4 +1131,50 @@ Tactic Notation "reach_or_stuck_fill" open_constr(efoc) :=
                            unify e' efoc;
                            eapply (fill_reach_or_stuck _ e' _ _ K)
                         )
+  end.
+
+
+(** Applies gen_log_rel_subst for each element of [l],
+    introduces the new terms under some fresh names,
+    calls [cont] on the remaining goal,
+    then reverts all the fresh names. *)
+Local Ltac log_rel_subst_l l cont :=
+  match l with
+  | nil => cont ()
+  | ?x :: ?l =>
+    unshelve iApply (gen_log_rel_subst _ _ x _ _ #() with "[]");
+    [ apply _ (* Persistency of the value relation *)
+    | done (* [val_rel] for the dummy value *)
+    | let v_t := fresh "v_t" in
+      let v_s := fresh "v_s" in
+      let H := iFresh in
+      iIntros (v_t v_s) "!#";
+      let pat := constr:(intro_patterns.IIntuitionistic (intro_patterns.IIdent H)) in
+      iIntros pat;
+      rewrite ->!subst_map_singleton;
+      log_rel_subst_l l ltac:(fun _ =>
+        cont ();
+        iRevert (v_t v_s) H
+      )
+    ]
+  end.
+
+(** Turns an [gen_log_rel] goal into a [sim] goal by applying a
+    suitable substitution. *)
+Ltac log_rel :=
+  iStartProof;
+  lazymatch goal with
+  | |- proofmode.environments.envs_entails _ (gen_log_rel ?val_rel ?town ?e_t ?e_s) =>
+    let h_t := get_head e_t in try unfold h_t;
+    let h_s := get_head e_s in try unfold h_s
+  end;
+  lazymatch goal with
+  | |- proofmode.environments.envs_entails _ (gen_log_rel ?val_rel ?town ?e_t ?e_s) =>
+    let e_t' := W.of_expr e_t in
+    let e_s' := W.of_expr e_s in
+    let free := eval vm_compute in (remove_dups (W.free_vars e_t' ++ W.free_vars e_s')) in
+    log_rel_subst_l free ltac:(fun _ =>
+        (* FIXME: we shouldn't [simpl] the entire user goal! that can have bad side-effects. *)
+        simpl; simpl_subst;
+        iApply gen_log_rel_closed; [apply empty_union_L; split; solve_is_closed|])
   end.

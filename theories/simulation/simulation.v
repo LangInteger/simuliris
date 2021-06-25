@@ -1,5 +1,6 @@
 
 From iris.bi Require Import bi lib.fixpoint.
+From iris.prelude Require Import prelude.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import relations language.
 From iris.prelude Require Import options.
@@ -20,25 +21,14 @@ Class simulirisGS (PROP : bi) (Λ : language) := SimulirisGS {
   ext_rel : thread_id → val Λ → val Λ → PROP;
 }.
 
-Definition progs_are {Λ PROP} `{simulirisGS PROP Λ} (P_t P_s : prog Λ) : PROP :=
-  (□ ∀ P_t' P_s' σ_t σ_s T_s, state_interp P_t' σ_t P_s' σ_s T_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
-#[global]
-Hint Mode progs_are - - - + + : typeclass_instances.
-Typeclasses Opaque progs_are.
-
-Global Instance progs_are_persistent {Λ} {PROP} `{s : simulirisGS PROP Λ}
-    (P_s P_t : prog Λ) :
-  Persistent (@progs_are Λ PROP s P_s P_t).
-Proof. rewrite /progs_are; apply _. Qed.
-
 (** Typeclass for the simulation relation so we can use the definitions with
    greatest+least fp (stuttering) or just greatest fp (no stuttering). *)
-Class Sim {PROP : bi} {Λ : language} (s : simulirisGS PROP Λ) :=
+Class Sim (PROP : bi) (Λ : language) {s : simulirisGS PROP Λ} :=
   sim : (val Λ → val Λ → PROP) → thread_id → expr Λ → expr Λ → PROP.
 #[global]
 Hint Mode Sim - - - : typeclass_instances.
 
-Class SimE {PROP : bi} {Λ : language} (s : simulirisGS PROP Λ) :=
+Class SimE (PROP : bi) (Λ : language) {s : simulirisGS PROP Λ} :=
   sim_expr : (expr Λ → expr Λ → PROP) → thread_id → expr Λ → expr Λ → PROP.
 #[global]
 Hint Mode SimE - - - : typeclass_instances.
@@ -57,15 +47,33 @@ Notation "et '⪯{' π '}' es [{ Φ }]" := (sim_expr Φ π et es) (at level 40, 
 
 
 
+Section fix_lang.
+  Context {PROP : bi}.
+  Context {Λ : language}.
+  Context `{!simulirisGS PROP Λ}.
 
-(* discrete OFE instance for expr and thread_id *)
-Definition exprO {Λ : language} := leibnizO (expr Λ).
-Instance expr_equiv {Λ} : Equiv (expr Λ). apply exprO. Defined.
+  Definition progs_are (P_t P_s : prog Λ) : PROP :=
+    (□ ∀ P_t' P_s' σ_t σ_s T_s, state_interp P_t' σ_t P_s' σ_s T_s → ⌜P_t' = P_t⌝ ∧ ⌜P_s' = P_s⌝)%I.
 
-Definition thread_idO := leibnizO thread_id.
-Instance thread_id_equiv : Equiv thread_id. apply thread_idO. Defined.
+  Global Instance progs_are_persistent (P_s P_t : prog Λ) :
+    Persistent (progs_are P_s P_t).
+  Proof. rewrite /progs_are; apply _. Qed.
 
-(** * SLSLS, Separation Logic Stuttering Local Simulation *)
+  (** Lift simulation to whole-program relation *)
+  Definition prog_rel `{!Sim PROP Λ} (P_t P_s : prog Λ) : PROP :=
+    (□ ∀ f x_s e_s, ⌜P_s !! f = Some (x_s, e_s)⌝ →
+       ∃ x_t e_t, ⌜P_t !! f = Some (x_t, e_t)⌝ ∗
+         ∀ v_t v_s π, ext_rel π v_t v_s -∗
+           (subst_map {[x_t:=v_t]} e_t) ⪯{π} (subst_map {[x_s:=v_s]} e_s) {{ ext_rel π }})%I.
+
+  Global Instance prog_rel_persistent `{!Sim PROP Λ} P_t P_s : Persistent (prog_rel P_t P_s).
+  Proof. rewrite /prog_rel; apply _. Qed.
+End fix_lang.
+
+Global Hint Mode progs_are - - - + + : typeclass_instances.
+Typeclasses Opaque prog_rel.
+
+(** FXME: get rid of this *)
 Section fix_lang.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
   Context {Λ : language}.
@@ -75,11 +83,8 @@ Section fix_lang.
 
   Implicit Types (e_s e_t e: expr Λ).
 
-  Definition sim_ectx `{!Sim s} π K_t K_s Φ :=
+  Definition sim_ectx `{!Sim PROP Λ} π K_t K_s Φ :=
     (∀ v_t v_s, ext_rel π v_t v_s -∗ sim Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
-  Definition sim_expr_ectx `{!SimE s} π K_t K_s Φ :=
-    (∀ v_t v_s, ext_rel π v_t v_s -∗ sim_expr Φ π (fill K_t (of_val v_t)) (fill K_s (of_val v_s)))%I.
 End fix_lang.
 
 Global Arguments sim_ectx : simpl never.
-Global Arguments sim_expr_ectx : simpl never.

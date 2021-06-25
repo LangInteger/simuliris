@@ -17,6 +17,7 @@ theories/simulation/global_sim.v
 theories/simulation/fairness_adequacy.v
 theories/simulation/adequacy.v
 theories/simulation/lifting.v
+theories/simulation/gen_log_rel.v
 
 theories/playground/fixpoints.v
 theories/playground/language.v
@@ -37,7 +38,7 @@ theories/simplang/gen_refl.v
 theories/simplang/pure_refl.v
 theories/simplang/heapbij.v
 theories/simplang/globalbij.v
-theories/simplang/gen_log_rel.v
+theories/simplang/log_rel_structural.v
 theories/simplang/gen_adequacy.v
 theories/simplang/behavior.v
 

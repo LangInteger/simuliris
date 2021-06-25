@@ -1,6 +1,6 @@
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import gen_log_rel gen_refl pure_refl wf.
+From simuliris.simplang Require Import gen_refl pure_refl wf log_rel_structural.
 From simuliris.simplang.na_inv Require Export inv.
 From iris.prelude Require Import options.
 

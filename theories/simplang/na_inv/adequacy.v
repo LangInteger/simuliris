@@ -2,13 +2,12 @@
 
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij ghost_map.
-From iris.prelude Require Import options.
-
 From simuliris.logic Require Import satisfiable.
-From simuliris.simulation Require Import slsls global_sim.
+From simuliris.simulation Require Import slsls global_sim gen_log_rel.
 From simuliris.simplang Require Import proofmode tactics.
 From simuliris.simplang Require Import gen_adequacy behavior wf gen_refl.
 From simuliris.simplang.na_inv Require Import inv refl.
+From iris.prelude Require Import options.
 
 (** Instantiate our notion of contextual refinement. *)
 Notation ctx_rel := (gen_ctx_rel expr_head_wf).

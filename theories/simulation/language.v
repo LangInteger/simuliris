@@ -1,5 +1,5 @@
 From stdpp Require Import relations strings gmap.
-From iris.prelude Require Export prelude.
+From iris.algebra Require Import ofe.
 From iris.prelude Require Import options.
 From simuliris.simulation Require Import relations.
 
@@ -20,6 +20,9 @@ Section language_mixin.
   Context (comp_ectx : ectx → ectx → ectx).
   Context (fill : ectx → expr → expr).
 
+  (** Parallel substitution. For defining function calls, "singleton"
+      substitution would be sufficient, but this also lets us define
+      the logical relation. *)
   Context (subst_map : gmap string val → expr → expr).
   Context (free_vars : expr → gset string).
 
@@ -44,9 +47,14 @@ Section language_mixin.
         p !! f = Some (x, e) ∧ e2 = subst_map {[x:=v]} e ∧ σ2 = σ1 ∧ efs = [];
 
     (** Substitution and free variables *)
+    mixin_subst_map_empty e : subst_map ∅ e = e;
+    mixin_subst_map_subst_map xs ys e :
+      subst_map xs (subst_map ys e) = subst_map (ys ∪ xs) e;
     mixin_subst_map_free_vars (xs1 xs2 : gmap string val) (e : expr) :
       (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
       subst_map xs1 e = subst_map xs2 e;
+    mixin_free_vars_subst_map xs e :
+      free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs);
 
     (** Evaluation contexts *)
     mixin_fill_empty e : fill empty_ectx e = e;
@@ -166,6 +174,20 @@ Section language.
   Lemma call_head_step p f v σ1 e2 σ2 efs :
     head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
     ∃ x e, p !! f = Some (x, e) ∧ e2 = subst_map {[x:=v]} e ∧ σ2 = σ1 ∧ efs = nil.
+  Proof. apply language_mixin. Qed.
+
+  Lemma subst_map_empty e :
+    subst_map ∅ e = e.
+  Proof. apply language_mixin. Qed.
+  Lemma subst_map_free_vars (xs1 xs2 : gmap string (val Λ)) e :
+    (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
+    subst_map xs1 e = subst_map xs2 e.
+  Proof. apply language_mixin. Qed.
+  Lemma subst_map_subst_map xs ys e :
+    subst_map xs (subst_map ys e) = subst_map (ys ∪ xs) e.
+  Proof. apply language_mixin. Qed.
+  Lemma free_vars_subst_map xs e :
+    free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
   Proof. apply language_mixin. Qed.
 
   Lemma fill_empty e : fill empty_ectx e = e.
@@ -1005,6 +1027,15 @@ Section language.
     destruct IH as [(-> & ->)|(e''' & σ''' & Hnfs & Hnf)]; eauto 10 using no_forks.
   Qed.
 
+  Lemma subst_map_closed xs e :
+    free_vars e = ∅ →
+    subst_map xs e = e.
+  Proof.
+    intros Hclosed.
+    trans (subst_map ∅ e).
+    - apply subst_map_free_vars. rewrite Hclosed. done.
+    - apply subst_map_empty.
+  Qed.
 
 End language.
 
@@ -1104,4 +1135,12 @@ Section reach_or_stuck.
     - exfalso. apply: Hs. apply: pool_reach_stuck_reach_stuck; [|done]. by apply: fill_reach_stuck.
     - eexists _, _. split; [done|]. apply: pool_safe_no_forks; [done..|]. by apply: fill_no_forks.
   Qed.
+
 End reach_or_stuck.
+
+(* discrete OFE instance for expr and thread_id *)
+Definition exprO {Λ : language} := leibnizO (expr Λ).
+Instance expr_equiv {Λ} : Equiv (expr Λ). apply exprO. Defined.
+
+Definition thread_idO := leibnizO thread_id.
+Instance thread_id_equiv : Equiv thread_id. apply thread_idO. Defined.

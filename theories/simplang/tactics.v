@@ -376,10 +376,10 @@ Ltac simpl_subst :=
       let e' := W.of_expr e in
       simple refine (W.tac_to_expr_subst _ _ _ _ e' _ _ _ _); [ shelve
       | simpl; rewrite ?list_to_map_to_list; reflexivity
-      | vm_compute; exact: eq_refl
+      | compute_done
       |];
       simple refine (W.tac_to_expr_combine_subst_map _ _ _ _ _); [ shelve |
-      vm_compute; exact: eq_refl | ];
+      compute_done | ];
       simpl
     end.
 Arguments subst : simpl never.
@@ -389,5 +389,9 @@ Ltac solve_is_closed :=
   | |- free_vars ?e = ∅ =>
     let e' := W.of_expr e in
     apply (W.to_expr_is_closed_empty e');
-    vm_compute; exact: I
+    compute_done
+  | |- language.free_vars ?e = ∅ =>
+    let e' := W.of_expr e in
+    apply (W.to_expr_is_closed_empty e');
+    compute_done
   end.

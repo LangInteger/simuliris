@@ -1192,10 +1192,6 @@ Fixpoint free_vars (e : expr) : gset string :=
      free_vars e0 ∪ free_vars e1 ∪ free_vars e2
   end.
 
-(* Just fill with any value, it does not make a difference. *)
-Definition free_vars_ectx (K : ectx) : gset string :=
-  free_vars (fill K (Val (LitV LitUnit))).
-
 Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string val) :
   (if y is BNamed s then s ≠ x → xs1 !! x = xs2 !! x else xs1 !! x = xs2 !! x) →
   binder_delete y xs1 !! x = binder_delete y xs2 !! x.
@@ -1223,16 +1219,6 @@ Proof.
   ].
 Qed.
 
-Lemma subst_map_closed xs e :
-  free_vars e = ∅ →
-  subst_map xs e = e.
-Proof.
-  intros Hclosed.
-  trans (subst_map ∅ e).
-  - apply subst_map_free_vars. rewrite Hclosed. done.
-  - apply subst_map_empty.
-Qed.
-
 Lemma subst_free_vars x v e :
   x ∉ free_vars e →
   subst x v e = e.
@@ -1258,16 +1244,6 @@ Proof.
   - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
 Qed.
 
-Lemma free_vars_fill K e :
-  free_vars (fill K e) = free_vars_ectx K ∪ free_vars e.
-Proof.
-  revert e. induction K as [|Ki K IH] using rev_ind; intros e; simpl.
-  { simpl. rewrite /free_vars_ectx /= left_id_L. done. }
-  rewrite /free_vars_ectx !fill_app /=. destruct Ki; simpl.
-  all: rewrite !IH; set_solver+.
-Qed.
-
-
 (* Proving the mixin *)
 
 Lemma simp_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill subst_map free_vars head_step.
@@ -1279,7 +1255,10 @@ Proof.
   - intros p f v ????. split.
     + cbn. inversion 1; subst. eexists _, _. rewrite subst_map_singleton. eauto.
     + intros (x & e & ? & -> & -> & ->). cbn. rewrite subst_map_singleton. by constructor.
+  - eapply subst_map_empty.
+  - eapply subst_map_subst_map.
   - eapply subst_map_free_vars.
+  - eapply free_vars_subst_map.
   - done.
   - intros ???. by rewrite -fill_app.
   - apply fill_inj.

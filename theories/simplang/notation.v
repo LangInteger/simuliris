@@ -87,13 +87,12 @@ Notation "'while:' e1 'do' e2 'od'" := (While e1%E e2%E)
 Notation "'if:' e1 'then' e2 'else' e3" := (If e1%E e2%E e3%E)
   (at level 200, e1, e2, e3 at level 200) : expr_scope.
 
+(* Notation for "functions": argument-body pairs. *)
 (* The breaking point '/  ' makes sure that the body of the λ: is indented
 by two spaces in case the whole λ: does not fit on a single line. *)
-(* Note: this is a context for use with the function call mechanism of SimpLang. *)
-Notation "λ: x , e" := ([LetEctx x%binder e%E])
+Notation "λ: x , e" := (x : string, e : expr)
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
-Bind Scope expr_scope with ectx.
 
 Notation "'let:' x := e1 'in' e2" := (Let x%binder e1%E e2%E)
   (at level 200, x at level 1, e1, e2 at level 200,

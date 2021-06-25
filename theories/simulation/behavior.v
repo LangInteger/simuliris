@@ -24,8 +24,12 @@ Section beh.
     (* safety *)
     (safe p_t (of_call main u) σ_t).
 
-  (** * A more classical definition of 'behavioral refinement', equivalent to the
-      above. *)
+  (** The notion of *contextual* refinement depends on an idea of "contexts" and
+      some form of "well-formedness", so we do not define it in general and
+      instead expect each language to define a suitable one. *)
+
+  (** * A more classical definition of 'behavioral refinement', equivalent to
+      the above. *)
 
   (** First we define the possible "behaviors" of a program, and which behaviors
       we consider observably related (lifting O to behaviors). *)

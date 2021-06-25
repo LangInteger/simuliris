@@ -1,7 +1,8 @@
-From stdpp Require Import gmap relations.
-From iris.prelude Require Import options.
-From simuliris.simulation Require Import language.
 From Coq.Logic Require Import Classical Epsilon.
+From stdpp Require Import gmap relations.
+From iris.prelude Require Import prelude.
+From simuliris.simulation Require Import language.
+From iris.prelude Require Import options.
 
 Section fairness.
 Context {Λ: language}.

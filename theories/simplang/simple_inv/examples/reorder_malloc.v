@@ -1,6 +1,6 @@
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import lang notation tactics class_instances gen_log_rel.
+From simuliris.simplang Require Import lang notation tactics class_instances.
 From simuliris.simplang.simple_inv Require Import inv adequacy.
 From iris.prelude Require Import options.
 

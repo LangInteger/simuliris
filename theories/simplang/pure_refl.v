@@ -1,6 +1,6 @@
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import primitive_laws gen_val_rel gen_log_rel wf gen_refl globalbij.
+From simuliris.simplang Require Import primitive_laws gen_val_rel log_rel_structural wf gen_refl globalbij.
 From iris.prelude Require Import options.
 
 (** * Reflexivity theorem for pure expressions
@@ -11,7 +11,8 @@ Section log_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.
   Context (loc_rel : loc → loc → iProp Σ) {Hpers : ∀ l_t l_s, Persistent (loc_rel l_t l_s)}.
   Context (thread_own : thread_id → iProp Σ).
-  Let val_rel := (gen_val_rel loc_rel).
+  Local Notation val_rel := (gen_val_rel loc_rel).
+  Local Notation log_rel := (gen_log_rel val_rel thread_own).
 
   (** [pure_expr_head_wf] characterizes pure expressions. Note that
   [GlobalVar] is considered pure even though it reads to [globals]

@@ -1,7 +1,6 @@
 From simuliris.simplang Require Import lang notation tactics class_instances.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.simplang Require Import gen_log_rel.
 From simuliris.simplang.simple_inv Require Import inv.
 From iris.prelude Require Import options.
 
@@ -111,21 +110,23 @@ Section fix_bi.
 
   Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
 
-  Definition input_rec : ectx :=
+  Definition input_rec := (
     λ: "cont",
       if: "cont" then
         let: "cont" := Call f#"external" #() in
         Call f#"rec" "cont"
-      else #().
+      else #()
+  )%E.
 
   (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
     log_rel input_loop (Call f#"rec" #true).
   Proof.
-    iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
-    rewrite /input_loop. target_alloc lc_t as "Hlc_t" "_". sim_pures.
-    iApply (sim_while_rec _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
+    iIntros "#Hs".
+    log_rel. iIntros "!#" (π') "_".
+    target_alloc lc_t as "Hlc_t" "_". sim_pures.
+    iApply (sim_while_rec _ _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
 
@@ -145,7 +146,7 @@ Section fix_bi.
   Proof.
     iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
-    iApply (sim_rec_while _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
+    iApply (sim_rec_while _ _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.
 

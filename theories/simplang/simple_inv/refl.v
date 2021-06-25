@@ -1,6 +1,6 @@
-From simuliris.simulation Require Import slsls lifting.
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simplang Require Import proofmode tactics.
-From simuliris.simplang Require Import gen_log_rel wf gen_refl pure_refl.
+From simuliris.simplang Require Import log_rel_structural wf gen_refl pure_refl.
 From simuliris.simplang.simple_inv Require Import inv.
 From iris.prelude Require Import options.
 
@@ -31,12 +31,12 @@ Section refl.
     all: try iDestruct "IH2" as "[IH2 IH3]".
     - (* Call *)
       iApply (log_rel_call with "IH IH1").
-      iIntros (???). by rewrite left_id.
+      iIntros (???). rewrite /= left_id. auto.
     - (* Fork *)
       iApply (log_rel_fork with "IH").
       iIntros (?????) "Hsim Hfork". iApply (sim_fork with "(Hsim [//])").
       iIntros (?). iApply (sim_wand with "[Hfork]"). { by iApply "Hfork". }
-      iIntros (??) "[_ $]".
+      iIntros (??). rewrite /= left_id. auto.
     - (* AllocN *)
       iApply (log_rel_allocN with "IH IH1").
       iIntros (n ??????) "Hv Hcont".
