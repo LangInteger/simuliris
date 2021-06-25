@@ -417,15 +417,11 @@ Section log_rel.
   Qed.
 
   Lemma log_rel_fork e_t e_s :
-    (∀ e_s e_t π Ψ,
-     (#[☠] ⪯{π} #[☠] [{ Ψ }]) -∗
-     (∀ π', e_t ⪯{π'} e_s {{ λ v_t v_s, rrel v_t v_s }}) -∗
-     Fork e_t ⪯{π} Fork e_s [{ Ψ }]) →
-    log_rel e_t e_s -∗ log_rel (Fork e_t) (Fork e_s).
+    log_rel e_t e_s ⊢ log_rel (Fork e_t) (Fork e_s).
   Proof.
-    iIntros (Hfork). iIntros "#IH" (? xs) "!# #Hs"; simpl.
-    iApply Hfork. { solve_rrel_refl. }
-    iIntros (?). iApply (sim_wand with "(IH [])"); eauto.
+    iIntros "#IH" (? xs) "!# #Hs"; simpl.
+    iApply (sim_fork with "[]"). { solve_rrel_refl. }
+    iIntros (?). by iApply "IH".
   Qed.
 
   Lemma log_rel_alloc T :
@@ -464,7 +460,6 @@ Section refl.
     destruct e_s, e_t => //; simpl in Hs; simplify_eq.
     all: try iDestruct "IH" as "[IH IH1]".
     all: try iDestruct "IH1" as "[IH1 IH2]".
-    all: try iDestruct "IH2" as "[IH2 IH3]".
     - (* Value *)
       iApply (log_rel_result (ValR _) (ValR _)). by iApply value_wf_sound.
     - (* Var *)
@@ -500,10 +495,7 @@ Section refl.
     - (* Case *)
       by iApply (log_rel_case with "IH IH1").
     - (* Fork *)
-      iApply (log_rel_fork with "IH").
-      iIntros (????) "Hsim Hfork". iApply (sim_fork with "Hsim").
-      iIntros (?). iApply (sim_wand with "[Hfork]"). { by iApply "Hfork". }
-      iIntros (??) "$".
+      by iApply (log_rel_fork with "IH").
     - (* While *)
       by iApply (log_rel_while with "IH IH1").
   Qed.
