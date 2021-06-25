@@ -12,7 +12,7 @@ Definition readonly_wf (e : expr_head) : Prop :=
   (* Na2Ord is an intermediate ordering that should only arise during
   execution and programs should not use it directly. *)
   | LoadHead o => o ≠ Na2Ord
-  | FreeNHead | ForkHead | CallHead | StoreHead _ | CmpXchgHead | FAAHead => False
+  | FreeNHead | ForkHead | CallHead | StoreHead _ => False
   | _ => True
   end.
 

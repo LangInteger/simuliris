@@ -9,8 +9,6 @@ From iris.prelude Require Import options.
 Definition expr_head_wf (e : expr_head) : Prop :=
   match e with
   | ValHead v => val_wf v
-  | CmpXchgHead => False   (* currently not supported *)
-  | FAAHead => False          (* currently not supported *)
   | _ => True
   end.
 

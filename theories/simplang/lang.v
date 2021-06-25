@@ -87,8 +87,8 @@ Inductive expr :=
   | FreeN (e1 e2 : expr) (* number of cells to free, location *)
   | Load (o : order) (e : expr)
   | Store (o : order) (e1 : expr) (e2 : expr)
-  | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
-  | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
+(*  | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
+  | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *) *)
   .
 
 Bind Scope expr_scope with expr.
@@ -345,15 +345,18 @@ Inductive ectx_item :=
   | LoadEctx (o : order)
   | StoreLEctx (o : order) (v2 : val)
   | StoreREctx (o : order) (e1 : expr)
-  | CmpXchgLEctx (v1 : val) (v2 : val)
+(*  | CmpXchgLEctx (v1 : val) (v2 : val)
   | CmpXchgMEctx (e0 : expr) (v2 : val)
   | CmpXchgREctx (e0 : expr) (e1 : expr)
   | FaaLEctx (v2 : val)
-  | FaaREctx (e1 : expr).
+  | FaaREctx (e1 : expr) *)
+  .
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
   | LetEctx x e2 => Let x e e2
+  | CallLEctx v2 => Call e (Val v2)
+  | CallREctx e1 => Call e1 e
   | UnOpEctx op => UnOp op e
   | BinOpLEctx op v2 => BinOp op e (Val v2)
   | BinOpREctx op e1 => BinOp op e1 e
@@ -372,13 +375,11 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | LoadEctx o => Load o e
   | StoreLEctx o v2 => Store o e (Val v2)
   | StoreREctx o e1 => Store o e1 e
-  | CmpXchgLEctx v1 v2 => CmpXchg e (Val v1) (Val v2)
+(*  | CmpXchgLEctx v1 v2 => CmpXchg e (Val v1) (Val v2)
   | CmpXchgMEctx e0 v2 => CmpXchg e0 e (Val v2)
   | CmpXchgREctx e0 e1 => CmpXchg e0 e1 e
   | FaaLEctx v2 => FAA e (Val v2)
-  | FaaREctx e1 => FAA e1 e
-  | CallLEctx v2 => Call e (Val v2)
-  | CallREctx e1 => Call e1 e
+  | FaaREctx e1 => FAA e1 e *)
   end.
 
 (** General contexts *)
@@ -412,11 +413,12 @@ Inductive ctx_item :=
   | LoadCtx (o : order)
   | StoreLCtx (o : order) (v2 : expr)
   | StoreRCtx (o : order) (e1 : expr)
-  | CmpXchgLCtx (v1 : expr) (v2 : expr)
+(*  | CmpXchgLCtx (v1 : expr) (v2 : expr)
   | CmpXchgMCtx (e0 : expr) (v2 : expr)
   | CmpXchgRCtx (e0 : expr) (e1 : expr)
   | FaaLCtx (v2 : expr)
-  | FaaRCtx (e1 : expr).
+  | FaaRCtx (e1 : expr) *)
+  .
 
 Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   match Ci with
@@ -449,11 +451,11 @@ Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   | LoadCtx o => Load o e
   | StoreLCtx o e2 => Store o e e2
   | StoreRCtx o e1 => Store o e1 e
-  | CmpXchgLCtx e1 e2 => CmpXchg e e1 e2
+(*  | CmpXchgLCtx e1 e2 => CmpXchg e e1 e2
   | CmpXchgMCtx e0 e2 => CmpXchg e0 e e2
   | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
   | FaaLCtx e2 => FAA e e2
-  | FaaRCtx e1 => FAA e1 e
+  | FaaRCtx e1 => FAA e1 e *)
   end.
 
 Definition ctx := list ctx_item.
@@ -486,8 +488,8 @@ Inductive expr_head :=
   | FreeNHead
   | LoadHead (o : order)
   | StoreHead (o : order)
-  | CmpXchgHead
-  | FAAHead
+(*  | CmpXchgHead
+  | FAAHead *)
 .
 
 Definition expr_split_head (e : expr) : (expr_head * list expr) :=
@@ -512,8 +514,8 @@ Definition expr_split_head (e : expr) : (expr_head * list expr) :=
   | FreeN e1 e2 => (FreeNHead, [e1; e2])
   | Load o e => (LoadHead o, [e])
   | Store o e1 e2 => (StoreHead o, [e1; e2])
-  | CmpXchg e0 e1 e2 => (CmpXchgHead, [e0;e1;e2])
-  | FAA e1 e2 => (FAAHead, [e1; e2])
+(*  | CmpXchg e0 e1 e2 => (CmpXchgHead, [e0;e1;e2])
+  | FAA e1 e2 => (FAAHead, [e1; e2]) *)
   end.
 
 Global Instance expr_split_head_inj : Inj (=) (=) expr_split_head.
@@ -542,11 +544,11 @@ Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
   | FreeNREctx e => (FreeNHead, [e])
   | StoreLEctx o v => (StoreHead o, [Val v])
   | StoreREctx o e => (StoreHead o, [e])
-  | CmpXchgLEctx v1 v2 => (CmpXchgHead, [Val v1; Val v2])
+(*  | CmpXchgLEctx v1 v2 => (CmpXchgHead, [Val v1; Val v2])
   | CmpXchgMEctx e1 v2 => (CmpXchgHead, [e1; Val v2])
   | CmpXchgREctx e1 e2 => (CmpXchgHead, [e1; e2])
   | FaaLEctx v => (FAAHead, [Val v])
-  | FaaREctx e => (FAAHead, [e])
+  | FaaREctx e => (FAAHead, [e]) *)
   end.
 
 Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
@@ -580,11 +582,11 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   | LoadCtx o => (LoadHead o, [])
   | StoreLCtx o v2 => (StoreHead o, [v2])
   | StoreRCtx o e1 => (StoreHead o, [e1])
-  | CmpXchgLCtx v1 v2 => (CmpXchgHead, [v1; v2])
+(*  | CmpXchgLCtx v1 v2 => (CmpXchgHead, [v1; v2])
   | CmpXchgMCtx e0 v2 => (CmpXchgHead, [e0; v2])
   | CmpXchgRCtx e0 e1 => (CmpXchgHead, [e0; e1])
   | FaaLCtx v2 => (FAAHead, [v2])
-  | FaaRCtx e1 => (FAAHead, [e1])
+  | FaaRCtx e1 => (FAAHead, [e1]) *)
   end.
 
 
@@ -595,6 +597,7 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Var y => if decide (x = y) then Val v else Var y
   | Let y e1 e2 =>
      Let y (subst x v e1) (if decide (BNamed x ≠ y) then subst x v e2 else e2)
+  | Call e1 e2 => Call (subst x v e1) (subst x v e2)
   | UnOp op e => UnOp op (subst x v e)
   | BinOp op e1 e2 => BinOp op (subst x v e1) (subst x v e2)
   | If e0 e1 e2 => If (subst x v e0) (subst x v e1) (subst x v e2)
@@ -611,9 +614,8 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | FreeN e1 e2 => FreeN (subst x v e1) (subst x v e2)
   | Load o e => Load o (subst x v e)
   | Store o e1 e2 => Store o (subst x v e1) (subst x v e2)
-  | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
-  | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
-  | Call e1 e2 => Call (subst x v e1) (subst x v e2)
+(*  | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
+  | FAA e1 e2 => FAA (subst x v e1) (subst x v e2) *)
   end.
 
 Definition subst' (mx : binder) (v : val) : expr → expr :=
@@ -1073,6 +1075,7 @@ Fixpoint subst_map (xs : gmap string val) (e : expr) : expr :=
   | Val v => Val v
   | GlobalVar n => GlobalVar n
   | Let x1 e1 e2 => Let x1 (subst_map xs e1) (subst_map (binder_delete x1 xs) e2)
+  | Call e1 e2 => Call (subst_map xs e1) (subst_map xs e2)
   | UnOp op e => UnOp op (subst_map xs e)
   | BinOp op e1 e2 => BinOp op (subst_map xs e1) (subst_map xs e2)
   | If e0 e1 e2 => If (subst_map xs e0) (subst_map xs e1) (subst_map xs e2)
@@ -1089,9 +1092,8 @@ Fixpoint subst_map (xs : gmap string val) (e : expr) : expr :=
   | FreeN e1 e2 => FreeN (subst_map xs e1) (subst_map xs e2)
   | Load o e => Load o (subst_map xs e)
   | Store o e1 e2 => Store o (subst_map xs e1) (subst_map xs e2)
-  | CmpXchg e0 e1 e2 => CmpXchg (subst_map xs e0) (subst_map xs e1) (subst_map xs e2)
-  | FAA e1 e2 => FAA (subst_map xs e1) (subst_map xs e2)
-  | Call e1 e2 => Call (subst_map xs e1) (subst_map xs e2)
+(*  | CmpXchg e0 e1 e2 => CmpXchg (subst_map xs e0) (subst_map xs e1) (subst_map xs e2)
+  | FAA e1 e2 => FAA (subst_map xs e1) (subst_map xs e2) *)
   end.
 
 Lemma subst_map_empty e :
@@ -1186,9 +1188,9 @@ Fixpoint free_vars (e : expr) : gset string :=
   | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
-  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 | FAA e1 e2 =>
+  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 =>
      free_vars e1 ∪ free_vars e2
-  | If e0 e1 e2 | CmpXchg e0 e1 e2 =>
+  | If e0 e1 e2 =>
      free_vars e0 ∪ free_vars e1 ∪ free_vars e2
   end.
 

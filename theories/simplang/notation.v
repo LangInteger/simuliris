@@ -16,7 +16,7 @@ Notation SeqEctx e2 := (LetEctx BAnon e2) (only parsing).
 Notation Alloc e := (AllocN (Val $ LitV $ LitInt 1) e) (only parsing).
 Notation Free e := (FreeN (Val $ LitV $ LitInt 1) e) (only parsing).
 (** Compare-and-set (CAS) returns just a boolean indicating success or failure. *)
-Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing).
+(* Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing). *)
 
 Notation "# l" := (LitV l%Z%V%stdpp) (at level 8, format "# l").
 Notation "f# l" := (LitV (LitFn l%stdpp)) (at level 8, format "f# l").

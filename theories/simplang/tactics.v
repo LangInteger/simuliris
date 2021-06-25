@@ -11,6 +11,8 @@ Ltac reshape_expr e tac :=
     match e with
     | _                               => tac K e
     | Let ?x ?e1 ?e2                  => add_item (LetEctx x e2) K e1
+    | Call ?e (Val ?v)                => add_item (CallLEctx v) K e
+    | Call ?e1 ?e2                    => add_item (CallREctx e1) K e2
     | UnOp ?op ?e                     => add_item (UnOpEctx op) K e
     | BinOp ?op ?e (Val ?v)           => add_item (BinOpLEctx op v) K e
     | BinOp ?op ?e1 ?e2               => add_item (BinOpREctx op e1) K e2
@@ -29,13 +31,11 @@ Ltac reshape_expr e tac :=
     | Load ?o ?e                      => add_item (LoadEctx o) K e
     | Store ?o ?e (Val ?v)            => add_item (StoreLEctx o v) K e
     | Store ?o ?e1 ?e2                => add_item (StoreREctx o e1) K e2
-    | CmpXchg ?e0 (Val ?v1) (Val ?v2) => add_item (CmpXchgLEctx v1 v2) K e0
+(*    | CmpXchg ?e0 (Val ?v1) (Val ?v2) => add_item (CmpXchgLEctx v1 v2) K e0
     | CmpXchg ?e0 ?e1 (Val ?v2)       => add_item (CmpXchgMEctx e0 v2) K e1
     | CmpXchg ?e0 ?e1 ?e2             => add_item (CmpXchgREctx e0 e1) K e2
     | FAA ?e (Val ?v)                 => add_item (FaaLEctx v) K e
-    | FAA ?e1 ?e2                     => add_item (FaaREctx e1) K e2
-    | Call ?e (Val ?v)                => add_item (CallLEctx v) K e
-    | Call ?e1 ?e2                    => add_item (CallREctx e1) K e2
+    | FAA ?e1 ?e2                     => add_item (FaaREctx e1) K e2 *)
     end
   with add_item Ki K e :=
       go (Ki :: K) e
@@ -97,8 +97,8 @@ Module W.
   | FreeN (e1 e2 : expr)
   | Load (o : order) (e : expr)
   | Store (o : order) (e1 : expr) (e2 : expr)
-  | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr)
-  | FAA (e1 : expr) (e2 : expr)
+(*  | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr)
+  | FAA (e1 : expr) (e2 : expr) *)
   .
   Fixpoint to_expr (e : expr) : simp_lang.expr :=
     match e with
@@ -125,8 +125,8 @@ Module W.
     | FreeN e1 e2 => simp_lang.FreeN (to_expr e1) (to_expr e2)
     | Load o e => simp_lang.Load o (to_expr e)
     | Store o e1 e2 => simp_lang.Store o (to_expr e1) (to_expr e2)
-    | CmpXchg e0 e1 e2 => simp_lang.CmpXchg (to_expr e0) (to_expr e1) (to_expr e2)
-    | FAA e1 e2 => simp_lang.FAA (to_expr e1) (to_expr e2)
+(*    | CmpXchg e0 e1 e2 => simp_lang.CmpXchg (to_expr e0) (to_expr e1) (to_expr e2)
+    | FAA e1 e2 => simp_lang.FAA (to_expr e1) (to_expr e2) *)
     end.
 
   (** [of_expr e] expects [e] to be a simpl_lang.expr and returns a reified [expr] for it. *)
@@ -172,10 +172,10 @@ Module W.
     let e := of_expr e in constr:(Load o e)
   | simp_lang.Store ?o ?e1 ?e2 =>
     let e1 := of_expr e1 in let e2 := of_expr e2 in constr:(Store o e1 e2)
-  | simp_lang.CmpXchg ?e1 ?e2 ?e3 =>
+(*  | simp_lang.CmpXchg ?e1 ?e2 ?e3 =>
     let e1 := of_expr e1 in let e2 := of_expr e2 in let e3 := of_expr e3 in constr:(CmpXchg e1 e2 e3)
   | simp_lang.FAA ?e1 ?e2 =>
-    let e1 := of_expr e1 in let e2 := of_expr e2 in constr:(FAA e1 e2)
+    let e1 := of_expr e1 in let e2 := of_expr e2 in constr:(FAA e1 e2) *)
 
   | _ =>
     lazymatch goal with
@@ -196,6 +196,7 @@ Module W.
     | Var y => if bool_decide (x = y) then Val v else Var y
     | Let y e1 e2 =>
       Let y (subst x v e1) (if bool_decide (BNamed x ≠ y) then subst x v e2 else e2)
+    | Call e1 e2 => Call (subst x v e1) (subst x v e2)
     | UnOp op e => UnOp op (subst x v e)
     | BinOp op e1 e2 => BinOp op (subst x v e1) (subst x v e2)
     | If e0 e1 e2 => If (subst x v e0) (subst x v e1) (subst x v e2)
@@ -212,9 +213,8 @@ Module W.
     | FreeN e1 e2 => FreeN (subst x v e1) (subst x v e2)
     | Load o e => Load o (subst x v e)
     | Store o e1 e2 => Store o (subst x v e1) (subst x v e2)
-    | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
-    | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
-    | Call e1 e2 => Call (subst x v e1) (subst x v e2)
+(*    | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
+    | FAA e1 e2 => FAA (subst x v e1) (subst x v e2) *)
     end.
 
   Lemma to_expr_subst x v e :
@@ -259,6 +259,7 @@ Module W.
     | GlobalVar y => add_substmap xs $ GlobalVar y
     | Let y e1 e2 => add_substmap xs $
       Let y (combine_subst_map [] e1) (combine_subst_map [] e2)
+    | Call e1 e2 => add_substmap xs $ Call (combine_subst_map [] e1) (combine_subst_map [] e2)
     | UnOp op e => add_substmap xs $ UnOp op (combine_subst_map [] e)
     | BinOp op e1 e2 => add_substmap xs $ BinOp op (combine_subst_map [] e1) (combine_subst_map [] e2)
     | If e0 e1 e2 => add_substmap xs $ If (combine_subst_map [] e0) (combine_subst_map [] e1) (combine_subst_map [] e2)
@@ -275,9 +276,8 @@ Module W.
     | FreeN e1 e2 => add_substmap xs $ FreeN (combine_subst_map [] e1) (combine_subst_map [] e2)
     | Load o e => add_substmap xs $ Load o (combine_subst_map [] e)
     | Store o e1 e2 => add_substmap xs $ Store o (combine_subst_map [] e1) (combine_subst_map [] e2)
-    | CmpXchg e0 e1 e2 => add_substmap xs $ CmpXchg (combine_subst_map [] e0) (combine_subst_map [] e1) (combine_subst_map [] e2)
-    | FAA e1 e2 => add_substmap xs $ FAA (combine_subst_map [] e1) (combine_subst_map [] e2)
-    | Call e1 e2 => add_substmap xs $ Call (combine_subst_map [] e1) (combine_subst_map [] e2)
+(*    | CmpXchg e0 e1 e2 => add_substmap xs $ CmpXchg (combine_subst_map [] e0) (combine_subst_map [] e1) (combine_subst_map [] e2)
+    | FAA e1 e2 => add_substmap xs $ FAA (combine_subst_map [] e1) (combine_subst_map [] e2) *)
     end.
 
   Lemma to_expr_combine_subst_map xs e :
@@ -320,9 +320,9 @@ Module W.
   | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
-  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 | FAA e1 e2 =>
+  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 =>
      free_vars e1 ++ free_vars e2
-  | If e0 e1 e2 | CmpXchg e0 e1 e2 =>
+  | If e0 e1 e2 =>
      free_vars e0 ++ free_vars e1 ++ free_vars e2
   end.
 
@@ -342,9 +342,9 @@ Module W.
   | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
      is_closed free e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
-  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 | FAA e1 e2 =>
+  | AllocN e1 e2 | FreeN e1 e2 | Store _ e1 e2 =>
      is_closed free e1 && is_closed free e2
-  | If e0 e1 e2 | CmpXchg e0 e1 e2 =>
+  | If e0 e1 e2 =>
      is_closed free e0 && is_closed free e1 && is_closed free e2
   end.
 

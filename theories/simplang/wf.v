@@ -47,8 +47,8 @@ Section expr_wf.
     | FreeN e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
     | Load o e => gen_expr_wf e
     | Store o e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
-    | CmpXchg e1 e2 e3 => gen_expr_wf e1 ∧ gen_expr_wf e2 ∧ gen_expr_wf e3
-    | FAA e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
+(*    | CmpXchg e1 e2 e3 => gen_expr_wf e1 ∧ gen_expr_wf e2 ∧ gen_expr_wf e3
+    | FAA e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2 *)
     end.
 
   (** Lift [expr_head_wf] to evaluation contexts. *)

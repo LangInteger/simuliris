@@ -13,8 +13,6 @@ Definition expr_head_wf (e : expr_head) : Prop :=
   during execution and programs should not use it directly. *)
   | LoadHead o => o ≠ Na2Ord
   | StoreHead o => o ≠ Na2Ord
-  | CmpXchgHead => False   (* currently not supported *)
-  | FAAHead => False       (* currently not supported *)
   | _ => True
   end.
 
