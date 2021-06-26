@@ -1320,7 +1320,7 @@ Class sborGS (Σ: gFunctors) := SBorGS {
   sborG_gen_progG :> gen_sim_progGS string (string*expr) (string*expr) Σ;
   sborG_stateG :> bor_stateGS Σ;
 }.
-Definition sborΣ : gFunctors := ($[bor_stateΣ; gen_progΣ string (string*expr)]).
+Definition sborΣ : gFunctors := (#[bor_stateΣ; gen_progΣ string (string*expr)]).
 Class sborGpreS (Σ: gFunctors) := SBorGpreS {
   sbor_pre_stateG :> bor_stateGpreS Σ | 10;
   sbor_pre_progG :> gen_progGpreS Σ string (string*expr) | 10;
