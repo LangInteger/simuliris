@@ -51,14 +51,7 @@ Class bor_stateGpreS Σ := {
   tainted_tag_pre_collection :> ghost_mapG Σ (ptr_id * loc) unit;
 }.
 
-(* TODO: redeclaring Iris' notation here with a different symbol since it collides with BorLang notation.
-   We should probably fix BorLang instead.
-  Somehow closing the [expr_scope] also doesn't prevent it from shadowing the Iris notation..
- *)
-Notation "$[ ]" := gFunctors.nil (format "$[ ]").
-Notation "$[ Σ1 ; .. ; Σn ]" :=
-  (gFunctors.app Σ1 .. (gFunctors.app Σn gFunctors.nil) ..).
-Definition bor_stateΣ : gFunctors := ($[ghost_mapΣ call_id (gmap ptr_id (gset loc)); ghost_mapΣ (ptr_id * loc) scalar; ghost_mapΣ call_id unit; ghost_mapΣ (ptr_id * loc) unit; tkmapΣ ptr_id unit]).
+Definition bor_stateΣ : gFunctors := (#[ghost_mapΣ call_id (gmap ptr_id (gset loc)); ghost_mapΣ (ptr_id * loc) scalar; ghost_mapΣ call_id unit; ghost_mapΣ (ptr_id * loc) unit; tkmapΣ ptr_id unit]).
 
 Global Instance subG_bor_stateΣ Σ :
   subG bor_stateΣ Σ → bor_stateGpreS Σ.
