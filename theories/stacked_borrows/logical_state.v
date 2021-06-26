@@ -11,7 +11,7 @@ From simuliris.stacked_borrows Require Import steps_progress steps_retag.
 From iris.prelude Require Import options.
 
 (** * BorLang ghost state *)
-Class bor_stateGS Σ := {
+Class bor_stateGS Σ := BorStateGS {
   (* Maintaining the locations protected by each call id *)
   call_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
   call_name : gname;
@@ -33,6 +33,36 @@ Class bor_stateGS Σ := {
   tainted_tag_collection :> ghost_mapG Σ (ptr_id * loc) unit;
   tainted_tags_name : gname;
 }.
+
+Class bor_stateGpreS Σ := {
+  (* Maintaining the locations protected by each call id *)
+  call_pre_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
+
+  (* tag ownership *)
+  tag_pre_inG :> tkmapG Σ ptr_id unit;
+
+  (* A view of parts of the heap, conditional on the ptr_id *)
+  heap_view_pre_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
+
+  (* Public call IDs *)
+  pub_call_pre_inG :> ghost_mapG Σ call_id unit;
+
+  (* Tainted tags: a set of tag * source location *)
+  tainted_tag_pre_collection :> ghost_mapG Σ (ptr_id * loc) unit;
+}.
+
+(* TODO: redeclaring Iris' notation here with a different symbol since it collides with BorLang notation.
+   We should probably fix BorLang instead.
+  Somehow closing the [expr_scope] also doesn't prevent it from shadowing the Iris notation..
+ *)
+Notation "$[ ]" := gFunctors.nil (format "$[ ]").
+Notation "$[ Σ1 ; .. ; Σn ]" :=
+  (gFunctors.app Σ1 .. (gFunctors.app Σn gFunctors.nil) ..).
+Definition bor_stateΣ : gFunctors := ($[ghost_mapΣ call_id (gmap ptr_id (gset loc)); ghost_mapΣ (ptr_id * loc) scalar; ghost_mapΣ call_id unit; ghost_mapΣ (ptr_id * loc) unit; tkmapΣ ptr_id unit]).
+
+Global Instance subG_bor_stateΣ Σ :
+  subG bor_stateΣ Σ → bor_stateGpreS Σ.
+Proof. solve_inG. Qed.
 
 Section state_bijection.
   Context `{bor_stateGS Σ}.
@@ -1292,11 +1322,20 @@ Section val_rel.
 End val_rel.
 
 (** Simulation / relation final setup *)
-Class sborGS (Σ: gFunctors) := SBorG {
+Class sborGS (Σ: gFunctors) := SBorGS {
   (* program assertions *)
   sborG_gen_progG :> gen_sim_progGS string (string*expr) (string*expr) Σ;
   sborG_stateG :> bor_stateGS Σ;
 }.
+Definition sborΣ : gFunctors := ($[bor_stateΣ; gen_progΣ string (string*expr)]).
+Class sborGpreS (Σ: gFunctors) := SBorGpreS {
+  sbor_pre_stateG :> bor_stateGpreS Σ | 10;
+  sbor_pre_progG :> gen_progGpreS Σ string (string*expr) | 10;
+}.
+
+Global Instance subG_sborΣ Σ :
+  subG sborΣ Σ → sborGpreS Σ.
+Proof. solve_inG. Qed.
 
 Global Program Instance sborGS_simulirisGS `{!sborGS Σ} : simulirisGS (iPropI Σ) bor_lang := {
   state_interp P_t σ_t P_s σ_s T_s :=
@@ -1323,3 +1362,48 @@ Proof. apply has_fun_agree. Qed.
 
 Lemma hasfun_source_agree `{sborGS Σ} f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
 Proof. apply has_fun_agree. Qed.
+
+
+Lemma sbor_init `{!sborGpreS Σ} P_t P_s T_s :
+  ⊢@{iPropI Σ} |==> ∃ `(!sborGS Σ),
+      state_interp P_t init_state P_s init_state T_s ∗
+    ([∗ map] f ↦ fn ∈ P_t, f @t fn) ∗
+    ([∗ map] f ↦ fn ∈ P_s, f @s fn) ∗
+    progs_are P_t P_s.
+Proof.
+  set σ := init_state.
+  iMod (ghost_map_alloc (∅ : gmap call_id (gmap ptr_id (gset loc)))) as (γcall) "[Hcall_auth _]".
+  iMod (tkmap_alloc (∅ : gmap ptr_id (tag_kind * unit))) as (γtag) "[Htag_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap (ptr_id * loc) scalar)) as (γtgt) "[Hheap_tgt_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap (ptr_id * loc) scalar)) as (γsrc) "[Hheap_src_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap ptr_id unit)) as (γpub_call) "[Hpub_call_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap (ptr_id * loc) unit)) as (γtainted) "[Htainted_auth _]".
+  iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_t #Hprog_s]".
+  iModIntro.
+  set (bor := BorStateGS _ _ γcall _ γtag _ γtgt γsrc _ γpub_call _ γtainted).
+  iExists (SBorGS _ _ _).
+  iSplitL; last iSplit; last iSplit.
+  - simpl. iFrame "Hprog_t Hprog_s".
+    iExists ∅, ∅, ∅, ∅. iFrame. iSplitL "Htainted_auth".
+    { iExists ∅. iFrame. iIntros (? ?). rewrite lookup_empty. iIntros ([? [=]]). }
+    iSplitL "Hpub_call_auth".
+    { iExists ∅. iFrame. iApply big_sepM_empty. done. }
+    iSplitL.
+    { do 5 (iSplitL; first done). iIntros (l Hl). exfalso.
+      move : Hl. rewrite lookup_empty. intros [? [=]]. }
+    iSplitL.
+    { iPureIntro. intros c M'. rewrite lookup_empty. congruence. }
+    iSplitL.
+    { iPureIntro. split_and!.
+      - intros t tk. rewrite lookup_empty. congruence.
+      - intros t l. rewrite lookup_empty. intros [? [=]].
+      - intros t l. rewrite lookup_empty. intros [? [=]].
+    }
+    iSplit; iPureIntro; apply wf_init_state.
+  - by iApply has_prog_all_funs.
+  - by iApply has_prog_all_funs.
+  - rewrite /progs_are /=. iIntros "!#" (P_t' P_s' σ_t' σ_s' T_s') "(#Hprog_t2 & #Hprog_s2 & _)".
+    iDestruct (has_prog_agree with "Hprog_t Hprog_t2") as %->.
+    iDestruct (has_prog_agree with "Hprog_s Hprog_s2") as %->.
+    done.
+Qed.
