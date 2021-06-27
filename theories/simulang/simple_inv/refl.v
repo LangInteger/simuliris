@@ -1,25 +1,15 @@
 From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simulang Require Import proofmode tactics.
-From simuliris.simulang Require Import log_rel_structural wf gen_refl pure_refl.
+From simuliris.simulang Require Import log_rel_structural wf gen_refl pure_refl behavior.
 From simuliris.simulang.simple_inv Require Import inv.
 From iris.prelude Require Import options.
 
 (** * Reflexivity theorem for the heap bijection value relation *)
 
-Definition expr_head_wf (e : expr_head) : Prop :=
-  match e with
-  | ValHead v => val_wf v
-  | _ => True
-  end.
-
-Notation expr_wf := (gen_expr_wf expr_head_wf).
-Notation ectx_wf := (gen_ectx_wf expr_head_wf).
-Notation ctx_wf := (gen_ctx_wf expr_head_wf).
-
 Section refl.
   Context `{!simpleGS Σ}.
 
-  Theorem simple_log_rel_structural : log_rel_structural heapbij.loc_rel (const True%I) expr_head_wf.
+  Theorem simple_log_rel_structural : log_rel_structural heapbij.loc_rel (const True%I) simulang_wf.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //; simpl in Hs; simplify_eq.

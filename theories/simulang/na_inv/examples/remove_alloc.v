@@ -1,8 +1,8 @@
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting gen_log_rel.
-From simuliris.simulang Require Import lang notation tactics class_instances
-  proofmode log_rel_structural.
-From simuliris.simulang.na_inv Require Export inv readonly_refl refl.
+From simuliris.simulang Require Import lang notation tactics
+  proofmode log_rel_structural behavior.
+From simuliris.simulang.na_inv Require Import inv readonly_refl refl.
 From iris.prelude Require Import options.
 
 Section remove_alloc.

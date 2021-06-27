@@ -1,18 +1,7 @@
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.stacked_borrows Require Import proofmode tactics.
-From simuliris.stacked_borrows Require Import parallel_subst primitive_laws log_rel_structural wf.
+From simuliris.stacked_borrows Require Import parallel_subst primitive_laws log_rel_structural wf behavior.
 From iris.prelude Require Import options.
-
-Definition expr_head_wf (e : expr_head) : Prop :=
-  match e with
-  | ValHead v => value_wf v
-  | PlaceHead _ _ _ => False (* no literal pointers *)
-  | _ => True
-  end.
-
-Notation expr_wf := (gen_expr_wf expr_head_wf).
-Notation ectx_wf := (gen_ectx_wf expr_head_wf).
-Notation ctx_wf := (gen_ctx_wf expr_head_wf).
 
 Section log_rel.
   Context `{!sborGS Σ}.
@@ -476,7 +465,7 @@ End log_rel.
 Section refl.
   Context `{!sborGS Σ}.
 
-  Theorem sb_log_rel_structural : log_rel_structural expr_head_wf.
+  Theorem sb_log_rel_structural : log_rel_structural stackedborrows_wf.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
     destruct e_s, e_t => //; simpl in Hs; simplify_eq.

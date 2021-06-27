@@ -5,8 +5,35 @@ From simuliris.stacked_borrows Require Import parallel_subst primitive_laws
   log_rel_structural wf behavior refl.
 From iris.prelude Require Import options.
 
-(** Instantiate our notion of contextual refinement. *)
-Notation ctx_rel := (gen_ctx_rel expr_head_wf).
+(* TODO move to std++ *)
+Lemma Forall2_cons_iff {A B} (P : A → B → Prop)
+  (x : A) (l : list A) (y : B) (k : list B) :
+  Forall2 P (x :: l) (y :: k) ↔ P x y ∧ Forall2 P l k.
+Proof.
+  split.
+  - apply Forall2_cons_inv.
+  - intros []. by apply Forall2_cons.
+Qed.
+
+Lemma sc_rel_obs `{!sborGS Σ} sc_t sc_s :
+  sc_rel sc_t sc_s ⊢@{iPropI Σ} ⌜ obs_scalar sc_t sc_s ⌝.
+Proof.
+  destruct sc_t, sc_s; try by eauto.
+  rewrite sc_rel_cid_source. iIntros "[<- _]". eauto.
+Qed.
+
+Lemma rrel_obs `{!sborGS Σ} r_t r_s :
+  rrel r_t r_s ⊢@{iPropI Σ} ⌜ obs_result r_t r_s ⌝.
+Proof.
+  destruct r_t as [v_t|], r_s as [v_s|]; try by eauto.
+  iInduction v_t as [|sc_t scs_t] "IH" forall (v_s);
+    destruct v_s as [|sc_s scs_s]; simpl; try eauto.
+  { iIntros "_ !%". constructor. }
+  rewrite {2}/value_rel big_sepL2_cons.
+  iIntros "[Hs Hss]". rewrite /obs_value Forall2_cons_iff. iSplit.
+  - iApply (sc_rel_obs with "Hs").
+  - iApply ("IH" with "Hss").
+Qed.
 
 (** Whole-program adequacy. *)
 

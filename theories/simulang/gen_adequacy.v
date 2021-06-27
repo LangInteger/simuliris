@@ -5,6 +5,16 @@ From iris.prelude Require Import options.
 
 (** Generic adequacy theorem for sheap-based logical relations. *)
 Section adequacy.
+  Lemma gen_val_rel_obs {Σ} loc_rel v_t v_s :
+    gen_val_rel loc_rel v_t v_s ⊢@{iPropI Σ} ⌜obs_val v_t v_s⌝.
+  Proof.
+    iInduction v_t as [[| | | | |]| | |] "IH" forall (v_s);
+      destruct v_s as [[| | | | |]| | |]; try by eauto.
+    - simpl. iIntros "[Hv1 Hv2]". iSplit.
+      + by iApply "IH".
+      + by iApply "IH1".
+  Qed.
+
   Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s :
     isat (∀ `(sheapGS Σ) gs,
       ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗

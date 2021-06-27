@@ -9,9 +9,6 @@ From simuliris.simulang Require Import gen_adequacy behavior wf gen_refl.
 From simuliris.simulang.na_inv Require Import inv refl.
 From iris.prelude Require Import options.
 
-(** Instantiate our notion of contextual refinement. *)
-Notation ctx_rel := (gen_ctx_rel expr_head_wf).
-
 (** Whole-program adequacy. *)
 Class naGpreS Σ := {
   na_pre_heapG :> sheapGpreS Σ;
