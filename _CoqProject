@@ -23,42 +23,42 @@ theories/playground/fixpoints.v
 theories/playground/language.v
 theories/playground/pure_threadpool_sim.v
 
-theories/simplang/base.v
-theories/simplang/locations.v
-theories/simplang/lang.v
-theories/simplang/wf.v
-theories/simplang/logical_heap.v
-theories/simplang/primitive_laws.v
-theories/simplang/notation.v
-theories/simplang/tactics.v
-theories/simplang/class_instances.v
-theories/simplang/proofmode.v
-theories/simplang/gen_val_rel.v
-theories/simplang/gen_refl.v
-theories/simplang/pure_refl.v
-theories/simplang/heapbij.v
-theories/simplang/globalbij.v
-theories/simplang/log_rel_structural.v
-theories/simplang/gen_adequacy.v
-theories/simplang/behavior.v
+theories/simulang/base.v
+theories/simulang/locations.v
+theories/simulang/lang.v
+theories/simulang/wf.v
+theories/simulang/logical_heap.v
+theories/simulang/primitive_laws.v
+theories/simulang/notation.v
+theories/simulang/tactics.v
+theories/simulang/class_instances.v
+theories/simulang/proofmode.v
+theories/simulang/gen_val_rel.v
+theories/simulang/gen_refl.v
+theories/simulang/pure_refl.v
+theories/simulang/heapbij.v
+theories/simulang/globalbij.v
+theories/simulang/log_rel_structural.v
+theories/simulang/gen_adequacy.v
+theories/simulang/behavior.v
 
-theories/simplang/examples/sum.v
+theories/simulang/examples/sum.v
 
-theories/simplang/na_inv/na_locs.v
-theories/simplang/na_inv/inv.v
-theories/simplang/na_inv/refl.v
-theories/simplang/na_inv/adequacy.v
-theories/simplang/na_inv/readonly_refl.v
-theories/simplang/na_inv/examples/data_races.v
-theories/simplang/na_inv/examples/remove_alloc.v
-theories/simplang/na_inv/examples/program_transformations_in_weak_memory_models.v
+theories/simulang/na_inv/na_locs.v
+theories/simulang/na_inv/inv.v
+theories/simulang/na_inv/refl.v
+theories/simulang/na_inv/adequacy.v
+theories/simulang/na_inv/readonly_refl.v
+theories/simulang/na_inv/examples/data_races.v
+theories/simulang/na_inv/examples/remove_alloc.v
+theories/simulang/na_inv/examples/program_transformations_in_weak_memory_models.v
 
-theories/simplang/simple_inv/inv.v
-theories/simplang/simple_inv/refl.v
-theories/simplang/simple_inv/adequacy.v
-theories/simplang/simple_inv/examples/heap_test.v
-theories/simplang/simple_inv/examples/reorder_malloc.v
-theories/simplang/simple_inv/examples/while.v
+theories/simulang/simple_inv/inv.v
+theories/simulang/simple_inv/refl.v
+theories/simulang/simple_inv/adequacy.v
+theories/simulang/simple_inv/examples/heap_test.v
+theories/simulang/simple_inv/examples/reorder_malloc.v
+theories/simulang/simple_inv/examples/while.v
 
 
 

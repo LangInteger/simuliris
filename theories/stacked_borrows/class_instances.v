@@ -1,9 +1,9 @@
 From simuliris.simulation Require Import language slsls lifting.
 From simuliris.stacked_borrows Require Export lang.
 From simuliris.stacked_borrows Require Import tactics.
-(* TODO we should not import things from the simplang folder here.
+(* TODO we should not import things from the simulang folder here.
   require this for the [forall_equiv_dec] lemma *)
-From simuliris.simplang Require Import base.
+From simuliris.simulang Require Import base.
 From iris.prelude Require Import options.
 
 Local Open Scope Z_scope.

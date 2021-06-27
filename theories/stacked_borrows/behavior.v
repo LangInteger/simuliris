@@ -44,7 +44,7 @@ Section ctx_rel.
     | _, _ => False
     end.
 
-  (** The simplang instance of [beh_rel]. *)
+  (** The Stacked Borrows instance of [beh_rel]. *)
   Definition beh_rel := beh_rel init_state "main" (ValR [ScPoison]) obs_result.
 
   (** Contextual refinement:
