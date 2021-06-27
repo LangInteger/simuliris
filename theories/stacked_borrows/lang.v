@@ -492,7 +492,7 @@ Proof.
       inversion_clear Hstep; subst.
       rewrite ->to_of_result in *.
       simplify_eq.
-      eexists fn. eauto.
+      eexists _. eauto.
     + intros (fn & ? & -> & -> & ->). cbn.
       constructor; constructor; [done | rewrite to_of_result; eauto].
   - eapply subst_map_empty.
