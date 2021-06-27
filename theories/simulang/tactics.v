@@ -369,16 +369,10 @@ Ltac simpl_subst :=
   repeat match goal with
     | |- context C [apply_func ?fn ?v] =>
       (* Unfold [apply_func] if the function's components are available *)
-      (* Coq's [evar] tactic has a rather wild semantics, so we need to do a
-      little dance here to make things work. *)
-      let arg := fresh "arg" in
-      evar (arg : string);
-      let arg' := eval unfold arg in arg in clear arg;
-      let body := fresh "body" in
-      evar (body : expr);
-      let body' := eval unfold body in body in clear body;
-      unify fn (arg', body');
-      change (apply_func fn v) with (subst arg' v body')
+      let arg := open_constr:(_ : string) in
+      let body := open_constr:(_ : expr) in
+      unify fn (arg, body);
+      change (apply_func fn v) with (subst arg v body)
     end;
   repeat match goal with
     | |- context C [subst ?x ?v ?e] =>
