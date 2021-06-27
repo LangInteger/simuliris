@@ -691,8 +691,7 @@ Section public_call_ids.
     iDestruct "Hc" as "[ %Hdead | Halive]".
     { (* contradictory *) exfalso. naive_solver. }
     iFrame "Halive". iExists M. iFrame "Hauth".
-    rewrite -{2}(insert_id M c ()); last done.
-    rewrite -insert_delete.
+    rewrite -{2}(insert_delete M c ()); last done.
     rewrite big_sepM_insert; last apply lookup_delete.
     iSplitR "Hpubr".
     - iFrame "Hpublic". iLeft. simpl. iPureIntro. split_and!; [set_solver.. | done ].
