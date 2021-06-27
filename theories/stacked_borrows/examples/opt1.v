@@ -244,4 +244,3 @@ Section closed.
     apply sim_opt1'.
   Qed.
 End closed.
-
