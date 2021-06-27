@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Import primitive_laws proofmode.
+From simuliris.stacked_borrows Require Import primitive_laws proofmode adequacy.
 From iris.prelude Require Import options.
 
 
@@ -234,3 +234,14 @@ Proof.
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
   sim_val. eauto.
 Qed.
+
+Section closed.
+  (** Obtain a closed proof of [ctx_rel]. *)
+  Lemma sim_opt1'_ctx : ctx_rel ex1_opt' ex1_unopt.
+  Proof.
+    set Σ := #[sborΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    apply sim_opt1'.
+  Qed.
+End closed.
+

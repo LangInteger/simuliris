@@ -21,6 +21,7 @@ Qed.
 Section ctx_rel.
   Context (expr_head_wf : expr_head → Prop).
 
+  (** Force initial state to be empty *)
   Definition init_state (σ_t σ_s : state) : Prop :=
     σ_t = init_state ∧ σ_s = init_state.
 
@@ -30,7 +31,7 @@ Section ctx_rel.
     | ScInt z1, ScInt z2 => z1 = z2
     | ScFnPtr f1, ScFnPtr f2 => f1 =f2
     | ScCallId c1, ScCallId c2 => c1 = c2
-    | _, ScPoison => True
+    | _, ScPoison => True (* anything is compatibl with "poison" in the source *)
     | _, _ => False
     end
     .

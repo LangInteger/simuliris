@@ -9,8 +9,8 @@ Section adequacy.
     isat (∀ `(sheapGS Σ) gs,
       ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
       |==> ∃ `(sheapInv Σ) loc_rel,
-      ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
-      ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
+      ([∗ map] f ↦ fn ∈ p_t, f @t fn) -∗
+      ([∗ map] f ↦ fn ∈ p_s, f @s fn) -∗
       ([∗ map] n↦v ∈ gs,
         global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
         global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)

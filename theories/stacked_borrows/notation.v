@@ -25,13 +25,11 @@ Notation "[ x1 ; x2 ; .. ; xn ]" :=
 
 (** Values *)
 Notation "#[ ]" := (Val (@nil scalar)) : expr_scope.
-Notation "#[ x ]" := (Val (@cons scalar x%S (@nil scalar))) : expr_scope.
 Notation "#[ x1 ; .. ; xn ]" :=
   (Val (@cons scalar x1%S
         (..(@cons scalar xn%S (@nil scalar))..))) : expr_scope.
 
 Notation "#[ ]" := (Val (@nil scalar)) : val_scope.
-Notation "#[ x ]" := (Val (@cons scalar x%S (@nil scalar))) : val_scope.
 Notation "#[ x1 ; .. ; xn ]" :=
   (Val (@cons scalar x1%S 
         (..(@cons scalar xn%S (@nil scalar))..))) : val_scope.

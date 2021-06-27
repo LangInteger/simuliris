@@ -27,8 +27,8 @@ Proof. solve_inG. Qed.
 Lemma prog_rel_adequacy Σ `{!naGpreS Σ} (p_t p_s : prog) :
   isat (∀ `(naGS Σ) gs,
     ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
-    ([∗ map] f ↦ K ∈ p_t, f @t K) -∗
-    ([∗ map] f ↦ K ∈ p_s, f @s K) -∗
+    ([∗ map] f ↦ fn ∈ p_t, f @t fn) -∗
+    ([∗ map] f ↦ fn ∈ p_s, f @s fn) -∗
     target_globals (dom (gset string) gs) -∗
     source_globals (dom (gset string) gs) ==∗
     ([∗ map] v∈gs, val_rel v v) ∗ prog_rel p_t p_s
