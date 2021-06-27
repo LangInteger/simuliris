@@ -87,10 +87,10 @@ Notation "'while:' e1 'do' e2 'od'" := (While e1%E e2%E)
 Notation "'if:' e1 'then' e2 'else' e3" := (If e1%E e2%E e3%E)
   (at level 200, e1, e2, e3 at level 200) : expr_scope.
 
-(* Notation for "functions": argument-body pairs. *)
+(* Notation for "functions". *)
 (* The breaking point '/  ' makes sure that the body of the λ: is indented
 by two spaces in case the whole λ: does not fit on a single line. *)
-Notation "λ: x , e" := (x : string, e : expr)
+Notation "λ: x , e" := ((x, e%E) : func)
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
 

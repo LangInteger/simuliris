@@ -66,25 +66,27 @@ Proof.
   apply (prog_rel_adequacy Σ). eapply isat_intro.
   iIntros (?) "_ _ !>".
   rewrite /prog_rel.
-  iIntros "!# %f %arg %body".
+  iIntros "!# %f %fn".
   iDestruct (Hrel _) as "Hrel". clear Hrel.
   destruct (decide (f = fname)) as [->|Hne].
   - rewrite !lookup_insert.
-    iIntros ([= <- <-]). iExists _, _. iSplitR; first done.
+    iIntros ([= <-]). iExists _. iSplitR; first done.
     (* TODO Factor this into a general lemma? *)
     iIntros (v_t v_s π) "#Hval /=".
     iApply sim_wand.
-    + iApply (gen_log_rel_singleton with "[Hrel] Hval []"); first done.
+    + rewrite /apply_func /= -!subst_map_singleton.
+      iApply (gen_log_rel_singleton with "[Hrel] Hval []"); first done.
       * by iApply log_rel_ctx.
       * done.
     + simpl. iIntros (??). rewrite left_id. auto.
   - rewrite !lookup_insert_ne //.
-    iIntros (Hf). iExists arg, body. iSplit; first done.
+    iIntros (Hf). iExists fn. destruct fn as [arg body]. iSplit; first done.
     specialize (Hpwf _ _ Hf). destruct Hpwf as [HKwf HKclosed].
     (* TODO Factor this into a lemma? *)
     iIntros (v_t v_s π) "#Hval /=".
     iApply sim_wand.
-    + iApply (gen_log_rel_singleton with "[Hrel] Hval []"); first set_solver.
+    + rewrite /apply_func /= -!subst_map_singleton.
+      iApply (gen_log_rel_singleton with "[Hrel] Hval []"); first set_solver.
       * by iApply log_rel_refl.
       * done.
     + simpl. iIntros (??). rewrite left_id. auto.

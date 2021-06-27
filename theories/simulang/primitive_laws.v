@@ -20,16 +20,16 @@ Class sheapGS (Σ: gFunctors) := SHeapGS {
   (* These instances need to have a lower priority than the sheapGpreS
   instances as otherwise the statement of [simplang_adequacy] uses the
   wrong instance. *)
-  sheapG_gen_progG :> gen_sim_progGS string (string*expr) (string*expr) Σ | 1;
+  sheapG_gen_progG :> gen_sim_progGS string func func Σ | 1;
   sheapG_heapG :> heapG Σ | 1;
   sheapG_heap_target : heap_names;
   sheapG_heap_source : heap_names;
 }.
 Class sheapGpreS (Σ: gFunctors) := SHeapGpreS {
   sbij_pre_heapG :> heapG Σ | 10;
-  sbij_pre_progG :> gen_progGpreS Σ string (string*expr) | 10;
+  sbij_pre_progG :> gen_progGpreS Σ string func | 10;
 }.
-Definition sheapΣ := #[heapΣ; gen_progΣ string (string*expr)].
+Definition sheapΣ := #[heapΣ; gen_progΣ string func].
 Global Instance subG_sheapΣ Σ :
   subG sheapΣ Σ → sheapGpreS Σ.
 Proof. solve_inG. Qed.
@@ -180,10 +180,10 @@ Notation "l ↦s∗ vs" := (heap_mapsto_vec sheapG_heap_source l 1 vs)
   (at level 20, format "l  ↦s∗  vs") : bi_scope.
 
 (** Program assertions *)
-Notation "f '@t' Kt" := (has_fun (hG:=gen_prog_inG_target) f Kt)
-  (at level 20, format "f  @t  Kt") : bi_scope.
-Notation "f '@s' Ks" := (has_fun (hG:=gen_prog_inG_source) f Ks)
-  (at level 20, format "f  @s  Ks") : bi_scope.
+Notation "f '@t' fn" := (has_fun (hG:=gen_prog_inG_target) f fn)
+  (at level 20, format "f  @t  fn") : bi_scope.
+Notation "f '@s' fn" := (has_fun (hG:=gen_prog_inG_source) f fn)
+  (at level 20, format "f  @s  fn") : bi_scope.
 
 (** Allocation size notation *)
 Notation target_block_size l := (heap_block_size sheapG_heap_target l 1).
@@ -249,11 +249,11 @@ Implicit Types f : fname.
 Implicit Types π : thread_id.
 
 (** Program for target *)
-Lemma has_fun_target_agree f K_t1 K_t2 : f @t K_t1 -∗ f @t K_t2 -∗ ⌜K_t1 = K_t2⌝.
+Lemma has_fun_target_agree f fn_t1 fn_t2 : f @t fn_t1 -∗ f @t fn_t2 -∗ ⌜fn_t1 = fn_t2⌝.
 Proof. apply has_fun_agree. Qed.
 
 (** Program for source *)
-Lemma has_fun_source_agree f K_s1 K_s2 : f @s K_s1 -∗ f @s K_s2 -∗ ⌜K_s1 = K_s2⌝.
+Lemma has_fun_source_agree f fn_s1 fn_s2 : f @s fn_s1 -∗ f @s fn_s2 -∗ ⌜fn_s1 = fn_s2⌝.
 Proof. apply has_fun_agree. Qed.
 
 
@@ -547,9 +547,9 @@ Proof.
 Qed.
 
 (** operational lemmas for calls *)
-Lemma target_red_call f x e v Ψ :
-  f @t (x, e) -∗
-  target_red (subst x v e) Ψ -∗
+Lemma target_red_call f fn v Ψ :
+  f @t fn -∗
+  target_red (apply_func fn v) Ψ -∗
   target_red (Call (Val $ LitV $ LitFn f) (Val v)) Ψ.
 Proof.
   iIntros "Hf Hred". iApply target_red_lift_head_step.
@@ -560,9 +560,9 @@ Proof.
   iModIntro. by iFrame.
 Qed.
 
-Lemma source_red_call π f x e v Ψ :
-  f @s (x, e) -∗
-  source_red (subst x v e) π Ψ -∗
+Lemma source_red_call π f fn v Ψ :
+  f @s fn -∗
+  source_red (apply_func fn v) π Ψ -∗
   source_red (Call (Val $ LitV $ LitFn f) (Val v)) π Ψ.
 Proof.
   iIntros "Hf Hred". iApply source_red_lift_head_step.
@@ -634,11 +634,11 @@ Proof.
 Qed.
 
 
-Lemma sim_while_rec b_t c_t v_s x_s (body_s : expr) (inv : val → iProp Σ) Ψ rec_n π :
+Lemma sim_while_rec b_t c_t v_s (fn_s : func) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_s -∗
-  rec_n @s (x_s, body_s) -∗
+  rec_n @s fn_s -∗
   □ (∀ v_s', inv v_s' -∗
-    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π} (subst x_s v_s' body_s)%E
+    (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π} (apply_func fn_s v_s')%E
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_s', ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = Call f#rec_n (Val v_s')⌝ ∗ inv v_s') }]) -∗
   (while: c_t do b_t od ⪯{π} Call f#rec_n v_s [{ Ψ }])%E.
 Proof.
@@ -648,7 +648,7 @@ Proof.
   iSpecialize ("Hstep" with "Hinv").
   iModIntro. iSplitR; first by eauto with head_step.
   iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
-  iModIntro. iExists (subst x_s v_s' body_s), σ_s.
+  iModIntro. iExists (apply_func _ _), σ_s.
 
   iDestruct (has_prog_has_fun_agree with "HP_s Hrec") as %?.
   iFrame. iSplitR; [done|].
@@ -657,13 +657,13 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_while b_s c_s v_t x_t (body_t : expr) (inv : val → iProp Σ) Ψ rec_n π :
+Lemma sim_rec_while b_s c_s v_t (fn_t : func) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_t -∗
-  rec_n @t (x_t, body_t) -∗
+  rec_n @t fn_t -∗
   □ (∀ v_t', inv v_t' -∗
-    (subst x_t v_t' body_t)%E ⪯{π}  (if: c_s then b_s ;; while: c_s do b_s od else #())%E
+    (apply_func fn_t v_t') ⪯{π}  (if: c_s then b_s ;; while: c_s do b_s od else #())
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t', ⌜e_t = Call f#rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t') }]) -∗
-  ( Call f#rec_n v_t ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
+  Call f#rec_n v_t ⪯{π} while: c_s do b_s od [{ Ψ }].
 Proof.
   iIntros "Hinv #Hrec #Hstep". iApply (sim_lift_head_coind (λ e_t e_s, (∃ v_t', ⌜e_t = Call f#rec_n (Val v_t')⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗  inv v_t'))%I); first last.
   { iExists v_t. eauto. }
@@ -682,12 +682,12 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_rec v_t v_s x_t x_s (body_t body_s : expr) (inv : val → val → iProp Σ) Ψ rec_t rec_s π :
+Lemma sim_rec_rec v_t v_s (fn_t fn_s : func) (inv : val → val → iProp Σ) Ψ rec_t rec_s π :
   inv v_t v_s -∗
-  rec_t @t (x_t, body_t) -∗
-  rec_s @s (x_s, body_s) -∗
+  rec_t @t fn_t -∗
+  rec_s @s fn_s -∗
   □ (∀ v_t' v_s', inv v_t' v_s' -∗
-    (subst x_t v_t' body_t)%E ⪯{π} (subst x_s v_s' body_s)%E
+    (apply_func fn_t v_t') ⪯{π} (apply_func fn_s v_s')
     [{ λ e_t e_s , Ψ e_t e_s ∨ (∃ v_t' v_s', ⌜e_t = Call f#rec_t (Val v_t')⌝ ∗ ⌜e_s = Call f#rec_s (Val v_s')⌝ ∗ inv v_t' v_s') }]) -∗
   ( Call f#rec_t v_t ⪯{π} Call f#rec_s v_s [{ Ψ }])%E.
 Proof.

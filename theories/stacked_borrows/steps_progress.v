@@ -457,10 +457,10 @@ Proof.
   eexists. split; [done|]. by eapply write_head_step'.
 Qed.
 
-Lemma call_head_step P σ name e arg body :
-  P !! name = Some (arg, body) →
-  is_Some (to_result e) →
-  head_step P (Call #[ScFnPtr name] e) σ (subst arg e body) σ [].
+Lemma call_head_step P σ name e r fn :
+  P !! name = Some fn →
+  to_result e = Some r →
+  head_step P (Call #[ScFnPtr name] e) σ (apply_func fn r) σ [].
 Proof. by econstructor; econstructor. Qed.
 
 Lemma init_call_head_step P σ :

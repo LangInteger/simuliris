@@ -477,7 +477,9 @@ Proof.
   exists K''. unfold ectx_compose. cbn. by rewrite assoc.
 Qed.
 
-Lemma bor_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill subst_map free_vars head_step.
+Lemma bor_lang_mixin :
+  LanguageMixin of_class to_class empty_ectx ectx_compose fill
+    subst_map free_vars apply_func head_step.
 Proof.
   constructor.
   - apply to_of_class.
@@ -488,9 +490,10 @@ Proof.
       (rename select (pure_expr_step _ _ _ _ _) into Hstep ||
        rename select (mem_expr_step _ _ _ _ _ _) into Hstep);
       inversion_clear Hstep; subst.
-      eexists _, _. rewrite subst_map_singleton. eauto.
-    + intros (arg & body & ? & -> & -> & ->). cbn.
-      rewrite subst_map_singleton.
+      rewrite ->to_of_result in *.
+      simplify_eq.
+      eexists fn. eauto.
+    + intros (fn & ? & -> & -> & ->). cbn.
       constructor; constructor; [done | rewrite to_of_result; eauto].
   - eapply subst_map_empty.
   - eapply subst_map_subst_map.

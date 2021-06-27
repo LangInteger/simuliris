@@ -329,7 +329,7 @@ Section adequacy_statement.
   Proof.
     intros Hsat σ_t σ_s HI Hsafe.
     eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).
-    destruct Hlook as (x_s & e_s & Hlook).
+    destruct Hlook as (fn_s & Hlook).
     eapply (sat_forall _ σ_t) in Hsat.
     eapply (sat_forall _ σ_s) in Hsat.
     eapply sat_wand in Hsat; [| by iPureIntro].

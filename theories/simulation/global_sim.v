@@ -654,18 +654,19 @@ Section fix_lang.
     iDestruct "Hsim" as (f K_t v_t K_s' v_s σ_s') "(% & %Hnfs & Hval & Hstate & Hcont)".
     subst e_t. iRight.
     (* the function is in the source table *)
-    edestruct (@safe_call_in_prg Λ) as (x_f_s & e_f_s & Hdef_s); [ |done|].
+    edestruct (@safe_call_in_prg Λ) as (fn_s & Hdef_s); [ |done|].
     { eapply fill_safe. by eapply pool_safe_threads_safe. }
 
     (* we prove reducibility and the step case *)
     iSplit.
-    - iAssert (∃ x_f_t e_f_t, ⌜P_t !! f = Some (x_f_t, e_f_t)⌝)%I as (x_f_t e_f_t) "%".
-      { iDestruct ("Hloc" $! _ _ _ Hdef_s) as (x_f_t e_f_t) "[% _]"; by eauto. }
+    - iAssert (∃ fn_t, ⌜P_t !! f = Some fn_t⌝)%I as (fn_t) "%".
+      { iDestruct ("Hloc" $! _ _ Hdef_s) as (fn_t) "[% _]"; by eauto. }
       iPureIntro. eexists _, _, _.
       by apply fill_prim_step, head_prim_step, call_head_step_intro.
     - iIntros (e_t' efs_t σ_t' Hstep).
-      apply prim_step_call_inv in Hstep as (x_f_t & e_f_t & Hdef & -> & -> & ->).
-      iModIntro. iRight. iExists (fill K_s' (of_call f v_s)), (fill K_s' (subst_map {[x_f_s:=v_s]} e_f_s)), σ_s', σ_s', [].
+      apply prim_step_call_inv in Hstep as (fn_t & Hdef & -> & -> & ->).
+      iModIntro. iRight.
+      iExists (fill K_s' (of_call f v_s)), (fill K_s' (apply_func fn_s v_s)), σ_s', σ_s', [].
       iFrame. iSplit; first done. iSplit.
       { iPureIntro. by apply fill_prim_step, head_prim_step, call_head_step_intro. }
       iSplit; first done.
@@ -676,9 +677,8 @@ Section fix_lang.
         intros σ_s''. eapply fill_prim_step, fill_prim_step. by eapply head_prim_step, call_head_step_intro.
       }
       simpl; iSplit; last done.
-      iApply sim_expr_bind. iDestruct ("Hloc" $! _ _ _ Hdef_s) as (x_f_t' e_f_t') "[% Hectx]".
-      replace x_f_t' with x_f_t by naive_solver.
-      replace e_f_t' with e_f_t by naive_solver.
+      iApply sim_expr_bind. iDestruct ("Hloc" $! _ _ Hdef_s) as (fn_t') "[% Hectx]".
+      replace fn_t' with fn_t by naive_solver.
       iApply (sim_expr_mono with "[-Hval] [Hval]"); last by iApply "Hectx".
       iIntros (e_t' e_s'). iDestruct 1 as (v_t' v_s' -> ->) "Hval".
       rewrite sim_expr_eq. by iApply "Hcont".
@@ -691,11 +691,11 @@ Section fix_lang.
     ext_rel π v_t v_s -∗
     gsim_expr (lift_post (ext_rel π)) π (of_call f v_t) (of_call f v_s).
   Proof.
-    iIntros ([[x_s e_s] Hlook]) "#Hloc #Hprogs Hval".
+    iIntros ([fn_s Hlook]) "#Hloc #Hprogs Hval".
     iApply (local_to_global with "Hloc Hprogs").
     rewrite /prog_rel.
     iDestruct "Hloc" as "#Hloc".
-    iDestruct ("Hloc" $! _ _ _ Hlook) as (x_t e_t) "[% Hsim]".
+    iDestruct ("Hloc" $! _ _ Hlook) as (fn_t) "[% Hsim]".
     iApply (sim_call_inline with "[$] Hval"); eauto.
     iIntros (??) "Hrel". iApply "Hsim". done.
   Qed.

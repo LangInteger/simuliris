@@ -349,7 +349,7 @@ Module W.
   end.
 
   Lemma to_expr_is_closed xs e:
-    is_closed xs e → language.free_vars (to_expr e) ⊆ list_to_set xs.
+    is_closed xs e → simp_lang.free_vars (to_expr e) ⊆ list_to_set xs.
   Proof.
     elim: e xs => [^ e] //= xs Hx.
     all: destruct_and?.
@@ -360,12 +360,26 @@ Module W.
   Qed.
 
   Lemma to_expr_is_closed_empty e:
-    is_closed [] e → language.free_vars (to_expr e) = ∅.
+    is_closed [] e → simp_lang.free_vars (to_expr e) = ∅.
   Proof. move => /to_expr_is_closed. set_solver. Qed.
 
 End W.
 
 Ltac simpl_subst :=
+  repeat match goal with
+    | |- context C [apply_func ?fn ?v] =>
+      (* Unfold [apply_func] if the function's components are available *)
+      (* Coq's [evar] tactic has a rather wild semantics, so we need to do a
+      little dance here to make things work. *)
+      let arg := fresh "arg" in
+      evar (arg : string);
+      let arg' := eval unfold arg in arg in clear arg;
+      let body := fresh "body" in
+      evar (body : expr);
+      let body' := eval unfold body in body in clear body;
+      unify fn (arg', body');
+      change (apply_func fn v) with (subst arg' v body')
+    end;
   repeat match goal with
     | |- context C [subst ?x ?v ?e] =>
       lazymatch e with
@@ -386,7 +400,8 @@ Arguments subst : simpl never.
 
 Ltac solve_is_closed :=
   lazymatch goal with
-  | |- free_vars ?e = ∅ =>
+  (* Recognize both aliases of [free_vars] *)
+  | |- simp_lang.free_vars ?e = ∅ =>
     let e' := W.of_expr e in
     apply (W.to_expr_is_closed_empty e');
     compute_done

@@ -799,13 +799,13 @@ Section fix_lang.
   Qed.
 
   (** Corollaries *)
-  Lemma sim_call_inline P_t P_s v_t v_s x_t x_s e_f_t e_f_s f Φ π :
-    P_t !! f = Some (x_t, e_f_t) →
-    P_s !! f = Some (x_s, e_f_s) →
+  Lemma sim_call_inline P_t P_s v_t v_s fn_t fn_s f Φ π :
+    P_t !! f = Some fn_t →
+    P_s !! f = Some fn_s →
     ⊢ progs_are P_t P_s -∗
       ext_rel π v_t v_s -∗
       (∀ v'_t v'_s, ext_rel π v'_t v'_s -∗
-        (subst_map {[x_t:=v'_t]} e_f_t) ⪯{π} (subst_map {[x_s:=v'_s]} e_f_s) [{ Φ }]) -∗
+        (apply_func fn_t v'_t) ⪯{π} (apply_func fn_s v'_s) [{ Φ }]) -∗
       (of_call f v_t) ⪯{π} (of_call f v_s) [{ Φ }].
  Proof.
     intros Htgt Hsrc. iIntros "#Prog Val Sim".
@@ -816,7 +816,7 @@ Section fix_lang.
     - iPureIntro. eapply head_prim_reducible. eexists _, _, _.
       by eapply call_head_step_intro.
     - iIntros (e_t' efs σ_t' Hstep). iModIntro.
-      pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t' efs) as (x_t' & e_f_t' & Heq & -> & -> & ->);
+      pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t' efs) as (fn_t' & Heq & -> & -> & ->);
         first by rewrite fill_empty.
       rewrite fill_empty in Hstep. iRight.
       iExists _, _, _, _, _. iSplit; last iSplit; last iSplit; last iSplitL "SI".
@@ -825,8 +825,7 @@ Section fix_lang.
       + done.
       + rewrite app_nil_r. iApply (state_interp_pure_prim_step with "SI"); [done|]. intros ?.
         eapply fill_prim_step. eapply head_prim_step, call_head_step_intro, Hsrc.
-      + rewrite fill_empty. assert (x_t' = x_t) as -> by naive_solver.
-        assert (e_f_t' = e_f_t) as -> by naive_solver.
+      + rewrite fill_empty. assert (fn_t' = fn_t) as -> by naive_solver.
         iSpecialize ("Sim" with "Val"). simpl. iFrame.
   Qed.
 

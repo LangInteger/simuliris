@@ -79,6 +79,10 @@ Proof.
   subst el. simpl in Eq. by simplify_eq.
 Qed.
 
+(** Functions and function calls *)
+Definition func : Type := string * expr.
+Definition apply_func (fn : func) (r : result) := subst fn.1 r fn.2.
+
 (** Evaluation contexts *)
 Inductive ectx_item :=
 | CallLEctx (r2 : result)
@@ -305,8 +309,7 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   end.
 
 (** Global static function table *)
-Definition function : Type := string * expr.
-Definition prog := gmap fname function.
+Definition prog := gmap fname func.
 
 (** The stepping relation *)
 (* Be careful to make sure that poison is always stuck when used for anything
@@ -491,11 +494,11 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
     0 ≤ i →
     el !! (Z.to_nat i) = Some e →
     pure_expr_step P h (case: #[i] of el) e []
-| CallPS fn e2 arg body:
-    P !! fn = Some (arg, body) →
-    is_Some (to_result e2) →
-    pure_expr_step P h (Call #[ScFnPtr fn] e2)
-                        (subst arg e2 body) []
+| CallPS fn e2 f arg :
+    P !! f = Some fn →
+    to_result e2 = Some arg →
+    pure_expr_step P h (Call #[ScFnPtr f] e2)
+                       (apply_func fn arg) []
 | WhilePS e1 e2 :
     (* unfold by one step *)
     pure_expr_step P h (While e1 e2) (if: e1 then (e2;; while: e1 do e2 od) else #[☠]) []

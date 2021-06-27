@@ -27,10 +27,10 @@ Section fix_lang.
 
   (** Whole-program relation *)
   Definition prog_rel P_t P_s : PROP :=
-    (□ ∀ f x_s e_s, ⌜P_s !! f = Some (x_s, e_s)⌝ →
-       ∃ x_t e_t, ⌜P_t !! f = Some (x_t, e_t)⌝ ∗
+    (□ ∀ f fn_s, ⌜P_s !! f = Some fn_s⌝ →
+       ∃ fn_t, ⌜P_t !! f = Some fn_t⌝ ∗
          ∀ v_t v_s π, ext_rel π v_t v_s -∗
-           (subst_map {[x_t:=v_t]} e_t) ⪯{π} (subst_map {[x_s:=v_s]} e_s) {{ ext_rel π }})%I.
+           (apply_func fn_t v_t) ⪯{π} (apply_func fn_s v_s) {{ ext_rel π }})%I.
   Typeclasses Opaque prog_rel.
 
   Global Instance prog_rel_persistent P_t P_s : Persistent (prog_rel P_t P_s).

@@ -621,6 +621,11 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
 Definition subst' (mx : binder) (v : val) : expr → expr :=
   match mx with BNamed x => subst x v | BAnon => id end.
 
+(** Functions and function calls *)
+Definition func : Type := string * expr.
+Bind Scope expr_scope with func.
+Definition apply_func (fn : func) (v : val) := subst fn.1 v fn.2.
+
 (** The stepping relation *)
 Definition un_op_eval (op : un_op) (v : val) : option val :=
   match op, v with
@@ -833,7 +838,7 @@ Lemma fill_app (K1 K2 : ectx) e : fill (K1 ++ K2) e = fill K2 (fill K1 e).
 Proof. apply foldl_app. Qed.
 
 (** Programs *)
-Definition prog := gmap fname (string * expr).
+Definition prog := gmap fname func.
 
 Notation "e1 ;; e2" := (Let BAnon e1%E e2%E)
   (at level 100, e2 at level 200,
@@ -911,9 +916,9 @@ Inductive head_step (P : prog) : expr → state → expr → state → list expr
       σ.(heap) !! l = Some (WSt, v) →
       head_step P (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) σ
                 (Val $ LitV LitUnit) (state_upd_heap <[l:=(RSt 0, v')]> σ) []
-  | CallS f v x e σ :
-     P !! f = Some (x, e) →
-     head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (subst x v e) σ [].
+  | CallS f v fn σ :
+     P !! f = Some fn →
+     head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (apply_func fn v) σ [].
 
 
 Definition of_class (m : mixin_expr_class val) : expr :=
@@ -1248,15 +1253,17 @@ Qed.
 
 (* Proving the mixin *)
 
-Lemma simp_lang_mixin : LanguageMixin of_class to_class empty_ectx ectx_compose fill subst_map free_vars head_step.
+Lemma simp_lang_mixin :
+  LanguageMixin of_class to_class empty_ectx ectx_compose fill
+    subst_map free_vars apply_func head_step.
 Proof.
   constructor.
   - apply to_of_class.
   - apply of_to_class.
   - intros p v ???? H%val_head_stuck. cbn in H. congruence.
   - intros p f v ????. split.
-    + cbn. inversion 1; subst. eexists _, _. rewrite subst_map_singleton. eauto.
-    + intros (x & e & ? & -> & -> & ->). cbn. rewrite subst_map_singleton. by constructor.
+    + cbn. inversion 1; subst. eexists _. eauto.
+    + intros (fn & ? & -> & -> & ->). cbn. by constructor.
   - eapply subst_map_empty.
   - eapply subst_map_subst_map.
   - eapply subst_map_free_vars.

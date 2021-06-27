@@ -41,31 +41,28 @@ Definition diverge := (λ: "x", Call "diverge" "x")%E.
 
 (** the value relation determining which values can be passed to a function *)
 
-Definition mul2_source :=
-  (λ: "x",
+Definition mul2_source : func :=
+  λ: "x",
     match: "x" with
       InjL "x" => "x" * #2
     | InjR "x" => "x" + #2
-    end)%E.
+    end.
 
-Definition mul2_target :=
-  (λ: "x",
+Definition mul2_target : func :=
+  λ: "x",
     if: Fst "x" = #1 then (Snd "x") * #2
       else if: Fst "x" = #2
         then (Snd "x") + #2
-        else Call "diverge" #())%E.
+        else Call "diverge" #().
 
 Definition source_prog : prog :=
   {[ "inj1_enc" := inj1_enc; "diverge" := diverge; "mul2" := mul2_source ]}.
 Definition target_prog : prog :=
   {[ "diverge" := diverge; "mul2" := mul2_target]}.
 
-(* TODO: Do we want this elsewhere (and make [string*expr] a proper type)? *)
-Local Notation call f arg := (subst (fst f) arg (snd f)).
-
 Lemma mul2_sim π:
   ⊢ ∀ v_t v_s, val_rel v_t v_s -∗
-    call mul2_target v_t ⪯{π} call mul2_source v_s {{ λ v_t' v_s', val_rel v_t' v_s' }}.
+    apply_func mul2_target v_t ⪯{π} apply_func mul2_source v_s {{ λ v_t' v_s', val_rel v_t' v_s' }}.
 Proof.
   iIntros (?? Hval). rewrite /mul2_target /mul2_source.
   sim_pures.
