@@ -153,7 +153,7 @@ Qed.
 
 
 (** A variant of this optimization (actually the one from the original formalization)
-  which uses deferred UB. *)
+  which uses deferred UB. We move up the read of x but do not yet replace it by a constant. *)
 Definition ex1_opt' : expr :=
     let: "x" := new_place (&mut int) "i" in
     retag_place "x" (RefPtr Mutable) int Default #[ScCallId 0];;

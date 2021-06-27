@@ -611,7 +611,7 @@ Local Ltac log_rel_subst_l l cont :=
       rewrite ->!subst_map_singleton;
       log_rel_subst_l l ltac:(fun _ =>
         cont ();
-        iRevert (v_t v_s) H
+        last iRevert (v_t v_s) H
       )
     ]
   end.
@@ -625,6 +625,6 @@ Ltac log_rel :=
     let free := eval vm_compute in (elements (free_vars e_t ∪ free_vars e_s)) in
     log_rel_subst_l free ltac:(fun _ =>
         iApply gen_log_rel_closed;
-        (* TODO: use proper reflection instead of rewriting *)
-        [simpl; rewrite !free_vars_result; compute_done|])
+        (* TODO: use proper reflection *)
+        [simpl in *; repeat match goal with r : result |- _ => destruct r end; compute_done|])
   end.
