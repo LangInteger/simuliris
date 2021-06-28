@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Import primitive_laws proofmode.
+From simuliris.stacked_borrows Require Import primitive_laws proofmode adequacy examples.lib.
 From iris.prelude Require Import options.
 
 (* Assuming p : (&shr i32, T) *)
@@ -99,14 +99,8 @@ Proof.
   target_proj; first done. target_pures. target_proj; first done. target_pures. target_proj; first done.
   sim_pures.
 
-  (* create local location for x *)
-  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t_x l_x) "Hx Ht_x Hs_x".
-  iApply sim_expr_base. sim_pures.
-
-  source_apply (Write _ _) (source_write_local with "Hx Hs_x") "Hs_x Hx";
-    [by rewrite replicate_length | done | ].
-  target_apply (Write _ _) (target_write_local with "Hx Ht_x") "Ht_x Hx";
-    [ by rewrite replicate_length | done | ].
+  (* new place *)
+  sim_apply (new_place _ _) (new_place _ _) sim_new_place_local "%t_x %l_x % % Hx Ht_x Hs_x"; first done.
   sim_pures.
 
   target_apply (Copy _) (target_copy_local with "Hx Ht_x") "Ht_x Hx"; first done.
@@ -196,3 +190,13 @@ Proof.
     iApply sim_expr_base. iRight. iFrame "Ht Hi_t Hs Htag Hi_s Htag_i Hdeferred".
     done.
 Qed.
+
+Section closed.
+  (** Obtain a closed proof of [ctx_rel]. *)
+  Lemma sim_loop_ctx : ctx_rel loop_opt loop_unopt.
+  Proof.
+    set Σ := #[sborΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    apply loop_opt1.
+  Qed.
+End closed.

@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import lifting.
-From simuliris.stacked_borrows Require Import primitive_laws proofmode.
+From simuliris.stacked_borrows Require Import primitive_laws proofmode examples.lib adequacy.
 From iris.prelude Require Import options.
 
 
@@ -43,6 +43,7 @@ Definition ex1_down_opt : expr :=
     "v"
   .
 
+
 Lemma sim_opt1_down `{sborGS Σ} :
   ⊢ log_rel ex1_down_opt ex1_down_unopt.
 Proof.
@@ -50,19 +51,16 @@ Proof.
   iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
   sim_apply InitCall InitCall sim_init_call "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
-  sim_apply (Alloc _) (Alloc _) sim_alloc_local "". iIntros (t l) "Htag Ht Hs".
-  iApply sim_expr_base. sim_pures. simpl.
 
-  source_bind (Write _ _).
-  destruct r_s as [v_s | ]; first last.
-  { iApply source_red_irred_unless; first done. by iIntros. }
-  (* gain knowledge about the length *)
-  iApply source_red_irred_unless; first done. iIntros (Hsize). simpl.
-  iApply (source_write_local with "Htag Hs"); [ done | done | ].
-  iIntros "Hs Htag". source_finish.
+  (* new place *)
+  simpl. source_bind (new_place _ _).
+  iApply source_red_reach_or_stuck; [ | done | ].
+  { intros. rewrite subst_result. eapply new_place_reach_or_stuck. }
+  simpl. iIntros "(%v_s & -> & %Hsize)".
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
   iPoseProof (value_rel_length with "Hv") as "%Hlen".
-  target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag"; [ done | lia| ].
+  iApply source_red_base. iModIntro. to_sim.
+  sim_apply (new_place _ _) (new_place _ _) sim_new_place_local "%t %l % % Htag Ht Hs"; first done.
   sim_pures.
 
   target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag"; first lia.
@@ -115,3 +113,13 @@ Proof.
   iApply big_sepL2_forall. iSplit. { rewrite replicate_length. iPureIntro. lia. }
   iIntros (k sc_t sc_s). rewrite lookup_replicate. iIntros "Hsc (-> & _)". destruct sc_t;done.
 Qed.
+
+Section closed.
+  (** Obtain a closed proof of [ctx_rel]. *)
+  Lemma sim_opt1_down_ctx : ctx_rel ex1_down_opt ex1_down_unopt.
+  Proof.
+    set Σ := #[sborΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    apply sim_opt1_down.
+  Qed.
+End closed.

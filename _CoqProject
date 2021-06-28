@@ -105,6 +105,7 @@ theories/stacked_borrows/refl.v
 theories/stacked_borrows/behavior.v
 theories/stacked_borrows/adequacy.v
 
+theories/stacked_borrows/examples/lib.v
 theories/stacked_borrows/examples/pure.v
 theories/stacked_borrows/examples/opt1.v
 theories/stacked_borrows/examples/opt1_down.v

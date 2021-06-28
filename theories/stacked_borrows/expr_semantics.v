@@ -79,6 +79,13 @@ Proof.
   subst el. simpl in Eq. by simplify_eq.
 Qed.
 
+Lemma subst_result x e r :
+  subst x e (of_result r) = of_result r.
+Proof. destruct r; simpl; done. Qed.
+Lemma subst'_result x e r : 
+  subst' x e (of_result r) = of_result r.
+Proof. destruct r, x; simpl; done. Qed.
+
 (** Functions and function calls *)
 Definition func : Type := string * expr.
 Definition apply_func (fn : func) (r : result) := subst fn.1 r fn.2.

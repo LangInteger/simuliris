@@ -591,6 +591,31 @@ Ltac discr_source :=
   | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
   end.
 
+
+(** [reach_or_stuck_bind e] works on goals of the form [reach_or_stuck P e' σ Φ]
+    and tries to find a subexpression of e' matching e and applies the bind lemma for
+    it (similar to sim_bind and friends). *)
+Tactic Notation "reach_or_stuck_bind" open_constr(efoc) :=
+  lazymatch goal with
+  | |- reach_or_stuck _ ?e _ _ =>
+    reshape_expr e ltac:(fun K e' =>
+                           unify e' efoc;
+                           eapply (reach_or_stuck_bind _ e' _ _ K); simpl
+                        )
+  end.
+
+(** [reach_or_stuck_bind e] works on goals of the form [reach_or_stuck P e' σ (post_in_ectx Φ)]
+    and tries to find a subexpression e'' of e' matching e and results in a goal
+    [reach_or_stuck P e'' σ (post_in_ectx Φ)] (i.e. it discards the evaluation context around e''). *)
+Tactic Notation "reach_or_stuck_fill" open_constr(efoc) :=
+  lazymatch goal with
+  | |- reach_or_stuck _ ?e _ _ =>
+    reshape_expr e ltac:(fun K e' =>
+                           unify e' efoc;
+                           eapply (fill_reach_or_stuck _ e' _ _ K)
+                        )
+  end.
+
 (** Applies gen_log_rel_subst for each element of [l],
     introduces the new terms under some fresh names,
     calls [cont] on the remaining goal,

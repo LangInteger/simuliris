@@ -370,6 +370,22 @@ Section fix_sim.
       by intros e' σ' efs Hprim%Hirred.
   Qed.
 
+  Lemma source_red_reach_or_stuck ϕ e_s Ψ π :
+    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (λ _ _, ϕ)) →
+    to_val e_s = None →
+    (⌜ϕ⌝ -∗ source_red e_s π Ψ) -∗
+    source_red e_s π Ψ.
+  Proof. 
+    intros Hunless Hval. iIntros "Hs".
+    rewrite source_red_unfold.
+    iIntros (P_s σ_s ????) "[Hstate [%Hpool %Hnreach]]".
+    destruct (Hunless P_s σ_s) as [Hstuck | (? & ? & ? & Hphi)].
+    - exfalso; apply Hnreach. eapply pool_reach_stuck_reach_stuck. 
+      + eapply fill_reach_stuck, Hstuck. 
+      + done. 
+    - iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+  Qed.
+
   Lemma source_red_irred_unless ϕ e_s Ψ π :
     (∀ P_s σ_s, IrredUnless ϕ P_s e_s σ_s) →
     to_val e_s = None →
@@ -377,14 +393,9 @@ Section fix_sim.
     source_red e_s π Ψ.
   Proof.
     intros Hunless Hval. iIntros "Hs".
-    rewrite source_red_unfold.
-    iIntros (P_s σ_s ????) "[Hstate [% %Hnreach]]".
-    assert (¬ irreducible P_s e_s σ_s) as Hn.
-    { unfold pool_safe in Hnreach. contradict Hnreach.
-      apply: pool_reach_stuck_reach_stuck; [|done].
-      apply: fill_reach_stuck. by apply stuck_reach_stuck. }
-    destruct (Hunless P_s σ_s); [|done].
-    iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+    iApply source_red_reach_or_stuck; [ | done..].
+    intros. eapply reach_or_stuck_irred; [ done | done | ]. 
+    intros Hphi. right. eexists _, _; split; last done. apply no_forks_refl. 
   Qed.
 
   Lemma sim_irred_unless ϕ e_s e_t Φ π :

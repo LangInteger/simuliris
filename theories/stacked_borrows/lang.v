@@ -543,15 +543,3 @@ End bor_lang.
 Canonical Structure bor_lang := Language (bor_lang.bor_lang_mixin).
 Export bor_lang.
 
-(* Allocate a place of type [T] and initialize it with a value [v] *)
-Definition new_place T (v: expr) : expr :=
-  let: "x" := Alloc T in "x" <- v ;; "x".
-
-(* Retag a place [p] that is a pointer of kind [pk] to a region of type [T],
-  with retag [kind] and call_id [c] *)
-Definition retag_place
-  (p: expr) (pk: pointer_kind) (T: type) (kind: retag_kind) (c : expr) : expr :=
-  let: "p" := p in
-  (* read the current pointer stored in the place [p] *)
-  (* retag and update [p] with the pointer with new tag *)
-  "p" <- Retag (Copy "p") c pk T kind.
