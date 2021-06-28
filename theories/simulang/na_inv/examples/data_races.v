@@ -14,54 +14,19 @@ Import bi.
 Section data_race.
   Context `{naGS Σ}.
 
+  (** This optimization replaces multiples loads with a single load. *)
+  Definition remove_load_s : expr :=
+    "l" <- !"l" + !"l";;
+    !"l".
 
-  (*
-    problem of establishing disjointness:
-    option 1: add comparsion in target (and make op sem for that realistic)
-*)
-
-
-  Definition remove_store_and_load_opt : expr :=
-    let: "v2" := !"l2" in
-    let: "r" := "v2" + "v2" in
-    "l1" <- "r";;
-    "r".
-
-
-  Definition remove_store_and_load : expr :=
-    "l1" <- !"l2";;
-    "l1" <- !"l1" + !"l2";;
-    !"l1".
-
-  Lemma remove_store_and_load_sim:
-    ⊢ log_rel remove_store_and_load_opt remove_store_and_load.
-  Proof.
-    log_rel.
-    iIntros "%v2_t %v2_s #Hv2 %v1_t %v1_s #Hv1 !# %π Hc". simpl_subst.
-
-    sim_bind (! _)%E (! _)%E. iApply sim_irred_unless; first done. iIntros ([l1_s ->]).
-    iPoseProof (gen_val_rel_loc_source with "Hv1") as (l_t1 ->) "#Hl1".
-    iApply (sim_bij_exploit_load with "Hl1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
-    iIntros (q v_t v_s) "Hl1_t Hl1_s Hv Hc". source_load. target_load. sim_val. sim_pures.
-    sim_bind (Val v_t) (_ <- _)%E. iApply sim_irred_unless; first done. iIntros ([l2_s ->]).
-    iPoseProof (gen_val_rel_loc_source with "Hv2") as (l_t2 ->) "#Hl2".
-
-    destruct (decide (l1_s = l2_s)); simplify_eq.
-  Abort.
-
-  Definition remove_load_opt : expr :=
+  Definition remove_load_t : expr :=
     let: "v" := !"l" in
     let: "r" := "v" + "v" in
     "l" <- "r";;
     "r".
 
-  Definition remove_load : expr :=
-    "l" <- !"l" + !"l";;
-    !"l".
-
   Lemma remove_load_sim:
-    ⊢ log_rel remove_load_opt remove_load.
+    ⊢ log_rel remove_load_t remove_load_s.
   Proof.
     log_rel.
     iIntros "%v_t %v_s #Hv_l !# %π Hc". simpl_subst.
@@ -103,40 +68,22 @@ Section data_race.
     sim_val. iFrame. done.
   Qed.
 
-  Definition reg_promote_loop_opt fname : expr :=
-     let: "refn" := ref ! "n" in
-     while: #0 < ! "refn" do
-       Call f#fname #2;;
-       "refn" <- !"refn" - #1
+  (** This optimization hoists the read of "m" out of the loop. We
+  need to unrole the loop once because the loop condition can be an
+  arbitrary expression [e] that does not write to the heap. *)
+  Definition hoist_load_s (e : expr) : expr :=
+     let: "r" := ref #0  in
+     let: "i" := ref #0  in
+     while: e do
+       "r" <- !"r" + !"m";;
+       "i" <- !"i" + #1
      od;;
-     if: #0 < "n" then
-       "x" <- #2;;
-       #2
-     else
-       #0.
+     Free "i";;
+     let: "res" := !"r" in
+     Free "r";;
+     "res".
 
-
-  Definition reg_promote_loop fname : expr :=
-     let: "refn" := ref ! "n" in
-     let: "res" := ref #0 in
-     while: #0 < ! "refn" do
-       "x" <- #1;;
-       "x" <- #2;;
-       "res" <- !"x";;
-       (* Should not access x (e.g. because it does not access the
-       heap) and should not do synchronization. *)
-       Call f#fname !"res";;
-       "refn" <- !"refn" - #1
-     od;;
-     !"res".
-
-  Lemma reg_promote_loop_sim f:
-    ⊢ log_rel (reg_promote_loop_opt f) (reg_promote_loop f).
-  Proof.
-    log_rel.
-  Abort.
-
-  Definition hoist_load_opt (e : expr) : expr :=
+  Definition hoist_load_t (e : expr) : expr :=
     let: "i" := ref #0 in
     if: e then
       let: "mval" := !"m" in
@@ -154,22 +101,10 @@ Section data_race.
       Free "i";;
       #0.
 
-  Definition hoist_load (e : expr) : expr :=
-     let: "r" := ref #0  in
-     let: "i" := ref #0  in
-     while: e do
-       "r" <- !"r" + !"m";;
-       "i" <- !"i" + #1
-     od;;
-     Free "i";;
-     let: "res" := !"r" in
-     Free "r";;
-     "res".
-
   Lemma hoist_load_sim e:
     free_vars e ⊆ list_to_set ["n"; "i"] →
     gen_expr_wf readonly_wf e →
-    ⊢ log_rel (hoist_load_opt e) (hoist_load e).
+    ⊢ log_rel (hoist_load_t e) (hoist_load_s e).
   Proof.
     move => He ?. log_rel.
     iIntros "%v_t1 %v_s1 #Hrel1 %v_t2 %v_s2 #Hrel2 !# %π Hc".
@@ -281,29 +216,6 @@ Section data_race.
         sim_val. sim_pures. sim_val; by iFrame.
   Qed.
 
-  (* TODO: try also other direction (or maybe another example that adds loads and that makes more sense) *)
-
-  Definition register_pressure_opt : expr :=
-     let: "z" := !"a" + #1 in
-     "z" + !"a".
-
-  Definition register_pressure_load : expr :=
-     let: "y" := !"a" in
-     let: "z" := "y" + #1 in
-     "z" + "y".
-
-
-  (* TODO: go over memory model papers (promising semantics paper)
-
-   prove some reorderings:
-   - reordering reads
-   - reordering writes to different locations
-   - compact two reads
-   - ...
-
-   TODO: try to find something about Concurrent CompCert, what is used by VST
-*)
-
 End data_race.
 
 Section closed.
@@ -311,7 +223,7 @@ Section closed.
   Lemma hoist_load_ctx e :
     free_vars e ⊆ list_to_set ["n"; "i"] →
     gen_expr_wf readonly_wf e →
-    ctx_rel (hoist_load_opt e) (hoist_load e).
+    ctx_rel (hoist_load_t e) (hoist_load_s e).
   Proof.
     intros ??.
     set Σ := #[naΣ].
