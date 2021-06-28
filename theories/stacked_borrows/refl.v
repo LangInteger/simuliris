@@ -6,6 +6,18 @@ From iris.prelude Require Import options.
 Section log_rel.
   Context `{!sborGS Σ}.
 
+  Lemma log_rel_func x e_t e_s :
+    free_vars e_t ∪ free_vars e_s ⊆ {[x]} →
+    log_rel e_t e_s -∗
+    func_rel (x, e_t) (x, e_s).
+  Proof.
+    iIntros (Hvars) "Hlog %v_t %v_s %π Hval".
+    iApply (sim_wand with "[-]").
+    - rewrite /= /apply_func /= -!subst_map_singleton.
+      iApply (gen_log_rel_singleton with "Hlog Hval []"); done.
+    - rewrite /ext_rel /=. iIntros (??) "[_ $]".
+  Qed.
+
   Lemma scalar_wf_sound sc : scalar_wf sc → ⊢ sc_rel sc sc.
   Proof. intros Hwf. destruct sc; auto; simpl in *; done. Qed.
 

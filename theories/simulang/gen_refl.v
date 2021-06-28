@@ -17,6 +17,20 @@ Section log_rel.
   Local Notation val_rel := (gen_val_rel loc_rel).
   Local Notation log_rel := (gen_log_rel val_rel thread_own).
 
+  Lemma gen_log_rel_func x e_t e_s :
+    (∀ v_t v_s π, ext_rel π v_t v_s ⊣⊢ thread_own π ∗ val_rel v_t v_s) →
+    free_vars e_t ∪ free_vars e_s ⊆ {[x]} →
+    log_rel e_t e_s -∗
+    func_rel (x, e_t) (x, e_s).
+  Proof.
+    iIntros (Hext_val Hvars) "Hlog %v_t %v_s %π".
+    rewrite Hext_val. iIntros "[Hthread Hval]".
+    iApply (sim_wand with "[-]").
+    - rewrite /= /apply_func /= -!subst_map_singleton.
+      iApply (gen_log_rel_singleton with "Hlog Hval Hthread"); done.
+    - setoid_rewrite Hext_val. eauto.
+  Qed.
+
   Lemma val_wf_sound v : val_wf v → ⊢ val_rel v v.
   Proof.
     intros Hv.

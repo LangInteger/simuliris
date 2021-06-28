@@ -64,4 +64,13 @@ Section refl.
     intros ?. iApply gen_log_rel_ctx; first by apply na_log_rel_structural. done.
   Qed.
 
+  Lemma log_rel_func x e_t e_s :
+    free_vars e_t ∪ free_vars e_s ⊆ {[x]} →
+    log_rel e_t e_s -∗
+    func_rel (x, e_t) (x, e_s).
+  Proof.
+    apply gen_log_rel_func.
+    iIntros (v_t v_s π). eauto.
+  Qed.
+
 End refl.

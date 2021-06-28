@@ -26,15 +26,32 @@ Section fix_lang.
     (σ_s σ_t σ : state Λ).
 
   (** Whole-program relation *)
+  Definition func_rel (fn_t fn_s : func Λ) : PROP :=
+    ∀ v_t v_s π, ext_rel π v_t v_s -∗
+      (apply_func fn_t v_t) ⪯{π} (apply_func fn_s v_s) {{ ext_rel π }}.
   Definition prog_rel P_t P_s : PROP :=
-    (□ ∀ f fn_s, ⌜P_s !! f = Some fn_s⌝ →
-       ∃ fn_t, ⌜P_t !! f = Some fn_t⌝ ∗
-         ∀ v_t v_s π, ext_rel π v_t v_s -∗
-           (apply_func fn_t v_t) ⪯{π} (apply_func fn_s v_s) {{ ext_rel π }})%I.
+    □ ∀ f fn_s, ⌜P_s !! f = Some fn_s⌝ →
+       ∃ fn_t, ⌜P_t !! f = Some fn_t⌝ ∗ func_rel fn_t fn_s.
   Typeclasses Opaque prog_rel.
 
   Global Instance prog_rel_persistent P_t P_s : Persistent (prog_rel P_t P_s).
   Proof. rewrite /prog_rel; apply _. Qed.
+
+  (** Typical lemma needed to show [log_rel → ctx_rel]. *)
+  Lemma prog_rel_refl_insert P (fname : string) (fn_t fn_s : func Λ) :
+    □ func_rel fn_t fn_s -∗
+    □ (∀ f fn, ⌜P !! f = Some fn⌝ -∗ func_rel fn fn) -∗
+    prog_rel (<[fname:=fn_t]> P) (<[fname:=fn_s]> P).
+  Proof.
+    rewrite /prog_rel.
+    iIntros "#He #Hp !# %f %fn".
+    destruct (decide (f = fname)) as [->|Hne].
+    - rewrite !lookup_insert.
+      iIntros ([= <-]). iExists _. iSplitR; done.
+    - rewrite !lookup_insert_ne //.
+      iIntros (Hf). iExists fn. iSplitR; first done.
+      by iApply "Hp".
+  Qed.
 
   (** Relation on "contexts", lifted from a value relation:
       Well-formed substitutions closing source and target, with [X] denoting the
