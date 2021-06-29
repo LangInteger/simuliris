@@ -187,12 +187,12 @@ Section lang.
     eapply reach_or_stuck_step; first done. by apply IH.
   Qed.
 
-  Definition safe_reach (ϕ : Prop) P e σ := safe P e σ → ϕ.
+  Definition safe_reach (ϕ : Prop) e := ∀ P σ, safe P e σ → ϕ.
 
-  Lemma safe_reach_irred (ϕ : Prop) P e σ {Hirred : IrredUnless ϕ P e σ} :
-    safe_reach ϕ P e σ.
+  Lemma safe_reach_irred (ϕ : Prop) e {Hirred : ∀ P σ, IrredUnless ϕ P e σ} :
+    safe_reach ϕ e.
   Proof.
-    intros Hsafe. destruct Hirred as [[ | Hirred] ?]; first done.
+    intros P σ Hsafe. specialize (Hirred P σ). destruct Hirred as [[ | Hirred] ?]; first done.
     exfalso. apply Hsafe. apply irreducible_reach_stuck; done.
   Qed.
 End lang.
@@ -417,7 +417,7 @@ Section fix_sim.
   Qed.
 
   Lemma sim_irred_safe_reach ϕ e_s e_t Φ π :
-    (∀ P_s σ_s, safe_reach ϕ P_s e_s σ_s) →
+    safe_reach ϕ e_s →
     (⌜ϕ⌝ -∗ e_t ⪯{π} e_s [{ Φ }]) ⊢@{PROP}
      e_t ⪯{π} e_s [{ Φ }].
   Proof.
