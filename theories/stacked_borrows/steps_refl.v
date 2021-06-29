@@ -120,7 +120,7 @@ Proof.
   iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (Hdealloc_s & (α' & Hstack_s)).
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool) as (Hdealloc_s & (α' & Hstack_s)).
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
@@ -288,7 +288,7 @@ Proof.
   destruct Hpub as [Hpub ->].
 
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as [(v_s & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool) as [(v_s & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
   { (* failing copy *)
     iSplitR.
     { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; first done.
@@ -419,7 +419,7 @@ Proof.
   iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool ltac:(done)) as (Hread_s & (α' & Hstack_s) & Hlen_s').
+  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool) as (Hread_s & (α' & Hstack_s) & Hlen_s').
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
@@ -633,7 +633,7 @@ Proof.
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> <-].
   iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
-  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hthread ltac:(done)) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
+  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   have Hretag_some_t : is_Some (retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l_s ot rkind kind T).
   { destruct Hp as (<- & <- & _ & <- & _). done. }
@@ -865,7 +865,7 @@ Lemma sim_endcall π Φ c c' :
   EndCall #[ScCallId c'] ⪯{π} EndCall #[ScCallId c] [{ Φ }].
 Proof.
   iIntros "#Hsc Hsim". iApply sim_lift_head_step_both. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
-  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool ltac:(done)) as (c0 & [= <-] & Hin_s).
+  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool) as (c0 & [= <-] & Hin_s).
   iPoseProof (sc_rel_cid_source with "Hsc") as "[%Heq Hpub]". injection Heq as [= ->].
   iMod (bor_interp_end_call with "Hbor Hpub") as "[%Hin_t Hbor]"; first done. iModIntro.
   iSplitR.

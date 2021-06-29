@@ -103,7 +103,7 @@ Section log_rel.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "[Ht #Hv2]".
-    discr_source; first by apply call_not_val. val_discr_source "Hv2".
+    discr_source. val_discr_source "Hv2".
     iApply (sim_wand with "[Ht]"); [ iApply sim_call; [done..|]| iIntros (??) "?"]; rewrite Hext; by iFrame.
   Qed.
 

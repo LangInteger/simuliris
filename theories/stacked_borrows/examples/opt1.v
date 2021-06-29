@@ -52,8 +52,8 @@ Proof.
   iIntros "%r_t %r_s #Hrel !# %π _".
   (* new place *)
   simpl. source_bind (new_place _ _).
-  iApply source_red_reach_or_stuck; [ | done | ].
-  { intros; eapply new_place_reach_or_stuck. }
+  iApply source_red_reach_or_stuck; [ | ].
+  { intros; split; first done. eapply new_place_reach_or_stuck. }
   simpl. iIntros "(%v_s & -> & %Hsize)".
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
   iPoseProof (value_rel_length with "Hv") as "%Hlen".
@@ -66,7 +66,7 @@ Proof.
 
   (* do the retag *)
   sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
-  iApply sim_irred_unless; first done.
+  iApply sim_irred_unless.
   iIntros ((_ & ot & i & -> & _)).
   iPoseProof (value_rel_singleton_source with "Hv") as (sc_t) "[-> Hscrel]".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[-> Htagged]".
@@ -124,8 +124,8 @@ Proof.
   iIntros "%r_t %r_s #Hrel !# %π _".
   (* new place *)
   simpl. source_bind (new_place _ _).
-  iApply source_red_reach_or_stuck; [ | done | ].
-  { intros; eapply new_place_reach_or_stuck. }
+  iApply source_red_reach_or_stuck.
+  { intros; split; first done. eapply new_place_reach_or_stuck. }
   simpl. iIntros "(%v_s & -> & %Hsize)".
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
   iPoseProof (value_rel_length with "Hv") as "%Hlen".
@@ -138,7 +138,7 @@ Proof.
 
   (* do the retag *)
   sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
-  iApply sim_irred_unless; first done.
+  iApply sim_irred_unless.
   iIntros ((_ & ot & i & -> & _)).
   iPoseProof (value_rel_singleton_source with "Hv") as (sc_t) "[-> Hscrel]".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[-> Htagged]".

@@ -9,6 +9,7 @@ From iris.prelude Require Import options.
 Section irreducible.
   Implicit Types (e : expr) (v : val) (σ : state).
 
+  (* [to_val] has a better computational behavior around calls *)
   Lemma language_to_val_eq e :
     language.to_val e = to_val e.
   Proof.
@@ -87,7 +88,8 @@ Section irreducible.
     end;
     rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
 
-  Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | prove_irred].
+  Ltac prove_irred_unless := apply irred_unless_irred_dec;
+    [ (* Decision *) decide_goal | (* to_val = None *)rewrite language_to_val_eq; done | prove_irred ].
 
   Global Instance irred_unless_match v x1 e1 x2 e2 P σ :
     IrredUnless (∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
@@ -171,7 +173,7 @@ Section irreducible.
     IrredUnless (vals_compare_safe v1 v2)%V
       P (BinOp EqOp (Val v1) (Val v2)) σ.
   Proof.
-    apply irred_unless_irred_dec; first by apply _.
+    apply irred_unless_irred_dec; [by apply _ | done |].
     prove_irred.
     unfold bin_op_eval in *;
     case_decide; last congruence.
@@ -211,21 +213,21 @@ Section irreducible.
   Global Instance irreducible_loadSc σ v_l P :
     IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load ScOrd $ Val v_l) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; [ | done | by prove_irred].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_loadNa1 σ v_l P :
     IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load Na1Ord $ Val v_l) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; [ | done | by prove_irred].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_loadNa2 σ v_l P :
     IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt (S n), v)) P (Load Na2Ord $ Val v_l) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; [ | done | by prove_irred].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[ | []] ] | ] eqn:Heq; decide_goal.
   Qed.
@@ -233,21 +235,21 @@ Section irreducible.
   Global Instance irreducible_storeSc σ v_l P (v : val) :
     IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store ScOrd (Val $ v_l) (Val v)) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; [ | done | by prove_irred].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[ | [] ] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_storeNa1 σ v_l P (v : val) :
     IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store Na1Ord (Val $ v_l) (Val v)) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; [ | done | by prove_irred].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[ | [] ] ] | ] eqn:Heq; decide_goal.
   Qed.
   Global Instance irreducible_storeNa2 σ v_l P (v : val) :
     IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (WSt, v)) P (Store Na2Ord (Val $ v_l) (Val v)) σ.
   Proof.
-    apply irred_unless_irred_dec; last by prove_irred.
+    apply irred_unless_irred_dec; [ | done | by prove_irred].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct (heap σ !! l) as [ [[ |  ] ] | ] eqn:Heq; decide_goal.
   Qed.
@@ -256,7 +258,7 @@ Section irreducible.
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
   Proof.
-    apply irred_unless_irred_dec; last (prove_irred; by eauto 8).
+    apply irred_unless_irred_dec; [ | done | prove_irred; by eauto 8].
     destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
     destruct v_n as [[n | | | | | ]  | | | ]; try decide_goal.
     apply (exists_dec_unique l); [ naive_solver|].
@@ -292,7 +294,7 @@ Section irreducible.
   Global Instance irreducible_allocN σ v_n v P :
     IrredUnless (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.
   Proof.
-    apply irred_unless_irred_dec; last prove_irred.
+    apply irred_unless_irred_dec; [ | done | prove_irred].
     destruct v_n as [[n | | | | | ] | | |]; try decide_goal.
     assert (Decision (0 < n)%Z) as [ | ] by apply _.
     - left. eauto.

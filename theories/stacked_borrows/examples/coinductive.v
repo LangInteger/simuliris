@@ -72,21 +72,21 @@ Proof.
 
   (* do the projections *)
   source_bind (Proj _ _).
-  destruct r_s as [ v_s | ]; (iApply source_red_irred_unless; first done); last by iIntros "?".
+  destruct r_s as [ v_s | ]; iApply source_red_irred_unless; last by iIntros "?".
   iIntros "(%i & %sc & %Heq & _ & %Hsc)". injection Heq as [= <-].
   destruct v_s as [ | sc_s0 v_s]; simpl in *; first done. injection Hsc as [= <-].
   source_proj. { simpl. done. }
   source_pures.
 
   source_bind (Proj _ _).
-  iApply source_red_irred_unless; first done.
+  iApply source_red_irred_unless.
   iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
   destruct v_s as [ | sc_s1 v_s]; simpl in *; first done. injection Hsc' as [= <-].
   source_proj. { simpl. done. }
   source_pures.
 
   source_bind (Proj _ _).
-  iApply source_red_irred_unless; first done.
+  iApply source_red_irred_unless.
   iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
   destruct v_s as [ | sc_s2 v_s]; simpl in *; first done. injection Hsc' as [= <-].
   source_proj. { simpl. done. }
@@ -111,7 +111,7 @@ Proof.
 
   (* do the retag *)
   sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
-  iApply sim_irred_unless; first done.
+  iApply sim_irred_unless.
   iIntros ((_ & ot & i & Heq & _)). injection Heq as [= ->].
   iPoseProof (sc_rel_ptr_source with "Hsc0_rel") as "[-> Htagged]".
   iApply (sim_retag_default with "Hsc0_rel"); [cbn; lia| done | ].
@@ -152,7 +152,7 @@ Proof.
 
   (* do the call *)
   source_bind (Call _ _).
-  iApply source_red_irred_unless. { rewrite /to_val. simpl. rewrite /to_class. simpl. destruct to_fname; simpl; done. }
+  iApply source_red_irred_unless.
   iIntros "(%fn & %Heq)". injection Heq as [= ->].
   iPoseProof (sc_rel_fnptr_source with "Hsc2_rel") as "->".
   iApply source_red_base. iModIntro. to_sim.
@@ -162,7 +162,7 @@ Proof.
 
   (* reduce the case *)
   source_bind (Case _ _).
-  destruct r_s; (iApply source_red_irred_unless; first done); last by iIntros "?".
+  destruct r_s; iApply source_red_irred_unless; last by iIntros "?".
   iIntros "(%i'&  %e_s & -> & %Hi' & %He_s_l)".
   iPoseProof (rrel_value_source with "Hres") as (?) "(-> & Hvi')".
   iPoseProof (value_rel_singleton_source with "Hvi'") as (sci') "(-> & Hsci')".

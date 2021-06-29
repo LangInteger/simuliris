@@ -108,7 +108,7 @@ Section fix_bi.
       "cont" <- Call f#"external" #()
     od.
 
-  Ltac discr_source := to_source; (iApply source_red_irred_unless; first done).
+  Ltac discr_source := to_source; iApply source_red_irred_unless.
 
   Definition input_rec : func :=
     λ: "cont",

@@ -586,9 +586,9 @@ Ltac discr_source :=
            | H : ∃ _, _ |- _ => destruct H
            end; subst in
   match goal with
-  | |- envs_entails _ (source_red _ _) => iApply source_red_irred_unless; [try done | discr ()]
-  | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
-  | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [try done | discr ()]
+  | |- envs_entails _ (source_red _ _) => iApply source_red_irred_unless; [discr ()]
+  | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [discr ()]
+  | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [discr ()]
   end.
 
 

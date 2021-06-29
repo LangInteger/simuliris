@@ -31,13 +31,13 @@ Section data_race.
     log_rel.
     iIntros "%v_t %v_s #Hv_l !# %π Hc". simpl_subst.
 
-    source_bind (! _)%E. iApply source_red_irred_unless; first done. iIntros ([l_s ->]).
+    source_bind (! _)%E. iApply source_red_irred_unless. iIntros ([l_s ->]).
     iPoseProof (gen_val_rel_loc_source with "Hv_l") as (l_t ->) "#Hl". iApply source_red_base. iModIntro.
     to_sim. iApply (sim_bij_exploit_store with "Hl Hc"); [|done|].
     { intros. reach_or_stuck_fill (_ <- _)%E => /=.
       (* skip over first load *)
       reach_or_stuck_bind (! _)%E.
-      eapply reach_or_stuck_irred; first apply _; first done.
+      eapply reach_or_stuck_irred; first apply _.
       intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
       eapply reach_or_stuck_refl. simpl.
 
@@ -47,16 +47,16 @@ Section data_race.
 
       (* skip over add *)
       reach_or_stuck_bind (_ + _)%E.
-      eapply reach_or_stuck_irred; first apply _; first done.
+      eapply reach_or_stuck_irred; first apply _.
       intros [(z & ->) _].
       eapply reach_or_stuck_pure; first apply _; first done.
       eapply reach_or_stuck_refl.
 
-      apply: reach_or_stuck_irred; [done|] => ?.
+      apply: reach_or_stuck_irred => ?.
       apply: reach_or_stuck_refl. apply post_in_ectx_intro. naive_solver.
     }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc". do 2 source_load. target_load.
-    source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
+    source_bind (_ + _)%E. iApply source_red_irred_unless.
     iIntros "[(%z & ->) _]". iPoseProof (gen_val_rel_litint_source with "Hv") as "->".
     sim_pures. source_store. to_target. target_let. target_binop.
     (* TODO: something weird is going on with the simplification here.
@@ -130,19 +130,19 @@ Section data_race.
     revert select (bool) => -[]; sim_pures; sim_pures; last first.
     - sim_bind (Free _) (Free _). iApply (sim_bij_free with "Hbiji Hc"); [done|]. iIntros "Hc".
       sim_val. source_load. source_free. sim_pures. sim_val. by iFrame.
-    - source_bind (! _)%E. iApply source_red_irred_unless; first done.
+    - source_bind (! _)%E. iApply source_red_irred_unless.
       iIntros ([l_s ?]); simplify_eq.
       iDestruct (gen_val_rel_loc_source with "Hrel1") as (l_t ->) "Hbij".
       do 3 iApply source_red_base. do 3 iModIntro.
       iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
         intros. reach_or_stuck_fill (! _)%E => /=.
-        apply: reach_or_stuck_irred; [done|] => ?.
+        apply: reach_or_stuck_irred => ?.
         apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
       }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne2.
       source_load. sim_pures. source_load. sim_pures.
-      source_bind (_ + _)%E. iApply source_red_irred_unless; first done.
+      source_bind (_ + _)%E. iApply source_red_irred_unless.
       iIntros ([[??] [m ?]]); simplify_eq.
       iDestruct (gen_val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
       source_store.

@@ -277,7 +277,7 @@ Lemma source_red_global n Ψ π :
 Proof.
   iIntros "Hred". iApply source_red_lift_head_step.
   iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) [% %Hsafe]] !>".
-  have ?:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+  have ?:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
   iDestruct (heap_global_intro_ctx with "Hσ_s") as "#Hg"; [done|].
   iExists _, _. iSplit. { simpl. eauto with head_step. }
   iModIntro. iDestruct ("Hred" with "[//]") as "$". iFrame.
@@ -581,12 +581,8 @@ Lemma sim_call π e_t e_s v_t v_s fname :
   ⊢ ext_rel π v_t v_s -∗ Call (f#fname) e_t ⪯{π} Call (f#fname) e_s {{ ext_rel π }}.
 Proof.
   intros <-%of_to_val <-%of_to_val.
-  (* FIXME use lifting lemma for this *)
-  iIntros "H". rewrite /sim /sim_stutter /sim_def sim_expr_unfold. iIntros (??????) "[(?&?&?&?&Hinv) [% %]]". iModIntro.
-  iRight; iRight. iExists fname, empty_ectx, v_t, empty_ectx, v_s, _.
-  rewrite list_insert_id /= //. iFrame.
-  iSplitR; first done. iSplitR. { iPureIntro. constructor. }
-  iIntros (v_t' v_s' ) "H". iApply sim_value. iApply "H".
+  iIntros "H". iApply (sim_lift_call with "H").
+  iIntros (v_t' v_s' ) "H". iApply lift_post_val. iApply "H".
 Qed.
 
 (** fork *)

@@ -59,12 +59,6 @@ Section log_rel.
     destruct (decide (x = x')) as [<-|Hne]; set_solver.
   Qed.
 
-  Local Lemma call_not_val v1 v2 : language.to_val (Call v1 v2) = None.
-  Proof.
-    rewrite /language.to_val /language.to_class; cbn.
-    destruct to_fname; [destruct to_result | ]; done.
-  Qed.
-
   Local Ltac solve_rrel_refl :=
     sim_val;
     try rewrite (left_id True%I);
@@ -116,7 +110,7 @@ Section log_rel.
     smart_sim_bind (subst_map _ _) (subst_map _ _) "(IH1 [] [//])".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t2 v_s2) "[_ #Hv2]".
-    discr_source; first by apply call_not_val. val_discr_source "Hv2".
+    discr_source. discr_source. val_discr_source "Hv2".
     iApply (sim_call with "Hv1"). iIntros (??) "Hr". iApply lift_post_val; eauto.
   Qed.
 
@@ -216,7 +210,7 @@ Section log_rel.
   Proof.
     iIntros "#Hr1 #Hr2 Hsim".
     iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
-    specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool ltac:(done)) as (sc1_s & sc2_s & -> & -> & Heq).
+    specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool) as (sc1_s & sc2_s & -> & -> & Heq).
     val_discr_source "Hr1". val_discr_source "Hr2".
     assert (sc1_s ≠ ScPoison ∧ sc2_s ≠ ScPoison) as [Hsc1_npoison Hsc2_npoison].
     { split; intros ->; destruct Heq as [ Heq | Heq]; inversion Heq. }

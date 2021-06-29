@@ -159,7 +159,7 @@ Section irreducible.
         end
     end; finish_decision.
 
-  Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | prove_irred].
+  Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | rewrite language_to_val_eq; done | prove_irred].
 
   Global Instance irred_unless_match_val r el P σ  :
     IrredUnless (∃ i e, r = ValR [ScInt i] ∧ 0 ≤ i ∧ el !! Z.to_nat i = Some e) P (Case r el) σ.
@@ -195,7 +195,7 @@ Section irreducible.
   Global Instance irred_unless_eq r1 r2 P σ :
     IrredUnless (∃ sc1 sc2, r1 = ValR [sc1] ∧ r2 = ValR [sc2] ∧ (scalar_eq σ.(shp) sc1 sc2 ∨ scalar_neq sc1 sc2)) P (BinOp EqOp r1 r2) σ.
   Proof.
-    apply irred_unless_irred_dec; [ | prove_irred].
+    apply irred_unless_irred_dec; [ | done | prove_irred].
     destruct r1 as [[ | sc1 []]|]; try finish_decision.
     destruct r2 as [[ | sc2 []]|]; try finish_decision.
     destruct (decide (scalar_eq σ.(shp) sc1 sc2)); first by eauto 8.
@@ -205,7 +205,7 @@ Section irreducible.
   Global Instance irred_proj r r2 P σ :
     IrredUnless (∃ v i s, r = ValR v ∧ r2 = ValR [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj r r2) σ.
   Proof.
-    apply irred_unless_irred_dec; [| prove_irred].
+    apply irred_unless_irred_dec; [| done | prove_irred].
     destruct r as [v|]; try finish_decision.
     destruct r2 as [[ | s2 []]|]; try finish_decision.
     destruct s2 as [ | i | | | ]; try finish_decision.
@@ -307,15 +307,14 @@ Section irreducible.
     IrredUnless (∃ l t T, r = PlaceR l t T) P (Copy r) σ.
   Proof. prove_irred_unless. Qed.
   Global Instance irreducible_copy_place P σ l t T :
-    IrredUnless ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T)) (* ∧ v <<t σ.(snp) *)) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
+    IrredUnless ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T))) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
   Proof.
     prove_irred_unless.
     2: { destruct memory_read; eauto. }
     destruct (read_mem l (tsize T) σ.(shp)) eqn:Heq1; last finish_decision.
     destruct (memory_read _ _ _ _ _) eqn:Heq2.
-    2: { right; intros (v' & [= ->] & (? & [=]) (* & _ *)). }
+    2: { right; intros (v' & [= ->] & (? & [=])). }
     finish_decision.
-    (*destruct (decide (v <<t σ.(snp))); finish_decision.*)
   Qed.
 
   Global Instance irreducible_write_val_left1 P σ v v' :
@@ -330,7 +329,7 @@ Section irreducible.
   Global Instance irreducible_write P σ l t T v :
     IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
   Proof.
-    apply irred_unless_irred_dec; [ | prove_irred].
+    apply irred_unless_irred_dec; [ | done | prove_irred].
     destruct (decide (length v = tsize T)) as [Heq|]; last finish_decision.
     destruct (decide (is_Some (memory_written (sst σ) (scs σ) l t (tsize T)))) as [Hsome|]; last finish_decision.
     enough (Decision (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom (gset loc) (shp σ))) as [ | ]; [by finish_decision.. | ].

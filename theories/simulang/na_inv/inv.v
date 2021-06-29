@@ -247,7 +247,7 @@ Section fix_heap.
   Proof.
     iIntros (?) "#Hbij Hc Hv Hsim".
     iApply (sim_bij_exploit_store with "Hbij Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t' v_s') "Hlt Hls Hv' Hc".
     iApply source_red_sim_expr.
     iApply (source_red_store_na with "Hls"). iIntros "Hls".
@@ -275,7 +275,7 @@ Section fix_heap.
     iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [%HT %Hsafe]]".
     iDestruct (heap_ctx_wf with "Hσ_s") as %?.
     rewrite fill_comp in HT.
-    have [m[?[[<-]?]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+    have [m[?[[<-]?]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
 
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcoll.
@@ -346,7 +346,7 @@ Section fix_heap.
   Proof.
     iIntros (?) "#Hbij Hc Hsim".
     iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hlt Hls #Hv Hc".
     iApply source_red_sim_expr.
     iApply (source_red_load_na with "Hls"). iIntros "Hls".
@@ -368,7 +368,7 @@ Section fix_heap.
     iIntros (Hcol) "#[Hbij %Hidx] Hcol Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %Hsafe]]".
-    have [m[?[?[[<-]?]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+    have [m[?[?[[<-]?]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
 
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcoll.
@@ -417,7 +417,7 @@ Section fix_heap.
     iIntros (Hcol) "#[Hbij %Hidx] Hcol Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %Hsafe]]".
-    have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done) ltac:(done).
+    have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcoll.
     rewrite lookup_map_seq_0 in Hcoll.

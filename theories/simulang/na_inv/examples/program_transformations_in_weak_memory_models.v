@@ -62,7 +62,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 !# %π Hc".
     sim_bind (! _)%E (! _)%E. discr_source. val_discr_source "Hv1".
     iApply (sim_bij_exploit_load with "Hv1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. target_load. sim_val. source_load. sim_pures.
     iApply (sim_bij_release (NaRead _) with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
@@ -77,7 +77,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 %v_t2 %v_s2 #Hv2 !# %π Hc".
     sim_bind (_ <- _)%E (_ <- _)%E. discr_source. val_discr_source "Hv1".
     iApply (sim_bij_exploit_store with "Hv1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_store. target_store. sim_val. source_load. sim_pures.
     iApply (sim_bij_release NaExcl with "Hv1 Hc [$] [$] Hv2"); [by simplify_map_eq| ].
@@ -95,12 +95,12 @@ Section eliminations.
     iApply (sim_bij_exploit_store with "Hv1 Hc"); [|done|]. {
       intros.
       reach_or_stuck_bind (! _)%E.
-      eapply reach_or_stuck_irred; first apply _; first done.
+      eapply reach_or_stuck_irred; first apply _.
       intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
       eapply reach_or_stuck_refl.
       eapply reach_or_stuck_head_step; [by econstructor|]. simpl. simpl_subst.
       reach_or_stuck_fill (_ <- _)%E.
-      apply: reach_or_stuck_irred; [done|] => ?.
+      apply: reach_or_stuck_irred => ?.
       apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
     }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
@@ -117,7 +117,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 %v_t2 %v_s2 #Hv2 %v_t3 %v_s3 #Hv3 !# %π Hc".
     sim_bind (_ <- _)%E (_ <- _)%E. discr_source. val_discr_source "Hv2".
     iApply (sim_bij_exploit_store with "Hv2 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_store. target_store. sim_val. source_store.
     iApply (sim_bij_release NaExcl with "Hv2 Hc [$] [$] Hv1"); [by simplify_map_eq| ].
@@ -132,7 +132,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 !# %π Hc".
     sim_bind (Val _) (! _)%E. discr_source. val_discr_source "Hv1".
     iApply (sim_bij_exploit_load with "Hv1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. sim_val. sim_pures.
     iApply (sim_bij_release (NaRead _) with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
@@ -209,7 +209,7 @@ Section reorderings.
 
     destruct Hor; simplify_eq.
     - iApply (sim_bij_exploit_load with "Hx Hc"); [|done|].
-      { intros. reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_load. sim_pures. sim_bind (Load _ _) (Load _ _).
       iApply (sim_bij_load_mapstolist [(global_loc x, global_loc x, v_t, v_s, q)] with "Hy Hc [-]"); [done| | |].
@@ -221,11 +221,11 @@ Section reorderings.
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. iFrame. by iSplit.
     - iApply (sim_bij_exploit_load with "Hy Hc"); [|done|].
       { intros. reach_or_stuck_bind (Load _ _)%E.
-        eapply reach_or_stuck_irred; first apply _; first done.
+        eapply reach_or_stuck_irred; first apply _.
         intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
         apply: reach_or_stuck_refl.
         apply: reach_or_stuck_head_step; [ by econstructor|] => /=. simpl_subst.
-        reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_irred; [done|] => ?.
+        reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_irred => ?.
         apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       target_load. sim_pures. sim_bind (Load _ _) (Load _ _).
@@ -265,7 +265,7 @@ Section reorderings.
         apply: reach_or_stuck_store; [done|].
         apply: reach_or_stuck_refl.
         apply: reach_or_stuck_head_step; [by econstructor|] => /=.
-        apply: reach_or_stuck_irred; [done|] => -[?[?[[<-] /=/lookup_insert_Some[?|?]]]].
+        apply: reach_or_stuck_irred => -[?[?[[<-] /=/lookup_insert_Some[?|?]]]].
         { naive_solver. }
         apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
@@ -279,7 +279,7 @@ Section reorderings.
       iApply (sim_bij_release NaExcl with "Hy Hc [$] [$] Hr2"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
     - iApply (sim_bij_exploit_store with "Hx Hc"); [|done|].
-      { intros. reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_store. sim_pures. sim_bind (Store _ _ _) (Store _ _ _).
       iApply (sim_bij_store_na with "Hy Hc Hr2").
@@ -317,7 +317,7 @@ Section reorderings.
         apply: reach_or_stuck_refl.
         apply: reach_or_stuck_head_step; [by econstructor|] => /=.
         reach_or_stuck_fill (! _)%E.
-        apply: reach_or_stuck_irred; [done|] => -[?[?[?[[<-] /=/lookup_insert_Some[?|?]]]]].
+        apply: reach_or_stuck_irred => -[?[?[?[[<-] /=/lookup_insert_Some[?|?]]]]].
         { naive_solver. }
         apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
@@ -331,7 +331,7 @@ Section reorderings.
       iApply (sim_bij_release (NaRead _) with "Hy Hc [$] [$] Hv"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
     - iApply (sim_bij_exploit_store with "Hx Hc"); [|done|].
-      { intros. reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred; [done|] => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_store. sim_pures. sim_bind (Load _ _) (Load _ _).
       iApply (sim_bij_load with "Hy Hc"); [|done|].
@@ -363,11 +363,11 @@ Section reorderings.
     simplify_eq.
     iApply (sim_bij_exploit_store with "Hy Hc"); [|done|].
     { intros. reach_or_stuck_bind (Load _ _)%E.
-      eapply reach_or_stuck_irred; first apply _; first done.
+      eapply reach_or_stuck_irred; first apply _.
       intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
       apply: reach_or_stuck_refl.
       apply: reach_or_stuck_head_step; [ by econstructor|] => /=. simpl_subst.
-      reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred; [done|] => ?.
+      reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred => ?.
       apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     target_store. sim_pures. sim_bind (Load _ _) (Load _ _).

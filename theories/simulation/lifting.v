@@ -66,59 +66,57 @@ Section lang.
     - intros P σ1 e2' σ2 efs ?%head_reducible_prim_step; eauto.
   Qed.
 
-  Class SIrreducible (Φ : Prop) (P : prog Λ) e σ  :=
-    sirreducible : Φ → irreducible P e σ.
+  Definition SIrreducible (Φ : Prop) (P : prog Λ) e σ  := Φ → irreducible P e σ.
 
   (* a more constructive formulation *)
   Class IrredUnless (ϕ : Prop) P (e : expr Λ) σ :=
-    irred_unless : ϕ ∨ irreducible P e σ.
+    irred_unless : (ϕ ∨ irreducible P e σ) ∧ to_val e = None.
 
-  Global Instance irred_unless_sirreducible ϕ P e σ : IrredUnless ϕ P e σ → SIrreducible (¬ ϕ) P e σ.
+  Lemma irred_unless_sirreducible ϕ P e σ : IrredUnless ϕ P e σ → SIrreducible (¬ ϕ) P e σ.
   Proof.
-    intros Hunless Hϕ e' σ' efs Hprim. apply Hϕ. destruct Hunless as [|Hunless] => //.
+    intros Hunless Hϕ e' σ' efs Hprim. apply Hϕ. destruct Hunless as [[|Hunless] Hv] => //.
     exfalso. by apply: Hunless.
   Qed.
 
   (** We can get the other direction if we can decide ϕ (or assume XM) *)
   Lemma irred_unless_irred_dec ϕ P e σ :
     Decision ϕ →
+    to_val e = None →
     SIrreducible (¬ ϕ) P e σ →
     IrredUnless ϕ P e σ.
   Proof.
-    intros [Hphi | Hnphi] Hirred; first by left.
-    right. by apply Hirred.
+    intros [Hphi | Hnphi] Hv Hirred; split; eauto.
   Qed.
 
   Lemma irred_unless_weaken P e σ (ϕ ψ : Prop)  :
     (ϕ → ψ) →
     IrredUnless ϕ P e σ → IrredUnless ψ P e σ.
-  Proof. intros Hw [?|?]; [left; naive_solver|by right]. Qed.
+  Proof. intros Hw [[?|?] ?]; (split; last done); [left; naive_solver|by right]. Qed.
 
   Lemma not_reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
-     to_val e = None → ¬ (reach_stuck P e σ) → ϕ.
+     ¬ (reach_stuck P e σ) → ϕ.
   Proof.
-    intros Hnval Hreach. destruct Hirred; [done|]. contradict Hreach.
+    intros Hreach. destruct Hirred as [[?|?] ?]; [done|]. contradict Hreach.
     by apply: stuck_reach_stuck.
   Qed.
 
   Lemma safe_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
-     safe P e σ → to_val e = None → ϕ.
-  Proof. unfold safe. move => ??. by apply: not_reach_stuck_irred. Qed.
+     safe P e σ → ϕ.
+  Proof. unfold safe. move => ?. by apply: not_reach_stuck_irred. Qed.
 
   Lemma reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ}:
-    to_val e = None → (ϕ → reach_stuck P e σ) → reach_stuck P e σ.
+    (ϕ → reach_stuck P e σ) → reach_stuck P e σ.
   Proof.
-    move => Hv Hf. destruct Hirred; [naive_solver|].
+    move => Hf. destruct Hirred as [[?|?]?]; [naive_solver|].
     by apply: stuck_reach_stuck.
   Qed.
 
   Lemma irred_unless_safe ϕ P e σ :
     IrredUnless ϕ P e σ →
-    to_val e = None →
     safe P e σ →
     ϕ.
   Proof.
-    intros [Hphi | Hirred] Hnval Hsafe; first apply Hphi.
+    intros [[Hphi | Hirred] Hv] Hsafe; first apply Hphi.
     rewrite /safe in Hsafe. contradict Hsafe.
     do 3 eexists. split; first econstructor. exists e, 0. split; last split; done.
   Qed.
@@ -146,10 +144,9 @@ Section lang.
     safe P e σ →
     no_forks P e σ e' σ' →
     IrredUnless ϕ P e' σ' →
-    to_val e' = None →
     ϕ.
   Proof.
-    intros Hsafe Hsteps [Hphi | Hirred] Hnoval; first done.
+    intros Hsafe Hsteps [[Hphi | Hirred] Hnoval]; first done.
     induction Hsteps.
     - rewrite /safe in Hsafe. contradict Hsafe.
       apply irreducible_reach_stuck; done.
@@ -157,28 +154,27 @@ Section lang.
   Qed.
 
   Lemma pool_safe_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ} T π K:
-    pool_safe P T σ → T !! π = Some (fill K e) → to_val e = None → ϕ.
+    pool_safe P T σ → T !! π = Some (fill K e) → ϕ.
   Proof.
-    intros Hsafe ??. apply: not_reach_stuck_irred; [done|].
+    intros Hsafe ?. apply: not_reach_stuck_irred.
     unfold pool_safe in Hsafe. contradict Hsafe. apply: pool_reach_stuck_reach_stuck; [|done].
     by apply fill_reach_stuck.
   Qed.
 
   Lemma pool_reach_stuck_irred P e σ ϕ {Hirred: IrredUnless ϕ P e σ} T π K:
-    T !! π = Some (fill K e) → to_val e = None → (ϕ → pool_reach_stuck P T σ) → pool_reach_stuck P T σ.
+    T !! π = Some (fill K e) → (ϕ → pool_reach_stuck P T σ) → pool_reach_stuck P T σ.
   Proof.
-    intros Hsafe ??.
-    destruct Hirred; [naive_solver|].
+    intros Hsafe ?.
+    destruct Hirred as [[?|?] ?]; [naive_solver|].
     apply: pool_reach_stuck_reach_stuck; [|done].
     apply: fill_reach_stuck. by apply: stuck_reach_stuck.
   Qed.
 
   Lemma reach_or_stuck_irred e σ Φ P ϕ {Hirred : IrredUnless ϕ P e σ}:
-    to_val e = None →
     (ϕ → reach_or_stuck P e σ Φ) → reach_or_stuck P e σ Φ.
   Proof.
-    destruct Hirred; [naive_solver|].
-    move => ??. left. by apply: stuck_reach_stuck.
+    destruct Hirred as [[?|?]?]; [naive_solver|].
+    move => ?. left. by apply: stuck_reach_stuck.
   Qed.
 
   Lemma reach_or_stuck_pure e e' n σ p ϕ Φ {Hpure : PureExec ϕ n e e'}:
@@ -191,10 +187,16 @@ Section lang.
     eapply reach_or_stuck_step; first done. by apply IH.
   Qed.
 
+  Definition safe_reach (ϕ : Prop) P e σ := safe P e σ → ϕ.
+
+  Lemma safe_reach_irred (ϕ : Prop) P e σ {Hirred : IrredUnless ϕ P e σ} :
+    safe_reach ϕ P e σ.
+  Proof.
+    intros Hsafe. destruct Hirred as [[ | Hirred] ?]; first done.
+    exfalso. apply Hsafe. apply irreducible_reach_stuck; done.
+  Qed.
 End lang.
 
-#[global]
-Hint Mode SIrreducible - - - + - : core.
 #[global]
 Hint Mode IrredUnless - - - + - : core.
 #[global]
@@ -371,47 +373,59 @@ Section fix_sim.
   Qed.
 
   Lemma source_red_reach_or_stuck ϕ e_s Ψ π :
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (λ _ _, ϕ)) →
-    to_val e_s = None →
+    (∀ P_s σ_s, to_val e_s = None ∧ reach_or_stuck P_s e_s σ_s (λ _ _, ϕ)) →
     (⌜ϕ⌝ -∗ source_red e_s π Ψ) -∗
     source_red e_s π Ψ.
-  Proof. 
-    intros Hunless Hval. iIntros "Hs".
+  Proof.
+    intros Hunless. iIntros "Hs".
     rewrite source_red_unfold.
     iIntros (P_s σ_s ????) "[Hstate [%Hpool %Hnreach]]".
-    destruct (Hunless P_s σ_s) as [Hstuck | (? & ? & ? & Hphi)].
-    - exfalso; apply Hnreach. eapply pool_reach_stuck_reach_stuck. 
-      + eapply fill_reach_stuck, Hstuck. 
-      + done. 
+    destruct (Hunless P_s σ_s) as [Hval [Hstuck | (? & ? & ? & Hphi)]].
+    - exfalso; apply Hnreach. eapply pool_reach_stuck_reach_stuck.
+      + eapply fill_reach_stuck, Hstuck.
+      + done.
     - iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
   Qed.
 
   Lemma source_red_irred_unless ϕ e_s Ψ π :
     (∀ P_s σ_s, IrredUnless ϕ P_s e_s σ_s) →
-    to_val e_s = None →
     (⌜ϕ⌝ -∗ source_red e_s π Ψ) -∗
     source_red e_s π Ψ.
   Proof.
-    intros Hunless Hval. iIntros "Hs".
+    intros Hunless. iIntros "Hs".
     iApply source_red_reach_or_stuck; [ | done..].
-    intros. eapply reach_or_stuck_irred; [ done | done | ]. 
-    intros Hphi. right. eexists _, _; split; last done. apply no_forks_refl. 
+    intros P_s σ_s. specialize (Hunless P_s σ_s). split; first apply Hunless.
+    eapply reach_or_stuck_irred; [ done | ].
+    intros Hphi. right. eexists _, _; split; last done. apply no_forks_refl.
   Qed.
 
   Lemma sim_irred_unless ϕ e_s e_t Φ π :
     (∀ P_s σ_s, IrredUnless ϕ P_s e_s σ_s) →
-    to_val e_s = None →
     (⌜ϕ⌝ -∗ e_t ⪯{π} e_s [{ Φ }]) ⊢@{PROP}
      e_t ⪯{π} e_s [{ Φ }].
   Proof.
-    intros Hunless Hval. iIntros "Hs".
+    intros Hunless. iIntros "Hs".
     rewrite sim_expr_unfold /safe.
     iIntros (P_t σ_t P_s σ_s ??) "[Hstate [% %Hnreach]]".
+    specialize (Hunless P_s σ_s).
     assert (¬ irreducible P_s e_s σ_s) as Hn.
     { unfold pool_safe in Hnreach. contradict Hnreach.
       apply: pool_reach_stuck_reach_stuck; [|done].
-      apply: fill_reach_stuck. by apply stuck_reach_stuck. }
-    destruct (Hunless P_s σ_s); [|done].
+      apply: fill_reach_stuck. apply irreducible_reach_stuck; [ apply Hunless | done]. }
+    destruct Hunless as [[?|?]]; [|done].
+    iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
+  Qed.
+
+  Lemma sim_irred_safe_reach ϕ e_s e_t Φ π :
+    (∀ P_s σ_s, safe_reach ϕ P_s e_s σ_s) →
+    (⌜ϕ⌝ -∗ e_t ⪯{π} e_s [{ Φ }]) ⊢@{PROP}
+     e_t ⪯{π} e_s [{ Φ }].
+  Proof.
+    intros Hsafereach. iIntros "Hs".
+    rewrite sim_expr_unfold.
+    iIntros (P_t σ_t P_s σ_s ??) "[Hstate [%Hpool %Hpoolsafe]]".
+    specialize (pool_safe_threads_safe _ _ _ _ _ Hpoolsafe Hpool) as Hsafect.
+    specialize (fill_safe _ _ _ _ Hsafect) as Hphi%Hsafereach.
     iMod ("Hs" with "[//] [$Hstate //]") as "Hs"; done.
   Qed.
 

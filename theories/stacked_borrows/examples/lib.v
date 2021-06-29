@@ -33,7 +33,7 @@ Proof.
   sim_pures.
   source_bind (Write _ _).
   (* gain knowledge about the length *)
-  iApply source_red_irred_unless; first done. iIntros (Hsize).
+  iApply source_red_irred_unless. iIntros (Hsize).
   iApply (source_write_local with "Htag Hs"); [by rewrite replicate_length | done | ].
   iIntros "Hs Htag". source_finish.
 
@@ -59,9 +59,9 @@ Proof.
   destruct r as [ v | ]; simpl.
   - (* value *)
     reach_or_stuck_bind (Write _ _).
-    eapply reach_or_stuck_irred; [ apply _ | done | ].
+    eapply reach_or_stuck_irred; [ apply _ | ].
     intros (_ & _ & ?).
     do 2 eapply reach_or_stuck_refl. eauto.
   - reach_or_stuck_bind (Write _ _).
-    eapply reach_or_stuck_irred; [ apply _ | done | done].
+    eapply reach_or_stuck_irred; [ apply _ | done].
 Qed.

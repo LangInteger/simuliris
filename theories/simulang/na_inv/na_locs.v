@@ -18,7 +18,7 @@ Lemma reach_or_stuck_store P_s (l_s : loc) (v' : val) σ o Φ:
   reach_or_stuck P_s (Store o #l_s v') σ Φ.
 Proof.
   move => ??.
-  apply: reach_or_stuck_irred; [done|].
+  apply: reach_or_stuck_irred.
   move => [?[?[[<-]?]]]; simplify_eq.
   destruct o => //.
   - by apply: reach_or_stuck_head_step; [by econstructor|].
@@ -271,7 +271,6 @@ Section na_alt_exec.
     move => ?? [? [? [-> ->]]].
     eapply (pool_reach_stuck_irred).
     2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
-    2: { done. }
     { apply _. }
     move => [?[?[??]]]; simplify_eq.
     apply: (pool_reach_stuck_no_forks π').
@@ -308,7 +307,6 @@ Section na_alt_exec.
     destruct ns.
     - eapply (pool_reach_stuck_irred).
       2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
-      2: { done. }
       { apply _. }
       move => [?[?[??]]]; simplify_eq.
       apply: (pool_reach_stuck_no_forks π').
@@ -323,7 +321,6 @@ Section na_alt_exec.
       split; [done|] => ??? Hstep. inversion Hstep; simplify_map_eq/=.
     - eapply (pool_reach_stuck_irred).
       2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
-      2: { done. }
       { apply _. }
       move => [?[?[?[??]]]]; simplify_eq.
       apply: (pool_reach_stuck_no_forks π').
@@ -358,7 +355,6 @@ Section na_alt_exec.
     move => ?? [? [? [-> ->]]].
     eapply (pool_reach_stuck_irred).
     2: { apply: list_lookup_insert. rewrite insert_length. by apply: lookup_lt_Some. }
-    2: { done. }
     { apply _. }
     move => [?[?[?[?[? [? Hs]]]]]]; simplify_eq.
     apply: pool_reach_stuck_no_forks.
@@ -369,7 +365,7 @@ Section na_alt_exec.
     apply: pool_reach_stuck_reach_stuck.
     2: { apply: list_lookup_insert. by rewrite insert_length. }
     apply: fill_reach_stuck.
-    destruct ns; (apply: reach_stuck_irred; [done|]).
+    destruct ns; (apply: reach_stuck_irred).
     - move => [?[?[? Hh]]]; simplify_eq/=.
       move: Hh => /lookup_free_mem_Some /= [/(mk_is_Some _ _) /Hs ?[//|?]]. lia.
     - move => [?[?[? [? Hh]]]]; simplify_eq/=.
@@ -632,7 +628,7 @@ Section na_locs_wf.
         move => ??. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
       + apply: na_alt_exec_step; [naive_solver |done |done |].
         move => ?????.
-        apply: reach_or_stuck_irred; [done|]. move => [?[?[[<-]?]]]; simplify_eq.
+        apply: reach_or_stuck_irred. move => [?[?[[<-]?]]]; simplify_eq.
         apply: reach_or_stuck_store; [done|].
         apply: reach_or_stuck_refl. split_and!; [done| | by apply: heap_wf_insert; eauto |done|done].
         move => l' ?? /= ???. destruct (decide (l' = l_s)); simplify_map_eq => //. naive_solver.
@@ -658,7 +654,7 @@ Section na_locs_wf.
       move => ??. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
     - apply: na_alt_exec_step; [naive_solver |done |done |].
       move => ???? Heq.
-      apply: reach_or_stuck_irred; [done|]. move => [?[?[?[??]]]]; simplify_eq.
+      apply: reach_or_stuck_irred. move => [?[?[?[??]]]]; simplify_eq.
       apply: reach_or_stuck_load; [done..|].
       apply: reach_or_stuck_refl. split_and!; [|done|done|done|done].
       efeed pose proof Heq; [|done|done|naive_solver].
@@ -722,7 +718,7 @@ Section na_locs_wf.
       move => /= ??? Hl???? /lookup_free_mem_Some[??]. by apply: Hl.
     - apply: na_alt_exec_step; [naive_solver |done |done |].
       move => σ' Hhwf Hsub Hg Heq.
-      eapply reach_or_stuck_irred; [apply _|done|].
+      eapply reach_or_stuck_irred; [apply _|].
       move => [?[?[?[?[?[??]]]]]]; simplify_eq.
       apply: reach_or_stuck_head_step; [by econstructor|].
       apply: reach_or_stuck_refl; split_and!; [done| | by apply: heap_wf_free_mem |done |done].
