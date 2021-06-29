@@ -12,7 +12,7 @@ Section gset_bij.
   Context `{gset_bijG Σ A B}.
   Implicit Types (L : gset (A * B)) (a : A) (b : B).
 
-  (* TODO: maybe move into Iris?*)
+  (* TODO: maybe upstream into Iris?*)
   Lemma gset_bij_own_elem_auth_agree {γ q L} a b :
     gset_bij_own_auth γ q L -∗ gset_bij_own_elem γ a b -∗ ⌜(a, b) ∈ L⌝.
   Proof.
