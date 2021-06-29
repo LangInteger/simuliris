@@ -6,7 +6,7 @@ From simuliris.stacked_borrows Require Import parallel_subst primitive_laws
 From simuliris.stacked_borrows Require Export behavior.
 From iris.prelude Require Import options.
 
-(* TODO move to std++ *)
+(* TODO upstream to std++ *)
 Lemma Forall2_cons_iff {A B} (P : A → B → Prop)
   (x : A) (l : list A) (y : B) (k : list B) :
   Forall2 P (x :: l) (y :: k) ↔ P x y ∧ Forall2 P l k.

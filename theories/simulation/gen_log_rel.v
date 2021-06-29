@@ -101,25 +101,14 @@ Section fix_lang.
   Definition binder_delete_gset (b : binder) (X : gset string) :=
     match b with BAnon => X | BNamed x => X ∖ {[x]} end.
 
-  (* TODO upstream to Iris *)
-  Lemma big_sepS_delete_2 `{Countable A} (Φ : A → PROP) (X : gset A) x :
-    Φ x ∗ ([∗ set] y ∈ X ∖ {[ x ]}, Φ y) ⊢ [∗ set] y ∈ X, Φ y.
-  Proof.
-    destruct (decide (x ∈ X)).
-    - rewrite -big_sepS_delete //.
-    - replace (X ∖ {[x]}) with X by set_solver.
-      rewrite bi.sep_elim_r. done.
-  Qed.
-
   Lemma subst_map_rel_insert X x v_t v_s map :
     subst_map_rel (binder_delete_gset x X) map -∗
     val_rel v_t v_s -∗
     subst_map_rel X (binder_insert x (v_t, v_s) map).
   Proof.
     iIntros "Hmap Hval". destruct x as [|x]; first done. simpl.
-    rewrite /subst_map_rel. rewrite -(big_sepS_delete_2 _ X x).
-    iSplitL "Hval".
-    - rewrite lookup_insert. done.
+    rewrite /subst_map_rel. iApply (big_sepS_delete_2 x with "[Hval]").
+    - rewrite /= lookup_insert. done.
     - iApply (big_sepS_impl with "Hmap").
       iIntros "!# %x' %Hx'".
       destruct (decide (x = x')) as [<-|Hne]; first by set_solver.
@@ -189,7 +178,10 @@ Section fix_lang.
 
   (** Substitute away a single free variable in an [gen_log_rel]. *)
   Lemma gen_log_rel_subst x e_t e_s dummy {HPers : ∀ vt vs, Persistent (val_rel vt vs)} :
-    (* In case [x] is not free, we need a reflexive "default value" *)
+    (* In case [x] is not free, we need a reflexive "default value". (Really we
+       should require [x ∈ free_vars e_t ∪ free_vars e_s] here, but that is hard
+       for the [log_rel] automation tactic to prove, so we use this approach
+       instead.) *)
     □ val_rel dummy dummy -∗
     (□ ∀ (v_t v_s : val Λ), val_rel v_t v_s -∗
       gen_log_rel (subst_map {[x:=v_t]} e_t) (subst_map {[x:=v_s]} e_s)) -∗

@@ -2,7 +2,7 @@ From stdpp Require Import binders.
 From iris.proofmode Require Import tactics.
 From iris.prelude Require Import options.
 
-(* TODO: upstream the following definitions *)
+(* TODO: upstream everything in this file *)
 Ltac get_head e :=
   lazymatch e with
   | ?h _ => get_head constr:(h)

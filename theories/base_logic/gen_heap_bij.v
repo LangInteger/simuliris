@@ -12,7 +12,7 @@ Section gset_bij.
   Context `{gset_bijG Σ A B}.
   Implicit Types (L : gset (A * B)) (a : A) (b : B).
 
-  (* TODO: maybe move into Iris?*)
+  (* TODO: maybe upstream into Iris?*)
   Lemma gset_bij_own_elem_auth_agree {γ q L} a b :
     gset_bij_own_auth γ q L -∗ gset_bij_own_elem γ a b -∗ ⌜(a, b) ∈ L⌝.
   Proof.
@@ -72,9 +72,7 @@ Section laws.
   Lemma gen_heap_bij_agree l_t1 l_t2 l_s1 l_s2 :
     l_t1 ↔h l_s1 -∗ l_t2 ↔h l_s2 -∗ ⌜l_t1 = l_t2 ↔ l_s1 = l_s2⌝.
   Proof.
-    iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2"); 
-      (* FIXME: fix for earlier Iris bug, remove once we go to new Iris release *)
-      try by apply gset_empty.
+    iIntros "H1 H2". iApply (gset_bij_own_elem_agree with "H1 H2").
   Qed.
   Lemma gen_heap_bij_func l_t l_s1 l_s2 :
     l_t ↔h l_s1 -∗ l_t ↔h l_s2 -∗ ⌜l_s1 = l_s2⌝.
