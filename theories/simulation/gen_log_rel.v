@@ -189,7 +189,10 @@ Section fix_lang.
 
   (** Substitute away a single free variable in an [gen_log_rel]. *)
   Lemma gen_log_rel_subst x e_t e_s dummy {HPers : ∀ vt vs, Persistent (val_rel vt vs)} :
-    (* In case [x] is not free, we need a reflexive "default value" *)
+    (* In case [x] is not free, we need a reflexive "default value". (Really we
+       should require [x ∈ free_vars e_t ∪ free_vars e_s] here, but that is hard
+       for the [log_rel] automation tactic to prove, so we use this approach
+       instead.) *)
     □ val_rel dummy dummy -∗
     (□ ∀ (v_t v_s : val Λ), val_rel v_t v_s -∗
       gen_log_rel (subst_map {[x:=v_t]} e_t) (subst_map {[x:=v_s]} e_s)) -∗
