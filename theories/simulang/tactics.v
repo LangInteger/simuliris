@@ -384,10 +384,10 @@ Ltac simpl_subst :=
       let e' := W.of_expr e in
       simple refine (W.tac_to_expr_subst _ _ _ _ e' _ _ _ _); [ shelve
       | simpl; rewrite ?list_to_map_to_list; reflexivity
-      | compute_done
+      | simpl; compute_done
       |];
       simple refine (W.tac_to_expr_combine_subst_map _ _ _ _ _); [ shelve |
-      compute_done | ];
+      simpl; compute_done | ];
       simpl
     end.
 Arguments subst : simpl never.

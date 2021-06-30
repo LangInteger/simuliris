@@ -94,6 +94,9 @@ Section data_race.
      Free "i";;
      "res".
 
+  Lemma int_is_unboxed (z : Z) : val_is_unboxed #z.
+  Proof. done. Qed.
+
   Lemma hoist_load_sim:
     ⊢ log_rel hoist_load_t hoist_load_s.
   Proof.
@@ -122,27 +125,57 @@ Section data_race.
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne1.
     iDestruct (heap_mapsto_ne with "Hli_s Hl_s") as %Hne2.
-    destruct (if v_s is #(LitInt _) then true else false) eqn:?. 2: {
-      source_while. source_load. source_load.
-      source_bind (_ ≠_)%E.
-      (* iApply source_red_irred_unless. *)
-      admit.
-    }
-    destruct v_s as [[nval| | | | |]| | |] => //. val_discr_source "Hv".
+
+    (* hint for the [sim_pure] automation to reduce the comparison *)
+    specialize int_is_unboxed as Hunb.
+
+    (* initiate coinduction *)
     target_load. sim_pures.
-    iApply (sim_bij_insert with "Hfi_t Hfi_s Hli_t Hli_s []"); [done..|]. iIntros "#Hbiji".
-    iApply (sim_bij_insert with "Hfr_t Hfr_s Hlr_t Hlr_s []"); [done..|]. iIntros "#Hbijr".
     sim_bind (While _ _) (While _ _).
-    iApply (sim_while_while _ _ _ _ _ (
-     n_t ↦t{#q} #nval ∗ n_s ↦s{#q} #nval ∗ na_locs π (<[n_s:=(n_t, NaRead q)]> ∅))%I with "[-]").
-    { eauto with iFrame. }
-    iIntros "!> (Hl_t&Hl_s&Hc)".
-    source_load. sim_pures.
-    sim_bind (! _)%E (! _)%E.
-    iApply (sim_bij_load with "Hbiji Hc"); [by simplify_map_eq|done|].
-    iIntros (v_t v_s) "? Hc". sim_val.
-    (* TODO: finish *)
-  Admitted.
+    (* the invariant: we just thread through our ownership, with the invariant that
+      [r] and [i] point to the same integer values.
+      (retaining this information eases our live in the loop proof significantly)
+    *)
+    set (inv := (
+      ∃ z_i z_r : Z,
+      †lr_s…s 1 ∗ †li_s…s 1 ∗ †lr_t…t 1 ∗ †li_t…t 1 ∗
+      lr_s ↦s #z_r ∗ li_s ↦s #z_i ∗ lr_t ↦t #z_r ∗ li_t ↦t #z_i ∗
+      n_t ↦t{#q} v_t ∗ n_s ↦s{#q} v_s ∗ na_locs π (<[n_s:=(n_t, NaRead q)]> ∅))%I).
+    iApply (sim_while_while _ _ _ _ _ inv with "[-]").
+    { rewrite /inv. eauto with iFrame. }
+    iIntros "!> (%z_i & %z_r & ? & ? & ? & ? & Hlr_s & Hli_s & Hlr_t & Hli_t & Hl_t&Hl_s&Hc)".
+    source_load. source_load. target_load. sim_pures.
+    destruct (bool_decide (#z_i = v_s)) eqn:Heq_v_s.
+    - (* compare equal in the source; leave the loop *)
+      apply bool_decide_eq_true_1 in Heq_v_s. subst v_s.
+      val_discr_source "Hv".
+      rewrite bool_decide_eq_true_2; last done.
+      sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val.
+
+      sim_pures. source_load. target_load. to_sim. sim_pures.
+      (* cleanup *)
+      source_free. source_free. target_free. target_free. sim_pures.
+      iApply (sim_bij_release (NaRead q) with "Hbij Hc Hl_t Hl_s [//]").
+      { apply lookup_insert. }
+      rewrite delete_insert; last done. iIntros "Hc".
+      sim_val. eauto.
+    - (* compare unequal and take another trip around the loop *)
+      apply bool_decide_eq_false_1 in Heq_v_s.
+      destruct (bool_decide (#z_i = v_t)) eqn:Heq_v_t.
+      { (* contradiction *)
+        apply bool_decide_eq_true_1 in Heq_v_t. subst v_t.
+        val_discr_target "Hv". done.
+      }
+      sim_pures.
+      source_load. source_load. source_store.
+      source_load. source_store.
+      target_load. target_load. target_store.
+      target_load. target_store.
+      sim_pures. iApply sim_expr_base. iRight.
+      iSplitR; first done. iSplitR; first done.
+      iExists (z_i + 1)%Z, (z_r + z_i)%Z.
+      iFrame.
+  Qed.
 
   (** This optimization hoists the read of "m" out of the loop. We
   need to unrole the loop once because the loop condition can be an
