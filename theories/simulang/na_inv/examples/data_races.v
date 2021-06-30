@@ -68,10 +68,86 @@ Section data_race.
     sim_val. iFrame. done.
   Qed.
 
+  (** This optimization hoists the read of "n" out of the loop. *)
+  Definition hoist_load_s : expr :=
+     let: "r" := ref #0  in
+     let: "i" := ref #0  in
+     while: !"i" ≠ ! "n" do
+       "r" <- !"r" + !"i";;
+       "i" <- !"i" + #1
+     od;;
+     let: "res" := !"r" in
+     Free "r";;
+     Free "i";;
+     "res".
+
+  Definition hoist_load_t : expr :=
+     let: "r" := ref #0  in
+     let: "i" := ref #0  in
+     let: "nval" := ! "n" in
+     while: !"i" ≠ "nval" do
+       "r" <- !"r" + !"i";;
+       "i" <- !"i" + #1
+     od;;
+     let: "res" := !"r" in
+     Free "r";;
+     Free "i";;
+     "res".
+
+  Lemma hoist_load_sim:
+    ⊢ log_rel hoist_load_t hoist_load_s.
+  Proof.
+    log_rel.
+    iIntros "%n_t1 %n_s1 #Hrel1 !# %π Hc".
+
+    source_alloc lr_s as "Hlr_s" "Hfr_s". sim_pures.
+    source_alloc li_s as "Hli_s" "Hfi_s". sim_pures.
+    target_alloc lr_t as "Hlr_t" "Hfr_t". sim_pures.
+    target_alloc li_t as "Hli_t" "Hfi_t". sim_pures.
+    destruct (if n_s1 is #(LitLoc _) then true else false) eqn:Heq. 2: {
+      source_while.
+      source_bind (! _)%E. iApply source_red_irred_unless.
+      iIntros ([l_s ?]); simplify_eq.
+    }
+    destruct n_s1 as [[| | | |n_s |]| | |] => //.
+    iDestruct (gen_val_rel_loc_source with "Hrel1") as (n_t ->) "Hbij".
+    iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
+      intros.
+      reach_or_stuck_fill (While _ _)%E => /=.
+      apply: reach_or_stuck_head_step; [ by econstructor|].
+      reach_or_stuck_fill (! _)%E => /=.
+      apply: reach_or_stuck_irred => ?.
+      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+    }
+    iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
+    iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne1.
+    iDestruct (heap_mapsto_ne with "Hli_s Hl_s") as %Hne2.
+    destruct (if v_s is #(LitInt _) then true else false) eqn:?. 2: {
+      source_while. source_load. source_load.
+      source_bind (_ ≠_)%E.
+      (* iApply source_red_irred_unless. *)
+      admit.
+    }
+    destruct v_s as [[nval| | | | |]| | |] => //. val_discr_source "Hv".
+    target_load. sim_pures.
+    iApply (sim_bij_insert with "Hfi_t Hfi_s Hli_t Hli_s []"); [done..|]. iIntros "#Hbiji".
+    iApply (sim_bij_insert with "Hfr_t Hfr_s Hlr_t Hlr_s []"); [done..|]. iIntros "#Hbijr".
+    sim_bind (While _ _) (While _ _).
+    iApply (sim_while_while _ _ _ _ _ (
+     n_t ↦t{#q} #nval ∗ n_s ↦s{#q} #nval ∗ na_locs π (<[n_s:=(n_t, NaRead q)]> ∅))%I with "[-]").
+    { eauto with iFrame. }
+    iIntros "!> (Hl_t&Hl_s&Hc)".
+    source_load. sim_pures.
+    sim_bind (! _)%E (! _)%E.
+    iApply (sim_bij_load with "Hbiji Hc"); [by simplify_map_eq|done|].
+    iIntros (v_t v_s) "? Hc". sim_val.
+    (* TODO: finish *)
+  Admitted.
+
   (** This optimization hoists the read of "m" out of the loop. We
   need to unrole the loop once because the loop condition can be an
   arbitrary expression [e] that does not write to the heap. *)
-  Definition hoist_load_s (e : expr) : expr :=
+  Definition hoist_load_unknown_s (e : expr) : expr :=
      let: "r" := ref #0  in
      let: "i" := ref #0  in
      while: e do
@@ -83,7 +159,7 @@ Section data_race.
      Free "r";;
      "res".
 
-  Definition hoist_load_t (e : expr) : expr :=
+  Definition hoist_load_unknown_t (e : expr) : expr :=
     let: "i" := ref #0 in
     if: e then
       let: "mval" := !"m" in
@@ -101,10 +177,10 @@ Section data_race.
       Free "i";;
       #0.
 
-  Lemma hoist_load_sim e:
+  Lemma hoist_load_unknown_sim e:
     free_vars e ⊆ list_to_set ["n"; "i"] →
     gen_expr_wf readonly_wf e →
-    ⊢ log_rel (hoist_load_t e) (hoist_load_s e).
+    ⊢ log_rel (hoist_load_unknown_t e) (hoist_load_unknown_s e).
   Proof.
     move => He ?. log_rel.
     iIntros "%v_t1 %v_s1 #Hrel1 %v_t2 %v_s2 #Hrel2 !# %π Hc".
@@ -220,14 +296,24 @@ End data_race.
 
 Section closed.
   (** Obtain a closed proof of [ctx_rel]. *)
-  Lemma hoist_load_ctx e :
-    free_vars e ⊆ list_to_set ["n"; "i"] →
-    gen_expr_wf readonly_wf e →
-    ctx_rel (hoist_load_t e) (hoist_load_s e).
+  Lemma hoist_load_ctx :
+    ctx_rel hoist_load_t hoist_load_s.
   Proof.
     intros ??.
     set Σ := #[naΣ].
     apply (log_rel_adequacy Σ)=>?.
     by apply hoist_load_sim.
+  Qed.
+
+  (** Obtain a closed proof of [ctx_rel]. *)
+  Lemma hoist_load_unknown_ctx e :
+    free_vars e ⊆ list_to_set ["n"; "i"] →
+    gen_expr_wf readonly_wf e →
+    ctx_rel (hoist_load_unknown_t e) (hoist_load_unknown_s e).
+  Proof.
+    intros ??.
+    set Σ := #[naΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    by apply hoist_load_unknown_sim.
   Qed.
 End closed.
