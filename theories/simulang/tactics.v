@@ -384,10 +384,14 @@ Ltac simpl_subst :=
       let e' := W.of_expr e in
       simple refine (W.tac_to_expr_subst _ _ _ _ e' _ _ _ _); [ shelve
       | simpl; rewrite ?list_to_map_to_list; reflexivity
-      | simpl; compute_done
+      | 
+          (* FIXME: really hacky hack to speed up goals on which [compute_done] takes forever due to evars, 
+              but where [simpl] would suffice...*)
+          first [timeout 1 compute_done | simpl; reflexivity]
       |];
       simple refine (W.tac_to_expr_combine_subst_map _ _ _ _ _); [ shelve |
-      simpl; compute_done | ];
+      (* FIXME *)
+      first [timeout 1 compute_done | simpl; reflexivity] | ];
       simpl
     end.
 Arguments subst : simpl never.

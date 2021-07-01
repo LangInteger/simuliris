@@ -152,7 +152,7 @@ Section data_race.
       rewrite bool_decide_eq_true_2; last done.
       sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val.
 
-      sim_pures. source_load. target_load. to_sim. sim_pures.
+      sim_pures. source_load. target_load. sim_pures.
       (* cleanup *)
       source_free. source_free. target_free. target_free. sim_pures.
       iApply (sim_bij_release (NaRead q) with "Hbij Hc Hl_t Hl_s [//]").
