@@ -537,6 +537,38 @@ Section fix_sim.
     iModIntro. iExists e_s', σ_s'. iFrame. iPureIntro. split;[done|]. by apply head_prim_step.
   Qed.
 
+  (* A generic coinduction lemma for expressions which are guarded by a pure step.
+    This can for instance be used to derive lemmas for simulating while loops.
+    However, it is insufficient for simulating recursion, as call reduction is not pure.
+   *)
+  Lemma sim_lift_coind_pure (inv : PROP) e_t e_t' e_s e_s' Φ π (ϕ ψ : Prop) 
+    {Hpure_t : PureExec ϕ 1 e_t e_t'} {Hpure_s : PureExec ψ 1 e_s e_s'} :
+    ϕ →
+    ψ →
+    □ (inv -∗ e_t' ⪯{π} e_s' [{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ (⌜e_t'' = e_t⌝ ∗ ⌜e_s'' = e_s⌝ ∗ inv) }]) -∗
+    inv -∗
+    e_t ⪯{π} e_s [{ Φ }].
+  Proof.
+    iIntros (Hphi Hpsi ) "#Hsim Hinv".
+    set inv' := (λ e_t' e_s', ⌜e_t' = e_t⌝ ∗ ⌜e_s' = e_s⌝ ∗ inv)%I.
+    iApply (sim_lift_coind inv' with "[] [$Hinv //]").
+    iModIntro.
+    iIntros (? ? P_t P_s σ_t σ_s T_s K_s) "(-> & -> & Hinv) (Hstate & %Hpool & _)".
+    specialize (Hpure_t Hphi) as Hstep_t%nsteps_once_inv.
+    specialize (Hpure_s Hpsi) as Hstep_s%nsteps_once_inv.
+    destruct Hstep_s as [Hred_s Hdet_s].
+    destruct (Hred_s P_s σ_s) as (e_s'' & σ_s' & efs & Hs).
+    destruct (Hdet_s _ _ _ _ _ Hs) as [-> [-> ->]].
+    destruct Hstep_t as [Hred_t Hdet_t].
+    iModIntro. iSplitR; first done.
+    iIntros (e_t'' efs_t σ_t'' Hprim_t).
+    destruct (Hdet_t _ _ _ _ _ Hprim_t) as [-> [-> ->]].
+    iModIntro. iExists e_s', σ_s.
+    iSplitR; first done. iSplitR; first done.
+    iSplitL "Hstate"; first by iApply state_interp_pure_step.
+    by iApply "Hsim".
+  Qed.
+
   Lemma sim_lift_coind' (inv : expr Λ → expr Λ → PROP) e_t e_s Φ π :
     (□ ∀ e_t e_s P_t P_s σ_t σ_s T_s K_s,
       inv e_t e_s -∗ state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)

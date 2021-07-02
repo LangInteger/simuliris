@@ -940,7 +940,7 @@ Section fix_lang.
   Qed.
 
   (** ** source_red judgment *)
-  (** source_red allows to focus the reasoning on the source value
+  (** source_red allows to focus the reasoning on the source expression
     (while being able to switch back and forth to the full simulation at any point) *)
   Definition source_red_rec (Ψ : expr Λ → PROP) π (rec : exprO → PROP) e_s :=
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)

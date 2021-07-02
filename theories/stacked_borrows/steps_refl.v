@@ -898,17 +898,8 @@ Lemma sim_while_while inv c_t c_s b_t b_s π Ψ :
   (while: c_t do b_t od ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
   iIntros "Hinv_init #Hstep".
-  iApply (sim_lift_head_coind (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
-  { iFrame. eauto. }
-  iModIntro. iIntros (e_t e_s P_t P_s σ_t σ_s T_s K_s) "(-> & -> & Hinv) (Hstate & [% %])".
-  iModIntro. iSplitR.
-  { iPureIntro. eexists _, _, _. econstructor. econstructor. }
-  iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
-  assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
-  { eexists _, _. econstructor. econstructor. }
-  iModIntro. iExists e_s', σ_s'. iFrame. iSplit;[done|].
-  iSplitR; first done. inv_head_step. iFrame "Hstate".
-  iApply "Hstep". iFrame.
+  iApply (sim_lift_coind_pure inv with "[] Hinv_init");
+    [apply pure_while | apply pure_while | done.. ].
 Qed.
 
 

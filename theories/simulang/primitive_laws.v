@@ -613,22 +613,9 @@ Lemma sim_while_while π b_t b_s c_t c_s inv Ψ :
   (while: c_t do b_t od ⪯{π} while: c_s do b_s od [{ Ψ }])%E.
 Proof.
   iIntros "Hinv_init #Hstep".
-  iApply (sim_lift_head_coind (λ e_t e_s, ⌜e_t = while: c_t do b_t od%E⌝ ∗ ⌜e_s = while: c_s do b_s od%E⌝ ∗ inv)%I with "[] [Hinv_init]"); first last.
-  { iFrame. eauto. }
-  iModIntro. iIntros (e_t e_s P_t P_s σ_t σ_s ??) "(-> & -> & Hinv) ((?&?&?&?&Hsi) & [% %])".
-  iModIntro. iSplitR; first by eauto with head_step.
-  iIntros (e_t' efs σ_t') "%Hhead"; inv_head_step.
-  assert (∃ e_s' σ_s', head_step P_s (while: c_s do b_s od ) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
-  { eauto with head_step. }
-  iModIntro. iExists e_s', σ_s'. inv_head_step. iFrame. iSplit;[done|].
-  iSplitR; first by eauto with head_step.
-  iSplitL "Hsi". {
-    iApply sheap_inv_pure_prim_step; [done| |done] => ??.
-    apply: fill_prim_step. apply: head_prim_step. by constructor.
-  }
-  iApply "Hstep". iFrame.
+  iApply (sim_lift_coind_pure inv with "[] Hinv_init");
+    [apply pure_while | apply pure_while | done.. ].
 Qed.
-
 
 Lemma sim_while_rec b_t c_t v_s (fn_s : func) (inv : val → iProp Σ) Ψ rec_n π :
   inv v_s -∗
