@@ -854,7 +854,7 @@ Section fix_lang.
   Proof. iIntros "[H Hv]". iApply (sim_wand with "H Hv"). Qed.
 
   Lemma sim_expr_wand e_t e_s Φ Ψ π :
-    e_t ⪯{π} e_s [{ Φ }] -∗ (∀ v_t v_s, Φ v_t v_s -∗ Ψ v_t v_s) -∗ e_t ⪯{π} e_s [{ Ψ }].
+    e_t ⪯{π} e_s [{ Φ }] -∗ (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) -∗ e_t ⪯{π} e_s [{ Ψ }].
   Proof. iIntros "H Hv". iApply (sim_expr_mono with "Hv H"). Qed.
 
   (** Update the SI. Useful when we use the SI to encode invariants. *)
