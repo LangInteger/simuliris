@@ -34,13 +34,13 @@ Section beh.
   (** First we define the possible "behaviors" of a program, and which behaviors
       we consider observably refining others (lifting O to behaviors). *)
   Inductive beh := BehReturn (v : val Λ) | BehDiverge | BehUndefined.
-  Inductive obs_beh : beh → beh → Prop :=
+  Inductive beh_ref : beh → beh → Prop :=
   | ObsBehVal (v_t v_s : val Λ) :
-    O v_t v_s → obs_beh (BehReturn v_t) (BehReturn v_s)
+    O v_t v_s → beh_ref (BehReturn v_t) (BehReturn v_s)
   | ObsBehDiv :
-    obs_beh BehDiverge BehDiverge
+    beh_ref BehDiverge BehDiverge
   | ObsBehUndefined b :
-    obs_beh b BehUndefined.
+    beh_ref b BehUndefined.
 
   (** Next we define when a threadpool has a certain behavior. *)
   Inductive has_beh (p : prog Λ) : tpool Λ → state Λ → beh → Prop :=
@@ -62,7 +62,7 @@ Section beh.
     ∀ σ_t σ_s b_t,
       I σ_t σ_s →
       has_beh p_t [of_call main u] σ_t b_t →
-      ∃ b_s, has_beh p_s [of_call main u] σ_s b_s ∧ obs_beh b_t b_s.
+      ∃ b_s, has_beh p_s [of_call main u] σ_s b_s ∧ beh_ref b_t b_s.
 
   (** * [Classical] prove of equivalence of the two notions of behavior. *)
   Lemma has_beh_ub p T σ :
