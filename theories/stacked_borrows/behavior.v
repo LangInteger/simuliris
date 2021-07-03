@@ -29,8 +29,8 @@ Definition obs_result (r_t r_s : val bor_lang) : Prop :=
   | _, _ => False
   end.
 
-(** The Stacked Borrows instance of [beh_rel]. *)
-Definition beh_rel := beh_rel init_state "main" (ValR [ScPoison]) obs_result.
+(** The Stacked Borrows instance of [prog_ref]. *)
+Definition prog_ref := prog_ref init_state "main" (ValR [ScPoison]) obs_result.
 
 (** Default well-formedness for Stacked Borrows *)
 Definition stackedborrows_wf (e : expr_head) : Prop :=
@@ -45,7 +45,7 @@ Notation ectx_wf := (gen_ectx_wf stackedborrows_wf).
 Notation ctx_wf := (gen_ctx_wf stackedborrows_wf).
 
 (** Contextual refinement *)
-Definition ctx_rel (e_t e_s : expr) :=
+Definition ctx_ref (e_t e_s : expr) :=
   ∀ (C : ctx) (fname x : string) (p : prog),
     (* The other functions need to be well-formed and closed *)
     map_Forall (λ _ '(arg, body), expr_wf body ∧ free_vars body ⊆ {[arg]}) p →
@@ -53,6 +53,6 @@ Definition ctx_rel (e_t e_s : expr) :=
     ctx_wf C →
     (* The context needs to close our expressions *)
     free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
-    (* Then we demand [beh_rel] if putting our expressions into a context to
+    (* Then we demand [prog_ref] if putting our expressions into a context to
        obtain a whole function and that function into a program *)
-    beh_rel (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).
+    prog_ref (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).

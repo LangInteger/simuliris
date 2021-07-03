@@ -29,7 +29,7 @@ Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog):
     source_globals (dom (gset string) gs) ==∗
     ([∗ map] v∈gs, val_rel v v) ∗ prog_rel p_t p_s
   ) →
-  beh_rel p_t p_s.
+  prog_ref p_t p_s.
 Proof.
   intros Hprog. apply simplang_adequacy.
   eapply sat_mono, Hprog. clear Hprog.
@@ -49,7 +49,7 @@ Qed.
 (** Adequacy for open terms. *)
 Theorem log_rel_adequacy Σ `{!simpleGpreS Σ} e_t e_s :
   (∀ `(simpleGS Σ), ⊢ log_rel e_t e_s) →
-  ctx_rel e_t e_s.
+  ctx_ref e_t e_s.
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
   apply (prog_rel_adequacy Σ). eapply isat_intro.

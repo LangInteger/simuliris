@@ -30,8 +30,8 @@ Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
   | _,_ => False
   end.
 
-(** The simulang instance of [beh_rel]. *)
-Definition beh_rel := beh_rel init_state "main" #() obs_val.
+(** The simulang instance of [prog_ref]. *)
+Definition prog_ref := prog_ref init_state "main" #() obs_val.
 
 (** Default well-formedness for SimuLang. *)
 Definition simulang_wf (e : expr_head) : Prop :=
@@ -49,7 +49,7 @@ Notation ectx_wf := (gen_ectx_wf simulang_wf).
 Notation ctx_wf := (gen_ctx_wf simulang_wf).
 
 (** Contextual refinement. *)
-Definition ctx_rel (e_t e_s : expr) :=
+Definition ctx_ref (e_t e_s : expr) :=
   ∀ (C : ctx) (fname x : string) (p : prog),
     (* The other functions need to be well-formed and closed *)
     map_Forall (λ _ '(arg, body), expr_wf body ∧ free_vars body ⊆ {[arg]}) p →
@@ -57,6 +57,6 @@ Definition ctx_rel (e_t e_s : expr) :=
     ctx_wf C →
     (* The context needs to close our expressions *)
     free_vars (fill_ctx C e_t) ∪ free_vars (fill_ctx C e_s) ⊆ {[x]} →
-    (* Then we demand [beh_rel] if putting our expressions into a context to
+    (* Then we demand [prog_ref] if putting our expressions into a context to
        obtain a whole function and that function into a program *)
-    beh_rel (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).
+    prog_ref (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).

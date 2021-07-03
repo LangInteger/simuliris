@@ -32,7 +32,7 @@ Section adequacy.
       (∀ v_t v_s, ext_rel 0 v_t v_s -∗ gen_val_rel loc_rel v_t v_s) ∗
       prog_rel p_t p_s
     ) →
-    beh_rel p_t p_s.
+    prog_ref p_t p_s.
   Proof.
     intros Hrel. eapply (slsls_adequacy (sat:=isat)).
     eapply sat_mono, Hrel. clear Hrel.
