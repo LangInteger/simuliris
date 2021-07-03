@@ -25,7 +25,7 @@ Section fix_lang.
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ).
 
-  (** Whole-program relation *)
+  (** Whole-program logical relation *)
   Definition func_rel (fn_t fn_s : func Λ) : PROP :=
     ∀ v_t v_s π, ext_rel π v_t v_s -∗
       (apply_func fn_t v_t) ⪯{π} (apply_func fn_s v_s) {{ ext_rel π }}.
