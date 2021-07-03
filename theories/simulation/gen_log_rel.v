@@ -37,7 +37,25 @@ Section fix_lang.
   Global Instance prog_rel_persistent P_t P_s : Persistent (prog_rel P_t P_s).
   Proof. rewrite /prog_rel; apply _. Qed.
 
-  (** Typical lemma needed to show [log_rel → ctx_rel]. *)
+  (** [prog_rel] is a congruence for program composition *)
+  Lemma prog_rel_app (P_t1 P_t2 P_s1 P_s2 : prog Λ) :
+    P_t1 ##ₘ P_t2 →
+    prog_rel P_t1 P_s1 -∗
+    prog_rel P_t2 P_s2 -∗
+    prog_rel (union (A:=gmap _ _) P_t1 P_t2) (union (A:=gmap _ _) P_s1 P_s2).
+  Proof.
+    rewrite /prog_rel.
+    iIntros (?) "#HP1 #HP2 !# %f %fn_s". iSpecialize ("HP1" $! f fn_s).
+    destruct (P_s1 !! f) as [fn_s'|] eqn:Hf_s.
+    - rewrite (lookup_union_Some_l _ _ _ fn_s') //.
+      iIntros ([= ->]). iDestruct ("HP1" $! eq_refl) as (fn_t Hf_t) "Hrel".
+      iExists fn_t. iFrame "Hrel". rewrite (lookup_union_Some_l _ _ _ fn_t) //.
+    - rewrite lookup_union_r //. iClear "HP1". iIntros (Hf_s2).
+      iDestruct ("HP2" $! f fn_s with "[//]") as (fn_t Hf_t) "Hrel".
+      iExists fn_t. iFrame "Hrel". iPureIntro. by apply: lookup_union_Some_r.
+  Qed.
+
+  (** Typical lemma needed to show [log_rel → ctx_ref]. *)
   Lemma prog_rel_refl_insert P (fname : string) (fn_t fn_s : func Λ) :
     □ func_rel fn_t fn_s -∗
     □ (∀ f fn, ⌜P !! f = Some fn⌝ -∗ func_rel fn fn) -∗

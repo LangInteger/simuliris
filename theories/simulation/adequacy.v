@@ -307,7 +307,7 @@ Section adequacy_statement.
   Variable (main: string) (u: val Λ).
   Variable (O: val Λ → val Λ → Prop).
 
-  Let B := beh_rel I main u O.
+  Let prog_ref := prog_ref I main u O.
 
   Lemma slsls_adequacy p_t p_s:
     sat (∀ σ_t σ_s,
@@ -325,7 +325,7 @@ Section adequacy_statement.
       ext_rel 0 u u ∗
       (* Logically related values are observationally related *)
       ∀ v_s v_t, ext_rel 0 v_t v_s -∗ ⌜O v_t v_s⌝) →
-    B p_t p_s.
+    prog_ref p_t p_s.
   Proof.
     intros Hsat σ_t σ_s HI Hsafe.
     eapply (safe_call_in_prg p_s empty_ectx _ _ _ main) in Hsafe as Hlook; last (rewrite fill_empty; constructor).

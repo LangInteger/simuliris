@@ -328,9 +328,9 @@ Section data_race.
 End data_race.
 
 Section closed.
-  (** Obtain a closed proof of [ctx_rel]. *)
+  (** Obtain a closed proof of [ctx_ref]. *)
   Lemma hoist_load_ctx :
-    ctx_rel hoist_load_t hoist_load_s.
+    ctx_ref hoist_load_t hoist_load_s.
   Proof.
     intros ??.
     set Σ := #[naΣ].
@@ -338,11 +338,11 @@ Section closed.
     by apply hoist_load_sim.
   Qed.
 
-  (** Obtain a closed proof of [ctx_rel]. *)
+  (** Obtain a closed proof of [ctx_ref]. *)
   Lemma hoist_load_unknown_ctx e :
     free_vars e ⊆ list_to_set ["n"; "i"] →
     gen_expr_wf readonly_wf e →
-    ctx_rel (hoist_load_unknown_t e) (hoist_load_unknown_s e).
+    ctx_ref (hoist_load_unknown_t e) (hoist_load_unknown_s e).
   Proof.
     intros ??.
     set Σ := #[naΣ].

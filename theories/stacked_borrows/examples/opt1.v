@@ -183,8 +183,8 @@ Proof.
 Qed.
 
 Section closed.
-  (** Obtain a closed proof of [ctx_rel]. *)
-  Lemma sim_opt1'_ctx : ctx_rel ex1_opt' ex1_unopt.
+  (** Obtain a closed proof of [ctx_ref]. *)
+  Lemma sim_opt1'_ctx : ctx_ref ex1_opt' ex1_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.

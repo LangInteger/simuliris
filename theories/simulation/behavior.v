@@ -12,8 +12,8 @@ Section beh.
   (** Observations on final values (of the main thread) *)
   Variable (O: val Λ → val Λ → Prop).
 
-  (** * "Behavioral refinement", stated in a constructive way. *)
-  Definition beh_rel (p_t p_s : prog Λ) :=
+  (** * "Whole-program refinement", stated in a constructive way. *)
+  Definition prog_ref (p_t p_s : prog Λ) :=
     ∀ σ_t σ_s, I σ_t σ_s → safe p_s (of_call main u) σ_s →
     (* divergent case *)
     (fair_div p_t [of_call main u] σ_t → fair_div p_s [of_call main u] σ_s) ∧
@@ -32,7 +32,7 @@ Section beh.
       the above. *)
 
   (** First we define the possible "behaviors" of a program, and which behaviors
-      we consider observably related (lifting O to behaviors). *)
+      we consider observably refining others (lifting O to behaviors). *)
   Inductive beh := BehReturn (v : val Λ) | BehDiverge | BehUndefined.
   Inductive obs_beh : beh → beh → Prop :=
   | ObsBehVal (v_t v_s : val Λ) :
@@ -58,7 +58,7 @@ Section beh.
      the second definition only about the main thread. *)
 
   (** Finally, we can apply that to the relevant initial states. *)
-  Definition beh_rel_alt (p_t p_s : prog Λ) :=
+  Definition prog_ref_alt (p_t p_s : prog Λ) :=
     ∀ σ_t σ_s b_t,
       I σ_t σ_s →
       has_beh p_t [of_call main u] σ_t b_t →
@@ -105,8 +105,8 @@ Section beh.
       simplify_eq. constructor.
   Qed.
 
-  Lemma beh_rel_to_alt p_t p_s :
-    beh_rel p_t p_s → beh_rel_alt p_t p_s.
+  Lemma prog_ref_to_alt p_t p_s :
+    prog_ref p_t p_s → prog_ref_alt p_t p_s.
   Proof.
     intros HB σ_t σ_s b_t HI Ht.
     destruct (classic (reach_stuck p_s (of_call main u) σ_s)) as [HUB | HnoUB].
@@ -123,8 +123,8 @@ Section beh.
     - exfalso. apply has_beh_ub in Ht. apply Hsafe. done.
   Qed.
 
-  Lemma beh_rel_from_alt p_t p_s :
-    beh_rel_alt p_t p_s → beh_rel p_t p_s.
+  Lemma prog_ref_from_alt p_t p_s :
+    prog_ref_alt p_t p_s → prog_ref p_t p_s.
   Proof.
     intros HB σ_t σ_s HI Hsafe.
     assert (HnoUB : ¬ has_beh p_s [of_call main u] σ_s BehUndefined).
@@ -146,9 +146,9 @@ Section beh.
       inversion Hrel; simplify_eq; done.
   Qed.
 
-  Lemma beh_rel_equiv p_t p_s :
-    beh_rel p_t p_s ↔ beh_rel_alt p_t p_s.
+  Lemma prog_ref_equiv p_t p_s :
+    prog_ref p_t p_s ↔ prog_ref_alt p_t p_s.
   Proof.
-    split; eauto using beh_rel_to_alt, beh_rel_from_alt.
+    split; eauto using prog_ref_to_alt, prog_ref_from_alt.
   Qed.
 End beh.

@@ -44,7 +44,7 @@ Lemma prog_rel_adequacy Σ `{!sborGpreS Σ} (p_t p_s : prog):
     ([∗ map] f ↦ K ∈ p_s, f @s K) ==∗
     prog_rel p_t p_s
   ) →
-  beh_rel p_t p_s.
+  prog_ref p_t p_s.
 Proof.
   intros Hrel. eapply (slsls_adequacy (sat:=isat)).
   eapply sat_mono, Hrel. clear Hrel.
@@ -60,7 +60,7 @@ Qed.
 (** Adequacy for open terms. *)
 Theorem log_rel_adequacy Σ `{!sborGpreS Σ} e_t e_s :
   (∀ `(sborGS Σ), ⊢ log_rel e_t e_s) →
-  ctx_rel e_t e_s.
+  ctx_ref e_t e_s.
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
   apply (prog_rel_adequacy Σ). eapply isat_intro.

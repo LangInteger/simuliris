@@ -47,8 +47,8 @@ Section reorder.
 End reorder.
 
 Section closed.
-  (** Obtain a closed proof of [ctx_rel]. *)
-  Lemma alloc2_reorder_ctx : ctx_rel alloc2_and_cont alloc2_and_cont'.
+  (** Obtain a closed proof of [ctx_ref]. *)
+  Lemma alloc2_reorder_ctx : ctx_ref alloc2_and_cont alloc2_and_cont'.
   Proof.
     set Σ := #[simpleΣ].
     apply (log_rel_adequacy Σ)=>?.
