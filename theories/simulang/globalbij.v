@@ -47,16 +47,25 @@ Section globalbij.
     by iApply (big_sepS_elem_of with "Hrel").
   Qed.
 
+  Lemma sim_global_var x π Φ :
+    sheap_inv_contains_globalbij →
+    (∀ l_t l_s : loc, loc_rel l_t l_s -∗ Φ (Val #l_t) (Val #l_s)) -∗
+    (GlobalVar x) ⪯{π} (GlobalVar x) [{ Φ }].
+  Proof using Hpers.
+    iIntros (?) "Hs". to_source. iApply source_red_global'; [done|].
+    iIntros "#Hg_t #Hg_s Hv". source_finish.
+    to_target. iApply (target_red_global with "Hg_t"). target_finish.
+    iApply sim_expr_base. by iApply "Hs".
+  Qed.
+
   Lemma log_rel_global_var x :
     sheap_inv_contains_globalbij →
     ⊢ log_rel (GlobalVar x) (GlobalVar x).
   Proof using Hpers.
     rewrite /log_rel /gen_log_rel.
     iIntros (Hrel ? xs) "!# Hs Ht"; simpl.
-    iApply source_red_sim_expr. iApply source_red_global'; [done|]. iIntros "#Hg_t #Hg_s Hv".
-    iApply source_red_base. iModIntro.
-    iApply target_red_sim_expr. iApply (target_red_global with "Hg_t"). iApply target_red_base. iModIntro.
-    iApply sim_expr_base. iApply lift_post_val. iFrame.
+    iApply sim_global_var; first done. iIntros (??) "Hrel".
+    iApply lift_post_val. iFrame.
   Qed.
 End globalbij.
 

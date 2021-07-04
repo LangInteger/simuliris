@@ -92,33 +92,6 @@ Section derived.
     iModIntro. iIntros "HI". by iApply Hs.
   Qed.
 
-  Lemma sim_while I c_t c_s b_t b_s π Φ :
-    let w_t := (while: c_t do b_t od)%E in
-    let w_s := (while: c_s do b_s od)%E in
-    (⊢ {{{ I }}} if: c_t then b_t;; w_t else #() ⪯[π] if: c_s then b_s;; w_s else #()
-        {{{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ (⌜e_t'' = w_t⌝ ∗ ⌜e_s'' = w_s⌝ ∗ I)}}}) →
-    ⊢ {{{ I }}} w_t ⪯[π] w_s {{{ Φ }}}.
-  Proof.
-    intros w_t w_s Hs. iApply sim_paco; [ apply pure_while.. | apply Hs].
-  Qed.
-
-  Lemma sim_while_simple I c_t c_s b_t b_s π Q Φ :
-    (⊢ {{{ I }}} c_t ⪯[π] c_s {{{ lift_post (λ v_t v_s, (∃ b : bool, ⌜v_s = #b⌝) →
-          (⌜v_s = #true⌝ ∗ ⌜v_t = #true⌝ ∗ I) ∨ (⌜v_s = #false⌝ ∗ ⌜v_t = #false⌝ ∗ Q))}}}) →
-    (⊢ {{{ I }}} b_t ⪯[π] b_s {{{ lift_post (λ _ _, I) }}}) →
-    ⊢ {{{ I }}} while: c_t do b_t od ⪯[π] while: c_s do b_s od {{{ lift_post (λ _ _, Q) }}}.
-  Proof.
-    iIntros (Hc Hb). iApply sim_while. iIntros "!>HI".
-    sim_bind c_t c_s. iApply (sim_wand with "[HI] []"). { by iApply Hc. }
-    iIntros (v_t v_s) "Hc".
-    iApply sim_irred_unless. iIntros "(%b & ->)".
-    iDestruct ("Hc" with "[]") as "[(% & -> & HI) | (% & -> & HQ)]"; first by eauto.
-    - simplify_eq. sim_pures.
-      sim_bind b_t b_s. iApply (sim_wand with "[HI] []"). { by iApply Hb. }
-      iIntros (? ?) "HI". sim_pures. iApply sim_expr_base. eauto with iFrame.
-    - simplify_eq. sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
-  Qed.
-
 
   (** Source triples *)
   Lemma source_sim P e_t e_s π Ψ Φ :
@@ -165,6 +138,7 @@ Section derived.
     by iApply Hs.
   Qed.
 
+
   (** Target triples *)
   Lemma target_sim P e_t e_s π Ψ Φ :
     (⊢ [{{ P }}] e_t [{{ Ψ }}]t) →
@@ -209,5 +183,155 @@ Section derived.
     iIntros (Hpure Hs) "!> HP". iApply target_red_lift_pure; first done.
     by iApply Hs.
   Qed.
+
+  (** ** SimuLang triples and quadruples for the non-atomic invariant *)
+
+  (** *** Source triples *)
+  Lemma source_load l q v P o π Φ :
+    o = ScOrd ∨ o = Na1Ord →
+    ⊢ [{{ l ↦s{#q} v }}] Load o #l @ π [{{ λ v', ⌜v' = v⌝ ∗ l ↦s{#q} v }}]s.
+  Proof.
+    iIntros (Ho) "!> Hpre". iApply (source_red_load with "Hpre"); first by eauto.
+    iIntros "Hl". source_finish. eauto with iFrame.
+  Qed.
+
+  Lemma source_store_sc l (v v' : val) P π Φ :
+    ⊢ [{{ l ↦s v' ∗ na_locs π ∅ }}] Store ScOrd #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v ∗ na_locs π ∅ }}]s.
+  Proof.
+    iIntros "!> [Hs Hna]". iApply (sim_bij_store_sc_source with "Hs Hna"). iIntros "Hna Hs".
+    source_finish. eauto with iFrame.
+  Qed.
+
+  Lemma source_store_na l (v v' : val) P π Φ :
+    ⊢ [{{ l ↦s v' }}] Store Na1Ord #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v }}]s.
+  Proof.
+    iIntros "!> Hs". source_store. eauto with iFrame.
+  Qed.
+
+  (** In contrast to the presentation to the paper, we also obtain ownership of [†l…s Z.to_nat n],
+    which gives the total size of the allocation at [l_s]. *)
+  Lemma source_alloc (v : val) (n : Z) π Φ :
+    (n > 0)%Z →
+    ⊢ [{{ True }}] AllocN #n v @ π [{{ λ v', ∃ l : loc, ⌜v' = #l⌝ ∗ l ↦s∗ replicate (Z.to_nat n) v ∗ †l…s Z.to_nat n }}]s.
+  Proof.
+    iIntros (Hn) "!>_". source_alloc l as "Hl" "Hf"; first lia. eauto with iFrame.
+  Qed.
+
+  (** In order to free memory, we need to give up all memory of the full allocation at once,
+     encoded through the allocation size assertion [†l…s Z.to_nat n]. *)
+  Lemma source_free vs (n : nat) l π Φ :
+    length vs = n →
+    ⊢ [{{ l ↦s∗ vs ∗ †l…s Z.to_nat n  }}] FreeN #n #l @ π [{{ λ v', ⌜v' = #()⌝ }}]s.
+  Proof.
+    iIntros (Hn) "!> [Hs Hf]". source_free; first lia. eauto.
+  Qed.
+
+  (** *** Target triples *)
+  Lemma target_load l q v P o Φ :
+    o = ScOrd ∨ o = Na1Ord →
+    ⊢ [{{ l ↦t{#q} v }}] Load o #l [{{ λ v', ⌜v' = v⌝ ∗ l ↦t{#q} v }}]t.
+  Proof.
+    iIntros (Ho) "!> Hpre". iApply (target_red_load with "Hpre"); first by eauto.
+    iIntros "Hl". target_finish. eauto with iFrame.
+  Qed.
+
+  Lemma target_store_sc l (v v' : val) P π Φ :
+    ⊢ [{{ l ↦t v' ∗ na_locs π ∅ }}] Store ScOrd #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v ∗ na_locs π ∅ }}]t.
+  Proof.
+    (* does NOT hold for the na invariant *)
+  Abort.
+
+  Lemma target_store_na l (v v' : val) P Φ :
+    ⊢ [{{ l ↦t v' }}] Store Na1Ord #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v }}]t.
+  Proof.
+    iIntros "!> Hs". target_store. eauto with iFrame.
+  Qed.
+
+  (** In contrast to the presentation to the paper, we also obtain ownership of [†l…t Z.to_nat n],
+    which gives the total size of the allocation at [l_t]. *)
+  Lemma target_alloc (v : val) (n : Z) Φ :
+    (n > 0)%Z →
+    ⊢ [{{ True }}] AllocN #n v [{{ λ v', ∃ l : loc, ⌜v' = #l⌝ ∗ l ↦t∗ replicate (Z.to_nat n) v ∗ †l…t Z.to_nat n }}]t.
+  Proof.
+    iIntros (Hn) "!>_". target_alloc l as "Hl" "Hf"; first lia. eauto with iFrame.
+  Qed.
+
+  (** In order to free memory, we need to give up all memory of the full allocation at once,
+     encoded through the allocation size assertion [†l…t Z.to_nat n]. *)
+  Lemma target_free vs (n : nat) l Φ :
+    length vs = n →
+    ⊢ [{{ l ↦t∗ vs ∗ †l…t Z.to_nat n  }}] FreeN #n #l [{{ λ v', ⌜v' = #()⌝ }}]t.
+  Proof.
+    iIntros (Hn) "!> [Hs Hf]". target_free; first lia. eauto.
+  Qed.
+
+  (** *** Quadruples *)
+  Lemma sim_while I c_t c_s b_t b_s π Φ :
+    let w_t := (while: c_t do b_t od)%E in
+    let w_s := (while: c_s do b_s od)%E in
+    (⊢ {{{ I }}} if: c_t then b_t;; w_t else #() ⪯[π] if: c_s then b_s;; w_s else #()
+        {{{ λ e_t'' e_s'', Φ e_t'' e_s'' ∨ (⌜e_t'' = w_t⌝ ∗ ⌜e_s'' = w_s⌝ ∗ I)}}}) →
+    ⊢ {{{ I }}} w_t ⪯[π] w_s {{{ Φ }}}.
+  Proof.
+    intros w_t w_s Hs. iApply sim_paco; [ apply pure_while.. | apply Hs].
+  Qed.
+
+  Lemma sim_while_simple I c_t c_s b_t b_s π Q Φ :
+    (⊢ {{{ I }}} c_t ⪯[π] c_s {{{ lift_post (λ v_t v_s, (∃ b : bool, ⌜v_s = #b⌝) →
+          (⌜v_s = #true⌝ ∗ ⌜v_t = #true⌝ ∗ I) ∨ (⌜v_s = #false⌝ ∗ ⌜v_t = #false⌝ ∗ Q))}}}) →
+    (⊢ {{{ I }}} b_t ⪯[π] b_s {{{ lift_post (λ _ _, I) }}}) →
+    ⊢ {{{ I }}} while: c_t do b_t od ⪯[π] while: c_s do b_s od {{{ lift_post (λ _ _, Q) }}}.
+  Proof.
+    iIntros (Hc Hb). iApply sim_while. iIntros "!>HI".
+    sim_bind c_t c_s. iApply (sim_wand with "[HI] []"). { by iApply Hc. }
+    iIntros (v_t v_s) "Hc".
+    iApply sim_irred_unless. iIntros "(%b & ->)".
+    iDestruct ("Hc" with "[]") as "[(% & -> & HI) | (% & -> & HQ)]"; first by eauto.
+    - simplify_eq. sim_pures.
+      sim_bind b_t b_s. iApply (sim_wand with "[HI] []"). { by iApply Hb. }
+      iIntros (? ?) "HI". sim_pures. iApply sim_expr_base. eauto with iFrame.
+    - simplify_eq. sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
+  Qed.
+
+  (** To insert into the bijection, we also need to give up the allocation size control
+     for both allocations -- crucially, we again need to make the full allocation public at once,
+     and the allocations need to have the same size in source and target. *)
+  Lemma sim_insert_bijN l_t l_s vs_t vs_s n e_t e_s π Φ P :
+    n > 0 →
+    length vs_t = n →
+    length vs_s = n →
+    (⊢ {{{ l_t ↔h l_s ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
+    ⊢ {{{ l_t ↦t∗ vs_t ∗ l_s ↦s∗ vs_s ∗ ([∗ list] v_t; v_s ∈ vs_t; vs_s, val_rel v_t v_s) ∗ †l_s…s n ∗ †l_t…t n ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
+  Proof.
+    iIntros (Hn Hlen_t Hlen_s Hs) "!> (Ht & Hs & Hv & Hf_s & Hf_t & HP)".
+    iApply (sim_bij_insertN with "Hf_t Hf_s Ht Hs Hv"); [lia | lia | lia | ].
+    iIntros "Hl". iApply Hs. iFrame.
+  Qed.
+
+  Lemma sim_insert_bij l_t l_s v_t v_s e_t e_s π Φ P :
+    (⊢ {{{ l_t ↔h l_s ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
+    ⊢ {{{ l_t ↦t v_t ∗ l_s ↦s v_s ∗ val_rel v_t v_s ∗ †l_s…s 1 ∗ †l_t…t 1 ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
+  Proof.
+    iIntros (Hs) "!> (Ht & Hs & Hv & Hf_s & Hf_t & HP)".
+    iApply (sim_bij_insert with "Hf_t Hf_s Ht Hs Hv").
+    iIntros "Hl". iApply Hs. iFrame.
+  Qed.
+
+  Lemma sim_global_var (A : string) π :
+    ⊢ {{{ True }}} GlobalVar A ⪯[π] GlobalVar A {{{ lift_post (λ v_t v_s, ∃ l_t l_s : loc, ⌜v_t = #l_t⌝ ∗ ⌜v_s = #l_s⌝ ∗ l_t ↔h l_s) }}}.
+  Proof.
+    iIntros "!> _". iApply (globalbij.sim_global_var loc_rel). { exact sim_bij_contains_globalbij. }
+    iIntros (??) "Hb". iApply lift_post_val. eauto with iFrame.
+  Qed.
+
+  Lemma sim_load_sc_public l_t l_s C π Φ :
+    C !! l_s = None →
+    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Load ScOrd #l_t ⪯[π] Load ScOrd #l_s {{{ lift_post (λ v_t v_s, val_rel v_t v_s ∗ na_locs π C) }}}.
+  Proof.
+    iIntros (Hl) "!> [Hb Hna]". iApply (sim_bij_load with "Hb Hna"); [done | done | ].
+    iIntros (v_t v_s) "Hv Hna". iApply sim_value. iFrame.
+  Qed.
+
+  (* TODO more quadruples *)
 
 End derived.

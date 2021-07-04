@@ -387,11 +387,11 @@ Ltac simpl_subst :=
       | 
           (* FIXME: really hacky hack to speed up goals on which [compute_done] takes forever due to evars, 
               but where [simpl] would suffice...*)
-          first [timeout 1 compute_done | simpl; reflexivity]
+          first [timeout 2 compute_done | simpl; reflexivity | compute_done]
       |];
       simple refine (W.tac_to_expr_combine_subst_map _ _ _ _ _); [ shelve |
       (* FIXME *)
-      first [timeout 1 compute_done | simpl; reflexivity] | ];
+      first [timeout 2 compute_done | simpl; reflexivity | compute_done] | ];
       simpl
     end.
 Arguments subst : simpl never.

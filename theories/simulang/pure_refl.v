@@ -15,7 +15,7 @@ Section log_rel.
   Local Notation log_rel := (gen_log_rel val_rel thread_own).
 
   (** [pure_expr_head_wf] characterizes pure expressions. Note that
-  [GlobalVar] is considered pure even though it reads to [globals]
+  [GlobalVar] is considered pure even though it reads the [globals]
   field of the state and thus [pure_log_rel_structural] requires the
   [sheap_inv_contains_globalbij] precondition. *)
   Definition pure_expr_head_wf (e : expr_head) : Prop :=
