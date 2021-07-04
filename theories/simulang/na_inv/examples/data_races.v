@@ -68,6 +68,213 @@ Section data_race.
     sim_val. iFrame. done.
   Qed.
 
+  (** This optimization hoists the read of "x" and "y" out of the loop. *)
+  Definition hoist_load_both_s : expr :=
+     let: "i" := ref #0  in
+     let: "sum" := ref (!"y") in
+     while: !"i" ≠ ! "x" do
+       "i" <- !"i" + #1;;
+       "sum" <- !"sum" + !"y"
+     od;;
+     let: "res" := !"sum" in
+     Free "sum";;
+     Free "i";;
+     "res".
+
+  Definition hoist_load_both_t : expr :=
+     let: "n" := !"x" in
+     let: "m" := !"y" in
+     let: "i" := ref #0  in
+     let: "sum" := ref "m" in
+     while: !"i" ≠ "n" do
+       "i" <- !"i" + #1;;
+       "sum" <- !"sum" + "m"
+     od;;
+     let: "res" := !"sum" in
+     Free "sum";;
+     Free "i";;
+     "res".
+
+
+  Lemma int_is_unboxed (z : Z) : val_is_unboxed #z.
+  Proof. done. Qed.
+  Lemma hoist_load_both_sim:
+    ⊢ log_rel hoist_load_both_t hoist_load_both_s.
+  Proof.
+    log_rel.
+    iIntros "%x_t1 %x_s1 #Hrel_x %y_t1 %y_s1 #Hrel_y !# %π Hc".
+
+    source_alloc li_s as "Hli_s" "Hfi_s". sim_pures.
+    source_bind (Load _ _). iApply source_red_irred_unless. iIntros ([lx_s ?]); simplify_eq.
+    iDestruct (gen_val_rel_loc_source with "Hrel_x") as (lx_t ->) "Hbij_x".
+    iApply source_red_base. iModIntro. to_sim.
+    iApply (sim_bij_exploit_load with "Hbij_x Hc"); [|done|]. {
+      intros.
+      reach_or_stuck_fill (! _)%E => /=.
+      apply: reach_or_stuck_irred => ?.
+      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+    }
+    iIntros (qx vx_t vx_s) "Hx_t Hx_s #Hvx Hc".
+    source_load.
+    source_alloc lsum_s as "Hlsum_s" "Hfsum_s". sim_pures.
+
+    destruct (if y_s1 is #(LitLoc _) then true else false) eqn:Heq. 2: {
+      source_while.
+      source_bind (! _)%E. iApply source_red_irred_unless.
+      iIntros ([l_s ?]); simplify_eq.
+    }
+    destruct y_s1 as [[| | | |ly_s |]| | |] => //.
+    iDestruct (gen_val_rel_loc_source with "Hrel_y") as (ly_t ->) "Hbij_y".
+
+    (* hint for the [sim_pure] automation to reduce the comparison *)
+    specialize int_is_unboxed as Hunb.
+
+    (* case analysis: do [x] and [y] alias? *)
+    destruct (decide (ly_s = lx_s)) as [-> | Hneq].
+    - (* they do alias, so we do not need to exploit a second time. *)
+      rename lx_s into l_s.
+      iPoseProof (heapbij_loc_inj with "Hbij_x Hbij_y") as "->".
+      rename ly_t into l_t.
+      (* we now have ownership of all relevant locations and can continue *)
+
+      target_load. target_load. target_alloc li_t as "Hli_t" "Hfi_t".
+      target_alloc lsum_t as "Hlsum_t" "Hfsum_t".
+      sim_pures.
+
+      set inv := (
+        ∃ (z_i : Z) (vsum_t vsum_s : val),
+        l_t ↦t{#qx} vx_t ∗
+        l_s ↦s{#qx} vx_s ∗
+        li_s ↦s #z_i ∗
+        li_t ↦t #z_i ∗
+        lsum_t ↦t vsum_t ∗
+        lsum_s ↦s vsum_s ∗
+        val_rel vsum_t vsum_s ∗
+        na_locs π (<[l_s:=(l_t, NaRead qx)]> ∅) ∗
+        †li_s…s 1 ∗ †lsum_s…s 1 ∗ †li_t…t 1 ∗ †lsum_t…t 1)%I.
+
+      sim_bind (While _ _) (While _ _).
+      iApply (sim_while_while _ _ _ _ _ inv with "[Hfi_s Hli_s Hx_t Hx_s Hc Hfsum_s Hlsum_s Hfi_t Hli_t Hfsum_t Hlsum_t] []").
+      { iExists 0, vx_t, vx_s. iFrame. done. }
+      iModIntro. iIntros "(%z_i & %vsum_t & %vsum_s & Hx_t & Hx_s & Hli_s & Hli_t & Hlsum_t & Hlsum_s & #Hvr & Hc & ? & ? & ? & ?)".
+      source_load. source_load. target_load. to_sim.
+      sim_pures.
+
+      destruct (bool_decide (#z_i = vx_s)) eqn:Heq_vx_s.
+      + (* compare equal in the source; leave the loop *)
+        apply bool_decide_eq_true_1 in Heq_vx_s. subst vx_s.
+        val_discr_source "Hvx".
+        rewrite bool_decide_eq_true_2; last done.
+        sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val.
+
+        sim_pures. source_load. target_load. sim_pures.
+        (* cleanup *)
+        source_free. source_free. target_free. target_free. sim_pures.
+        iApply (sim_bij_release (NaRead qx) with "Hbij_x Hc Hx_t Hx_s [//]").
+        { apply lookup_insert. }
+        rewrite delete_insert; last done. iIntros "Hc".
+        sim_val. eauto.
+      + (* compare unequal and take another trip around the loop *)
+        apply bool_decide_eq_false_1 in Heq_vx_s.
+        destruct (bool_decide (#z_i = vx_t)) eqn:Heq_vx_t.
+        { (* contradiction *)
+          apply bool_decide_eq_true_1 in Heq_vx_t. subst vx_t.
+          val_discr_target "Hvx". done.
+        }
+        sim_pures.
+        source_load. source_store.
+        source_load. source_load.
+        (* gain knowledge that both are ints *)
+        source_bind (BinOp _ _ _). iApply source_red_irred_unless.
+        iIntros "[(%z_sum & ->) (%z_s & ->)]".
+        val_discr_source "Hvx". val_discr_source "Hvr". source_pures.
+        source_store.
+        target_load. target_store.
+        target_load. target_store.
+        sim_pures. iApply sim_expr_base. iRight.
+        iSplitR; first done. iSplitR; first done.
+        iExists (z_i + 1)%Z, #(z_sum + z_s)%Z, #(z_sum + z_s)%Z.
+        iFrame. done.
+    - (* the locations do not alias, so we also need to exploit "y" *)
+      (* the proof of this case is very similar to the one above, except that we carry around
+        the additional locations in the invariant and have to release both in the end. *)
+      iApply (sim_bij_exploit_load with "Hbij_y Hc"); [| |]. {
+        intros.
+        reach_or_stuck_fill (While _ _)%E => /=.
+        apply: reach_or_stuck_pure; [eapply pure_while | done | ].
+        reach_or_stuck_fill (Load _ _)%E.
+        apply: reach_or_stuck_irred => ?.
+        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+      }
+      { rewrite lookup_insert_ne; last done. apply lookup_empty. }
+      iIntros (qy vy_t vy_s) "Hy_t Hy_s #Hvy Hc".
+
+      target_load. target_load.
+      target_alloc li_t as "Hli_t" "Hfi_t".
+      target_alloc lsum_t as "Hlsum_t" "Hfsum_t".
+      sim_pures.
+
+      set inv := (
+        ∃ (z_i : Z) (vsum_t vsum_s : val),
+        lx_t ↦t{#qx} vx_t ∗
+        lx_s ↦s{#qx} vx_s ∗
+        ly_t ↦t{#qy} vy_t ∗
+        ly_s ↦s{#qy} vy_s ∗
+        li_s ↦s #z_i ∗
+        li_t ↦t #z_i ∗
+        lsum_t ↦t vsum_t ∗
+        lsum_s ↦s vsum_s ∗
+        val_rel vsum_t vsum_s ∗
+        na_locs π (<[ly_s:=(ly_t, NaRead qy)]> $ <[lx_s:=(lx_t, NaRead qx)]> ∅) ∗
+        †li_s…s 1 ∗ †lsum_s…s 1 ∗ †li_t…t 1 ∗ †lsum_t…t 1)%I.
+
+      sim_bind (While _ _) (While _ _).
+      iApply (sim_while_while _ _ _ _ _ inv with "[Hy_t Hy_s Hfi_s Hli_s Hx_t Hx_s Hc Hfsum_s Hlsum_s Hfi_t Hli_t Hfsum_t Hlsum_t] []").
+      { iExists 0, vx_t, vx_s. iFrame. done. }
+      iModIntro. iIntros "(%z_i & %vsum_t & %vsum_s & Hx_t & Hx_s & Hy_t & Hy_s & Hli_s & Hli_t & Hlsum_t & Hlsum_s & #Hvr & Hc & ? & ? & ? & ?)".
+      source_load. source_load. target_load. sim_pures.
+
+      destruct (bool_decide (#z_i = vy_s)) eqn:Heq_vy_s.
+      + (* compare equal in the source; leave the loop *)
+        apply bool_decide_eq_true_1 in Heq_vy_s. subst vy_s.
+        val_discr_source "Hvy".
+        rewrite bool_decide_eq_true_2; last done.
+        sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val.
+
+        sim_pures. source_load. target_load. sim_pures.
+        (* cleanup *)
+        source_free. source_free. target_free. target_free. sim_pures.
+        iApply (sim_bij_release (NaRead qy) with "Hbij_y Hc Hy_t Hy_s [//]").
+        { apply lookup_insert. }
+        rewrite delete_insert; last by rewrite lookup_insert_ne.
+        iIntros "Hc".
+        iApply (sim_bij_release (NaRead qx) with "Hbij_x Hc Hx_t Hx_s [//]").
+        { apply lookup_insert. }
+        rewrite delete_insert; last done. iIntros "Hc".
+        sim_val. eauto.
+      + (* compare unequal and take another trip around the loop *)
+        apply bool_decide_eq_false_1 in Heq_vy_s.
+        destruct (bool_decide (#z_i = vy_t)) eqn:Heq_vy_t.
+        { (* contradiction *)
+          apply bool_decide_eq_true_1 in Heq_vy_t. subst vy_t.
+          val_discr_target "Hvy". done.
+        }
+        sim_pures.
+        source_load. source_store.
+        source_load. source_load.
+        (* gain knowledge that both are ints *)
+        source_bind (BinOp _ _ _). iApply source_red_irred_unless.
+        iIntros "[(%z_sum & ->) (%z_s & ->)]".
+        val_discr_source "Hvx". val_discr_source "Hvr". source_pures.
+        source_store.
+        target_load. target_store.
+        target_load. target_store.
+        sim_pures. iApply sim_expr_base. iRight.
+        iSplitR; first done. iSplitR; first done.
+        iExists (z_i + 1)%Z, #(z_sum + z_s)%Z, #(z_sum + z_s)%Z.
+        iFrame. done.
+    Qed.
+
   (** This optimization hoists the read of "n" out of the loop. *)
   Definition hoist_load_s : expr :=
      let: "r" := ref #0  in
@@ -94,8 +301,6 @@ Section data_race.
      Free "i";;
      "res".
 
-  Lemma int_is_unboxed (z : Z) : val_is_unboxed #z.
-  Proof. done. Qed.
 
   Lemma hoist_load_sim:
     ⊢ log_rel hoist_load_t hoist_load_s.
