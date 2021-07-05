@@ -121,6 +121,16 @@ Section derived.
     iIntros (e_s') "Hpre". by iApply HK.
   Qed.
 
+  Lemma source_focus P e_t e_s K_s π Ψ Φ :
+    (⊢ [{{ P }}] e_s @ π [{{ Ψ }}]s) →
+    (∀ e_s', ⊢ {{{ Ψ e_s' }}} e_t ⪯[π] fill K_s e_s' {{{ Φ }}}) →
+    ⊢ {{{ P }}} e_t ⪯[π] fill K_s e_s {{{ Φ }}}.
+  Proof.
+    iIntros (Hs Hsim) "!> HP". to_source.
+    iApply source_red_bind. iApply (source_red_wand with "[HP] []"). { by iApply Hs. }
+    iIntros (e_s') "Hpre". to_sim. by iApply Hsim.
+  Qed.
+
   Lemma source_frame P R e_s π Ψ :
     (⊢ [{{ P }}] e_s @ π [{{ Ψ }}]s) →
     ⊢ [{{ P ∗ R }}] e_s @ π [{{ λ e_s', Ψ e_s' ∗ R }}]s.
@@ -167,6 +177,16 @@ Section derived.
     iIntros (e_t') "Hpre". by iApply HK.
   Qed.
 
+  Lemma target_focus P e_t e_s K_t π Ψ Φ :
+    (⊢ [{{ P }}] e_t [{{ Ψ }}]t) →
+    (∀ e_t', ⊢ {{{ Ψ e_t' }}} fill K_t e_t' ⪯[π] e_s {{{ Φ }}}) →
+    ⊢ {{{ P }}} fill K_t e_t ⪯[π] e_s {{{ Φ }}}.
+  Proof.
+    iIntros (Ht Hsim) "!> HP". to_target.
+    iApply target_red_bind. iApply (target_red_wand with "[HP] []"). { by iApply Ht. }
+    iIntros (e_t') "Hpre". to_sim. by iApply Hsim.
+  Qed.
+
   Lemma target_frame P R e_t π Ψ :
     (⊢ [{{ P }}] e_t [{{ Ψ }}]t) →
     ⊢ [{{ P ∗ R }}] e_t [{{ λ e_t', Ψ e_t' ∗ R }}]t.
@@ -187,7 +207,7 @@ Section derived.
   (** ** SimuLang triples and quadruples for the non-atomic invariant *)
 
   (** *** Source triples *)
-  Lemma source_load l q v P o π Φ :
+  Lemma source_load l q v P o π :
     o = ScOrd ∨ o = Na1Ord →
     ⊢ [{{ l ↦s{#q} v }}] Load o #l @ π [{{ λ v', ⌜v' = v⌝ ∗ l ↦s{#q} v }}]s.
   Proof.
@@ -195,14 +215,14 @@ Section derived.
     iIntros "Hl". source_finish. eauto with iFrame.
   Qed.
 
-  Lemma source_store_sc l (v v' : val) P π Φ :
+  Lemma source_store_sc l (v v' : val) P π :
     ⊢ [{{ l ↦s v' ∗ na_locs π ∅ }}] Store ScOrd #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v ∗ na_locs π ∅ }}]s.
   Proof.
     iIntros "!> [Hs Hna]". iApply (sim_bij_store_sc_source with "Hs Hna"). iIntros "Hna Hs".
     source_finish. eauto with iFrame.
   Qed.
 
-  Lemma source_store_na l (v v' : val) P π Φ :
+  Lemma source_store_na l (v v' : val) P π :
     ⊢ [{{ l ↦s v' }}] Store Na1Ord #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v }}]s.
   Proof.
     iIntros "!> Hs". source_store. eauto with iFrame.
@@ -210,7 +230,7 @@ Section derived.
 
   (** In contrast to the presentation to the paper, we also obtain ownership of [†l…s Z.to_nat n],
     which gives the total size of the allocation at [l_s]. *)
-  Lemma source_alloc (v : val) (n : Z) π Φ :
+  Lemma source_alloc (v : val) (n : Z) π :
     (n > 0)%Z →
     ⊢ [{{ True }}] AllocN #n v @ π [{{ λ v', ∃ l : loc, ⌜v' = #l⌝ ∗ l ↦s∗ replicate (Z.to_nat n) v ∗ †l…s Z.to_nat n }}]s.
   Proof.
@@ -219,15 +239,23 @@ Section derived.
 
   (** In order to free memory, we need to give up all memory of the full allocation at once,
      encoded through the allocation size assertion [†l…s Z.to_nat n]. *)
-  Lemma source_free vs (n : nat) l π Φ :
+  Lemma source_free vs (n : nat) l π :
     length vs = n →
     ⊢ [{{ l ↦s∗ vs ∗ †l…s Z.to_nat n  }}] FreeN #n #l @ π [{{ λ v', ⌜v' = #()⌝ }}]s.
   Proof.
     iIntros (Hn) "!> [Hs Hf]". source_free; first lia. eauto.
   Qed.
 
+  Lemma source_call f x e (v : val) P π Ψ :
+    (⊢ [{{ f @s (x, e) ∗ P }}] apply_func (x, e)%core v @ π [{{ Ψ }}]s) →
+    ⊢ [{{ f @s (x, e) ∗ P }}] Call f#f v @ π [{{ Ψ }}]s.
+  Proof.
+    iIntros (Hs) "!> [#Hc HP]". iApply (source_red_call with "Hc").
+    iApply Hs. iFrame "HP Hc".
+  Qed.
+
   (** *** Target triples *)
-  Lemma target_load l q v P o Φ :
+  Lemma target_load l q v P o :
     o = ScOrd ∨ o = Na1Ord →
     ⊢ [{{ l ↦t{#q} v }}] Load o #l [{{ λ v', ⌜v' = v⌝ ∗ l ↦t{#q} v }}]t.
   Proof.
@@ -235,13 +263,13 @@ Section derived.
     iIntros "Hl". target_finish. eauto with iFrame.
   Qed.
 
-  Lemma target_store_sc l (v v' : val) P π Φ :
+  (* does NOT hold for the na invariant *)
+  Lemma target_store_sc l (v v' : val) P π :
     ⊢ [{{ l ↦t v' ∗ na_locs π ∅ }}] Store ScOrd #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v ∗ na_locs π ∅ }}]t.
   Proof.
-    (* does NOT hold for the na invariant *)
   Abort.
 
-  Lemma target_store_na l (v v' : val) P Φ :
+  Lemma target_store_na l (v v' : val) P :
     ⊢ [{{ l ↦t v' }}] Store Na1Ord #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v }}]t.
   Proof.
     iIntros "!> Hs". target_store. eauto with iFrame.
@@ -249,7 +277,7 @@ Section derived.
 
   (** In contrast to the presentation to the paper, we also obtain ownership of [†l…t Z.to_nat n],
     which gives the total size of the allocation at [l_t]. *)
-  Lemma target_alloc (v : val) (n : Z) Φ :
+  Lemma target_alloc (v : val) (n : Z) :
     (n > 0)%Z →
     ⊢ [{{ True }}] AllocN #n v [{{ λ v', ∃ l : loc, ⌜v' = #l⌝ ∗ l ↦t∗ replicate (Z.to_nat n) v ∗ †l…t Z.to_nat n }}]t.
   Proof.
@@ -258,11 +286,19 @@ Section derived.
 
   (** In order to free memory, we need to give up all memory of the full allocation at once,
      encoded through the allocation size assertion [†l…t Z.to_nat n]. *)
-  Lemma target_free vs (n : nat) l Φ :
+  Lemma target_free vs (n : nat) l :
     length vs = n →
     ⊢ [{{ l ↦t∗ vs ∗ †l…t Z.to_nat n  }}] FreeN #n #l [{{ λ v', ⌜v' = #()⌝ }}]t.
   Proof.
     iIntros (Hn) "!> [Hs Hf]". target_free; first lia. eauto.
+  Qed.
+
+  Lemma target_call f x e (v : val) P Ψ :
+    (⊢ [{{ f @t (x, e) ∗ P }}] apply_func (x, e)%core v [{{ Ψ }}]t) →
+    ⊢ [{{ f @t (x, e) ∗ P }}] Call f#f v [{{ Ψ }}]t.
+  Proof.
+    iIntros (Hs) "!> [#Hc HP]". iApply (target_red_call with "Hc").
+    iApply Hs. iFrame "HP Hc".
   Qed.
 
   (** *** Quadruples *)
@@ -293,6 +329,13 @@ Section derived.
     - simplify_eq. sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
   Qed.
 
+  Lemma sim_global_var (A : string) π :
+    ⊢ {{{ True }}} GlobalVar A ⪯[π] GlobalVar A {{{ lift_post (λ v_t v_s, ∃ l_t l_s : loc, ⌜v_t = #l_t⌝ ∗ ⌜v_s = #l_s⌝ ∗ l_t ↔h l_s) }}}.
+  Proof.
+    iIntros "!> _". iApply (globalbij.sim_global_var loc_rel). { exact sim_bij_contains_globalbij. }
+    iIntros (??) "Hb". iApply lift_post_val. eauto with iFrame.
+  Qed.
+
   (** To insert into the bijection, we also need to give up the allocation size control
      for both allocations -- crucially, we again need to make the full allocation public at once,
      and the allocations need to have the same size in source and target. *)
@@ -317,14 +360,26 @@ Section derived.
     iIntros "Hl". iApply Hs. iFrame.
   Qed.
 
-  Lemma sim_global_var (A : string) π :
-    ⊢ {{{ True }}} GlobalVar A ⪯[π] GlobalVar A {{{ lift_post (λ v_t v_s, ∃ l_t l_s : loc, ⌜v_t = #l_t⌝ ∗ ⌜v_s = #l_s⌝ ∗ l_t ↔h l_s) }}}.
+  Lemma sim_fork e_t e_s P π Φ :
+    (∀ π', ⊢ {{{ P ∗ na_locs π' ∅ }}} e_t ⪯[π'] e_s {{{ lift_post (λ vt vs, na_locs π' ∅ ∗ val_rel vt vs) }}}) →
+    ⊢ {{{ P ∗ na_locs π ∅ }}} Fork e_t ⪯[π] Fork e_s {{{ lift_post (λ _ _, na_locs π ∅) }}}.
   Proof.
-    iIntros "!> _". iApply (globalbij.sim_global_var loc_rel). { exact sim_bij_contains_globalbij. }
-    iIntros (??) "Hb". iApply lift_post_val. eauto with iFrame.
+    iIntros (Hf) "!> [HP Hna]". iApply (sim_bij_fork with "Hna [] [HP]").
+    - iIntros "Hna". sim_val. eauto.
+    - iIntros (π') "Hna". iApply Hf. iFrame.
   Qed.
 
-  Lemma sim_load_sc_public l_t l_s C π Φ :
+  Lemma sim_call f v_t v_s P π Φ :
+    ⊢ {{{ val_rel v_t v_s ∗ na_locs π ∅ }}} Call f#f v_t ⪯[π] Call f#f v_s {{{lift_post (λ v_t' v_s', val_rel v_t' v_s' ∗ na_locs π ∅) }}}.
+  Proof.
+    iIntros "!> [#Hv Hna]".
+    iApply (sim_expr_wand with "[Hna] []").
+    - iApply sim_call; [done | done | ]. simpl. iFrame "Hna Hv".
+    - iIntros (??) "(%v_t' & %v_s' & -> & -> & [Hna Hv'])".
+      iApply lift_post_val. iFrame.
+  Qed.
+
+  Lemma sim_load_sc_public l_t l_s C π :
     C !! l_s = None →
     ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Load ScOrd #l_t ⪯[π] Load ScOrd #l_s {{{ lift_post (λ v_t v_s, val_rel v_t v_s ∗ na_locs π C) }}}.
   Proof.
@@ -332,6 +387,47 @@ Section derived.
     iIntros (v_t v_s) "Hv Hna". iApply sim_value. iFrame.
   Qed.
 
-  (* TODO more quadruples *)
+  Lemma sim_load_na_public l_t l_s C π :
+    C !! l_s = None →
+    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Load Na1Ord #l_t ⪯[π] Load Na1Ord #l_s {{{ lift_post (λ v_t v_s, val_rel v_t v_s ∗ na_locs π C) }}}.
+  Proof.
+    iIntros (Hl) "!> [Hb Hna]". iApply (sim_bij_load with "Hb Hna"); [done | done | ].
+    iIntros (v_t v_s) "Hv Hna". iApply sim_value. iFrame.
+  Qed.
+
+  (** This requires there to be no exploited locations for this thread.
+     We can also prove something stronger (see [sim_bij_store_sc]): we can "refresh" all exploited locations for which exploitable operations are reachable after the store.
+  *)
+  Lemma sim_store_sc_public l_t l_s v_t v_s π :
+    ⊢ {{{ l_t ↔h l_s ∗ na_locs π ∅ ∗ val_rel v_t v_s }}} Store ScOrd #l_t v_t ⪯[π] Store ScOrd #l_s v_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π ∅) }}}.
+  Proof.
+    iIntros "!> (Hb & Hna & Hv)". iApply (sim_bij_store_sc empty_ectx empty_ectx with "Hb Hna Hv"); [done | | ].
+    { intros ?????. rewrite lookup_empty. congruence. }
+    iIntros "Hna". iApply sim_value. eauto with iFrame.
+  Qed.
+
+  Lemma sim_store_na_public l_t l_s v_t v_s C π :
+    C !! l_s = None →
+    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C ∗ val_rel v_t v_s }}} Store Na1Ord #l_t v_t ⪯[π] Store Na1Ord #l_s v_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π C) }}}.
+  Proof.
+    iIntros (Hc) "!> (Hb & Hna & Hv)". iApply (sim_bij_store_na with "Hb Hna Hv"); [done | ].
+    iIntros "Hna". iApply sim_value. eauto with iFrame.
+  Qed.
+
+  Lemma sim_freeN_public l_t l_s C n π :
+    (∀ i : Z, (0 ≤ i < n)%Z → C !! (l_s +ₗ i) = None) →
+    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} FreeN #n #l_t ⪯[π] FreeN #n #l_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π C) }}}.
+  Proof.
+    iIntros (Hc) "!> (Hb & Hna)". iApply (sim_bij_free with "Hb Hna"); [done | ].
+    iIntros "Hna". iApply sim_value. eauto with iFrame.
+  Qed.
+
+  Lemma sim_free_public l_t l_s C π :
+    C !! l_s = None →
+    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Free #l_t ⪯[π] Free #l_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π C) }}}.
+  Proof.
+    intros Hc. apply sim_freeN_public. intros i Hi. assert (i = 0) as -> by lia.
+    replace (Z.of_nat O) with 0%Z by lia. rewrite loc_add_0. done.
+  Qed.
 
 End derived.
