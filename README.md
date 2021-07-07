@@ -101,3 +101,13 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Example from 2.4 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_4` |
 | Rule `while-coind` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while_simple` |
 | Rule `while-paco` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while` |
+
+
+### Section 3
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| Rule `exploit-write` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_write` |
+| Rule `exploit-read` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_read` |
+| Rule `release-exploit` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_release` |
+
+TODO
