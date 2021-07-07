@@ -6,26 +6,6 @@ From iris.algebra.lib Require Import gset_bij.
 
 
 (** * General ghost state construction that provides assertions that particular parts of the source and target heaps are in a bijection *)
-
-
-Section gset_bij.
-  Context `{gset_bijG Σ A B}.
-  Implicit Types (L : gset (A * B)) (a : A) (b : B).
-
-  (* TODO: maybe upstream into Iris?*)
-  Lemma gset_bij_own_elem_auth_agree {γ q L} a b :
-    gset_bij_own_auth γ q L -∗ gset_bij_own_elem γ a b -∗ ⌜(a, b) ∈ L⌝.
-  Proof.
-    iIntros "Hauth Helem". rewrite gset_bij_own_auth_eq gset_bij_own_elem_eq.
-    (* TODO: is there a more elegant way to do this? *)
-    iPoseProof (own_op with "[$Hauth $Helem]") as "Ha".
-    iPoseProof (own_valid_r with "Ha") as "[Ha %Hval]".
-    iPoseProof (own_op with "Ha") as "[Hauth Helem]".
-    iFrame. iPureIntro. revert Hval. rewrite bij_both_dfrac_valid.
-    intros (_ & _ & ?); done.
-  Qed.
-End gset_bij.
-
 Class gen_heap_bijGpreS `{gen_sim_heapGS L_t L_s V_t V_s Σ} := GenHeapBijGPreS {
   gen_heap_bij_pre_bijG :> gset_bijG Σ L_t L_s;
 }.
@@ -95,7 +75,7 @@ Section laws.
         gen_heap_bij_inv val_rel).
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as (L) "[Hauth Hheap]".
-    iPoseProof (gset_bij_own_elem_auth_agree with "Hauth Hrel") as "%".
+    iPoseProof (gset_bij_elem_of with "Hauth Hrel") as "%".
     iPoseProof (big_sepS_delete with "Hheap") as "[He Hheap]"; first done.
     iDestruct "He" as (v_t v_s) "(H_t & H_s & Hvrel)".
     iExists v_t, v_s. iFrame.

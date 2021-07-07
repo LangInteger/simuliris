@@ -1,3 +1,7 @@
+(** This file has been adapted from the Iris development, available at 
+  https://gitlab.mpi-sws.org/iris/iris
+*)
+
 From iris.bi Require Export bi.
 From iris.proofmode Require Import tactics.
 From iris.prelude Require Import options.

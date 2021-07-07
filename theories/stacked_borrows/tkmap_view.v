@@ -1,3 +1,7 @@
+(** This file has been adapted from the Iris development, available at 
+  https://gitlab.mpi-sws.org/iris/iris
+*)
+
 From Coq.QArith Require Import Qcanon.
 From iris.algebra Require Export view gmap frac dfrac.
 From iris.algebra Require Import local_updates proofmode_classes big_op.

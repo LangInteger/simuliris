@@ -1,3 +1,7 @@
+(** This file has been adapted from the Iris development, available at 
+  https://gitlab.mpi-sws.org/iris/iris
+*)
+
 From stdpp Require Export namespaces.
 From iris.algebra Require Import gmap_view reservation_map agree frac.
 From iris.algebra Require Export dfrac.

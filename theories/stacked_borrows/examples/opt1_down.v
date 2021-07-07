@@ -1,3 +1,7 @@
+(** This file has been adapted from the Stacked Borrows development, available at 
+  https://gitlab.mpi-sws.org/FP/stacked-borrows
+*)
+
 From simuliris.simulation Require Import lifting.
 From simuliris.stacked_borrows Require Import primitive_laws proofmode examples.lib adequacy.
 From iris.prelude Require Import options.

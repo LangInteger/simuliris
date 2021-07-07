@@ -1,3 +1,7 @@
+(** This file has been adapted from the Stacked Borrows development, available at 
+  https://gitlab.mpi-sws.org/FP/stacked-borrows
+*)
+
 From iris.prelude Require Import prelude.
 From iris.prelude Require Import options.
 From stdpp Require Import countable numbers gmap.

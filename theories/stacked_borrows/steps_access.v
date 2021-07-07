@@ -1,3 +1,7 @@
+(** This file has been adapted from the Stacked Borrows development, available at 
+  https://gitlab.mpi-sws.org/FP/stacked-borrows
+*)
+
 From simuliris.stacked_borrows Require Export defs steps_foreach steps_list.
 From iris.prelude Require Import options.
 
