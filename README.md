@@ -121,7 +121,7 @@ They are instantiated for the fundamental theorems.
 | ------ | ------ | ------ |
 | Possible behaviors | `theories/simulation/behavior.v` | `has_beh` |
 | Behavioral refinement | `theories/simulation/behavior.v` | `beh_ref` |
-| Behavioral program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` | 
+| program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` | 
 | Contextual refinement (language-specific), SimuLang | `theories/simulang/behavior.v` | `ctx_ref` | 
 | Logical relation (SimuLang, generic) | `theories/simulang/log_rel_structural.v` | `log_rel` | 
 | Theorem 4.1 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/refl.v` | `log_rel_refl` |
@@ -137,7 +137,7 @@ They are instantiated for the fundamental theorems.
 | source safety judgment | `theories/simulation/lifting.v` | `safe_reach` |
 | whole-program relation | `theories/simulation/gen_log_rel.v` | `prog_rel` | 
 | Lemma 5.1 | `theories/simulation/adequacy.v` | `slsls_adequacy` | 
-| whole-program refinement | `theories/simulation/behavior.v` | `prog_ref` | 
+| program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` | 
 | global simulation | `theories/simulation/global_sim.v` | `gsim_expr_inner`, `global_greatest_def` | 
 | Theorem 5.2 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` | 
 
