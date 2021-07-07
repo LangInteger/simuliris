@@ -135,9 +135,9 @@ They are instantiated for the fundamental theorems.
 | Simulation relation (Figure 11) (full version) | `theories/simulation/slsls.v` | `greatest_def`, `sim_expr_inner` |
 | Hoare quadruple definition | `theories/simulang/hoare.v` | `hoareSim`|
 | source safety judgment | `theories/simulation/lifting.v` | `safe_reach` |
-| whole-program simulation relation | `theories/simulation/???` | ??? | 
-| Lemma 5.1 | ??? | ??? | 
-| whole-program refinement | ??? | ??? | 
+| whole-program relation | `theories/simulation/gen_log_rel.v` | `prog_rel` | 
+| Lemma 5.1 | `theories/simulation/adequacy.v` | `slsls_adequacy` | 
+| whole-program refinement | `theories/simulation/behavior.v` | `prog_ref` | 
 | global simulation | `theories/simulation/global_sim.v` | `gsim_expr_inner`, `global_greatest_def` | 
 | Theorem 5.2 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` | 
 
