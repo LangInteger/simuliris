@@ -55,6 +55,9 @@ Section gen_prog.
   Implicit Types P Q : iProp Σ.
   Implicit Types p : gmap F C.
 
+  Global Instance has_prog_persistent p : Persistent (has_prog p).
+  Proof. apply _. Qed.
+
   (** General properties of has_fun *)
   Global Instance has_fun_timeless f K : Timeless (f @ K).
   Proof. rewrite has_fun_eq. apply _. Qed.

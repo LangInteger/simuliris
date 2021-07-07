@@ -3,25 +3,26 @@ From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simulang Require Import lang notation tactics
   proofmode log_rel_structural wf behavior.
-From simuliris.simulang.na_inv Require Export inv.
-From simuliris.simulang.na_inv Require Import readonly_refl adequacy.
+From simuliris.simulang.simple_inv Require Export inv.
 From iris.prelude Require Import options.
 
-(** * Derived rules for the non-atomic logic shown in the paper. *)
+(** * Derived rules for the simple invariant (without support for exploiting non-atomics) *)
 (**
-   This file proves the derived rules shown in the paper, in particular the Hoare triples and quadruples for the non-atomic logic.
+   This file proves the derived rules shown in the paper, 
+   in particular the Hoare triples and quadruples for the simple logic without support for exploiting non-atomics (Section 2 of the paper).
+   For the triples that hold for the extended non-atomic logic (used from Section 3 on), see file [theories/simulang/na_inv/examples/derived.v].
 *)
 
 Section derived.
-  Context `{naGS Σ}.
+  Context `{simpleGS Σ}.
 
+  (** Rules for the assertion [e_s ⇝ Q] ([safe_reach]) shown in the paper. *)
   Lemma safe_reach_if e1 e2 v : safe_reach (∃ b, v = LitV $ LitBool b) (If (Val v) e1 e2).
   Proof. apply safe_reach_irred. apply _. Qed.
   Lemma safe_reach_div v1 v2 : safe_reach ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V (BinOp QuotOp (Val v1) (Val v2)).
   Proof. apply safe_reach_irred. apply _. Qed.
   Lemma safe_reach_load o v_l : safe_reach (∃ l, v_l = LitV $ LitLoc l) (Load o $ Val v_l).
   Proof. apply safe_reach_irred. apply _. Qed.
-
 
   Implicit Types
     (P : iProp Σ) (Φ : expr → expr → iProp Σ) (Ψ : expr → iProp Σ)
@@ -32,8 +33,6 @@ Section derived.
   Definition hoareSim P e_t e_s π Φ : iProp Σ := □ (P -∗ sim_expr Φ π e_t e_s).
   Definition hoareTgt P e_t Ψ : iProp Σ := □ (P -∗ target_red e_t Ψ).
   Definition hoareSrc P e_s π Ψ : iProp Σ := □ (P -∗ source_red e_s π Ψ).
-
-
 
   Notation "'{{{'  P  '}}}'  e_t  ⪯[  π  ] e_s   '{{{'  Φ  '}}}'" := (hoareSim P e_t e_s π Φ) (at level 10) : bi_scope.
   Notation "'[{{'  P  '}}]'  e_t  '[{{'  Ψ  '}}]t'" := (hoareTgt P e_t Ψ) (at level 20) : bi_scope.
@@ -207,7 +206,7 @@ Section derived.
     by iApply Hs.
   Qed.
 
-  (** ** SimuLang triples and quadruples for the non-atomic invariant *)
+  (** ** SimuLang triples and quadruples specific to the simple invariant *)
 
   (** *** Source triples *)
   Lemma source_load l q v P o π :
@@ -218,17 +217,13 @@ Section derived.
     iIntros "Hl". source_finish. eauto with iFrame.
   Qed.
 
-  Lemma source_store_sc l (v v' : val) P π :
-    ⊢ [{{ l ↦s v' ∗ na_locs π ∅ }}] Store ScOrd #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v ∗ na_locs π ∅ }}]s.
+  Lemma source_store l (v v' : val) o P π :
+    o = ScOrd ∨ o = Na1Ord →
+    ⊢ [{{ l ↦s v' }}] Store o #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v }}]s.
   Proof.
-    iIntros "!> [Hs Hna]". iApply (sim_bij_store_sc_source with "Hs Hna"). iIntros "Hna Hs".
+    iIntros (Ho) "!> Hs".
+    iApply (source_red_store with "Hs"); first done. iIntros "Hs".
     source_finish. eauto with iFrame.
-  Qed.
-
-  Lemma source_store_na l (v v' : val) P π :
-    ⊢ [{{ l ↦s v' }}] Store Na1Ord #l v @ π [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦s v }}]s.
-  Proof.
-    iIntros "!> Hs". source_store. eauto with iFrame.
   Qed.
 
   (** In contrast to the presentation to the paper, we also obtain ownership of [†l…s Z.to_nat n],
@@ -242,7 +237,7 @@ Section derived.
 
   (** In order to free memory, we need to give up all memory of the full allocation at once,
      encoded through the allocation size assertion [†l…s Z.to_nat n]. *)
-  Lemma source_free vs (n : nat) l π :
+  Lemma source_freeN vs (n : nat) l π :
     length vs = n →
     ⊢ [{{ l ↦s∗ vs ∗ †l…s Z.to_nat n  }}] FreeN #n #l @ π [{{ λ v', ⌜v' = #()⌝ }}]s.
   Proof.
@@ -266,16 +261,12 @@ Section derived.
     iIntros "Hl". target_finish. eauto with iFrame.
   Qed.
 
-  (* does NOT hold for the na invariant *)
-  Lemma target_store_sc l (v v' : val) P π :
-    ⊢ [{{ l ↦t v' ∗ na_locs π ∅ }}] Store ScOrd #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v ∗ na_locs π ∅ }}]t.
+  Lemma target_store l (v v' : val) P o π :
+    o = ScOrd ∨ o = Na1Ord →
+    ⊢ [{{ l ↦t v' }}] Store ScOrd #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v }}]t.
   Proof.
-  Abort.
-
-  Lemma target_store_na l (v v' : val) P :
-    ⊢ [{{ l ↦t v' }}] Store Na1Ord #l v [{{ λ v'', ⌜v'' = #()⌝ ∗ l ↦t v }}]t.
-  Proof.
-    iIntros "!> Hs". target_store. eauto with iFrame.
+    iIntros (Ho) "!> Hpre". iApply (target_red_store with "Hpre"); first by eauto.
+    iIntros "Hl". target_finish. eauto with iFrame.
   Qed.
 
   (** In contrast to the presentation to the paper, we also obtain ownership of [†l…t Z.to_nat n],
@@ -364,108 +355,37 @@ Section derived.
   Qed.
 
   Lemma sim_fork e_t e_s P π Φ :
-    (∀ π', ⊢ {{{ P ∗ na_locs π' ∅ }}} e_t ⪯[π'] e_s {{{ lift_post (λ vt vs, na_locs π' ∅ ∗ val_rel vt vs) }}}) →
-    ⊢ {{{ P ∗ na_locs π ∅ }}} Fork e_t ⪯[π] Fork e_s {{{ lift_post (λ _ _, na_locs π ∅) }}}.
+    (∀ π', ⊢ {{{ P }}} e_t ⪯[π'] e_s {{{ lift_post (λ vt vs, val_rel vt vs) }}}) →
+    ⊢ {{{ P }}} Fork e_t ⪯[π] Fork e_s {{{ lift_post (λ _ _, True) }}}.
   Proof.
-    iIntros (Hf) "!> [HP Hna]". iApply (sim_bij_fork with "Hna [] [HP]").
-    - iIntros "Hna". sim_val. eauto.
-    - iIntros (π') "Hna". iApply Hf. iFrame.
+    iIntros (Hf) "!> HP". iApply (sim_fork with "[] [HP]").
+    - sim_val. eauto.
+    - iIntros (π'). iApply Hf. iFrame.
   Qed.
 
   Lemma sim_call f v_t v_s P π Φ :
-    ⊢ {{{ val_rel v_t v_s ∗ na_locs π ∅ }}} Call f#f v_t ⪯[π] Call f#f v_s {{{lift_post (λ v_t' v_s', val_rel v_t' v_s' ∗ na_locs π ∅) }}}.
+    ⊢ {{{ val_rel v_t v_s }}} Call f#f v_t ⪯[π] Call f#f v_s {{{lift_post (λ v_t' v_s', val_rel v_t' v_s') }}}.
   Proof.
-    iIntros "!> [#Hv Hna]".
-    iApply (sim_expr_wand with "[Hna] []").
-    - iApply sim_call; [done | done | ]. simpl. iFrame "Hna Hv".
-    - iIntros (??) "(%v_t' & %v_s' & -> & -> & [Hna Hv'])".
-      iApply lift_post_val. iFrame.
+    iIntros "!> #Hv". by iApply sim_call.
   Qed.
 
-  Lemma sim_load_sc_public l_t l_s C π :
-    C !! l_s = None →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Load ScOrd #l_t ⪯[π] Load ScOrd #l_s {{{ lift_post (λ v_t v_s, val_rel v_t v_s ∗ na_locs π C) }}}.
+  Lemma sim_load_public l_t l_s o π :
+    ⊢ {{{ l_t ↔h l_s }}} Load o #l_t ⪯[π] Load o #l_s {{{ lift_post (λ v_t v_s, val_rel v_t v_s) }}}.
   Proof.
-    iIntros (Hl) "!> [Hb Hna]". iApply (sim_bij_load with "Hb Hna"); [done | done | ].
-    iIntros (v_t v_s) "Hv Hna". iApply sim_value. iFrame.
+    iIntros "!> Hb". iApply (sim_bij_load with "Hb").
+    iIntros (v_t v_s) "Hv". iApply sim_value. iFrame.
   Qed.
 
-  Lemma sim_load_na_public l_t l_s C π :
-    C !! l_s = None →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Load Na1Ord #l_t ⪯[π] Load Na1Ord #l_s {{{ lift_post (λ v_t v_s, val_rel v_t v_s ∗ na_locs π C) }}}.
+  Lemma sim_store_public l_t l_s v_t v_s o π :
+    ⊢ {{{ l_t ↔h l_s ∗ val_rel v_t v_s }}} Store o #l_t v_t ⪯[π] Store o #l_s v_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝) }}}.
   Proof.
-    iIntros (Hl) "!> [Hb Hna]". iApply (sim_bij_load with "Hb Hna"); [done | done | ].
-    iIntros (v_t v_s) "Hv Hna". iApply sim_value. iFrame.
+    iIntros "!> (Hb & Hv)". iApply (sim_bij_store with "Hb Hv"). by sim_val.
   Qed.
 
-  (** This requires there to be no exploited locations for this thread.
-     We can also prove something stronger (see [sim_bij_store_sc]): we can "refresh" all exploited locations for which exploitable operations are reachable after the store.
-  *)
-  Lemma sim_store_sc_public l_t l_s v_t v_s π :
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π ∅ ∗ val_rel v_t v_s }}} Store ScOrd #l_t v_t ⪯[π] Store ScOrd #l_s v_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π ∅) }}}.
+  Lemma sim_free_public l_t l_s (n : Z) π :
+    ⊢ {{{ l_t ↔h l_s }}} FreeN #n #l_t ⪯[π] FreeN #n #l_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝) }}}.
   Proof.
-    iIntros "!> (Hb & Hna & Hv)". iApply (sim_bij_store_sc empty_ectx empty_ectx with "Hb Hna Hv"); [done | | ].
-    { intros ?????. rewrite lookup_empty. congruence. }
-    iIntros "Hna". iApply sim_value. eauto with iFrame.
-  Qed.
-
-  Lemma sim_store_na_public l_t l_s v_t v_s C π :
-    C !! l_s = None →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C ∗ val_rel v_t v_s }}} Store Na1Ord #l_t v_t ⪯[π] Store Na1Ord #l_s v_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π C) }}}.
-  Proof.
-    iIntros (Hc) "!> (Hb & Hna & Hv)". iApply (sim_bij_store_na with "Hb Hna Hv"); [done | ].
-    iIntros "Hna". iApply sim_value. eauto with iFrame.
-  Qed.
-
-  Lemma sim_freeN_public l_t l_s C n π :
-    (∀ i : Z, (0 ≤ i < n)%Z → C !! (l_s +ₗ i) = None) →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} FreeN #n #l_t ⪯[π] FreeN #n #l_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π C) }}}.
-  Proof.
-    iIntros (Hc) "!> (Hb & Hna)". iApply (sim_bij_free with "Hb Hna"); [done | ].
-    iIntros "Hna". iApply sim_value. eauto with iFrame.
-  Qed.
-
-  Lemma sim_free_public l_t l_s C π :
-    C !! l_s = None →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π C }}} Free #l_t ⪯[π] Free #l_s {{{ lift_post (λ v_t v_s, ⌜v_t = #()⌝ ∗ ⌜v_t = #()⌝ ∗ na_locs π C) }}}.
-  Proof.
-    intros Hc. apply sim_freeN_public. intros i Hi. assert (i = 0) as -> by lia.
-    replace (Z.of_nat O) with 0%Z by lia. rewrite loc_add_0. done.
-  Qed.
-
-
-  (** Exploitation triples *)
-  Lemma sim_exploit_write P π (l_t l_s : loc) Φ e_s e_t col :
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ ∃ v, σ_s.(heap) !! l_s = Some (RSt 0, v)))) →
-    col !! l_s = None →
-    (∀ v_t v_s, ⊢ {{{ l_t ↦t v_t ∗ l_s ↦s v_s ∗ val_rel v_t v_s ∗ na_locs π (<[l_s := (l_t, NaExcl)]>col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π col ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
-  Proof.
-    iIntros (Hreach Hcol Hs) "!> (Hbij & Hna & HP)".
-    iApply (sim_bij_exploit_store with "Hbij Hna"); [done | done | ].
-    iIntros (??) "Ht Hs Hv Hna". iApply Hs. iFrame.
-  Qed.
-
-  Lemma sim_exploit_read P π (l_t l_s : loc) Φ e_s e_t col :
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', e' = (Load Na1Ord #l_s) ∧ ∃ n v, σ_s.(heap) !! l_s = Some (RSt n, v)))) →
-    col !! l_s = None →
-    (∀ q v_t v_s, ⊢ {{{ l_t ↦t{#q} v_t ∗ l_s ↦s{#q} v_s ∗ val_rel v_t v_s ∗ na_locs π (<[l_s := (l_t, NaRead q)]>col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π col ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
-  Proof.
-    iIntros (Hreach Hcol Hs) "!> (Hbij & Hna & HP)".
-    iApply (sim_bij_exploit_load with "Hbij Hna"); [done | done | ].
-    iIntros (???) "Ht Hs Hv Hna". iApply Hs. iFrame.
-  Qed.
-
-  Lemma sim_exploit_release ns π Φ e_s e_t col l_s l_t v_t v_s P :
-    let q := if ns is NaRead q then q else 1%Qp in
-    col !! l_s = Some (l_t, ns) →
-    (⊢ {{{ na_locs π (delete l_s col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
-    ⊢ {{{ l_t ↔h l_s ∗ na_locs π col ∗ l_t ↦t{#q} v_t ∗ l_s ↦s{#q} v_s ∗ val_rel v_t v_s ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
-  Proof.
-    intros q. iIntros (Hcol Hs) "!> (Hbij & Hna & Ht & Hs & Hv & HP)".
-    iApply (sim_bij_release with "Hbij Hna Ht Hs Hv"); first done.
-    iIntros "Hna". iApply Hs. iFrame.
+    iIntros "!> Hb". iApply (sim_bij_free with "Hb"). by sim_val.
   Qed.
 
 End derived.
