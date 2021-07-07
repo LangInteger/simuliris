@@ -62,6 +62,7 @@ theories/simulang/simple_inv/examples/heap_test.v
 theories/simulang/simple_inv/examples/reorder_malloc.v
 theories/simulang/simple_inv/examples/while.v
 theories/simulang/simple_inv/examples/derived.v
+theories/simulang/simple_inv/examples/paper.v
 
 
 
