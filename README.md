@@ -114,7 +114,20 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Rules in Figure 8| `theories/simulang/na_inv/examples/derived.v` | `sim_load_sc_public`, `sim_load_na_public`, `sim_store_sc_public`, `sim_call` | 
 
 ### Section 4 
-TODO
+The definition of contextual refinement is language-specific as the contexts are language-specific.
+Similarly, the logical relation is specific to the different program logics.
+They are instantiated for the fundamental theorems. 
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| Possible behaviors | `theories/simulation/behavior.v` | `has_beh` |
+| Behavioral refinement | `theories/simulation/behavior.v` | `beh_ref` |
+| Program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` | 
+| Contextual refinement (language-specific), SimuLang | `theories/simulang/behavior.v` | `ctx_ref` | 
+| Logical relation (SimuLang, generic) | `theories/simulang/log_rel_structural.v` | `log_rel` | 
+| Theorem 4.1 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/refl.v` | `log_rel_refl` |
+| Theorem 4.2 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/refl.v` | `log_rel_ctx` |
+| Theorem 4.3 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` |
+
 
 ### Section 5
 TODO
