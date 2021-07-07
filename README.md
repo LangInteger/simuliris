@@ -153,4 +153,16 @@ They are instantiated for the fundamental theorems.
 | preservation for sim-write-sc | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf_store` |
 
 ### Section 7
-TODO
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| Adequacy | `theories/stacked_borrows/adequacy.v` | `log_rel_adequacy` |
+| Loop example (Fig 12b) | `theories/stacked_borrows/examples/coinductive.v` | `sim_loop_ctx` | 
+| Moving read example (Fig 12a) | `theories/stacked_borrows/examples/opt1.v` | `sim_opt1'` |
+
+The optimizations ported and extended to concurrency from the original Stacked Borrows paper can be found in the following files:
+* `theories/stacked_borrows/examples/opt1.v` 
+* `theories/stacked_borrows/examples/opt1_down.v` 
+* `theories/stacked_borrows/examples/opt2.v` 
+* `theories/stacked_borrows/examples/opt2_down.v` 
+* `theories/stacked_borrows/examples/opt3.v` 
+* `theories/stacked_borrows/examples/opt3_down.v` 
