@@ -83,5 +83,43 @@ These examples can be found in `theories/stacked_borrows/examples`
 TODO
 
 ## Theorems and definitions referenced in the paper
+We list the relevant theorems and definitions mentioned in the paper by section.
+### Section 2
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| SimuLang grammar (Figure 2) | `theories/simulang/lang.v` | `expr`, `val`, `prog`, `ectx_item`, `ectx` |
+| Example from 2.1 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_1` |
+| Hoare triples and quadruples from Figure 3 | `theories/simulang/simple_inv/examples/derived.v` | (replace dashes by underscores) |
+| Example 1 from 2.2 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_2_1` |
+| Example 2 from 2.2 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_2_2` |
+| Value relation (Figure 4) | `theories/simulang/simple_inv/inv.v` | `val_rel` |
+| Rule `loc-escape` (2.2) | `theories/simulang/simple_inv/examples/derived.v` | `sim_insert_bij` | 
+| Rule `sim-load-escaped` (2.2) | `theories/simulang/simple_inv/examples/derived.v` | `sim_load_public` |
+| Rule `sim-src-safe` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `sim_src_safe` |
+| Rule `safe-div-int-nonzero` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `safe_reach_div` |
+| Example from 2.3 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_3` |
+| Example from 2.4 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_4` |
+| Rule `while-coind` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while_simple` |
+| Rule `while-paco` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while` |
 
+
+### Section 3
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| Rule `exploit-write` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_write` |
+| Rule `exploit-read` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_read` |
+| Rule `release-exploit` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_release` |
+| Example from 3.2 | `theories/simulang/na_inv/examples/paper.v` | `load_na_sc_sim`, `load_na_sc_log`, and `load_na_sc_closed` | 
+| Example from 1,3.3 | `theories/simulang/na_inv/examples/paper.v` | `hoist_load_both_log`, `hoist_load_both_log` |
+
+### Section 4 
+TODO
+
+### Section 5
+TODO
+
+### Section 6 
+TODO
+
+### Section 7
 TODO
