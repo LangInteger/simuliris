@@ -83,5 +83,21 @@ These examples can be found in `theories/stacked_borrows/examples`
 TODO
 
 ## Theorems and definitions referenced in the paper
-
-TODO
+We list the relevant theorems and definitions mentioned in the paper by section.
+### Section 2
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| SimuLang grammar (Figure 2) | `theories/simulang/lang.v` | `expr`, `val`, `prog`, `ectx_item`, `ectx` |
+| Example from 2.1 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_1` |
+| Hoare triples and quadruples from Figure 3 | `theories/simulang/simple_inv/examples/derived.v` | (replace dashes by underscores) |
+| Example 1 from 2.2 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_2_1` |
+| Example 2 from 2.2 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_2_2` |
+| Value relation (Figure 4) | `theories/simulang/simple_inv/inv.v` | `val_rel` |
+| Rule `loc-escape` (2.2) | `theories/simulang/simple_inv/examples/derived.v` | `sim_insert_bij` | 
+| Rule `sim-load-escaped` (2.2) | `theories/simulang/simple_inv/examples/derived.v` | `sim_load_public` |
+| Rule `sim-src-safe` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `sim_src_safe` |
+| Rule `safe-div-int-nonzero` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `safe_reach_div` |
+| Example from 2.3 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_3` |
+| Example from 2.4 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_4` |
+| Rule `while-coind` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while_simple` |
+| Rule `while-paco` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while` |
