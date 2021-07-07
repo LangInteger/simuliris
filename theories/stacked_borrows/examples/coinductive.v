@@ -2,14 +2,43 @@ From simuliris.simulation Require Import lifting.
 From simuliris.stacked_borrows Require Import primitive_laws proofmode adequacy examples.lib.
 From iris.prelude Require Import options.
 
-(* Assuming p : (&shr i32, T) *)
+(** Assuming p : (&shr i32, f : Fn(i32) -> bool, g : Fn() -> ?) *)
+(* In Rust, [Fn] objects can carry an environment.
+  We thus model such objects as two objects: a function pointer, and another scalar (possibly a pointer) for the environment.
+  These are not retagged (which mirrors the behavior of e.g. Miri).
+
+  [g] is used for the loop body -- due to the environment it could potentially do "arbitrary" things.
+ *)
+
+(*
+fn funky_loop(x : &i32, f, g) {
+  retag x;
+  while(f( *x)) {
+    g()
+  }
+}
+
+fn funky_loop(x : &i32, f, g) {
+  retag x;
+  let v = *x;
+  while(f(v)) {
+    g()
+  }
+}
+
+*)
+
+
 Definition loop_unopt : expr :=
     let: "i" := Proj "p" #[0] in
     (* We do not retag "env" as we do not access it.
       For the purpose of this function, it is just "data". *)
     let: "env" := Proj "p" #[1] in
-    (* get the function ptr *)
+    (* get the function ptr f *)
     let: "fn" := Proj "p" #[2] in
+    (* the same for g *)
+    let: "envG" := Proj "p" #[3] in
+    let: "fnG" := Proj "p" #[4] in
 
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place (&int) "i" in
@@ -20,7 +49,7 @@ Definition loop_unopt : expr :=
     retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
 
     while: Call "fn" (Conc "env" (Copy *{int} "x")) do
-      #[42]
+      Call "fnG" "envG"
     od;;
 
     (* Free the local variable *)
@@ -35,33 +64,18 @@ Definition loop_opt : expr :=
     let: "i" := Proj "p" #[0] in
     let: "env" := Proj "p" #[1] in
     let: "fn" := Proj "p" #[2] in
+    let: "envG" := Proj "p" #[3] in
+    let: "fnG" := Proj "p" #[4] in
     let: "x" := new_place (&int) "i" in
     retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
     let: "r" := Copy *{int} "x" in
     while: Call "fn" (Conc "env" "r") do
-      #[42]
+      Call "fnG" "envG"
     od;;
     Free "x" ;;
     #[42]
   .
 
-(*
-fn funky_loop(x : &mut i32, f, env) {
-  retag x;
-  while(f(env, *x)) {
-
-  }
-}
-
-fn funky_loop(x : &mut i32, f, env) {
-  retag x;
-  let v = *x;
-  while(f(env, v)) {
-
-  }
-}
-
-*)
 
 Lemma loop_opt1 `{sborGS Σ} :
   ⊢ log_rel loop_opt loop_unopt.
@@ -92,11 +106,25 @@ Proof.
   source_proj. { simpl. done. }
   source_pures.
 
+  source_bind (Proj _ _).
+  iApply source_red_irred_unless.
+  iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
+  destruct v_s as [ | sc_s3 v_s]; simpl in *; first done. injection Hsc' as [= <-].
+  source_proj. { simpl. done. }
+  source_pures.
+
+  source_bind (Proj _ _).
+  iApply source_red_irred_unless.
+  iIntros "(%i & %sc' & %Heq & _ & %Hsc')". injection Heq as [= <-].
+  destruct v_s as [ | sc_s4 v_s]; simpl in *; first done. injection Hsc' as [= <-].
+  source_proj. { simpl. done. }
+  source_pures.
+
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "[-> Hvrel]".
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen".
-  destruct v_t as [ | sc_t0 [ | sc_t1 [ | sc_t2 v_t]]]; simpl in Hlen; [ lia | lia | lia | ].
+  destruct v_t as [ | sc_t0 [ | sc_t1 [ | sc_t2 [ | sc_t3 [ | sc_t4 v_t]]]]]; simpl in Hlen; [ lia | lia | lia | lia | lia | ].
   sim_pures.
-  target_proj; first done. target_pures. target_proj; first done. target_pures. target_proj; first done.
+  do 5 (target_proj; first done; target_pures).
   sim_pures.
 
   (* new place *)
@@ -107,7 +135,7 @@ Proof.
   source_apply (Copy _) (source_copy_local with "Hx Hs_x") "Hs_x Hx"; first done.
 
   rewrite /value_rel. rewrite !big_sepL2_cons.
-  iDestruct "Hvrel" as "(#Hsc0_rel & #Hsc1_rel & #Hsc2_rel & Hvrel)".
+  iDestruct "Hvrel" as "(#Hsc0_rel & #Hsc1_rel & #Hsc2_rel & #Hsc3_rel & #Hsc4_rel & Hvrel)".
 
   (* do the retag *)
   sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
@@ -186,6 +214,18 @@ Proof.
   - (* another round *)
     source_case. { done. }
     target_case. { done. }
+    sim_pures.
+
+    (* do the call to [g] *)
+    source_bind (Call _ _).
+    iApply source_red_irred_unless.
+    iIntros "(%fnG & %Heq)". injection Heq as [= ->].
+    iPoseProof (sc_rel_fnptr_source with "Hsc4_rel") as "->".
+    iApply source_red_base. iModIntro. to_sim.
+    sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
+    { iApply big_sepL2_cons. iSplitR; done. }
+    iIntros (r_t r_s) "#Hres".
+
     sim_pures.
     iApply sim_expr_base. iRight. iFrame "Ht Hi_t Hs Htag Hi_s Htag_i Hdeferred".
     done.
