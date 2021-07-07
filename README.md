@@ -56,6 +56,31 @@ The project follows the following structure below the `theories` folder:
         + `readonly_refl.v` contains a reflexivity theorem for read-only expressions which allows to thread through ownership of exploited locations.
         + `examples` contains examples using this logic, see below for a list.
 - `stacked_borrows` contains the port of the Stacked Borrows language and optimizations to Simuliris.
+    * `lang_base.v`, `expr_semantics.v`, `bor_semantics.v`, and `lang.v` contain the language definition.
+    * `logical_state.v` defines the invariants and instantiates the simulation relation.
+    * `steps_refl.v` and `steps_opt.v` prove the main execution lemmas.
+    * `behavior.v` defines the notion of contextual refinement and expression well-formedness.
+    * `adequacy.v` contains the resulting adequacy proof.
+    * `examples` contains example optimizations, see below.
 
+## Examples and case studies
+We have conducted a number of case studies and examples for the simple SimuLang logic, the non-atomic SimuLang logic, and the Stacked Borrows logic.
+
+### Simple SimuLang logic
+These examples can be found in `theories/simulang/simple_inv/examples/`.
+
+TODO
+
+### Non-atomic SimuLang logic
+These examples can be found in `theories/simulang/na_inv/examples/`.
+
+TODO
+
+### Stacked Borrows logic
+These examples can be found in `theories/stacked_borrows/examples`
+
+TODO
 
 ## Theorems and definitions referenced in the paper
+
+TODO
