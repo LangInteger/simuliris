@@ -121,7 +121,7 @@ They are instantiated for the fundamental theorems.
 | ------ | ------ | ------ |
 | Possible behaviors | `theories/simulation/behavior.v` | `has_beh` |
 | Behavioral refinement | `theories/simulation/behavior.v` | `beh_ref` |
-| Program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` | 
+| Behavioral program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` | 
 | Contextual refinement (language-specific), SimuLang | `theories/simulang/behavior.v` | `ctx_ref` | 
 | Logical relation (SimuLang, generic) | `theories/simulang/log_rel_structural.v` | `log_rel` | 
 | Theorem 4.1 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/refl.v` | `log_rel_refl` |
@@ -130,10 +130,27 @@ They are instantiated for the fundamental theorems.
 
 
 ### Section 5
-TODO
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| Simulation relation (Figure 11) (full version) | `theories/simulation/slsls.v` | `greatest_def`, `sim_expr_inner` |
+| Hoare quadruple definition | `theories/simulang/hoare.v` | `hoareSim`|
+| source safety judgment | `theories/simulation/lifting.v` | `safe_reach` |
+| whole-program simulation relation | `theories/simulation/???` | ??? | 
+| Lemma 5.1 | ??? | ??? | 
+| whole-program refinement | ??? | ??? | 
+| global simulation | `theories/simulation/global_sim.v` | `gsim_expr_inner`, `global_greatest_def` | 
+| Theorem 5.2 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` | 
 
 ### Section 6 
-TODO
+| Paper | Coq file | Coq name |
+| ------ | ------ | ------ |
+| heapbij (simplified) | `theories/simulang/heapbij.v` | `heapbij_interp` | 
+| P_h for simple state interpretation | `theories/simulang/simple_inv/inv.v` | `simple_inv` |
+| P_h for non-atomic state interpretation | `theories/simulang/na_inv/na_locs.v` | `alloc_rel_pred` |
+| exploit_wf (simplified) | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf` |
+| state interpretation for non-atomics | `theories/simulang/na_inv/inv.v` | `na_bij_interp` |
+| proof of exploit-write | `theories/simulang/na_inv/inv.v` | `sim_bij_exploit_store` | 
+| preservation for sim-write-sc | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf_store` |
 
 ### Section 7
 TODO
