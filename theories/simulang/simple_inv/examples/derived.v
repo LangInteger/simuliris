@@ -31,7 +31,8 @@ Section derived.
     (π : thread_id).
 
 
-  Lemma sim_bind P e_t e_s K_t K_s π Φ Φ' :
+  (* for expression postconditions *)
+  Lemma sim_bind' P e_t e_s K_t K_s π Φ Φ' :
     (⊢ {{{ P }}} e_t ⪯[π] e_s {{{ Φ' }}}) →
     (∀ e_t' e_s', ⊢ {{{ Φ' e_t' e_s' }}} fill K_t e_t' ⪯[π] fill K_s e_s' {{{ Φ }}}) →
     ⊢ {{{ P }}} fill K_t e_t ⪯[π] fill K_s e_s {{{ Φ }}}.
@@ -41,13 +42,35 @@ Section derived.
     iIntros (e_t' e_s') "Hp". by iApply HK.
   Qed.
 
-  Lemma sim_frame P e_t e_s π Φ R :
+  (* for value postconditions *)
+  Lemma sim_bind P e_t e_s K_t K_s π (Φ Φ' : val → val → iProp Σ) :
+    (⊢ {{{ P }}} e_t ⪯[π] e_s {{{ lift_post Φ' }}}) →
+    (∀ v_t' v_s', ⊢ {{{ Φ' v_t' v_s' }}} fill K_t v_t' ⪯[π] fill K_s v_s' {{{ lift_post Φ }}}) →
+    ⊢ {{{ P }}} fill K_t e_t ⪯[π] fill K_s e_s {{{ lift_post Φ }}}.
+  Proof.
+    intros He HK. iModIntro. iIntros "HP". iPoseProof (He with "HP") as "Hs".
+    iApply sim_bind. iApply (sim_wand with "Hs []").
+    iIntros (v_t' v_s') "Hp". by iApply HK.
+  Qed.
+
+  (* for expression postconditions *)
+  Lemma sim_frame' P e_t e_s π Φ R :
     (⊢ {{{ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
     ⊢ {{{ P ∗ R }}} e_t ⪯[π] e_s {{{ λ e_t' e_s', Φ e_t' e_s' ∗ R }}}.
   Proof.
     iIntros (Hs) "!> [HP HR]".
     iPoseProof (Hs with "HP") as "Hs".
     iApply (sim_expr_wand with "Hs [HR]"). eauto with iFrame.
+  Qed.
+
+  (* for value postconditions *)
+  Lemma sim_frame P e_t e_s π (Φ : val → val → iProp Σ) R :
+    (⊢ {{{ P }}} e_t ⪯[π] e_s {{{ lift_post Φ }}}) →
+    ⊢ {{{ P ∗ R }}} e_t ⪯[π] e_s {{{ lift_post (λ v_t' v_s', Φ v_t' v_s' ∗ R) }}}.
+  Proof.
+    iIntros (Hs) "!> [HP HR]".
+    iPoseProof (Hs with "HP") as "Hs".
+    iApply (sim_wand with "Hs [HR]"). eauto with iFrame.
   Qed.
 
   Lemma sim_base P e_t e_s π Φ :

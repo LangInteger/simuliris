@@ -54,6 +54,7 @@ theories/simulang/na_inv/examples/data_races.v
 theories/simulang/na_inv/examples/remove_alloc.v
 theories/simulang/na_inv/examples/program_transformations_in_weak_memory_models.v
 theories/simulang/na_inv/examples/derived.v
+theories/simulang/na_inv/examples/paper.v
 
 theories/simulang/simple_inv/inv.v
 theories/simulang/simple_inv/refl.v
