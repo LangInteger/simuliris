@@ -19,3 +19,43 @@ make -jN
 
 ```
 
+**TODO**: replace with instructions for using the local clones.
+
+## Structure
+The project follows the following structure below the `theories` folder:
+- `logic` and `base_logic` contain libraries for defining fixpoints as well as general ghost state constructions.
+- `simulation` contains the language-generic parts of the framework, in particular the definition of the simulation relation and the general adequacy proof.
+    * `language.v` contains our generic language interface.
+    * `slsls.v` defines the simulation relation, weakest preconditions for source and target, and general rules for them.
+    * `lifting.v` contains general lifting lemmas as well as the definition of the generic "source-safety" judgment for exploiting UB.
+    * `global_sim.v` contains the definition of the global simulation (removing the call case) used in the adequacy proof.
+    * `behavior.v` defines our notion of behavioral refinement.
+    * `fairness.v` defines our notion of fairness and proves it equivalent to a more traditional characterization.
+    * `fairness_adequacy.v` proves that the simulation relation is fair termination-preserving.
+    * `adequacy.v` plugs this all together and shows that Simuliris's simulation in separation logic implies a meta-level simulation, and then derives our general adequacy statement.
+    * `gen_log_rel.v` defines a language-generic version of our logical relation on open terms.
+- `simulang` contains the definition of SimuLang and our program logics and examples for it.
+   We have defined two program logics for SimuLang: a "simple" one without support for exploiting non-atomics, and a version extended with support for exploiting non-atomics.
+    * `lang.v` contains the definition of SimuLang and its operational semantics, as well as its instantiation of the language interface.
+    * `logical_heap.v` contains the ghost state for the heap.
+    * `heapbij.v` contains the heap bijection ghost state that is used for both program logics.
+    * `globalbij.v` contains support for global variables.
+    * `primitive_laws.v` instantiates the simulation relation with SimuLang. It is parametric over an additional invariant on the state and proves basic proof rules for SimuLang. 
+    * `gen_val_rel.v` defines a generic value relation for SimuLang that is used by both program logics, but parametric over the notion of relatedness for locations.
+    * `log_rel_structural.v`, `gen_refl.v`, and `pure_refl.v` contain conditions on the logical relation as well as general reflexivity proofs used by both program logics.
+    * `simple_inv` contains the simple program logic, with no support for exploiting non-atomics.
+        + `inv.v` contains the invariant on the state (mainly the bijection, which does not allow to take out ownership) and basic laws.
+        + `refl.v` contains the reflexivity theorem.
+        + `adequacy.v` derives the proof of contextual refinement.
+        + `examples` contains examples using this logic, see below for a list.
+    * `na_inv` contains the non-atomic program logic, with added support for exploiting non-atomics.
+        + `na_locs.v` contains the pure invariants and reasoning about dataraces.
+        + `inv.v` contains the invariant on the state (allowing to take out ownership from the bijection), basic laws, and rules for exploiting non-atomic accesses.
+        + `refl.v` contains the reflexivity theorem.
+        + `adequacy.v` derives the proof of contextual refinement.
+        + `readonly_refl.v` contains a reflexivity theorem for read-only expressions which allows to thread through ownership of exploited locations.
+        + `examples` contains examples using this logic, see below for a list.
+- `stacked_borrows` contains the port of the Stacked Borrows language and optimizations to Simuliris.
+
+
+## Theorems and definitions referenced in the paper
