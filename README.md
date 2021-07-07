@@ -43,6 +43,7 @@ The project follows the following structure below the `theories` folder:
     * `primitive_laws.v` instantiates the simulation relation with SimuLang. It is parametric over an additional invariant on the state and proves basic proof rules for SimuLang. 
     * `gen_val_rel.v` defines a generic value relation for SimuLang that is used by both program logics, but parametric over the notion of relatedness for locations.
     * `log_rel_structural.v`, `gen_refl.v`, and `pure_refl.v` contain conditions on the logical relation as well as general reflexivity proofs used by both program logics.
+    * `behavior.v` defines our notion of behavior and contextual refinement for SimuLang.
     * `simple_inv` contains the simple program logic, with no support for exploiting non-atomics.
         + `inv.v` contains the invariant on the state (mainly the bijection, which does not allow to take out ownership) and basic laws.
         + `refl.v` contains the reflexivity theorem.
