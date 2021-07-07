@@ -131,7 +131,8 @@ Arguments apply_func {_}.
 Arguments head_step {_} _ _ _ _ _ _.
 
 Definition expr_class (Λ : language) := mixin_expr_class Λ.(val).
-Definition prog (Λ : language) := (mixin_prog Λ.(func)).
+(* A [Definition] throws off Coq's "old" ("tactic") unification engine *)
+Notation prog Λ := (mixin_prog Λ.(func)).
 
 Definition to_val {Λ : language} (e : expr Λ) :=
   match to_class e with

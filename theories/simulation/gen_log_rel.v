@@ -38,11 +38,11 @@ Section fix_lang.
   Proof. rewrite /prog_rel; apply _. Qed.
 
   (** [prog_rel] is a congruence for program composition *)
-  Lemma prog_rel_union (P_t1 P_t2 P_s1 P_s2 : prog Λ) :
+  Lemma prog_rel_union P_t1 P_t2 P_s1 P_s2 :
     P_t1 ##ₘ P_t2 →
     prog_rel P_t1 P_s1 -∗
     prog_rel P_t2 P_s2 -∗
-    prog_rel (union (A:=gmap _ _) P_t1 P_t2) (union (A:=gmap _ _) P_s1 P_s2).
+    prog_rel (P_t1 ∪ P_t2) (P_s1 ∪ P_s2).
   Proof.
     rewrite /prog_rel.
     iIntros (?) "#HP1 #HP2 !# %f %fn_s". iSpecialize ("HP1" $! f fn_s).
