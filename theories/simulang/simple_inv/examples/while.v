@@ -4,9 +4,12 @@ From simuliris.simulation Require Import slsls lifting.
 From simuliris.simulang.simple_inv Require Import inv.
 From iris.prelude Require Import options.
 
+(** * Examples of coinductive simulation proofs *)
+
 Section fix_bi.
   Context `{!simpleGS Σ}.
 
+  (** Trivial loop *)
   Definition loop_test n : expr :=
     let: "n" := Alloc #n in
     While (#0 < ! "n") ("n" <- ! "n" - #1).
@@ -23,6 +26,9 @@ Section fix_bi.
       by iApply "IH".
   Qed.
 
+
+  (** We can prove that [mul_loop] simulates primitive multiplication, and vice versa.
+    The prove that it simulates primitive multiplication is based on our powerful unbounded stuttering support (the source program takes a single step!) . *)
   Definition mul_loop e1 e2 : expr :=
     let: "m" := e2 in
     let: "n" := Alloc e1 in
@@ -99,8 +105,9 @@ Section fix_bi.
     by sim_pures; sim_val.
   Qed.
 
-  Definition diverging_loop : expr :=
-    while: #true do #() od.
+
+  (** We prove examples of recursion and loops simulating each other coinductivel. *)
+  Ltac discr_source := to_source; iApply source_red_irred_unless.
 
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
@@ -108,7 +115,6 @@ Section fix_bi.
       "cont" <- Call f#"external" #()
     od.
 
-  Ltac discr_source := to_source; iApply source_red_irred_unless.
 
   Definition input_rec : func :=
     λ: "cont",
@@ -117,7 +123,6 @@ Section fix_bi.
         Call f#"rec" "cont"
       else #().
 
-  (* TODO: avoid equalities? *)
   Lemma loop_rec :
     "rec" @s input_rec -∗
     log_rel input_loop (Call f#"rec" #true).
@@ -133,8 +138,8 @@ Section fix_bi.
     iIntros ((b & ->)); iPoseProof (gen_val_rel_litbool_source with "Hv") as "->"; sim_pures.
     target_load. destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
-      iApply sim_wand; first by iApply sim_call.
-      iIntros (v_t v_s) "Hv". target_store. sim_pures. iApply sim_expr_base.
+      iApply sim_call; [done..|].
+      iIntros (v_t v_s) "Hv". iApply lift_post_val. target_store. sim_pures. iApply sim_expr_base.
       iRight. iExists _. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
@@ -154,8 +159,8 @@ Section fix_bi.
     iIntros ((b & ->)); iPoseProof (gen_val_rel_litbool_source with "Hv") as "->"; sim_pures.
     destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
-      iApply sim_wand; first by iApply sim_call.
-      iIntros (v_t v_s) "Hv". source_store. sim_pures. iApply sim_expr_base.
+      iApply sim_call; [done..|].
+      iIntros (v_t v_s) "Hv". iApply lift_post_val. source_store. sim_pures. iApply sim_expr_base.
       iRight. iExists v_t. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.

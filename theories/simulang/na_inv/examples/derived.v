@@ -2,7 +2,7 @@ From iris Require Import bi.bi.
 From iris.proofmode Require Import tactics.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simulang Require Import lang notation tactics
-  proofmode log_rel_structural wf behavior.
+  proofmode log_rel_structural wf behavior hoare.
 From simuliris.simulang.na_inv Require Export inv.
 From simuliris.simulang.na_inv Require Import readonly_refl adequacy.
 From iris.prelude Require Import options.
@@ -28,16 +28,6 @@ Section derived.
     (e_t e_s : expr)
     (v_t v_s : val)
     (π : thread_id).
-
-  Definition hoareSim P e_t e_s π Φ : iProp Σ := □ (P -∗ sim_expr Φ π e_t e_s).
-  Definition hoareTgt P e_t Ψ : iProp Σ := □ (P -∗ target_red e_t Ψ).
-  Definition hoareSrc P e_s π Ψ : iProp Σ := □ (P -∗ source_red e_s π Ψ).
-
-
-
-  Notation "'{{{'  P  '}}}'  e_t  ⪯[  π  ] e_s   '{{{'  Φ  '}}}'" := (hoareSim P e_t e_s π Φ) (at level 10) : bi_scope.
-  Notation "'[{{'  P  '}}]'  e_t  '[{{'  Ψ  '}}]t'" := (hoareTgt P e_t Ψ) (at level 20) : bi_scope.
-  Notation "'[{{'  P  '}}]'  e_s  @  π  '[{{'  Ψ  '}}]s'" := (hoareSrc P e_s π Ψ) (at level 20) : bi_scope.
 
   Lemma sim_bind P e_t e_s K_t K_s π Φ Φ' :
     (⊢ {{{ P }}} e_t ⪯[π] e_s {{{ Φ' }}}) →
@@ -375,11 +365,8 @@ Section derived.
   Lemma sim_call f v_t v_s P π Φ :
     ⊢ {{{ val_rel v_t v_s ∗ na_locs π ∅ }}} Call f#f v_t ⪯[π] Call f#f v_s {{{lift_post (λ v_t' v_s', val_rel v_t' v_s' ∗ na_locs π ∅) }}}.
   Proof.
-    iIntros "!> [#Hv Hna]".
-    iApply (sim_expr_wand with "[Hna] []").
-    - iApply sim_call; [done | done | ]. simpl. iFrame "Hna Hv".
-    - iIntros (??) "(%v_t' & %v_s' & -> & -> & [Hna Hv'])".
-      iApply lift_post_val. iFrame.
+    iIntros "!> [#Hv Hna]". iApply (sim_call with "[Hna]"); [ done.. | by iFrame| ].
+    iIntros (??) "[Hna Hv']". iApply lift_post_val. iFrame.
   Qed.
 
   Lemma sim_load_sc_public l_t l_s C π :

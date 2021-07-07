@@ -575,14 +575,15 @@ Proof.
 Qed.
 
 (** Call lemmas for sim *)
-Lemma sim_call π e_t e_s v_t v_s fname :
+Lemma sim_call π e_t e_s v_t v_s fname Ψ :
   to_val e_t = Some v_t →
   to_val e_s = Some v_s →
-  ⊢ ext_rel π v_t v_s -∗ Call (f#fname) e_t ⪯{π} Call (f#fname) e_s {{ ext_rel π }}.
+  ⊢ ext_rel π v_t v_s -∗
+    (∀ v_t' v_s', ext_rel π v_t' v_s' -∗ Ψ (Val v_t') (Val v_s')) -∗
+    Call (f#fname) e_t ⪯{π} Call (f#fname) e_s [{ Ψ }].
 Proof.
   intros <-%of_to_val <-%of_to_val.
-  iIntros "H". iApply (sim_lift_call with "H").
-  iIntros (v_t' v_s' ) "H". iApply lift_post_val. iApply "H".
+  iIntros "H Hs". iApply (sim_lift_call with "H"). iApply "Hs".
 Qed.
 
 (** fork *)

@@ -94,7 +94,7 @@ Lemma client_sim (n : Z) π :
 Proof.
   iIntros "Htarget Hsource Hinj1_t".
   target_call. target_call. source_call. sim_pures.
-  iApply sim_wand; [ iApply sim_call; [done..|]; eauto |].
-  eauto.
+  iApply sim_call; [done..| eauto | ].
+  iIntros (??) "?". iApply lift_post_val. done.
 Qed.
 End fix_bi.

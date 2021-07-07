@@ -41,6 +41,7 @@ theories/simulang/globalbij.v
 theories/simulang/log_rel_structural.v
 theories/simulang/gen_adequacy.v
 theories/simulang/behavior.v
+theories/simulang/hoare.v
 
 theories/simulang/examples/sum.v
 

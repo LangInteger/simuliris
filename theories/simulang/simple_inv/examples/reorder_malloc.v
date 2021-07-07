@@ -40,8 +40,8 @@ Section reorder.
     iApply (sim_bij_insert with "Ha1_t Ha2_s Hl1_t Hl2_s Hv1"); iIntros "#Hbij_1".
     iApply (sim_bij_insert with "Ha2_t Ha1_s Hl2_t Hl1_s Hv2"); iIntros "#Hbij_2".
 
-    iApply sim_wand; [ iApply sim_call; [done | done | simpl; by eauto ] |].
-    by iIntros (??) "$".
+    iApply sim_call; [ done.. | simpl; by eauto | ].
+    iIntros (??) "Ha". iApply lift_post_val. iFrame.
   Qed.
 
 End reorder.
