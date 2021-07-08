@@ -2,7 +2,7 @@ From iris.bi Require Import bi.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import
-  fairness relations language behavior global_sim fairness_adequacy.
+  fairness relations language behavior closed_sim fairness_adequacy.
 From iris.prelude Require Import options.
 Import bi.
 
@@ -340,7 +340,7 @@ Section adequacy_statement.
       iIntros "(Hloc & SI & Hprogs & Hunit & $)". iFrame.
       iSplit; first by iPureIntro; intros ??; set_solver.
       simpl. iSplit; last done.
-      iApply (local_to_global_call with "Hloc Hprogs Hunit"); eauto.  }
+      iApply (open_to_closed_call with "Hloc Hprogs Hunit"); eauto.  }
     split; last split.
     - intros Hfair. eapply (msim_fair_divergence (sat:=sat_frame _)); eauto.
     - intros v_t T_t σ_t' J Hsteps.

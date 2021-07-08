@@ -113,7 +113,7 @@ Section fix_lang.
     repeat (f_equiv || apply HΦΨ || eapply HL || eapply HG || reflexivity).
   Qed.
 
-  Local Instance global_least_def_body_mono greatest_rec :
+  Local Instance closed_least_def_body_mono greatest_rec :
     NonExpansive (greatest_rec) →
     BiMonoPred (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO -d> PROP), curry4 (gsim_expr_inner greatest_rec (uncurry4 least_rec))).
   Proof.
@@ -133,49 +133,49 @@ Section fix_lang.
         repeat split; simpl; done.
   Qed.
 
-  Definition global_least_def (greatest_rec : expr_rel -d> thread_id -d> expr_rel) : expr_rel -d> thread_id -d> expr_rel :=
+  Definition closed_least_def (greatest_rec : expr_rel -d> thread_id -d> expr_rel) : expr_rel -d> thread_id -d> expr_rel :=
     uncurry4 (bi_least_fixpoint (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (gsim_expr_inner greatest_rec (uncurry4 least_rec)))).
 
 
-  Global Instance global_least_def_ne :
-    NonExpansive2 global_least_def.
+  Global Instance closed_least_def_ne :
+    NonExpansive2 closed_least_def.
   Proof.
-    rewrite /global_least_def; intros n x y Heq ??????.
+    rewrite /closed_least_def; intros n x y Heq ??????.
     rewrite {1 3}/uncurry4. apply least_fixpoint_ne; last by repeat split.
     intros ? [[[??]?] ?]; simpl.
     rewrite /gsim_expr_inner. repeat f_equiv; apply Heq.
   Qed.
 
-  Lemma global_least_def_mono R R' π Φ e_t e_s:
+  Lemma closed_least_def_mono R R' π Φ e_t e_s:
     NonExpansive (R': expr_rel -d> thread_id -d> expr_rel) →
     <pers> (∀ Φ π e_t e_s, R Φ π e_t e_s -∗ R' Φ π e_t e_s) -∗
-    global_least_def R Φ π e_t e_s -∗ global_least_def R' Φ π e_t e_s.
+    closed_least_def R Φ π e_t e_s -∗ closed_least_def R' Φ π e_t e_s.
   Proof.
-    iIntros (Hne) "#Hmon". rewrite /global_least_def {1 3}/uncurry4.
+    iIntros (Hne) "#Hmon". rewrite /closed_least_def {1 3}/uncurry4.
     iIntros "Hleast". iApply (least_fixpoint_ind with "[] Hleast"); clear Φ π e_t e_s.
     iModIntro. iIntros ([[[Φ π] e_t] e_s]).
     erewrite least_fixpoint_unfold; last first.
-    { eapply global_least_def_body_mono, _. }
+    { eapply closed_least_def_body_mono, _. }
     rewrite {1 3}/curry4.
     iApply (gsim_expr_inner_mono with "[] []").
     { iModIntro. iIntros (Φ' π' e_t' e_s') "$". }
       iModIntro; iIntros (Φ' π' e_t' e_s'); by iApply "Hmon".
   Qed.
 
-  Lemma global_least_def_unfold G Φ π e_t e_s:
+  Lemma closed_least_def_unfold G Φ π e_t e_s:
     NonExpansive G →
-    global_least_def G Φ π e_t e_s ≡ gsim_expr_inner G (global_least_def G) Φ π e_t e_s.
+    closed_least_def G Φ π e_t e_s ≡ gsim_expr_inner G (closed_least_def G) Φ π e_t e_s.
   Proof.
-    intros ?; rewrite {1}/global_least_def {1}/uncurry4 least_fixpoint_unfold {1}/curry4 //=.
+    intros ?; rewrite {1}/closed_least_def {1}/uncurry4 least_fixpoint_unfold {1}/curry4 //=.
   Qed.
 
-  Instance global_greatest_def_body_mono :
-    BiMonoPred (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (global_least_def (uncurry4 greatest_rec))).
+  Instance closed_greatest_def_body_mono :
+    BiMonoPred (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (closed_least_def (uncurry4 greatest_rec))).
   Proof.
     constructor.
     - intros G1 G2 HG1 HG2. iIntros "#H" (x).
       destruct x as [[[Φ π] e_t] e_s]; rewrite /curry4.
-      iApply global_least_def_mono. iModIntro.
+      iApply closed_least_def_mono. iModIntro.
       iIntros (Φ' π' e_t' e_s'); iApply "H".
     - intros G Hne n x y Heq. rewrite /least_def -!curry4_uncurry4.
       eapply least_fixpoint_ne'; last done.
@@ -185,47 +185,47 @@ Section fix_lang.
       + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply HL | done].
   Qed.
 
-  Definition global_greatest_def : expr_rel -d> thread_id -d> expr_rel :=
-    uncurry4 (bi_greatest_fixpoint (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (global_least_def (uncurry4 greatest_rec)))).
+  Definition closed_greatest_def : expr_rel -d> thread_id -d> expr_rel :=
+    uncurry4 (bi_greatest_fixpoint (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (closed_least_def (uncurry4 greatest_rec)))).
 
-  Lemma global_greatest_def_unfold Φ π e_t e_s:
-    global_greatest_def Φ π e_t e_s ≡ global_least_def global_greatest_def Φ π e_t e_s.
+  Lemma closed_greatest_def_unfold Φ π e_t e_s:
+    closed_greatest_def Φ π e_t e_s ≡ closed_least_def closed_greatest_def Φ π e_t e_s.
   Proof.
-    rewrite {1}/global_greatest_def {1}/uncurry4 greatest_fixpoint_unfold {1}/curry4 //=.
+    rewrite {1}/closed_greatest_def {1}/uncurry4 greatest_fixpoint_unfold {1}/curry4 //=.
   Qed.
 
-  Global Instance global_greatest_def_ne: NonExpansive global_greatest_def.
+  Global Instance closed_greatest_def_ne: NonExpansive closed_greatest_def.
   Proof. eapply @uncurry4_ne. solve_proper. Qed.
 
-  Global Instance global_greatest_def_proper: Proper (equiv ==> equiv ==> equiv ==> equiv ==> equiv) global_greatest_def.
+  Global Instance closed_greatest_def_proper: Proper (equiv ==> equiv ==> equiv ==> equiv ==> equiv) closed_greatest_def.
   Proof.
     intros Φ Ψ Heq π π' <-%leibniz_equiv e_t e_t' <-%leibniz_equiv e_s e_s' <-%leibniz_equiv.
-    revert π e_t e_s. change (global_greatest_def Φ ≡ global_greatest_def Ψ).
+    revert π e_t e_s. change (closed_greatest_def Φ ≡ closed_greatest_def Ψ).
     eapply ne_proper; first apply _. done.
   Qed.
 
-  Lemma global_greatest_def_fixpoint Φ π e_t e_s:
-    global_greatest_def Φ π e_t e_s ≡ gsim_expr_inner global_greatest_def global_greatest_def Φ π e_t e_s.
+  Lemma closed_greatest_def_fixpoint Φ π e_t e_s:
+    closed_greatest_def Φ π e_t e_s ≡ gsim_expr_inner closed_greatest_def closed_greatest_def Φ π e_t e_s.
   Proof.
-    rewrite global_greatest_def_unfold global_least_def_unfold.
+    rewrite closed_greatest_def_unfold closed_least_def_unfold.
     eapply gsim_expr_inner_proper; eauto.
     - solve_proper.
-    - intros Φ' Ψ' Heq. intros ??? ??. rewrite -global_greatest_def_unfold.
+    - intros Φ' Ψ' Heq. intros ??? ??. rewrite -closed_greatest_def_unfold.
       f_equiv; done.
   Qed.
 
   End sim_def.
 
-  Definition gsim_expr_aux : seal global_greatest_def.
+  Definition gsim_expr_aux : seal closed_greatest_def.
   Proof. by eexists. Qed.
   Definition gsim_expr := (gsim_expr_aux).(unseal).
-  Lemma gsim_expr_eq : gsim_expr = λ Φ π e_t e_s, @global_greatest_def Φ π e_t e_s.
+  Lemma gsim_expr_eq : gsim_expr = λ Φ π e_t e_s, @closed_greatest_def Φ π e_t e_s.
   Proof. rewrite -gsim_expr_aux.(seal_eq) //. Qed.
 
   Lemma gsim_expr_fixpoint Φ π e_t e_s:
     gsim_expr Φ π e_t e_s ⊣⊢ gsim_expr_inner gsim_expr gsim_expr Φ π e_t e_s.
   Proof.
-    rewrite gsim_expr_eq global_greatest_def_fixpoint //.
+    rewrite gsim_expr_eq closed_greatest_def_fixpoint //.
   Qed.
 
   Lemma gsim_expr_unfold Φ π e_t e_s:
@@ -262,19 +262,19 @@ Section fix_lang.
     Proper ((pointwise_relation (expr Λ) (pointwise_relation (expr Λ) (≡))) ==> eq ==> eq ==> eq ==> (≡)) (gsim_expr).
   Proof.
     intros p1 p2 Heq2 π π' -> e e' -> e1 e1' ->.
-    rewrite !gsim_expr_eq. eapply global_greatest_def_proper; done.
+    rewrite !gsim_expr_eq. eapply closed_greatest_def_proper; done.
   Qed.
 
 
-  Existing Instances global_least_def_body_mono global_greatest_def_body_mono.
+  Existing Instances closed_least_def_body_mono closed_greatest_def_body_mono.
   (* any post-fixed point is included in the gfp *)
   Lemma gsim_expr_strong_coind (F : expr_rel → thread_id -d> expr_rel) :
     NonExpansive F →
-    ⊢ (□ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ global_least_def (λ Φ π e_t e_s, F Φ π e_t e_s ∨ gsim_expr Φ π e_t e_s) Φ π e_t e_s)
+    ⊢ (□ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ closed_least_def (λ Φ π e_t e_s, F Φ π e_t e_s ∨ gsim_expr Φ π e_t e_s) Φ π e_t e_s)
       -∗ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ gsim_expr Φ π e_t e_s.
   Proof.
     iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
-    rewrite gsim_expr_eq /global_greatest_def {3}/uncurry4.
+    rewrite gsim_expr_eq /closed_greatest_def {3}/uncurry4.
     set (F_curry := curry4 F).
     assert (NonExpansive F_curry) as Hne; first by eapply @curry4_ne, _.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
@@ -287,25 +287,25 @@ Section fix_lang.
 
   Lemma gsim_expr_coind (F : expr_rel → thread_id -d> expr_rel) :
     NonExpansive F →
-    ⊢ (□ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ global_least_def F Φ π e_t e_s)
+    ⊢ (□ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ closed_least_def F Φ π e_t e_s)
       -∗ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ gsim_expr Φ π e_t e_s.
   Proof.
     iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
     iApply (gsim_expr_strong_coind with "[] HF"); clear Φ π e_t e_s.
     iModIntro; iIntros (Φ π e_t e_s) "HF".
     iDestruct ("HPre" with "HF") as "HF".
-    iApply (global_least_def_mono with "[] HF"); first by solve_proper.
+    iApply (closed_least_def_mono with "[] HF"); first by solve_proper.
     iModIntro. clear Φ π e_t e_s. iIntros (Φ π e_t e_s) "HF". by iLeft.
   Qed.
 
-  Lemma global_least_def_strong_ind (F R: expr_rel → thread_id -d> expr_rel):
+  Lemma closed_least_def_strong_ind (F R: expr_rel → thread_id -d> expr_rel):
     NonExpansive R →
     NonExpansive F →
-    ⊢ (□ ∀ Φ π e_t e_s, gsim_expr_inner R (λ Ψ π e_t e_s, F Ψ π e_t e_s ∧ global_least_def R Ψ π e_t e_s) Φ π e_t e_s -∗ F Φ π e_t e_s)
-      -∗ ∀ Φ π e_t e_s, global_least_def R Φ π e_t e_s -∗ F Φ π e_t e_s.
+    ⊢ (□ ∀ Φ π e_t e_s, gsim_expr_inner R (λ Ψ π e_t e_s, F Ψ π e_t e_s ∧ closed_least_def R Ψ π e_t e_s) Φ π e_t e_s -∗ F Φ π e_t e_s)
+      -∗ ∀ Φ π e_t e_s, closed_least_def R Φ π e_t e_s -∗ F Φ π e_t e_s.
   Proof.
     iIntros (Hne1 Hne2) "#HPre". iIntros (Φ π e_t e_s) "HF".
-    rewrite {2}/global_least_def {1}/uncurry4.
+    rewrite {2}/closed_least_def {1}/uncurry4.
     set (F_curry := curry4 F).
     assert (NonExpansive F_curry); first by eapply @curry4_ne, _.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
@@ -316,13 +316,13 @@ Section fix_lang.
     iIntros "H". iApply "HPre". iExact "H".
   Qed.
 
-  Lemma global_least_def_ind (F R: expr_rel → thread_id -d> expr_rel):
+  Lemma closed_least_def_ind (F R: expr_rel → thread_id -d> expr_rel):
     NonExpansive R →
     NonExpansive F →
     ⊢ (□ ∀ Φ π e_t e_s, gsim_expr_inner R F Φ π e_t e_s -∗ F Φ π e_t e_s)
-      -∗ ∀ Φ π e_t e_s, global_least_def R Φ π e_t e_s -∗ F Φ π e_t e_s.
+      -∗ ∀ Φ π e_t e_s, closed_least_def R Φ π e_t e_s -∗ F Φ π e_t e_s.
   Proof.
-    iIntros (Hne1 Hne2) "#HPre". iApply global_least_def_strong_ind.
+    iIntros (Hne1 Hne2) "#HPre". iApply closed_least_def_strong_ind.
     iModIntro. iIntros (Φ π e_t e_s) "Hsim".
     iApply "HPre". iApply (gsim_expr_inner_mono with "[] [] Hsim"); last by auto.
     iModIntro. iIntros (Φ' π' e_t' e_s') "H". iApply bi.and_elim_l. iApply "H".
@@ -330,25 +330,25 @@ Section fix_lang.
 
   (* we change the predicate beause at every recursive ocurrence,
      we give back ownership of the monotonicity assumption *)
-  Lemma global_least_def_strong_mono (rec : expr_rel → thread_idO -d> expr_rel) Φ Φ' π e_t e_s:
+  Lemma closed_least_def_strong_mono (rec : expr_rel → thread_idO -d> expr_rel) Φ Φ' π e_t e_s:
     NonExpansive rec →
      (∀ e_t e_s, Φ e_t e_s ==∗ Φ' e_t e_s) -∗
-     global_least_def rec Φ π e_t e_s -∗
-     global_least_def (λ Ψ π e_t e_s, rec Φ π e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ π e_t e_s) Φ' π e_t e_s.
+     closed_least_def rec Φ π e_t e_s -∗
+     closed_least_def (λ Ψ π e_t e_s, rec Φ π e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ π e_t e_s) Φ' π e_t e_s.
   Proof.
     iIntros (Hne) "Hmon Hleast". iRevert (Φ') "Hmon".
     pose (rec' := (λ Φ Ψ π e_t e_s, rec Φ π e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ π e_t e_s)%I).
-    pose (F_ind := (λ Φ π e_t e_s, ∀ Φ', (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ global_least_def (rec' Φ) Φ' π e_t e_s)%I).
+    pose (F_ind := (λ Φ π e_t e_s, ∀ Φ', (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ closed_least_def (rec' Φ) Φ' π e_t e_s)%I).
     assert (NonExpansive2 (rec': expr_rel -d> expr_rel -d> thread_idO -d> expr_rel)) as Rne.
     { intros m Φ' Φ'' Heq1 Ψ Ψ' Heq2 ???; rewrite /rec'.
       solve_proper_core ltac:(fun x => f_equiv || apply Heq1 || apply Heq2). }
     assert (NonExpansive (F_ind: expr_rel -d> thread_idO -d> expr_rel)).
     { clear Φ π e_t e_s. intros n Φ Ψ Heq π e_t e_s.
       rewrite /F_ind; do 3 f_equiv; first (repeat f_equiv; by apply Heq).
-      eapply global_least_def_ne; [ |done..]. intros ?. eapply (Rne n Φ Ψ Heq). done. }
-    iApply (global_least_def_ind F_ind rec with "[] Hleast"); clear Φ π e_t e_s.
+      eapply closed_least_def_ne; [ |done..]. intros ?. eapply (Rne n Φ Ψ Heq). done. }
+    iApply (closed_least_def_ind F_ind rec with "[] Hleast"); clear Φ π e_t e_s.
     iModIntro. iIntros (Φ π e_t e_s) "Hrec". iIntros (Φ') "Hmon".
-    rewrite global_least_def_unfold /gsim_expr_inner.
+    rewrite closed_least_def_unfold /gsim_expr_inner.
 
     iIntros (P_t σ_t P_s σ_s T_s K_s) "Ha".
     iMod ("Hrec" with "Ha") as "[Hval | Hstep]".
@@ -371,8 +371,8 @@ Section fix_lang.
     iApply (gsim_expr_strong_coind (λ Ψ π e_t e_s, gsim_expr Φ π e_t e_s ∗ (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Ψ e_t e_s))%I); last by iFrame.
     { intros n Ψ Ψ' Heq π' e_t' e_s'. repeat f_equiv. by eapply Heq. }
     iModIntro. clear Φ' π e_t e_s. iIntros (Φ' π e_t e_s) "[Ha Hmon]".
-    rewrite gsim_expr_eq global_greatest_def_unfold.
-    iApply (global_least_def_strong_mono with "Hmon Ha").
+    rewrite gsim_expr_eq closed_greatest_def_unfold.
+    iApply (closed_least_def_strong_mono with "Hmon Ha").
   Qed.
 
   Lemma gsim_expr_mono Φ Φ' π e_t e_s:
@@ -436,19 +436,19 @@ Section fix_lang.
     iApply (gsim_expr_strong_coind (bind_coind_pred)%I); last first.
     { iExists e_t, e_s, K_t, K_s; iFrame; iSplit; by iPureIntro. }
     iModIntro. clear Φ π e_t e_s K_t K_s.
-    iIntros (Φ π e_t' e_s') "IH". change (global_least_def _ Φ π e_t' e_s') with (global_least_def (bind_coind_rec) Φ π e_t' e_s').
+    iIntros (Φ π e_t' e_s') "IH". change (closed_least_def _ Φ π e_t' e_s') with (closed_least_def (bind_coind_rec) Φ π e_t' e_s').
     iDestruct "IH" as (e_t e_s K_t K_s) "[-> [-> H]]".
-    rewrite {1}gsim_expr_eq global_greatest_def_unfold.
-    pose (F := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ gsim_expr Φ π (fill K_t e_t) (fill K_s e_s)) -∗ global_least_def (bind_coind_rec) Φ π (fill K_t e_t) (fill K_s e_s))%I).
+    rewrite {1}gsim_expr_eq closed_greatest_def_unfold.
+    pose (F := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ gsim_expr Φ π (fill K_t e_t) (fill K_s e_s)) -∗ closed_least_def (bind_coind_rec) Φ π (fill K_t e_t) (fill K_s e_s))%I).
     assert (NonExpansive (F: expr_rel → thread_idO -d> expr_rel)).
     { rewrite /F. intros n x y Heq ???. repeat f_equiv. apply Heq. }
-    iAssert (∀ Ψ π e_t e_s, global_least_def (global_greatest_def) Ψ π e_t e_s -∗ F Ψ π e_t e_s)%I as "Hgen"; last first.
+    iAssert (∀ Ψ π e_t e_s, closed_least_def (closed_greatest_def) Ψ π e_t e_s -∗ F Ψ π e_t e_s)%I as "Hgen"; last first.
     { iApply ("Hgen" with "H"). iIntros (??) "$". }
     clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "HL".
-    iApply (global_least_def_ind with "[] HL"); clear Ψ π e_t e_s.
+    iApply (closed_least_def_ind with "[] HL"); clear Ψ π e_t e_s.
     iModIntro. iIntros (Ψ π e_t e_s) "Hinner".
     iIntros (Φ) "Hcont".
-    rewrite global_least_def_unfold. rewrite /gsim_expr_inner.
+    rewrite closed_least_def_unfold. rewrite /gsim_expr_inner.
     iIntros (P_t σ_t P_s σ_s T_s K_s') "[Hs [%HT %Hnreach]]". iMod ("Hinner" with "[Hs]") as "H".
     { iFrame. iPureIntro. split; [|done]. by rewrite fill_comp in HT. }
     iDestruct "H" as "[Hval | Hstep]".
@@ -469,8 +469,8 @@ Section fix_lang.
         * destruct (no_forks_inv_r _ _ _ _ _ Hstutter) as [(-> & ->)|(e_s'' & σ_s'' & Hsteps & Hstep)].
           -- iModIntro. iLeft. rewrite -fill_comp list_insert_id //.
              iFrame. iSplit; first done.
-             rewrite gsim_expr_eq global_greatest_def_unfold.
-             iApply (global_least_def_mono with "[] Sim").
+             rewrite gsim_expr_eq closed_greatest_def_unfold.
+             iApply (closed_least_def_mono with "[] Sim").
              clear; iModIntro. iIntros (Φ π e_t e_s) "Hrec". iRight.
              by rewrite gsim_expr_eq.
           -- iModIntro. iRight. rewrite -fill_comp.
@@ -537,16 +537,16 @@ Section fix_lang.
     iApply (gsim_expr_strong_coind (gjoin_expr F)%I); last first.
     { rewrite /gjoin_expr. iApply gsim_expr_base. by iLeft. }
     iModIntro. clear Φ π e_t e_s. iIntros (Φ π e_t e_s) "Hs".
-    rewrite {2}/gjoin_expr gsim_expr_eq global_greatest_def_unfold.
-    pose (rec := (λ Φ π e_t e_s, gjoin_expr F Φ π e_t e_s ∨ global_greatest_def Φ π e_t e_s)%I).
+    rewrite {2}/gjoin_expr gsim_expr_eq closed_greatest_def_unfold.
+    pose (rec := (λ Φ π e_t e_s, gjoin_expr F Φ π e_t e_s ∨ closed_greatest_def Φ π e_t e_s)%I).
     assert (NonExpansive (rec: expr_rel → thread_idO -d> expr_rel)).
     { intros ??? Heq ???. solve_proper. }
-    pose (Rec := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ F Φ π e_t e_s ∨ Φ e_t e_s) -∗ global_least_def rec Φ π e_t e_s)%I).
+    pose (Rec := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ F Φ π e_t e_s ∨ Φ e_t e_s) -∗ closed_least_def rec Φ π e_t e_s)%I).
     assert (NonExpansive (Rec: expr_rel → thread_idO -d> expr_rel)).
     { intros ??? Heq ???. rewrite /Rec. repeat f_equiv. by eapply Heq. }
-    iApply (global_least_def_ind Rec with "[] Hs []"); last auto.
+    iApply (closed_least_def_ind Rec with "[] Hs []"); last auto.
     iModIntro. clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "Hinner".
-    iIntros (Φ) "Hmon". rewrite global_least_def_unfold.
+    iIntros (Φ) "Hmon". rewrite closed_least_def_unfold.
     rewrite /gsim_expr_inner.
     iIntros (P_t σ_t P_s σ_s T_s K_s) "[Hs [%HT %Hsafe]]". iMod ("Hinner" with "[$Hs //]") as "H".
     iDestruct "H" as "[Hval | Hstep]".
@@ -632,8 +632,8 @@ Section fix_lang.
   Qed.
 
 
-  (* we show that the local simulation for all functions in the program implies the global simulation *)
-  Lemma local_to_global P_t P_s Φ e_t e_s π:
+  (* we show that the open simulation for all functions in the program implies the closed simulation *)
+  Lemma open_to_closed P_t P_s Φ e_t e_s π:
     prog_rel P_t P_s -∗
     progs_are P_t P_s -∗
     sim_expr Φ π e_t e_s -∗
@@ -645,9 +645,9 @@ Section fix_lang.
     iApply (gsim_expr_coind (sim_expr) with "[] Hsim"); clear Φ π e_t e_s.
     iModIntro. iIntros (Φ π e_t e_s).
     rewrite {1}sim_expr_eq greatest_def_unfold.
-    iIntros "H". iApply (least_def_ind (global_least_def (sim_expr)) with "[] H"); clear Φ π e_t e_s.
+    iIntros "H". iApply (least_def_ind (closed_least_def (sim_expr)) with "[] H"); clear Φ π e_t e_s.
     iModIntro. iIntros (Φ π e_t e_s) "Hsim".
-    rewrite global_least_def_unfold.
+    rewrite closed_least_def_unfold.
     iIntros (P_t' σ_t P_s' σ_s T_s K_s) "[Hstate [% %]]".
     rewrite /progs_are; iDestruct ("Hprog" with "Hstate") as "[% %]"; subst P_t' P_s'.
     iMod ("Hsim" with "[$Hstate //]") as "[Hsim|[Hsim|Hsim]]"; iModIntro; [ eauto | rewrite sim_expr_eq; eauto | ].
@@ -684,7 +684,7 @@ Section fix_lang.
       rewrite sim_expr_eq. by iApply "Hcont".
   Qed.
 
-  Lemma local_to_global_call P_t P_s f v_t v_s π:
+  Lemma open_to_closed_call P_t P_s f v_t v_s π:
     is_Some (P_s !! f) →
     prog_rel P_t P_s -∗
     progs_are P_t P_s -∗
@@ -692,7 +692,7 @@ Section fix_lang.
     gsim_expr (lift_post (ext_rel π)) π (of_call f v_t) (of_call f v_s).
   Proof.
     iIntros ([fn_s Hlook]) "#Hloc #Hprogs Hval".
-    iApply (local_to_global with "Hloc Hprogs").
+    iApply (open_to_closed with "Hloc Hprogs").
     rewrite /prog_rel.
     iDestruct "Hloc" as "#Hloc".
     iDestruct ("Hloc" $! _ _ Hlook) as (fn_t) "[% Hsim]".

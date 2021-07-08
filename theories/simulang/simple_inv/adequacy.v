@@ -3,7 +3,7 @@
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
 From simuliris.logic Require Import satisfiable.
-From simuliris.simulation Require Import slsls global_sim gen_log_rel.
+From simuliris.simulation Require Import slsls closed_sim gen_log_rel.
 From simuliris.simulang Require Import proofmode tactics.
 From simuliris.simulang Require Import gen_adequacy behavior wf gen_refl.
 From simuliris.simulang.simple_inv Require Import inv refl.

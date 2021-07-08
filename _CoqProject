@@ -13,7 +13,7 @@ theories/simulation/fairness.v
 theories/simulation/behavior.v
 theories/simulation/simulation.v
 theories/simulation/slsls.v
-theories/simulation/global_sim.v
+theories/simulation/closed_sim.v
 theories/simulation/fairness_adequacy.v
 theories/simulation/adequacy.v
 theories/simulation/lifting.v

@@ -4,7 +4,7 @@ From iris.algebra Require Import gset gmap list.
 From iris.proofmode Require Import tactics.
 From simuliris.logic Require Import fixpoints.
 From simuliris.simulation Require Import relations language fairness.
-From simuliris.simulation Require Export slsls global_sim.
+From simuliris.simulation Require Export slsls closed_sim.
 From simuliris.logic Require Import satisfiable.
 From iris.prelude Require Import options.
 Import bi.
@@ -192,10 +192,10 @@ Lemma must_step_all_add_values P O O' D π:
   must_step_all π P O D -∗
   must_step_all π P O' D.
 Proof.
-  intros Hall. iIntros "Hlocal". iRevert (O' Hall).
+  intros Hall. iIntros "Hopen". iRevert (O' Hall).
   iApply (must_step_ind (λ P O D, ∀ O' : gset nat,
   ⌜∀ i, i ∈ O' → i ∈ O ∨ (∃ v_t v_s, P !! i = Some (of_val v_t, of_val v_s))⌝
-  → must_step_all π P O' D)%I with "[] Hlocal").
+  → must_step_all π P O' D)%I with "[] Hopen").
   iModIntro. clear P O D. iIntros (P O D) "Hinner".
   iIntros (O' Hel). rewrite must_step_unfold.
   iIntros (p_t σ_t p_s σ_s) "H".
@@ -353,8 +353,8 @@ Proof.
   rewrite gsim_expr_all_to_wo (gsim_expr_all_wo_split _ _ i) //.
   replace (∅ ∪ {[i]}: gset nat) with ({[i]}: gset nat) by set_solver.
   iDestruct "Hall" as "[Hsim Hall]".
-  rewrite gsim_expr_eq global_greatest_def_unfold.
-  iApply (global_least_def_strong_ind (λ Ψ π e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜i = π⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ gsim_expr_all_wo 0 P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post (ext_rel i) e_t e_s) -∗ must_step_all 0 P O D)%I with "[] Hsim [] [] [] Hall"); eauto.
+  rewrite gsim_expr_eq closed_greatest_def_unfold.
+  iApply (closed_least_def_strong_ind (λ Ψ π e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜i = π⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ gsim_expr_all_wo 0 P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post (ext_rel i) e_t e_s) -∗ must_step_all 0 P O D)%I with "[] Hsim [] [] [] Hall"); eauto.
   { intros n ?? Heq ???. repeat f_equiv. by apply Heq. }
   clear P D Hsub e_t e_s Hlook. iModIntro. iIntros (Ψ π e_t e_s) "Hsim".
   iIntros (P D Hlook ? Hsub) "Hall Hpost". subst π.

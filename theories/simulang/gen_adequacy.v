@@ -1,5 +1,5 @@
 From simuliris.logic Require Import satisfiable.
-From simuliris.simulation Require Import slsls global_sim adequacy.
+From simuliris.simulation Require Import slsls closed_sim adequacy.
 From simuliris.simulang Require Import proofmode tactics behavior gen_val_rel wf.
 From iris.prelude Require Import options.
 
