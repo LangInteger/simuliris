@@ -64,25 +64,8 @@ The project follows the following structure below the `theories` folder:
     * `adequacy.v` contains the resulting adequacy proof.
     * `examples` contains example optimizations, see below.
 
-## Examples and case studies
-We have conducted a number of case studies and examples for the simple SimuLang logic, the non-atomic SimuLang logic, and the Stacked Borrows logic.
 
-### Simple SimuLang logic
-These examples can be found in `theories/simulang/simple_inv/examples/`.
-
-TODO
-
-### Non-atomic SimuLang logic
-These examples can be found in `theories/simulang/na_inv/examples/`.
-
-TODO
-
-### Stacked Borrows logic
-These examples can be found in `theories/stacked_borrows/examples`
-
-TODO
-
-## Theorems and definitions referenced in the paper
+## Theorems, definitions, and examples referenced in the paper
 We list the relevant theorems and definitions mentioned in the paper by section.
 ### Section 2
 | Paper | Coq file | Coq name |
@@ -160,9 +143,6 @@ They are instantiated for the fundamental theorems.
 | Loop example (Fig 12b) | `theories/stacked_borrows/examples/coinductive.v` | `sim_loop_ctx` | 
 | Moving read example (Fig 12a) | `theories/stacked_borrows/examples/opt1.v` | `sim_opt1'` |
 
-### Section 8
-As mentioned in the related work section, we have verified the reorderings and eliminations by [Ševčík, 2011]. They can be found in file `theories/simulang/na_inv/examples/program_transformations_in_weak_memory_models.v`. 
-For further information on this, we refer to Section 5 of the technical appendix.
 
 The optimizations ported and extended to concurrency from the original Stacked Borrows paper can be found in the following files:
 * `theories/stacked_borrows/examples/opt1.v` 
@@ -171,3 +151,8 @@ The optimizations ported and extended to concurrency from the original Stacked B
 * `theories/stacked_borrows/examples/opt2_down.v` 
 * `theories/stacked_borrows/examples/opt3.v` 
 * `theories/stacked_borrows/examples/opt3_down.v` 
+
+### Section 8
+As mentioned in the related work section, we have verified the reorderings and eliminations by [Ševčík, 2011]. They can be found in file `theories/simulang/na_inv/examples/program_transformations_in_weak_memory_models.v`. 
+For further information on this, we refer to Section 5 of the technical appendix.
+
