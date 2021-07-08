@@ -78,12 +78,12 @@ Section log_rel_structural.
     all: naive_solver.
   Qed.
 
-  Corollary sim_refl π m1 m2 e Φ :
+  Corollary sim_refl' π m1 m2 e Φ :
     dom (gset _) m1 = dom (gset _) m2 →
     free_vars e ⊆ dom (gset _) m1 →
     log_rel_structural →
     gen_expr_wf expr_head_wf e →
-    subst_map_rel val_rel (dom _ m1) (map_zip m1 m2) -∗
+    subst_map_rel val_rel (free_vars e) (map_zip m1 m2) -∗
     thread_own π -∗
     (∀ v_t v_s, thread_own π -∗ val_rel v_t v_s -∗ Φ (Val v_t) (Val v_s)) -∗
     subst_map m1 e ⪯{π} subst_map m2 e [{ Φ }].
@@ -102,4 +102,18 @@ Section log_rel_structural.
     - iIntros (e_t e_s) "(%v_t & %v_s & -> & -> & Ht & Hv)". by iApply ("HΦ" with "Ht").
   Qed.
 
+  Corollary sim_refl π m1 m2 e Φ :
+    dom (gset _) m1 = dom (gset _) m2 →
+    free_vars e ⊆ dom (gset _) m1 →
+    log_rel_structural →
+    gen_expr_wf expr_head_wf e →
+    subst_map_rel val_rel (dom _ m1) (map_zip m1 m2) -∗
+    thread_own π -∗
+    (∀ v_t v_s, thread_own π -∗ val_rel v_t v_s -∗ Φ (Val v_t) (Val v_s)) -∗
+    subst_map m1 e ⪯{π} subst_map m2 e [{ Φ }].
+  Proof. 
+    iIntros (Hdom Hfree ??) "Hrel Ht HΦ".
+    iApply (sim_refl' with "[Hrel] Ht"); [done | done | done | done | | done].
+    iApply subst_map_rel_weaken; done.
+  Qed.
 End log_rel_structural.

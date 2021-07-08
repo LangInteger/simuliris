@@ -100,6 +100,17 @@ Section fix_lang.
     destruct (map !! x) as [[v_t v_s]|]; last done. eauto.
   Qed.
 
+  (* FIXME requiring persistence for convenience. Probably also works without *)
+  Lemma subst_map_rel_dom `{!∀ vt vs, Persistent (val_rel vt vs)} X map :
+    subst_map_rel X map -∗ ⌜X ⊆ dom (gset _) map⌝.
+  Proof.
+    rewrite /subst_map_rel. erewrite big_sepS_forall.
+    2: { intros. destruct (_ !! _) as [[]|]; apply _. }
+    iIntros "Hl". rewrite elem_of_subseteq.
+    iIntros (x Hx). iSpecialize ("Hl" $! x Hx).
+    rewrite elem_of_dom. destruct (_ !! _); eauto.
+  Qed.
+
   Lemma subst_map_rel_weaken X1 X2 map :
     X2 ⊆ X1 →
     subst_map_rel X1 map -∗ subst_map_rel X2 map.

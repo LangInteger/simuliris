@@ -13,33 +13,33 @@ Section data_race.
   (** ** Example from 3.2 *)
 
   Definition load_na_sc_unopt : expr :=
-    "x" <- #42;; 
-    !ˢᶜ "y";; 
-    !"x".
-  Definition load_na_sc_opt : expr := 
     "x" <- #42;;
-    !ˢᶜ "y";; 
+    !ˢᶜ "y";;
+    !"x".
+  Definition load_na_sc_opt : expr :=
+    "x" <- #42;;
+    !ˢᶜ "y";;
     #42.
 
   (** For completeness: the triple shown in the paper.
     (really, we usually want to prove [load_na_sc_log] below).
   *)
-  Lemma load_na_sc_sim π (x_t x_s y_s y_t : loc) : 
-    ⊢ {{{ x_t ↔h x_s ∗ y_t ↔h y_s ∗ na_locs π ∅ }}} 
-        subst "x" #x_t $ subst "y" #y_t $ load_na_sc_opt ⪯[π] 
+  Lemma load_na_sc_sim π (x_t x_s y_s y_t : loc) :
+    ⊢ {{{ x_t ↔h x_s ∗ y_t ↔h y_s ∗ na_locs π ∅ }}}
+        subst "x" #x_t $ subst "y" #y_t $ load_na_sc_opt ⪯[π]
         subst "x" #x_s $ subst "y" #y_s $ load_na_sc_unopt
       {{{ lift_post (λ v_t v_s, ⌜v_t = v_s⌝ ∗ na_locs π ∅) }}}.
   Proof.
     iIntros "!> (#Hx & #Hy & Hcol)".
     rewrite /load_na_sc_opt /load_na_sc_unopt.
-    simpl_subst. 
+    simpl_subst.
     (* exploit *)
-    iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ]. 
+    iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ].
     { intros. reach_or_stuck_fill (Store _ _ _).
       eapply reach_or_stuck_irred; first apply _.
-      intros (? & ? & ? & ?). simplify_eq. 
+      intros (? & ? & ? & ?). simplify_eq.
       apply reach_or_stuck_refl. apply post_in_ectx_intro. eauto.
-    } 
+    }
 
     iIntros (v_t v_s) "Hx_t Hx_s Hv Hcol".
     source_store. target_store.
@@ -56,10 +56,10 @@ Section data_race.
       sim_val. by iFrame.
     - (* don't alias *)
       sim_bind (Load _ _) (Load _ _).
-      iApply (sim_bij_load_sc with "Hy Hcol"). 
+      iApply (sim_bij_load_sc with "Hy Hcol").
       { rewrite lookup_insert_ne; done. }
-      iIntros (??) "_ Hcol". sim_val. 
-      sim_pures. source_load. 
+      iIntros (??) "_ Hcol". sim_val.
+      sim_pures. source_load.
 
       iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
       { apply lookup_insert. }
@@ -68,9 +68,9 @@ Section data_race.
   Qed.
 
   (** The statement we really want (as described in Section 4): a [log_rel]. *)
-  Lemma load_na_sc_log : 
+  Lemma load_na_sc_log :
     ⊢ log_rel load_na_sc_opt load_na_sc_unopt.
-  Proof. 
+  Proof.
     (* closes open variables with related values *)
     log_rel. iIntros (x_t' x_s') "#Hx'". iIntros (y_t' y_s') "#Hy' !>".
     iIntros (π) "Hcol".
@@ -78,12 +78,12 @@ Section data_race.
     iApply sim_irred_unless. iIntros "(%x_s & ->)".
     iPoseProof (gen_val_rel_loc_source with "Hx'") as "(%x_t & -> & Hx)".
 
-    iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ]. 
+    iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ].
     { intros. reach_or_stuck_fill (Store _ _ _).
       eapply reach_or_stuck_irred; first apply _.
-      intros (? & ? & ? & ?). simplify_eq. 
+      intros (? & ? & ? & ?). simplify_eq.
       apply reach_or_stuck_refl. apply post_in_ectx_intro. eauto.
-    } 
+    }
 
     iIntros (v_t v_s) "Hx_t Hx_s Hv Hcol".
     source_store. target_store. sim_val.
@@ -104,10 +104,10 @@ Section data_race.
       sim_val. by iFrame.
     - (* don't alias *)
       sim_bind (Load _ _) (Load _ _).
-      iApply (sim_bij_load_sc with "Hy Hcol"). 
+      iApply (sim_bij_load_sc with "Hy Hcol").
       { rewrite lookup_insert_ne; done. }
-      iIntros (??) "_ Hcol". sim_val. 
-      sim_pures. source_load. 
+      iIntros (??) "_ Hcol". sim_val.
+      sim_pures. source_load.
 
       iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
       { apply lookup_insert. }
@@ -115,9 +115,91 @@ Section data_race.
       sim_val. by iFrame.
     Qed.
 
+
+  (** ** Example from 3.2 (arbitrary readonly expressions *)
+
+  Definition load_na_unopt e : expr :=
+    "x" <- #42;;
+    e;;
+    !"x".
+  Definition load_na_opt e : expr :=
+    "x" <- #42;;
+    e;;
+    #42.
+
+  (** We currently do not have good automation when we don't know a upper bound
+    on the set of variables used by [e], therefore there's a bit of manual work
+    regarding substitution involved here.
+   *)
+  Import gen_log_rel.
+  Lemma load_na_log e :
+    gen_expr_wf readonly_wf e →
+    ⊢ log_rel (load_na_opt e) (load_na_unopt e).
+  Proof.
+    iIntros (Hwf). rewrite /log_rel. iModIntro.
+    iIntros (π map) "#Hsubst Hcol".
+    simpl.
+
+    iPoseProof (subst_map_rel_lookup _ "x" with "Hsubst") as "(%vx_t & %vx_s & %Heq & Hx')".
+    { set_solver. }
+    rewrite !lookup_fmap. rewrite !Heq. simpl.
+
+
+    (* closes open variables with related values *)
+    sim_bind (Store _ _ _) (Store _ _ _).
+    iApply sim_irred_unless. iIntros "(%x_s & ->)".
+    iPoseProof (gen_val_rel_loc_source with "Hx'") as "(%x_t & -> & Hx)".
+
+    iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ].
+    { intros. reach_or_stuck_fill (Store _ _ _).
+      eapply reach_or_stuck_irred; first apply _.
+      intros (? & ? & ? & ?). simplify_eq.
+      apply reach_or_stuck_refl. apply post_in_ectx_intro. eauto.
+    }
+
+    iIntros (v_t v_s) "Hx_t Hx_s Hv Hcol".
+    source_store. target_store. sim_val.
+    sim_pures.
+
+    (* use read-only reflexivity theorem *)
+    sim_bind (subst_map _ _) (subst_map _ _).
+    iPoseProof (subst_map_rel_weaken _ _ (free_vars e) with "Hsubst") as "Hsubst'"; first set_solver.
+
+    iPoseProof (subst_map_rel_dom with "Hsubst'") as "%Hdom".
+    iApply (sim_refl' with "[] [Hcol Hx_t Hx_s]");
+      [ by rewrite !dom_fmap_L | |
+        apply (readonly_log_rel_structural [(x_t, x_s, #42 , #42 , 1%Qp)]) | done | | | ].
+    { by rewrite dom_fmap_L. }
+    { rewrite map_fmap_zip. rewrite map_zip_diag. rewrite -map_fmap_compose.
+      erewrite (map_fmap_ext _ id). { rewrite map_fmap_id. done. }
+      move => i [x y] Hl //.
+    }
+    { rewrite /readonly_thread_own. iFrame.
+      unfold mapsto_list, na_locs_in_mapsto_list.
+      iSplit; [|iSplit; [ iSplit; done | done]].
+      iPureIntro. intros ???. rewrite lookup_insert_Some.
+      rewrite lookup_empty. intros [[<- [= <- <-]] | [_ [=]]].
+      exists 0. eauto.
+    }
+
+    iIntros (??).
+    rewrite /readonly_thread_own.
+    unfold mapsto_list. simpl.
+    iIntros "(_ & Hcol & (Hx_t & Hx_s & _ & _) & _) _".
+    iApply lift_post_val.
+
+    sim_pures. source_load.
+
+    iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
+    { apply lookup_insert. }
+    rewrite delete_insert; last done. iIntros "Hcol".
+    sim_val. by iFrame.
+  Qed.
+
+
   (** ** Optimization from the intro and 3.3 *)
-  (** (In file [theories/simulang/na_inv/examples/data_races.v], there is a version of this 
-      where the memory is actually freed in the end) 
+  (** (In file [theories/simulang/na_inv/examples/data_races.v], there is a version of this
+      where the memory is actually freed in the end)
    *)
 
   Definition hoist_load_both_unopt : expr :=
@@ -328,6 +410,16 @@ Section closed.
     set Σ := #[naΣ].
     apply (log_rel_adequacy Σ)=>?.
     by apply load_na_sc_log.
+  Qed.
+
+  Lemma load_na_ctx e :
+    gen_expr_wf readonly_wf e →
+    ctx_ref (load_na_opt e) (load_na_unopt e).
+  Proof.
+    intros ??.
+    set Σ := #[naΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    by apply load_na_log.
   Qed.
 
   Lemma hoist_load_both_ctx :
