@@ -110,6 +110,7 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Rule `exploit-read` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_read` |
 | Rule `release-exploit` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_release` |
 | Example from 3.2 | `theories/simulang/na_inv/examples/paper.v` | `load_na_sc_sim`, `load_na_sc_log`, and `load_na_sc_closed` | 
+| Example from 3.2 with arbitrary read-only expressions | `theories/simulang/na_inv/examples/paper.v` | `load_na_log`, and `load_na_closed` | 
 | Example from 1,3.3 | `theories/simulang/na_inv/examples/paper.v` | `hoist_load_both_log`, `hoist_load_both_log` |
 | Rules in Figure 8| `theories/simulang/na_inv/examples/derived.v` | `sim_load_sc_public`, `sim_load_na_public`, `sim_store_sc_public`, `sim_call` | 
 
