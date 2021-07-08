@@ -25,7 +25,7 @@ Section meta_level_simulation.
   (* we pull out the simulation to a meta-level simulation,
      the set V tracks which threads are already values in both target and source *)
   Definition msim (T_t: tpool Λ) (σ_t: state Λ)  (T_s: tpool Λ) (σ_s: state Λ) (V: gset nat) :=
-    sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, gsim_expr (lift_post (ext_rel i)) i e_t e_s).
+    sat (state_interp p_t σ_t p_s σ_s T_s ∗ ⌜∀ i, i ∈ V → ∃ v_t v_s, T_t !! i = Some (of_val v_t) ∧ T_s !! i = Some (of_val v_s)⌝ ∗ [∗ list] i↦e_t; e_s ∈ T_t;T_s, csim_expr (lift_post (ext_rel i)) i e_t e_s).
 
   Lemma msim_length T_t T_s σ_t σ_s V:
     msim T_t σ_t T_s σ_s V → length T_t = length T_s.
@@ -53,7 +53,7 @@ Section meta_level_simulation.
       eapply sat_elim in Hdone. split; [exact Hdone|exact Hsim].
     - simpl; clear Hsim. iIntros "(SI & %Hvals & Hsims)".
       iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
-      rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+      rewrite csim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
       + iPureIntro. by erewrite fill_empty.
       + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
         iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val". rewrite fill_empty.
@@ -67,7 +67,7 @@ Section meta_level_simulation.
           intros Hj; assert (j ∈ V) as Hj' by set_solver.
           rewrite list_lookup_insert_ne //. eauto.
         * rewrite -{2}(list_insert_id T_t i (of_val v_t)) //. iApply "Hpost".
-          iApply gsim_expr_base. iExists v_t, v_s. by iFrame.
+          iApply csim_expr_base. iExists v_t, v_s. by iFrame.
       + iDestruct "Step" as "[%Hred _]".
         destruct Hred as (e_t' & σ_t' & efs & Hprim).
         exfalso. by eapply val_prim_step.
@@ -94,7 +94,7 @@ Section meta_level_simulation.
     - simpl. iIntros "(SI & %Vals & Hsims)".
       destruct (Vals i Hel) as (v_t & v_s & Hlook1 & Hlook2).
       iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim _]"; eauto.
-      rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+      rewrite csim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
       + iPureIntro. by erewrite fill_empty.
       + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Hpost]". rewrite fill_empty.
         iModIntro. iExists v_t, v_s.
@@ -127,7 +127,7 @@ Section meta_level_simulation.
       eapply sat_elim in Hdone. split; [exact Hdone|exact Hsim].
     - simpl; clear Hsim. iIntros "(SI & %Hvals & Hsims)".
       iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
-      rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+      rewrite csim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
       + iPureIntro. by erewrite fill_empty.
       + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
         iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
@@ -166,7 +166,7 @@ Section meta_level_simulation.
     { eapply lookup_lt_is_Some; rewrite -Hlen; eapply lookup_lt_is_Some; eauto. }
     iIntros "(SI & _ & Hsims)".
     iPoseProof (big_sepL2_insert_acc with "Hsims") as "[Hsim Hpost]"; eauto.
-    rewrite gsim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
+    rewrite csim_expr_unfold. iMod ("Hsim" with "[$SI]") as "[Val|Step]".
     + iPureIntro. by erewrite fill_empty.
     + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
       iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
@@ -184,7 +184,7 @@ Section meta_level_simulation.
     intros Hsim.
     eapply sat_mono, Hsim. iIntros "($ & _ & Hsims)".
     rewrite big_sepL2_alt. iDestruct "Hsims" as "[_ Hsims]".
-    iApply gsim_expr_to_pool. done.
+    iApply csim_expr_to_pool. done.
   Qed.
 
   (* derived lemmas *)
