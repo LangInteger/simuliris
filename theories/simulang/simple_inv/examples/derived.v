@@ -323,8 +323,8 @@ Section derived.
   Qed.
 
   Lemma sim_while_simple I c_t c_s b_t b_s π Q Φ :
-    (⊢ {{{ I }}} c_t ⪯[π] c_s {{{ lift_post (λ v_t v_s, (∃ b : bool, ⌜v_s = #b⌝) →
-          (⌜v_s = #true⌝ ∗ ⌜v_t = #true⌝ ∗ I) ∨ (⌜v_s = #false⌝ ∗ ⌜v_t = #false⌝ ∗ Q))}}}) →
+    (⊢ {{{ I }}} c_t ⪯[π] c_s {{{ lift_post (λ v_t v_s, 
+          val_rel v_t v_s ∗ ((⌜v_s = #true⌝ ∗ I) ∨ ( ⌜v_s ≠ #true⌝ ∗ Q)))}}}) →
     (⊢ {{{ I }}} b_t ⪯[π] b_s {{{ lift_post (λ _ _, I) }}}) →
     ⊢ {{{ I }}} while: c_t do b_t od ⪯[π] while: c_s do b_s od {{{ lift_post (λ _ _, Q) }}}.
   Proof.
@@ -332,11 +332,12 @@ Section derived.
     sim_bind c_t c_s. iApply (sim_wand with "[HI] []"). { by iApply Hc. }
     iIntros (v_t v_s) "Hc".
     iApply sim_irred_unless. iIntros "(%b & ->)".
-    iDestruct ("Hc" with "[]") as "[(% & -> & HI) | (% & -> & HQ)]"; first by eauto.
-    - simplify_eq. sim_pures.
+    iDestruct "Hc" as "(Hv & [(% & HI) | (% & HQ)])".
+    - simplify_eq. val_discr_source "Hv". sim_pures.
       sim_bind b_t b_s. iApply (sim_wand with "[HI] []"). { by iApply Hb. }
       iIntros (? ?) "HI". sim_pures. iApply sim_expr_base. eauto with iFrame.
-    - simplify_eq. sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
+    - val_discr_source "Hv". destruct b; first done.
+      sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
   Qed.
 
   Lemma sim_global_var (A : string) π :

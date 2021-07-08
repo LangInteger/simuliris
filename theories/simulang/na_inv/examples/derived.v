@@ -306,8 +306,8 @@ Section derived.
   Qed.
 
   Lemma sim_while_simple I c_t c_s b_t b_s π Q Φ :
-    (⊢ {{{ I }}} c_t ⪯[π] c_s {{{ lift_post (λ v_t v_s, (∃ b : bool, ⌜v_s = #b⌝) →
-          (⌜v_s = #true⌝ ∗ ⌜v_t = #true⌝ ∗ I) ∨ (⌜v_s = #false⌝ ∗ ⌜v_t = #false⌝ ∗ Q))}}}) →
+    (⊢ {{{ I }}} c_t ⪯[π] c_s {{{ lift_post (λ v_t v_s,
+          val_rel v_t v_s ∗ ((⌜v_s = #true⌝ ∗ I) ∨ ( ⌜v_s ≠ #true⌝ ∗ Q)))}}}) →
     (⊢ {{{ I }}} b_t ⪯[π] b_s {{{ lift_post (λ _ _, I) }}}) →
     ⊢ {{{ I }}} while: c_t do b_t od ⪯[π] while: c_s do b_s od {{{ lift_post (λ _ _, Q) }}}.
   Proof.
@@ -315,11 +315,12 @@ Section derived.
     sim_bind c_t c_s. iApply (sim_wand with "[HI] []"). { by iApply Hc. }
     iIntros (v_t v_s) "Hc".
     iApply sim_irred_unless. iIntros "(%b & ->)".
-    iDestruct ("Hc" with "[]") as "[(% & -> & HI) | (% & -> & HQ)]"; first by eauto.
-    - simplify_eq. sim_pures.
+    iDestruct "Hc" as "(Hv & [(% & HI) | (% & HQ)])".
+    - simplify_eq. val_discr_source "Hv". sim_pures.
       sim_bind b_t b_s. iApply (sim_wand with "[HI] []"). { by iApply Hb. }
       iIntros (? ?) "HI". sim_pures. iApply sim_expr_base. eauto with iFrame.
-    - simplify_eq. sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
+    - val_discr_source "Hv". destruct b; first done.
+      sim_pures. iApply sim_expr_base. iLeft. iApply lift_post_val. done.
   Qed.
 
   Lemma sim_global_var (A : string) π :
@@ -422,7 +423,7 @@ Section derived.
 
 
   (** Exploitation triples *)
-  Lemma sim_exploit_write P π (l_t l_s : loc) Φ e_s e_t col :
+  Lemma sim_exploit_store P π (l_t l_s : loc) Φ e_s e_t col :
     (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ ∃ v, σ_s.(heap) !! l_s = Some (RSt 0, v)))) →
     col !! l_s = None →
     (∀ v_t v_s, ⊢ {{{ l_t ↦t v_t ∗ l_s ↦s v_s ∗ val_rel v_t v_s ∗ na_locs π (<[l_s := (l_t, NaExcl)]>col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
@@ -433,7 +434,7 @@ Section derived.
     iIntros (??) "Ht Hs Hv Hna". iApply Hs. iFrame.
   Qed.
 
-  Lemma sim_exploit_read P π (l_t l_s : loc) Φ e_s e_t col :
+  Lemma sim_exploit_load P π (l_t l_s : loc) Φ e_s e_t col :
     (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', e' = (Load Na1Ord #l_s) ∧ ∃ n v, σ_s.(heap) !! l_s = Some (RSt n, v)))) →
     col !! l_s = None →
     (∀ q v_t v_s, ⊢ {{{ l_t ↦t{#q} v_t ∗ l_s ↦s{#q} v_s ∗ val_rel v_t v_s ∗ na_locs π (<[l_s := (l_t, NaRead q)]>col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
