@@ -269,8 +269,7 @@ Section fix_sim.
     iMod ("Hsim" with "[$Hstate ]") as "[Hred Hsim]"; first done. iModIntro. iRight; iLeft.
     iFrame. iIntros (e_t' efs_t σ_t') "Hstep".
     iMod ("Hsim" with "Hstep") as (e_s' efs_s σ_s') "(Hs & ? & ? & Hefs)".
-    iRight. iModIntro. iExists _, _, _, _, _.
-    iDestruct (big_sepL2_length with "Hefs") as "#$". iFrame. iPureIntro. constructor.
+    iRight. iModIntro. iExists _, _, _, _, _. iFrame. iPureIntro. constructor.
   Qed.
 
   Lemma sim_lift_prim_step_target e_t e_s Φ π :
@@ -541,7 +540,7 @@ Section fix_sim.
     This can for instance be used to derive lemmas for simulating while loops.
     However, it is insufficient for simulating recursion, as call reduction is not pure.
    *)
-  Lemma sim_lift_coind_pure (inv : PROP) e_t e_t' e_s e_s' Φ π (ϕ ψ : Prop) 
+  Lemma sim_lift_coind_pure (inv : PROP) e_t e_t' e_s e_s' Φ π (ϕ ψ : Prop)
     {Hpure_t : PureExec ϕ 1 e_t e_t'} {Hpure_s : PureExec ψ 1 e_s e_s'} :
     ϕ →
     ψ →

@@ -332,7 +332,8 @@ Proof.
       iExists e_s, σ_s. iFrame. iExists [], []. rewrite /csim_expr_all; simpl.
       rewrite app_nil_r list_insert_id //. iFrame.
       iPureIntro. repeat split. constructor.
-    + iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim' Hlen) "(SI & Hsim & Hall)".
+    + iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim') "(SI & Hsim & Hall)".
+      iPoseProof (big_sepL2_length with "Hall") as "%Hlen".
       iModIntro. iExists e_s'', σ_s''. iFrame. iExists efs_s.
       eapply no_forks_then_prim_step_pool_steps in Hnfs as (I & ? & Hsub); [|done..].
       iExists I. rewrite fill_empty. iFrame. repeat iSplit; [done..|].
@@ -423,7 +424,8 @@ Proof.
            ++ iPureIntro. eapply list_lookup_insert, lookup_lt_Some, Hlook.
            ++ iPureIntro. rewrite list_fmap_insert. by etrans; last eapply threads_insert.
            ++ rewrite -csim_expr_all_wo_insert //. set_solver.
-        -- iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim Hlen) "(SI & Hsim & Hfrks)".
+        -- iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim) "(SI & Hsim & Hfrks)".
+           iPoseProof (big_sepL2_length with "Hfrks") as "%Hlen".
            iModIntro. eapply (no_forks_then_prim_step_pool_steps P.(src) i) in Hnfs as (I & Hsteps & Heq); [| done |]; last first.
            { rewrite list_lookup_fmap Hlook //. }
            iExists (<[i := (e_t', e_s'')]> P ++ zip efs_t efs_s), σ_s'', I.

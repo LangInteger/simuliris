@@ -51,7 +51,6 @@ Section fix_lang.
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
           ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
-          ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗ greatest_rec Φ π e_t' e_s'' ∗
           [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post (ext_rel (length T_s + π'))) (length T_s + π') e_t e_s))
     )%I.
@@ -68,8 +67,8 @@ Section fix_lang.
     + iRight. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
       iIntros (e_t' efs_t σ_t') "Hstep". iMod ("Hr" with "Hstep") as "[Hstay | Hstep]"; iModIntro.
       { iLeft. iDestruct "Hstay" as "[$ [$ H1]]". by iApply "Hleast". }
-      iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & %Hlen & H4 & H5 & H6)".
-      iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame. iSplit; first done.
+      iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & H4 & H5 & H6)".
+      iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame.
       iSplitL "H5"; first by iApply "Hgreatest".
       iApply (big_sepL2_impl with "H6 []"); simpl.
       iIntros "!>" (?????). by iApply "Hgreatest".
@@ -89,8 +88,8 @@ Section fix_lang.
     + iRight. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
       iIntros (e_t' efs_t σ_t') "Hstep". iMod ("Hr" with "Hstep") as "[Hstay | Hstep]"; iModIntro.
       { iLeft. iDestruct "Hstay" as "[$ [$ H1]]". by iApply ("Hleast" with "HΦΨ H1"). }
-      iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & %Hlen & H4 & H5 & H6)".
-      iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame. iSplit; first done.
+      iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & H4 & H5 & H6)".
+      iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame.
       iSplitL "H5 HΦΨ"; first by iApply ("Hgreatest" with "HΦΨ H5").
       iApply (big_sepL2_impl with "H6 []"); simpl.
       iIntros "!>" (?????) "Hg". iApply ("Hgreatest" with "[] Hg").
@@ -244,8 +243,6 @@ Section fix_lang.
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
           ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
-          (* TODO: This length constraint is unnecessary as it is implied by the big_sepL2. *)
-          ⌜length efs_t = length efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗
           csim_expr Φ π e_t' e_s'' ∗
           [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, csim_expr (lift_post (ext_rel (length T_s + π'))) (length T_s + π') e_t e_s))
@@ -357,8 +354,8 @@ Section fix_lang.
     + iModIntro; iRight. iDestruct "Hstep" as "[Hred Hr]"; iFrame "Hred".
       iIntros (e_t' efs_t σ_t') "Hstep". iMod ("Hr" with "Hstep") as "[Hstay | Hstep]"; iModIntro.
       { iLeft. iDestruct "Hstay" as "[$ [$ H1]]". rewrite /F_ind. iApply ("H1" with "Hmon"). }
-      iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & %Hlen & H4 & H5 & H6)".
-      iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame. iSplit; first done.
+      iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs_s) "(H1 & H2 & H4 & H5 & H6)".
+      iExists (e_s'), e_s'', σ_s', σ_s'', efs_s. iFrame.
       iSplitL "H5 Hmon"; first by rewrite /rec'; iLeft; iFrame.
       iApply (big_sepL2_impl with "H6").
       iIntros "!>" (?????) "?"; by iRight.
@@ -477,8 +474,8 @@ Section fix_lang.
              iExists (fill K_s e_s''), (fill K_s e_s'), σ_s'', σ_s', []. rewrite app_nil_r.
              iSplit; first by iPureIntro; eapply fill_no_forks.
              iSplit; first by iPureIntro; eapply fill_prim_step, Hstep.
-             iSplit; first done. by iFrame.
-        * iDestruct "Step" as (e_s'' e_s''' σ_s'' σ_s''' efs_s Hforks) "(Hprim & Hlen & SI & Hsim & Hforks)".
+             by iFrame.
+        * iDestruct "Step" as (e_s'' e_s''' σ_s'' σ_s''' efs_s Hforks) "(Hprim & Hlen & SI & Hforks)".
           iModIntro. iRight. iExists e_s'', e_s''', σ_s'', σ_s''', efs_s.
           rewrite list_insert_insert. iFrame.
           iSplit; first by iPureIntro; eauto using no_forks_trans, fill_no_forks.
@@ -491,12 +488,11 @@ Section fix_lang.
       iMod ("Hstep" with "[]") as "Hstep". { iPureIntro. apply Hstep'. }
       iModIntro. iDestruct "Hstep" as "[(Hnf & Hstate & Hstutter) | Hstep]".
       + iLeft. iFrame. by iApply "Hstutter".
-      + iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs') "(%Hnf & %Hstep'' & %Hlen & Hstate & Hrec & Hfrk)".
+      + iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs') "(%Hnf & %Hstep'' & Hstate & Hrec & Hfrk)".
         iExists (fill K_s e_s'), (fill K_s e_s''), σ_s', σ_s'', efs'.
         rewrite -fill_comp. iFrame.
         iSplitR. { iPureIntro. by apply fill_no_forks. }
         iSplitR. { iPureIntro. by apply fill_prim_step. }
-        iSplitR. { done. }
         iSplitL "Hcont Hrec".
         { iLeft. iExists e_t'', e_s'', K_t, K_s.
           do 2 (iSplitR; first done).
@@ -566,7 +562,7 @@ Section fix_lang.
       iSplitR; first done.
       iIntros (e_t' efs σ_t') "%Hstep". iMod ("Hstep" with "[//]") as "[(Hnf & Hstate & Hstutter) | Hstep]".
       + iModIntro. iLeft. iFrame. rewrite /Rec. by iApply "Hstutter".
-      + iModIntro. iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs') "(%Hnf & %Hstep'' & %Hlen & Hstate & Hrec' & Hfrk)".
+      + iModIntro. iRight. iDestruct "Hstep" as (e_s' e_s'' σ_s' σ_s'' efs') "(%Hnf & %Hstep'' & Hstate & Hrec' & Hfrk)".
         iExists e_s', e_s'', σ_s', σ_s'', efs'. iFrame.
         repeat (iSplit; first done).
         iSplitL "Hmon Hrec'".
@@ -607,7 +603,7 @@ Section fix_lang.
         iRight. iExists e_s'', e_s', σ_s'', σ_s', []. rewrite app_nil_r.
         iDestruct "Hstutter" as "(-> & SI & Hsim)"; simpl; iFrame.
         by iPureIntro.
-      + iRight. iDestruct "Hred" as (e_s'' e_s''' σ_s'' σ_s''' efs_s) "(%Hnfs & Hstep & Hlen & Hstate & Hsim & Hfrks)".
+      + iRight. iDestruct "Hred" as (e_s'' e_s''' σ_s'' σ_s''' efs_s) "(%Hnfs & Hstep & Hstate & Hsim & Hfrks)".
         rewrite list_insert_insert insert_length.
         iExists e_s'', e_s''', σ_s'', σ_s''', efs_s. iFrame. iPureIntro.
         by eapply no_forks_trans.
@@ -669,7 +665,6 @@ Section fix_lang.
       iExists (fill K_s' (of_call f v_s)), (fill K_s' (apply_func fn_s v_s)), σ_s', σ_s', [].
       iFrame. iSplit; first done. iSplit.
       { iPureIntro. by apply fill_prim_step, head_prim_step, call_head_step_intro. }
-      iSplit; first done.
       iSplitL "Hstate".
       { rewrite app_nil_r. iPoseProof (state_interp_pure_prim_step with "Hstate") as "Hstate".
         { apply list_lookup_insert. by eapply lookup_lt_Some. }

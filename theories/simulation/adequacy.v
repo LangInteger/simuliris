@@ -142,7 +142,7 @@ Section meta_level_simulation.
             rewrite Hupd right_id in Hstep. done. }
           iSpecialize ("Hpost" $! e_t' e_s with "Hsim").
           rewrite (list_insert_id T_s) //.
-        * iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim' Hlen') "(SI & Hsim & Hforks)".
+        * iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim')  "(SI & Hsim & Hforks)".
           rewrite fill_empty.
           eapply no_forks_then_prim_step_pool_steps in Hnfs as (J & Hsteps & _); eauto.
           iModIntro. iExists _, _, _; iSplit; first done.
