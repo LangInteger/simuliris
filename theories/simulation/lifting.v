@@ -232,7 +232,7 @@ Section fix_sim.
     intros Hp Hϕ. specialize (Hp Hϕ).
     induction Hp as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH]; first done.
     rewrite IH. iIntros "Hs". iApply source_red_step.
-    iIntros (P_s σ_s ????) "[Hstate [% %]]". iModIntro. iExists e_s2, σ_s.
+    iIntros (?? P_s σ_s ??) "[Hstate [% %]]". iModIntro. iExists e_s2, σ_s.
     iFrame.
     destruct (Hstep) as [Hred Hdet]. destruct (Hred P_s σ_s) as (e_s' & σ_s' & efs & Hs).
     specialize (Hdet _ _ _ _ _ Hs) as [-> [-> ->]].
@@ -378,7 +378,7 @@ Section fix_sim.
   Proof.
     intros Hunless. iIntros "Hs".
     rewrite source_red_unfold.
-    iIntros (P_s σ_s ????) "[Hstate [%Hpool %Hnreach]]".
+    iIntros (?? P_s σ_s ??) "[Hstate [%Hpool %Hnreach]]".
     destruct (Hunless P_s σ_s) as [Hval [Hstuck | (? & ? & ? & Hphi)]].
     - exfalso; apply Hnreach. eapply pool_reach_stuck_reach_stuck.
       + eapply fill_reach_stuck, Hstuck.
@@ -430,7 +430,7 @@ Section fix_sim.
 
   (** Target eval *)
   Lemma target_red_lift_head_step Ψ e_t :
-    ⊢ (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
+    ⊢ (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
         (⌜head_reducible P_t e_t σ_t⌝ ∗ ∀ e_t' efs_t σ_t', ⌜head_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ target_red e_t' Ψ)) -∗
       target_red e_t Ψ.
@@ -444,7 +444,7 @@ Section fix_sim.
 
   (** source eval *)
   Lemma source_red_lift_head_step Ψ e_s π :
-   ⊢ (∀ P_s σ_s P_t σ_t T_s K_s,
+   ⊢ (∀ P_t σ_t P_s σ_s T_s K_s,
        state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝
         ==∗ ∃ e_s' σ_s',
           ⌜head_step P_s e_s σ_s e_s' σ_s' []⌝ ∗

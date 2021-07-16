@@ -821,7 +821,7 @@ Lemma target_write_local v_t v_t' T l t Ψ :
   target_red (Write (Place l (Tagged t) T) #v_t') Ψ.
 Proof.
   iIntros (Hlen Hlen') "Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %Hstack)".
   iMod (bor_interp_writeN_target_local _ _ _ _ _ v_t' with "Hbor Ht Htag []") as "(Hbor & Ht & Htag)";
     first (iPureIntro; lia).
@@ -854,7 +854,7 @@ Lemma source_write_local v_s v_s' T l t Ψ π :
   source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
   iIntros (Hlen Hlen') "Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ??) "[(HP_t & HP_s & Hbor) _]".
+  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
   iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %Hstack)".
   iMod (bor_interp_writeN_source_local _ _ _ _ _ v_s' with "Hbor Hs Htag []") as "(Hbor & Hs & Htag)";
     first (iPureIntro; lia).
@@ -885,7 +885,7 @@ Lemma target_write_protected v_t v_t' T l t c M Ψ :
   target_red (Write (Place l (Tagged t) T) #v_t') Ψ.
 Proof.
   iIntros (Hlen Hlen' Hin_call) "Hc Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iPoseProof (bor_interp_readN_target_protected with "Hbor Ht Htag Hc") as "(%Hd & %Hstack)".
   { rewrite Hlen. done. }
   iMod (bor_interp_writeN_target_protected _ _ _ _ _ v_t' with "Hbor Ht Htag Hc []") as "(Hbor & Ht & Hc & Htag)".
@@ -928,7 +928,7 @@ Lemma source_write_protected v_s v_s' T l t Ψ c M π :
   source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
   iIntros (Hlen Hlen' Hin_call) "Hc Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ??) "[(HP_t & HP_s & Hbor) _]".
+  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
   iPoseProof (bor_interp_readN_source_protected with "Hbor Hs Htag Hc") as "(%Hd & %Hstack)".
   { rewrite Hlen. done. }
   iMod (bor_interp_writeN_source_protected _ _ _ _ _ v_s' with "Hbor Hs Htag Hc []") as "(Hbor & Hs & Hc & Htag)".
@@ -960,7 +960,7 @@ Lemma target_copy_local v_t T l t Ψ :
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iModIntro.
   iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %Hstack)".
   rewrite Hlen in Hd Hstack.
@@ -989,7 +989,7 @@ Lemma source_copy_local v_s T l t Ψ π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ??) "[(HP_t & HP_s & Hbor) _]".
+  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %Hstack)".
@@ -1020,7 +1020,7 @@ Lemma target_copy_protected v_t T l t tk Ψ c M  :
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen Hprotected) "Hcall Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iModIntro.
   iPoseProof (bor_interp_readN_target_protected with "Hbor Ht Htag Hcall") as "(%Hd & %Hown)".
   { by rewrite Hlen. }
@@ -1057,7 +1057,7 @@ Lemma source_copy_protected v_s T l t tk Ψ c M π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen Hprotected) "Hcall Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iPoseProof (bor_interp_readN_source_protected with "Hbor Hs Htag Hcall") as "(%Hd & %Hown)".
   { by rewrite Hlen. }
@@ -1089,7 +1089,7 @@ Lemma source_copy_any v_s T l t tk Ψ π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   destruct Hsafe as [Hpool Hsafe].
@@ -1158,7 +1158,7 @@ Lemma target_copy_deferred v_t T l t tk Ψ :
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iModIntro.
   iPoseProof (bor_interp_readN_target with "Hbor Ht Htag") as "%Hcontrolled".
 
@@ -1287,7 +1287,7 @@ Lemma source_copy_resolve_deferred v_s v_t v_t' T l t Ψ tk π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hdef #Hv Hsim".
-  iApply source_red_lift_head_step. iIntros (P_s σ_s P_t σ_t ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   destruct Hsafe as [Hpool Hsafe].

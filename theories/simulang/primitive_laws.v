@@ -294,7 +294,7 @@ Lemma target_red_allocN n v Ψ:
   target_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) Ψ.
 Proof.
   iIntros (Hn) "Hloc". iApply target_red_lift_head_step.
-  iIntros (P_s σ_s P_t σ_t T_s) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)". iModIntro.
+  iIntros (P_t σ_t P_s σ_s T_s) "(HP_t & HP_s & Hσ_t & Hσ_s & Hinv)". iModIntro.
   iDestruct (heap_ctx_wf with "Hσ_t") as %?.
   iSplitR. { eauto using alloc_fresh with head_step. }
   iIntros (e_t' efs_t σ_t') "%"; inv_head_step.
@@ -310,7 +310,7 @@ Lemma source_red_allocN π n v Ψ `{!sheapInvSupportsAlloc}:
   source_red (AllocN (Val $ LitV $ LitInt $ n) (Val v)) π Ψ.
 Proof.
   iIntros (Hn) "Hloc". iApply source_red_lift_head_step.
-  iIntros (P_s σ_s P_t σ_t T_s K_s) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
+  iIntros (P_t σ_t P_s σ_s T_s K_s) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
   iDestruct (heap_ctx_wf with "Hσ_s") as %Hwf.
   iExists _, _. iSplitR. { simpl. eauto using alloc_fresh with lia head_step. }
   simpl.
@@ -438,7 +438,7 @@ Lemma source_red_load_sc π l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   source_red (Load ScOrd (Val $ LitV $ LitLoc l)) π Ψ.
 Proof.
   iIntros "Hl Ht". iApply source_red_lift_head_step.
-  iIntros (P_s σ_s ????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
+  iIntros (?? P_s σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
   iDestruct (heap_ctx_wf with "Hσ_s") as %?.
   iDestruct (heap_read with "Hσ_s Hl") as %[??]. iModIntro.
   assert (∃ e_s' σ_s', head_step P_s (Load ScOrd #l) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).
@@ -446,7 +446,7 @@ Proof.
   iExists e_s', σ_s'. iSplit; first by eauto. inv_head_step.
   iModIntro. iFrame.
   iSplitL "Hinv". { by iApply sheap_inv_load. }
-    by iApply "Ht".
+  by iApply "Ht".
 Qed.
 
 Lemma source_red_load_na π l v Ψ q `{!sheapInvSupportsLoad Na1Ord} :
@@ -455,7 +455,7 @@ Lemma source_red_load_na π l v Ψ q `{!sheapInvSupportsLoad Na1Ord} :
   source_red (Load Na1Ord (Val $ LitV $ LitLoc l)) π Ψ.
 Proof.
   iIntros "Hl Ht". iApply source_red_step.
-  iIntros (P_s σ_s ????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
+  iIntros (?? P_s σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]]".
   iDestruct (heap_ctx_wf with "Hσ_s") as %?.
   iDestruct (heap_read with "Hσ_s Hl") as %[??].
   iModIntro. iExists _, _.
@@ -512,7 +512,7 @@ Lemma source_red_store_sc π l v v' Ψ `{!sheapInvSupportsStore ScOrd} :
   source_red (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) π Ψ.
 Proof.
   iIntros "Hl Hsim". iApply source_red_lift_head_step.
-  iIntros (P_s σ_s ????) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
+  iIntros (?? P_s σ_s ??) "[(HP_t & HP_s & Hσ_t & Hσ_s & Hinv) [% %]] !>".
   iDestruct (heap_ctx_wf with "Hσ_s") as %?.
   iDestruct (heap_read_1 with "Hσ_s Hl") as %?.
   assert (∃ e_s' σ_s', head_step P_s (Store ScOrd (Val $ LitV (LitLoc l)) (Val v)) σ_s e_s' σ_s' []) as (e_s' & σ_s' & Hred).

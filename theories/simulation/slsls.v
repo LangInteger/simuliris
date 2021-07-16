@@ -934,7 +934,7 @@ Section fix_lang.
   (** source_red allows to focus the reasoning on the source expression
     (while being able to switch back and forth to the full simulation at any point) *)
   Definition source_red_rec (Ψ : expr Λ → PROP) π (rec : exprO → PROP) e_s :=
-    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+    (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ rec e_s')
@@ -987,7 +987,7 @@ Section fix_lang.
 
   Lemma source_red_unfold e_s π Ψ :
     source_red e_s π Ψ ⊣⊢
-      ∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧
+      ∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧
           pool_safe P_s T_s σ_s⌝ ==∗
         (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)
         ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_s).
@@ -995,16 +995,16 @@ Section fix_lang.
 
   Lemma source_red_elim Ψ π e_s :
     source_red e_s π Ψ -∗
-    ∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+    ∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s).
   Proof.
     iIntros "H". rewrite source_red_eq.
-    iApply (source_red_ind _ (λ e_s, ∀ P_s σ_s P_t σ_t T_s K_s,
+    iApply (source_red_ind _ (λ e_s, ∀ P_t σ_t P_s σ_s  T_s K_s,
        state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝ ==∗
         ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s))%I);
     last done.
-    clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_s σ_s P_t σ_t T_s K_s) "[HSI [% %]]".
+    clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_t σ_t P_s σ_s T_s K_s) "[HSI [% %]]".
     rewrite /source_red_rec.
     iMod ("IH" with "[$HSI //]") as "IH".
     iDestruct "IH" as "[Hstep | [Hstate Hp]]"; first last.
@@ -1026,14 +1026,14 @@ Section fix_lang.
 
   Lemma source_red_step Ψ e_s π :
     (* FIXME: quantification order is inconsistent with simulation relation. *)
-    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
+    (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)) -∗
     source_red e_s π Ψ.
   Proof.
     iIntros "Hstep". rewrite source_red_unfold.
-    iIntros (P_s σ_s P_t σ_t T_s K_s) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro.
+    iIntros (P_t σ_t P_s σ_s T_s K_s) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro.
     iFrame.
   Qed.
 
@@ -1056,7 +1056,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_pool_reach_stuck e_s π Ψ :
-    (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s -∗ ⌜T_s !! π = Some (fill K_s e_s)⌝ ==∗
+    (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s -∗ ⌜T_s !! π = Some (fill K_s e_s)⌝ ==∗
         ⌜pool_reach_stuck P_s T_s σ_s⌝) -∗
     source_red e_s π Ψ.
   Proof.
@@ -1066,7 +1066,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_reach_stuck e_s π Ψ :
-    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜reach_stuck P_s e_s σ_s⌝) -∗
+    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜reach_stuck P_s e_s σ_s⌝) -∗
     source_red e_s π Ψ.
   Proof.
     iIntros "Hstuck". iApply source_red_pool_reach_stuck.
@@ -1075,7 +1075,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_stuck e_s π Ψ :
-    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜stuck P_s e_s σ_s⌝) -∗
+    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜stuck P_s e_s σ_s⌝) -∗
     source_red e_s π Ψ.
   Proof.
     iIntros "Hstuck". iApply source_red_reach_stuck.
@@ -1121,8 +1121,7 @@ Section fix_lang.
 
   (** ** same thing for target *)
   Definition target_red_rec (Ψ : expr Λ → PROP) (rec : exprO → PROP) e_t :=
-    (* FIXME: quantification order is inconsistent with simulation relation. *)
-    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
+    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
       (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
         ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ rec e_t')
       ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_t))%I.
@@ -1166,7 +1165,7 @@ Section fix_lang.
 
   Lemma target_red_unfold e_t Ψ :
     target_red e_t Ψ ⊣⊢
-      ∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
+      ∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
         (⌜reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
           ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ target_red e_t' Ψ)
         ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_t).
@@ -1189,13 +1188,13 @@ Section fix_lang.
   Qed.
 
   Lemma target_red_step Ψ e_t :
-    (∀ P_s σ_s P_t σ_t T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
+    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗
       (⌜ reducible P_t e_t σ_t⌝ ∗ ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
         ⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ target_red e_t' Ψ)) -∗
     target_red e_t Ψ .
   Proof.
     iIntros "Hstep". rewrite target_red_unfold.
-    iIntros (P_s σ_s P_t σ_t T_s) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro. iFrame.
+    iIntros (P_t σ_t P_s σ_s T_s) "Hstate". iLeft. iMod ("Hstep" with "Hstate"). iModIntro. iFrame.
   Qed.
 
   Lemma target_red_sim_expr e_s e_t Φ π:
