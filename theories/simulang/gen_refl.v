@@ -183,7 +183,7 @@ Section log_rel.
   Proof using Hpers.
     rewrite /gen_log_rel.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs Ht"; simpl.
-    iApply (sim_while_while _ _ _ _ _ (thread_own _)%I with "[$]").
+    iApply (sim_while_while (thread_own _)%I with "[$]").
     iModIntro; iIntros "Ht".
     smart_sim_bind (subst_map _ e1_t) (subst_map _ e1_s) "(IH1 [] Ht)".
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }

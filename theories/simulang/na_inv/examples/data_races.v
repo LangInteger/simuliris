@@ -154,7 +154,7 @@ Section data_race.
         †li_s…s 1 ∗ †lsum_s…s 1 ∗ †li_t…t 1 ∗ †lsum_t…t 1)%I.
 
       sim_bind (While _ _) (While _ _).
-      iApply (sim_while_while _ _ _ _ _ inv with "[Hfi_s Hli_s Hx_t Hx_s Hc Hfsum_s Hlsum_s Hfi_t Hli_t Hfsum_t Hlsum_t] []").
+      iApply (sim_while_while inv with "[Hfi_s Hli_s Hx_t Hx_s Hc Hfsum_s Hlsum_s Hfi_t Hli_t Hfsum_t Hlsum_t] []").
       { iExists 0, vx_t, vx_s. iFrame. done. }
       iModIntro. iIntros "(%z_i & %vsum_t & %vsum_s & Hx_t & Hx_s & Hli_s & Hli_t & Hlsum_t & Hlsum_s & #Hvr & Hc & ? & ? & ? & ?)".
       source_load. source_load. target_load. to_sim.
@@ -229,7 +229,7 @@ Section data_race.
         †li_s…s 1 ∗ †lsum_s…s 1 ∗ †li_t…t 1 ∗ †lsum_t…t 1)%I.
 
       sim_bind (While _ _) (While _ _).
-      iApply (sim_while_while _ _ _ _ _ inv with "[Hy_t Hy_s Hfi_s Hli_s Hx_t Hx_s Hc Hfsum_s Hlsum_s Hfi_t Hli_t Hfsum_t Hlsum_t] []").
+      iApply (sim_while_while inv with "[Hy_t Hy_s Hfi_s Hli_s Hx_t Hx_s Hc Hfsum_s Hlsum_s Hfi_t Hli_t Hfsum_t Hlsum_t] []").
       { iExists 0, vx_t, vx_s. iFrame. done. }
       iModIntro. iIntros "(%z_i & %vsum_t & %vsum_s & Hx_t & Hx_s & Hy_t & Hy_s & Hli_s & Hli_t & Hlsum_t & Hlsum_s & #Hvr & Hc & ? & ? & ? & ?)".
       source_load. source_load. target_load. sim_pures.
@@ -346,7 +346,7 @@ Section data_race.
       †lr_s…s 1 ∗ †li_s…s 1 ∗ †lr_t…t 1 ∗ †li_t…t 1 ∗
       lr_s ↦s #z_r ∗ li_s ↦s #z_i ∗ lr_t ↦t #z_r ∗ li_t ↦t #z_i ∗
       n_t ↦t{#q} v_t ∗ n_s ↦s{#q} v_s ∗ na_locs π (<[n_s:=(n_t, NaRead q)]> ∅))%I).
-    iApply (sim_while_while _ _ _ _ _ inv with "[-]").
+    iApply (sim_while_while inv with "[-]").
     { rewrite /inv. eauto with iFrame. }
     iIntros "!> (%z_i & %z_r & ? & ? & ? & ? & Hlr_s & Hli_s & Hlr_t & Hli_t & Hl_t&Hl_s&Hc)".
     source_load. source_load. target_load. sim_pures.
@@ -471,8 +471,7 @@ Section data_race.
       iIntros "Hc". sim_val. sim_pures.
 
       sim_bind (While _ _) (While _ _).
-      iApply (sim_while_while _ _ _ _ _ (
-         l_t ↦t{#q} #m ∗ l_s ↦s{#q} #m ∗ na_locs π (<[l_s:=(l_t, NaRead q)]> ∅))%I with "[-]").
+      iApply (sim_while_while (l_t ↦t{#q} #m ∗ l_s ↦s{#q} #m ∗ na_locs π (<[l_s:=(l_t, NaRead q)]> ∅))%I with "[-]").
       { eauto with iFrame. }
       iIntros "!> (Hl_t&Hl_s&Hc)".
       sim_bind (subst_map _ _) (subst_map _ _).

@@ -281,7 +281,7 @@ Section data_race.
         na_locs π (<[l_s:=(l_t, NaRead qx)]> ∅))%I.
 
       sim_bind (While _ _) (While _ _).
-      iApply (sim_while_while _ _ _ _ _ inv with "[Hli_s Hx_t Hx_s Hc Hlr_s Hli_t Hlr_t] []").
+      iApply (sim_while_while inv with "[Hli_s Hx_t Hx_s Hc Hlr_s Hli_t Hlr_t] []").
       { iExists 0, vx_t, vx_s. iFrame. done. }
       iModIntro. iIntros "(%z_i & %vr_t & %vr_s & Hx_t & Hx_s & Hli_s & Hli_t & Hlr_t & Hlr_s & #Hvr & Hc)".
       source_load. source_load. target_load. to_sim.
@@ -354,7 +354,7 @@ Section data_race.
         na_locs π (<[ly_s:=(ly_t, NaRead qy)]> $ <[lx_s:=(lx_t, NaRead qx)]> ∅))%I.
 
       sim_bind (While _ _) (While _ _).
-      iApply (sim_while_while _ _ _ _ _ inv with "[Hy_t Hy_s Hli_s Hx_t Hx_s Hc Hlr_s Hli_t Hlr_t] []").
+      iApply (sim_while_while inv with "[Hy_t Hy_s Hli_s Hx_t Hx_s Hc Hlr_s Hli_t Hlr_t] []").
       { iExists 0, vx_t, vx_s. iFrame. done. }
       iModIntro. iIntros "(%z_i & %vr_t & %vr_s & Hx_t & Hx_s & Hy_t & Hy_s & Hli_s & Hli_t & Hlr_t & Hlr_s & #Hvr & Hc)".
       source_load. source_load. target_load. sim_pures.

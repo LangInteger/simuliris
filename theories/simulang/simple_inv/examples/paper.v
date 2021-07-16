@@ -234,7 +234,7 @@ Section fix_bi.
         the loop)
     *)
     set inv := (†l_s…s 1 ∗ †l_t…t 1 ∗ l_s ↦s #0 ∗ l_t ↦t #0)%I.
-    iApply (sim_while_while _ _ _ _ _ inv with "[$Hf_s $Hl_s $Hf_t $Hl_t]").
+    iApply (sim_while_while inv with "[$Hf_s $Hl_s $Hf_t $Hl_t]").
     iModIntro.
     iIntros "(? & ? & Hl_s & Hl_t)".
     (* loop condition *)
@@ -276,7 +276,7 @@ Section fix_bi.
         the loop)
     *)
     set inv := (†l_s…s 1 ∗ †l_t…t 1 ∗ l_s ↦s #0 ∗ l_t ↦t #0)%I.
-    iApply (sim_while_while _ _ _ _ _ inv with "[$Hf_s $Hl_s $Hf_t $Hl_t]").
+    iApply (sim_while_while inv with "[$Hf_s $Hl_s $Hf_t $Hl_t]").
     iModIntro.
     iIntros "(? & ? & Hl_s & Hl_t)".
     (* loop condition *)

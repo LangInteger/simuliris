@@ -130,7 +130,7 @@ Section fix_bi.
     iIntros "#Hs".
     log_rel. iIntros "!#" (π') "_".
     target_alloc lc_t as "Hlc_t" "_". sim_pures.
-    iApply (sim_while_rec _ _ _ _ (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
+    iApply (sim_while_rec (λ v_s, ∃ v_t, val_rel v_t v_s ∗ lc_t ↦t v_t)%I with "[Hlc_t] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_s') "He". iDestruct "He" as (v_t) "[Hv Hlc_t]". sim_pures.
 
@@ -150,7 +150,7 @@ Section fix_bi.
   Proof.
     iIntros "#Hs". log_rel. iIntros "!#" (π') "_".
     rewrite /input_loop. source_alloc lc_s as "Hlc_s" "Ha_s". sim_pures.
-    iApply (sim_rec_while _ _ _ _ (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
+    iApply (sim_rec_while (λ v_t, ∃ v_s, val_rel v_t v_s ∗ lc_s ↦s v_s)%I with "[Hlc_s] Hs").
     { iExists #true. eauto. }
     iModIntro. iIntros (v_t') "He". iDestruct "He" as (v_s) "[Hv Hlc_s]". sim_pures.
 

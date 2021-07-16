@@ -605,7 +605,7 @@ Qed.
 
 (** Coinduction support *)
 
-Lemma sim_while_while π b_t b_s c_t c_s inv Ψ :
+Lemma sim_while_while {π b_t b_s c_t c_s} inv Ψ :
   inv -∗
   □ (inv -∗
     (if: c_t then b_t ;; while: c_t do b_t od else #())%E ⪯{π}
@@ -618,7 +618,7 @@ Proof.
     [apply pure_while | apply pure_while | done.. ].
 Qed.
 
-Lemma sim_while_rec b_t c_t v_s (fn_s : func) (inv : val → iProp Σ) Ψ rec_n π :
+Lemma sim_while_rec {b_t c_t v_s} (inv : val → iProp Σ) (fn_s : func)  Ψ rec_n π :
   inv v_s -∗
   rec_n @s fn_s -∗
   □ (∀ v_s', inv v_s' -∗
@@ -641,7 +641,7 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_while b_s c_s v_t (fn_t : func) (inv : val → iProp Σ) Ψ rec_n π :
+Lemma sim_rec_while {b_s c_s v_t} (inv : val → iProp Σ) (fn_t : func) Ψ rec_n π :
   inv v_t -∗
   rec_n @t fn_t -∗
   □ (∀ v_t', inv v_t' -∗
@@ -666,7 +666,7 @@ Proof.
   apply: fill_prim_step. apply: head_prim_step. by constructor.
 Qed.
 
-Lemma sim_rec_rec v_t v_s (fn_t fn_s : func) (inv : val → val → iProp Σ) Ψ rec_t rec_s π :
+Lemma sim_rec_rec {v_t v_s} (inv : val → val → iProp Σ) (fn_t fn_s : func)  Ψ rec_t rec_s π :
   inv v_t v_s -∗
   rec_t @t fn_t -∗
   rec_s @s fn_s -∗
