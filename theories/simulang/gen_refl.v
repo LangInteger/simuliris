@@ -1,12 +1,13 @@
+(** * Lemmas for proving [log_rel]
+
+    This file provides a set of lemmas for proving [gen_log_rel loc_rel
+    thread_own] for arbitrary [loc_rel] and [thread_own] by exploiting
+    the structure of the value relation. *)
+
 From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simulang Require Import proofmode tactics.
 From simuliris.simulang Require Import primitive_laws gen_val_rel wf.
 From iris.prelude Require Import options.
-
-(** * Lemmas for proving [log_rel]
-    This file provides a set of lemmas for proving [gen_log_rel loc_rel
-    thread_own] for arbitrary [loc_rel] and [thread_own] by exploiting
-    the structure of the value relation. *)
 
 Section log_rel.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.

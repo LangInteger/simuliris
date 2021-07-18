@@ -24,7 +24,7 @@ Proof.
 Qed.
 
 Lemma curry3_uncurry3 {X Y Z A: ofe} (f: X * Y * Z -> A) (x: prodO (prodO X Y) Z):
-  f x ≡ curry3 (uncurry3 f) x.
+  f x = curry3 (uncurry3 f) x.
 Proof.
   destruct x as [[x y] z]; reflexivity.
 Qed.
@@ -50,7 +50,7 @@ Proof.
 Qed.
 
 Lemma curry4_uncurry4 {W X Y Z A: ofe} (f: W * X * Y * Z -> A) (x: prodO (prodO (prodO W X) Y) Z):
-  f x ≡ curry4 (uncurry4 f) x.
+  f x = curry4 (uncurry4 f) x.
 Proof.
   destruct x as [[[w x] y] z]; reflexivity.
 Qed.

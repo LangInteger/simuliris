@@ -16,12 +16,13 @@ Class SimE (PROP : bi) (Λ : language) :=
 (* We assume only one instance is ever in scope, hence no mode *)
 
 (* FIXME what are good levels for et, es? *)
-Notation "et '⪯{' π '}' es {{ Φ }}" := (sim Φ π et es) (at level 40, Φ at level 200,
+(* TODO: Experiment with linebreaks. *)
+Notation "et '⪯{' π '}' es {{ Φ }}" := (sim Φ π et es) (at level 70, Φ at level 200,
   format "et  '⪯{' π '}'  es  {{  Φ  }}") : bi_scope.
 
 (* FIXME: the notation with binder doesn't work; left-factoring seems to fail.
 Notation "et  '⪯'  es  {{  v_t  v_s ,  P  }}" := (sim et es (λ v_t v_s, P)) (at level 40, v_t, v_s at level 200, P at level 200) : bi_scope. *)
 
 (* TODO: different symbols (no brackets) for expr thing *)
-Notation "et '⪯{' π '}' es [{ Φ }]" := (sim_expr Φ π et es) (at level 40, Φ at level 200,
+Notation "et '⪯{' π '}' es [{ Φ }]" := (sim_expr Φ π et es) (at level 70, Φ at level 200,
   format "et  '⪯{' π '}'  es  [{  Φ  }]") : bi_scope.

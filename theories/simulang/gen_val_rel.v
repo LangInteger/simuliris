@@ -1,13 +1,14 @@
+(** * Structural value relation
+
+This file defines [gen_val_rel] that structually lifts a relation
+[loc_rel] on locations to values. It is used by [sheap] instances to define
+[sheap_val_rel]. *)
+
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import iprop.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simulang Require Import notation.
 From iris.prelude Require Import options.
-
-(** * Structural value relation
-This file defines [gen_val_rel] that structually lifts a relation
-[loc_rel] on locations to values. It is used by [sheap] instances to define
-[sheap_val_rel]. *)
 
 Section gen_val_rel.
   Context {Σ} (loc_rel : loc → loc → iProp Σ).

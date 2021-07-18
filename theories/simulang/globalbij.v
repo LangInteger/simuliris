@@ -1,13 +1,13 @@
-From simuliris.simulation Require Import slsls lifting gen_log_rel.
-From simuliris.simulang Require Import proofmode tactics.
-From simuliris.simulang Require Import primitive_laws gen_val_rel.
-From iris.prelude Require Import options.
-
 (** * Bijection between global variables
 
 This file defines [globalbij] that asserts that all global variables
 are related via a [loc_rel] chosen by the user. It is used to prove
 the reflexivity of [GlobalVar x]. *)
+
+From simuliris.simulation Require Import slsls lifting gen_log_rel.
+From simuliris.simulang Require Import proofmode tactics.
+From simuliris.simulang Require Import primitive_laws gen_val_rel.
+From iris.prelude Require Import options.
 
 Section globalbij.
   Context `{!sheapGS Σ} `{!sheapInv Σ}.

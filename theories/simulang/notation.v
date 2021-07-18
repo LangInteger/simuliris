@@ -82,7 +82,7 @@ Notation "e1 <- e2" := (Store Na1Ord e1%E e2%E) (at level 80) : expr_scope.
 Notation "e1 <-ˢᶜ e2" := (Store ScOrd e1%E e2%E) (at level 80) : expr_scope.
 
 Notation "'while:' e1 'do' e2 'od'" := (While e1%E e2%E)
-  (at level 99, e1, e2 at level 200, format
+  (at level 200, e1, e2 at level 200, format
     "'while:'  e1  'do'  '[hv ' e2  'od'  ']'") : expr_scope.
 Notation "'if:' e1 'then' e2 'else' e3" := (If e1%E e2%E e3%E)
   (at level 200, e1, e2, e3 at level 200) : expr_scope.

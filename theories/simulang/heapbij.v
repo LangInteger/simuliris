@@ -1,3 +1,8 @@
+(** * Library for defining a bijection between source and target heaps
+
+    This file provides the ghost state for establishing a bijection
+    between source and target heaps.  *)
+
 From iris.algebra.lib Require Import gset_bij.
 From iris.proofmode Require Import tactics.
 From iris.bi.lib Require Import fractional .
@@ -9,9 +14,6 @@ From simuliris.simulang Require Import notation gen_val_rel primitive_laws.
 
 From iris.prelude Require Import options.
 
-(** * Library for defining a bijection between source and target heaps
-    This file provides the ghost state for establishing a bijection
-    between source and target heaps.  *)
 Class heapbijGS (Σ : gFunctors) := HeapBijGS {
   heapbijG_bijG :> gset_bijG Σ block block;
   heapbijG_bij_name : gname;
