@@ -368,10 +368,18 @@ Section fix_lang.
     rewrite sim_expr_fixpoint /sim_expr_inner //.
   Qed.
 
-  (* FIXME: should use [pointwise_relation] *)
-  Global Instance sim_expr_ne:
-    NonExpansive4 (sim_expr: expr_rel → thread_id → expr_rel).
-  Proof. rewrite sim_expr_eq. apply _. Qed.
+  Global Instance sim_expr_ne n:
+    Proper
+    ((pointwise_relation (expr Λ) (pointwise_relation (expr Λ) (dist n))) ==>
+      eq ==>
+      eq ==>
+      eq ==>
+      (dist n))
+    (sim_expr).
+  Proof.
+    intros p1 p2 Heq2 π π' -> e e' -> e1 e1' ->.
+    rewrite !sim_expr_eq. eapply greatest_def_ne; done.
+  Qed.
 
   Global Instance sim_expr_proper:
     Proper ((pointwise_relation (expr Λ) (pointwise_relation (expr Λ) (≡))) ==> eq ==> eq ==> eq ==> (≡)) (sim_expr).
@@ -380,12 +388,11 @@ Section fix_lang.
     rewrite !sim_expr_eq. eapply greatest_def_proper; done.
   Qed.
 
-  (* FIXME: should use [pointwise_relation] *)
-  Global Instance sim_ne:
-    NonExpansive4 (sim: (val Λ -d> val Λ -d> PROP) → thread_id → expr_rel).
+  Global Instance sim_ne n:
+    Proper ((pointwise_relation (val Λ) (pointwise_relation (val Λ) (dist n))) ==> eq ==> eq ==> eq ==> (dist n)) (sim).
   Proof.
-    intros ? ?? Hpost ??? ??? ???. apply sim_expr_ne; [|done..].
-    rewrite /lift_post => ??. repeat f_equiv. apply Hpost.
+    intros ?? Hpost ??? ??? ???. apply sim_expr_ne; [|done..].
+    rewrite /lift_post => ??. repeat f_equiv.
   Qed.
 
   Global Instance sim_proper:
@@ -404,13 +411,11 @@ Section fix_lang.
   Proof.
     iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
     rewrite sim_expr_eq /greatest_def {3}/uncurry4.
-    set (F_curry := curry4 F).
-    assert (NonExpansive F_curry) as Hne; first by eapply @curry4_ne, _.
-    change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
+    change (F Φ π e_t e_s) with (curry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    iApply (greatest_fixpoint_strong_coind _ F_curry with "[] HF").
+    unshelve iApply (greatest_fixpoint_strong_coind _ (curry4 F) with "[] HF").
+    { (* Coq's old [tactic] unification is too weak for this. *) apply: curry4_ne. }
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
-    rewrite /F_curry.
     iApply ("HPre" $! Φ π e_t e_s).
   Qed.
 
@@ -435,13 +440,12 @@ Section fix_lang.
   Proof.
     iIntros (Hne1 Hne2) "#HPre". iIntros (Φ π e_t e_s) "HF".
     rewrite {2}/least_def {1}/uncurry4.
-    set (F_curry := curry4 F).
-    assert (NonExpansive F_curry); first by eapply @curry4_ne, _.
-    change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
+    change (F Φ π e_t e_s) with (curry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    iApply (least_fixpoint_strong_ind _ F_curry with "[] HF").
+    unshelve iApply (least_fixpoint_strong_ind _ (curry4 F) with "[] HF").
+    { (* Coq's old [tactic] unification is too weak for this. *) apply: curry4_ne. }
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
-    rewrite /F_curry {1}/uncurry4 {1}/curry4.
+    rewrite {1}/uncurry4 {1}/curry4.
     iIntros "H". iApply "HPre". iExact "H".
   Qed.
 
@@ -548,16 +552,10 @@ Section fix_lang.
       e_t' ⪯{π} e_s' [{ λ e_t'' e_s'', fill K_t e_t'' ⪯{π} fill K_s e_s'' [{ Φ }] }]) ∨ sim_expr Φ π e_t e_s)%I.
 
   Local Instance bind_coind_pred_ne: NonExpansive (bind_coind_pred : expr_rel → thread_idO -d> expr_rel).
-  Proof.
-    rewrite /bind_coind_pred. solve_proper_prepare; repeat f_equiv.
-    intros ??. by f_equiv.
-  Qed.
+  Proof. solve_proper. Qed.
 
   Local Instance bind_coind_rec_ne: NonExpansive (bind_coind_rec: expr_rel → thread_idO -d> expr_rel).
-  Proof.
-    rewrite /bind_coind_pred. solve_proper_prepare; repeat f_equiv; [ | done..].
-    intros ??. by f_equiv.
-  Qed.
+  Proof. solve_proper. Qed.
 
   Lemma sim_expr_bind K_t K_s e_t e_s Φ π :
     e_t ⪯{π} e_s [{ λ e_t' e_s', fill K_t e_t' ⪯{π} fill K_s e_s' [{ Φ }] }] -∗
