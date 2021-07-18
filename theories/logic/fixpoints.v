@@ -10,7 +10,7 @@ Import bi.
 (** Least and greatest fixpoint of a monotone function, defined entirely inside
     the logic.  *)
 Class BiMonoPred {PROP : bi} {A : ofe} (F : (A → PROP) → (A → PROP)) := {
-  bi_mono_pred (Φ Ψ : A → PROP): NonExpansive Φ → NonExpansive Ψ → ⊢ <pers> (∀ x, Φ x -∗ Ψ x) -∗ ∀ x, F Φ x -∗ F Ψ x;
+  bi_mono_pred (Φ Ψ : A → PROP): NonExpansive Φ → NonExpansive Ψ → ⊢ □ (∀ x, Φ x -∗ Ψ x) -∗ ∀ x, F Φ x -∗ F Ψ x;
   bi_mono_pred_ne Φ : NonExpansive Φ → NonExpansive (F Φ)
 }.
 Global Arguments bi_mono_pred {_ _ _ _} _ _ _ _.
@@ -18,12 +18,12 @@ Local Existing Instance bi_mono_pred_ne.
 
 Definition bi_least_fixpoint {PROP : bi} {A : ofe}
     (F : (A → PROP) → (A → PROP)) (x : A) : PROP :=
-  tc_opaque (∀ Φ : A -n> PROP, <pers> (∀ x, F Φ x -∗ Φ x) → Φ x)%I.
+  tc_opaque (∀ Φ : A -n> PROP, □ (∀ x, F Φ x -∗ Φ x) -∗ Φ x)%I.
 Global Arguments bi_least_fixpoint : simpl never.
 
 Definition bi_greatest_fixpoint {PROP : bi} {A : ofe}
     (F : (A → PROP) → (A → PROP)) (x : A) : PROP :=
-  tc_opaque (∃ Φ : A -n> PROP, <pers> (∀ x, Φ x -∗ F Φ x) ∧ Φ x)%I.
+  tc_opaque (∃ Φ : A -n> PROP, □ (∀ x, Φ x -∗ F Φ x) ∗ Φ x)%I.
 Global Arguments bi_greatest_fixpoint : simpl never.
 
 
@@ -151,7 +151,7 @@ End greatest.
 
 
 
-Instance paco_mono {PROP : bi} `{!BiAffine PROP} {A : ofe} (F : (A → PROP) → (A → PROP)) `{!BiMonoPred F} Φ:
+Instance paco_mono {PROP : bi} {A : ofe} (F : (A → PROP) → (A → PROP)) `{!BiMonoPred F} Φ:
   NonExpansive Φ →
   BiMonoPred (λ (Ψ : A → PROP) (a : A), Φ a ∨ F Ψ a)%I.
 Proof.
@@ -161,7 +161,8 @@ Proof.
   - iIntros (Ψ Hne). solve_proper.
 Qed.
 
-Lemma greatest_fixpoint_paco {PROP : bi} `{!BiAffine PROP} {A : ofe} (F : (A → PROP) → (A → PROP)) `{!BiMonoPred F} (Φ : A → PROP) `{!NonExpansive Φ} :
+Lemma greatest_fixpoint_paco {PROP : bi} {A : ofe}
+    (F : (A → PROP) → (A → PROP)) `{!BiMonoPred F} (Φ : A → PROP) `{!NonExpansive Φ} :
   □ (∀ y, Φ y -∗ F (bi_greatest_fixpoint (λ Ψ a, Φ a ∨ F Ψ a)) y) -∗
   ∀ x, Φ x -∗ bi_greatest_fixpoint F x.
 Proof using Type*.
