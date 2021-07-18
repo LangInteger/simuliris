@@ -209,11 +209,11 @@ Definition na_alt_exec (P : prog) (σ : state) (T : list expr) (p : loc) (π : t
     σ'.(globals) = σ.(globals).
 
 Definition na_locs_wf (cols : list (gmap loc (loc * na_locs_state))) (P_s : prog) (σ_s : state) (T_s : list expr) : Prop :=
-  ∀ (tid : nat) col, cols !! tid = Some col →
+  ∀ (π : nat) col, cols !! π = Some col →
    ∃ (lcol : list (loc * na_locs_state)),
      (∀ (p_s : loc) p_t ns, col !! p_s = Some (p_t, ns) → (p_s, ns) ∈ lcol) ∧
      ∀ (p_s : loc) ns, (p_s, ns) ∈ lcol →
-      na_alt_exec P_s σ_s T_s p_s tid ns (list_to_set (fst <$> filter (λ x, x.2 = NaExcl) lcol)).
+      na_alt_exec P_s σ_s T_s p_s π ns (list_to_set (fst <$> filter (λ x, x.2 = NaExcl) lcol)).
 
 Section na_alt_exec.
 
@@ -570,8 +570,8 @@ Section na_locs_wf.
     (∀ σ_s', σ_s'.(globals) = σ_s.(globals) → prim_step P_s e_s σ_s' e_s' σ_s' []) →
     na_locs_wf cols P_s σ_s (<[π:=e_s']> T).
   Proof.
-    move => Hwf HT Hstep tid col Hcol.
-    have [lcol [Hlcol {}Hwf]]:= Hwf tid col Hcol.
+    move => Hwf HT Hstep π' col Hcol.
+    have [lcol [Hlcol {}Hwf]]:= Hwf π' col Hcol.
     eexists lcol. split; [done|]. move => p_s ws Hp.
     apply: na_alt_exec_pure; [naive_solver| done..].
   Qed.
