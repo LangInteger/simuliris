@@ -28,8 +28,8 @@ Section language_setup.
   Implicit Types (e: expr) (T: list expr) (D: delays) (P: pool).
 
 
-  Definition no_fork e e' := step e e' [].
-  Definition no_forks e e' := rtc no_fork e e'.
+  Definition step_no_fork e e' := step e e' [].
+  Definition steps_no_fork e e' := rtc step_no_fork e e'.
 
   Definition threads T :=
     list_to_set (C := gset nat) (seq 0 (length T)).
@@ -142,8 +142,8 @@ Section language_setup.
   Qed.
 
   (* Lemma no_forks_pool_steps e e' e'' i T:
-    no_fork e e' →
-    no_forks e' e'' →
+    step_no_fork e e' →
+    steps_no_fork e' e'' →
     T !! i = Some e →
     pool_steps T [i] (<[i := e'']> T).
   Proof.

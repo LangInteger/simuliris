@@ -11,7 +11,7 @@ Section fair_termination_preservation.
   (* Per-Thread Simulation *)
   Definition sim_expr_inner (outer: relation expr) (inner: relation expr) (e_t e_s: expr) :=
     (* value case *)
-    (val e_t ∧ ∃ e_s', no_forks e_s e_s' ∧ val e_s') ∨
+    (val e_t ∧ ∃ e_s', steps_no_fork e_s e_s' ∧ val e_s') ∨
     (* target step case *)
     ((∃ e_t' T_t, step e_t e_t' T_t) ∧
      (∀ e_t' T_t, step e_t e_t' T_t →
@@ -19,7 +19,7 @@ Section fair_termination_preservation.
       (T_t = [] ∧ inner e_t' e_s) ∨
       (* no stuttering *)
       (∃ e_s' e_s'' T_s,
-        no_forks e_s e_s' ∧
+        steps_no_fork e_s e_s' ∧
         step e_s' e_s'' T_s ∧
         length T_t = length T_s ∧
         ∀ e_t e_s, (e_t, e_s) ∈ zip (e_t' :: T_t) (e_s'' :: T_s) → outer e_t e_s)
@@ -91,7 +91,7 @@ Section fair_termination_preservation.
   Lemma sim_expr_inv_val e_s e_t:
     sim_expr e_t e_s →
     val e_t →
-    ∃ e_s', no_forks e_s e_s' ∧ val e_s'.
+    ∃ e_s', steps_no_fork e_s e_s' ∧ val e_s'.
   Proof.
     rewrite sim_expr_unfold sim_expr_body_unfold /sim_expr_inner.
     intros [[Ht Hs]|Hstep] Hval; first done.
@@ -102,7 +102,7 @@ Section fair_termination_preservation.
     sim_expr e_t e_s → step e_t e_t' T_t →
     T_t = [] ∧ sim_expr e_t' e_s ∨
     ∃ e_s' e_s'' T_s,
-      no_forks e_s e_s' ∧
+      steps_no_fork e_s e_s' ∧
       step e_s' e_s'' T_s ∧
       length T_t = length T_s ∧
       ∀ e_t e_s, (e_t, e_s) ∈ zip (e_t' :: T_t) (e_s'' :: T_s) → sim_expr e_t e_s.
@@ -124,7 +124,7 @@ Section fair_termination_preservation.
     rewrite sim_expr_fixpoint /sim_expr_inner.
     left. split; first done.
     exists e_s; split; last done.
-    rewrite /no_forks; reflexivity.
+    rewrite /steps_no_fork; reflexivity.
   Qed.
 
   Lemma sim_expr_intro_step e_s e_t:
@@ -140,7 +140,7 @@ Section fair_termination_preservation.
     right. split; first done.
     intros e_t' T_t Hstep.
     right. destruct (NoStutter e_t' T_t Hstep) as (e_s' & T_s & Hstep' & Hlen & Hall).
-    exists e_s, e_s', T_s; split; first by (rewrite /no_forks; reflexivity).
+    exists e_s, e_s', T_s; split; first by (rewrite /steps_no_fork; reflexivity).
     eauto.
   Qed.
 
@@ -156,7 +156,7 @@ Section fair_termination_preservation.
   Qed.
 
   Lemma sim_expr_intro_stutter_target e_s e_s' e_t:
-    no_fork e_s e_s' →
+    step_no_fork e_s e_s' →
     sim_expr e_t e_s' →
     sim_expr e_t e_s.
   Proof.
@@ -171,7 +171,7 @@ Section fair_termination_preservation.
       intros e_t' T_t' Hstep. right.
       destruct (AllSteps e_t' T_t' Hstep) as [Stutter|NoStutter].
       + destruct Stutter as [-> Hsim].
-        exists e_s, e_s', []. split; first by (rewrite /no_forks; reflexivity).
+        exists e_s, e_s', []. split; first by (rewrite /steps_no_fork; reflexivity).
         split; first done. split; first done.
         simpl. set_solver.
       + destruct NoStutter as (e_s'' & e_s''' & T_s & Hfrk' & Hstep' & Hlen & Hall).
@@ -381,7 +381,7 @@ Qed.
 
 Lemma local_all_stutter_target_no_fork P j e_t e_s e_s' O D:
   P !! j = Some (e_t, e_s) →
-  no_fork e_s e_s' →
+  step_no_fork e_s e_s' →
   local_all (<[j := (e_t, e_s')]> P) (O ∖ {[j]}) D →
   local_all P O D.
 Proof.
@@ -397,7 +397,7 @@ Qed.
 
 Lemma local_all_stutter_target_no_forks P j e_t e_s e_s' O D:
   P !! j = Some (e_t, e_s) →
-  no_forks e_s e_s' →
+  steps_no_fork e_s e_s' →
   local_all (<[j := (e_t, e_s')]> P) O D →
   local_all P O D.
 Proof.
@@ -426,7 +426,7 @@ Qed.
 
 
 Lemma no_forks_pool_step e e' T j:
-  no_fork e e' →
+  step_no_fork e e' →
   T !! j = Some e →
   pool_step T j (<[j := e']> T).
 Proof.
@@ -437,7 +437,7 @@ Qed.
 
 
 Lemma no_forks_pool_steps e e' T j:
-  no_forks e e' →
+  steps_no_fork e e' →
   T !! j = Some e →
   ∃ I, pool_steps T I (<[j := e']> T).
 Proof.
@@ -453,7 +453,7 @@ Qed.
 Lemma local_all_not_stuttered i e_t e_t' e_s e_s' e_s'' P O D' T_t' T_f_s T_f_t:
   T_t' = <[i := e_t']> P.(tgt) ++ T_f_t →
   P !! i = Some (e_t, e_s) →
-  no_forks e_s e_s' →
+  steps_no_fork e_s e_s' →
   step e_s' e_s'' T_f_s →
   length T_f_t = length T_f_s →
   local_all (<[i := (e_t', e_s'')]> P ++ zip T_f_t T_f_s) (O ∖ {[i]}) D' →

@@ -127,7 +127,7 @@ Section fix_lang.
         state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ -∗ |==>
       (* base case *)
-      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t e_s')
 
       ∨ (* step case *)
@@ -136,7 +136,7 @@ Section fix_lang.
         (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ least_rec Φ π e_t' e_s) ∨
         (* take a step *)
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
-          ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+          ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗ greatest_rec Φ π e_t' e_s'' ∗
           [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post (ext_rel (length T_s + π'))) (length T_s + π') e_t e_s))
@@ -144,7 +144,7 @@ Section fix_lang.
       ∨ (* call case *)
       (∃ f K_t v_t K_s' v_s σ_s',
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-        ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
+        ⌜steps_no_fork P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
         ext_rel π v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
         (∀ v_t v_s, ext_rel π v_t v_s -∗ greatest_rec Φ π (fill K_t (of_val v_t)) (fill K_s' (of_val v_s)) ))
     )%I.
@@ -342,7 +342,7 @@ Section fix_lang.
     (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ -∗ |==>
       (* base case *)
-      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t e_s')
 
       ∨ (* step case *)
@@ -351,7 +351,7 @@ Section fix_lang.
         (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ sim_expr Φ π e_t' e_s) ∨
         (* take a step *)
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
-          ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+          ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗
           sim_expr Φ π e_t' e_s'' ∗
@@ -360,7 +360,7 @@ Section fix_lang.
       ∨ (* call case *)
       (∃ f K_t v_t K_s' v_s σ_s',
         ⌜e_t = fill K_t (of_call f v_t)⌝ ∗
-        ⌜no_forks P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
+        ⌜steps_no_fork P_s e_s σ_s (fill K_s' (of_call f v_s)) σ_s'⌝ ∗
         ext_rel π v_t v_s ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s (fill K_s' (of_call f v_s))]> T_s) ∗
         (∀ v_t v_s, ext_rel π v_t v_s -∗ sim_expr Φ π (fill K_t (of_val v_t)) (fill K_s' (of_val v_s))))
     )%I.
@@ -682,7 +682,7 @@ Section fix_lang.
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' σ_t' efs_t, ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
+      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜step_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
       state_interp P_t σ_t' P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t' e_s')%I.
 
   Lemma sim_expr_paco F Φ π e_t e_s:
@@ -878,7 +878,7 @@ Section fix_lang.
   Lemma sim_step_source e_t e_s Φ π :
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-         ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+         ∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
                        state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ e_t ⪯{π} e_s' [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
@@ -917,7 +917,7 @@ Section fix_lang.
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' efs_t σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s) ∗ e_t' ⪯{π} e_s' [{ Φ }]) -∗
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
@@ -936,7 +936,7 @@ Section fix_lang.
   Definition source_red_rec (Ψ : expr Λ → PROP) π (rec : exprO → PROP) e_s :=
     (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ rec e_s')
       ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_s))%I.
 
@@ -989,7 +989,7 @@ Section fix_lang.
     source_red e_s π Ψ ⊣⊢
       ∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧
           pool_safe P_s T_s σ_s⌝ ==∗
-        (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)
+        (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)
         ∨ (state_interp P_t σ_t P_s σ_s T_s ∗ Ψ e_s).
   Proof. rewrite source_red_eq /= source_red_def_unfold //. Qed.
 
@@ -997,12 +997,12 @@ Section fix_lang.
     source_red e_s π Ψ -∗
     ∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-      ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s).
+      ∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s).
   Proof.
     iIntros "H". rewrite source_red_eq.
     iApply (source_red_ind _ (λ e_s, ∀ P_t σ_t P_s σ_s  T_s K_s,
        state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s) ∧ pool_safe P_s T_s σ_s⌝ ==∗
-        ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s))%I);
+        ∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗ Ψ e_s' ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s))%I);
     last done.
     clear e_s. iModIntro. iIntros (e_s) "IH". iIntros (P_t σ_t P_s σ_s T_s K_s) "[HSI [% %]]".
     rewrite /source_red_rec.
@@ -1028,7 +1028,7 @@ Section fix_lang.
     (* FIXME: quantification order is inconsistent with simulation relation. *)
     (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ source_red e_s' π Ψ)) -∗
     source_red e_s π Ψ.
   Proof.

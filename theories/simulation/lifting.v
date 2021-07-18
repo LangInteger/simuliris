@@ -142,7 +142,7 @@ Section lang.
 
   Lemma irred_unless_n P e e' σ σ' ϕ :
     safe P e σ →
-    no_forks P e σ e' σ' →
+    steps_no_fork P e σ e' σ' →
     IrredUnless ϕ P e' σ' →
     ϕ.
   Proof.

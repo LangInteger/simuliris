@@ -40,7 +40,7 @@ Section fix_lang.
         state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ -∗ |==>
       (* base case *)
-      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t e_s')
 
       ∨ (* step case *)
@@ -49,7 +49,7 @@ Section fix_lang.
         (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ least_rec Φ π e_t' e_s) ∨
         (* take a step *)
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
-          ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+          ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗ greatest_rec Φ π e_t' e_s'' ∗
           [∗ list] π'↦e_t; e_s ∈ efs_t; efs_s, greatest_rec (lift_post (ext_rel (length T_s + π'))) (length T_s + π') e_t e_s))
@@ -232,7 +232,7 @@ Section fix_lang.
     (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ -∗ |==>
       (* base case *)
-      (∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+      (∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
         state_interp P_t σ_t P_s σ_s' (<[π := fill K_s e_s']> T_s) ∗ Φ e_t e_s')
 
       ∨ (* step case *)
@@ -241,7 +241,7 @@ Section fix_lang.
         (⌜efs_t = []⌝ ∗ state_interp P_t σ_t' P_s σ_s T_s ∗ csim_expr Φ π e_t' e_s) ∨
         (* take a step *)
         (∃ e_s' e_s'' σ_s' σ_s'' efs_s,
-          ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗
+          ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗
           ⌜prim_step P_s e_s' σ_s' e_s'' σ_s'' efs_s⌝ ∗
           state_interp P_t σ_t' P_s σ_s'' (<[π := fill K_s e_s'']> T_s ++ efs_s) ∗
           csim_expr Φ π e_t' e_s'' ∗
@@ -581,7 +581,7 @@ Section fix_lang.
   Lemma csim_step_source e_t e_s Φ π :
     (∀ P_s σ_s P_t σ_t T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
-      ∃ e_s' σ_s', ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s) ∗ csim_expr Φ π e_t e_s') -∗
+      ∃ e_s' σ_s', ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t P_s σ_s' (<[π:=fill K_s e_s']>T_s) ∗ csim_expr Φ π e_t e_s') -∗
       csim_expr Φ π e_t e_s.
   Proof.
     rewrite csim_expr_unfold. iIntros "Hsource" (P_t σ_t P_s σ_s T_s K_s) "[Hstate [%HT %Hsafe]]".
@@ -615,7 +615,7 @@ Section fix_lang.
         ∧ pool_safe P_s T_s σ_s⌝ ==∗
       ⌜reducible P_t e_t σ_t⌝ ∗
       ∀ e_t' efs_t σ_t', ⌜prim_step P_t e_t σ_t e_t' σ_t' efs_t⌝ ==∗
-      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜no_forks P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s) ∗ csim_expr Φ π e_t' e_s') -∗
+      ∃ e_s' σ_s', ⌜efs_t = []⌝ ∗ ⌜steps_no_fork P_s e_s σ_s e_s' σ_s'⌝ ∗ state_interp P_t σ_t' P_s σ_s' (<[π:=fill K_s e_s']>T_s) ∗ csim_expr Φ π e_t' e_s') -∗
     csim_expr Φ π e_t e_s.
   Proof.
     iIntros "Hsim". rewrite csim_expr_unfold. iIntros (??????) "[Hstate [% %]]".
