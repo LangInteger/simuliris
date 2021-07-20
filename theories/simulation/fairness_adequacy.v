@@ -52,7 +52,7 @@ Definition must_step_inner (post: list (expr Λ * expr Λ) → PROP) (must_step:
     ))%I.
 
 Definition must_step (post: list (expr Λ * expr Λ) → PROP) :=
-  uncurry3 (bi_least_fixpoint (λ (must_step: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP), curry3 (must_step_inner post (uncurry3 must_step)))).
+  curry3 (bi_least_fixpoint (λ (must_step: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP), uncurry3 (must_step_inner post (curry3 must_step)))).
 
 Definition sim_pool_inner (sim_pool: list (expr Λ * expr Λ) → PROP) (P: list (expr Λ * expr Λ)) :=
   (∀ D, must_step sim_pool P (threads P.(tgt)) D)%I.
@@ -93,12 +93,12 @@ Proof.
 Qed.
 
 
-Local Instance must_step_body_mono post: BiMonoPred ((λ (must_step: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP), curry3 (must_step_inner post (uncurry3 must_step)))).
+Local Instance must_step_body_mono post: BiMonoPred ((λ (must_step: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP), uncurry3 (must_step_inner post (curry3 must_step)))).
 Proof.
   split.
   - intros M1 M2 Hne1 Hne2. iIntros "#H" ([[P O] D]). simpl.
     iApply must_step_inner_mono; first by iIntros (?) "$".
-    iIntros (???) "H' _"; rewrite /uncurry3. by iApply "H".
+    iIntros (???) "H' _"; rewrite /curry3. by iApply "H".
   - intros Φ Hne. apply _.
 Qed.
 
@@ -106,17 +106,17 @@ Lemma must_step_mono (sim_pool sim_pool': list (expr Λ * expr Λ) → PROP) P O
   (∀ P, sim_pool P -∗ sim_pool' P) -∗
   must_step sim_pool P O D -∗ must_step sim_pool' P O D.
 Proof.
-  rewrite /must_step {1 3}/uncurry3.
+  rewrite /must_step {1 3}/curry3.
   iIntros "Hmon Hmust". iRevert "Hmon".
   iApply (least_fixpoint_ind _ (λ x, (∀ P, sim_pool P -∗ sim_pool' P) -∗ bi_least_fixpoint
     (λ must_step0 : prodO (prodO (listO (prodO exprO exprO)) (gsetO natO))
                       (gmapO natO natO) → PROP,
-      curry3 (must_step_inner sim_pool' (uncurry3 must_step0)))
+      uncurry3 (must_step_inner sim_pool' (curry3 must_step0)))
     x)%I with "[] Hmust").
   iModIntro. clear P O D. iIntros ([[P O] D]) "Hinner Hmon".
-  rewrite least_fixpoint_unfold {1 3}/curry3.
+  rewrite least_fixpoint_unfold {1 3}/uncurry3.
   iApply (must_step_inner_mono with "Hmon [] Hinner").
-  clear P O D. iIntros (P O D) "Hpost Hmon"; rewrite /uncurry3.
+  clear P O D. iIntros (P O D) "Hpost Hmon"; rewrite /curry3.
   by iApply "Hpost".
 Qed.
 
@@ -133,7 +133,7 @@ Lemma must_step_ind F sim_pool P O D:
   □ (∀ P O D, must_step_inner sim_pool F P O D -∗ F P O D) -∗
   must_step sim_pool P O D -∗ F P O D.
 Proof.
-  iIntros "#IH HM". iApply (least_fixpoint_ind _ (curry3 F: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP) with "[] HM").
+  iIntros "#IH HM". iApply (least_fixpoint_ind _ (uncurry3 F: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP) with "[] HM").
   iModIntro. clear P O D. iIntros ([[P O] D]). simpl.
   iIntros "H". iApply "IH". by rewrite {4}(uncurry3_curry3 (F: listO (prodO (@exprO Λ) (@exprO Λ)) -d> gsetO natO -d> gmapO natO natO -d> PROP)).
 Qed.
@@ -141,8 +141,8 @@ Qed.
 Lemma must_step_unfold R P O D:
   must_step R P O D ≡ must_step_inner R (must_step R) P O D.
 Proof.
-  rewrite {1}/must_step {1}/uncurry3.
-  rewrite least_fixpoint_unfold {1}/curry3 //.
+  rewrite {1}/must_step {1}/curry3.
+  rewrite least_fixpoint_unfold {1}/uncurry3 //.
 Qed.
 
 

@@ -11,52 +11,52 @@ Import bi.
 
 
 Global Instance uncurry3_ne {A B C D: ofe} (G: prodO (prodO A B) C -d> D) `{Hne: !NonExpansive G}:
-  NonExpansive (uncurry3 G: A -d> B -d> C -d> D).
+  NonExpansive (curry3 G: A -d> B -d> C -d> D).
 Proof.
   solve_proper.
 Qed.
 
 Global Instance curry3_ne {A B C D: ofe} (G: A -d> B -d> C -d> D):
-  (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) G) → NonExpansive (curry3 G: prodO (prodO A B) C -d> D).
+  (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) G) → NonExpansive (uncurry3 G: prodO (prodO A B) C -d> D).
 Proof.
   intros Hne ? [[]? ] [[] ?] [[] ?]; simpl.
   eapply Hne; done.
 Qed.
 
 Lemma curry3_uncurry3 {X Y Z A: ofe} (f: X * Y * Z -> A) (x: prodO (prodO X Y) Z):
-  f x = curry3 (uncurry3 f) x.
+  f x = uncurry3 (curry3 f) x.
 Proof.
   destruct x as [[x y] z]; reflexivity.
 Qed.
 
 Lemma uncurry3_curry3 {X Y Z A: ofe} (f: X -d> Y -d> Z -d> A) :
-  f = uncurry3 (curry3 f).
+  f = curry3 (uncurry3 f).
 Proof.
   reflexivity.
 Qed.
 
 Global Instance uncurry4_ne {A B C D E: ofe} (G: prodO (prodO (prodO A B) C) D -d> E) `{Hne: !NonExpansive G}:
-  NonExpansive (uncurry4 G: A -d> B -d> C -d> D -d> E).
+  NonExpansive (curry4 G: A -d> B -d> C -d> D -d> E).
 Proof.
   solve_proper.
 Qed.
 
 Global Instance curry4_ne {A B C D E: ofe} (G: A -d> B -d> C -d> D -d> E):
   (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) G) →
-  NonExpansive (curry4 G: prodO (prodO (prodO A B) C) D -d> E).
+  NonExpansive (uncurry4 G: prodO (prodO (prodO A B) C) D -d> E).
 Proof.
   intros Hne ? [[[??]?]?] [[[??]?]?] [[[??]?]?]; simpl.
   eapply Hne; done.
 Qed.
 
 Lemma curry4_uncurry4 {W X Y Z A: ofe} (f: W * X * Y * Z -> A) (x: prodO (prodO (prodO W X) Y) Z):
-  f x = curry4 (uncurry4 f) x.
+  f x = uncurry4 (curry4 f) x.
 Proof.
   destruct x as [[[w x] y] z]; reflexivity.
 Qed.
 
 Lemma uncurry4_curry4 {W X Y Z A: ofe} (f: W -d> X -d> Y -d> Z -d> A) :
-  f = uncurry4 (curry4 f).
+  f = curry4 (uncurry4 f).
 Proof.
   reflexivity.
 Qed.
@@ -216,13 +216,13 @@ Section fix_lang.
 
   Local Instance least_def_body_mono (greatest_rec : (expr_rel -d> thread_id -d> expr_rel)) :
     NonExpansive (greatest_rec) →
-    BiMonoPred (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO -d> PROP), curry4 (sim_expr_inner greatest_rec (uncurry4 least_rec))).
+    BiMonoPred (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO -d> PROP), uncurry4 (sim_expr_inner greatest_rec (curry4 least_rec))).
   Proof.
     intros Hg; constructor.
     - intros L1 L2 HL1 HL2. iIntros "#H" (x).
       destruct x as (((Φ & π) & e_t) & e_s); simpl.
       iApply (sim_expr_inner_mono with "[] []"); iModIntro; clear.
-      { iIntros (G π e_t e_s); unfold uncurry4; iApply "H". }
+      { iIntros (G π e_t e_s); unfold curry4; iApply "H". }
       iIntros (G π e_t e_s) "$".
     - intros l Hne n x y Heq.
       destruct x as (((Φ & π) & e_t) & e_s); simpl.
@@ -230,19 +230,19 @@ Section fix_lang.
       destruct Heq as [[[Heq1 Heq2] Heq3] Heq4]; simpl in Heq1, Heq2, Heq3, Heq4.
       eapply sim_expr_inner_ne; eauto.
       + intros ?????->%leibniz_equiv. by eapply Hg.
-      + intros ????????; rewrite /uncurry4. eapply Hne.
+      + intros ????????; rewrite /curry4. eapply Hne.
         repeat split; simpl; done.
   Qed.
 
   Definition least_def (greatest_rec : expr_rel -d> thread_id -d> expr_rel) : expr_rel -d> thread_id -d> expr_rel :=
-    uncurry4 (bi_least_fixpoint (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (sim_expr_inner greatest_rec (uncurry4 least_rec)))).
+    curry4 (bi_least_fixpoint (λ (least_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), uncurry4 (sim_expr_inner greatest_rec (curry4 least_rec)))).
 
 
   Global Instance least_def_ne :
     NonExpansive4 least_def.
   Proof.
     rewrite /least_def; intros n x y Heq ??????????.
-    rewrite {1 3}/uncurry4. apply least_fixpoint_ne; last by repeat split.
+    rewrite {1 3}/curry4. apply least_fixpoint_ne; last by repeat split.
     intros ? [[[??]?] ?]; simpl.
     rewrite /sim_expr_inner. repeat f_equiv; apply Heq.
   Qed.
@@ -252,12 +252,12 @@ Section fix_lang.
     <pers> (∀ Φ π e_t e_s, R Φ π e_t e_s -∗ R' Φ π e_t e_s) -∗
     least_def R Φ π e_t e_s -∗ least_def R' Φ π e_t e_s.
   Proof.
-    iIntros (Hne) "#Hmon". rewrite /least_def {1 3}/uncurry4.
+    iIntros (Hne) "#Hmon". rewrite /least_def {1 3}/curry4.
     iIntros "Hleast". iApply (least_fixpoint_ind with "[] Hleast"); clear Φ π e_t e_s.
     iModIntro. iIntros ([[[Φ π] e_t] e_s]).
     erewrite least_fixpoint_unfold; last first.
     { eapply least_def_body_mono, _. }
-    rewrite {1 3}/curry4.
+    rewrite {1 3}/uncurry4.
     iApply (sim_expr_inner_mono with "[] []").
     { iModIntro. iIntros (Φ' π' e_t' e_s') "$". }
       iModIntro; iIntros (Φ' π' e_t' e_s'); by iApply "Hmon".
@@ -267,15 +267,15 @@ Section fix_lang.
     NonExpansive G →
     least_def G Φ π e_t e_s ≡ sim_expr_inner G (least_def G) Φ π e_t e_s.
   Proof.
-    intros ?; rewrite {1}/least_def {1}/uncurry4 least_fixpoint_unfold {1}/curry4 //=.
+    intros ?; rewrite {1}/least_def {1}/curry4 least_fixpoint_unfold {1}/uncurry4 //=.
   Qed.
 
   Instance greatest_def_body_mono :
-    BiMonoPred (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (least_def (uncurry4 greatest_rec))).
+    BiMonoPred (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), uncurry4 (least_def (curry4 greatest_rec))).
   Proof.
     constructor.
     - intros G1 G2 HG1 HG2. iIntros "#H" (x).
-      destruct x as [[[Φ π] e_t] e_s]; rewrite /curry4.
+      destruct x as [[[Φ π] e_t] e_s]; rewrite /uncurry4.
       iApply least_def_mono. iModIntro.
       iIntros (Φ' π' e_t' e_s'); iApply "H".
     - intros G Hne n x y Heq. rewrite /least_def -!curry4_uncurry4.
@@ -287,12 +287,12 @@ Section fix_lang.
   Qed.
 
   Definition greatest_def : expr_rel -d> thread_id -d> expr_rel :=
-    uncurry4 (bi_greatest_fixpoint (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), curry4 (least_def (uncurry4 greatest_rec)))).
+    curry4 (bi_greatest_fixpoint (λ (greatest_rec: prodO (prodO (prodO (exprO -d> exprO -d> PROP) thread_idO) exprO) exprO → PROP), uncurry4 (least_def (curry4 greatest_rec)))).
 
   Lemma greatest_def_unfold Φ π e_t e_s:
     greatest_def Φ π e_t e_s ≡ least_def greatest_def Φ π e_t e_s.
   Proof.
-    rewrite {1}/greatest_def {1}/uncurry4 greatest_fixpoint_unfold {1}/curry4 //=.
+    rewrite {1}/greatest_def {1}/curry4 greatest_fixpoint_unfold {1}/uncurry4 //=.
   Qed.
 
   Global Instance greatest_def_ne: NonExpansive greatest_def.
@@ -410,10 +410,10 @@ Section fix_lang.
       -∗ ∀ Φ π e_t e_s, F Φ π e_t e_s -∗ sim_expr Φ π e_t e_s.
   Proof.
     iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
-    rewrite sim_expr_eq /greatest_def {3}/uncurry4.
-    change (F Φ π e_t e_s) with (curry4 F (Φ, π, e_t, e_s)).
+    rewrite sim_expr_eq /greatest_def {3}/curry4.
+    change (F Φ π e_t e_s) with (uncurry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    unshelve iApply (greatest_fixpoint_strong_coind _ (curry4 F) with "[] HF").
+    unshelve iApply (greatest_fixpoint_strong_coind _ (uncurry4 F) with "[] HF").
     { (* Coq's old [tactic] unification is too weak for this. *) apply: curry4_ne. }
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     iApply ("HPre" $! Φ π e_t e_s).
@@ -439,13 +439,13 @@ Section fix_lang.
       -∗ ∀ Φ π e_t e_s, least_def R Φ π e_t e_s -∗ F Φ π e_t e_s.
   Proof.
     iIntros (Hne1 Hne2) "#HPre". iIntros (Φ π e_t e_s) "HF".
-    rewrite {2}/least_def {1}/uncurry4.
-    change (F Φ π e_t e_s) with (curry4 F (Φ, π, e_t, e_s)).
+    rewrite {2}/least_def {1}/curry4.
+    change (F Φ π e_t e_s) with (uncurry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    unshelve iApply (least_fixpoint_strong_ind _ (curry4 F) with "[] HF").
+    unshelve iApply (least_fixpoint_strong_ind _ (uncurry4 F) with "[] HF").
     { (* Coq's old [tactic] unification is too weak for this. *) apply: curry4_ne. }
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
-    rewrite {1}/uncurry4 {1}/curry4.
+    rewrite {1}/curry4 {1}/uncurry4.
     iIntros "H". iApply "HPre". iExact "H".
   Qed.
 
