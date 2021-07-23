@@ -413,8 +413,7 @@ Section fix_lang.
     rewrite sim_expr_eq /greatest_def {3}/curry4.
     change (F Φ π e_t e_s) with (uncurry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    unshelve iApply (greatest_fixpoint_strong_coind _ (uncurry4 F) with "[] HF").
-    { (* Coq's old [tactic] unification is too weak for this. *) apply: curry4_ne. }
+    iApply (greatest_fixpoint_strong_coind _ (uncurry4 F) with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     iApply ("HPre" $! Φ π e_t e_s).
   Qed.
@@ -442,8 +441,7 @@ Section fix_lang.
     rewrite {2}/least_def {1}/curry4.
     change (F Φ π e_t e_s) with (uncurry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    unshelve iApply (least_fixpoint_strong_ind _ (uncurry4 F) with "[] HF").
-    { (* Coq's old [tactic] unification is too weak for this. *) apply: curry4_ne. }
+    iApply (least_fixpoint_strong_ind _ (uncurry4 F) with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite {1}/curry4 {1}/uncurry4.
     iIntros "H". iApply "HPre". iExact "H".
