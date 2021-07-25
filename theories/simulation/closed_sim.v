@@ -174,14 +174,16 @@ Section fix_lang.
     constructor.
     - intros G1 G2 HG1 HG2. iIntros "#H" (x).
       destruct x as [[[Φ π] e_t] e_s]; rewrite /uncurry4.
-      iApply closed_least_def_mono. iModIntro.
+      iApply closed_least_def_mono.
+      { (* FIXME: TC inference should solve this *) solve_proper. }
+      iModIntro.
       iIntros (Φ' π' e_t' e_s'); iApply "H".
-    - intros G Hne n x y Heq. rewrite /least_def -!curry4_uncurry4.
+    - intros G Hne n x y Heq. rewrite /least_def !uncurry4_curry4.
       eapply least_fixpoint_ne'; last done.
       intros L HL m [[[Φ π] e_t] e_s] [[[Ψ π'] e_t'] e_s'] Heq'; simpl.
       eapply csim_expr_inner_ne; [| |eapply Heq'..].
-      + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply Hne | done].
-      + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply HL | done].
+      + solve_proper.
+      + solve_proper.
   Qed.
 
   Definition closed_greatest_def : expr_rel -d> thread_id -d> expr_rel :=
@@ -194,7 +196,7 @@ Section fix_lang.
   Qed.
 
   Global Instance closed_greatest_def_ne: NonExpansive closed_greatest_def.
-  Proof. eapply @uncurry4_ne. solve_proper. Qed.
+  Proof. solve_proper. Qed.
 
   Global Instance closed_greatest_def_proper: Proper (equiv ==> equiv ==> equiv ==> equiv ==> equiv) closed_greatest_def.
   Proof.
@@ -273,7 +275,7 @@ Section fix_lang.
     iIntros (Hprop) "#HPre". iIntros (Φ π e_t e_s) "HF".
     rewrite csim_expr_eq /closed_greatest_def {3}/curry4.
     set (F_curry := uncurry4 F).
-    assert (NonExpansive F_curry) as Hne; first by eapply @curry4_ne, _.
+    assert (NonExpansive F_curry) as Hne by solve_proper.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (greatest_fixpoint_strong_coind _ F_curry with "[] HF").
@@ -304,7 +306,7 @@ Section fix_lang.
     iIntros (Hne1 Hne2) "#HPre". iIntros (Φ π e_t e_s) "HF".
     rewrite {2}/closed_least_def {1}/curry4.
     set (F_curry := uncurry4 F).
-    assert (NonExpansive F_curry); first by eapply @curry4_ne, _.
+    assert (NonExpansive F_curry) by solve_proper.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
     iApply (least_fixpoint_strong_ind _ F_curry with "[] HF").
