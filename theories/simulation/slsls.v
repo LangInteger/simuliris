@@ -9,64 +9,9 @@ From simuliris.simulation Require Export simulation.
 From iris.prelude Require Import options.
 Import bi.
 
-
-Global Instance uncurry3_ne {A B C D: ofe} (G: prodO (prodO A B) C -d> D) `{Hne: !NonExpansive G}:
-  NonExpansive (curry3 G: A -d> B -d> C -d> D).
-Proof.
-  solve_proper.
-Qed.
-
-Global Instance curry3_ne {A B C D: ofe} (G: A -d> B -d> C -d> D):
-  (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) G) → NonExpansive (uncurry3 G: prodO (prodO A B) C -d> D).
-Proof.
-  intros Hne ? [[]? ] [[] ?] [[] ?]; simpl.
-  eapply Hne; done.
-Qed.
-
-Lemma curry3_uncurry3 {X Y Z A: ofe} (f: X * Y * Z -> A) (x: prodO (prodO X Y) Z):
-  f x = uncurry3 (curry3 f) x.
-Proof.
-  destruct x as [[x y] z]; reflexivity.
-Qed.
-
-Lemma uncurry3_curry3 {X Y Z A: ofe} (f: X -d> Y -d> Z -d> A) :
-  f = curry3 (uncurry3 f).
-Proof.
-  reflexivity.
-Qed.
-
-Global Instance uncurry4_ne {A B C D E: ofe} (G: prodO (prodO (prodO A B) C) D -d> E) `{Hne: !NonExpansive G}:
-  NonExpansive (curry4 G: A -d> B -d> C -d> D -d> E).
-Proof.
-  solve_proper.
-Qed.
-
-Global Instance curry4_ne {A B C D E: ofe} (G: A -d> B -d> C -d> D -d> E):
-  (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) G) →
-  NonExpansive (uncurry4 G: prodO (prodO (prodO A B) C) D -d> E).
-Proof.
-  intros Hne ? [[[??]?]?] [[[??]?]?] [[[??]?]?]; simpl.
-  eapply Hne; done.
-Qed.
-
-Lemma curry4_uncurry4 {W X Y Z A: ofe} (f: W * X * Y * Z -> A) (x: prodO (prodO (prodO W X) Y) Z):
-  f x = uncurry4 (curry4 f) x.
-Proof.
-  destruct x as [[[w x] y] z]; reflexivity.
-Qed.
-
-Lemma uncurry4_curry4 {W X Y Z A: ofe} (f: W -d> X -d> Y -d> Z -d> A) :
-  f = curry4 (uncurry4 f).
-Proof.
-  reflexivity.
-Qed.
-
-
+(* FIXME upstream *)
 Notation NonExpansive3 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) f).
 Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) f).
-
-(** * SLSLS, Separation Logic Stuttering Local Simulation *)
-
 
 (* parameterized over "external" relation that restricts values passed to and
 from external function calls *)
@@ -276,13 +221,15 @@ Section fix_lang.
     constructor.
     - intros G1 G2 HG1 HG2. iIntros "#H" (x).
       destruct x as [[[Φ π] e_t] e_s]; rewrite /uncurry4.
-      iApply least_def_mono. iModIntro.
+      iApply least_def_mono.
+      { solve_proper. }
+      iModIntro.
       iIntros (Φ' π' e_t' e_s'); iApply "H".
-    - intros G Hne n x y Heq. rewrite /least_def -!curry4_uncurry4.
+    - intros G Hne n x y Heq. rewrite /least_def !uncurry4_curry4.
       eapply least_fixpoint_ne'; last done.
       intros L HL m [[[Φ π] e_t] e_s] [[[Ψ π'] e_t'] e_s'] Heq'; simpl.
       eapply sim_expr_inner_ne; [| |eapply Heq'..].
-      + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply Hne | done].
+      + intros ??? ??->%leibniz_equiv. rewrite H. eapply curry4_ne; [apply Hne | done].
       + intros ??? ??->%leibniz_equiv. eapply uncurry4_ne; [apply HL | done].
   Qed.
 

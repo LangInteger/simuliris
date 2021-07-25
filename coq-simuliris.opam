@@ -8,7 +8,7 @@ dev-repo: "git+https://gitlab.mpi-sws.org/iris/simuliris.git"
 synopsis: "Local Simulation proofs, the Iris style"
 
 depends: [
-  "coq-iris" { (= "dev.2021-07-23.5.e5a99498") | (= "dev") }
+  "coq-iris" { (= "dev.2021-07-25.0.5ea26625") | (= "dev") }
   "coq-equations" { (= "1.2.4+8.13") | (= "1.2.4+8.12") }
 ]
 
