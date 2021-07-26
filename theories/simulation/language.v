@@ -335,6 +335,16 @@ Section language.
   Lemma not_head_reducible p e σ : ¬head_reducible p e σ ↔ head_irreducible p e σ.
   Proof. unfold head_reducible, head_irreducible. naive_solver. Qed.
 
+  Lemma subst_map_closed xs e :
+    free_vars e = ∅ →
+    subst_map xs e = e.
+  Proof.
+    intros Hclosed.
+    trans (subst_map ∅ e).
+    - apply subst_map_free_vars. rewrite Hclosed. done.
+    - apply subst_map_empty.
+  Qed.
+
   (** The decomposition into head redex and context is unique.
 
       In all sensible instances, [comp_ectx K' empty_ectx] will be the same as
@@ -613,123 +623,12 @@ Section language.
     etrans; first eapply threads_pool_step; eauto.
   Qed.
 
-
-  Definition sub_pool T1 T2 := T1 ⊆+ T2.
-
-  Lemma sub_pool_insert T1 T2  i j  e e':
-    sub_pool T1 T2 →
-    T1 !! i = Some e →
-    T2 !! j = Some e →
-    sub_pool (<[i := e']> T1) (<[j := e']> T2).
-  Proof.
-    intros Hsub H1 H2.
-    eapply lookup_lt_Some in H1 as Hlt1.
-    eapply lookup_lt_Some in H2 as Hlt2.
-    eapply take_drop_middle in H1.
-    eapply take_drop_middle in H2.
-    rewrite -H1 -H2.
-    rewrite !insert_app_r_alt; [|(rewrite take_length; lia)..].
-    rewrite !take_length.
-    replace (i - i `min` length T1) with 0 by lia.
-    replace (j - j `min` length T2) with 0 by lia. simpl.
-    rewrite -H1 -H2 in Hsub. revert Hsub.
-    rewrite /sub_pool !cons_middle.
-    rewrite !(Permutation_app_comm [e]) !(Permutation_app_comm [e']).
-    rewrite !app_assoc.
-    intros ?%submseteq_app_inv_r; by eapply submseteq_skips_r.
-  Qed.
-
-  Lemma sub_pool_lookup T1 T2 i e:
-    sub_pool T1 T2 →
-    T1 !! i = Some e →
-    ∃ j, T2 !! j = Some e.
-  Proof.
-    intros Hsub Hlook. eapply elem_of_list_lookup_1, elem_of_submseteq;
-    eauto using elem_of_list_lookup_2.
-  Qed.
-
-  Lemma sub_pool_singleton e i T :
-    T !! i = Some e →
-    sub_pool [e] T.
-  Proof.
-    intros Hlook. rewrite /sub_pool.
-    eapply take_drop_middle in Hlook; rewrite -Hlook.
-    eapply submseteq_cons_middle, submseteq_nil_l.
-  Qed.
-
-
-
-
-
-  (* TODO: do we even need these definitions? *)
-  Definition reducible_pool p T σ := ∃ i T' σ', pool_step p T σ i T' σ'.
-  Definition irreducible_pool p T σ := ∀ i T' σ', ¬ pool_step p T σ i T' σ'.
-
-
-  Lemma reducible_pool_reducible p T σ:
-    reducible_pool p T σ ↔ (∃ i e, T !! i = Some e ∧ reducible p e σ).
-  Proof.
-    split.
-    - intros (i & T' & σ' & (e & e' & efs & Hstep & Hlook & Heq)%pool_step_iff).
-      subst T'; rewrite /reducible; eauto 10.
-    - intros (i & e & Hlook & (e' & σ' & efs & Hprim)); exists i, (<[i := e']> T ++ efs), σ'.
-      eapply pool_step_iff; eauto 10.
-  Qed.
-
-  Lemma irreducible_pool_irreducible p T σ:
-    irreducible_pool p T σ ↔ (∀ i e, T !! i = Some e → irreducible p e σ).
-  Proof.
-    split.
-    - intros Hirred i e Hlook e' σ' efs Hstep. eapply Hirred, pool_step_iff; eauto 10.
-    - intros Hirred i T' σ' (e & e' & efs & Hstep & Hlook & ->)%pool_step_iff.
-      eapply Hirred; eauto.
-  Qed.
-
   (** Reaching Stuck States/Safety *)
   (* a thread pool has undefined behavior, if one of its threads has undefined behavior. *)
   Definition stuck_pool p T σ := (∃ e i, T !! i = Some e ∧ stuck p e σ).
   Definition pool_reach_stuck p T σ :=
     ∃ T' σ' I, pool_steps p T σ I T' σ' ∧ stuck_pool p T' σ'.
   Definition pool_safe p T σ := ¬ pool_reach_stuck p T σ.
-
-
-  Lemma pool_step_sub_pool p T1 T1' σ i T2 σ' :
-    pool_step p T1 σ i T1' σ' →
-    sub_pool T1 T2 →
-    ∃ T2' j, sub_pool T1' T2' ∧ pool_step p T2 σ j T2' σ'.
-  Proof.
-    intros (e & e' & efs & Hstep & Hlook & ->)%pool_step_iff Hsub.
-    eapply sub_pool_lookup in Hsub as Hidx; last done.
-    destruct Hidx as (j & Hlook').
-    exists (<[j := e']> T2 ++ efs), j.
-    split; last (apply pool_step_iff; eauto 10).
-    eapply submseteq_app; last done.
-    eapply sub_pool_insert; eauto.
-  Qed.
-
-  Lemma pool_steps_sub_pool p T1 T1' σ I T2 σ' :
-    pool_steps p T1 σ I T1' σ' →
-    sub_pool T1 T2 →
-    ∃ T2' J, sub_pool T1' T2' ∧ pool_steps p T2 σ J T2' σ'.
-  Proof.
-    induction 1 as [|T1 T1' T1'' σ σ' σ'' i I Hstep Hsteps IH] in T2; first by eauto using pool_steps.
-    intros Hsub; eapply pool_step_sub_pool in Hstep as (T2' & j & Hpool & Hstep); last done.
-    edestruct IH as (? & ? & ? & ?); eauto 10 using pool_steps.
-  Qed.
-
-  Lemma pool_reach_stuck_subs p T1 T2 σ:
-    pool_reach_stuck p T1 σ →
-    sub_pool T1 T2 →
-    pool_reach_stuck p T2 σ.
-  Proof.
-    intros (T1' & σ' & I & Hsteps & Hstuck) Hsub.
-    eapply pool_steps_sub_pool in Hsteps as (T2' & J & Hsub' & Hsteps'); last done.
-    exists T2', σ', J; split; first done.
-    destruct Hstuck as (e & i & Hlook & Hstuck).
-    eapply sub_pool_lookup in Hsub' as (j & Hlook'); last done.
-    exists e, j; split; eauto.
-  Qed.
-
 
   Lemma pool_step_singleton p e σ i σ' T:
     pool_step p [e] σ i T σ' ↔
@@ -842,8 +741,89 @@ Section language.
     eapply Hinv in Hstep as (x_f & e_f & Hprg & _); naive_solver.
   Qed.
 
+  (** Executions on sub-pools
+      (needed for the single-thread "reach stuck" further down) *)
+  Definition sub_pool T1 T2 := T1 ⊆+ T2.
 
-  (* we define the one-thread versions of the above pool notions and lemmas *)
+  Lemma sub_pool_insert T1 T2  i j  e e':
+    sub_pool T1 T2 →
+    T1 !! i = Some e →
+    T2 !! j = Some e →
+    sub_pool (<[i := e']> T1) (<[j := e']> T2).
+  Proof.
+    intros Hsub H1 H2.
+    eapply lookup_lt_Some in H1 as Hlt1.
+    eapply lookup_lt_Some in H2 as Hlt2.
+    eapply take_drop_middle in H1.
+    eapply take_drop_middle in H2.
+    rewrite -H1 -H2.
+    rewrite !insert_app_r_alt; [|(rewrite take_length; lia)..].
+    rewrite !take_length.
+    replace (i - i `min` length T1) with 0 by lia.
+    replace (j - j `min` length T2) with 0 by lia. simpl.
+    rewrite -H1 -H2 in Hsub. revert Hsub.
+    rewrite /sub_pool !cons_middle.
+    rewrite !(Permutation_app_comm [e]) !(Permutation_app_comm [e']).
+    rewrite !app_assoc.
+    intros ?%submseteq_app_inv_r; by eapply submseteq_skips_r.
+  Qed.
+
+  Lemma sub_pool_lookup T1 T2 i e:
+    sub_pool T1 T2 →
+    T1 !! i = Some e →
+    ∃ j, T2 !! j = Some e.
+  Proof.
+    intros Hsub Hlook. eapply elem_of_list_lookup_1, elem_of_submseteq;
+    eauto using elem_of_list_lookup_2.
+  Qed.
+
+  Lemma sub_pool_singleton e i T :
+    T !! i = Some e →
+    sub_pool [e] T.
+  Proof.
+    intros Hlook. rewrite /sub_pool.
+    eapply take_drop_middle in Hlook; rewrite -Hlook.
+    eapply submseteq_cons_middle, submseteq_nil_l.
+  Qed.
+
+  Lemma pool_step_sub_pool p T1 T1' σ i T2 σ' :
+    pool_step p T1 σ i T1' σ' →
+    sub_pool T1 T2 →
+    ∃ T2' j, sub_pool T1' T2' ∧ pool_step p T2 σ j T2' σ'.
+  Proof.
+    intros (e & e' & efs & Hstep & Hlook & ->)%pool_step_iff Hsub.
+    eapply sub_pool_lookup in Hsub as Hidx; last done.
+    destruct Hidx as (j & Hlook').
+    exists (<[j := e']> T2 ++ efs), j.
+    split; last (apply pool_step_iff; eauto 10).
+    eapply submseteq_app; last done.
+    eapply sub_pool_insert; eauto.
+  Qed.
+
+  Lemma pool_steps_sub_pool p T1 T1' σ I T2 σ' :
+    pool_steps p T1 σ I T1' σ' →
+    sub_pool T1 T2 →
+    ∃ T2' J, sub_pool T1' T2' ∧ pool_steps p T2 σ J T2' σ'.
+  Proof.
+    induction 1 as [|T1 T1' T1'' σ σ' σ'' i I Hstep Hsteps IH] in T2; first by eauto using pool_steps.
+    intros Hsub; eapply pool_step_sub_pool in Hstep as (T2' & j & Hpool & Hstep); last done.
+    edestruct IH as (? & ? & ? & ?); eauto 10 using pool_steps.
+  Qed.
+
+  Lemma pool_reach_stuck_sub_pool p T1 T2 σ:
+    pool_reach_stuck p T1 σ →
+    sub_pool T1 T2 →
+    pool_reach_stuck p T2 σ.
+  Proof.
+    intros (T1' & σ' & I & Hsteps & Hstuck) Hsub.
+    eapply pool_steps_sub_pool in Hsteps as (T2' & J & Hsub' & Hsteps'); last done.
+    exists T2', σ', J; split; first done.
+    destruct Hstuck as (e & i & Hlook & Hstuck).
+    eapply sub_pool_lookup in Hsub' as (j & Hlook'); last done.
+    exists e, j; split; eauto.
+  Qed.
+
+  (** we define the one-thread versions of the above pool notions and lemmas *)
   Definition reach_stuck p e σ := pool_reach_stuck p [e] σ.
   Definition safe p e σ := ¬ reach_stuck p e σ.
   Definition step_no_fork p e σ e' σ' := prim_step p e σ e' σ' [].
@@ -859,7 +839,8 @@ Section language.
     T !! i = Some e →
     pool_reach_stuck p T σ.
   Proof.
-    intros Hstuck Hlook. eapply pool_reach_stuck_subs; first apply Hstuck.
+    intros Hstuck Hlook.
+    eapply pool_reach_stuck_sub_pool; first apply Hstuck.
     by eapply sub_pool_singleton.
   Qed.
 
@@ -1031,16 +1012,6 @@ Section language.
   Proof.
     induction 1 as [|e e' e'' σ σ' σ'' Hstep Hsteps IH]; first by eauto.
     destruct IH as [(-> & ->)|(e''' & σ''' & Hnfs & Hnf)]; eauto 10 using steps_no_fork.
-  Qed.
-
-  Lemma subst_map_closed xs e :
-    free_vars e = ∅ →
-    subst_map xs e = e.
-  Proof.
-    intros Hclosed.
-    trans (subst_map ∅ e).
-    - apply subst_map_free_vars. rewrite Hclosed. done.
-    - apply subst_map_empty.
   Qed.
 
 End language.
