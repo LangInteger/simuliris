@@ -9,10 +9,6 @@ From simuliris.simulation Require Export simulation.
 From iris.prelude Require Import options.
 Import bi.
 
-(* FIXME upstream *)
-Notation NonExpansive3 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) f).
-Notation NonExpansive4 f := (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) f).
-
 (* parameterized over "external" relation that restricts values passed to and
 from external function calls *)
 (* TODO: Hint Mode? *)
