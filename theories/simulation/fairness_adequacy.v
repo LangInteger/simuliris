@@ -135,7 +135,8 @@ Lemma must_step_ind F sim_pool P O D:
 Proof.
   iIntros "#IH HM". iApply (least_fixpoint_ind _ (uncurry3 F: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP) with "[] HM").
   iModIntro. clear P O D. iIntros ([[P O] D]). simpl.
-  iIntros "H". iApply "IH". by rewrite {4}(uncurry3_curry3 (F: listO (prodO (@exprO Λ) (@exprO Λ)) -d> gsetO natO -d> gmapO natO natO -d> PROP)).
+  iIntros "H". iApply "IH".
+  rewrite curry3_uncurry3. done.
 Qed.
 
 Lemma must_step_unfold R P O D:
