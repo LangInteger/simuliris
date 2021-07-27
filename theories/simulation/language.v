@@ -741,69 +741,26 @@ Section language.
     eapply Hinv in Hstep as (x_f & e_f & Hprg & _); naive_solver.
   Qed.
 
-  (** Executions on sub-pools
+  (** Some theory for sub-pools
       (needed for the single-thread "reach stuck" further down) *)
-  Definition sub_pool T1 T2 := T1 ⊆+ T2.
-
-  Lemma sub_pool_insert T1 T2  i j  e e':
-    sub_pool T1 T2 →
-    T1 !! i = Some e →
-    T2 !! j = Some e →
-    sub_pool (<[i := e']> T1) (<[j := e']> T2).
-  Proof.
-    intros Hsub H1 H2.
-    eapply lookup_lt_Some in H1 as Hlt1.
-    eapply lookup_lt_Some in H2 as Hlt2.
-    eapply take_drop_middle in H1.
-    eapply take_drop_middle in H2.
-    rewrite -H1 -H2.
-    rewrite !insert_app_r_alt; [|(rewrite take_length; lia)..].
-    rewrite !take_length.
-    replace (i - i `min` length T1) with 0 by lia.
-    replace (j - j `min` length T2) with 0 by lia. simpl.
-    rewrite -H1 -H2 in Hsub. revert Hsub.
-    rewrite /sub_pool !cons_middle.
-    rewrite !(Permutation_app_comm [e]) !(Permutation_app_comm [e']).
-    rewrite !app_assoc.
-    intros ?%submseteq_app_inv_r; by eapply submseteq_skips_r.
-  Qed.
-
-  Lemma sub_pool_lookup T1 T2 i e:
-    sub_pool T1 T2 →
-    T1 !! i = Some e →
-    ∃ j, T2 !! j = Some e.
-  Proof.
-    intros Hsub Hlook. eapply elem_of_list_lookup_1, elem_of_submseteq;
-    eauto using elem_of_list_lookup_2.
-  Qed.
-
-  Lemma sub_pool_singleton e i T :
-    T !! i = Some e →
-    sub_pool [e] T.
-  Proof.
-    intros Hlook. rewrite /sub_pool.
-    eapply take_drop_middle in Hlook; rewrite -Hlook.
-    eapply submseteq_cons_middle, submseteq_nil_l.
-  Qed.
-
   Lemma pool_step_sub_pool p T1 T1' σ i T2 σ' :
     pool_step p T1 σ i T1' σ' →
-    sub_pool T1 T2 →
-    ∃ T2' j, sub_pool T1' T2' ∧ pool_step p T2 σ j T2' σ'.
+    T1 ⊆+ T2 →
+    ∃ T2' j, T1' ⊆+ T2' ∧ pool_step p T2 σ j T2' σ'.
   Proof.
     intros (e & e' & efs & Hstep & Hlook & ->)%pool_step_iff Hsub.
-    eapply sub_pool_lookup in Hsub as Hidx; last done.
+    eapply lookup_submseteq in Hsub as Hidx; last done.
     destruct Hidx as (j & Hlook').
     exists (<[j := e']> T2 ++ efs), j.
     split; last (apply pool_step_iff; eauto 10).
     eapply submseteq_app; last done.
-    eapply sub_pool_insert; eauto.
+    eapply submseteq_insert; eauto.
   Qed.
 
   Lemma pool_steps_sub_pool p T1 T1' σ I T2 σ' :
     pool_steps p T1 σ I T1' σ' →
-    sub_pool T1 T2 →
-    ∃ T2' J, sub_pool T1' T2' ∧ pool_steps p T2 σ J T2' σ'.
+    T1 ⊆+ T2 →
+    ∃ T2' J, T1' ⊆+ T2' ∧ pool_steps p T2 σ J T2' σ'.
   Proof.
     induction 1 as [|T1 T1' T1'' σ σ' σ'' i I Hstep Hsteps IH] in T2; first by eauto using pool_steps.
     intros Hsub; eapply pool_step_sub_pool in Hstep as (T2' & j & Hpool & Hstep); last done.
@@ -812,14 +769,14 @@ Section language.
 
   Lemma pool_reach_stuck_sub_pool p T1 T2 σ:
     pool_reach_stuck p T1 σ →
-    sub_pool T1 T2 →
+    T1 ⊆+ T2 →
     pool_reach_stuck p T2 σ.
   Proof.
     intros (T1' & σ' & I & Hsteps & Hstuck) Hsub.
     eapply pool_steps_sub_pool in Hsteps as (T2' & J & Hsub' & Hsteps'); last done.
     exists T2', σ', J; split; first done.
     destruct Hstuck as (e & i & Hlook & Hstuck).
-    eapply sub_pool_lookup in Hsub' as (j & Hlook'); last done.
+    eapply lookup_submseteq in Hsub' as (j & Hlook'); last done.
     exists e, j; split; eauto.
   Qed.
 
@@ -841,7 +798,8 @@ Section language.
   Proof.
     intros Hstuck Hlook.
     eapply pool_reach_stuck_sub_pool; first apply Hstuck.
-    by eapply sub_pool_singleton.
+    eapply singleton_submseteq_l.
+    apply elem_of_list_lookup. eauto.
   Qed.
 
   Lemma pool_safe_threads_safe p T σ i e:
