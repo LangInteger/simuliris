@@ -516,6 +516,7 @@ Section heap_defs.
   Proof. intros Ht Hs. split; intros l; rewrite Ht Hs; congruence. Qed.
 
   (* TODO: move somewhere? *)
+  (* std++ MR 315 *)
   Lemma lookup_difference_is_Some `{Countable K} (V : Type) (M1 M2 : gmap K V) (k : K) :
     is_Some ((M1 ∖ M2) !! k) ↔ is_Some (M1 !! k) ∧ M2 !! k = None.
   Proof. rewrite /is_Some. setoid_rewrite lookup_difference_Some. naive_solver. Qed.
@@ -529,6 +530,7 @@ Section heap_defs.
   Qed.
 
   (* TODO: move? *)
+  (* std++ MR 315 *)
   Lemma lookup_union_Some_l' `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) (v : V) :
     (M1 ∪ M2) !! k = Some v → M2 !! k = None → M1 !! k = Some v.
   Proof.
@@ -537,6 +539,7 @@ Section heap_defs.
     - rewrite lookup_union_r; last done. congruence.
   Qed.
   (* TODO: move? *)
+  (* std++ MR 315 *)
   Lemma lookup_union_is_Some `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) :
     is_Some ((M1 ∪ M2) !! k) ↔ is_Some (M1 !! k) ∨ is_Some (M2 !! k).
   Proof.
