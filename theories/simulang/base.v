@@ -3,18 +3,22 @@ From iris.proofmode Require Import proofmode.
 From iris.prelude Require Import options.
 
 (* TODO: upstream everything in this file *)
+
+(* std++ MR 311 *)
 Ltac get_head e :=
   lazymatch e with
   | ?h _ => get_head constr:(h)
   | _    => constr:(e)
   end.
 
+(* std++ MR 312 *)
 Definition binder_to_list (b : binder) : list string :=
   match b with
   | BNamed n => [n]
   | BAnon => []
   end.
 
+(* std++ MR 313 *)
 Lemma take_lookup_Some {A} n k (l : list A) x:
   take n l !! k = Some x ↔ l !! k = Some x ∧ k < n.
 Proof.
@@ -25,6 +29,7 @@ Proof.
   - move => [??]. by rewrite lookup_take.
 Qed.
 
+(* std++ MR 314 *)
 Lemma map_seq_insert_0 {A} (ls : list A) i x:
   i < length ls →
   <[i:=x]> (map_seq (M :=gmap _ _) 0 ls) = map_seq 0 (<[i:=x]>ls).
