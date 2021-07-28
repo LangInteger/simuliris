@@ -1,4 +1,4 @@
-From iris.proofmode Require Export tactics.
+From iris.proofmode Require Export proofmode.
 From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_prog.
 From simuliris.simulation Require Export slsls.

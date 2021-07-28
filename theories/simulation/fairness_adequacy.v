@@ -1,7 +1,7 @@
 From stdpp Require Import gmap.
 From iris.bi Require Import bi.
 From iris.algebra Require Import gset gmap list.
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From simuliris.logic Require Import fixpoints.
 From simuliris.simulation Require Import relations language fairness.
 From simuliris.simulation Require Export slsls closed_sim.

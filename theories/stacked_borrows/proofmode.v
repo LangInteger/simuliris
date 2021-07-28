@@ -1,6 +1,6 @@
 From iris.bi Require Import bi.
 From iris.proofmode Require Import coq_tactics reduction.
-From iris.proofmode Require Export tactics.
+From iris.proofmode Require Export proofmode.
 From simuliris.simulation Require Import slsls lifting language.
 From simuliris.stacked_borrows Require Import tactics class_instances.
 From simuliris.stacked_borrows Require Export primitive_laws notation.

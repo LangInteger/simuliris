@@ -1,4 +1,4 @@
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From iris.bi.lib Require Import fractional .
 From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.

@@ -1,4 +1,4 @@
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From simuliris.simulation Require Import slsls lifting.
 From simuliris.simulang Require Import lang notation proofmode behavior.
 From simuliris.simulang.simple_inv Require Import inv adequacy.

@@ -1,4 +1,4 @@
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From iris.bi.lib Require Import fractional.
 From simuliris.base_logic Require Export gen_sim_heap gen_sim_prog.
 From simuliris.simulation Require Import slsls lifting gen_log_rel.
@@ -232,7 +232,7 @@ End fix_heap.
 
 (** ** Extension of the proofmode *)
 From iris.proofmode Require Import coq_tactics reduction.
-From iris.proofmode Require Export tactics.
+From iris.proofmode Require Export proofmode.
 From iris.bi Require Import bi derived_laws.
 From simuliris.simulang Require Export proofmode.
 

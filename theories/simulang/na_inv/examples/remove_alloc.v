@@ -1,4 +1,4 @@
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From simuliris.simulation Require Import slsls lifting gen_log_rel.
 From simuliris.simulang Require Import lang notation tactics
   proofmode log_rel_structural behavior.

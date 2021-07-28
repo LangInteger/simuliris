@@ -559,7 +559,7 @@ Typeclasses Opaque tkmap_view_auth tkmap_view_frag.
 
 
 (** ** Proofmode lemmas *)
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From iris.base_logic.lib Require Export own.
 From iris.bi.lib Require Import fractional.
 

@@ -1,5 +1,5 @@
 From iris.base_logic.lib Require Import gset_bij.
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From iris.prelude Require Import options.
 From simuliris.base_logic Require Import gen_sim_heap.
 From iris.algebra.lib Require Import gset_bij.

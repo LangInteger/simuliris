@@ -1,5 +1,5 @@
 From iris Require Import upred base_logic.bi bi.bi.
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From iris.prelude Require Import options.
 Import bi.
 

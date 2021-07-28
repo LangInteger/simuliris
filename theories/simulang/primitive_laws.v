@@ -7,7 +7,7 @@ be extended via a custom invariant [sheapInv]. This file also proves
 the basic laws of the program logic, assuming that [sheapInv] allows
 them. *)
 
-From iris.proofmode Require Export tactics.
+From iris.proofmode Require Export proofmode.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
 From simuliris.base_logic Require Export gen_sim_prog.

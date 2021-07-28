@@ -1,5 +1,5 @@
 From iris.proofmode Require Import coq_tactics reduction.
-From iris.proofmode Require Export tactics.
+From iris.proofmode Require Export proofmode.
 From simuliris.simulation Require Import slsls lifting language gen_log_rel.
 From simuliris.simulang Require Import tactics.
 From simuliris.simulang Require Export notation primitive_laws class_instances.
