@@ -1,7 +1,6 @@
 From stdpp Require Import relations strings gmap.
 From iris.algebra Require Import ofe.
 From iris.prelude Require Import options.
-From simuliris.simulation Require Import relations.
 
 Definition thread_id := nat.
 

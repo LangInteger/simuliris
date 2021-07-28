@@ -2,7 +2,7 @@ From iris.bi Require Import bi.
 From iris.proofmode Require Import proofmode.
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import
-  fairness relations language behavior closed_sim fairness_adequacy.
+  fairness language behavior closed_sim fairness_adequacy.
 From iris.prelude Require Import options.
 Import bi.
 

@@ -4,7 +4,7 @@ From iris.algebra Require Export ofe.
 From iris.bi Require Import bi.
 From iris.proofmode Require Import proofmode.
 From simuliris.logic Require Import fixpoints.
-From simuliris.simulation Require Import relations language.
+From simuliris.simulation Require Import language.
 From simuliris.simulation Require Export simulation.
 From iris.prelude Require Import options.
 Import bi.

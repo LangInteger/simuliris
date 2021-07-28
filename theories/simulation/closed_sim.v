@@ -3,7 +3,7 @@
 From iris.bi Require Import bi.
 From iris.proofmode Require Import proofmode.
 From simuliris.logic Require Import fixpoints.
-From simuliris.simulation Require Import relations language.
+From simuliris.simulation Require Import language.
 From simuliris.simulation Require Export simulation slsls gen_log_rel.
 From iris.prelude Require Import options.
 Import bi.
