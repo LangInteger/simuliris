@@ -2,15 +2,6 @@ From iris.prelude Require Import prelude.
 From simuliris.stacked_borrows Require Import lang.
 From iris.prelude Require Import options.
 
-(** Enable use of [Forall] in recursion. *)
-(* TODO: upstream to std++ *)
-Lemma Forall_id {A: Type} (P: A → Prop) (l: list A) :
-  Forall id (fmap P l) ↔ Forall P l.
-Proof.
-  induction l; simpl; first by eauto using Forall_nil.
-  split; intros [??]%Forall_cons_1; apply Forall_cons; simpl; tauto.
-Qed.
-
 (** * "Well-formed" values and expressions.
 These definitions basically form our type system. Their main job is to
 exclude programs that contain literal locations.  *)
@@ -97,7 +88,7 @@ Section expr_wf.
     elim: Ks e => /=.
     { unfold gen_ectx_wf. naive_solver. }
     move => K Ks IH e. rewrite IH gen_ectx_wf_cons /gen_ectxi_wf.
-    destruct K => /=; rewrite ?Forall_cons ?Forall_nil ?Forall_id /=; naive_solver.
+    destruct K => /=; rewrite ?Forall_cons ?Forall_nil ?Forall_fmap /=; naive_solver.
   Qed.
   Lemma expr_gen_ctx_wf_fill e Cs :
     gen_expr_wf (fill_ctx Cs e) ↔ gen_expr_wf e ∧ gen_ctx_wf Cs.
@@ -105,7 +96,7 @@ Section expr_wf.
     elim: Cs e => /=.
     { unfold gen_ctx_wf. naive_solver. }
     move => C Cs IH e. rewrite IH gen_ctx_wf_cons /gen_ctxi_wf.
-    destruct C => /=; rewrite ?Forall_cons ?Forall_nil ?Forall_id /=; try naive_solver.
+    destruct C => /=; rewrite ?Forall_cons ?Forall_nil ?Forall_fmap /=; try naive_solver.
     rewrite ?Forall_app ?Forall_cons. naive_solver.
   Qed.
 End expr_wf.
