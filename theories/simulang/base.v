@@ -4,42 +4,6 @@ From iris.prelude Require Import options.
 
 (* TODO: upstream everything in this file *)
 
-(* std++ MR 311 *)
-Ltac get_head e :=
-  lazymatch e with
-  | ?h _ => get_head constr:(h)
-  | _    => constr:(e)
-  end.
-
-(* std++ MR 312 *)
-Definition binder_to_list (b : binder) : list string :=
-  match b with
-  | BNamed n => [n]
-  | BAnon => []
-  end.
-
-(* std++ MR 313 *)
-Lemma take_lookup_Some {A} n k (l : list A) x:
-  take n l !! k = Some x ↔ l !! k = Some x ∧ k < n.
-Proof.
-  split.
-  - destruct (decide (k < n)).
-    + rewrite lookup_take; naive_solver.
-    + rewrite lookup_take_ge //. lia.
-  - move => [??]. by rewrite lookup_take.
-Qed.
-
-(* std++ MR 314 *)
-Lemma map_seq_insert_0 {A} (ls : list A) i x:
-  i < length ls →
-  <[i:=x]> (map_seq (M :=gmap _ _) 0 ls) = map_seq 0 (<[i:=x]>ls).
-Proof.
-  move => ?. apply: map_eq => j. rewrite lookup_map_seq_0.
-  destruct (decide (i = j)); simplify_map_eq.
-  - by rewrite list_lookup_insert.
-  - by rewrite lookup_map_seq_0 list_lookup_insert_ne.
-Qed.
-
 Lemma big_sepL2_exist {PROP : bi} {A B C} (l1 : list A) (l2 : list B) (Φ : _ → _ → _ → _ → PROP) `{!BiAffine PROP} :
   ([∗ list] i↦x1;x2∈l1;l2, ∃ x : C, Φ i x1 x2 x) -∗
    ∃ xs : list C, ⌜length xs = length l1⌝ ∗ ([∗ list] i↦x1;x2∈l1;l2, ∃ x : C, ⌜xs !! i = Some x⌝ ∗ Φ i x1 x2 x).

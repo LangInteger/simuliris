@@ -209,8 +209,8 @@ Section lemmas.
       { simpl. intros t tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
         - (* new tag: under local control *)
           split_and!; [ lia | lia | | |].
-          + intros l' sc_t Hsc_t%lookup_union_Some_l'; last done. by apply loc_controlled_alloc_local.
-          + intros l' sc_t Hsc_s%lookup_union_Some_l'; last done. by apply loc_controlled_alloc_local.
+          + intros l' sc_t Hsc_t%lookup_union_Some_inv_l; last done. by apply loc_controlled_alloc_local.
+          + intros l' sc_t Hsc_s%lookup_union_Some_inv_l; last done. by apply loc_controlled_alloc_local.
           + apply dom_agree_on_tag_union; first last.
             { apply dom_agree_on_tag_not_elem; done. }
             rewrite Hl_eq. apply dom_agree_on_tag_array_tag_map.

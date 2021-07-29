@@ -312,11 +312,11 @@ Module W.
   | Val v => []
   | Var x => [x]
   | GlobalVar x => []
-  | Let x e1 e2 => free_vars e1 ++ (filter (λ v, v ∉ binder_to_list x) (free_vars e2))
+  | Let x e1 e2 => free_vars e1 ++ (filter (λ v, v ∉ binder_list x) (free_vars e2))
   | Match e0 x1 e1 x2 e2 =>
     free_vars e0 ++
-    (filter (λ v, v ∉ binder_to_list x1) (free_vars e1)) ++
-    (filter (λ v, v ∉ binder_to_list x2) (free_vars e2))
+    (filter (λ v, v ∉ binder_list x1) (free_vars e1)) ++
+    (filter (λ v, v ∉ binder_list x2) (free_vars e2))
   | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2
@@ -334,11 +334,11 @@ Module W.
   | Val v => true
   | Var x => bool_decide (x ∈ free)
   | GlobalVar x => true
-  | Let x e1 e2 => is_closed free e1 && is_closed (binder_to_list x ++ free) e2
+  | Let x e1 e2 => is_closed free e1 && is_closed (binder_list x ++ free) e2
   | Match e0 x1 e1 x2 e2 =>
     is_closed free e0 &&
-    is_closed (binder_to_list x1 ++ free) e1 &&
-    is_closed (binder_to_list x2 ++ free) e2
+    is_closed (binder_list x1 ++ free) e1 &&
+    is_closed (binder_list x2 ++ free) e2
   | UnOp _ e | Fst e | Snd e | InjL e | InjR e | Fork e | Load _ e =>
      is_closed free e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Pair e1 e2

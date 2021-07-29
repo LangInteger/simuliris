@@ -151,11 +151,11 @@ Proof.
     iPureIntro. split_and!.
     { intros t tk'. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome_t]].
       - cbn. split_and!; [lia | lia | | |].
-        + intros l' sc_t Ha%lookup_union_Some_l'; last done.
+        + intros l' sc_t Ha%lookup_union_Some_inv_l; last done.
           specialize (array_tag_map_lookup2 l nt v_t nt l' ltac:(eauto)) as [_ (i & Hi & ->)].
           eapply loc_controlled_retag_ref; [ done | done |  done | lia | ].
           move : Ha. rewrite array_tag_map_lookup_Some; last done. move => <-. apply Hshp_t. lia.
-        + intros l' sc_s Ha%lookup_union_Some_l'; last done.
+        + intros l' sc_s Ha%lookup_union_Some_inv_l; last done.
           specialize (array_tag_map_lookup2 l nt v_s nt l' ltac:(eauto)) as [_ (i & Hi & ->)].
           subst nt. rewrite -Hsnp. eapply loc_controlled_retag_ref; [ done | done | done | lia | ].
           move : Ha. rewrite array_tag_map_lookup_Some; last done. move => <-. apply Hshp_s. lia.
@@ -408,11 +408,11 @@ Proof.
     iPureIntro. split_and!.
     { intros t tk'. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome_t]].
       - cbn. split_and!; [lia | lia | | |].
-        + intros l' sc_t Ha%lookup_union_Some_l'; last done.
+        + intros l' sc_t Ha%lookup_union_Some_inv_l; last done.
           specialize (array_tag_map_lookup2 l nt v_t nt l' ltac:(eauto)) as [_ (i & Hi & ->)].
           eapply loc_controlled_retag_ref; [ done | done | done | lia | ].
           move : Ha. rewrite array_tag_map_lookup_Some; last done. move => <-. apply Hshp_t. lia.
-        + intros l' sc_s Ha%lookup_union_Some_l'; last done.
+        + intros l' sc_s Ha%lookup_union_Some_inv_l; last done.
           specialize (array_tag_map_lookup2 l nt v_s nt l' ltac:(eauto)) as [_ (i & Hi & ->)].
           subst nt. rewrite -Hsnp. eapply loc_controlled_retag_ref; [ done | done | done | lia | ].
           move : Ha. rewrite array_tag_map_lookup_Some; last done. move => <-. apply Hshp_s. lia.

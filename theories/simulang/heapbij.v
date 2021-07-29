@@ -292,7 +292,7 @@ Section definitions.
       rewrite -{3}Hv_s' -{3}Hv_t' big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..].
       iSplitL "Hvs_1"; [|iSplitR "Hvs_2"].
       + iApply (big_sepL2_impl with "Hvs_1").
-        iIntros "!>" (??? ?%take_lookup_Some ?%take_lookup_Some) "[%s [%q' [% Hp]]]".
+        iIntros "!>" (??? ?%lookup_take_Some ?%lookup_take_Some) "[%s [%q' [% Hp]]]".
         iExists s, q'. iFrame. iPureIntro.
         apply: Hsame; [lia| done].
       + iExists _, _. iSplit; [done|]. by iFrame.
@@ -307,7 +307,7 @@ Section definitions.
       rewrite -{3}Hv_s' -{3}Hv_t' big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..].
       iSplitL "Hvs_1"; [|iSplitR "Hvs_2"].
       + iApply (big_sepL2_impl with "Hvs_1").
-        iIntros "!>" (??? ?%take_lookup_Some ?%take_lookup_Some) "[%s [%q' [% Hp]]]".
+        iIntros "!>" (??? ?%lookup_take_Some ?%lookup_take_Some) "[%s [%q' [% Hp]]]".
         iExists s, q'. iFrame. iPureIntro.
         apply: Hsame; [lia|done].
       + iExists _, _. iSplit; [done|] => /=. iFrame "Hv".
@@ -354,7 +354,7 @@ Section definitions.
     rewrite big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..]. iFrame.
     iSplitL "Hvs_1"; [|iSplitR "Hvs_2"].
     - iApply (big_sepL2_impl with "Hvs_1").
-      iIntros "!>" (??? ?%take_lookup_Some ?%take_lookup_Some) "[%s [%q'' [% Hp]]]".
+      iIntros "!>" (??? ?%lookup_take_Some ?%lookup_take_Some) "[%s [%q'' [% Hp]]]".
       iExists s, q''. iFrame. iPureIntro.
       apply: Hsame; [lia| done].
     - iExists (if q' then st' else RSt 0), (Some (if q' is Some q'' then q + q'' else q))%Qp.

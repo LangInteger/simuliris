@@ -515,41 +515,12 @@ Section heap_defs.
     dom_agree_on_tag M_t M_s t.
   Proof. intros Ht Hs. split; intros l; rewrite Ht Hs; congruence. Qed.
 
-  (* TODO: move somewhere? *)
-  (* std++ MR 315 *)
-  Lemma lookup_difference_is_Some `{Countable K} (V : Type) (M1 M2 : gmap K V) (k : K) :
-    is_Some ((M1 ∖ M2) !! k) ↔ is_Some (M1 !! k) ∧ M2 !! k = None.
-  Proof. rewrite /is_Some. setoid_rewrite lookup_difference_Some. naive_solver. Qed.
-
   Lemma dom_agree_on_tag_difference M1_t M1_s M2_t M2_s t :
     dom_agree_on_tag M1_t M1_s t → dom_agree_on_tag M2_t M2_s t →
     dom_agree_on_tag (M1_t ∖ M2_t) (M1_s ∖ M2_s) t.
   Proof.
     intros [H1a H1b] [H2a H2b]. split; intros l.
     all: rewrite !lookup_difference_is_Some !eq_None_not_Some; naive_solver.
-  Qed.
-
-  (* TODO: move? *)
-  (* std++ MR 315 *)
-  Lemma lookup_union_Some_l' `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) (v : V) :
-    (M1 ∪ M2) !! k = Some v → M2 !! k = None → M1 !! k = Some v.
-  Proof.
-    destruct (M1 !! k) as [ v' | ] eqn:Hv'.
-    - specialize (lookup_union_Some_l M1 M2 _ _ Hv') as ->. move => [= ->]. done.
-    - rewrite lookup_union_r; last done. congruence.
-  Qed.
-  (* TODO: move? *)
-  (* std++ MR 315 *)
-  Lemma lookup_union_is_Some `{EqDecision K} `{Countable K} V (M1 M2 : gmap K V) (k : K) :
-    is_Some ((M1 ∪ M2) !! k) ↔ is_Some (M1 !! k) ∨ is_Some (M2 !! k).
-  Proof.
-    split.
-    - intros (v & Hv). destruct (M1 !! k) eqn:HM1; first by eauto.
-      right. erewrite <-lookup_union_r; eauto.
-    - intros [(v & HM1) | (v & HM2)].
-      + rewrite (lookup_union_Some_l _ _ _ _ HM1); eauto.
-      + destruct (M1 !! k) eqn:HM1. { rewrite (lookup_union_Some_l _ _ _ _ HM1); eauto. }
-        rewrite lookup_union_r; eauto.
   Qed.
 
   Lemma dom_agree_on_tag_union M1_t M1_s M2_t M2_s t :

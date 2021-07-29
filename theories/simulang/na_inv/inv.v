@@ -141,7 +141,7 @@ Section fix_heap.
     { move => q o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
     { done. }
     { done. }
-    iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite map_seq_insert_0 //.
+    iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
@@ -190,7 +190,7 @@ Section fix_heap.
     { move => q' o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
     { by rewrite Qp_div_2. }
     { done. }
-    iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite map_seq_insert_0 //.
+    iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
@@ -227,7 +227,7 @@ Section fix_heap.
       - by move => ->.
     }
     { move => q' o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
-    iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite map_seq_insert_0 //.
+    iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$]") as "$".
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
