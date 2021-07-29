@@ -1135,7 +1135,7 @@ Proof.
   iPureIntro. by left.
 Qed.
 
-(** TODO: move *)
+(** TODO: upstream *)
 Lemma list_in_dec {X} (P : X → Prop) (l : list X) :
   (∀ x, Decision (P x)) →
   Decision (∃ it, P it ∧ it ∈ l).

@@ -148,7 +148,7 @@ Proof.
     apply (Lt1 (S j) y); [lia|done].
 Qed.
 
-(* TODO: move *)
+(* TODO: upstream many of the following lemmas *)
 Lemma list_subseteq_nil_sublist {A: Type} (x: list A):
   x ⊆ [] → sublist x [].
 Proof. destruct x; set_solver. Qed.
