@@ -62,7 +62,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 !# %π Hc".
     sim_bind (! _)%E (! _)%E. discr_source. val_discr_source "Hv1".
     iApply (sim_bij_exploit_load with "Hv1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. target_load. sim_val. source_load. sim_pures.
     iApply (sim_bij_release (NaRead _) with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
@@ -77,7 +77,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 %v_t2 %v_s2 #Hv2 !# %π Hc".
     sim_bind (_ <- _)%E (_ <- _)%E. discr_source. val_discr_source "Hv1".
     iApply (sim_bij_exploit_store with "Hv1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_store. target_store. sim_val. source_load. sim_pures.
     iApply (sim_bij_release NaExcl with "Hv1 Hc [$] [$] Hv2"); [by simplify_map_eq| ].
@@ -94,14 +94,14 @@ Section eliminations.
     do 2 iApply source_red_base. do 2 iModIntro.
     iApply (sim_bij_exploit_store with "Hv1 Hc"); [|done|]. {
       intros.
-      reach_or_stuck_bind (! _)%E.
-      eapply reach_or_stuck_irred; first apply _.
-      intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
-      eapply reach_or_stuck_refl.
-      eapply reach_or_stuck_head_step; [by econstructor|]. simpl. simpl_subst.
-      reach_or_stuck_fill (_ <- _)%E.
-      apply: reach_or_stuck_irred => ?.
-      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+      safe_reach_bind (! _)%E.
+      eapply safe_reach_safe_implies; first apply _.
+      intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
+      eapply safe_reach_refl.
+      eapply safe_reach_head_step; [by econstructor|]. simpl. simpl_subst.
+      safe_reach_fill (_ <- _)%E.
+      apply: safe_reach_safe_implies => ?.
+      apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
     }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. target_load. source_store. sim_pures.
@@ -117,7 +117,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 %v_t2 %v_s2 #Hv2 %v_t3 %v_s3 #Hv3 !# %π Hc".
     sim_bind (_ <- _)%E (_ <- _)%E. discr_source. val_discr_source "Hv2".
     iApply (sim_bij_exploit_store with "Hv2 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_store. target_store. sim_val. source_store.
     iApply (sim_bij_release NaExcl with "Hv2 Hc [$] [$] Hv1"); [by simplify_map_eq| ].
@@ -132,7 +132,7 @@ Section eliminations.
     iIntros "%v_t1 %v_s1 #Hv1 !# %π Hc".
     sim_bind (Val _) (! _)%E. discr_source. val_discr_source "Hv1".
     iApply (sim_bij_exploit_load with "Hv1 Hc"); [|done|].
-    { intros. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. sim_val. sim_pures.
     iApply (sim_bij_release (NaRead _) with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
@@ -209,7 +209,7 @@ Section reorderings.
 
     destruct Hor; simplify_eq.
     - iApply (sim_bij_exploit_load with "Hx Hc"); [|done|].
-      { intros. reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. safe_reach_fill (! _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_load. sim_pures. sim_bind (Load _ _) (Load _ _).
       iApply (sim_bij_load_mapstolist [(global_loc x, global_loc x, v_t, v_s, q)] with "Hy Hc [-]"); [done| | |].
@@ -220,13 +220,13 @@ Section reorderings.
       iApply (sim_bij_release (NaRead _) with "Hx Hc [$] [$] Hv"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. iFrame. by iSplit.
     - iApply (sim_bij_exploit_load with "Hy Hc"); [|done|].
-      { intros. reach_or_stuck_bind (Load _ _)%E.
-        eapply reach_or_stuck_irred; first apply _.
-        intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
-        apply: reach_or_stuck_refl.
-        apply: reach_or_stuck_head_step; [ by econstructor|] => /=. simpl_subst.
-        reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_irred => ?.
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. safe_reach_bind (Load _ _)%E.
+        eapply safe_reach_safe_implies; first apply _.
+        intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
+        apply: safe_reach_refl.
+        apply: safe_reach_head_step; [ by econstructor|] => /=. simpl_subst.
+        safe_reach_fill (! _)%E. apply: safe_reach_safe_implies => ?.
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       target_load. sim_pures. sim_bind (Load _ _) (Load _ _).
       iApply (sim_bij_load_mapstolist [(global_loc y, global_loc y, v_t, v_s, q)] with "Hx Hc [-]"); [done| | |].
@@ -261,25 +261,25 @@ Section reorderings.
     destruct o1 => //.
     - iApply (sim_bij_exploit_store with "Hy Hc"); [|done|].
       { intros.
-        reach_or_stuck_bind (Store _ _ _)%E.
-        apply: reach_or_stuck_store; [done|].
-        apply: reach_or_stuck_refl.
-        apply: reach_or_stuck_head_step; [by econstructor|] => /=.
-        apply: reach_or_stuck_irred => -[?[?[[<-] /=/lookup_insert_Some[?|?]]]].
+        safe_reach_bind (Store _ _ _)%E.
+        apply: safe_reach_store; [done|].
+        apply: safe_reach_refl.
+        apply: safe_reach_head_step; [by econstructor|] => /=.
+        apply: safe_reach_safe_implies => -[?[?[[<-] /=/lookup_insert_Some[?|?]]]].
         { naive_solver. }
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
       target_store. sim_pures.
       iApply (sim_bij_store_sc [] [SeqEctx _] with "Hx Hc Hr1").
       { rewrite lookup_insert_ne //. naive_solver. }
       { move => ????? /lookup_insert_Some[[??]|[??//]]; simplify_eq/=.
-        apply: reach_or_stuck_head_step; [by econstructor|] => /=.
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+        apply: safe_reach_head_step; [by econstructor|] => /=.
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros "Hc /=". source_store.
       iApply (sim_bij_release NaExcl with "Hy Hc [$] [$] Hr2"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
     - iApply (sim_bij_exploit_store with "Hx Hc"); [|done|].
-      { intros. reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. safe_reach_fill (_ <- _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_store. sim_pures. sim_bind (Store _ _ _) (Store _ _ _).
       iApply (sim_bij_store_na with "Hy Hc Hr2").
@@ -312,26 +312,26 @@ Section reorderings.
     - destruct Hor => //; simplify_eq.
      iApply (sim_bij_exploit_load with "Hy Hc"); [|done|].
       { intros.
-        reach_or_stuck_bind (Store _ _ _)%E.
-        apply: reach_or_stuck_store; [done|].
-        apply: reach_or_stuck_refl.
-        apply: reach_or_stuck_head_step; [by econstructor|] => /=.
-        reach_or_stuck_fill (! _)%E.
-        apply: reach_or_stuck_irred => -[?[?[?[[<-] /=/lookup_insert_Some[?|?]]]]].
+        safe_reach_bind (Store _ _ _)%E.
+        apply: safe_reach_store; [done|].
+        apply: safe_reach_refl.
+        apply: safe_reach_head_step; [by econstructor|] => /=.
+        safe_reach_fill (! _)%E.
+        apply: safe_reach_safe_implies => -[?[?[?[[<-] /=/lookup_insert_Some[?|?]]]]].
         { naive_solver. }
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       target_load. sim_pures.
       iApply (sim_bij_store_sc [SeqEctx _] [SeqEctx _] with "Hx Hc Hr2").
       { rewrite lookup_insert_ne //. naive_solver. }
       { move => ????? /lookup_insert_Some[[??]|[??//]]; simplify_eq/=.
-        apply: reach_or_stuck_head_step; [by econstructor|] => /=.
-        reach_or_stuck_fill (! _)%E. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+        apply: safe_reach_head_step; [by econstructor|] => /=.
+        safe_reach_fill (! _)%E. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros "Hc /=". source_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hy Hc [$] [$] Hv"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
     - iApply (sim_bij_exploit_store with "Hx Hc"); [|done|].
-      { intros. reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred => ?. apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+      { intros. safe_reach_fill (_ <- _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_store. sim_pures. sim_bind (Load _ _) (Load _ _).
       iApply (sim_bij_load with "Hy Hc"); [|done|].
@@ -362,13 +362,13 @@ Section reorderings.
 
     simplify_eq.
     iApply (sim_bij_exploit_store with "Hy Hc"); [|done|].
-    { intros. reach_or_stuck_bind (Load _ _)%E.
-      eapply reach_or_stuck_irred; first apply _.
-      intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
-      apply: reach_or_stuck_refl.
-      apply: reach_or_stuck_head_step; [ by econstructor|] => /=. simpl_subst.
-      reach_or_stuck_fill (_ <- _)%E. apply: reach_or_stuck_irred => ?.
-      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver. }
+    { intros. safe_reach_bind (Load _ _)%E.
+      eapply safe_reach_safe_implies; first apply _.
+      intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
+      apply: safe_reach_refl.
+      apply: safe_reach_head_step; [ by econstructor|] => /=. simpl_subst.
+      safe_reach_fill (_ <- _)%E. apply: safe_reach_safe_implies => ?.
+      apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     target_store. sim_pures. sim_bind (Load _ _) (Load _ _).
     iApply (sim_bij_load with "Hx Hc"); [|done|].

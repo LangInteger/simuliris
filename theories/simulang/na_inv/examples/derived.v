@@ -15,14 +15,6 @@ From iris.prelude Require Import options.
 Section derived.
   Context `{naGS Σ}.
 
-  Lemma safe_reach_if e1 e2 v : safe_reach (∃ b, v = LitV $ LitBool b) (If (Val v) e1 e2).
-  Proof. apply safe_reach_irred. apply _. Qed.
-  Lemma safe_reach_div v1 v2 : safe_reach ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V (BinOp QuotOp (Val v1) (Val v2)).
-  Proof. apply safe_reach_irred. apply _. Qed.
-  Lemma safe_reach_load o v_l : safe_reach (∃ l, v_l = LitV $ LitLoc l) (Load o $ Val v_l).
-  Proof. apply safe_reach_irred. apply _. Qed.
-
-
   Implicit Types
     (P : iProp Σ) (Φ : expr → expr → iProp Σ) (Ψ : expr → iProp Σ)
     (e_t e_s : expr)
@@ -67,11 +59,11 @@ Section derived.
   Qed.
 
   Lemma sim_src_safe P Q e_t e_s π Φ :
-    safe_reach Q e_s →
+    (∀ p σ, SafeImplies Q p e_s σ) →
     (⊢ {{{ P ∗ ⌜Q⌝ }}} e_t ⪯[π] e_s {{{ Φ }}}) →
     ⊢ {{{ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
   Proof.
-    iIntros (Hsafe Hs) "!> P". iApply sim_irred_safe_reach; first done.
+    iIntros (Hsafe Hs) "!> P". iApply sim_safe_implies.
     iIntros "HQ". iApply Hs. iFrame.
   Qed.
 
@@ -314,7 +306,7 @@ Section derived.
     iIntros (Hc Hb). iApply sim_while. iIntros "!>HI".
     sim_bind c_t c_s. iApply (sim_wand with "[HI] []"). { by iApply Hc. }
     iIntros (v_t v_s) "Hc".
-    iApply sim_irred_unless. iIntros "(%b & ->)".
+    iApply sim_safe_implies. iIntros "(%b & ->)".
     iDestruct "Hc" as "(Hv & [(% & HI) | (% & HQ)])".
     - simplify_eq. val_discr_source "Hv". sim_pures.
       sim_bind b_t b_s. iApply (sim_wand with "[HI] []"). { by iApply Hb. }
@@ -424,7 +416,7 @@ Section derived.
 
   (** Exploitation triples *)
   Lemma sim_exploit_store P π (l_t l_s : loc) Φ e_s e_t col :
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ ∃ v, σ_s.(heap) !! l_s = Some (RSt 0, v)))) →
+    (∀ P_s σ_s, safe_reach P_s e_s σ_s (post_in_ectx (λ e' σ', ∃ v' : val, e' = Store Na1Ord #l_s v' ∧ ∃ v, σ_s.(heap) !! l_s = Some (RSt 0, v)))) →
     col !! l_s = None →
     (∀ v_t v_s, ⊢ {{{ l_t ↦t v_t ∗ l_s ↦s v_s ∗ val_rel v_t v_s ∗ na_locs π (<[l_s := (l_t, NaExcl)]>col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
     ⊢ {{{ l_t ↔h l_s ∗ na_locs π col ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
@@ -435,7 +427,7 @@ Section derived.
   Qed.
 
   Lemma sim_exploit_load P π (l_t l_s : loc) Φ e_s e_t col :
-    (∀ P_s σ_s, reach_or_stuck P_s e_s σ_s (post_in_ectx (λ e' σ', e' = (Load Na1Ord #l_s) ∧ ∃ n v, σ_s.(heap) !! l_s = Some (RSt n, v)))) →
+    (∀ P_s σ_s, safe_reach P_s e_s σ_s (post_in_ectx (λ e' σ', e' = (Load Na1Ord #l_s) ∧ ∃ n v, σ_s.(heap) !! l_s = Some (RSt n, v)))) →
     col !! l_s = None →
     (∀ q v_t v_s, ⊢ {{{ l_t ↦t{#q} v_t ∗ l_s ↦s{#q} v_s ∗ val_rel v_t v_s ∗ na_locs π (<[l_s := (l_t, NaRead q)]>col) ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}) →
     ⊢ {{{ l_t ↔h l_s ∗ na_locs π col ∗ P }}} e_t ⪯[π] e_s {{{ Φ }}}.

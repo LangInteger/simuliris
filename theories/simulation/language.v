@@ -450,6 +450,18 @@ Section language.
       eapply (proj2 Hstuck). econstructor; eauto.
   Qed.
 
+  Lemma fill_not_stuck (P : prog Λ) e σ K : not_stuck P (fill K e) σ → not_stuck P e σ.
+  Proof.
+    intros [Hval | Hred].
+    - left. by eapply fill_val.
+    - destruct Hred as (e' & σ' & efs & (K_redex &e1 &e2 &Heq &-> &Hhead)%prim_step_inv).
+      destruct (decide (to_val e = None)) as [Hnval | Hval]; first last.
+      { left. destruct (to_val e) as [v | ]; by eauto. }
+      edestruct (step_by_val P K K_redex _ _ _ _ _ _ Heq Hnval Hhead) as (K'' & ->).
+      rewrite -fill_comp in Heq. apply fill_inj in Heq as ->.
+      right. eexists _, _, _. econstructor; eauto.
+  Qed.
+
   Lemma prim_step_call_inv p K f v e' σ σ' efs :
     prim_step p (fill K (of_call f v)) σ e' σ' efs →
     ∃ fn, p !! f = Some fn ∧ e' = fill K (apply_func fn v) ∧ σ' = σ ∧ efs = [].
@@ -624,10 +636,27 @@ Section language.
 
   (** Reaching Stuck States/Safety *)
   (* a thread pool has undefined behavior, if one of its threads has undefined behavior. *)
+  Definition not_stuck_pool p T σ := ∀ e i, T !! i = Some e → not_stuck p e σ.
+  Definition pool_safe p T σ := ∀ T' σ' I, pool_steps p T σ I T' σ' → not_stuck_pool p T' σ'.
   Definition stuck_pool p T σ := (∃ e i, T !! i = Some e ∧ stuck p e σ).
   Definition pool_reach_stuck p T σ :=
     ∃ T' σ' I, pool_steps p T σ I T' σ' ∧ stuck_pool p T' σ'.
-  Definition pool_safe p T σ := ¬ pool_reach_stuck p T σ.
+
+  Lemma stuck_pool_not_not_stuck_pool p T σ :
+    stuck_pool p T σ → ¬ not_stuck_pool p T σ.
+  Proof.
+    intros (e & i & Hlookup & [Hnval Hirred]) Hnot.
+    apply Hnot in Hlookup as [Hval | Hred].
+    - rewrite Hnval in Hval. destruct Hval as [? [=]].
+    - apply not_reducible in Hirred. done.
+  Qed.
+
+  Lemma pool_reach_stuck_not_safe p T σ :
+    pool_reach_stuck p T σ → ¬ pool_safe p T σ.
+  Proof.
+    intros (T' & σ' & I & Hsteps & Hstuck) Hsafe.
+    apply Hsafe in Hsteps. eapply stuck_pool_not_not_stuck_pool; done.
+  Qed.
 
   Lemma pool_step_singleton p e σ i σ' T:
     pool_step p [e] σ i T σ' ↔
@@ -692,6 +721,27 @@ Section language.
       eauto 10 using pool_steps.
   Qed.
 
+  Lemma pool_steps_safe p T I T' σ σ':
+    pool_steps p T σ I T' σ' → pool_safe p T σ → pool_safe p T' σ'.
+  Proof.
+    intros Hs1 Hsafe T'' σ'' I' Hsteps. eapply Hsafe. eapply pool_steps_trans; done.
+  Qed.
+
+  Lemma pool_safe_insert_fill p T i e σ K :
+    T !! i = Some e →
+    pool_safe p (<[i := fill K e]> T) σ →
+    pool_safe p T σ.
+  Proof.
+    intros Hlook Hsafe T' σ' I Hsteps.
+    eapply (pool_steps_fill_context _ _ K) in Hsteps as (e' & Hlook' & Hsteps); last done.
+    intros e'' j He''.
+    destruct (decide (i = j)) as [-> | Hneq].
+    - assert (e'' = e') as -> by naive_solver.
+      eapply fill_not_stuck. eapply Hsafe; first done.
+      eapply list_lookup_insert, lookup_lt_Some, Hlook'.
+    - eapply Hsafe; first done. rewrite list_lookup_insert_ne //.
+  Qed.
+
   Lemma fill_reach_stuck_pool p T i e σ K :
     T !! i = Some e →
     pool_reach_stuck p T σ →
@@ -716,12 +766,6 @@ Section language.
     by eapply pool_steps_trans.
   Qed.
 
-  Lemma pool_steps_safe p T I T' σ σ':
-    pool_steps p T σ I T' σ' → pool_safe p T σ → pool_safe p T' σ'.
-  Proof.
-    intros H1 H2 H3; by eapply H2, pool_steps_reach_stuck.
-  Qed.
-
   Lemma pool_safe_call_in_prg p K T T' i I σ σ' f v:
     pool_safe p T σ →
     pool_steps p T σ I T' σ' →
@@ -729,15 +773,14 @@ Section language.
     ∃ fn', p !! f = Some fn'.
   Proof.
     destruct (p !! f) as [fn'|] eqn: Hloook; first by eauto.
-    intros Hsafe Hsteps Hlook. exfalso; eapply Hsafe.
-    exists T', σ', I; split; first done.
-    exists (fill K (of_call f v)), i.
-    split; first done. eapply fill_stuck.
-    split; first eapply to_val_of_call.
-    intros  e'' σ'' efs Hstep.
-    pose proof (prim_step_call_inv p empty_ectx f v e'' σ' σ'' efs) as Hinv.
-    rewrite fill_empty in Hinv.
-    eapply Hinv in Hstep as (x_f & e_f & Hprg & _); naive_solver.
+    intros Hsafe Hsteps Hlook. exfalso.
+    apply Hsafe in Hsteps. apply Hsteps in Hlook.
+    apply fill_not_stuck in Hlook as [Hval | Hred].
+    - rewrite to_val_of_call in Hval. destruct Hval as [? [=]].
+    - destruct Hred as (e'' & σ'' & efs & Hstep).
+      pose proof (prim_step_call_inv p empty_ectx f v e'' σ' σ'' efs) as Hinv.
+      rewrite fill_empty in Hinv.
+      eapply Hinv in Hstep as (x_f & e_f & Hprg & _); naive_solver.
   Qed.
 
   (** Some theory for sub-pools
@@ -766,6 +809,17 @@ Section language.
     edestruct IH as (? & ? & ? & ?); eauto 10 using pool_steps.
   Qed.
 
+  Lemma pool_safe_sub_pool p T1 T2 σ :
+    pool_safe p T2 σ →
+    T1 ⊆+ T2 →
+    pool_safe p T1 σ.
+  Proof.
+    intros Hsafe Hsub T' σ' I Hsteps e i He.
+    eapply pool_steps_sub_pool in Hsteps as (T2' & J & Hsub' & Hsteps'); last done.
+    eapply lookup_submseteq in Hsub' as (j & Hlook'); last done.
+    eapply Hsafe; done.
+  Qed.
+
   Lemma pool_reach_stuck_sub_pool p T1 T2 σ:
     pool_reach_stuck p T1 σ →
     T1 ⊆+ T2 →
@@ -781,7 +835,7 @@ Section language.
 
   (** we define the one-thread versions of the above pool notions and lemmas *)
   Definition reach_stuck p e σ := pool_reach_stuck p [e] σ.
-  Definition safe p e σ := ¬ reach_stuck p e σ.
+  Definition safe p e σ := pool_safe p [e] σ.
   Definition step_no_fork p e σ e' σ' := prim_step p e σ e' σ' [].
   Inductive steps_no_fork (p: prog Λ): expr Λ → state Λ → expr Λ → state Λ → Prop :=
     | no_forks_refl e σ: steps_no_fork p e σ e σ
@@ -789,6 +843,16 @@ Section language.
       step_no_fork p e σ e' σ' →
       steps_no_fork p e' σ' e'' σ'' →
       steps_no_fork p e σ e'' σ''.
+
+  Lemma pool_safe_threads_safe p T σ i e:
+    pool_safe p T σ →
+    T !! i = Some e →
+    safe p e σ.
+  Proof.
+    intros Hsafe Hlook. eapply pool_safe_sub_pool; first done.
+    eapply singleton_submseteq_l.
+    apply elem_of_list_lookup. eauto.
+  Qed.
 
   Lemma pool_reach_stuck_reach_stuck p e σ i T:
     reach_stuck p e σ →
@@ -799,15 +863,6 @@ Section language.
     eapply pool_reach_stuck_sub_pool; first apply Hstuck.
     eapply singleton_submseteq_l.
     apply elem_of_list_lookup. eauto.
-  Qed.
-
-  Lemma pool_safe_threads_safe p T σ i e:
-    pool_safe p T σ →
-    T !! i = Some e →
-    safe p e σ.
-  Proof.
-    intros Hsafe Hlook Hstuck.
-    by eapply Hsafe, pool_reach_stuck_reach_stuck.
   Qed.
 
   Lemma stuck_reach_stuck P e σ:
@@ -832,6 +887,12 @@ Section language.
     intros Hreach; eapply (fill_reach_stuck_pool _ [e] 0); done.
   Qed.
 
+  Lemma fill_safe p e σ K :
+    safe p (fill K e) σ → safe p e σ.
+  Proof.
+    intros Hsafe. eapply (pool_safe_insert_fill _ [e] 0); done.
+  Qed.
+
   Lemma no_forks_pool_steps_single_thread p e σ e' σ':
     steps_no_fork p e σ e' σ' →
     (∃ I, pool_steps p [e] σ I [e'] σ').
@@ -840,7 +901,6 @@ Section language.
     destruct IH as (I & Hsteps). exists (0 :: I).
     econstructor; first eapply pool_step_singleton; eauto 10.
   Qed.
-
 
   Lemma prim_step_pool_step T i p e σ e' σ' efs :
     prim_step p e σ e' σ' efs →
@@ -930,14 +990,13 @@ Section language.
 
   Lemma val_safe p v σ : safe p (of_val v) σ.
   Proof.
-    intros (T'&σ'& I & Hsteps & Hstuck).
+    intros T' σ' I Hsteps e i Hlookup.
     eapply pool_steps_values in Hsteps as (-> & -> & ->); last first.
-    { intros e Hel. assert (e = of_val v) as -> by set_solver.
+    { intros e' Hel. assert (e' = of_val v) as -> by set_solver.
       rewrite to_of_val; eauto. }
-    destruct Hstuck as (e & [] & Hlook & Hstuck); last naive_solver.
-    destruct Hstuck as [Hstuck _]; simpl in Hlook.
+    rewrite list_lookup_singleton in Hlookup. destruct i; last done.
     assert (e = of_val v) as -> by congruence.
-    rewrite to_of_val in Hstuck. naive_solver.
+    left. rewrite to_of_val. eauto.
   Qed.
 
   Lemma reach_stuck_no_forks P e σ e' σ':
@@ -948,14 +1007,12 @@ Section language.
     by eapply pool_steps_trans.
   Qed.
 
-  Lemma fill_safe P e σ K:
-    safe P (fill K e) σ → safe P e σ.
-  Proof. intros Hsafe ?. apply Hsafe. by apply fill_reach_stuck. Qed.
-
   Lemma safe_no_forks P e σ e' σ':
     safe P e σ → steps_no_fork P e σ e' σ' → safe P e' σ'.
   Proof.
-    intros Hsafe Hnfs Hreach; by eapply Hsafe, reach_stuck_no_forks.
+    intros Hsafe (J & Hnfs)%no_forks_pool_steps_single_thread T'' σ'' I Hsteps e'' i Hlookup.
+    eapply Hsafe. { eapply pool_steps_trans; done. }
+    done.
   Qed.
 
   Lemma no_forks_trans P e σ e' σ' e'' σ'':
@@ -973,12 +1030,13 @@ Section language.
 
 End language.
 
-Section reach_or_stuck.
+
+Section safe_reach.
   Context {Λ : language}.
 
   (** [post_in_ectx] allows ignoring arbitrary evaluation contexts
   around e and is meant as a combinator for the postcondition of
-  [reach_or_stuck]. *)
+  [safe_reach]. *)
   Definition post_in_ectx (Φ : expr Λ → state Λ → Prop) (e : expr Λ) (σ : state Λ) : Prop :=
     ∃ Ks e', e = fill Ks e' ∧ Φ e' σ.
 
@@ -993,84 +1051,88 @@ Section reach_or_stuck.
     post_in_ectx Φ2 e σ.
   Proof. move => [?[?[??]]] ?. eexists _, _. naive_solver. Qed.
 
-  (** [reach_or_stuck P e σ Φ] says that starting from e in state σ,
-  one can either reach e' in σ' such that Φ e' σ' holds or there is an
-  execution where e gets stuck. *)
-  Definition reach_or_stuck (P : prog Λ) (e : expr Λ) (σ : state Λ) (Φ : expr Λ → state Λ → Prop) : Prop :=
-    reach_stuck P e σ ∨ ∃ e' σ', steps_no_fork P e σ e' σ' ∧ Φ e' σ'.
+  (** [safe_reach P e σ Φ] says that starting from e in state σ,
+    under the assumption that this is a [safe] configuration,
+     one can reach e' in σ' such that Φ e' σ' holds. *)
+  Definition safe_reach (P : prog Λ) (e : expr Λ) (σ : state Λ) (Φ : expr Λ → state Λ → Prop) : Prop :=
+    safe P e σ → ∃ e' σ', steps_no_fork P e σ e' σ' ∧ Φ e' σ'.
 
-  Lemma reach_or_stuck_refl p e σ (Φ : _ → _ → Prop):
-    Φ e σ → reach_or_stuck p e σ Φ.
-  Proof. move => ?. right. eexists _, _ => /=. split; [|done]. by apply: no_forks_refl. Qed.
+  Lemma safe_reach_refl p e σ (Φ : _ → _ → Prop):
+    Φ e σ → safe_reach p e σ Φ.
+  Proof. move => ? ?. eexists _, _ => /=. split; [|done]. by apply: no_forks_refl. Qed.
 
-  Lemma reach_or_stuck_mono p e σ (Φ1 Φ2 : _ → _ → Prop):
-    reach_or_stuck p e σ Φ1 → (∀ e σ, Φ1 e σ → Φ2 e σ) → reach_or_stuck p e σ Φ2.
-  Proof. move => [?|?]; [by left|right]. naive_solver. Qed.
+  Lemma safe_reach_mono p e σ (Φ1 Φ2 : _ → _ → Prop):
+    safe_reach p e σ Φ1 → (∀ e σ, Φ1 e σ → Φ2 e σ) → safe_reach p e σ Φ2.
+  Proof. intros Hsr ? (? & ? & ? & ?)%Hsr. eexists _, _. naive_solver. Qed.
 
-  Lemma reach_or_stuck_no_forks p e σ e' σ' (Φ : _ → _ → Prop):
-    steps_no_fork p e σ e' σ' → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
+  Lemma safe_reach_no_forks p e σ e' σ' (Φ : _ → _ → Prop):
+    steps_no_fork p e σ e' σ' → safe_reach p e' σ' Φ → safe_reach p e σ Φ.
   Proof.
-    move => ? [Hros|[?[?[??]]]]; [left|right].
-    - by apply: reach_stuck_no_forks.
-    - eexists _, _. split; [|done]. by apply: no_forks_trans.
+    intros Hsteps Hsr Hsafe. specialize (safe_no_forks _ _ _ _ _ Hsafe Hsteps) as (?&?&?&?)%Hsr.
+    eexists _, _. split; last done. by apply: no_forks_trans.
   Qed.
 
-  Lemma reach_or_stuck_step p e σ e' σ' (Φ : _ → _ → Prop):
-    prim_step p e σ e' σ' [] → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
+  Lemma safe_reach_step p e σ e' σ' (Φ : _ → _ → Prop):
+    prim_step p e σ e' σ' [] → safe_reach p e' σ' Φ → safe_reach p e σ Φ.
   Proof.
-    move => ??. apply: reach_or_stuck_no_forks; [|done].
+    move => ??. apply: safe_reach_no_forks; [|done].
     apply: no_forks_step; [done|]. apply: no_forks_refl.
   Qed.
 
-  Lemma reach_or_stuck_head_step p e σ e' σ' (Φ : _ → _ → Prop):
-    head_step p e σ e' σ' [] → reach_or_stuck p e' σ' Φ → reach_or_stuck p e σ Φ.
-  Proof. move => ??. apply: reach_or_stuck_step; [|done]. by apply: head_prim_step. Qed.
+  Lemma safe_reach_head_step p e σ e' σ' (Φ : _ → _ → Prop):
+    head_step p e σ e' σ' [] → safe_reach p e' σ' Φ → safe_reach p e σ Φ.
+  Proof. move => ??. apply: safe_reach_step; [|done]. by apply: head_prim_step. Qed.
 
-  Lemma fill_reach_or_stuck p e σ Φ Ks:
-    reach_or_stuck p e σ (post_in_ectx Φ) → reach_or_stuck p (fill Ks e) σ (post_in_ectx Φ).
+  Lemma fill_safe_reach p e σ Φ Ks:
+    safe_reach p e σ (post_in_ectx Φ) → safe_reach p (fill Ks e) σ (post_in_ectx Φ).
   Proof.
-    move => [Hros|[?[?[?[?[?[? ?]]]]]]]; [left|right]; subst.
-    - by apply: fill_reach_stuck.
-    - eexists _, _. split; [ by apply: fill_no_forks|].
-      eexists _, _. rewrite fill_comp. naive_solver.
+    intros Hsr (?&?&?&Hp)%fill_safe%Hsr.
+    eexists _, _. split; [ by apply: fill_no_forks | ].
+    destruct Hp as (? & ? & -> & ?).
+    eexists _, _. rewrite fill_comp. naive_solver.
   Qed.
 
-  Lemma reach_or_stuck_bind p e σ Φ Ks:
-    reach_or_stuck p e σ (λ e' σ', reach_or_stuck p (fill Ks e') σ' Φ) → reach_or_stuck p (fill Ks e) σ Φ.
+  Lemma safe_reach_bind p e σ Φ Ks:
+    safe_reach p e σ (λ e' σ', safe_reach p (fill Ks e') σ' Φ) → safe_reach p (fill Ks e) σ Φ.
   Proof.
-    move => [Hros|[?[?[?[?|[?[?[??]]]]]]]]; [left|left|right].
-    - by apply: fill_reach_stuck.
-    - apply: reach_stuck_no_forks.
-      2: { by apply: fill_no_forks. }
-      done.
-    - eexists _, _. split; [|done].
-      apply: no_forks_trans. { by apply: fill_no_forks. }
-      done.
+    intros Hsr Hsafe.
+    specialize (Hsr (fill_safe _ _ _ _  Hsafe)) as (? &?&?&Hp).
+    destruct Hp as (?&?& ? & ?).
+    { eapply safe_no_forks; first done. by apply fill_no_forks. }
+    eexists _, _. split; last done.
+    eapply no_forks_trans.
+    - by eapply fill_no_forks.
+    - done.
   Qed.
 
-  Lemma pool_reach_stuck_reach_or_stuck Φ π p T e σ:
-    T !! π = Some e →
-    reach_or_stuck p e σ Φ →
-    (∀ e' σ', Φ e' σ' → pool_reach_stuck p (<[π := e']>T) σ') →
-    pool_reach_stuck p T σ.
-  Proof.
-    move => HT [Hros|[?[?[??]]]] Hreach.
-    - by apply: pool_reach_stuck_reach_stuck.
-    - apply: pool_reach_stuck_no_forks; [done..|]. naive_solver.
-  Qed.
-
-  Lemma pool_safe_reach_or_stuck π p T e σ Φ K:
+  Lemma pool_safe_safe_reach π p T e σ Φ K:
     pool_safe p T σ →
     T !! π = Some (fill K e) →
-    reach_or_stuck p e σ Φ →
+    safe_reach p e σ Φ →
     ∃ e' σ',  Φ e' σ' ∧ pool_safe p (<[π := fill K e']>T) σ'.
   Proof.
-    move => Hs HT [Hros|[?[?[??]]]].
-    - exfalso. apply: Hs. apply: pool_reach_stuck_reach_stuck; [|done]. by apply: fill_reach_stuck.
-    - eexists _, _. split; [done|]. apply: pool_safe_no_forks; [done..|]. by apply: fill_no_forks.
+    intros Hs Hlook Hsr.
+    assert (safe p e σ) as (e' & σ' & ? & ?)%Hsr.
+    { eapply fill_safe. eapply pool_safe_threads_safe; done. }
+    eexists _, _. split; first done.
+    eapply pool_safe_no_forks; [done..|]. by apply: fill_no_forks.
   Qed.
 
-End reach_or_stuck.
+  Lemma pool_safe_safe_reach_stuck π p T e σ Φ :
+    pool_safe p T σ →
+    T !! π = Some e →
+    safe_reach p e σ Φ →
+    (∀ e' σ', Φ e' σ' → pool_safe p (<[π := e']> T) σ' → pool_reach_stuck p (<[π := e']>T) σ') →
+    pool_reach_stuck p T σ.
+  Proof.
+    intros Hs Hlook Hsr Hp. edestruct Hsr as (e' & σ' & Hsteps & Hphi).
+    { by eapply pool_safe_threads_safe. }
+    apply Hp in Hphi.
+    - eapply pool_reach_stuck_no_forks; done.
+    - eapply pool_safe_no_forks; done.
+  Qed.
+End safe_reach.
+
 
 (* discrete OFE instance for expr and thread_id *)
 Definition exprO {Λ : language} := leibnizO (expr Λ).

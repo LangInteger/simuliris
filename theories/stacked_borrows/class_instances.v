@@ -1,9 +1,6 @@
 From simuliris.simulation Require Import language slsls lifting.
 From simuliris.stacked_borrows Require Export lang.
 From simuliris.stacked_borrows Require Import tactics.
-(* TODO we should not import things from the simulang folder here.
-  require this for the [forall_equiv_dec] lemma *)
-From simuliris.simulang Require Import base.
 From iris.prelude Require Import options.
 
 Local Open Scope Z_scope.
@@ -76,9 +73,9 @@ Section pure_exec.
 
 End pure_exec.
 
-(** IrredUnless *)
+(** SafeReach *)
 
-Section irreducible.
+Section safe_reach.
   Implicit Types (e : expr) (v : value) (r : result) (σ : state).
 
   Lemma language_to_val_eq e :
@@ -98,15 +95,7 @@ Section irreducible.
   Lemma to_val_of_result r : to_val (of_result r) = Some r.
   Proof. by rewrite /to_val /= /to_class to_of_result. Qed.
 
-  (* slightly hacky proof tactic for irreducibility, solving goals of the form [SIrreducible _ _ _ _].
-    Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
-  Ltac prove_irred :=
-    let P_s := fresh "P_s" in
-    let σ_s := fresh "σ_s" in
-    let ϕ := fresh "ϕ" in
-    let e_s' := fresh "e_s'" in
-    let σ_s' := fresh "σ_s'" in
-    let Hhead := fresh "Hhead" in
+  Ltac solve_sub_redexes_are_values :=
     let K := fresh "K" in
     let e' := fresh "e'" in
     let Heq := fresh "Heq" in
@@ -114,284 +103,166 @@ Section irreducible.
     let IH := fresh "IH" in
     let Ki := fresh "Ki" in
     let Ki' := fresh "Ki'" in
-    intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
-    [ (*this need not complete the proof and may generate a proof obligation *)
-      inv_head_step; try by (apply ϕ; eauto 10 using of_result_value, of_result_place)
-    | intros K e' Heq Hv; clear ϕ;
-      destruct K as [ | Ki K]; first (done);
-      exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
-      [destruct Ki; inversion Heq; subst; cbn in *;
-        try rewrite to_val_of_result in Hv; congruence
-      | eapply IH; first (by rewrite Heq);
-        rewrite language_to_val_eq; apply fill_item_no_result;
-        by rewrite -language_to_val_eq]
-    ].
+    intros K e' Heq Hv;
+    destruct K as [ | Ki K]; first (done);
+    exfalso; induction K as [ | Ki' K IH] in e', Ki, Hv, Heq |-*;
+    [destruct Ki; inversion Heq; subst; cbn in *;
+      try rewrite to_val_of_result in Hv; congruence
+    | eapply IH; first (by rewrite Heq);
+      rewrite language_to_val_eq; apply fill_item_no_result;
+        by rewrite -language_to_val_eq].
 
-  (** Tactic support for proving goals of the form [IrredUnless] by
-    applying the lemma [irred_unless_irred_dec], using [prove_irred],
-    and using ad-hoc automation for solving the [Decision] goal. *)
-  Ltac discr :=
-    repeat match goal with
-           | H : ∃ _, _ |- _ => destruct H
-           | H: _ ∨ _ |- _ => destruct H
-           | H : _ ∧ _ |- _ => destruct H
-           end; congruence.
+  (* Slightly hacky proof tactic for proving [SafeImplies] goals.
+    Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
+  Ltac prove_safe_implies :=
+    let Hsafe := fresh in
+    let Hval := fresh in
+    let Hred := fresh in
+    let Hhead := fresh in
+    intros Hsafe; specialize (Hsafe _ _ _ (Pool_steps_refl _ _ _) _ 0%nat ltac:(done)) as [Hval | Hred];
+    [ rewrite language_to_val_eq in Hval; simpl in Hval; destruct Hval as [? [=]] |
+      destruct Hred as (? & ? & ? & Hhead%prim_head_step);
+      [ (* this need not complete the proof and may generate a proof obligation *)
+        inv_head_step; subst; try by eauto 10 using of_result_value, of_result_place
+      | solve [solve_sub_redexes_are_values]] ].
 
-  Ltac finish_decision := rewrite /Decision; try first [left; by eauto 8 | right; intros ?; discr ].
-  Ltac decide_goal :=
-    repeat match goal with
-           | |- Decision (_ ∧ _) => apply and_dec
-           | |- Decision (_ ∨ _) => apply or_dec
-           | |- Decision (is_Some _) => apply is_Some_dec
-           | |- Decision False => apply False_dec
-           | |- Decision True => apply True_dec
-           end;
-    repeat match goal with
-    | v : result |- _ =>
-        match goal with
-        | |- context[v] => destruct v
-        end
-    end;
-    repeat match goal with
-    | v : value |- _ =>
-        match goal with
-        | |- context[v] => destruct v as [ | [] []]
-        end
-    end; finish_decision.
 
-  Ltac prove_irred_unless := apply irred_unless_irred_dec; [decide_goal | rewrite language_to_val_eq; done | prove_irred].
+  Global Instance safe_implies_match_val r el P σ  :
+    SafeImplies (∃ i e, r = ValR [ScInt i] ∧ 0 ≤ i ∧ el !! Z.to_nat i = Some e) P (Case r el) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_match_place l t T el P σ  :
+    SafeImplies False P (Case (Place l t T) el) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irred_unless_match_val r el P σ  :
-    IrredUnless (∃ i e, r = ValR [ScInt i] ∧ 0 ≤ i ∧ el !! Z.to_nat i = Some e) P (Case r el) σ.
-  Proof.
-    prove_irred_unless.
-    rename select Z into n.
-    destruct (decide (0 ≤ n)) as [ H0 | H0]; first last.
-    { right; intros (? & ? & [= ->] & ? & ?); lia. }
-    destruct (decide (n < length el)) as [H1 | H1].
-    + left. exists n, (el !!! Z.to_nat n). repeat split; [done | ].
-      apply list_lookup_alt. split; [ lia | done].
-    + right. intros (? & ? & [= ->] & ? & Hs%list_lookup_alt). lia.
-  Qed.
-  Global Instance irred_unless_match_place l t T el P σ  :
-    IrredUnless False P (Case (Place l t T) el) σ.
-  Proof. prove_irred_unless. Qed.
-
-  Global Instance irred_unless_add r1 r2 P σ :
-    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp AddOp r1 r2) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_sub r1 r2 P σ :
-    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp SubOp r1 r2) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_lt r1 r2 P σ :
-    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp LtOp r1 r2) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_le r1 r2 P σ :
-    IrredUnless (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp LeOp r1 r2) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_offset r1 r2 P σ :
-    IrredUnless (∃ l t z, r1 = ValR [ScPtr l t] ∧ r2 = ValR [ScInt z]) P (BinOp OffsetOp r1 r2) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irred_unless_eq r1 r2 P σ :
-    IrredUnless (∃ sc1 sc2, r1 = ValR [sc1] ∧ r2 = ValR [sc2] ∧ (scalar_eq σ.(shp) sc1 sc2 ∨ scalar_neq sc1 sc2)) P (BinOp EqOp r1 r2) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | prove_irred].
-    destruct r1 as [[ | sc1 []]|]; try finish_decision.
-    destruct r2 as [[ | sc2 []]|]; try finish_decision.
-    destruct (decide (scalar_eq σ.(shp) sc1 sc2)); first by eauto 8.
-    destruct (decide (scalar_neq sc1 sc2)); finish_decision.
-  Qed.
+  Global Instance safe_implies_add r1 r2 P σ :
+    SafeImplies (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp AddOp r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_sub r1 r2 P σ :
+    SafeImplies (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp SubOp r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_lt r1 r2 P σ :
+    SafeImplies (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp LtOp r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_le r1 r2 P σ :
+    SafeImplies (∃ z1 z2, r1 = ValR [ScInt z1] ∧ r2 = ValR [ScInt z2]) P (BinOp LeOp r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_offset r1 r2 P σ :
+    SafeImplies (∃ l t z, r1 = ValR [ScPtr l t] ∧ r2 = ValR [ScInt z]) P (BinOp OffsetOp r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_eq r1 r2 P σ :
+    SafeImplies (∃ sc1 sc2, r1 = ValR [sc1] ∧ r2 = ValR [sc2] ∧ (scalar_eq σ.(shp) sc1 sc2 ∨ scalar_neq sc1 sc2)) P (BinOp EqOp r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
 
   Global Instance irred_proj r r2 P σ :
-    IrredUnless (∃ v i s, r = ValR v ∧ r2 = ValR [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj r r2) σ.
-  Proof.
-    apply irred_unless_irred_dec; [| done | prove_irred].
-    destruct r as [v|]; try finish_decision.
-    destruct r2 as [[ | s2 []]|]; try finish_decision.
-    destruct s2 as [ | i | | | ]; try finish_decision.
-    destruct (decide (0 ≤ i)) as [Hi | Hi]; first last.
-    { right; intros (? & ? & ? & [= ->] & [= ->] & ? & ?); lia. }
-    destruct (decide (i < length v)) as [H1 | H1].
-    + left. exists v, i, (v !!! Z.to_nat i). repeat split; [done | ].
-      apply list_lookup_alt. split; [ lia | done].
-    + right. intros (? & ? & ? & [= ->] & [= ->] & ? & Hs%list_lookup_alt). lia.
-  Qed.
+    SafeImplies (∃ v i s, r = ValR v ∧ r2 = ValR [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj r r2) σ.
+  Proof. prove_safe_implies. Qed.
   Global Instance irred_proj_val v v2 P σ :
-    IrredUnless (∃ i s, v2 = [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj (Val v) (Val v2)) σ.
-  Proof.
-    eapply irred_unless_weaken; last by apply (irred_proj (ValR _) (ValR _)).
-    intros (? & ? & ? & [= <-] & [= ->] & ?); eauto.
-  Qed.
+    SafeImplies (∃ i s, v2 = [ScInt i] ∧ 0 ≤ i ∧ v !! Z.to_nat i = Some s) P (Proj (Val v) (Val v2)) σ.
+  Proof. prove_safe_implies. Qed.
   Global Instance irred_proj_place l t T v2 P σ :
-    IrredUnless False P (Proj (Place l t T) (Val v2)) σ.
-  Proof. prove_irred_unless. Qed.
+    SafeImplies False P (Proj (Place l t T) (Val v2)) σ.
+  Proof. prove_safe_implies. Qed.
 
   Global Instance irred_conc r1 r2 P σ :
-    IrredUnless (∃ v1 v2, r1 = ValR v1 ∧ r2 = ValR v2) P (Conc r1 r2) σ.
-  Proof. prove_irred_unless. Qed.
+    SafeImplies (∃ v1 v2, r1 = ValR v1 ∧ r2 = ValR v2) P (Conc r1 r2) σ.
+  Proof. prove_safe_implies. Qed.
 
   Global Instance irred_ref_val r P σ :
-    IrredUnless (∃ l tg T, r = PlaceR l tg T) P (Ref r) σ.
-  Proof. prove_irred_unless. Qed.
+    SafeImplies (∃ l tg T, r = PlaceR l tg T) P (Ref r) σ.
+  Proof. prove_safe_implies. Qed.
   Global Instance irred_deref_place l t T T' P σ :
-    IrredUnless False P (Deref (Place l t T) T') σ.
-  Proof. prove_irred_unless. Qed.
+    SafeImplies False P (Deref (Place l t T) T') σ.
+  Proof. prove_safe_implies. Qed.
   Global Instance irred_deref r T P σ :
-    IrredUnless (∃ l t, r = ValR [ScPtr l t]) P (Deref r T) σ.
-  Proof. prove_irred_unless. Qed.
+    SafeImplies (∃ l t, r = ValR [ScPtr l t]) P (Deref r T) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_call r r2 P σ :
-    IrredUnless (∃ fn, r = ValR [ScFnPtr fn]) P (Call r r2) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_call_val v v2 P σ :
-    IrredUnless (∃ fn, v = [ScFnPtr fn]) P (Call (Val v) (Val v2)) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_call_place r l t T P σ :
-    IrredUnless (∃ fn, r = ValR [ScFnPtr fn]) P (Call r (Place l t T)) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_call r r2 P σ :
+    SafeImplies (∃ fn, r = ValR [ScFnPtr fn]) P (Call r r2) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_call_val v v2 P σ :
+    SafeImplies (∃ fn, v = [ScFnPtr fn]) P (Call (Val v) (Val v2)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_call_place r l t T P σ :
+    SafeImplies (∃ fn, r = ValR [ScFnPtr fn]) P (Call r (Place l t T)) σ.
+  Proof. prove_safe_implies. Qed.
 
 
-  Global Instance irreducible_endcall P σ v :
-    IrredUnless (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs)) P (EndCall (Val v)) σ.
+  Global Instance safe_implies_endcall P σ v :
+    SafeImplies (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs)) P (EndCall (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
+
+  Global Instance safe_implies_endcall_result_weak P σ r :
+    SafeImplies (∃ c, r = ValR [ScCallId c]) P (EndCall r) σ.
   Proof.
-    prove_irred_unless.
-    rename select nat into c.
-    destruct (decide (c ∈ σ.(scs))); finish_decision.
-  Qed.
-
-  Global Instance irreducible_endcall_result_weak P σ r :
-    IrredUnless (∃ c, r = ValR [ScCallId c]) P (EndCall r) σ.
-  Proof.
-    prove_irred_unless.
+    prove_safe_implies.
     rename select (to_value _ = _) into Eqr. apply Val_to_value in Eqr.
     eauto using of_result_value.
   Qed.
 
-  Global Instance irreducible_retag P σ v v' pk T rk :
-    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
+  Global Instance safe_implies_retag P σ v v' pk T rk :
+    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag v v' pk T rk) σ.
-  Proof.
-    prove_irred_unless.
-    rename select nat into c.
-    rename select loc into l.
-    rename select tag into tg.
-    destruct (decide (c ∈ σ.(scs))); last finish_decision.
-    destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
-    + left. eauto 8.
-    + right. intros (c' & ot & l' & [= -> ->] & [= ->] & ? &? & ?); congruence.
-  Qed.
-  Global Instance irreducible_retag_result P σ r r' pk T rk :
-    IrredUnless (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c] ∧ c ∈ σ.(scs) ∧
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_retag_result P σ r r' pk T rk :
+    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c] ∧ c ∈ σ.(scs) ∧
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag r r' pk T rk) σ.
-  Proof.
-    prove_irred_unless.
-    rename select nat into c.
-    rename select loc into l.
-    rename select tag into tg.
-    destruct (decide (c ∈ σ.(scs))); last finish_decision.
-    destruct (retag σ.(sst) σ.(snp) σ.(scs) c l tg rk pk T) eqn:Heq.
-    + left. eauto 8.
-    + right. intros (c' & ot & l' & [= -> ->] & [= ->] & ? &? & ?); congruence.
-  Qed.
-  Global Instance irreducible_retag_place_l P σ l t T T' v pk rk :
-    IrredUnless False P (Retag (Place l t T) (Val v) pk T' rk) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_retag_place_r P σ l t T T' v pk rk :
-    IrredUnless False P (Retag (Val v) (Place l t T) pk T' rk) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_retag_place_r2 P σ l t T T' l' t' T'' pk rk :
-    IrredUnless False P (Retag (Place l' t' T'') (Place l t T) pk T' rk) σ.
-  Proof. prove_irred_unless. Qed.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_retag_place_l P σ l t T T' v pk rk :
+    SafeImplies False P (Retag (Place l t T) (Val v) pk T' rk) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_retag_place_r P σ l t T T' v pk rk :
+    SafeImplies False P (Retag (Val v) (Place l t T) pk T' rk) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_retag_place_r2 P σ l t T T' l' t' T'' pk rk :
+    SafeImplies False P (Retag (Place l' t' T'') (Place l t T) pk T' rk) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_copy_val P σ r :
-    IrredUnless (∃ l t T, r = PlaceR l t T) P (Copy r) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_copy_place P σ l t T :
-    IrredUnless ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T))) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
-  Proof.
-    prove_irred_unless.
-    2: { destruct memory_read; eauto. }
-    destruct (read_mem l (tsize T) σ.(shp)) eqn:Heq1; last finish_decision.
-    destruct (memory_read _ _ _ _ _) eqn:Heq2.
-    2: { right; intros (v' & [= ->] & (? & [=])). }
-    finish_decision.
-  Qed.
+  Global Instance safe_implies_copy_val P σ r :
+    SafeImplies (∃ l t T, r = PlaceR l t T) P (Copy r) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_copy_place P σ l t T :
+    SafeImplies ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T))) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_write_val_left1 P σ v v' :
-    IrredUnless False P (Write (Val v) (Val v')) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_write_val_left2 P σ v l t T :
-    IrredUnless False P (Write (Val v) (Place l t T)) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_write_place_right P σ l' t' T' l t T :
-    IrredUnless False P (Write (Place l' t' T') (Place l t T)) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_write P σ l t T v :
-    IrredUnless ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | prove_irred].
-    destruct (decide (length v = tsize T)) as [Heq|]; last finish_decision.
-    destruct (decide (is_Some (memory_written (sst σ) (scs σ) l t (tsize T)))) as [Hsome|]; last finish_decision.
-    enough (Decision (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom (gset loc) (shp σ))) as [ | ]; [by finish_decision.. | ].
-    clear Heq Hsome. generalize (length v) as n.
-    intros n. induction n as [ | n IH]. { left. lia. }
-    destruct (decide (l +ₗ n ∈ (dom (gset loc) σ.(shp)))); first last.
-    { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. done. }
-    destruct IH as [IH | IH].
-    + left. intros m Hm. destruct (decide (Z.of_nat n = m)) as [<- | Hneq]; first by eauto.
-      apply IH. lia.
-    + destruct (decide (0 < n)) as [Hgt | Hlt].
-      * right. contradict IH. intros m Hm. apply IH. lia.
-      * left. intros m Hm.  assert (m = 0%nat) as -> by lia. assert (n = 0%nat) as -> by lia. eauto.
-  Qed.
+  Global Instance safe_implies_write_val_left1 P σ v v' :
+    SafeImplies False P (Write (Val v) (Val v')) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_write_val_left2 P σ v l t T :
+    SafeImplies False P (Write (Val v) (Place l t T)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_write_place_right P σ l' t' T' l t T :
+    SafeImplies False P (Write (Place l' t' T') (Place l t T)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_write P σ l t T v :
+    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_write_result P σ r r' :
+    SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_write_result P σ r r' :
-    IrredUnless (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_free_val P σ r :
+    SafeImplies (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_free P σ l t T :
+    SafeImplies ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_free_val P σ r :
-    IrredUnless (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_free P σ l t T :
-    IrredUnless ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
+  Global Instance safe_implies_write_weak P σ l t T v :
+    SafeImplies (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
   Proof.
-    prove_irred_unless. generalize (tsize T) as n => n.
-    apply forall_equiv_dec.
-    - destruct (decide (map_Forall (λ l' _,
-       (l'.1 = l.1 → l.2 ≤ l'.2 < l.2 + n)%Z) σ.(shp))) as [Hm|Hm]; last first.
-      + right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
-        have Hi : i = (l +ₗ (i.2 - l.2)).
-        { rewrite /shift_loc. destruct i, l => /=; f_equal; [ done | lia]. }
-        rewrite Hi in Hheap. eapply mk_is_Some, Hm in Hheap. lia.
-      + left. intros m (x & Hsome).
-        specialize (map_Forall_lookup_1 _ _ _ _ Hm Hsome eq_refl).
-        destruct l; simpl; lia.
-    - induction n as [ | n IH]. { left. lia. }
-      destruct (σ.(shp) !! (l +ₗ n)) eqn:Hs; first last.
-      { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. rewrite Hs. intros (? & [=]). }
-      destruct IH as [IH | IH].
-      + left. intros m Hm. destruct (decide (Z.of_nat n = m)) as [<- | Hneq]; first by eauto.
-        apply IH. lia.
-      + destruct (decide (0 < n)) as [Hgt | Hlt].
-        * right. contradict IH. intros m Hm. apply IH. lia.
-        * left. intros m Hm. replace m with (Z.of_nat n) by lia. eauto.
+    eapply safe_implies_weaken; last apply safe_implies_write. tauto.
   Qed.
-
-  Global Instance irreducible_write_weak P σ l t T v :
-    IrredUnless (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
+  Global Instance safe_implies_retag_weak P σ v v' pk T rk :
+    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag v v' pk T rk) σ | 10.
   Proof.
-    eapply irred_unless_weaken; last apply irreducible_write. tauto.
-  Qed.
-  Global Instance irreducible_retag_weak P σ v v' pk T rk :
-    IrredUnless (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag v v' pk T rk) σ | 10.
-  Proof.
-    eapply irred_unless_weaken; last apply irreducible_retag.
+    eapply safe_implies_weaken; last apply safe_implies_retag.
     intros (c & ot & l & -> & -> & _). eauto.
   Qed.
-  Global Instance irreducible_retag_weak_result P σ r r' pk T rk :
-    IrredUnless (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c]) P (Retag r r' pk T rk) σ | 10.
+  Global Instance safe_implies_retag_weak_result P σ r r' pk T rk :
+    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c]) P (Retag r r' pk T rk) σ | 10.
   Proof.
-    eapply irred_unless_weaken; last apply irreducible_retag_result.
+    eapply safe_implies_weaken; last apply safe_implies_retag_result.
     intros (c & ot & l & -> & -> & _). eauto.
   Qed.
-End irreducible.
+End safe_reach.

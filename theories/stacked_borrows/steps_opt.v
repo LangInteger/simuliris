@@ -203,7 +203,7 @@ Proof.
   intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hsim".
   iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
-  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
+  specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
   iPoseProof "Hscrel" as "(-> & _)".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   have Hretag_some_t : is_Some (retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l_s ot Default pk T).
@@ -463,7 +463,7 @@ Proof.
   intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hcid Hsim".
   iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
-  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
+  specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
   iPoseProof "Hscrel" as "(-> & _)".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   have Hretag_some_t : is_Some (retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l_s ot FnEntry pk T).
@@ -684,7 +684,7 @@ Proof.
 
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool) as (Hread_s & (α' & Hstack_s) & Hlen_s').
+  specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & (α' & Hstack_s) & Hlen_s').
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
@@ -1093,7 +1093,7 @@ Proof.
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
+  specialize (pool_safe_implies Hsafe Hpool) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
   { (* unsuccessful read, so we are in the poison case *)
     iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_head_step'; done. }
     iModIntro. iFrame. iApply ("Hsim" with "[] Hs Htag").
@@ -1291,7 +1291,7 @@ Proof.
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _  _ Hsafe Hpool) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
+  specialize (pool_safe_implies Hsafe Hpool) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
   { (* unsuccessful read, but poison is refined by anything *)
     iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_head_step'; done. }
     iModIntro. iFrame. iApply ("Hsim" with "[Hdef] Hs Htag").
@@ -1496,7 +1496,7 @@ Proof.
   iIntros (Hlen_t Hlen_s) "Htag Ht Hs Hsim".
   iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   destruct Hsafe as [Hthread Hsafe].
-  specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hthread) as (Hmem_s & (α' & Hstack_s)).
+  specialize (pool_safe_implies Hsafe Hthread) as (Hmem_s & (α' & Hstack_s)).
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).

@@ -31,32 +31,32 @@ Section data_race.
     log_rel.
     iIntros "%v_t %v_s #Hv_l !# %π Hc". simpl_subst.
 
-    source_bind (! _)%E. iApply source_red_irred_unless. iIntros ([l_s ->]).
+    source_bind (! _)%E. iApply source_red_safe_implies. iIntros ([l_s ->]).
     iPoseProof (gen_val_rel_loc_source with "Hv_l") as (l_t ->) "#Hl". iApply source_red_base. iModIntro.
     to_sim. iApply (sim_bij_exploit_store with "Hl Hc"); [|done|].
-    { intros. reach_or_stuck_fill (_ <- _)%E => /=.
+    { intros. safe_reach_fill (_ <- _)%E => /=.
       (* skip over first load *)
-      reach_or_stuck_bind (! _)%E.
-      eapply reach_or_stuck_irred; first apply _.
-      intros (l & v & n & [= <-] & Hs_mem). eapply reach_or_stuck_load; [done.. | ].
-      eapply reach_or_stuck_refl. simpl.
+      safe_reach_bind (! _)%E.
+      eapply safe_reach_safe_implies; first apply _.
+      intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
+      eapply safe_reach_refl. simpl.
 
       (* skip over snd load *)
-      reach_or_stuck_bind (! _)%E.
-      eapply reach_or_stuck_load; [done.. | ]. eapply reach_or_stuck_refl.
+      safe_reach_bind (! _)%E.
+      eapply safe_reach_load; [done.. | ]. eapply safe_reach_refl.
 
       (* skip over add *)
-      reach_or_stuck_bind (_ + _)%E.
-      eapply reach_or_stuck_irred; first apply _.
+      safe_reach_bind (_ + _)%E.
+      eapply safe_reach_safe_implies; first apply _.
       intros [(z & ->) _].
-      eapply reach_or_stuck_pure; first apply _; first done.
-      eapply reach_or_stuck_refl.
+      eapply safe_reach_pure; first apply _; first done.
+      eapply safe_reach_refl.
 
-      apply: reach_or_stuck_irred => ?.
-      apply: reach_or_stuck_refl. apply post_in_ectx_intro. naive_solver.
+      apply: safe_reach_safe_implies => ?.
+      apply: safe_reach_refl. apply post_in_ectx_intro. naive_solver.
     }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc". do 2 source_load. target_load.
-    source_bind (_ + _)%E. iApply source_red_irred_unless.
+    source_bind (_ + _)%E. iApply source_red_safe_implies.
     iIntros "[(%z & ->) _]". iPoseProof (gen_val_rel_litint_source with "Hv") as "->".
     sim_pures. source_store. to_target. target_let. target_binop.
     (* TODO: something weird is going on with the simplification here.
@@ -105,14 +105,14 @@ Section data_race.
     iIntros "%x_t1 %x_s1 #Hrel_x %y_t1 %y_s1 #Hrel_y !# %π Hc".
 
     source_alloc li_s as "Hli_s" "Hfi_s". sim_pures.
-    source_bind (Load _ _). iApply source_red_irred_unless. iIntros ([lx_s ?]); simplify_eq.
+    source_bind (Load _ _). iApply source_red_safe_implies. iIntros ([lx_s ?]); simplify_eq.
     iDestruct (gen_val_rel_loc_source with "Hrel_x") as (lx_t ->) "Hbij_x".
     iApply source_red_base. iModIntro. to_sim.
     iApply (sim_bij_exploit_load with "Hbij_x Hc"); [|done|]. {
       intros.
-      reach_or_stuck_fill (! _)%E => /=.
-      apply: reach_or_stuck_irred => ?.
-      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+      safe_reach_fill (! _)%E => /=.
+      apply: safe_reach_safe_implies => ?.
+      apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
     }
     iIntros (qx vx_t vx_s) "Hx_t Hx_s #Hvx Hc".
     source_load.
@@ -120,7 +120,7 @@ Section data_race.
 
     destruct (if y_s1 is #(LitLoc _) then true else false) eqn:Heq. 2: {
       source_while.
-      source_bind (! _)%E. iApply source_red_irred_unless.
+      source_bind (! _)%E. iApply source_red_safe_implies.
       iIntros ([l_s ?]); simplify_eq.
     }
     destruct y_s1 as [[| | | |ly_s |]| | |] => //.
@@ -185,7 +185,7 @@ Section data_race.
         source_load. source_store.
         source_load. source_load.
         (* gain knowledge that both are ints *)
-        source_bind (BinOp _ _ _). iApply source_red_irred_unless.
+        source_bind (BinOp _ _ _). iApply source_red_safe_implies.
         iIntros "[(%z_sum & ->) (%z_s & ->)]".
         val_discr_source "Hvx". val_discr_source "Hvr". source_pures.
         source_store.
@@ -200,11 +200,11 @@ Section data_race.
         the additional locations in the invariant and have to release both in the end. *)
       iApply (sim_bij_exploit_load with "Hbij_y Hc"); [| |]. {
         intros.
-        reach_or_stuck_fill (While _ _)%E => /=.
-        apply: reach_or_stuck_pure; [eapply pure_while | done | ].
-        reach_or_stuck_fill (Load _ _)%E.
-        apply: reach_or_stuck_irred => ?.
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+        safe_reach_fill (While _ _)%E => /=.
+        apply: safe_reach_pure; [eapply pure_while | done | ].
+        safe_reach_fill (Load _ _)%E.
+        apply: safe_reach_safe_implies => ?.
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
       }
       { rewrite lookup_insert_ne; last done. apply lookup_empty. }
       iIntros (qy vy_t vy_s) "Hy_t Hy_s #Hvy Hc".
@@ -263,7 +263,7 @@ Section data_race.
         source_load. source_store.
         source_load. source_load.
         (* gain knowledge that both are ints *)
-        source_bind (BinOp _ _ _). iApply source_red_irred_unless.
+        source_bind (BinOp _ _ _). iApply source_red_safe_implies.
         iIntros "[(%z_sum & ->) (%z_s & ->)]".
         val_discr_source "Hvx". val_discr_source "Hvr". source_pures.
         source_store.
@@ -314,18 +314,18 @@ Section data_race.
     target_alloc li_t as "Hli_t" "Hfi_t". sim_pures.
     destruct (if n_s1 is #(LitLoc _) then true else false) eqn:Heq. 2: {
       source_while.
-      source_bind (! _)%E. iApply source_red_irred_unless.
+      source_bind (! _)%E. iApply source_red_safe_implies.
       iIntros ([l_s ?]); simplify_eq.
     }
     destruct n_s1 as [[| | | |n_s |]| | |] => //.
     iDestruct (gen_val_rel_loc_source with "Hrel1") as (n_t ->) "Hbij".
     iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
       intros.
-      reach_or_stuck_fill (While _ _)%E => /=.
-      apply: reach_or_stuck_head_step; [ by econstructor|].
-      reach_or_stuck_fill (! _)%E => /=.
-      apply: reach_or_stuck_irred => ?.
-      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+      safe_reach_fill (While _ _)%E => /=.
+      apply: safe_reach_head_step; [ by econstructor|].
+      safe_reach_fill (! _)%E => /=.
+      apply: safe_reach_safe_implies => ?.
+      apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
     }
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne1.
@@ -444,19 +444,19 @@ Section data_race.
     revert select (bool) => -[]; sim_pures; sim_pures; last first.
     - sim_bind (Free _) (Free _). iApply (sim_bij_free with "Hbiji Hc"); [done|]. iIntros "Hc".
       sim_val. source_load. source_free. sim_pures. sim_val. by iFrame.
-    - source_bind (! _)%E. iApply source_red_irred_unless.
+    - source_bind (! _)%E. iApply source_red_safe_implies.
       iIntros ([l_s ?]); simplify_eq.
       iDestruct (gen_val_rel_loc_source with "Hrel1") as (l_t ->) "Hbij".
       do 3 iApply source_red_base. do 3 iModIntro.
       iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
-        intros. reach_or_stuck_fill (! _)%E => /=.
-        apply: reach_or_stuck_irred => ?.
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+        intros. safe_reach_fill (! _)%E => /=.
+        apply: safe_reach_safe_implies => ?.
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
       }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne2.
       source_load. sim_pures. source_load. sim_pures.
-      source_bind (_ + _)%E. iApply source_red_irred_unless.
+      source_bind (_ + _)%E. iApply source_red_safe_implies.
       iIntros ([[??] [m ?]]); simplify_eq.
       iDestruct (gen_val_rel_litint_source with "Hv") as %->. sim_pures. rewrite Z.add_0_l.
       source_store.

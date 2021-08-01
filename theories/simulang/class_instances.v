@@ -4,9 +4,9 @@ From simuliris.simulang Require Export lang.
 From simuliris.simulang Require Import tactics.
 From iris.prelude Require Import options.
 
-(** * Instances of the [IrredUnless] class *)
+(** * Instances of the [SafeImplies] class *)
 
-Section irreducible.
+Section safe_implies.
   Implicit Types (e : expr) (v : val) (σ : state).
 
   (* [to_val] has a better computational behavior around calls *)
@@ -19,7 +19,7 @@ Section irreducible.
     - destruct to_class as [ [] | ] eqn:Heq';
         [ by rewrite (to_class_val _ _ Heq') in Heq | done | done].
   Qed.
-End irreducible.
+End safe_implies.
 
 Ltac solve_sub_redexes_are_values :=
   let K := fresh "K" in
@@ -37,63 +37,26 @@ Ltac solve_sub_redexes_are_values :=
     rewrite language_to_val_eq; apply fill_item_val_none;
       by rewrite -language_to_val_eq].
 
-Section irreducible.
+Section safe_implies.
   Implicit Types (e : expr) (v : val) (σ : state).
 
-  (* slightly hacky proof tactic for irreducibility, solving goals of the form [SIrreducible _ _ _ _].
+  (* Slightly hacky proof tactic for proving [SafeImplies] goals.
     Basically the same proof script works for all these proofs, but there don't seem to be nice more general lemmas. *)
-  Ltac prove_irred :=
-    let P_s := fresh "P_s" in
-    let σ_s := fresh "σ_s" in
-    let ϕ := fresh "ϕ" in
-    let e_s' := fresh "e_s'" in
-    let σ_s' := fresh "σ_s'" in
-    let Hhead := fresh "Hhead" in
-    intros ϕ e_s' σ_s' efs Hhead%prim_head_step;
-    [ (*this need not complete the proof and may generate a proof obligation *)
-      inversion Hhead; subst; try by (apply ϕ; eauto)
-    | solve_sub_redexes_are_values
-    ].
-
-  (** Tactic support for proving goals of the form [IrredUnless] by
-    applying the lemma [irred_unless_irred_dec], using [prove_irred],
-    and using ad-hoc automation for solving the [Decision] goal. *)
-  Ltac discr :=
-    repeat match goal with
-           | H : ∃ _, _ |- _ => destruct H
-           | H: _ ∨ _ |- _ => destruct H
-           | H : _ ∧ _ |- _ => destruct H
-           | H : ?f _ = ?f _ |- _ => injection H as ?
-           end; first [ congruence | lia ].
-
-  Ltac decide_goal :=
-    try apply _;
-    repeat match goal with
-           | |- Decision (_ ∧ _) => apply and_dec
-           | |- Decision (_ ∨ _) => apply or_dec
-           | |- Decision (is_Some _) => apply is_Some_dec
-           | |- Decision False => apply False_dec
-           | |- Decision True => apply True_dec
-           end;
-    try match goal with
-    | v : val |- _ =>
-        match goal with
-        | |- context[v] => destruct v as [[] | | | ]
-        end
-    end;
-    (* Special heck for quot/rem *)
-    try match goal with
-    | |- context[LitV (LitInt ?n) = LitV (LitInt _) ∧ _ ≠ 0%Z] =>
-      destruct (decide (n = 0))
-    end;
-    rewrite /Decision; first [left; by eauto | right; intros ?; discr ].
-
-  Ltac prove_irred_unless := apply irred_unless_irred_dec;
-    [ (* Decision *) decide_goal | (* to_val = None *)rewrite language_to_val_eq; done | prove_irred ].
+  Ltac prove_safe_implies :=
+    let Hsafe := fresh in
+    let Hval := fresh in
+    let Hred := fresh in
+    let Hhead := fresh in
+    intros Hsafe; specialize (Hsafe _ _ _ (Pool_steps_refl _ _ _) _ 0 ltac:(done)) as [Hval | Hred];
+    [ rewrite language_to_val_eq in Hval; simpl in Hval; destruct Hval as [? [=]] |
+      destruct Hred as (? & ? & ? & Hhead%prim_head_step);
+      [ (* this need not complete the proof and may generate a proof obligation *)
+        inversion Hhead; subst; try by eauto
+      | solve_sub_redexes_are_values] ].
 
   Global Instance irred_unless_match v x1 e1 x2 e2 P σ :
-    IrredUnless (∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
-  Proof. prove_irred_unless. Qed.
+    SafeImplies (∃ v', v = InjLV v' ∨ v = InjRV v') P (Match (Val v) x1 e1 x2 e2) σ.
+  Proof. prove_safe_implies. Qed.
 
   (** for operators, we provide specialized instances for each operator. *)
   Ltac solve_binop v1 v2 :=
@@ -115,222 +78,158 @@ Section irreducible.
         | H : _ ∧ _ |- _ => destruct H
         end; eauto 8.
 
-  Global Instance irreducible_plus v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp PlusOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless; solve_binop v1 v2. Qed.
-  Global Instance irreducible_minus v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MinusOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless; solve_binop v1 v2. Qed.
-  Global Instance irreducible_rem v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
+  Global Instance safe_implies_plus v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp PlusOp (Val v1) (Val v2)) σ.
+  Proof. prove_safe_implies; solve_binop v1 v2. Qed.
+  Global Instance safe_implies_minus v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MinusOp (Val v1) (Val v2)) σ.
+  Proof. prove_safe_implies; solve_binop v1 v2. Qed.
+  Global Instance safe_implies_rem v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
       P (BinOp RemOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. naive_solver. Qed.
-  Global Instance irreducible_mult v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MultOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
-  Global Instance irreducible_quot v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
+  Proof. prove_safe_implies. solve_binop v1 v2. naive_solver. Qed.
+  Global Instance safe_implies_mult v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V P (BinOp MultOp (Val v1) (Val v2)) σ.
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
+  Global Instance safe_implies_quot v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V
       P (BinOp QuotOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. naive_solver. Qed.
+  Proof. prove_safe_implies. solve_binop v1 v2. naive_solver. Qed.
 
-  Global Instance irreducible_and v1 v2 P σ :
-    IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
+  Global Instance safe_implies_and v1 v2 P σ :
+    SafeImplies (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
       P (BinOp AndOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
-  Global Instance irreducible_or v1 v2 P σ :
-    IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
+  Global Instance safe_implies_or v1 v2 P σ :
+    SafeImplies (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
       P (BinOp OrOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
-  Global Instance irreducible_xor v1 v2 P σ :
-    IrredUnless (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
+  Global Instance safe_implies_xor v1 v2 P σ :
+    SafeImplies (((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n)) ∨ ((∃ b, v1 = LitV $ LitBool b) ∧ ∃ b, v2 = LitV $ LitBool b))%V
       P (BinOp XorOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
 
-  Global Instance irreducible_shiftl v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
+  Global Instance safe_implies_shiftl v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp ShiftLOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
-  Global Instance irreducible_shiftr v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
+  Global Instance safe_implies_shiftr v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp ShiftROp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
 
-  Global Instance irreducible_le v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
+  Global Instance safe_implies_le v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp LeOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
-  Global Instance irreducible_ge v1 v2 P σ :
-    IrredUnless ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
+  Global Instance safe_implies_ge v1 v2 P σ :
+    SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp LtOp (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
 
-  Global Instance irreducible_offset v1 v2 P σ :
-    IrredUnless ((∃ l, v1 = LitV $ LitLoc l) ∧ (∃ n, v2 = LitV $ LitInt n))%V
+  Global Instance safe_implies_offset v1 v2 P σ :
+    SafeImplies ((∃ l, v1 = LitV $ LitLoc l) ∧ (∃ n, v2 = LitV $ LitInt n))%V
       P (BinOp OffsetOp  (Val v1) (Val v2)) σ.
-  Proof. prove_irred_unless. solve_binop v1 v2. Qed.
+  Proof. prove_safe_implies. solve_binop v1 v2. Qed.
 
-  Global Instance irreducible_eq v1 v2 P σ :
-    IrredUnless (vals_compare_safe v1 v2)%V
+  Global Instance safe_implies_eq v1 v2 P σ :
+    SafeImplies (vals_compare_safe v1 v2)%V
       P (BinOp EqOp (Val v1) (Val v2)) σ.
   Proof.
-    apply irred_unless_irred_dec; [by apply _ | done |].
-    prove_irred.
+    prove_safe_implies.
     unfold bin_op_eval in *;
     case_decide; last congruence.
     case_decide; congruence.
   Qed.
 
-  Global Instance irreducible_neg v P σ :
-    IrredUnless ((∃ n, v = LitV $ LitInt n) ∨ (∃ b, v = LitV $ LitBool b)) P (UnOp NegOp (Val v)) σ.
-  Proof. prove_irred_unless. solve_unop v. Qed.
-  Global Instance irreducible_un_minus v P σ :
-    IrredUnless (∃ n, v = LitV $ LitInt n) P (UnOp MinusUnOp (Val v)) σ.
-  Proof. prove_irred_unless. solve_unop v. Qed.
+  Global Instance safe_implies_neg v P σ :
+    SafeImplies ((∃ n, v = LitV $ LitInt n) ∨ (∃ b, v = LitV $ LitBool b)) P (UnOp NegOp (Val v)) σ.
+  Proof. prove_safe_implies. solve_unop v. Qed.
+  Global Instance safe_implies_un_minus v P σ :
+    SafeImplies (∃ n, v = LitV $ LitInt n) P (UnOp MinusUnOp (Val v)) σ.
+  Proof. prove_safe_implies. solve_unop v. Qed.
 
-  Global Instance irreducible_var (x : string) P σ :
-    IrredUnless False P (Var x) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_var (x : string) P σ :
+    SafeImplies False P (Var x) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_global_var (x : string) P σ :
-    IrredUnless (x ∈ σ.(globals)) P (GlobalVar x) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_global_var (x : string) P σ :
+    SafeImplies (x ∈ σ.(globals)) P (GlobalVar x) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_call v v2 P σ :
-    IrredUnless (∃ fn, v = LitV $ LitFn fn) P (Call (Val v) (Val v2)) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_call v v2 P σ :
+    SafeImplies (∃ fn, v = LitV $ LitFn fn) P (Call (Val v) (Val v2)) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_if v e1 e2 P σ :
-    IrredUnless (∃ b, v = LitV $ LitBool b) P (If (Val v) e1 e2) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_if v e1 e2 P σ :
+    SafeImplies (∃ b, v = LitV $ LitBool b) P (If (Val v) e1 e2) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_fst v P σ :
-    IrredUnless (∃ v1 v2, v = PairV v1 v2) P (Fst (Val v)) σ.
-  Proof. prove_irred_unless. Qed.
-  Global Instance irreducible_snd v P σ :
-    IrredUnless (∃ v1 v2, v = PairV v1 v2) P (Snd (Val v)) σ.
-  Proof. prove_irred_unless. Qed.
+  Global Instance safe_implies_fst v P σ :
+    SafeImplies (∃ v1 v2, v = PairV v1 v2) P (Fst (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_snd v P σ :
+    SafeImplies (∃ v1 v2, v = PairV v1 v2) P (Snd (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_loadSc σ v_l P :
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load ScOrd $ Val v_l) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | by prove_irred].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[] ] | ] eqn:Heq; decide_goal.
-  Qed.
-  Global Instance irreducible_loadNa1 σ v_l P :
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load Na1Ord $ Val v_l) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | by prove_irred].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[] ] | ] eqn:Heq; decide_goal.
-  Qed.
-  Global Instance irreducible_loadNa2 σ v_l P :
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt (S n), v)) P (Load Na2Ord $ Val v_l) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | by prove_irred].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[ | []] ] | ] eqn:Heq; decide_goal.
-  Qed.
+  Global Instance safe_implies_loadSc σ v_l P :
+    SafeImplies (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load ScOrd $ Val v_l) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_loadNa1 σ v_l P :
+    SafeImplies (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load Na1Ord $ Val v_l) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_loadNa2 σ v_l P :
+    SafeImplies (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt (S n), v)) P (Load Na2Ord $ Val v_l) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_storeSc σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store ScOrd (Val $ v_l) (Val v)) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | by prove_irred].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[ | [] ] ] | ] eqn:Heq; decide_goal.
-  Qed.
-  Global Instance irreducible_storeNa1 σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store Na1Ord (Val $ v_l) (Val v)) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | by prove_irred].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[ | [] ] ] | ] eqn:Heq; decide_goal.
-  Qed.
-  Global Instance irreducible_storeNa2 σ v_l P (v : val) :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (WSt, v)) P (Store Na2Ord (Val $ v_l) (Val v)) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | by prove_irred].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct (heap σ !! l) as [ [[ |  ] ] | ] eqn:Heq; decide_goal.
-  Qed.
-  Global Instance irreducible_freeN σ v_l v_n P :
-    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block) ∧
+  Global Instance safe_implies_storeSc σ v_l P (v : val) :
+    SafeImplies (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store ScOrd (Val $ v_l) (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_storeNa1 σ v_l P (v : val) :
+    SafeImplies (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store Na1Ord (Val $ v_l) (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_storeNa2 σ v_l P (v : val) :
+    SafeImplies (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (WSt, v)) P (Store Na2Ord (Val $ v_l) (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_freeN σ v_l v_n P :
+    SafeImplies (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block) ∧
                        (∀ m : Z, is_Some (heap σ !! (l +ₗ m)) ↔ (0 ≤ m < n)%Z))
       P (FreeN (Val v_n) (Val v_l)) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | prove_irred; by eauto 8].
-    destruct v_l as [[ | | | |l| ] | | |]; try decide_goal.
-    destruct v_n as [[n | | | | | ]  | | | ]; try decide_goal.
-    apply (exists_dec_unique l); [ naive_solver|].
-    apply (exists_dec_unique n); [ naive_solver|].
-    apply and_dec; [decide_goal|].
-    apply and_dec; [decide_goal|].
-    apply and_dec; [apply _|].
-    apply and_dec; [apply _|].
-    apply forall_equiv_dec.
-    - destruct (decide (map_Forall (λ l' _,
-       (loc_block l' = loc_block l → loc_idx l ≤ loc_idx l' < loc_idx l + n)%Z
-                                   ) σ.(heap))) as [Hm|Hm]; last first.
-      + right. contradict Hm. apply map_Forall_lookup_2 => i ? Hheap ? /=.
-        have Hi : i = (l +ₗ (loc_idx i - loc_idx l)).
-        { rewrite /loc_add. destruct i, l => /=; f_equal; [ done | lia]. }
-        rewrite Hi in Hheap. eapply mk_is_Some, Hm in Hheap. lia.
-      + left. intros m (x & Hsome).
-        specialize (map_Forall_lookup_1 _ _ _ _ Hm Hsome eq_refl).
-        destruct l; simpl; lia.
-    - destruct (decide (n > 0)%Z) as [Hn|]; first last. { left. intros m ?. lia. }
-      replace n with (Z.of_nat (Z.to_nat n)) by lia. generalize (Z.to_nat n) as n'. clear n Hn.
-      intros n. induction n as [ | n IH]. { left. lia. }
-      destruct (σ.(heap) !! (l +ₗ n)) eqn:Hn; first last.
-      { right. intros Ha. specialize (Ha n ltac:(lia)). move: Ha. rewrite Hn. intros (? & [=]). }
-      destruct IH as [IH | IH].
-      + left. intros m Hm. destruct (decide (Z.of_nat n = m)) as [<- | Hneq]; first by eauto.
-        apply IH. lia.
-      + destruct (decide (0 < n)) as [Hgt | Hlt].
-        * right. contradict IH. intros m Hm. apply IH. lia.
-        * left. intros m Hm. replace m with (Z.of_nat n) by lia. eauto.
-  Qed.
+  Proof. prove_safe_implies. eauto 8. Qed.
 
-  Global Instance irreducible_allocN σ v_n v P :
-    IrredUnless (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.
-  Proof.
-    apply irred_unless_irred_dec; [ | done | prove_irred].
-    destruct v_n as [[n | | | | | ] | | |]; try decide_goal.
-    assert (Decision (0 < n)%Z) as [ | ] by apply _.
-    - left. eauto.
-    - right. intros (n' & [= <-] & Hn'); lia.
-  Qed.
+  Global Instance safe_implies_allocN σ v_n v P :
+    SafeImplies (∃ n, v_n = LitV $ LitInt n ∧ (0 < n)%Z) P (AllocN (Val v_n) (Val v)) σ.
+  Proof. prove_safe_implies. Qed.
 
-  Global Instance irreducible_storeScNa1 o σ v_l P (v : val) `{!TCFastDone (o ≠ Na2Ord)} :
-    IrredUnless (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store o (Val $ v_l) (Val v)) σ.
+  Global Instance safe_implies_storeScNa1 o σ v_l P (v : val) `{!TCFastDone (o ≠ Na2Ord)} :
+    SafeImplies (∃ l v, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt 0, v)) P (Store o (Val $ v_l) (Val v)) σ.
   Proof. unfold TCFastDone in *. destruct o; try done; apply _. Qed.
-  Global Instance irreducible_loadScNa1 o σ v_l P `{!TCFastDone (o ≠ Na2Ord)}:
-    IrredUnless (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load o $ Val v_l) σ.
+  Global Instance safe_implies_loadScNa1 o σ v_l P `{!TCFastDone (o ≠ Na2Ord)}:
+    SafeImplies (∃ l v n, v_l = LitV $ LitLoc l ∧ heap σ !! l = Some (RSt n, v)) P (Load o $ Val v_l) σ.
   Proof. unfold TCFastDone in *. destruct o; try done; apply _. Qed.
 
   (** for the usual use case with [sim_irred_unless], we will not actually have the state and program
     in context, thus the application of the above instances will fail.
     Therefore, we provide weaker instances for these cases.
    *)
-  Global Instance irreducible_load_weak σ v_l o P :
-    IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Load o $ Val v_l) σ | 10.
-  Proof.
-    destruct o; (eapply irred_unless_weaken; last (by apply _);
-      intros (l & v & ? & ? &?); eauto).
+  Global Instance safe_implies_load_weak σ v_l o P :
+    SafeImplies (∃ l, v_l = LitV $ LitLoc l) P (Load o $ Val v_l) σ | 10.
+  Proof. destruct o; (eapply safe_implies_weaken; last by apply _);
+      intros (l & v & ? & ? &?); eauto.
   Qed.
-  Global Instance irreducible_store_weak σ v_l o P (v : val) :
-    IrredUnless (∃ l, v_l = LitV $ LitLoc l) P (Store o (Val $ v_l) (Val v)) σ | 10.
+  Global Instance safe_implies_store_weak σ v_l o P (v : val) :
+    SafeImplies (∃ l, v_l = LitV $ LitLoc l) P (Store o (Val $ v_l) (Val v)) σ | 10.
   Proof.
-    destruct o; (eapply irred_unless_weaken; last (by apply _);
-      intros (l & ? & ? & ?); eauto).
+    destruct o; (eapply safe_implies_weaken; last (by apply _));
+      intros (l & ? & ? & ?); eauto.
   Qed.
-  Global Instance irreducible_freeN_weak σ v_l v_n P :
-    IrredUnless (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block)) P (FreeN (Val v_n) (Val v_l)) σ | 10.
+  Global Instance safe_implies_freeN_weak σ v_l v_n P :
+    SafeImplies (∃ l n, v_l = LitV $ LitLoc l ∧ v_n = LitV $ LitInt n ∧ (0 < n)%Z ∧ block_is_dyn l.(loc_block)) P (FreeN (Val v_n) (Val v_l)) σ | 10.
   Proof.
-    eapply irred_unless_weaken; last apply irreducible_freeN.
+    eapply safe_implies_weaken; last apply safe_implies_freeN.
     intros (l & ? & ? & ? &? &? &?); eauto 8.
   Qed.
-End irreducible.
+End safe_implies.
 
 
 (** * Instances of the [PureExec] class *)

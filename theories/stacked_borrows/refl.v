@@ -210,7 +210,7 @@ Section log_rel.
   Proof.
     iIntros "#Hr1 #Hr2 Hsim".
     iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
-    specialize (pool_safe_irred _ _ _ _ _ _ _ Hsafe Hpool) as (sc1_s & sc2_s & -> & -> & Heq).
+    specialize (pool_safe_implies Hsafe Hpool) as (sc1_s & sc2_s & -> & -> & Heq).
     val_discr_source "Hr1". val_discr_source "Hr2".
     assert (sc1_s ≠ ScPoison ∧ sc2_s ≠ ScPoison) as [Hsc1_npoison Hsc2_npoison].
     { split; intros ->; destruct Heq as [ Heq | Heq]; inversion Heq. }

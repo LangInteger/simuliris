@@ -16,14 +16,6 @@ From iris.prelude Require Import options.
 Section derived.
   Context `{simpleGS Σ}.
 
-  (** Rules for the assertion [e_s ⇝ Q] ([safe_reach]) shown in the paper. *)
-  Lemma safe_reach_if e1 e2 v : safe_reach (∃ b, v = LitV $ LitBool b) (If (Val v) e1 e2).
-  Proof. apply safe_reach_irred. apply _. Qed.
-  Lemma safe_reach_div v1 v2 : safe_reach ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V (BinOp QuotOp (Val v1) (Val v2)).
-  Proof. apply safe_reach_irred. apply _. Qed.
-  Lemma safe_reach_load o v_l : safe_reach (∃ l, v_l = LitV $ LitLoc l) (Load o $ Val v_l).
-  Proof. apply safe_reach_irred. apply _. Qed.
-
   Implicit Types
     (P : iProp Σ) (Φ : expr → expr → iProp Σ) (Ψ : expr → iProp Σ)
     (e_t e_s : expr)
@@ -92,11 +84,11 @@ Section derived.
   Qed.
 
   Lemma sim_src_safe P Q e_t e_s π Φ :
-    safe_reach Q e_s →
+    (∀ p σ, SafeImplies Q p e_s σ) →
     (⊢ {{{ P ∗ ⌜Q⌝ }}} e_t ⪯[π] e_s {{{ Φ }}}) →
     ⊢ {{{ P }}} e_t ⪯[π] e_s {{{ Φ }}}.
   Proof.
-    iIntros (Hsafe Hs) "!> P". iApply sim_irred_safe_reach; first done.
+    iIntros (Hsafe Hs) "!> P". iApply sim_safe_implies.
     iIntros "HQ". iApply Hs. iFrame.
   Qed.
 
@@ -331,7 +323,7 @@ Section derived.
     iIntros (Hc Hb). iApply sim_while. iIntros "!>HI".
     sim_bind c_t c_s. iApply (sim_wand with "[HI] []"). { by iApply Hc. }
     iIntros (v_t v_s) "Hc".
-    iApply sim_irred_unless. iIntros "(%b & ->)".
+    iApply sim_safe_implies. iIntros "(%b & ->)".
     iDestruct "Hc" as "(Hv & [(% & HI) | (% & HQ)])".
     - simplify_eq. val_discr_source "Hv". sim_pures.
       sim_bind b_t b_s. iApply (sim_wand with "[HI] []"). { by iApply Hb. }

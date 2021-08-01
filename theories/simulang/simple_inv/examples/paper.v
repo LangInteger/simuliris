@@ -99,7 +99,7 @@ Section fix_bi.
     iIntros (??) "_". iApply lift_post_val.
     sim_pures. sim_load v_t v_s as "Hv".
     (* [omitted in the description in the paper] we use source UB to know that the loaded values must be integers *)
-    iApply sim_irred_unless. iIntros "[(%n & ->) _]".
+    iApply sim_safe_implies. iIntros "[(%n & ->) _]".
     val_discr_source "Hv". sim_pures. sim_val. done.
   Qed.
 
@@ -117,7 +117,7 @@ Section fix_bi.
     iIntros (??) "_". iApply lift_post_val.
     sim_pures. sim_load v_t v_s as "Hv".
     (* [omitted in the description in the paper] we use source UB to know that the loaded values must be integers *)
-    iApply sim_irred_unless. iIntros "[(%n & ->) _]".
+    iApply sim_safe_implies. iIntros "[(%n & ->) _]".
     val_discr_source "Hv". sim_pures. sim_val. done.
   Qed.
 
@@ -148,12 +148,12 @@ Section fix_bi.
     sim_pures.
     source_bind (Fst _).
     (* exploit source UB to know that the returned vlaue is a pair *)
-    iApply source_red_irred_unless. iIntros "(%x_s & %y_s & ->)".
+    iApply source_red_safe_implies. iIntros "(%x_s & %y_s & ->)".
     iPoseProof (gen_val_rel_pair_source with "Hv") as "(%x_t & %y_t & -> & Hx_r & Hy_r)".
     source_pures. sim_pures.
     (* exploit source UB for the division *)
     source_bind (_ `quot` _)%E.
-    iApply source_red_irred_unless. iIntros "[(%x & ->) (%y & -> & %Hy)]".
+    iApply source_red_safe_implies. iIntros "[(%x & ->) (%y & -> & %Hy)]".
     (* reduce the divisions *)
     source_pure _.
     { rewrite /bin_op_eval. simpl.
@@ -182,12 +182,12 @@ Section fix_bi.
     sim_pures.
     source_bind (Fst _).
     (* exploit source UB to know that the returned vlaue is a pair *)
-    iApply source_red_irred_unless. iIntros "(%x_s & %y_s & ->)".
+    iApply source_red_safe_implies. iIntros "(%x_s & %y_s & ->)".
     iPoseProof (gen_val_rel_pair_source with "Hv") as "(%x_t & %y_t & -> & Hx_r & Hy_r)".
     source_pures. sim_pures.
     (* exploit source UB for the division *)
     source_bind (_ `quot` _)%E.
-    iApply source_red_irred_unless. iIntros "[(%x & ->) (%y & -> & %Hy)]".
+    iApply source_red_safe_implies. iIntros "[(%x & ->) (%y & -> & %Hy)]".
     (* reduce the divisions *)
     source_pure _.
     { rewrite /bin_op_eval. simpl.
@@ -243,7 +243,7 @@ Section fix_bi.
     iApply sim_call; [done..|].
     iIntros (v_t v_s) "Hv". iApply lift_post_val.
     (* retval must be bool *)
-    iApply sim_irred_unless. iIntros "(%b & ->)".
+    iApply sim_safe_implies. iIntros "(%b & ->)".
     val_discr_source "Hv".
 
     (* CA on loop condition *)
@@ -285,7 +285,7 @@ Section fix_bi.
     iApply sim_call; [done..|].
     iIntros (v_t v_s) "Hv". iApply lift_post_val.
     (* retval must be bool *)
-    iApply sim_irred_unless. iIntros "(%b & ->)".
+    iApply sim_safe_implies. iIntros "(%b & ->)".
     val_discr_source "Hv".
 
     (* CA on loop condition *)

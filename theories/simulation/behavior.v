@@ -64,7 +64,7 @@ Section beh.
       has_beh p_t [of_call main u] σ_t b_t →
       ∃ b_s, has_beh p_s [of_call main u] σ_s b_s ∧ beh_ref b_t b_s.
 
-  (** * [Classical] prove of equivalence of the two notions of behavior. *)
+  (** * [Classical] proof of equivalence of the two notions of behavior. *)
   Lemma has_beh_ub p T σ :
     has_beh p T σ BehUndefined ↔ pool_reach_stuck p T σ.
   Proof.
@@ -105,6 +105,19 @@ Section beh.
       simplify_eq. constructor.
   Qed.
 
+  (** Need classical logic for this. Alternatively, we could require decidability of reduction. *)
+  Lemma not_pool_reach_stuck_pool_safe p T σ :
+    ¬ pool_reach_stuck p T σ → pool_safe (Λ := Λ) p T σ.
+  Proof.
+    intros Hn T' σ' J Hsteps e i Hlookup.
+    destruct (to_val e) as [v | ] eqn:Hval.
+    { left. rewrite Hval. eauto. }
+    right. destruct (classic (reducible p e σ')) as [Hred | Hnred]; first done.
+    contradict Hn. exists T', σ', J. split; first done.
+    exists e, i. split; first done. split; first done.
+    by apply not_reducible.
+  Qed.
+
   Lemma prog_ref_to_alt p_t p_s :
     prog_ref p_t p_s → prog_ref_alt p_t p_s.
   Proof.
@@ -112,7 +125,8 @@ Section beh.
     destruct (classic (reach_stuck p_s (of_call main u) σ_s)) as [HUB | HnoUB].
     { exists BehUndefined. split; last by constructor.
       apply has_beh_ub. done. }
-    specialize (HB _ _ HI HnoUB). destruct HB as (Hdiv & Hret & Hsafe).
+    apply not_pool_reach_stuck_pool_safe in HnoUB as Hsafe'.
+    specialize (HB _ _ HI Hsafe'). destruct HB as (Hdiv & Hret & Hsafe).
     destruct b_t.
     - apply has_beh_ret in Ht as (T_t' & σ_t' & J_t & Hsteps_t).
       destruct (Hret _ _ _ _ Hsteps_t) as (v_s' & T_s' & σ_s' & J_s & Hsteps_s & HO).
@@ -120,7 +134,8 @@ Section beh.
       apply has_beh_ret. eauto.
     - exists BehDiverge. split; last by constructor.
       apply has_beh_div, Hdiv, has_beh_div. done.
-    - exfalso. apply has_beh_ub in Ht. apply Hsafe. done.
+    - exfalso. apply has_beh_ub in Ht.
+      eapply pool_reach_stuck_not_safe; done.
   Qed.
 
   Lemma prog_ref_from_alt p_t p_s :
@@ -128,7 +143,7 @@ Section beh.
   Proof.
     intros HB σ_t σ_s HI Hsafe.
     assert (HnoUB : ¬ has_beh p_s [of_call main u] σ_s BehUndefined).
-    { intros ?%has_beh_ub. apply Hsafe. done. }
+    { intros ?%has_beh_ub%pool_reach_stuck_not_safe. done. }
     split; last split.
     - intros Hdiv.
       destruct (HB _ _ BehDiverge HI) as (b_s & Hbeh_s & Hrel).
@@ -140,9 +155,10 @@ Section beh.
       { apply has_beh_ret. eauto. }
       inversion Hrel; simplify_eq; last done.
       apply has_beh_ret in Hbeh_s. naive_solver.
-    - intros Hstuck.
+    - destruct (classic (safe p_t (of_call main u) σ_t)) as [ | Hnsafe]; first done.
+      exfalso. apply HnoUB.
       destruct (HB _ _ BehUndefined HI) as (b_s & Hbeh_s & Hrel).
-      { apply has_beh_ub. eauto. }
+      { apply has_beh_ub. apply NNPP. intros Hnreach%not_pool_reach_stuck_pool_safe. done. }
       inversion Hrel; simplify_eq; done.
   Qed.
 

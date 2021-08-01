@@ -44,7 +44,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&Hgs)) [% %Hsafe]]".
-    have [l[v[m[[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [l[v[m[[<-] Hsome]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#?"; [done| naive_solver |]; simplify_eq.
     iModIntro; iSplit; first by eauto with head_step.
@@ -65,7 +65,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
-    have [l[v[m[[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [l[v[m[[<-] Hsome]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)".
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done| naive_solver |]; simplify_eq.
     iModIntro; iSplit; first by eauto with head_step.
@@ -87,7 +87,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
-    have [l[v[m[[<-] Hsome]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [l[v[m[[<-] Hsome]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
     iModIntro; iSplit; first by eauto with head_step.
@@ -116,7 +116,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
-    have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [l[v[[<-] Hsome]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)".
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
     iModIntro; iSplit; first by eauto with head_step.
@@ -136,7 +136,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
-    have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [l[v[[<-] Hsome]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
     iModIntro; iSplit; first by eauto with head_step.
@@ -156,7 +156,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
-    have [l[v[[<-] Hsome]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [l[v[[<-] Hsome]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
     iModIntro; iSplit; first by eauto with head_step.
@@ -185,7 +185,7 @@ Section fix_heap.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
     iApply sim_lift_head_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
-    have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+    have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (??) "(Halloc & Hσ_s & Hσ_t)"; [done..|].
     iModIntro; iSplit; first by eauto with head_step lia.

@@ -107,7 +107,7 @@ Section fix_bi.
 
 
   (** We prove examples of recursion and loops simulating each other coinductivel. *)
-  Ltac discr_source := to_source; iApply source_red_irred_unless.
+  Ltac discr_source := to_source; iApply source_red_safe_implies.
 
   Definition input_loop : expr :=
     let: "cont" := Alloc #true in
