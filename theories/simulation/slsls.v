@@ -1003,7 +1003,7 @@ Section fix_lang.
   Proof.
     iIntros "Hstuck". rewrite source_red_unfold.
     iIntros (??????) "[Hstate [% %Hsafe]]". iMod ("Hstuck" with "Hstate [//]") as "%".
-    exfalso; by apply Hsafe.
+    exfalso; by eapply pool_reach_stuck_not_safe.
   Qed.
 
   Lemma source_red_reach_stuck e_s π Ψ :

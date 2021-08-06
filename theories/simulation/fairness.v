@@ -161,7 +161,6 @@ Proof.
   eapply active_threads_step in Hstep. set_solver.
 Qed.
 
-(* classic proof *)
 Lemma active_safe_enabled i p T σ:
   pool_safe p T σ →
   i ∈ active_threads T →
@@ -170,10 +169,8 @@ Proof.
   rewrite active_threads_spec; intros Hsafe (e & Hlook & Hnval).
   exists e; split; first done.
   eapply pool_safe_threads_safe in Hsafe; last done.
-  rewrite /safe in Hsafe. destruct (classic (reducible p e σ)); first done.
-  exfalso. eapply Hsafe; exists [e], σ, []; split; first constructor.
-  exists e, 0; split; first done.
-  split; first done. by eapply not_reducible.
+  destruct (Hsafe [e] σ [] ltac:(constructor) e 0 ltac:(done)) as [Hval | Hred]; last done.
+  rewrite Hnval in Hval. destruct Hval as [ ? [=]].
 Qed.
 
 (* classic proof *)

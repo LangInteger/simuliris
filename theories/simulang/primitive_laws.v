@@ -276,8 +276,8 @@ Lemma source_red_global n Ψ π :
   source_red (GlobalVar n) π Ψ.
 Proof.
   iIntros "Hred". iApply source_red_lift_head_step.
-  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) [% %Hsafe]] !>".
-  have ?:= pool_safe_irred _ _ _ _ _ _ _ Hsafe ltac:(done).
+  iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & ?) [%Hlook %Hsafe]] !>".
+  specialize (pool_safe_implies Hsafe Hlook) as ?.
   iDestruct (heap_global_intro_ctx with "Hσ_s") as "#Hg"; [done|].
   iExists _, _. iSplit. { simpl. eauto with head_step. }
   iModIntro. iDestruct ("Hred" with "[//]") as "$". iFrame.

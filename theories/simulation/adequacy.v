@@ -158,9 +158,9 @@ Section meta_level_simulation.
     msim T_t σ_t T_s σ_s V →
     pool_safe p_s T_s σ_s →
     T_t !! i = Some e_t →
-    ¬ stuck p_t e_t σ_t.
+    not_stuck p_t e_t σ_t.
   Proof.
-    intros Hsim Hreach Hstuck. eapply sat_elim, sat_bupd, sat_mono, Hsim.
+    intros Hsim Hsafe Hlook. eapply sat_elim, sat_bupd, sat_mono, Hsim.
     eapply msim_length in Hsim as Hlen.
     assert (is_Some (T_s !! i)) as [e_s Hlook'].
     { eapply lookup_lt_is_Some; rewrite -Hlen; eapply lookup_lt_is_Some; eauto. }
@@ -170,11 +170,10 @@ Section meta_level_simulation.
     + iPureIntro. by erewrite fill_empty.
     + iDestruct "Val" as (e_s' σ_s' Hnfs) "[SI Post]".
       iDestruct "Post" as (v_t' v_s Heq1 Heq2) "Val".
-      iModIntro. iPureIntro. intros [Heq _].
-      rewrite Heq1 to_of_val in Heq. naive_solver.
+      iModIntro. iPureIntro. left.
+      rewrite Heq1 to_of_val. naive_solver.
     + iDestruct "Step" as "[%Hred _]".
-      iModIntro. iPureIntro. intros [_ Hirr].
-      by apply not_reducible in Hred.
+      iModIntro. iPureIntro. by right.
   Qed.
 
   Lemma msim_sim_pool T_t σ_t T_s σ_s V:
@@ -208,9 +207,8 @@ Section meta_level_simulation.
     pool_safe p_s T_s σ_s →
     pool_safe p_t T_t σ_t.
   Proof.
-    intros Hsim Hsafe (T_t' & σ_t' & I & Hsteps & Hstuck).
+    intros Hsim Hsafe T_t' σ_t' I Hsteps e_t i Hlook.
     eapply msim_steps in Hsteps as (T_s' & σ_s' & J & Hsteps_src & Hsim'); [|eauto..].
-    destruct Hstuck as (e_t & i & Hlook & Hstuck).
     eapply msim_not_stuck; eauto using pool_steps_safe.
   Qed.
 

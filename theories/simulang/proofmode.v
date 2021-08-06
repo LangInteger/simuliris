@@ -1092,9 +1092,6 @@ Ltac source_stuck_sidecond_bt :=
   | |- _ => source_stuck_sidecond
   end.
 
-Ltac source_stuck_prim :=
-  to_source; iApply source_stuck_prim; [ source_stuck_sidecond_bt | reflexivity].
-
 Ltac discr_source :=
   let discr _ :=
     iIntros "%";
@@ -1104,32 +1101,32 @@ Ltac discr_source :=
            | H : ∃ _, _ |- _ => destruct H
            end; subst in
   match goal with
-  | |- envs_entails _ (source_red _ _ _) => iApply source_red_irred_unless; [discr ()]
-  | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_irred_unless; [discr ()]
-  | |- envs_entails _ (sim _ _ _ _) => iApply sim_irred_unless; [discr ()]
+  | |- envs_entails _ (source_red _ _ _) => iApply source_red_safe_implies; [discr ()]
+  | |- envs_entails _ (sim_expr _ _ _ _) => iApply sim_safe_implies; [discr ()]
+  | |- envs_entails _ (sim _ _ _ _) => iApply sim_safe_implies; [discr ()]
   end.
 
-(** [reach_or_stuck_bind e] works on goals of the form [reach_or_stuck P e' σ Φ]
+(** [safe_reach_bind e] works on goals of the form [safe_reach P e' σ Φ]
     and tries to find a subexpression of e' matching e and applies the bind lemma for
     it (similar to sim_bind and friends). *)
-Tactic Notation "reach_or_stuck_bind" open_constr(efoc) :=
+Tactic Notation "safe_reach_bind" open_constr(efoc) :=
   lazymatch goal with
-  | |- reach_or_stuck _ ?e _ _ =>
+  | |- safe_reach _ ?e _ _ =>
     reshape_expr e ltac:(fun K e' =>
                            unify e' efoc;
-                           eapply (reach_or_stuck_bind _ e' _ _ K); simpl
+                           eapply (safe_reach_bind _ e' _ _ K); simpl
                         )
   end.
 
-(** [reach_or_stuck_bind e] works on goals of the form [reach_or_stuck P e' σ (post_in_ectx Φ)]
+(** [safe_reach_fill e] works on goals of the form [safe_reach P e' σ (post_in_ectx Φ)]
     and tries to find a subexpression e'' of e' matching e and results in a goal
-    [reach_or_stuck P e'' σ (post_in_ectx Φ)] (i.e. it discards the evaluation context around e''). *)
-Tactic Notation "reach_or_stuck_fill" open_constr(efoc) :=
+    [safe_reach P e'' σ (post_in_ectx Φ)] (i.e. it discards the evaluation context around e''). *)
+Tactic Notation "safe_reach_fill" open_constr(efoc) :=
   lazymatch goal with
-  | |- reach_or_stuck _ ?e _ _ =>
+  | |- safe_reach _ ?e _ _ =>
     reshape_expr e ltac:(fun K e' =>
                            unify e' efoc;
-                           eapply (fill_reach_or_stuck _ e' _ _ K)
+                           eapply (fill_safe_reach _ e' _ _ K)
                         )
   end.
 

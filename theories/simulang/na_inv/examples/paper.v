@@ -35,10 +35,10 @@ Section data_race.
     simpl_subst.
     (* exploit *)
     iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ].
-    { intros. reach_or_stuck_fill (Store _ _ _).
-      eapply reach_or_stuck_irred; first apply _.
+    { intros. safe_reach_fill (Store _ _ _).
+      eapply safe_reach_safe_implies; first apply _.
       intros (? & ? & ? & ?). simplify_eq.
-      apply reach_or_stuck_refl. apply post_in_ectx_intro. eauto.
+      apply safe_reach_refl. apply post_in_ectx_intro. eauto.
     }
 
     iIntros (v_t v_s) "Hx_t Hx_s Hv Hcol".
@@ -75,14 +75,14 @@ Section data_race.
     log_rel. iIntros (x_t' x_s') "#Hx'". iIntros (y_t' y_s') "#Hy' !>".
     iIntros (π) "Hcol".
     sim_bind (Store _ _ _) (Store _ _ _).
-    iApply sim_irred_unless. iIntros "(%x_s & ->)".
+    iApply sim_safe_implies. iIntros "(%x_s & ->)".
     iPoseProof (gen_val_rel_loc_source with "Hx'") as "(%x_t & -> & Hx)".
 
     iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ].
-    { intros. reach_or_stuck_fill (Store _ _ _).
-      eapply reach_or_stuck_irred; first apply _.
+    { intros. safe_reach_fill (Store _ _ _).
+      eapply safe_reach_safe_implies; first apply _.
       intros (? & ? & ? & ?). simplify_eq.
-      apply reach_or_stuck_refl. apply post_in_ectx_intro. eauto.
+      apply safe_reach_refl. apply post_in_ectx_intro. eauto.
     }
 
     iIntros (v_t v_s) "Hx_t Hx_s Hv Hcol".
@@ -90,7 +90,7 @@ Section data_race.
     sim_pures.
 
     sim_bind (Load _ _) (Load _ _).
-    iApply sim_irred_unless. iIntros "(%y_s & ->)".
+    iApply sim_safe_implies. iIntros "(%y_s & ->)".
     iPoseProof (gen_val_rel_loc_source with "Hy'") as "(%y_t & -> & Hy)".
 
     (* Case analysis: do x and y alias? *)
@@ -147,14 +147,14 @@ Section data_race.
 
     (* closes open variables with related values *)
     sim_bind (Store _ _ _) (Store _ _ _).
-    iApply sim_irred_unless. iIntros "(%x_s & ->)".
+    iApply sim_safe_implies. iIntros "(%x_s & ->)".
     iPoseProof (gen_val_rel_loc_source with "Hx'") as "(%x_t & -> & Hx)".
 
     iApply (sim_bij_exploit_store with "Hx Hcol"); [ | done | ].
-    { intros. reach_or_stuck_fill (Store _ _ _).
-      eapply reach_or_stuck_irred; first apply _.
+    { intros. safe_reach_fill (Store _ _ _).
+      eapply safe_reach_safe_implies; first apply _.
       intros (? & ? & ? & ?). simplify_eq.
-      apply reach_or_stuck_refl. apply post_in_ectx_intro. eauto.
+      apply safe_reach_refl. apply post_in_ectx_intro. eauto.
     }
 
     iIntros (v_t v_s) "Hx_t Hx_s Hv Hcol".
@@ -233,14 +233,14 @@ Section data_race.
     iIntros "%x_t1 %x_s1 #Hrel_x %y_t1 %y_s1 #Hrel_y !# %π Hc".
 
     source_alloc li_s as "Hli_s" "_". sim_pures.
-    source_bind (Load _ _). iApply source_red_irred_unless. iIntros ([lx_s ?]); simplify_eq.
+    source_bind (Load _ _). iApply source_red_safe_implies. iIntros ([lx_s ?]); simplify_eq.
     iDestruct (gen_val_rel_loc_source with "Hrel_x") as (lx_t ->) "Hbij_x".
     iApply source_red_base. iModIntro. to_sim.
     iApply (sim_bij_exploit_load with "Hbij_x Hc"); [|done|]. {
       intros.
-      reach_or_stuck_fill (! _)%E => /=.
-      apply: reach_or_stuck_irred => ?.
-      apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+      safe_reach_fill (! _)%E => /=.
+      apply: safe_reach_safe_implies => ?.
+      apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
     }
     iIntros (qx vx_t vx_s) "Hx_t Hx_s #Hvx Hc".
     source_load.
@@ -248,7 +248,7 @@ Section data_race.
 
     destruct (if y_s1 is #(LitLoc _) then true else false) eqn:Heq. 2: {
       source_while.
-      source_bind (! _)%E. iApply source_red_irred_unless.
+      source_bind (! _)%E. iApply source_red_safe_implies.
       iIntros ([l_s ?]); simplify_eq.
     }
     destruct y_s1 as [[| | | |ly_s |]| | |] => //.
@@ -311,7 +311,7 @@ Section data_race.
         source_load. source_store.
         source_load. source_load.
         (* gain knowledge that both are ints *)
-        source_bind (BinOp _ _ _). iApply source_red_irred_unless.
+        source_bind (BinOp _ _ _). iApply source_red_safe_implies.
         iIntros "[(%z_r & ->) (%z_s & ->)]".
         val_discr_source "Hvx". val_discr_source "Hvr". source_pures.
         source_store.
@@ -326,11 +326,11 @@ Section data_race.
         the additional locations in the invariant and have to release both in the end. *)
       iApply (sim_bij_exploit_load with "Hbij_y Hc"); [| |]. {
         intros.
-        reach_or_stuck_fill (While _ _)%E => /=.
-        apply: reach_or_stuck_pure; [eapply pure_while | done | ].
-        reach_or_stuck_fill (Load _ _)%E.
-        apply: reach_or_stuck_irred => ?.
-        apply: reach_or_stuck_refl. apply: post_in_ectx_intro. naive_solver.
+        safe_reach_fill (While _ _)%E => /=.
+        apply: safe_reach_pure; [eapply pure_while | done | ].
+        safe_reach_fill (Load _ _)%E.
+        apply: safe_reach_safe_implies => ?.
+        apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
       }
       { rewrite lookup_insert_ne; last done. apply lookup_empty. }
       iIntros (qy vy_t vy_s) "Hy_t Hy_s #Hvy Hc".
@@ -387,7 +387,7 @@ Section data_race.
         source_load. source_store.
         source_load. source_load.
         (* gain knowledge that both are ints *)
-        source_bind (BinOp _ _ _). iApply source_red_irred_unless.
+        source_bind (BinOp _ _ _). iApply source_red_safe_implies.
         iIntros "[(%z_r & ->) (%z_s & ->)]".
         val_discr_source "Hvx". val_discr_source "Hvr". source_pures.
         source_store.

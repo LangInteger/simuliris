@@ -25,15 +25,3 @@ Proof.
   move => x l1 IH [//|y l2] Φ /= [?]. rewrite IH //. f_equiv.
   iSplit; first by eauto with iFrame. iIntros "[%x1 [% ?]]"; by simplify_eq.
 Qed.
-
-Definition exists_dec_unique {A} (x : A) (P : _ → Prop) : (∀ y, P y → P x) → Decision (P x) → Decision (∃ y, P y).
-Proof.
-  intros Hx Hdec.
-  refine (cast_if (decide (P x))).
-  - abstract by eexists _.
-  - abstract naive_solver.
-Defined.
-
-Lemma forall_equiv_dec {X} (P Q : X → Prop) (HPQ : Decision (∀ x, P x → Q x)) (HQP : Decision (∀ x, Q x → P x)) :
-  Decision (∀ x, P x ↔ Q x).
-Proof. destruct HPQ as [HPQ | HPQ]; destruct HQP as [HQP | HQP]; [left; naive_solver | right; naive_solver..]. Qed.

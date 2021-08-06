@@ -33,7 +33,7 @@ Proof.
   sim_pures.
   source_bind (Write _ _).
   (* gain knowledge about the length *)
-  iApply source_red_irred_unless. iIntros (Hsize).
+  iApply source_red_safe_implies. iIntros (Hsize).
   iApply (source_write_local with "Htag Hs"); [by rewrite replicate_length | done | ].
   iIntros "Hs Htag". source_finish.
 
@@ -45,23 +45,23 @@ Proof.
   iPureIntro; lia.
 Qed.
 
-Lemma new_place_reach_or_stuck P σ T r :
-  reach_or_stuck P (new_place T (of_result r)) σ (λ _ _, ∃ v, r = ValR v ∧ length v = tsize T).
+Lemma new_place_safe_reach P σ T r :
+  safe_reach P (new_place T (of_result r)) σ (λ _ _, ∃ v, r = ValR v ∧ length v = tsize T).
 Proof.
   rewrite /new_place.
-  reach_or_stuck_bind (Alloc _).
-  eapply reach_or_stuck_head_step.
+  safe_reach_bind (Alloc _).
+  eapply safe_reach_head_step.
   { eapply alloc_head_step. }
-  eapply reach_or_stuck_refl.
-  reach_or_stuck_bind (Let _ _ _).
-  eapply reach_or_stuck_pure; [ apply _ | done | ].
-  eapply reach_or_stuck_refl; simpl.
+  eapply safe_reach_refl.
+  safe_reach_bind (Let _ _ _).
+  eapply safe_reach_pure; [ apply _ | done | ].
+  eapply safe_reach_refl; simpl.
   destruct r as [ v | ]; simpl.
   - (* value *)
-    reach_or_stuck_bind (Write _ _).
-    eapply reach_or_stuck_irred; [ apply _ | ].
+    safe_reach_bind (Write _ _).
+    eapply safe_reach_safe_implies; [ apply _ | ].
     intros (_ & _ & ?).
-    do 2 eapply reach_or_stuck_refl. eauto.
-  - reach_or_stuck_bind (Write _ _).
-    eapply reach_or_stuck_irred; [ apply _ | done].
+    do 2 eapply safe_reach_refl. eauto.
+  - safe_reach_bind (Write _ _).
+    eapply safe_reach_safe_implies; [ apply _ | done].
 Qed.

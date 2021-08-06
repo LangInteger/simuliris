@@ -29,7 +29,7 @@ Section reorder.
     source_alloc l2_s as "Hl2_s" "Ha2_s".
     sim_pures.
 
-    iApply sim_irred_unless. iIntros ((fcont & ->)).
+    iApply sim_safe_implies. iIntros ((fcont & ->)).
 
     val_discr_source "Hcont". sim_pures.
 

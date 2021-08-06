@@ -67,17 +67,17 @@ Proof.
   iIntros (?? Hval). rewrite /mul2_target /mul2_source.
   sim_pures.
   (* generate additional conditions on the shape of the source expression *)
-  iApply sim_irred_unless.
+  iApply sim_safe_implies.
   iIntros "%Ha"; destruct Ha as (v' & [-> | ->]).
   - inversion_clear Hval; subst.
     sim_pures.
-    iApply sim_irred_unless. iIntros "%Ha"; destruct Ha as [(n & ->) _].
+    iApply sim_safe_implies. iIntros "%Ha"; destruct Ha as [(n & ->) _].
     rename select (val_rel_pure _ _) into Hval.
     inversion Hval; subst.
     by sim_pures; sim_val.
   - inversion_clear Hval; subst.
     sim_pures.
-    iApply sim_irred_unless. iIntros "%Ha"; destruct Ha as [(n & ->) _].
+    iApply sim_safe_implies. iIntros "%Ha"; destruct Ha as [(n & ->) _].
     rename select (val_rel_pure _ _) into Hval.
     inversion Hval; subst.
     by sim_pures; sim_val.
