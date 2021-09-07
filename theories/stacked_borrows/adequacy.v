@@ -6,16 +6,6 @@ From simuliris.stacked_borrows Require Import parallel_subst primitive_laws
 From simuliris.stacked_borrows Require Export behavior.
 From iris.prelude Require Import options.
 
-(* TODO upstream to std++: MR 318 *)
-Lemma Forall2_cons_iff {A B} (P : A → B → Prop)
-  (x : A) (l : list A) (y : B) (k : list B) :
-  Forall2 P (x :: l) (y :: k) ↔ P x y ∧ Forall2 P l k.
-Proof.
-  split.
-  - apply Forall2_cons_inv.
-  - intros []. by apply Forall2_cons.
-Qed.
-
 Lemma sc_rel_obs `{!sborGS Σ} sc_t sc_s :
   sc_rel sc_t sc_s ⊢@{iPropI Σ} ⌜ obs_scalar sc_t sc_s ⌝.
 Proof.
@@ -31,7 +21,7 @@ Proof.
     destruct v_s as [|sc_s scs_s]; simpl; try eauto.
   { iIntros "_ !%". constructor. }
   rewrite {2}/value_rel big_sepL2_cons.
-  iIntros "[Hs Hss]". rewrite /obs_value Forall2_cons_iff. iSplit.
+  iIntros "[Hs Hss]". rewrite /obs_value Forall2_cons. iSplit.
   - iApply (sc_rel_obs with "Hs").
   - iApply ("IH" with "Hss").
 Qed.

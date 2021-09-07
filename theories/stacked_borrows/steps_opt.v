@@ -1135,21 +1135,6 @@ Proof.
   iPureIntro. by left.
 Qed.
 
-(** TODO: upstream; std++ MR 319 *)
-Lemma list_in_dec {X} (P : X → Prop) (l : list X) :
-  (∀ x, Decision (P x)) →
-  Decision (∃ it, P it ∧ it ∈ l).
-Proof.
-  intros HdecP. induction l as [ | it l IH].
-  - right. intros (it & _ & []%elem_of_nil).
-  - destruct IH as [ IH | IH].
-    + left. destruct IH as (it' & Hit' & Hin). exists it'. split; first done. right. done.
-    + destruct (HdecP it) as [Hit | Hnit].
-      { left. exists it. split; first done. by left. }
-      right. intros (it' & Hit' & [-> | Hin]%elem_of_cons); first done.
-      apply IH. eauto.
-Qed.
-
 Lemma target_copy_deferred v_t T l t tk Ψ :
   length v_t = tsize T →
   t $$ tk -∗
@@ -1189,7 +1174,7 @@ Proof.
       destruct (σ_t.(sst) !! (l +ₗ O)) as [stk | ] eqn:Hstk; first last.
       { right; exists O. split; first lia. intros ????; congruence. }
       assert (Decision (∃ pm opro, mkItem pm (Tagged t) opro ∈ stk)) as [Hin | Hnotin].
-      { destruct (list_in_dec (λ it, tg it = Tagged t) stk) as [Hit | Hnit]; first apply _.
+      { destruct (list_exist_dec (λ it, tg it = Tagged t) stk) as [Hit | Hnit]; first apply _.
         - left. destruct Hit as (it & Htg & Hit). exists (perm it), (protector it).
           destruct it; naive_solver.
         - right. contradict Hnit. destruct Hnit as (pm & opro & Hit).

@@ -291,7 +291,7 @@ Proof.
   - rewrite 2!(fmap_app _ _ (stk ++ stk0)).
     apply Forall2_app; [rewrite 2!fmap_app; apply Forall2_app|].
     + by apply Forall_Forall2_diag, Forall_forall.
-    + apply Forall2_cons; [|constructor]. by rewrite EqU.
+    + apply Forall2_cons. split; [|constructor]. by rewrite EqU.
     + by apply Forall_Forall2_diag, Forall_forall.
 Qed.
 
