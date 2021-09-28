@@ -357,7 +357,7 @@ Proof.
   iDestruct "Hall" as "[Hsim Hall]".
   rewrite csim_expr_eq closed_greatest_def_unfold.
   iApply (closed_least_def_strong_ind (λ Ψ π e_t e_s, ∀ P D, ⌜P !! i = Some (e_t, e_s)⌝ -∗ ⌜i = π⌝ -∗ ⌜O ⊆ threads P.(tgt)⌝ -∗ csim_expr_all_wo 0 P {[i]} -∗ (∀ e_t e_s, Ψ e_t e_s -∗ lift_post (ext_rel i) e_t e_s) -∗ must_step_all 0 P O D)%I with "[] Hsim [] [] [] Hall"); eauto.
-  { intros n ?? Heq ???. repeat f_equiv. by apply Heq. }
+  { solve_proper. }
   clear P D Hsub e_t e_s Hlook. iModIntro. iIntros (Ψ π e_t e_s) "Hsim".
   iIntros (P D Hlook ? Hsub) "Hall Hpost". subst π.
   destruct (to_val e_t) as [v_t|] eqn: Hval.

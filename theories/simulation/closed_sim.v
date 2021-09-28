@@ -339,8 +339,7 @@ Section fix_lang.
     pose (rec' := (λ Φ Ψ π e_t e_s, rec Φ π e_t e_s ∗ (∀ e_t e_s, Φ e_t e_s ==∗ Ψ e_t e_s) ∨ rec Ψ π e_t e_s)%I).
     pose (F_ind := (λ Φ π e_t e_s, ∀ Φ', (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ closed_least_def (rec' Φ) Φ' π e_t e_s)%I).
     assert (NonExpansive2 (rec': expr_rel -d> expr_rel -d> thread_idO -d> expr_rel)) as Rne.
-    { intros m Φ' Φ'' Heq1 Ψ Ψ' Heq2 ???; rewrite /rec'.
-      solve_proper_core ltac:(fun x => f_equiv || apply Heq1 || apply Heq2). }
+    { solve_proper. }
     assert (NonExpansive (F_ind: expr_rel -d> thread_idO -d> expr_rel)).
     { clear Φ π e_t e_s. intros n Φ Ψ Heq π e_t e_s.
       rewrite /F_ind; do 3 f_equiv; first (repeat f_equiv; by apply Heq).
@@ -368,7 +367,7 @@ Section fix_lang.
   Proof.
     iIntros "Ha Hmon".
     iApply (csim_expr_strong_coind (λ Ψ π e_t e_s, csim_expr Φ π e_t e_s ∗ (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Ψ e_t e_s))%I); last by iFrame.
-    { intros n Ψ Ψ' Heq π' e_t' e_s'. repeat f_equiv. by eapply Heq. }
+    { solve_proper. }
     iModIntro. clear Φ' π e_t e_s. iIntros (Φ' π e_t e_s) "[Ha Hmon]".
     rewrite csim_expr_eq closed_greatest_def_unfold.
     iApply (closed_least_def_strong_mono with "Hmon Ha").
@@ -439,8 +438,7 @@ Section fix_lang.
     iDestruct "IH" as (e_t e_s K_t K_s) "[-> [-> H]]".
     rewrite {1}csim_expr_eq closed_greatest_def_unfold.
     pose (F := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ csim_expr Φ π (fill K_t e_t) (fill K_s e_s)) -∗ closed_least_def (bind_coind_rec) Φ π (fill K_t e_t) (fill K_s e_s))%I).
-    assert (NonExpansive (F: expr_rel → thread_idO -d> expr_rel)).
-    { rewrite /F. intros n x y Heq ???. repeat f_equiv. apply Heq. }
+    assert (NonExpansive (F: expr_rel → thread_idO -d> expr_rel)) by solve_proper.
     iAssert (∀ Ψ π e_t e_s, closed_least_def (closed_greatest_def) Ψ π e_t e_s -∗ F Ψ π e_t e_s)%I as "Hgen"; last first.
     { iApply ("Hgen" with "H"). iIntros (??) "$". }
     clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "HL".
@@ -540,8 +538,7 @@ Section fix_lang.
     assert (NonExpansive (rec: expr_rel → thread_idO -d> expr_rel)).
     { intros ??? Heq ???. solve_proper. }
     pose (Rec := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ F Φ π e_t e_s ∨ Φ e_t e_s) -∗ closed_least_def rec Φ π e_t e_s)%I).
-    assert (NonExpansive (Rec: expr_rel → thread_idO -d> expr_rel)).
-    { intros ??? Heq ???. rewrite /Rec. repeat f_equiv. by eapply Heq. }
+    assert (NonExpansive (Rec: expr_rel → thread_idO -d> expr_rel)) by solve_proper.
     iApply (closed_least_def_ind Rec with "[] Hs []"); last auto.
     iModIntro. clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "Hinner".
     iIntros (Φ) "Hmon". rewrite closed_least_def_unfold.

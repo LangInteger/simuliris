@@ -401,7 +401,7 @@ Section fix_sim.
   Proof.
     pose (F  := (λ Ψ π' e_t e_s, (∀ e_t e_s, Φ e_t e_s -∗ Ψ e_t e_s) ∗ ⌜π = π'⌝ ∗ inv e_t e_s)%I).
     iIntros "#H Inv". iApply (sim_expr_paco F).
-    { intros ??? Heq ???; rewrite /F. repeat f_equiv. by apply Heq. }
+    { solve_proper. }
     - iModIntro. clear. iIntros (Ψ π' e_t e_s) "[Himpl [% Hinv]]". subst π'.
       rewrite /lock_step. iIntros (p_t σ_t p_s σ_s T_s K_s) "Hs".
       iMod ("H" with "Hinv Hs") as "[$ Hcont]".

@@ -448,7 +448,7 @@ Section fix_lang.
   Proof.
     iIntros "Ha Hmon".
     iApply (sim_expr_strong_coind (λ Ψ π e_t e_s, e_t ⪯{π} e_s [{ Φ }] ∗ (∀ e_t e_s : expr Λ, Φ e_t e_s ==∗ Ψ e_t e_s))%I); last by iFrame.
-    { intros n Ψ Ψ' Heq π' e_t' e_s'. repeat f_equiv. by eapply Heq. }
+    { solve_proper. }
     iModIntro. clear Φ' π e_t e_s. iIntros (Φ' π e_t e_s) "[Ha Hmon]".
     rewrite sim_expr_eq greatest_def_unfold.
     iApply (least_def_strong_mono with "Hmon Ha").
@@ -512,8 +512,7 @@ Section fix_lang.
     iDestruct "IH" as (e_t e_s K_t K_s) "[-> [-> H]]".
     rewrite {1}sim_expr_eq greatest_def_unfold.
     pose (F := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ sim_expr Φ π (fill K_t e_t) (fill K_s e_s)) -∗ least_def bind_coind_rec Φ π (fill K_t e_t) (fill K_s e_s))%I).
-    assert (NonExpansive (F: expr_rel → thread_idO -d> expr_rel)).
-    { rewrite /F. intros n x y Heq ???. repeat f_equiv. apply Heq. }
+    assert (NonExpansive (F: expr_rel → thread_idO -d> expr_rel)) by solve_proper.
     iAssert (∀ Ψ π e_t e_s, least_def greatest_def Ψ π e_t e_s -∗ F Ψ π e_t e_s)%I as "Hgen"; last first.
     { iApply ("Hgen" with "H"). iIntros (??) "$". }
     clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "HL".
@@ -613,10 +612,7 @@ Section fix_lang.
   Global Instance join_expr_ne F:
     NonExpansive F →
     NonExpansive (join_expr F).
-  Proof.
-    intros HF ??? Heq ???. rewrite /join_expr. f_equiv.
-    intros ??. repeat f_equiv; [done | apply Heq].
-  Qed.
+  Proof. solve_proper. Qed.
 
   Definition lock_step (Φ: expr_rel) π e_t e_s :=
     (∀ P_t σ_t P_s σ_s T_s K_s, state_interp P_t σ_t P_s σ_s T_s ∗ ⌜T_s !! π = Some (fill K_s e_s)
@@ -640,8 +636,7 @@ Section fix_lang.
     assert (NonExpansive (rec: expr_rel → thread_idO -d> expr_rel)).
     { intros ??? Heq ???. solve_proper. }
     pose (Rec := (λ Ψ π e_t e_s, ∀ Φ, (∀ e_t e_s, Ψ e_t e_s -∗ F Φ π e_t e_s ∨ Φ e_t e_s) -∗ least_def rec Φ π e_t e_s)%I).
-    assert (NonExpansive (Rec: expr_rel → thread_idO -d> expr_rel)).
-    { intros ??? Heq ???. rewrite /Rec. repeat f_equiv. by eapply Heq. }
+    assert (NonExpansive (Rec: expr_rel → thread_idO -d> expr_rel)) by solve_proper.
     iApply (least_def_ind Rec with "[] Hs []"); last auto.
     iModIntro. clear Φ π e_t e_s. iIntros (Ψ π e_t e_s) "Hinner".
     iIntros (Φ) "Hmon". rewrite least_def_unfold.
