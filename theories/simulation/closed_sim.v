@@ -1,5 +1,4 @@
-(** * SLSLS, Separation Logic Stuttering Local Simulation *)
-
+(** * Closed simulation (without the call case) *)
 From iris.bi Require Import bi.
 From iris.proofmode Require Import proofmode.
 From simuliris.logic Require Import fixpoints.
@@ -627,7 +626,7 @@ Section fix_lang.
   Qed.
 
 
-  (* we show that the open simulation for all functions in the program implies the closed simulation *)
+  (** We show that the open simulation for all functions in the program implies the closed simulation *)
   Lemma open_to_closed P_t P_s Φ e_t e_s π:
     prog_rel P_t P_s -∗
     progs_are P_t P_s -∗

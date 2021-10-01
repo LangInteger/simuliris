@@ -78,7 +78,7 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Rule `loc-escape` (2.2) | `theories/simulang/simple_inv/examples/derived.v` | `sim_insert_bij` |
 | Rule `sim-load-escaped` (2.2) | `theories/simulang/simple_inv/examples/derived.v` | `sim_load_public` |
 | Rule `sim-src-safe` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `sim_src_safe` |
-| Rule `safe-div-int-nonzero` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `safe_reach_div` |
+| Rule `safe-div-int-nonzero` (2.3) | `theories/simulang/simple_inv/examples/derived.v` | `safe_div_int_nonzero` |
 | Example from 2.3 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_3` |
 | Example from 2.4 | `theories/simulang/simple_inv/examples/paper.v` | `ex_2_4` |
 | Rule `while-coind` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while_simple` |
@@ -90,9 +90,10 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Rule `exploit-store` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_store` |
 | Rule `exploit-load` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_load` |
 | Rule `release-exploit` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_release` |
-| Example from 3.2 | `theories/simulang/na_inv/examples/paper.v` | `load_na_sc_sim`, `load_na_sc_log`, and `load_na_sc_closed` |
-| Example from 3.2 with arbitrary read-only expressions | `theories/simulang/na_inv/examples/paper.v` | `load_na_log`, and `load_na_closed` |
-| Example from 1,3.3 | `theories/simulang/na_inv/examples/paper.v` | `hoist_load_both_log`, `hoist_load_both_log` |
+| Example from 3.2 | `theories/simulang/na_inv/examples/paper.v` | `load_na_sc_sim`, `load_na_sc_log`, and `load_na_sc_ctx` |
+| Example from 3.2 with arbitrary read-only expressions (footnote 8) | `theories/simulang/na_inv/examples/paper.v` | `load_na_log`, and `load_na_ctx` |
+| Example from 1,3.3 | `theories/simulang/na_inv/examples/paper.v` | `hoist_load_both_log`, `hoist_load_both_ctx` |
+| Example from 1,3.3 with memory deallocation | `theories/simulang/na_inv/examples/data_races.v` | `hoist_load_both_log`, `hoist_load_both_ctx` | 
 | Rules in Figure 8| `theories/simulang/na_inv/examples/derived.v` | `sim_load_sc_public`, `sim_load_na_public`, `sim_store_sc_public`, `sim_call` |
 
 ### Section 4
@@ -103,11 +104,11 @@ Similarly, the specific logical relation is specific to the different program lo
 They are instantiated for the fundamental theorems.
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
-| Possible behaviors | `theories/simulation/behavior.v` | `has_beh` |
-| Behavioral refinement | `theories/simulation/behavior.v` | `beh_ref` |
-| program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` |
-| Contextual refinement (language-specific), SimuLang | `theories/simulang/behavior.v` | `ctx_ref` |
-| Logical relation (SimuLang, generic) | `theories/simulang/log_rel_structural.v` | `log_rel` |
+| Possible behaviors `ℬ` | `theories/simulation/behavior.v` | `has_beh` |
+| Behavioral refinement `⊑_beh` | `theories/simulation/behavior.v` | `beh_ref` |
+| program refinement `⊑_prog` | `theories/simulation/behavior.v` | `prog_ref_alt` |
+| Contextual refinement `⊑_ctx` (language-specific), SimuLang | `theories/simulang/behavior.v` | `ctx_ref` |
+| Logical relation `≤_log` (SimuLang, generic) | `theories/simulang/log_rel_structural.v` | `log_rel` |
 | Theorem 4.1 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/refl.v` | `log_rel_refl` |
 | Theorem 4.2 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/refl.v` | `log_rel_ctx` |
 | Theorem 4.3 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` |
@@ -117,12 +118,13 @@ They are instantiated for the fundamental theorems.
 | ------ | ------ | ------ |
 | Simulation relation (Figure 11) (full version) | `theories/simulation/slsls.v` | `greatest_def`, `sim_expr_inner` |
 | Hoare quadruple definition | `theories/simulang/hoare.v` | `hoareSim`|
-| source safety judgment | `theories/simulation/lifting.v` | `safe_reach` |
-| whole-program relation | `theories/simulation/gen_log_rel.v` | `prog_rel` |
+| source safety judgment `e_s ⇝ Q` (generalized) | `theories/simulation/lifting.v` | `SafeImplies` |
+| whole-program relation `≤_prog` | `theories/simulation/gen_log_rel.v` | `prog_rel` |
 | Lemma 5.1 | `theories/simulation/adequacy.v` | `slsls_adequacy` |
-| program refinement | `theories/simulation/behavior.v` | `prog_ref_alt` |
-| closed simulation | `theories/simulation/closed_sim.v` | `csim_expr_inner`, `closed_greatest_def` |
+| program refinement `⊑_prog` | `theories/simulation/behavior.v` | `prog_ref_alt` |
+| closed simulation (proof of Lemma 5.1) | `theories/simulation/closed_sim.v` | `csim_expr_inner`, `closed_greatest_def` |
 | Theorem 5.2 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` |
+| Theorem 5.2 (for SimuLang, simple logic) | `theories/simulang/simple_inv/adequacy.v` | `log_rel_adequacy` |
 
 ### Section 6
 | Paper | Coq file | Coq name |
@@ -133,14 +135,14 @@ They are instantiated for the fundamental theorems.
 | exploit_wf (simplified) | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf` |
 | state interpretation for non-atomics | `theories/simulang/na_inv/inv.v` | `na_bij_interp` |
 | proof of exploit-store | `theories/simulang/na_inv/inv.v` | `sim_bij_exploit_store` |
-| preservation for sim-store-sc | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf_store` |
+| preservation for sim-store-sc (Maintaining the state interpretation) | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf_store` |
 
 ### Section 7
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
-| Adequacy | `theories/stacked_borrows/adequacy.v` | `log_rel_adequacy` |
+| Adequacy (Theorem 5.2 for Stacked Borrows) | `theories/stacked_borrows/adequacy.v` | `log_rel_adequacy` |
 | Loop example (Fig 12b) | `theories/stacked_borrows/examples/coinductive.v` | `sim_loop_ctx` |
-| Moving read example (Fig 12a) | `theories/stacked_borrows/examples/opt1.v` | `sim_opt1'` |
+| Moving read example (Fig 12a) | `theories/stacked_borrows/examples/opt1.v` | `sim_opt1'`, `sim_opt1'_ctx` |
 
 The optimizations ported and extended to concurrency from the original Stacked Borrows paper can be found in the following files:
 * `theories/stacked_borrows/examples/opt1.v`

@@ -5,8 +5,6 @@ From iris.proofmode Require Import proofmode.
 
 Import bi.
 
-
-(* TODO move to language.v? *)
 Section lang.
   Context {Λ : language}.
   Implicit Types (e : expr Λ) (P : prog Λ).
@@ -19,7 +17,6 @@ Section lang.
 
   Notation pure_steps_tp := (Forall2 (rtc pure_step)).
 
-  (* TODO: we probably don't need the n anymore, since we don't have laters. maybe remove *)
   (* TODO: Exclude the case of [n=0], either here, or in [wp_pure] to avoid it
   succeeding when it did not actually do anything. *)
   Class PureExec (φ : Prop) (n : nat) (e1 e2 : expr Λ) :=

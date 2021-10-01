@@ -14,7 +14,7 @@ Import bi.
 Section data_race.
   Context `{naGS Σ}.
 
-  (** This optimization replaces multiples loads with a single load. *)
+  (** This optimization replaces multiple loads with a single load. *)
   Definition remove_load_s : expr :=
     "l" <- !"l" + !"l";;
     !"l".
@@ -383,7 +383,7 @@ Section data_race.
   Qed.
 
   (** This optimization hoists the read of "m" out of the loop. We
-  need to unrole the loop once because the loop condition can be an
+  need to unroll the loop once because the loop condition can be an
   arbitrary expression [e] that does not write to the heap. *)
   Definition hoist_load_unknown_s (e : expr) : expr :=
      let: "r" := ref #0  in
@@ -540,6 +540,16 @@ Section closed.
     set Σ := #[naΣ].
     apply (log_rel_adequacy Σ)=>?.
     by apply hoist_load_sim.
+  Qed.
+
+  (** Obtain a closed proof of [ctx_ref]. *)
+  Lemma hoist_load_both_ctx :
+    ctx_ref hoist_load_both_t hoist_load_both_s.
+  Proof.
+    intros ??.
+    set Σ := #[naΣ].
+    apply (log_rel_adequacy Σ)=>?.
+    by apply hoist_load_both_sim.
   Qed.
 
   (** Obtain a closed proof of [ctx_ref]. *)

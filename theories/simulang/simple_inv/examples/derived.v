@@ -22,6 +22,12 @@ Section derived.
     (v_t v_s : val)
     (π : thread_id).
 
+  (* Rules for the assertion [e_s ⇝ Q] ([SafeImplies]) shown in the paper. 
+    In contrast to the presentation in the paper, [SafeImplies] is additionally parameterized by the program [p] and the state [σ], 
+     in order to allow the predicate [Q] to make statements about both of these.
+  *)
+  Lemma safe_div_int_nonzero v1 v2 p σ : SafeImplies ((∃ n, v1 = LitV $ LitInt n) ∧ (∃ n, v2 = LitV $ LitInt n ∧ n ≠ 0%Z))%V p (BinOp QuotOp (Val v1) (Val v2)) σ.
+  Proof. apply _. Qed.
 
   (* for expression postconditions *)
   Lemma sim_bind' P e_t e_s K_t K_s π Φ Φ' :
@@ -234,7 +240,7 @@ Section derived.
     source_finish. eauto with iFrame.
   Qed.
 
-  (** In contrast to the presentation to the paper, we also obtain ownership of [†l…s Z.to_nat n],
+  (** In contrast to the presentation in the paper, we also obtain ownership of [†l…s Z.to_nat n],
     which gives the total size of the allocation at [l_s]. *)
   Lemma source_alloc (v : val) (n : Z) π :
     (n > 0)%Z →

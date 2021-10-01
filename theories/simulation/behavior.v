@@ -167,4 +167,37 @@ Section beh.
   Proof.
     split; eauto using prog_ref_to_alt, prog_ref_from_alt.
   Qed.
+
+  Lemma prog_ref_refl :
+    (∀ σ1 σ2, I σ1 σ2 → σ1 = σ2) →
+    Reflexive O →
+    Reflexive prog_ref.
+  Proof.
+    intros HI_eq HO_refl p σ_t σ_s Hinit Hsafe.
+    specialize (HI_eq _ _ Hinit) as ->.
+    split_and!.
+    - done.
+    - intros ?????. eexists _, _, _, _. split; first done.
+      apply HO_refl.
+    - done.
+  Qed.
+
+  Lemma prog_ref_trans :
+    (∀ σ1 σ2, I σ1 σ2 → σ1 = σ2) →
+    Transitive O →
+    Transitive prog_ref.
+  Proof.
+    intros HI_eq HO_trans p1 p2 p3 H1 H2 σ1 σ3 HI Hsafe3.
+    specialize (HI_eq _ _ HI) as <-.
+    specialize (H2 σ1 σ1 HI Hsafe3) as (Hdiv23 & Hterm23 & Hsafe2).
+    specialize (H1 σ1 σ1 HI Hsafe2) as (Hdiv12 & Hterm12 & Hsafe1).
+    split_and!.
+    - eauto.
+    - intros ???? (? & ? & ? & ? & Hsteps & ?)%Hterm12.
+      apply Hterm23 in Hsteps as (? & ? & ? & ? & ? & ?).
+      eexists _, _, _, _. split; first done.
+      etrans; done.
+    - done.
+  Qed.
+
 End beh.

@@ -33,6 +33,30 @@ Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
 (** The simulang instance of [prog_ref]. *)
 Definition prog_ref := prog_ref init_state "main" #() obs_val.
 
+Instance obs_val_refl : Reflexive obs_val.
+Proof.
+  intros v. induction v as [ [ | | | | | ] | | | ]; naive_solver.
+Qed.
+Instance obs_val_trans : Transitive obs_val.
+Proof.
+  intros v1 v2 v3 H1 H2.
+  induction v3 as [ [ | | | | | ] | v31 IH1 v32 IH2 | v3 IH | v3 IH] in v1, v2, H1, H2 |-*.
+  all: destruct v2 as [ [ | | | | | ] | | | ]; simpl in H2; try inversion H2; subst.
+  all: destruct v1 as [ [ | | | | | ] | | | ]; simpl in H1; try inversion H1; subst; naive_solver.
+Qed.
+
+Lemma prog_ref_refl : Reflexive prog_ref.
+Proof.
+  apply prog_ref_refl; last apply obs_val_refl.
+  intros ?? (g & ? & ? & ?). subst. done.
+Qed.
+Lemma prog_ref_trans : Transitive prog_ref.
+Proof.
+  apply prog_ref_trans; last apply obs_val_trans.
+  intros ?? (g & ? & ? & ?). subst. done.
+Qed.
+
+
 (** Default well-formedness for SimuLang. *)
 Definition simulang_wf (e : expr_head) : Prop :=
   match e with
@@ -60,3 +84,10 @@ Definition ctx_ref (e_t e_s : expr) :=
     (* Then we demand [prog_ref] if putting our expressions into a context to
        obtain a whole function and that function into a program *)
     prog_ref (<[fname := (x, fill_ctx C e_t)]> p) (<[fname := (x, fill_ctx C e_s)]> p).
+
+Lemma ctx_ref_refl :
+  Reflexive ctx_ref.
+Proof.
+  intros e C fname x p Hbodies Hctx Hfv.
+  apply prog_ref_refl.
+Qed.
