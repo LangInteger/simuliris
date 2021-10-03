@@ -1,4 +1,4 @@
-From Coq.Logic Require Import Classical Epsilon.
+From Coq.Logic Require Import Classical IndefiniteDescription.
 From stdpp Require Import gmap relations.
 From iris.prelude Require Import prelude.
 From simuliris.simulation Require Import language.
