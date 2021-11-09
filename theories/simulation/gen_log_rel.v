@@ -14,7 +14,7 @@ Import bi.
     terms.on open terms. *)
 
 Section fix_lang.
-  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP, !BiPersistentlyForall PROP}.
   Context {Λ : language}.
   Context `{!simulirisGS PROP Λ}.
 

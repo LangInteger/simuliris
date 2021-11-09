@@ -16,7 +16,8 @@ Section meta_level_simulation.
   Context {s : simulirisGS PROP Λ}.
   Context {PROP_bupd : BiBUpd PROP}.
   Context {PROP_affine : BiAffine PROP}.
-  Context {PROP_forall : BiPureForall PROP}.
+  Context {PROP_pure_forall : BiPureForall PROP}.
+  Context {PROP_pers_forall : BiPersistentlyForall PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.
 
@@ -296,7 +297,7 @@ End meta_level_simulation.
 
 Section adequacy_statement.
 
-  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
+  Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP, !BiPersistentlyForall PROP}.
   Context {Λ : language}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
   Arguments sat _%I.

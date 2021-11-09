@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 Import bi.
 
 Section fix_lang.
-Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
+Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP, !BiPersistentlyForall PROP}.
 Context {Λ : language}.
 Context {s : simulirisGS PROP Λ}.
 
