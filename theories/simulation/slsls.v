@@ -443,7 +443,7 @@ Section fix_lang.
       iIntros (? ?) "H1". iLeft. iFrame. iApply ("H5" with "H1").
   Qed.
 
-  Lemma sim_expr_bupd_mono Φ Φ' π e_t e_s:
+  Lemma sim_expr_bupd_mono (Φ Φ' : expr_rel) π e_t e_s:
     (∀ e_t e_s, Φ e_t e_s ==∗ Φ' e_t e_s) -∗ e_t ⪯{π} e_s [{ Φ }] -∗ e_t ⪯{π} e_s [{ Φ' }].
   Proof.
     iIntros "Ha Hmon".
@@ -454,7 +454,7 @@ Section fix_lang.
     iApply (least_def_strong_mono with "Hmon Ha").
   Qed.
 
-  Lemma sim_expr_mono Φ Φ' π e_t e_s:
+  Lemma sim_expr_mono (Φ Φ' : expr_rel) π e_t e_s:
     (∀ e_t e_s, Φ e_t e_s -∗ Φ' e_t e_s) -∗ e_t ⪯{π} e_s [{ Φ }] -∗ e_t ⪯{π} e_s [{ Φ' }].
   Proof.
     iIntros "Hmon Ha". iApply (sim_expr_bupd_mono with "[Hmon] Ha").
@@ -683,7 +683,7 @@ Section fix_lang.
     iExists v_t, v_s. iFrame. iSplit; done.
   Qed.
 
-  Lemma bupd_sim Φ π e_t e_s:
+  Lemma bupd_sim (Φ : expr_rel) π e_t e_s:
     ⊢ (|==> e_t ⪯{π} e_s [{ Φ }]) -∗ e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hv". rewrite sim_expr_unfold. iIntros (??????) "H". iMod "Hv". iApply ("Hv" with "H").

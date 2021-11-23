@@ -75,7 +75,7 @@ Proof.
   rewrite envs_entails_eq => ->. iIntros "H". by iApply source_red_base.
 Qed.
 
-Lemma tac_sim_value π v_t v_s Φ Δ :
+Lemma tac_sim_value π v_t v_s (Φ : val → val → iProp Σ) Δ :
   envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
 Proof.
   rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_value.

@@ -447,11 +447,11 @@ Local Unset Mangle Names. (* work around https://github.com/mattam82/Coq-Equatio
 Equations read_mem (l: loc) (n: nat) h: option value :=
   read_mem l n h := go l n (Some [])
   where go : loc → nat → option value → option value :=
-        go l O      oacc := oacc;
-        go l (S n)  oacc :=
+        go l' O      oacc := oacc;
+        go l' (S n')  oacc :=
           acc ← oacc ;
-          v ← h !! l;
-          go (l +ₗ 1) n (Some (acc ++ [v])).
+          v ← h !! l';
+          go (l' +ₗ 1) n' (Some (acc ++ [v])).
 End no_mangle.
 
 Definition fresh_block (h : mem) : block :=
