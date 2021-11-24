@@ -75,7 +75,7 @@ Proof.
   rewrite envs_entails_eq => ->. iIntros "H". by iApply source_red_base.
 Qed.
 
-Lemma tac_sim_value v_t v_s Φ Δ π :
+Lemma tac_sim_value v_t v_s (Φ : result → result → iProp Σ) Δ π :
   envs_entails Δ (|==> Φ (ValR v_t) (ValR v_s)) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
 Proof.
   rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_value_result.
@@ -84,7 +84,7 @@ Lemma tac_sim_value_no_bupd v_t v_s Φ Δ π :
   envs_entails Δ (Φ (ValR v_t) (ValR v_s)) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
 Proof. rewrite envs_entails_eq => ->. by iApply sim_value_result. Qed.
 
-Lemma tac_sim_place l_t l_s t_t t_s T_t T_s Φ Δ π :
+Lemma tac_sim_place l_t l_s t_t t_s T_t T_s (Φ : result → result → iProp Σ) Δ π :
   envs_entails Δ (|==> Φ (PlaceR l_t t_t T_t) (PlaceR l_s t_s T_s)) →
   envs_entails Δ (Place l_t t_t T_t ⪯{π} Place l_s t_s T_s {{ Φ }}).
 Proof. rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_place_result. Qed.
@@ -93,7 +93,7 @@ Lemma tac_sim_place_no_bupd l_t l_s t_t t_s T_t T_s Φ Δ π :
   envs_entails Δ (Place l_t t_t T_t ⪯{π} Place l_s t_s T_s {{ Φ }}).
 Proof. rewrite envs_entails_eq => ->. iIntros "H". by iApply sim_place_result. Qed.
 
-Lemma tac_sim_result v_t v_s Φ Δ π :
+Lemma tac_sim_result v_t v_s (Φ : result → result → iProp Σ) Δ π :
   envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (of_result v_t ⪯{π} of_result v_s {{ Φ }}).
 Proof.
   rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_result.

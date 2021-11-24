@@ -2,7 +2,7 @@
 This repository contains the Coq development of Simuliris.
 
 ## Setup 
-This project is known to build with [Coq 8.13.2](https://coq.inria.fr/).
+This project is known to build with [Coq](https://coq.inria.fr/) 8.13.2 and 8.14.0.
 It depends on recent development versions of [std++](https://gitlab.mpi-sws.org/iris/stdpp) and [Iris](https://gitlab.mpi-sws.org/iris/iris), as well as [coq-equations](https://github.com/mattam82/Coq-Equations).
 
 

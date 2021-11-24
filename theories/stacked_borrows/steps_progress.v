@@ -164,7 +164,8 @@ Proof.
     destruct (IH [] vl1) as [IH1 IH2]; [done..|simpl;intros;lia|].
     split; [done|]. intros i.
      rewrite -{2}(Nat.add_0_l i) -(nil_length (A:=scalar)). by apply IH2.
-  - clear. intros _ _ ????????. simplify_eq.
+  - clear. intros _ _ ????????. simplify_eq/=.
+    (* We use [simplify_eq/=] to work around https://github.com/mattam82/Coq-Equations/issues/449. *)
     split; [lia|]. split; [done|intros; lia].
   - clear. move => l0 n0 h l n oacc IH acc vl -> /=.
     case lookup as [v|] eqn:Eq; [|done].
@@ -236,8 +237,8 @@ Lemma find_first_write_incompatible_length stk pm idx :
   find_first_write_incompatible stk pm = Some idx → (idx ≤ length stk)%nat.
 Proof.
   rewrite /find_first_write_incompatible.
-  destruct pm; [by intros; simplify_eq| |done..].
-  case list_find as [[]|]; intros; simplify_eq; lia.
+  destruct pm; [by intros; simplify_eq/=| |done..].
+  case list_find as [[]|]; intros; simplify_eq/=; lia.
 Qed.
 
 Lemma remove_check_is_Some cids stk idx :
@@ -527,7 +528,7 @@ Proof.
   - clear. intros l f a last cur_dist T HF.
     case is_freeze; [by do 3 eexists|]. by apply unsafe_action_is_Some_weak.
   - clear. intros l f a last cur_dist Ts IH Hf HI.
-    case is_freeze; [intros; simplify_eq; exists a, last; by eexists|by apply IH].
+    case is_freeze; [intros; simplify_eq/=; exists a, last; by eexists|by apply IH].
   - clear. intros l f a last cur_dist T HF.
     case is_freeze; [by do 3 eexists|]. by apply unsafe_action_is_Some_weak.
   - naive_solver.
@@ -591,16 +592,16 @@ Lemma access1_find_granting_agree stk kind bor cids i1 i2 pm1 stk2:
 Proof.
   intros FI. rewrite /access1 FI /=.
   destruct kind.
-  - case replace_check => [? /= ?|//]. by simplify_eq.
+  - case replace_check => [? /= ?|//]. by simplify_eq/=.
   - case find_first_write_incompatible => [? /=|//].
-    case remove_check => [? /= ?|//]. by simplify_eq.
+    case remove_check => [? /= ?|//]. by simplify_eq/=.
 Qed.
 
 Lemma find_granting_write stk bor i pi:
   find_granting stk AccessWrite bor = Some (i, pi) →
   pi ≠ Disabled ∧ pi ≠ SharedReadOnly.
 Proof.
-  move => /fmap_Some [[??] /= [IS ?]]. simplify_eq.
+  move => /fmap_Some [[??] /= [IS ?]]. simplify_eq/=.
   apply list_find_Some in IS as (? & [IS ?] & ?).
   move : IS. rewrite /grants. case perm; naive_solver.
 Qed.
@@ -781,23 +782,23 @@ Proof.
                 (UniqueRef (is_two_phase kind)) (adding_protector kind c))
       as [bac Eq]; [by apply EQD|done..| |by eexists].
     simpl. clear -EQD. intros m stk Lt Eq.
-    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. by simplify_eq.
+    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. by simplify_eq/=.
   - destruct (retag_ref_is_freeze_is_Some α cids nxtp l otg T SharedRef
                       (adding_protector kind c))
       as [bac Eq]; [by apply EQD|done..| |by eexists].
     simpl. clear -EQD. intros m stk Lt Eq.
-    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. by simplify_eq.
+    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. by simplify_eq/=.
   - destruct kind; [by eexists..| |by eexists].
     destruct (retag_ref_is_freeze_is_Some α cids nxtp l otg T
               (RawRef (bool_decide (mut = Mutable))) None)
       as [bac Eq]; [by apply EQD|done..| |by eexists].
     simpl. clear -EQD. intros m stk Lt Eq.
-    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. simplify_eq. by destruct mut.
+    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. simplify_eq/=. by destruct mut.
   - destruct (retag_ref_is_freeze_is_Some α cids nxtp l otg T
                           (UniqueRef false) None)
       as [bac Eq]; [by apply EQD|done..| |by eexists].
     simpl. clear -EQD. intros m stk Lt Eq.
-    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. by simplify_eq.
+    destruct (EQD _ Lt) as [_ [stk' [Eq' ?]]]. by simplify_eq/=.
 Qed.
 
 
