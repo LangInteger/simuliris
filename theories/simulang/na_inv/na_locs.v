@@ -702,8 +702,8 @@ Section na_locs_wf.
       split_and!.
       + move => ???? /lookup_union_Some_raw[/heap_array_lookup[?[?[?[?[??]]]]]|[??]]
                     /lookup_union_Some_raw[/heap_array_lookup[?[?[?[?[??]]]]]|[??]]; simplify_eq => //.
-        * exfalso. apply: eq_None_ne_Some; [done|]. apply heap_array_lookup. naive_solver.
-        * exfalso. apply: eq_None_ne_Some; [done|]. apply heap_array_lookup. naive_solver.
+        * exfalso. apply: eq_None_ne_Some_1; [done|]. apply heap_array_lookup. naive_solver.
+        * exfalso. apply: eq_None_ne_Some_1; [done|]. apply heap_array_lookup. naive_solver.
         * by apply: Heq.
       + by apply: heap_wf_init_mem.
       + set_solver.
