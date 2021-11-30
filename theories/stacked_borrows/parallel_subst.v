@@ -171,7 +171,7 @@ Fixpoint free_vars (e : expr) : gset string :=
     | Write e1 e2 | Retag e1 e2 _ _ _ =>
      free_vars e1 ∪ free_vars e2
   | Case e el =>
-    (free_vars e) ∪ foldl (λ s ei, s ∪ free_vars ei) ∅ el
+    (free_vars e) ∪ foldr (λ ei s, s ∪ free_vars ei) ∅ el
   end.
 
 Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string result) :
@@ -184,16 +184,6 @@ Proof.
   - rewrite !lookup_delete_ne //. eauto.
 Qed.
 
-(* TODO: upstream to std++ *)
-Lemma foldl_union_cons {A} `{Countable B}
-  (f : A → gset B) (s: gset B) (a : A) (xs : list A) :
-  foldl (λ s a, s ∪ f a) s (a :: xs) =
-  f a ∪ foldl (λ s a, s ∪ f a) s xs.
-Proof.
-  revert a s. induction xs as [|x xs IH] => a s /=; [set_solver|].
-  rewrite -IH /=. f_equal. set_solver.
-Qed.
-
 Lemma free_vars_case_1 e el :
   free_vars e ⊆ free_vars (Case e el).
 Proof. rewrite /=. set_solver. Qed.
@@ -204,9 +194,9 @@ Proof.
   revert e'. induction el as [|e1 el IH] => e'.
   - by intros ?%not_elem_of_nil.
   - intros [<-|Inel]%elem_of_cons.
-    + rewrite {2}/free_vars foldl_union_cons -/free_vars. set_solver.
+    + rewrite {2}/free_vars -/free_vars. set_solver.
     + etrans; first by apply (IH _ Inel).
-      rewrite {2}/free_vars foldl_union_cons -/free_vars. set_solver.
+      rewrite {2}/free_vars -/free_vars. set_solver.
 Qed.
 
 Lemma free_vars_result (r : result) :
@@ -236,8 +226,8 @@ Proof.
   - match goal with FA : Forall _ _ |- _ =>
       induction FA as [|? ? H' FA' IH]; first done; simpl; f_equal
     end.
-    + apply H' => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
-    + apply IH => x' Ine'. apply Heq. rewrite foldl_union_cons. set_solver+Ine'.
+    + apply H' => x' Ine'. apply Heq. set_solver+Ine'.
+    + apply IH => x' Ine'. apply Heq. set_solver+Ine'.
 Qed.
 
 Lemma subst_map_closed xs e :
@@ -270,7 +260,7 @@ Proof.
   f_equal.
   match goal with FA : Forall _ _ |- _ => induction FA end.
   { set_solver-. }
-  rewrite fmap_cons !foldl_union_cons difference_union_distr_l_L. by f_equal.
+  rewrite fmap_cons /= difference_union_distr_l_L. by f_equal.
 Qed.
 
 Lemma free_vars_subst_map xs e :
