@@ -1,8 +1,7 @@
 From stdpp Require Import gmap.
-From iris.bi Require Import bi.
+From iris.bi Require Import bi fixpoint.
 From iris.algebra Require Import gset gmap list.
 From iris.proofmode Require Import proofmode.
-From simuliris.logic Require Import fixpoints.
 From simuliris.simulation Require Import language fairness.
 From simuliris.simulation Require Export slsls closed_sim.
 From simuliris.logic Require Import satisfiable.
@@ -133,7 +132,7 @@ Lemma must_step_ind F sim_pool P O D:
   □ (∀ P O D, must_step_inner sim_pool F P O D -∗ F P O D) -∗
   must_step sim_pool P O D -∗ F P O D.
 Proof.
-  iIntros "#IH HM". iApply (least_fixpoint_ind _ (uncurry3 F: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP) with "[] HM").
+  iIntros "#IH HM". iApply (least_fixpoint_iter _ (uncurry3 F: prodO (prodO (listO (prodO exprO exprO)) (gsetO natO)) (gmapO natO natO) → PROP) with "[] HM").
   iModIntro. clear P O D. iIntros ([[P O] D]). simpl.
   iIntros "H". iApply "IH".
   rewrite curry3_uncurry3. done.
@@ -152,7 +151,7 @@ Lemma sim_pool_coind F P:
   F P -∗ sim_pool P.
 Proof.
   iIntros "#IH HF". rewrite /sim_pool.
-  iApply (greatest_fixpoint_coind _ (F: listO (prodO (@exprO Λ) (@exprO Λ)) → PROP) with "[] HF").
+  iApply (greatest_fixpoint_coiter _ (F: listO (prodO (@exprO Λ) (@exprO Λ)) → PROP) with "[] HF").
   iModIntro. iIntros (L) "HF". rewrite /sim_pool_inner.
   iIntros (D). by iApply "IH".
 Qed.

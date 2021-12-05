@@ -1,9 +1,8 @@
 (** * SLSLS, Separation Logic Stuttering Local Simulation *)
 
 From iris.algebra Require Export ofe.
-From iris.bi Require Import bi.
+From iris.bi Require Import bi fixpoint.
 From iris.proofmode Require Import proofmode.
-From simuliris.logic Require Import fixpoints.
 From simuliris.simulation Require Import language.
 From simuliris.simulation Require Export simulation.
 From iris.prelude Require Import options.
@@ -196,7 +195,7 @@ Section fix_lang.
     iIntros (Hne) "#Hmon". rewrite /least_def {1 3}/curry4.
     iIntros "Hleast".
     (* FIXME: this iApply takes like 4 seconds *)
-    iApply (least_fixpoint_ind with "[] Hleast"); clear Φ π e_t e_s.
+    iApply (least_fixpoint_iter with "[] Hleast"); clear Φ π e_t e_s.
     iModIntro. iIntros ([[[Φ π] e_t] e_s]).
     erewrite least_fixpoint_unfold; last first.
     { eapply least_def_body_mono, _. }
@@ -358,7 +357,7 @@ Section fix_lang.
     rewrite sim_expr_eq /greatest_def {3}/curry4.
     change (F Φ π e_t e_s) with (uncurry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    iApply (greatest_fixpoint_strong_coind _ (uncurry4 F) with "[] HF").
+    iApply (greatest_fixpoint_coind _ (uncurry4 F) with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     iApply ("HPre" $! Φ π e_t e_s).
   Qed.
@@ -386,7 +385,7 @@ Section fix_lang.
     rewrite {2}/least_def {1}/curry4.
     change (F Φ π e_t e_s) with (uncurry4 F (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    iApply (least_fixpoint_strong_ind _ (uncurry4 F) with "[] HF").
+    iApply (least_fixpoint_ind _ (uncurry4 F) with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite {1}/curry4 {1}/uncurry4.
     iIntros "H". iApply "HPre". iExact "H".
@@ -909,7 +908,7 @@ Section fix_lang.
     ∀ e : exprO, source_red_def Ψ π e -∗ Ψi e.
   Proof.
     iIntros (Hproper) "H". rewrite /source_red_def.
-    by iApply (@least_fixpoint_strong_ind _ _ (source_red_rec Ψ π) _ Ψi).
+    by iApply (@least_fixpoint_ind _ _ (source_red_rec Ψ π) _ Ψi).
   Qed.
 
   Lemma source_red_ind Ψ (Ψi : expr Λ → PROP) π :
@@ -918,7 +917,7 @@ Section fix_lang.
     ∀ e : exprO, source_red_def Ψ π e -∗ Ψi e.
   Proof.
     iIntros (Hproper) "H". rewrite /source_red_def.
-    by iApply (@least_fixpoint_ind _ _ (source_red_rec Ψ π) Ψi).
+    by iApply (@least_fixpoint_iter _ _ (source_red_rec Ψ π) Ψi).
   Qed.
 
   Lemma source_red_unfold e_s π Ψ :
@@ -1096,7 +1095,7 @@ Section fix_lang.
     ∀ e : exprO, target_red_def Ψ e -∗ Ψi e.
   Proof.
     iIntros (Hproper) "H". rewrite /target_red_def.
-    by iApply (@least_fixpoint_strong_ind _ _ (target_red_rec Ψ) _ Ψi).
+    by iApply (@least_fixpoint_ind _ _ (target_red_rec Ψ) _ Ψi).
   Qed.
 
   Lemma target_red_unfold e_t Ψ :
@@ -1113,7 +1112,7 @@ Section fix_lang.
     ∀ e : exprO, target_red_def Ψ e -∗ Ψi e.
   Proof.
     iIntros (Hproper) "H". rewrite /target_red_def.
-    by iApply (@least_fixpoint_ind _ _ (target_red_rec Ψ) Ψi).
+    by iApply (@least_fixpoint_iter _ _ (target_red_rec Ψ) Ψi).
   Qed.
 
   Lemma target_red_base Ψ e_t :

@@ -6,7 +6,6 @@
 -arg -w -arg -redundant-canonical-projection
 
 theories/logic/satisfiable.v
-theories/logic/fixpoints.v
 theories/simulation/language.v
 theories/simulation/fairness.v
 theories/simulation/behavior.v

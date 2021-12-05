@@ -1,7 +1,6 @@
 (** * Closed simulation (without the call case) *)
-From iris.bi Require Import bi.
+From iris.bi Require Import bi fixpoint.
 From iris.proofmode Require Import proofmode.
-From simuliris.logic Require Import fixpoints.
 From simuliris.simulation Require Import language.
 From simuliris.simulation Require Export simulation slsls gen_log_rel.
 From iris.prelude Require Import options.
@@ -150,7 +149,7 @@ Section fix_lang.
     closed_least_def R Φ π e_t e_s -∗ closed_least_def R' Φ π e_t e_s.
   Proof.
     iIntros (Hne) "#Hmon". rewrite /closed_least_def {1 3}/curry4.
-    iIntros "Hleast". iApply (least_fixpoint_ind with "[] Hleast"); clear Φ π e_t e_s.
+    iIntros "Hleast". iApply (least_fixpoint_iter with "[] Hleast"); clear Φ π e_t e_s.
     iModIntro. iIntros ([[[Φ π] e_t] e_s]).
     erewrite least_fixpoint_unfold; last first.
     { eapply closed_least_def_body_mono, _. }
@@ -277,7 +276,7 @@ Section fix_lang.
     assert (NonExpansive F_curry) as Hne by solve_proper.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    iApply (greatest_fixpoint_strong_coind _ F_curry with "[] HF").
+    iApply (greatest_fixpoint_coind _ F_curry with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry.
     iApply ("HPre" $! Φ π e_t e_s).
@@ -308,7 +307,7 @@ Section fix_lang.
     assert (NonExpansive F_curry) by solve_proper.
     change (F Φ π e_t e_s) with (F_curry (Φ, π, e_t, e_s)).
     remember (Φ, π, e_t, e_s) as p eqn:Heqp. rewrite -Heqp; clear Φ π e_t e_s Heqp.
-    iApply (least_fixpoint_strong_ind _ F_curry with "[] HF").
+    iApply (least_fixpoint_ind _ F_curry with "[] HF").
     iModIntro. iIntros ([[[Φ π] e_t] e_s]); simpl.
     rewrite /F_curry {1}/curry4 {1}/uncurry4.
     iIntros "H". iApply "HPre". iExact "H".
