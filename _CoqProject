@@ -4,6 +4,8 @@
 # Cannot use non-canonical projections as it causes massive unification failures
 # (https://github.com/coq/coq/issues/6294).
 -arg -w -arg -redundant-canonical-projection
+# There is currently no good way to fix all those instance warnings.
+-arg -w -arg -deprecated-instance-without-locality
 
 theories/logic/satisfiable.v
 theories/simulation/language.v
