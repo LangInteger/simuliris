@@ -33,11 +33,11 @@ Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
 (** The simulang instance of [prog_ref]. *)
 Definition prog_ref := prog_ref init_state "main" #() obs_val.
 
-Instance obs_val_refl : Reflexive obs_val.
+Global Instance obs_val_refl : Reflexive obs_val.
 Proof.
   intros v. induction v as [ [ | | | | | ] | | | ]; naive_solver.
 Qed.
-Instance obs_val_trans : Transitive obs_val.
+Global Instance obs_val_trans : Transitive obs_val.
 Proof.
   intros v1 v2 v3 H1 H2.
   induction v3 as [ [ | | | | | ] | v31 IH1 v32 IH2 | v3 IH | v3 IH] in v1, v2, H1, H2 |-*.

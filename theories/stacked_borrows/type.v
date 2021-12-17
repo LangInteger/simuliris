@@ -174,20 +174,20 @@ End type_general_ind.
 
 (** Decidability *)
 
-Instance type_inhabited : Inhabited type := populate (FixedSize 0).
+Global Instance type_inhabited : Inhabited type := populate (FixedSize 0).
 
-Instance mutability_eq_dec : EqDecision mutability.
+Global Instance mutability_eq_dec : EqDecision mutability.
 Proof. solve_decision. Defined.
-Instance mutability_countable : Countable mutability.
+Global Instance mutability_countable : Countable mutability.
 Proof.
   refine (inj_countable'
     (λ m, match m with Mutable => 0 | Immutable => 1 end)
     (λ x, match x with 0 => Mutable | _ => Immutable end) _); by intros [].
 Qed.
 
-Instance pointer_kind_eq_dec : EqDecision pointer_kind.
+Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.
 Proof. solve_decision. Defined.
-Instance pointer_kind_countable : Countable pointer_kind.
+Global Instance pointer_kind_countable : Countable pointer_kind.
 Proof.
   refine (inj_countable
           (λ k, match k with
@@ -239,11 +239,11 @@ Proof.
       specialize (FIX Ts1h). naive_solver. }
     clear FIX. naive_solver.
 Qed.
-Instance type_eq_dec : EqDecision type.
+Global Instance type_eq_dec : EqDecision type.
 Proof.
   refine (λ T1 T2, cast_if (decide (type_beq T1 T2))); by rewrite -type_beq_correct.
 Defined.
-Instance type_countable : Countable type.
+Global Instance type_countable : Countable type.
 Proof.
   refine (inj_countable'
     (fix go T := match T with

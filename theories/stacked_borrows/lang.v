@@ -59,7 +59,7 @@ Lemma to_of_result v : to_result (of_result v) = Some v.
 Proof. by destruct v as [[]|]. Qed.
 Lemma of_to_result e v : to_result e = Some v → of_result v = e.
 Proof. destruct e=>//=; intros; by simplify_eq. Qed.
-Instance of_result_inj : Inj (=) (=) of_result.
+Global Instance of_result_inj : Inj (=) (=) of_result.
 Proof. by intros ?? Hv; apply (inj Some); rewrite -2!to_of_result Hv /=. Qed.
 Lemma is_closed_to_result X e v : to_result e = Some v → is_closed X e.
 Proof. intros <-%of_to_result. apply is_closed_of_result. Qed.
@@ -77,9 +77,9 @@ Proof. induction vl as [|v vl IH]; [done|]. by rewrite 3!fmap_cons IH. Qed.
 
 (** Equality and other typeclass stuff *)
 
-Instance bin_op_eq_dec : EqDecision bin_op.
+Global Instance bin_op_eq_dec : EqDecision bin_op.
 Proof. solve_decision. Defined.
-Instance bin_op_countable : Countable bin_op.
+Global Instance bin_op_countable : Countable bin_op.
 Proof.
   refine (inj_countable'
     (λ o, match o with AddOp => 0 | SubOp => 1 | LeOp => 2 |
@@ -88,9 +88,9 @@ Proof.
                   3 => LtOp | 4 => EqOp | _ => OffsetOp end) _); by intros [].
 Qed.
 
-Instance scalar_eq_dec : EqDecision scalar.
+Global Instance scalar_eq_dec : EqDecision scalar.
 Proof. solve_decision. Defined.
-Instance scalar_countable : Countable scalar.
+Global Instance scalar_countable : Countable scalar.
 Proof.
   refine (inj_countable
           (λ v, match v with
@@ -109,9 +109,9 @@ Proof.
               end) _); by intros [].
 Qed.
 
-Instance retag_kind_eq_dec : EqDecision retag_kind.
+Global Instance retag_kind_eq_dec : EqDecision retag_kind.
 Proof. solve_decision. Defined.
-Instance retag_kind_countable : Countable retag_kind.
+Global Instance retag_kind_countable : Countable retag_kind.
 Proof.
   refine (inj_countable
           (λ k, match k with
@@ -186,11 +186,11 @@ Proof.
     clear FIX. naive_solver.
 Qed.
 
-Instance expr_dec_eq : EqDecision expr.
+Global Instance expr_dec_eq : EqDecision expr.
 Proof.
   refine (λ e1 e2, cast_if (decide (expr_beq e1 e2))); by rewrite -expr_beq_correct.
 Defined.
-Instance expr_countable : Countable expr.
+Global Instance expr_countable : Countable expr.
 Proof.
   refine (inj_countable'
     (fix go e := match e with
@@ -263,11 +263,11 @@ Proof.
   - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
 Qed.
 
-Instance result_dec_eq : EqDecision result.
+Global Instance result_dec_eq : EqDecision result.
 Proof.
   refine (λ v1 v2, cast_if (decide (of_result v1 = of_result v2))); abstract naive_solver.
 Defined.
-Instance result_countable : Countable result.
+Global Instance result_countable : Countable result.
 Proof.
   refine (inj_countable
     (λ v, match v with
@@ -281,10 +281,10 @@ Proof.
   by intros [].
 Qed.
 
-Instance scalar_inhabited : Inhabited scalar := populate ScPoison.
-Instance expr_inhabited : Inhabited expr := populate (#[☠])%E.
-Instance result_inhabited : Inhabited result := populate (ValR [☠]%S).
-Instance state_Inhabited : Inhabited state.
+Global Instance scalar_inhabited : Inhabited scalar := populate ScPoison.
+Global Instance expr_inhabited : Inhabited expr := populate (#[☠])%E.
+Global Instance result_inhabited : Inhabited result := populate (ValR [☠]%S).
+Global Instance state_Inhabited : Inhabited state.
 Proof. do 2!econstructor; exact: inhabitant. Qed.
 
 Canonical Structure locO := leibnizO loc.
@@ -296,7 +296,7 @@ Canonical Structure stateO := leibnizO state.
 (** Basic properties about the language *)
 
 
-Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
+Global Instance fill_item_inj Ki : Inj (=) (=) (fill_item Ki).
 Proof. destruct Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
 Global Instance fill_inj K : Inj (=) (=) (fill K).
 Proof. induction K; intros ???; by simplify_eq/=. Qed.

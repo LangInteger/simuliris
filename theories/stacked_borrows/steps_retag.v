@@ -12,7 +12,7 @@ Definition tag_on_top (stks: stacks) l t pm : Prop :=
 Definition active_preserving (cids: call_id_set) (stk stk': stack) :=
   ∀ pm t c, c ∈ cids → mkItem pm t (Some c) ∈ stk → mkItem pm t (Some c) ∈ stk'.
 
-Instance active_preserving_preorder cids : PreOrder (active_preserving cids).
+Global Instance active_preserving_preorder cids : PreOrder (active_preserving cids).
 Proof.
   constructor.
   - intros ??. done.

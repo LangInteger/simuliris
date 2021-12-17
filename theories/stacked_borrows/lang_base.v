@@ -33,9 +33,9 @@ Inductive tag :=
   | Tagged (t: ptr_id)
   | Untagged.
 
-Instance tag_eq_dec : EqDecision tag.
+Global Instance tag_eq_dec : EqDecision tag.
 Proof. solve_decision. Defined.
-Instance tag_countable : Countable tag.
+Global Instance tag_countable : Countable tag.
 Proof.
   refine (inj_countable
           (λ tg, match tg with
@@ -49,9 +49,9 @@ Proof.
 Qed.
 
 Inductive permission := Unique | SharedReadWrite | SharedReadOnly | Disabled.
-Instance permission_eq_dec : EqDecision permission.
+Global Instance permission_eq_dec : EqDecision permission.
 Proof. solve_decision. Defined.
-Instance permission_countable : Countable permission.
+Global Instance permission_countable : Countable permission.
 Proof.
   refine (inj_countable
     (λ p,
@@ -71,7 +71,7 @@ Record item := mkItem {
   tg        : tag;
   protector : option call_id;
 }.
-Instance item_eq_dec : EqDecision item.
+Global Instance item_eq_dec : EqDecision item.
 Proof. solve_decision. Defined.
 
 Definition stack := list item.
@@ -208,9 +208,9 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
 Class Closed (X : list string) (e : expr) := closed : is_closed X e.
 #[global]
 Hint Mode Closed + + : typeclass_instances.
-Instance closed_proof_irrel env e : ProofIrrel (Closed env e).
+Global Instance closed_proof_irrel env e : ProofIrrel (Closed env e).
 Proof. rewrite /Closed. apply _. Qed.
-Instance closed_decision env e : Decision (Closed env e).
+Global Instance closed_decision env e : Decision (Closed env e).
 Proof. rewrite /Closed. apply _. Qed.
 
 (** Irreducible (language values) *)

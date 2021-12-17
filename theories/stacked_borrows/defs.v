@@ -24,7 +24,7 @@ Definition stack_item_included (stk: stack) (nxtp: ptr_id) (nxtc: call_id) :=
 
 Definition is_tagged (it: item) :=
   match it.(tg) with Tagged _ => True | _ => False end.
-Instance is_tagged_dec it: Decision (is_tagged it).
+Global Instance is_tagged_dec it: Decision (is_tagged it).
 Proof. intros. rewrite /is_tagged. case tg; solve_decision. Defined.
 Definition stack_item_tagged_NoDup (stk : stack) :=
   NoDup (fmap tg (filter is_tagged stk)).

@@ -22,7 +22,7 @@ Proof. solve_decision. Qed.
 Global Instance loc_inhabited : Inhabited loc := populate (1%positive, 0).
 Global Instance loc_countable : Countable loc.
 Proof. by apply (inj_countable' (λ l, l) (λ '(i, j), (i, j))); intros []. Qed.
-Program Instance loc_infinite : Infinite loc :=
+Global Program Instance loc_infinite : Infinite loc :=
   inj_infinite (λ '(i, j), (i, j)) (λ l, Some l) _.
 Next Obligation. intros []. done. Qed.
 
@@ -42,7 +42,7 @@ Proof. rewrite /shift_loc /=. f_equal. lia. Qed.
 Lemma shift_loc_0_nat l : l +ₗ 0%nat = l.
 Proof. destruct l as [b o]. rewrite /shift_loc /=. f_equal. lia. Qed.
 
-Instance shift_loc_inj l : Inj (=) (=) (shift_loc l).
+Global Instance shift_loc_inj l : Inj (=) (=) (shift_loc l).
 Proof. destruct l as [b o]; intros n n' [=?]; lia. Qed.
 
 Lemma shift_loc_block l n : (l +ₗ n).1 = l.1.

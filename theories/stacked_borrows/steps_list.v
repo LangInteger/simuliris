@@ -11,7 +11,7 @@ Definition tagged_sublist (stk1 stk2: stack) :=
   ∀ it1, it1 ∈ stk1 → ∃ it2,
   it2 ∈ stk2 ∧ it1.(tg) = it2.(tg) ∧ it1.(protector) = it2.(protector) ∧
   (it1.(perm) ≠ Disabled → it2.(perm) = it1.(perm)).
-Instance tagged_sublist_preorder : PreOrder tagged_sublist.
+Global Instance tagged_sublist_preorder : PreOrder tagged_sublist.
 Proof.
   constructor.
   - intros ??. naive_solver.
@@ -20,7 +20,7 @@ Proof.
     intros ND3. specialize (ND ND3). rewrite ND2 // ND //.
 Qed.
 
-Instance tagged_sublist_proper stk : Proper ((⊆) ==> impl) (tagged_sublist stk).
+Global Instance tagged_sublist_proper stk : Proper ((⊆) ==> impl) (tagged_sublist stk).
 Proof. move => ?? SUB H1 ? /H1 [? [/SUB ? ?]]. naive_solver. Qed.
 
 Lemma tagged_sublist_app l1 l2 k1 k2 :
@@ -176,7 +176,7 @@ Lemma stack_item_tagged_NoDup_app stk1 stk2 :
   stack_item_tagged_NoDup stk1 ∧ stack_item_tagged_NoDup stk2.
 Proof. rewrite /stack_item_tagged_NoDup filter_app fmap_app NoDup_app. naive_solver. Qed.
 
-Instance stack_item_tagged_NoDup_proper :
+Global Instance stack_item_tagged_NoDup_proper :
   Proper (Permutation ==> iff) stack_item_tagged_NoDup.
 Proof. intros stk1 stk2 PERM. by rewrite /stack_item_tagged_NoDup PERM. Qed.
 

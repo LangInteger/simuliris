@@ -85,34 +85,34 @@ Proof.
 Qed.
 
 (** SqSubsetEq for option *)
-Instance option_sqsubseteq `{SqSubsetEq A} : SqSubsetEq (option A) :=
+Global Instance option_sqsubseteq `{SqSubsetEq A} : SqSubsetEq (option A) :=
   λ o1 o2, if o1 is Some x1 return _ then
               if o2 is Some x2 return _ then x1 ⊑ x2 else False
            else True.
-Instance option_sqsubseteq_preorder `{SqSubsetEq A} `{!@PreOrder A (⊑)} :
+Global Instance option_sqsubseteq_preorder `{SqSubsetEq A} `{!@PreOrder A (⊑)} :
   @PreOrder (option A) (⊑).
 Proof.
   split.
   - move=>[x|] //. apply (@reflexivity A (⊑) _).
   - move=>[x|] [y|] [z|] //. apply (@transitivity A (⊑) _).
 Qed.
-Instance option_sqsubseteq_antisymm `{SqSubsetEq A} `{!@AntiSymm A eq (⊑)} :
+Global Instance option_sqsubseteq_antisymm `{SqSubsetEq A} `{!@AntiSymm A eq (⊑)} :
   @AntiSymm (option A) eq (⊑).
 Proof.
   intros [a|] [b|] Ha Hb; [|done|done|done]. f_equal. by apply : anti_symm.
 Qed.
-Instance option_sqsubseteq_po `{SqSubsetEq A} `{!@PartialOrder A (⊑)} :
+Global Instance option_sqsubseteq_po `{SqSubsetEq A} `{!@PartialOrder A (⊑)} :
   @PartialOrder (option A) (⊑).
 Proof. split; apply _. Qed.
 
-Instance nat_sqsubseteq : SqSubsetEq nat := le.
-Instance nat_sqsubseteq_po : @PartialOrder nat (⊑) := _.
+Global Instance nat_sqsubseteq : SqSubsetEq nat := le.
+Global Instance nat_sqsubseteq_po : @PartialOrder nat (⊑) := _.
 
-Instance elem_of_list_suffix_proper {A : Type} (x:A) :
+Global Instance elem_of_list_suffix_proper {A : Type} (x:A) :
   Proper ((suffix) ==> impl) (x ∈.).
 Proof. intros l1 l2 [? ->] ?. rewrite elem_of_app. by right. Qed.
 
-Instance elem_of_list_sublist_proper {A : Type} (x:A) :
+Global Instance elem_of_list_sublist_proper {A : Type} (x:A) :
   Proper ((sublist) ==> impl) (x ∈.).
 Proof.
   intros l1 l2 SUB. induction SUB; [done|..].
@@ -172,7 +172,7 @@ Proof.
   - move => /NoDup_cons [NI /IH //].
 Qed.
 
-Instance NoDup_sublist_proper {A: Type} :
+Global Instance NoDup_sublist_proper {A: Type} :
   Proper (sublist ==> flip impl) (@NoDup A).
 Proof. intros ????. by eapply NoDup_sublist. Qed.
 

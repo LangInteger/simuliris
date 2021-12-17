@@ -29,7 +29,7 @@ Definition grants (perm: permission) (access: access_kind) : bool :=
 
 Definition matched_grant (access: access_kind) (bor: tag) (it: item) :=
   grants it.(perm) access ∧ it.(tg) = bor.
-Instance matched_grant_dec (access: access_kind) (bor: tag) (it : item) :
+Global Instance matched_grant_dec (access: access_kind) (bor: tag) (it : item) :
   Decision (matched_grant access bor it) := _.
 
 (** Difference from the paper/Miri in indexing of stacks: *)
@@ -54,7 +54,7 @@ Definition is_active_protector cids (it: item) :=
   | Some c => Is_true (is_active cids c) ∧ it.(perm) ≠ Disabled
   | _ => False
   end.
-Instance is_active_protector_dec cids it : Decision (is_active_protector cids it).
+Global Instance is_active_protector_dec cids it : Decision (is_active_protector cids it).
 Proof. rewrite /is_active_protector. case_match; solve_decision. Qed.
 
 (* Find the top active protector *)
@@ -381,9 +381,9 @@ Definition tag_values_included (v: value) nxtp :=
   ∀ l tg, ScPtr l tg ∈ v → tg <t nxtp.
 Infix "<<t" := tag_values_included (at level 60, no associativity).
 
-Instance tag_included_dec tg nxtp : Decision (tag_included tg nxtp).
+Global Instance tag_included_dec tg nxtp : Decision (tag_included tg nxtp).
 Proof. destruct tg; cbn; apply _. Qed.
-Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp).
+Global Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp).
 Proof.
   rewrite /tag_values_included. induction v as [ | sc v IH].
   - left; intros l tg Ha. exfalso. by eapply not_elem_of_nil.

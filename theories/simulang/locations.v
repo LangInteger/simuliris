@@ -29,10 +29,10 @@ Qed.
 Global Instance loc_countable : Countable loc.
 Proof. by apply (inj_countable' (λ l, (loc_block l, loc_idx l)) (λ '(i, j), {| loc_block := i; loc_idx := j |})); intros []. Qed.
 
-Program Instance block_infinite : Infinite block :=
+Global Program Instance block_infinite : Infinite block :=
   inj_infinite DynBlock (λ b, if b is DynBlock b then Some b else None) _.
 Next Obligation. done. Qed.
-Program Instance loc_infinite : Infinite loc :=
+Global Program Instance loc_infinite : Infinite loc :=
   inj_infinite (λ '(i, j), {| loc_block := i; loc_idx := j |}) (λ l, Some ((loc_block l, loc_idx l))) _.
 Next Obligation. done. Qed.
 
