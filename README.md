@@ -1,5 +1,5 @@
 # Simuliris Coq development
-This repository contains the Coq development of Simuliris.
+This repository contains the Coq development of Simuliris (paper presented at POPL22: https://iris-project.org/pdfs/2022-popl-simuliris.pdf).
 
 ## Setup 
 This project is known to build with [Coq](https://coq.inria.fr/) 8.13.2 and 8.14.1.
