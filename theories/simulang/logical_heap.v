@@ -226,7 +226,10 @@ Section heap.
   Global Instance heap_mapsto_as_fractional l q v:
     AsFractional (l ↦{q} v) (λ q, l ↦{q} v)%I q.
   Proof. split; first done. apply _. Qed.
-
+  Global Instance frame_heap_mapsto p l v q1 q2 RES :
+    FrameFractionalHyps p (l ↦{q1} v) (λ q, l ↦{q} v)%I RES q1 q2 →
+    Frame p (l ↦{q1} v) (l ↦{q2} v) RES | 5.
+  Proof. apply: frame_fractional. Qed.
 
   Global Instance heap_mapsto_vec_timeless l st q vl : Timeless (l ↦∗[st]{q} vl).
   Proof. rewrite /heap_mapsto_vec. apply _. Qed.
@@ -239,6 +242,10 @@ Section heap.
   Global Instance heap_mapsto_vec_as_fractional l q vl:
     AsFractional (l ↦∗{q} vl) (λ q, l ↦∗{q} vl)%I q.
   Proof. split; first done. apply _. Qed.
+  Global Instance frame_heap_mapsto_vec p l v q1 q2 RES :
+    FrameFractionalHyps p (l ↦∗{q1} v) (λ q, l ↦∗{q} v)%I RES q1 q2 →
+    Frame p (l ↦∗{q1} v) (l ↦∗{q2} v) RES | 5.
+  Proof. apply: frame_fractional. Qed.
 
   Global Instance heap_block_size_timeless q b n : Timeless (heap_block_size γ b q n).
   Proof. rewrite heap_block_size_eq /heap_block_size_def. apply _. Qed.
