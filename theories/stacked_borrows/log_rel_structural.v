@@ -3,27 +3,6 @@ From simuliris.stacked_borrows Require Import proofmode tactics.
 From simuliris.stacked_borrows Require Import parallel_subst primitive_laws wf.
 From iris.prelude Require Import options.
 
-Section tactics.
-Import iris.bi.bi.
-Import iris.proofmode.base environments classes modality_instances.
-Import bi.
-Import env_notations.
-Context {PROP : bi} `{Haffine : BiAffine PROP}.
-Implicit Types Γ : env PROP.
-Implicit Types Δ : envs PROP.
-Implicit Types P Q : PROP.
-
-(* TODO: upstream ? *)
-  Import coq_tactics.
-  Global Instance into_ih_Forall {A} (φ : A → Prop) (l : list A) Δ Φ :
-  (∀ x, x ∈ l → IntoIH (φ x) Δ (Φ x)) → IntoIH (Forall φ l) Δ (∀ x, ⌜x ∈ l⌝ -∗ Φ x) | 2.
-  Proof using PROP Haffine.
-    rewrite /IntoIH Forall_forall => HΔ Hf. apply forall_intro=> x.
-    iIntros "Henv %Hl".  iApply (HΔ with "Henv"); eauto.
-  Qed.
-End tactics.
-
-
 Section log_rel_structural.
   Context `{!sborGS Σ}.
   Context (expr_head_wf : expr_head → Prop).
@@ -57,11 +36,10 @@ Section log_rel_structural.
     (* [Case] left. *)
     iApply big_sepL2_forall.
     iSplitR; first done. iIntros (i e1 e2 Hs1 Hs2). simplify_eq.
-    iApply ("IH" with "[] []").
-    - iPureIntro. eapply elem_of_list_lookup; eauto.
-    - iPureIntro. match goal with H : _ ∧ Forall _ _ |- _ => destruct H as [_ Hexprs_wf] end.
-      eapply Forall_lookup_1; last done.
-      move : Hexprs_wf. rewrite Forall_fmap. done.
+    iApply (big_sepL_lookup with "IH"); first done.
+    iPureIntro. match goal with H : _ ∧ Forall _ _ |- _ => destruct H as [_ Hexprs_wf] end.
+    eapply Forall_lookup_1; last done.
+    move : Hexprs_wf. rewrite Forall_fmap. done.
   Qed.
 
   Theorem log_rel_ectx K e_t e_s :
