@@ -40,7 +40,7 @@ Proof.
 Qed.
 
 Lemma for_each_is_Some α l (n: nat) b f :
-  (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom (gset loc) α) →
+  (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom α) →
   (∀ (m: nat) stk, (m < n)%nat → α !! (l +ₗ m) = Some stk → is_Some (f stk)) →
   is_Some (for_each α l n b f).
 Proof.
@@ -67,7 +67,7 @@ Definition item_inactive_protector cids (it: item) :=
   match it.(protector) with Some c => ¬ is_active cids c | _ => True end.
 
 Lemma memory_deallocated_progress α cids l bor (n: nat) :
-  (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom (gset loc) α) →
+  (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom α) →
   (∀ (m: nat) stk, (m < n)%nat → α !! (l +ₗ m) = Some stk →
       (∃ it, it ∈ stk ∧ it.(tg) = bor ∧
         it.(perm) ≠ Disabled ∧ it.(perm) ≠ SharedReadOnly) ∧
@@ -94,7 +94,7 @@ Qed.
 
 Lemma dealloc_head_step P (σ: state) T l bor
   (WF: state_wf σ)
-  (BLK: ∀ m : Z, l +ₗ m ∈ dom (gset loc) σ.(shp) ↔ 0 ≤ m ∧ m < tsize T)
+  (BLK: ∀ m : Z, l +ₗ m ∈ dom σ.(shp) ↔ 0 ≤ m ∧ m < tsize T)
   (BOR: ∀ (n: nat) stk, (n < tsize T)%nat →
     σ.(sst) !! (l +ₗ n) = Some stk →
     (∃ it, it ∈ stk ∧ it.(tg) = bor ∧
@@ -111,14 +111,14 @@ Proof.
 Qed.
 
 Lemma read_mem_is_Some' l n h :
-  (∀ m, (m < n)%nat → l +ₗ m ∈ dom (gset loc) h) ↔
+  (∀ m, (m < n)%nat → l +ₗ m ∈ dom h) ↔
   is_Some (read_mem l n h).
 Proof.
   eapply (read_mem_elim
             (λ l n h ov,
-              (∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom (gset loc) h) ↔ is_Some ov)
+              (∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom h) ↔ is_Some ov)
             (λ _ _ h l n oacc gov, is_Some oacc →
-              ((∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom (gset loc) h) ↔
+              ((∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom h) ↔
                is_Some gov))).
   - naive_solver.
   - intros. split; first naive_solver. by intros; lia.
@@ -141,7 +141,7 @@ Proof.
 Qed.
 
 Lemma read_mem_is_Some l n h
-  (BLK: ∀ m, (m < n)%nat → l +ₗ m ∈ dom (gset loc) h) :
+  (BLK: ∀ m, (m < n)%nat → l +ₗ m ∈ dom h) :
   is_Some (read_mem l n h).
 Proof. by apply read_mem_is_Some'. Qed.
 
@@ -362,7 +362,7 @@ Proof.
 Qed.
 
 Lemma memory_read_is_Some α cids l bor (n: nat) :
-  (∀ m, (m < n)%nat → l +ₗ m ∈ dom (gset loc) α) →
+  (∀ m, (m < n)%nat → l +ₗ m ∈ dom α) →
   (∀ (m: nat) stk, (m < n)%nat →
     α !! (l +ₗ m) = Some stk → access1_read_pre cids stk bor) →
   is_Some (memory_read α cids l bor n).
@@ -390,7 +390,7 @@ Qed.
 
 Lemma copy_head_step P (σ: state) l bor T
   (WF: state_wf σ)
-  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom (gset loc) σ.(shp))
+  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
   (BOR: ∀ m stk, (m < tsize T)%nat → σ.(sst) !! (l +ₗ m) = Some stk →
         access1_read_pre σ.(scs) stk bor) :
   ∃ v α,
@@ -423,7 +423,7 @@ Proof.
 Qed.
 
 Lemma memory_written_is_Some α cids l bor (n: nat) :
-  (∀ m, (m < n)%nat → l +ₗ m ∈ dom (gset loc) α) →
+  (∀ m, (m < n)%nat → l +ₗ m ∈ dom α) →
   (∀ (m: nat) stk, (m < n)%nat →
     α !! (l +ₗ m) = Some stk → access1_write_pre cids stk bor) →
   is_Some (memory_written α cids l bor n).
@@ -439,7 +439,7 @@ Qed.
 Lemma write_head_step' P (σ: state) l bor T v α
   (LEN: length v = tsize T)
   (*(LOCVAL: v <<t σ.(snp))*)
-  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom (gset loc) σ.(shp))
+  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
   (BOR: memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α) :
   let σ' := mkState (write_mem l v σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
   head_step P (Write (Place l bor T) (Val v)) σ #[☠] σ' [].
@@ -449,7 +449,7 @@ Lemma write_head_step P (σ: state) l bor T v
   (WF: state_wf σ)
   (LEN: length v = tsize T)
   (*(LOCVAL: v <<t σ.(snp))*)
-  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom (gset loc) σ.(shp))
+  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
   (STK: ∀ m stk, (m < tsize T)%nat → σ.(sst) !! (l +ₗ m) = Some stk →
         access1_write_pre σ.(scs) stk bor) :
   ∃ α,
@@ -629,7 +629,7 @@ Proof.
 Qed.
 
 Lemma reborrowN_is_Some α cids l n old new pm protector
-  (BLK: ∀ m, (m < n)%nat → l +ₗ m ∈ dom (gset loc) α):
+  (BLK: ∀ m, (m < n)%nat → l +ₗ m ∈ dom α):
   let access := if grants pm AccessWrite then AccessWrite else AccessRead in
   (∀ (m: nat) stk, (m < n)%nat → α !! (l +ₗ m) = Some stk →
     access1_pre cids stk access old) →
@@ -698,7 +698,7 @@ Proof.
 Qed.
 
 Lemma reborrow_is_freeze_is_Some α cids l old T kind new prot
-  (BLK: ∀ m, (m < tsize T)%nat → l +ₗ m ∈ dom (gset loc) α)
+  (BLK: ∀ m, (m < tsize T)%nat → l +ₗ m ∈ dom α)
   (FRZ: is_freeze T)
   (STK: ∀ m stk, (m < tsize T)%nat → α !! (l +ₗ m) = Some stk →
     let access := match kind with
@@ -740,7 +740,7 @@ Qed.
 
 
 Lemma retag_ref_is_freeze_is_Some α cids nxtp l old T kind prot
-  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom (gset loc) α)
+  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom α)
   (FRZ: is_freeze T)
   (STK: ∀ m stk, (m < tsize T)%nat → α !! (l +ₗ m) = Some stk →
     let access := match kind with
@@ -769,7 +769,7 @@ Definition pointer_kind_access pk :=
   end.
 Definition valid_block (α: stacks) cids (l: loc) (tg: tag) pk T :=
   is_freeze T ∧
-  (∀ m, (m < tsize T)%nat → l +ₗ m ∈ dom (gset loc) α ∧ ∃ stk,
+  (∀ m, (m < tsize T)%nat → l +ₗ m ∈ dom α ∧ ∃ stk,
     α !! (l +ₗ m) = Some stk ∧ access1_pre cids stk (pointer_kind_access pk) tg).
 
 Lemma retag_is_freeze_is_Some α nxtp cids c l otg kind pk T

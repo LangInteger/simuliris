@@ -92,7 +92,7 @@ Section state_bijection.
       Note that, while the definition may appear asymmetric in source and target, due to the well-formedness on states [state_wf] and the relation of the tag maps enforced below, it really is symmetric in practice.
     *)
     Definition state_rel σ_t σ_s : iProp Σ :=
-        ⌜dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝ ∗
+        ⌜dom σ_s.(shp) = dom σ_t.(shp)⌝ ∗
         ⌜σ_s.(sst) = σ_t.(sst)⌝ ∗
         ⌜σ_s.(snp) = σ_t.(snp)⌝ ∗
         ⌜σ_s.(snc) = σ_t.(snc)⌝ ∗
@@ -128,7 +128,7 @@ Section bijection_lemmas.
     state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(scs) = σ_t.(scs)⌝.
   Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
   Lemma state_rel_dom_eq Mtag Mt Mcall σ_t σ_s :
-    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜dom (gset loc) σ_t.(shp) = dom (gset loc) σ_s.(shp)⌝.
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜dom σ_t.(shp) = dom σ_s.(shp)⌝.
   Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
 
   Lemma state_rel_upd_pub_both M_tag M_t Mcall_t σ_t σ_s l sc_t sc_s :
@@ -853,7 +853,7 @@ Section state_interp.
   Lemma bor_interp_get_pure σ_t σ_s :
     bor_interp σ_t σ_s -∗ ⌜σ_s.(sst) = σ_t.(sst) ∧ σ_s.(snp) = σ_t.(snp) ∧
     σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧
-    dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp)⌝.
+    dom σ_s.(shp) = dom σ_t.(shp)⌝.
   Proof.
     iIntros "(% & % & % & % & ? & _ & _ & Hstate & _ & _ & % & %)".
     iPoseProof (state_rel_get_pure with "Hstate") as "%".

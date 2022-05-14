@@ -50,7 +50,7 @@ Section definitions.
   Definition gen_heap_interp (σ : gmap L V) : iProp Σ := ∃ m : gmap L gname,
     (* The [⊆] is used to avoid assigning ghost information to the locations in
     the initial heap (see [gen_heap_init]). *)
-    ⌜ dom _ m ⊆ dom (gset L) σ ⌝ ∧
+    ⌜ dom m ⊆ dom σ ⌝ ∧
     own gen_heap_name (gmap_view_auth (DfracOwn 1) (σ : gmap L (leibnizO V))) ∗
     own gen_meta_name (gmap_view_auth (DfracOwn 1) (m : gmap L gnameO)).
 

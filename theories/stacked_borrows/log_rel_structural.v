@@ -91,11 +91,11 @@ Section log_rel_structural.
   Qed.
 
   Corollary sim_refl π m1 m2 e Φ :
-    dom (gset _) m1 = dom (gset _) m2 →
-    free_vars e ⊆ dom (gset _) m1 →
+    dom m1 = dom m2 →
+    free_vars e ⊆ dom m1 →
     log_rel_structural →
     gen_expr_wf expr_head_wf e →
-    subst_map_rel rrel (dom _ m1) (map_zip m1 m2) -∗
+    subst_map_rel rrel (dom m1) (map_zip m1 m2) -∗
     (∀ v_t v_s, rrel v_t v_s -∗ Φ (of_result v_t) (of_result v_s)) -∗
     subst_map m1 e ⪯{π} subst_map m2 e [{ Φ }].
   Proof.

@@ -186,7 +186,7 @@ Record state : Type := State {
 program can only refer to global variables on the heap.  *)
 (* TODO: Allow global variables to contain arrays by using [gs : gmap string (list val)] *)
 Definition state_init (gs : gmap string val) : state :=
-  {| heap := kmap global_loc ((λ v, (RSt 0, v)) <$> gs); used_dyn_blocks := ∅; globals := dom _ gs |}.
+  {| heap := kmap global_loc ((λ v, (RSt 0, v)) <$> gs); used_dyn_blocks := ∅; globals := dom gs |}.
 Definition heap_wf (σ: state) : Prop :=
   ∀ b i v, σ.(heap) !! Loc (DynBlock b) i = Some v → b ∈ σ.(used_dyn_blocks).
 Lemma state_init_wf gs :
@@ -1244,7 +1244,7 @@ Proof.
 Qed.
 
 Lemma free_vars_subst_map xs e :
-  free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
+  free_vars (subst_map xs e) = free_vars e ∖ (dom xs).
 Proof.
   induction xs as [| x v xs HNone IH] using map_ind.
   - rewrite subst_map_empty. set_solver.

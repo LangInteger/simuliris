@@ -473,7 +473,7 @@ Section laws.
     ) -∗
     ([∗ map] v ∈ gs, val_rel v v)
     ==∗
-    ∃ L', heapbij_interp L' P ∗ ([∗ set] g ∈ dom _ gs, global_loc g ↔h global_loc g).
+    ∃ L', heapbij_interp L' P ∗ ([∗ set] g ∈ dom gs, global_loc g ↔h global_loc g).
   Proof.
     iIntros (HP) "Hbij Hmt Hvs".
     iInduction gs as [|g v gs] "IH" using map_ind.

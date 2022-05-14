@@ -102,7 +102,7 @@ Section fix_lang.
 
   (* FIXME requiring persistence for convenience. Probably also works without *)
   Lemma subst_map_rel_dom `{!∀ vt vs, Persistent (val_rel vt vs)} X map :
-    subst_map_rel X map -∗ ⌜X ⊆ dom (gset _) map⌝.
+    subst_map_rel X map -∗ ⌜X ⊆ dom map⌝.
   Proof.
     rewrite /subst_map_rel. erewrite big_sepS_forall.
     2: { intros. destruct (_ !! _) as [[]|]; apply _. }

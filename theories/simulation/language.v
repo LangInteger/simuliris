@@ -52,7 +52,7 @@ Section language_mixin.
       (∀ x, x ∈ free_vars e → xs1 !! x = xs2 !! x) →
       subst_map xs1 e = subst_map xs2 e;
     mixin_free_vars_subst_map xs e :
-      free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs);
+      free_vars (subst_map xs e) = free_vars e ∖ (dom xs);
 
     (** Evaluation contexts *)
     mixin_fill_empty e : fill empty_ectx e = e;
@@ -190,7 +190,7 @@ Section language.
     subst_map xs (subst_map ys e) = subst_map (ys ∪ xs) e.
   Proof. apply language_mixin. Qed.
   Lemma free_vars_subst_map xs e :
-    free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
+    free_vars (subst_map xs e) = free_vars e ∖ (dom xs).
   Proof. apply language_mixin. Qed.
 
   Lemma fill_empty e : fill empty_ectx e = e.

@@ -1122,7 +1122,7 @@ Qed.
 Lemma retag_Some_dom α nxtp c cids l old rk pk T new α' nxtp'
   (RK: match pk with | RawPtr _ => rk = RawRt | _ => True end) :
   retag α nxtp cids c l old rk pk T = Some (new, α', nxtp') →
-  ∀ i, (i < tsize T)%nat → (l +ₗ i) ∈ dom (gset loc) α.
+  ∀ i, (i < tsize T)%nat → (l +ₗ i) ∈ dom α.
 Proof.
   intros RT i Lti. rewrite elem_of_dom.
   destruct (retag_Some _ _ _ _ _ _ _ _ _ _ _ _ RT) as [_ EQ].

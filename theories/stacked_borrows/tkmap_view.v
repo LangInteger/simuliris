@@ -794,7 +794,7 @@ Section lemmas.
   (*Qed.*)
 
   (*Theorem tkmap_update_big {γ m} m0 m1 :*)
-    (*dom (gset K) m0 = dom (gset K) m1 →*)
+    (*dom m0 = dom m1 →*)
     (*tkmap_auth γ 1 m -∗*)
     (*([∗ map] k↦v ∈ m0, k ↪[γ] v) ==∗*)
     (*tkmap_auth γ 1 (m1 ∪ m) ∗*)

@@ -194,8 +194,8 @@ Lemma must_step_all_add_values P O O' D π:
 Proof.
   intros Hall. iIntros "Hopen". iRevert (O' Hall).
   iApply (must_step_ind (λ P O D, ∀ O' : gset nat,
-  ⌜∀ i, i ∈ O' → i ∈ O ∨ (∃ v_t v_s, P !! i = Some (of_val v_t, of_val v_s))⌝
-  → must_step_all π P O' D)%I with "[] Hopen").
+    ⌜∀ i, i ∈ O' → i ∈ O ∨ (∃ v_t v_s, P !! i = Some (of_val v_t, of_val v_s))⌝
+    -∗ must_step_all π P O' D)%I with "[] Hopen").
   iModIntro. clear P O D. iIntros (P O D) "Hinner".
   iIntros (O' Hel). rewrite must_step_unfold.
   iIntros (p_t σ_t p_s σ_s) "H".
@@ -598,7 +598,7 @@ Section fair_termination.
       eapply sat_elim in Hsat'. eauto 10. }
     eapply sat_bupd, sat_mono, Hsat; clear Hsat.
     iIntros "[SI Hmust]". iRevert (σ_t σ_s Hdiv Hsafe) "SI".
-    iApply (must_step_ind (λ P O D, ∀ σ_t σ_s, ⌜fair_div_delay p_t P.(tgt) D σ_t⌝ → ⌜pool_safe p_s P.(src) σ_s⌝ → state_interp p_t σ_t p_s σ_s P.(src) ==∗
+    iApply (must_step_ind (λ P O D, ∀ σ_t σ_s, ⌜fair_div_delay p_t P.(tgt) D σ_t⌝ -∗ ⌜pool_safe p_s P.(src) σ_s⌝ -∗ state_interp p_t σ_t p_s σ_s P.(src) ==∗
                              ∃ P' D' σ_t' σ_s' I, (state_interp p_t σ_t' p_s σ_s' P'.(src) ∗ R P') ∗ _)%I
     with "[] Hmust").
     clear P O D. iModIntro. iIntros (P O D) "Hmust".

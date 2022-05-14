@@ -42,7 +42,7 @@ Definition wf_cid_incl (cids: call_id_set) (nxtc: call_id) :=
 Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l t' → t' <t t.
 
 Record state_wf (s: state) := {
-  state_wf_dom : dom (gset loc) s.(shp) ≡ dom (gset loc) s.(sst);
+  state_wf_dom : dom s.(shp) ≡ dom s.(sst);
   (*state_wf_mem_tag : wf_mem_tag s.(shp) s.(snp);*)
   state_wf_stack_item : wf_stacks s.(sst) s.(snp) s.(snc);
   state_wf_non_empty : wf_non_empty s.(sst);

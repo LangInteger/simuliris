@@ -30,7 +30,7 @@ Lemma head_write_inv (P : prog) l bor T v σ σ' e' efs :
   e' = (#[ScPoison])%E ∧
   σ' = mkState (write_mem l v σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc) ∧
   length v = tsize T ∧
-  (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧
+  (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧
   memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α'.
 Proof. intros Hhead. inv_head_step. eauto 9. Qed.
 

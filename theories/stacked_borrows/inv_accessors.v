@@ -20,17 +20,17 @@ Section lemmas.
     (l : loc) (sc : scalar).
 
   Lemma init_mem_dom_L l n h :
-    dom (gset loc) (init_mem l n h) = dom (gset loc) h ∪ dom (gset loc) (init_mem l n ∅).
+    dom (init_mem l n h) = dom h ∪ dom (init_mem l n ∅).
   Proof. apply set_eq. intros l'. rewrite init_mem_dom. done. Qed.
 
   Lemma fresh_block_det σ_s σ_t :
-    dom (gset loc) σ_s.(shp) = dom (gset loc) σ_t.(shp) →
+    dom σ_s.(shp) = dom σ_t.(shp) →
     fresh_block σ_s.(shp) = fresh_block σ_t.(shp).
   Proof. rewrite /fresh_block. intros ->. done. Qed.
 
   Lemma free_mem_dom σ_t σ_s l n :
-    dom (gset loc) σ_t.(shp) = dom (gset loc) σ_s.(shp) →
-    dom (gset loc) (free_mem l n σ_t.(shp)) = dom (gset loc) (free_mem l n σ_s.(shp)).
+    dom σ_t.(shp) = dom σ_s.(shp) →
+    dom (free_mem l n σ_t.(shp)) = dom (free_mem l n σ_s.(shp)).
   Proof.
     intros Hdom. induction n as [ | n IH] in l |-*; first done.
     simpl. rewrite !dom_delete_L IH. done.
@@ -482,7 +482,7 @@ Section lemmas.
   Proof.
     intros Hs []. constructor; try done.
     rewrite dom_insert //.
-    have ->: {[l]} ∪ dom (gset loc) (shp σ) ≡ dom (gset loc) (shp σ); last done.
+    have ->: {[l]} ∪ dom (shp σ) ≡ dom (shp σ); last done.
     split; rewrite elem_of_union; last by eauto.
     intros [ ->%elem_of_singleton_1 | ]; last done.
     by apply elem_of_dom.

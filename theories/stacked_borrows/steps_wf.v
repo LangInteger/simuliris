@@ -118,8 +118,8 @@ Qed.
 
 (** Write *)
 Lemma write_mem_dom l vl h
-  (DEFINED: ∀ i : nat, (i < strings.length vl)%nat → (l +ₗ i) ∈ dom (gset loc) h) :
-  dom (gset loc) (write_mem l vl h) ≡ dom (gset loc) h.
+  (DEFINED: ∀ i : nat, (i < strings.length vl)%nat → (l +ₗ i) ∈ dom h) :
+  dom (write_mem l vl h) ≡ dom h.
 Proof.
   revert l h DEFINED. induction vl as [|v vl IH]; intros l h DEFINED; [done|].
   rewrite /= IH.
@@ -545,7 +545,7 @@ Lemma reborrowN_wf_stack α nxtc cids nxtp l n old new pm bar α'
   (NEW: tag_fresh new α l n) :
   reborrowN α cids l n old new pm bar = Some α' →
   wf_stacks α nxtp nxtc ∧ wf_non_empty α →
-  dom (gset loc) α ≡ dom (gset loc) α' ∧
+  dom α ≡ dom α' ∧
   wf_stacks α' nxtp nxtc ∧ wf_non_empty α'.
 Proof.
   intros RB [WF1 WF2]. split; last split.
@@ -567,12 +567,12 @@ Lemma unsafe_action_wf_stack
     P α1 l n →
     f α1 l n b = Some α2 →
     wf_stacks α1 nxtp nxtc ∧ wf_non_empty α1 →
-    dom (gset loc) α1 ≡ dom (gset loc) α2 ∧
+    dom α1 ≡ dom α2 ∧
     wf_stacks α2 nxtp nxtc ∧ wf_non_empty α2) →
   P α (l +ₗ last) (l' - last)%nat →
   unsafe_action f α l last fs us = Some (α', (l', c')) →
   wf_stacks α nxtp nxtc ∧ wf_non_empty α →
-  dom (gset loc) α ≡ dom (gset loc) α' ∧
+  dom α ≡ dom α' ∧
   wf_stacks α' nxtp nxtc ∧ wf_non_empty α'.
 Proof.
   intros HP Hf0 Hf. rewrite /unsafe_action.
@@ -727,7 +727,7 @@ Lemma visit_freeze_sensitive'_wf_stack l (f: stacks → _ → _ → _ → _)
   α α' last cur T l' c' nxtp nxtc (P: stacks → loc → nat → Prop) :
   let Hα α1 α2 l n :=
     (P α1 l n → wf_stacks α1 nxtp nxtc ∧ wf_non_empty α1 →
-      dom (gset loc) α1 ≡ dom (gset loc) α2 ∧
+      dom α1 ≡ dom α2 ∧
       wf_stacks α2 nxtp nxtc ∧ wf_non_empty α2) in
   let HP :=
     (∀ α l sz1 sz2, P α l (sz1 + sz2)%nat → P α l sz1 ∧ ∀ α',
@@ -806,12 +806,12 @@ Lemma visit_freeze_sensitive_wf_stack l T (f: stacks → _ → _ → _ → _)
   HP → HF0 f →
   (∀ α1 α2 l n b, f α1 l n b = Some α2 → P α1 l n →
     wf_stacks α1 nxtp nxtc ∧ wf_non_empty α1 →
-    dom (gset loc) α1 ≡ dom (gset loc) α2 ∧
+    dom α1 ≡ dom α2 ∧
    wf_stacks α2 nxtp nxtc ∧ wf_non_empty α2) →
   visit_freeze_sensitive l T f α = Some α' →
   P α l (tsize T) →
   wf_stacks α nxtp nxtc ∧ wf_non_empty α →
-  dom (gset loc) α ≡ dom (gset loc) α' ∧
+  dom α ≡ dom α' ∧
   wf_stacks α' nxtp nxtc ∧ wf_non_empty α'.
 Proof.
   intros HP HF0 HP1 HF1 Hf. rewrite /visit_freeze_sensitive.
@@ -849,7 +849,7 @@ Lemma reborrow_wf_stack α nxtc cids nxtp l old T kind new bar α'
   (NEW: tag_fresh new α l (tsize T)) :
   reborrow α cids l old T kind new bar = Some α' →
   wf_stacks α nxtp nxtc ∧ wf_non_empty α →
-  dom (gset loc) α ≡ dom (gset loc) α' ∧
+  dom α ≡ dom α' ∧
   wf_stacks α' nxtp nxtc ∧ wf_non_empty α'.
 Proof.
   rewrite /reborrow. destruct kind as [[]| |mutbl].
@@ -873,7 +873,7 @@ Lemma retag_ref_wf_stack (*h*) α nxtc cids nxtp l old T kind bar bor' α' nxtp'
   (*wf_mem_tag h nxtp →*)
   wf_stacks α nxtp nxtc → wf_non_empty α →
   (*wf_mem_tag h nxtp' ∧*)
-  dom (gset loc) α ≡ dom (gset loc) α' ∧
+  dom α ≡ dom α' ∧
   wf_stacks α' nxtp' nxtc ∧ wf_non_empty α'.
 Proof.
   intros RE (*WF1*) WF2 WF3. (* split.*)

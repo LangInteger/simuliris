@@ -455,11 +455,11 @@ Equations read_mem (l: loc) (n: nat) h: option value :=
 End no_mangle.
 
 Definition fresh_block (h : mem) : block :=
-  let loclst : list loc := elements (dom (gset loc) h) in
+  let loclst : list loc := elements (dom h) in
   let blockset : gset block := foldr (λ l, ({[l.1]} ∪.)) ∅ loclst in
   fresh blockset.
 
-Lemma is_fresh_block h i : (fresh_block h,i) ∉ dom (gset loc) h.
+Lemma is_fresh_block h i : (fresh_block h,i) ∉ dom h.
 Proof.
   assert (∀ l (ls: list loc) (X : gset block),
     l ∈ ls → l.1 ∈ foldr (λ l, ({[l.1]} ∪.)) X ls) as help.
@@ -469,7 +469,7 @@ Proof.
 Qed.
 
 Lemma fresh_block_equiv (h1 h2: mem) :
-  dom (gset loc) h1 ≡ dom (gset loc) h2 → fresh_block h1 = fresh_block h2.
+  dom h1 ≡ dom h2 → fresh_block h1 = fresh_block h2.
 Proof.
   intros EqD. apply elements_proper in EqD.
   rewrite /fresh_block. apply (fresh_proper (C:= gset _)).
@@ -491,7 +491,7 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
     (* is_Some (h !! l) → *)
     pure_expr_step P h (Ref (Place l lbor T)) #[ScPtr l lbor] []
 | DerefPS l lbor T
-    (* (DEFINED: ∀ (i: nat), (i < tsize T)%nat → l +ₗ i ∈ dom (gset loc) h) *) :
+    (* (DEFINED: ∀ (i: nat), (i < tsize T)%nat → l +ₗ i ∈ dom h) *) :
     pure_expr_step P h (Deref #[ScPtr l lbor] T) (Place l lbor T) []
 (* | FieldBS l lbor T path off T'
     (FIELD: field_access T path = Some (off, T')) :
@@ -533,7 +533,7 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
     (* failed copies lead to poison, but still of the appropriate length *)
     mem_expr_step h (Copy (Place l lbor T)) (FailedCopyEvt l lbor T) h (Val $ replicate (tsize T) ScPoison) []
 | WriteBS l lbor T v (LEN: length v = tsize T)
-    (DEFINED: ∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) h) :
+    (DEFINED: ∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom h) :
     mem_expr_step
               h (Place l lbor T <- Val v)
               (WriteEvt l lbor T v)

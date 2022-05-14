@@ -235,7 +235,7 @@ Section safe_reach.
     SafeImplies False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_write P σ l t T v :
-    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom (gset loc) σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_write_result P σ r r' :
     SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.

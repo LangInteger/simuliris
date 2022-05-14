@@ -25,8 +25,8 @@ Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog):
     ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
     ([∗ map] f ↦ fn ∈ p_t, f @t fn) -∗
     ([∗ map] f ↦ fn ∈ p_s, f @s fn) -∗
-    target_globals (dom (gset string) gs) -∗
-    source_globals (dom (gset string) gs) ==∗
+    target_globals (dom gs) -∗
+    source_globals (dom gs) ==∗
     ([∗ map] v∈gs, val_rel v v) ∗ prog_rel p_t p_s
   ) →
   prog_ref p_t p_s.

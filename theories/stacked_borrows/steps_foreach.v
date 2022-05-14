@@ -42,8 +42,8 @@ Lemma init_stacks_foldr α l n si:
 Proof. by rewrite -init_stacks_foldr' shift_loc_0. Qed.
 
 Lemma init_mem_dom' l n h (m: nat):
-  dom (gset loc) (init_mem (l +ₗ m) n h) ≡
-  dom (gset loc) h ∪ dom (gset loc) (init_mem (l +ₗ m) n ∅) .
+  dom (init_mem (l +ₗ m) n h) ≡
+  dom h ∪ dom (init_mem (l +ₗ m) n ∅) .
 Proof.
   revert h m. induction n as [|n IHn]; intros h m.
   - by rewrite /= dom_empty right_id.
@@ -54,8 +54,8 @@ Proof.
 Qed.
 
 Lemma init_mem_dom l n h:
-  dom (gset loc) (init_mem l n h) ≡
-  dom (gset loc) h ∪ dom (gset loc) (init_mem l n ∅) .
+  dom (init_mem l n h) ≡
+  dom h ∪ dom (init_mem l n ∅) .
 Proof. by rewrite -(shift_loc_0_nat l) init_mem_dom'. Qed.
 
 Lemma for_each_lookup α l n f α' :
@@ -261,7 +261,7 @@ Proof.
 Qed.
 
 Lemma for_each_dom α l n f α' :
-  for_each α l n false f = Some α' → dom (gset loc) α ≡ dom (gset loc) α'.
+  for_each α l n false f = Some α' → dom α ≡ dom α'.
 Proof.
   revert α. induction n as [|n IH]; intros α; [by move => /= [-> //]|].
   simpl. destruct (α !! (l +ₗ n)) eqn:Eq; [|done].

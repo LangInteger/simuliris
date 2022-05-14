@@ -10,9 +10,9 @@ From iris.prelude Require Import options.
 
 Lemma foldr_gmap_insert_dom `{Countable K} {A B C: Type}
   (ma: gmap K A) (mb: gmap K B) (a: A) (b: B) (cs: list C) (f: C → K):
-  dom (gset K) ma ≡ dom (gset K) mb →
-  dom (gset K) (foldr (λ (c: C) ma, <[f c := a]> ma) ma cs)
-  ≡ dom (gset K) (foldr (λ (c: C) mb, <[f c := b]> mb) mb cs).
+  dom ma ≡@{gset _} dom mb →
+  dom (foldr (λ (c: C) ma, <[f c := a]> ma) ma cs)
+  ≡@{gset _} dom (foldr (λ (c: C) mb, <[f c := b]> mb) mb cs).
 Proof.
   intros. induction cs as [|c cs IH]; simpl; [done|].
   by rewrite 2!dom_insert IH.
@@ -50,16 +50,16 @@ Qed.
 
 Lemma foldr_gmap_delete_dom `{Countable K} {A B C: Type}
   (ma: gmap K A) (mb: gmap K B) (cs: list C) (f: C → K):
-  dom (gset K) ma ≡ dom (gset K) mb →
-  dom (gset K) (foldr (λ (c: C) ma, delete (f c) ma) ma cs)
-  ≡ dom (gset K) (foldr (λ (c: C) mb, delete (f c) mb) mb cs).
+  dom ma ≡@{gset _} dom mb →
+  dom (foldr (λ (c: C) ma, delete (f c) ma) ma cs)
+  ≡@{gset _} dom (foldr (λ (c: C) mb, delete (f c) mb) mb cs).
 Proof.
   intros. induction cs as [|c cs IH]; simpl; [done|].
   by rewrite 2!dom_delete IH.
 Qed.
 
 Lemma dom_map_insert_is_Some `{FinMapDom K M D} {A} (m : M A) i x :
-  is_Some (m !! i) → dom D (<[i:=x]>m) ≡ dom D m.
+  is_Some (m !! i) → dom (<[i:=x]>m) ≡@{D} dom m.
 Proof.
   intros IS. rewrite dom_insert. apply (anti_symm (⊆)).
   - apply union_least; [|done]. by apply elem_of_subseteq_singleton, elem_of_dom.

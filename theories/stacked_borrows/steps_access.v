@@ -211,8 +211,8 @@ Proof.
 Qed.
 
 Lemma free_mem_dom l' l n h:
-  l' ∈ dom (gset loc) (free_mem l n h) →
-  l' ∈ dom (gset loc) h ∧
+  l' ∈ dom (free_mem l n h) →
+  l' ∈ dom h ∧
   (∀ i : nat, (i < n)%nat → l' ≠ l +ₗ i) ∧ free_mem l n h !! l' = h !! l'.
 Proof.
   intros [? EqD]%elem_of_dom.

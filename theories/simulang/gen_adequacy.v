@@ -25,8 +25,8 @@ Section adequacy.
         global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
         global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)
       ) -∗
-      target_globals (dom _ gs) -∗
-      source_globals (dom _ gs) ==∗
+      target_globals (dom gs) -∗
+      source_globals (dom gs) ==∗
       sheap_inv p_s (state_init gs) [Call f#"main" #()] ∗
       ext_rel 0 #() #() ∗
       (∀ v_t v_s, ext_rel 0 v_t v_s -∗ gen_val_rel loc_rel v_t v_s) ∗

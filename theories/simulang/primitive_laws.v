@@ -220,7 +220,7 @@ Lemma sheap_init `{!sheapGpreS Σ} P_t gs_t P_s gs_s T_s :
     ([∗ map] n ↦ v ∈ gs_t, global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1)) ∗
     ([∗ map] f ↦ fn ∈ P_s, f @s fn) ∗
     ([∗ map] n ↦ v ∈ gs_s, global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)) ∗
-    source_globals (dom _ gs_s) ∗ target_globals (dom _ gs_t) ∗
+    source_globals (dom gs_s) ∗ target_globals (dom gs_t) ∗
     progs_are P_t P_s.
 Proof.
   iMod (heap_init gs_t) as (γheap_tgt) "(Hheap_t & #Hgs_t & Hptsto_t)".

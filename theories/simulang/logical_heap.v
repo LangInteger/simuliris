@@ -750,14 +750,14 @@ End heap.
 
 Lemma heap_init `{heapG Σ} gs :
   ⊢ |==> ∃ γ : heap_names, heap_ctx γ (state_init gs) ∗
-    heap_globals γ (dom _ gs) ∗
+    heap_globals γ (dom gs) ∗
     [∗ map] n ↦ v ∈ gs, heap_mapsto γ (global_loc n) (RSt 0) 1 v ∗ heap_block_size γ (global_loc n) 1 (Some 1).
 Proof.
   set σ := state_init gs.
   iMod (own_alloc (● (to_heap σ.(heap)) ⋅ ◯ (to_heap σ.(heap)))) as (γheap) "[Hheap Hfrag]".
   { apply auth_both_valid_discrete. split; first done. apply to_heap_valid. }
   iMod (ghost_map_alloc (kmap global_loc (const (Some 1) <$> gs))) as (γfmap) "[Hfmap Hffrag]".
-  iMod (own_alloc (to_agree ((dom (gset string) gs) : leibnizO _))) as (γg) "#Hg" => //.
+  iMod (own_alloc (to_agree ((dom gs) : leibnizO _))) as (γg) "#Hg" => //.
   iExists {| heap_name := γheap; heap_block_size_name := γfmap; heap_globals_name := γg |}.
   iModIntro. rewrite /heap_ctx heap_globals_eq /=. iFrame "Hg". iClear "Hg".
   iSplitR "Hfrag Hffrag".

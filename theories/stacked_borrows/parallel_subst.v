@@ -264,7 +264,7 @@ Proof.
 Qed.
 
 Lemma free_vars_subst_map xs e :
-  free_vars (subst_map xs e) = free_vars e ∖ (dom _ xs).
+  free_vars (subst_map xs e) = free_vars e ∖ (dom xs).
 Proof.
   induction xs as [| x v xs HNone IH] using map_ind.
   - rewrite subst_map_empty. set_solver.
