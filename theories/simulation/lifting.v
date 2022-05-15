@@ -451,8 +451,8 @@ Section fix_sim.
     iApply (sim_lift_coind inv' with "[] [$Hinv //]").
     iModIntro.
     iIntros (? ? P_t P_s σ_t σ_s T_s K_s) "(-> & -> & Hinv) (Hstate & %Hpool & _)".
-    specialize (Hpure_t Hphi) as Hpure_t%nsteps_once_inv.
-    specialize (Hpure_s Hpsi) as Hpure_s%nsteps_once_inv.
+    specialize (Hpure_t Hphi) as Hpure_t. apply nsteps_once_inv in Hpure_t.
+    specialize (Hpure_s Hpsi) as Hpure_s. apply nsteps_once_inv in Hpure_s.
     destruct Hpure_s as [Hred_s Hdet_s].
     destruct (Hred_s P_s σ_s) as (e_s'' & σ_s' & efs & Hs).
     destruct (Hdet_s _ _ _ _ _ Hs) as [-> [-> ->]].

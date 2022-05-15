@@ -32,9 +32,11 @@ Proof. by apply (inj_countable' (λ l, (loc_block l, loc_idx l)) (λ '(i, j), {|
 Global Program Instance block_infinite : Infinite block :=
   inj_infinite DynBlock (λ b, if b is DynBlock b then Some b else None) _.
 Next Obligation. done. Qed.
+Next Obligation. done. Qed.
+
 Global Program Instance loc_infinite : Infinite loc :=
   inj_infinite (λ '(i, j), {| loc_block := i; loc_idx := j |}) (λ l, Some ((loc_block l, loc_idx l))) _.
-Next Obligation. done. Qed.
+Next Obligation. intros []. done. Qed.
 
 Definition block_is_dyn (b : block) : bool := if b is DynBlock _ then true else false.
 Definition block_is_global (b : block) : bool := if b is GlobalBlock _ then true else false.
