@@ -207,7 +207,7 @@ Section gen_heap.
     iApply (own_update with "Hm").
     apply reservation_map_alloc; last done.
     cut (positives_flatten N ∈@{coPset} ↑N); first by set_solver.
-    rewrite nclose_eq. apply elem_coPset_suffixes.
+    rewrite namespaces.nclose_unseal. apply elem_coPset_suffixes.
     exists 1%positive. by rewrite left_id_L.
   Qed.
 

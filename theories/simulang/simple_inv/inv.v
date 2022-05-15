@@ -265,7 +265,7 @@ Section sim.
       end) →
     envs_entails Δ (sim_expr Φ π (fill K_t (Load o (LitV l_t))) (fill K_s (Load o (LitV l_s))))%I.
   Proof.
-    rewrite envs_entails_eq=> ? Hi.
+    rewrite envs_entails_unseal=> ? Hi.
     rewrite -sim_expr_bind. eapply wand_apply; first exact: sim_bij_load.
     rewrite envs_lookup_split //; simpl.
     iIntros "[#Ha He]". iSpecialize ("He" with "Ha").
@@ -282,7 +282,7 @@ Section sim.
     envs_entails Δ (sim_expr Φ π (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
     envs_entails Δ (sim_expr Φ π (fill K_t (Store o (LitV l_t) (Val v_t'))) (fill K_s (Store o (LitV l_s) (Val v_s')))).
   Proof.
-    rewrite envs_entails_eq => HΔ.
+    rewrite envs_entails_unseal => HΔ.
     rewrite (persistent_persistently_2 (val_rel _ _)).
     intros Hv%persistently_entails_r Hi.
     rewrite -sim_expr_bind.
@@ -302,7 +302,7 @@ Section sim.
     envs_entails (envs_delete true i b Δ) (sim_expr Φ π (fill K_t (Val $ LitV LitUnit)) (fill K_s (Val $ LitV LitUnit))) →
     envs_entails Δ (sim_expr Φ π (fill K_t (FreeN (Val $ LitV $ LitInt n) (LitV l_t))) (fill K_s (FreeN (Val $ LitV $ LitInt n) (LitV l_s)))).
   Proof.
-    rewrite envs_entails_eq => Hl HΔ.
+    rewrite envs_entails_unseal => Hl HΔ.
     rewrite -sim_expr_bind. rewrite (envs_lookup_sound _ _ _ _ Hl).
     iIntros "[#bij He]". iPoseProof (HΔ with "He") as "He". rewrite intuitionistically_if_elim.
     iApply sim_bij_free; first done.

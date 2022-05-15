@@ -35,7 +35,7 @@ Lemma tac_target_red_pure Δ n e_t e_t' K_t Ψ (ϕ : Prop):
   envs_entails Δ (target_red (fill K_t e_t') Ψ : iProp Σ) →
   envs_entails Δ (target_red (fill K_t e_t) Ψ).
 Proof.
-  intros ? ?. rewrite envs_entails_eq.
+  intros ? ?. rewrite envs_entails_unseal.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
   rewrite target_red_lift_pure //.
@@ -47,7 +47,7 @@ Lemma tac_source_red_pure π Δ n e_s e_s' K_s Ψ (ϕ : Prop):
   envs_entails Δ (source_red (fill K_s e_s') π Ψ : iProp Σ) →
   envs_entails Δ (source_red (fill K_s e_s) π Ψ).
 Proof.
-  intros ? ?. rewrite envs_entails_eq.
+  intros ? ?. rewrite envs_entails_unseal.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
   rewrite source_red_lift_pure //.
@@ -56,34 +56,34 @@ Qed.
 Lemma tac_target_red_base e_t Ψ Δ :
   envs_entails Δ (|==> Ψ e_t : iProp Σ) → envs_entails Δ (target_red e_t Ψ).
 Proof.
-  rewrite envs_entails_eq => ->. iIntros "H". by iApply target_red_base.
+  rewrite envs_entails_unseal => ->. iIntros "H". by iApply target_red_base.
 Qed.
 Lemma tac_target_red_base_no_bupd e_t Ψ Δ :
   envs_entails Δ (Ψ e_t : iProp Σ) → envs_entails Δ (target_red e_t Ψ).
 Proof.
-  rewrite envs_entails_eq => ->. iIntros "H". by iApply target_red_base.
+  rewrite envs_entails_unseal => ->. iIntros "H". by iApply target_red_base.
 Qed.
 
 Lemma tac_source_red_base π e_s Ψ Δ :
   envs_entails Δ (|==> Ψ e_s : iProp Σ) → envs_entails Δ (source_red e_s π Ψ).
 Proof.
-  rewrite envs_entails_eq => ->. by iApply source_red_base.
+  rewrite envs_entails_unseal => ->. by iApply source_red_base.
 Qed.
 Lemma tac_source_red_base_no_bupd π e_s Ψ Δ :
   envs_entails Δ (Ψ e_s : iProp Σ) → envs_entails Δ (source_red e_s π Ψ).
 Proof.
-  rewrite envs_entails_eq => ->. iIntros "H". by iApply source_red_base.
+  rewrite envs_entails_unseal => ->. iIntros "H". by iApply source_red_base.
 Qed.
 
 Lemma tac_sim_value π v_t v_s (Φ : val → val → iProp Σ) Δ :
   envs_entails Δ (|==> Φ v_t v_s) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
 Proof.
-  rewrite envs_entails_eq => ->. iIntros "H". iApply sim_bupd. by iApply sim_value.
+  rewrite envs_entails_unseal => ->. iIntros "H". iApply sim_bupd. by iApply sim_value.
 Qed.
 
 Lemma tac_sim_value_no_bupd π v_t v_s Φ Δ :
   envs_entails Δ (Φ v_t v_s) → envs_entails Δ (Val v_t ⪯{π} Val v_s {{ Φ }}).
-Proof. rewrite envs_entails_eq => ->. by iApply sim_value. Qed.
+Proof. rewrite envs_entails_unseal => ->. by iApply sim_value. Qed.
 
 Lemma tac_sim_bind π K_t K_s Δ Φ e_t f_t e_s f_s :
   f_t = (λ e_t, fill K_t e_t) → (* as an eta expanded hypothesis so that we can `simpl` it *)
@@ -91,7 +91,7 @@ Lemma tac_sim_bind π K_t K_s Δ Φ e_t f_t e_s f_s :
   envs_entails Δ (e_t ⪯{π} e_s {{ λ e_t' e_s', f_t e_t' ⪯{π} f_s e_s' [{ Φ }] }})%I →
   envs_entails Δ (fill K_t e_t ⪯{π} fill K_s e_s [{ Φ }]).
 Proof.
-  rewrite envs_entails_eq=> -> ->. intros Hs.
+  rewrite envs_entails_unseal=> -> ->. intros Hs.
   iIntros "H". iApply (sim_bind e_t e_s K_t K_s Φ). by iApply Hs.
 Qed.
 
@@ -100,7 +100,7 @@ Lemma tac_target_red_bind K_t e_t f_t Ψ Δ :
   envs_entails Δ (target_red e_t (λ e_t', target_red (f_t e_t') Ψ) : iProp Σ) →
   envs_entails Δ (target_red (fill K_t e_t) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ->. intros Hs.
+  rewrite envs_entails_unseal=> ->. intros Hs.
   iIntros "H". iApply target_red_bind. by iApply Hs.
 Qed.
 
@@ -109,7 +109,7 @@ Lemma tac_source_red_bind π K_s e_s f_s Ψ Δ :
   envs_entails Δ (source_red e_s π (λ e_s', source_red (f_s e_s') π Ψ) : iProp Σ) →
   envs_entails Δ (source_red (fill K_s e_s) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> ->. intros Hs.
+  rewrite envs_entails_unseal=> ->. intros Hs.
   iIntros "H". iApply source_red_bind. by iApply Hs.
 Qed.
 
@@ -123,7 +123,7 @@ Lemma tac_target_red_allocN n v j i K Ψ Δ :
     end) →
   envs_entails Δ (target_red (fill K (AllocN (Val $ LitV $ LitInt n) (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? HΔ. iIntros "He".
+  rewrite envs_entails_unseal=> ? HΔ. iIntros "He".
   iApply target_red_bind. iApply (target_red_allocN); [done..| ].
   iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
@@ -141,7 +141,7 @@ Lemma tac_source_red_allocN π n v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
     end) →
   envs_entails Δ (source_red (fill K (AllocN (Val $ LitV $ LitInt n) (Val v))) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? HΔ. iIntros "He".
+  rewrite envs_entails_unseal=> ? HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_allocN; [done..| ].
   iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
@@ -158,7 +158,7 @@ Lemma tac_target_red_alloc v j i K Ψ Δ:
     end) →
   envs_entails Δ (target_red (fill K (Alloc (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ. iIntros "He".
+  rewrite envs_entails_unseal=> HΔ. iIntros "He".
   iApply target_red_bind. iApply target_red_alloc.
   iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
@@ -175,7 +175,7 @@ Lemma tac_source_red_alloc π v j i K Ψ Δ `{!sheapInvSupportsAlloc}:
     end) →
   envs_entails Δ (source_red (fill K (Alloc (Val v))) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> HΔ. iIntros "He".
+  rewrite envs_entails_unseal=> HΔ. iIntros "He".
   iApply source_red_bind. iApply source_red_alloc.
   iIntros (l) "Hl Hn". specialize (HΔ l).
   destruct (envs_app _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
@@ -190,7 +190,7 @@ Lemma tac_target_red_free l v i j K Ψ Δ Δ':
     envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (target_red (fill K (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV $ LitLoc l))) Ψ).
 Proof.
-  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros [Hlk ->] Hn Hfin.
+  rewrite envs_entails_unseal. rewrite envs_lookup_delete_Some. intros [Hlk ->] Hn Hfin.
   rewrite -target_red_bind.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
@@ -207,7 +207,7 @@ Lemma tac_source_red_free π l v i j K Ψ Δ Δ' `{!sheapInvSupportsFree}:
     envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) π Ψ)) →
   envs_entails Δ (source_red (fill K (FreeN (Val $ LitV $ LitInt 1) (Val $ LitV $ LitLoc l))) π Ψ).
 Proof.
-  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros [Hlk ->] Hn Hfin.
+  rewrite envs_entails_unseal. rewrite envs_lookup_delete_Some. intros [Hlk ->] Hn Hfin.
   rewrite -source_red_bind.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
@@ -225,7 +225,7 @@ Lemma tac_target_red_freeN l (n : Z) vs i j K Ψ Δ Δ':
     envs_entails Δ'' (target_red (fill K (Val $ LitV LitUnit)) Ψ)) →
   envs_entails Δ (target_red (fill K (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l))) Ψ).
 Proof.
-  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros Heq [Hlk ->] Hn Hfin.
+  rewrite envs_entails_unseal. rewrite envs_lookup_delete_Some. intros Heq [Hlk ->] Hn Hfin.
   rewrite -target_red_bind.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
@@ -243,7 +243,7 @@ Lemma tac_source_red_freeN π l (n : Z) vs i j K Ψ Δ Δ' `{!sheapInvSupportsFr
     envs_entails Δ'' (source_red (fill K (Val $ LitV LitUnit)) π Ψ)) →
   envs_entails Δ (source_red (fill K (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l))) π Ψ).
 Proof.
-  rewrite envs_entails_eq. rewrite envs_lookup_delete_Some. intros Heq [Hlk ->] Hn Hfin.
+  rewrite envs_entails_unseal. rewrite envs_lookup_delete_Some. intros Heq [Hlk ->] Hn Hfin.
   rewrite -source_red_bind.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hlk]; simpl.
   rewrite (envs_lookup_sound' _ false _ false); [ | apply Hn]; simpl.
@@ -264,7 +264,7 @@ Lemma tac_target_red_loadsc Δ i K b l q v Ψ:
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load ScOrd (LitV l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_unseal=> ? Hi.
   rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load_sc.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
@@ -278,7 +278,7 @@ Lemma tac_target_red_loadna Δ i K b l v Ψ q:
   envs_entails Δ (target_red (fill K (Val v)) Ψ) →
   envs_entails Δ (target_red (fill K (Load Na1Ord (LitV l))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_unseal=> ? Hi.
   rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load_na.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
@@ -299,7 +299,7 @@ Lemma tac_source_red_loadsc π Δ i K b l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load ScOrd (LitV l))) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_unseal=> ? Hi.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load_sc.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
@@ -313,7 +313,7 @@ Lemma tac_source_red_loadna π Δ i K b l v Ψ q `{!sheapInvSupportsLoad Na1Ord}
   envs_entails Δ (source_red (fill K (Val v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Load Na1Ord (LitV l))) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_unseal=> ? Hi.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load_na.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
@@ -339,7 +339,7 @@ Lemma tac_target_red_store Δ i K l v v' o Ψ:
   end →
   envs_entails Δ (target_red (fill K (Store o (LitV l) (Val v'))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> Ho ? Hi.
+  rewrite envs_entails_unseal=> Ho ? Hi.
   destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   rewrite -target_red_bind. eapply wand_apply; first by eapply target_red_store.
   rewrite envs_simple_replace_sound //; simpl.
@@ -362,7 +362,7 @@ Lemma tac_source_red_store π Δ i K l v v' o Ψ `{!sheapInvSupportsStore o}:
   end →
   envs_entails Δ (source_red (fill K (Store o (LitV l) (Val v'))) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> Ho ? Hi.
+  rewrite envs_entails_unseal=> Ho ? Hi.
   destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
   rewrite -source_red_bind. eapply wand_apply; first by eapply source_red_store.
   rewrite envs_simple_replace_sound //; simpl.
@@ -375,7 +375,7 @@ Lemma tac_target_red_call Δ i K b f v fn Ψ :
   envs_entails Δ (target_red (fill K (apply_func fn v)) Ψ) →
   envs_entails Δ (target_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_unseal=> ? Hi.
   rewrite -target_red_bind. eapply wand_apply; first exact: target_red_call.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
@@ -390,7 +390,7 @@ Lemma tac_source_red_call π Δ i K b f v fn Ψ :
   envs_entails Δ (source_red (fill K (apply_func fn v)) π Ψ) →
   envs_entails Δ (source_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) π Ψ).
 Proof.
-  rewrite envs_entails_eq=> ? Hi.
+  rewrite envs_entails_unseal=> ? Hi.
   rewrite -source_red_bind. eapply wand_apply; first exact: source_red_call.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
@@ -405,18 +405,18 @@ Qed.
 Lemma tac_to_target π Δ e_t e_s Φ :
   envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯{π} e_s [{ Φ }]))%I →
   envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]).
-Proof. rewrite envs_entails_eq=> Hi. by rewrite -target_red_sim_expr. Qed.
+Proof. rewrite envs_entails_unseal=> Hi. by rewrite -target_red_sim_expr. Qed.
 
 Lemma tac_to_source π Δ e_t e_s Φ :
   envs_entails Δ (source_red e_s π (λ e_s', e_t ⪯{π} e_s' [{ Φ }]))%I →
   envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]).
-Proof. rewrite envs_entails_eq=> Hi. by rewrite -source_red_sim_expr. Qed.
+Proof. rewrite envs_entails_unseal=> Hi. by rewrite -source_red_sim_expr. Qed.
 
 Lemma tac_target_to_sim π Δ e_t e_s Φ :
   envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]) →
   envs_entails Δ (target_red e_t (λ e_t', e_t' ⪯{π} e_s [{ Φ }]))%I.
 Proof.
-  rewrite envs_entails_eq=> Hi. rewrite -target_red_base.
+  rewrite envs_entails_unseal=> Hi. rewrite -target_red_base.
   iIntros "He". iModIntro. by iApply Hi.
 Qed.
 
@@ -424,7 +424,7 @@ Lemma tac_source_to_sim π Δ e_t e_s Φ :
   envs_entails Δ (e_t ⪯{π} e_s [{ Φ }]) →
   envs_entails Δ (source_red e_s π (λ e_s', e_t ⪯{π} e_s' [{ Φ }]))%I.
 Proof.
-  rewrite envs_entails_eq=> Hi. rewrite -source_red_base.
+  rewrite envs_entails_unseal=> Hi. rewrite -source_red_base.
   iIntros "He". iModIntro. by iApply Hi.
 Qed.
 
