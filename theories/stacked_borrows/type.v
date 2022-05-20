@@ -308,22 +308,22 @@ Proof.
               (λ ns T0, ns ++ sub_sum_types' T0 (n + m))
               (λ ns T0, ns ++
                 ((λ nT, ((nT.1 + m)%nat, nT.2)) <$> sub_sum_types' T0 n))).
-    + by move => ?? /IH ->.
     + by rewrite foldl_inner_app_fmap.
+    + by move => ?? /IH ->.
   - intros ? IH n. simpl.
     set g : nat * list (nat * type) → nat * list (nat * type) :=
       λ sns, ((λ n, n + m)%nat sns.1, (λ nT, ((nT.1 + m)%nat, nT.2)) <$> sns.2).
     change ((n + m)%nat, []) with (g (n, [])).
-    rewrite -foldl_fmap_shift_init; [|done].
+    rewrite -foldl_fmap_shift_init //.
     move => ?? /IH IH1. rewrite /g /=. f_equal; [lia|by rewrite fmap_app IH1].
   - intros ? IH n. cbn.
     rewrite (foldl_fun_ext
               (λ ns T0, ns ++ sub_sum_types' T0 (n + m + 1))
               (λ ns T0, ns ++
                 ((λ nT, ((nT.1 + m)%nat, nT.2)) <$> sub_sum_types' T0 (n + 1)))).
-    + move => ?? /IH IH1. rewrite (_: (n + m + 1) = (n + 1) + m)%nat; [lia|].
-      by rewrite IH1.
     + by rewrite foldl_inner_app_fmap.
+    + move => ?? /IH IH1. rewrite (_: (n + m + 1) = (n + 1) + m)%nat; last lia.
+      by rewrite IH1.
 Qed.
 
 Lemma foldl_inner_app_elem_of {A B} (f: B → list A) la0 lb :
@@ -417,7 +417,7 @@ Proof.
   revert n lb. induction Ts as [|T Ts IH]; intros n lb; [done|].
   revert IH. simpl. intros IH.
   rewrite sub_sum_type'_shift -app_assoc -fmap_app.
-  rewrite (_: n + m + tsize T = (n + tsize T) + m)%nat; [lia|].
+  rewrite (_: n + m + tsize T = (n + tsize T) + m)%nat; last lia.
   by rewrite (IH (n + tsize T)).
 Qed.
 
@@ -427,7 +427,7 @@ Lemma sub_sum_types_product_further T Tc Ts n :
 Proof.
   rewrite /sub_sum_types /= => IN.
   rewrite -(app_nil_r (sub_sum_types' Tc 0)) -{2}(Nat.add_0_l (tsize Tc))
-          (_: [] = (λ nT: nat * type, (nT.1 + (tsize Tc), nT.2)) <$> []); [done|].
+          (_: [] = (λ nT: nat * type, (nT.1 + (tsize Tc), nT.2)) <$> []) //.
   rewrite sub_sum_types_foldl /= elem_of_app.
   right. simpl. apply elem_of_list_fmap.
   exists (n, T). by rewrite Nat.add_comm /=.
@@ -555,22 +555,22 @@ Proof.
               (λ ns T0, ns ++ sub_ref_types' T0 (n + m))
               (λ ns T0, ns ++
                 ((λ nT, ((nT.1 + m)%nat, nT.2)) <$> sub_ref_types' T0 n))).
-    + by move => ?? /IH ->.
     + by rewrite foldl_inner_app_fmap.
+    + by move => ?? /IH ->.
   - intros ? IH n. simpl.
     set g : nat * list (nat * type) → nat * list (nat * type) :=
       λ sns, ((λ n, n + m)%nat sns.1, (λ nT, ((nT.1 + m)%nat, nT.2)) <$> sns.2).
     change ((n + m)%nat, []) with (g (n, [])).
-    rewrite -foldl_fmap_shift_init; [|done].
+    rewrite -foldl_fmap_shift_init //.
     move => ?? /IH IH1. rewrite /g /=. f_equal; [lia|by rewrite fmap_app IH1].
   - intros ? IH n. cbn.
     rewrite (foldl_fun_ext
               (λ ns T0, ns ++ sub_ref_types' T0 (n + m + 1))
               (λ ns T0, ns ++
                 ((λ nT, ((nT.1 + m)%nat, nT.2)) <$> sub_ref_types' T0 (n + 1)))).
-    + move => ?? /IH IH1. rewrite (_: (n + m + 1) = (n + 1) + m)%nat; [lia|].
-      by rewrite IH1.
     + by rewrite foldl_inner_app_fmap.
+    + move => ?? /IH IH1. rewrite (_: (n + m + 1) = (n + 1) + m)%nat; last lia.
+      by rewrite IH1.
 Qed.
 
 Lemma sub_ref_types_product_first T Ts n :
@@ -592,7 +592,7 @@ Proof.
   revert n lb. induction Ts as [|T Ts IH]; intros n lb; [done|].
   revert IH. simpl. intros IH.
   rewrite sub_ref_type'_shift -app_assoc -fmap_app.
-  rewrite (_: n + m + tsize T = (n + tsize T) + m)%nat; [lia|].
+  rewrite (_: n + m + tsize T = (n + tsize T) + m)%nat; last lia.
   by rewrite (IH (n + tsize T)).
 Qed.
 
@@ -602,7 +602,7 @@ Lemma sub_ref_types_product_further T Ts Tr pk n :
 Proof.
   rewrite /sub_ref_types /= => IN .
   rewrite -(app_nil_r (sub_ref_types' T 0)) -{2}(Nat.add_0_l (tsize T))
-          (_: [] = (λ nT: nat * type, (nT.1 + (tsize T), nT.2)) <$> []); [done|].
+          (_: [] = (λ nT: nat * type, (nT.1 + (tsize T), nT.2)) <$> []) //.
   rewrite sub_ref_types_foldl /= elem_of_app.
   right. simpl. apply elem_of_list_fmap.
   exists (n, Reference pk Tr). by rewrite Nat.add_comm /=.
