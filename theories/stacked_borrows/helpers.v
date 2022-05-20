@@ -70,7 +70,7 @@ Lemma foldl_fun_ext {A B} (f g: A → B → A) (a: A) (lb : list B):
   (∀ a b, b ∈ lb → f a b = g a b) → foldl f a lb = foldl g a lb.
 Proof.
   revert a. induction lb as [|b lb IH]; [done|].
-  intros a HB. simpl. rewrite HB; [by left|].
+  intros a HB. simpl. rewrite HB; last by left.
   apply IH. intros ???. apply HB. by right.
 Qed.
 
@@ -80,7 +80,7 @@ Lemma foldl_fmap_shift_init {A B : Type}
   g (foldl f a lb) = foldl f (g a) lb.
 Proof.
   revert a. induction lb as [|b lb IH]; [done|].
-  intros a HB. simpl. rewrite HB; [by left|].
+  intros a HB. simpl. rewrite HB; last by left.
   apply IH. intros ???. apply HB. by right.
 Qed.
 
@@ -124,7 +124,7 @@ Lemma list_find_None_inv {A} (P : A → Prop) `{∀ x, Decision (P x)} l :
   Forall (λ x, ¬ P x) l → list_find P l = None.
 Proof.
   induction l as [|x l IHl]; [eauto|]. simpl. intros FA.
-  rewrite decide_False; [apply (Forall_inv FA)|]. rewrite IHl; [|done].
+  rewrite decide_False; last apply (Forall_inv FA). rewrite IHl //.
   by eapply Forall_cons_1.
 Qed.
 
@@ -143,7 +143,7 @@ Proof.
     intros [|j] y Lt; simpl; [intros; by simplify_eq|apply Eq2; lia].
   - destruct i as [|i]; [naive_solver|].
     move => /= [Eq1 [HP1 Lt1]].
-    rewrite (_: list_find P l = Some (i, x)); [|done].
+    rewrite (_: list_find P l = Some (i, x)) //.
     apply IH. split; last split; [done..|]. intros j y Lt Eq.
     apply (Lt1 (S j) y); [lia|done].
 Qed.
