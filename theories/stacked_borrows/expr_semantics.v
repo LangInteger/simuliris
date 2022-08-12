@@ -325,11 +325,8 @@ Definition prog := gmap fname func.
 (** The stepping relation *)
 (* Be careful to make sure that poison is always stuck when used for anything
    except for reading from or writing to memory! *)
-Definition Z.of_bool (b : bool) : Z :=
-  if b then 1 else 0.
-
 Definition sc_of_bool (b : bool) : scalar :=
-  ScInt $ Z.of_bool b.
+  ScInt $ Z.b2z b.
 
 Coercion sc_of_bool : bool >-> scalar.
 Coercion ScInt : Z >-> scalar.
