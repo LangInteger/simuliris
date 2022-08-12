@@ -155,7 +155,7 @@ Proof.
   case f as [stkn'|] eqn: Eqn'; [|done] => /= /IH [IH1 IH2]. split.
   - intros i Lt. case (decide (i = n)) => Eq'; [subst i|].
     + rewrite IH2; [by apply lookup_delete|].
-      move => ?? /shift_loc_inj /Z_of_nat_inj ?. by lia.
+      move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + apply IH1. by lia.
   - intros l' Lt. rewrite IH2.
     + rewrite lookup_delete_ne; [done|]. move => Eql'. apply (Lt n); by [lia|].

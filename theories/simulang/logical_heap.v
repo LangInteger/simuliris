@@ -269,7 +269,7 @@ Section heap.
     iIntros "Hl1 Hl2".
     iDestruct (heap_mapsto_agree with "[$Hl1 $Hl2]") as %->.
     iCombine "Hl1" "Hl2" as "Hl".
-    by iDestruct (heap_mapsto_valid with "Hl") as %?%Qp_not_add_le_l.
+    by iDestruct (heap_mapsto_valid with "Hl") as %?%Qp.not_add_le_l.
   Qed.
 
   Lemma heap_mapsto_vec_nil l q : l ↦∗{q} [] ⊣⊢ True.

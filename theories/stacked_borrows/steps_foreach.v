@@ -74,16 +74,16 @@ Proof.
   - intros i stk Lt Eqi. case (decide (i = n)) => Eq'; [subst i|].
     + rewrite Eqi in Eqn. simplify_eq.
       rewrite Eqn' IH3; [by rewrite lookup_insert; eexists|].
-      move => ?? /shift_loc_inj /Z_of_nat_inj ?. by lia.
+      move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + apply IH1; [lia|]. rewrite lookup_insert_ne; [done|].
-      by move => /shift_loc_inj /Z_of_nat_inj ? //.
+      by move => /shift_loc_inj /Nat2Z.inj ? //.
   - intros i stk Lt Eqi. case (decide (i = n)) => Eq'; [subst i|].
     + move : Eqi. rewrite IH3.
       * rewrite lookup_insert. intros. simplify_eq. naive_solver.
-      * move => ?? /shift_loc_inj /Z_of_nat_inj ?. by lia.
+      * move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + destruct (IH2 i stk) as [stk0 [Eq0 Eqf0]]; [lia|done|].
       exists stk0. split; [|done]. move : Eq0. rewrite lookup_insert_ne; [done|].
-      by move => /shift_loc_inj /Z_of_nat_inj ? //.
+      by move => /shift_loc_inj /Nat2Z.inj ? //.
   - intros l' Lt. rewrite IH3.
     + rewrite lookup_insert_ne; [done|]. move => Eql'. apply (Lt n); by [lia|].
     + move => ??. apply Lt. lia.
@@ -134,10 +134,10 @@ Proof.
   - intros i Lt.
     case (decide (i = n)) => Eq'; [subst i|].
     + rewrite Eqn. rewrite IH2; [rewrite lookup_insert; naive_solver|].
-      move => ?? /shift_loc_inj /Z_of_nat_inj ?. by lia.
+      move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + destruct (IH1 i) as (stk & stk' & Eqs & ?); [lia|].
       rewrite lookup_insert_ne in Eqs; [naive_solver|].
-      by move => /shift_loc_inj /Z_of_nat_inj ? //.
+      by move => /shift_loc_inj /Nat2Z.inj ? //.
   - intros l' Lt. rewrite IH2.
     + rewrite lookup_insert_ne; [done|]. move => Eql'. apply (Lt n); by [lia|].
     + move => ??. apply Lt. lia.
@@ -157,10 +157,10 @@ Proof.
   - intros i Lt.
     case (decide (i = n)) => Eq'; [subst i|].
     + rewrite Eqn. rewrite IH2; [rewrite lookup_delete; naive_solver|].
-      move => ?? /shift_loc_inj /Z_of_nat_inj ?. by lia.
+      move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + destruct (IH1 i) as (stk & stk' & Eqs & ?); [lia|].
       rewrite lookup_delete_ne in Eqs; [naive_solver|].
-      by move => /shift_loc_inj /Z_of_nat_inj ? //.
+      by move => /shift_loc_inj /Nat2Z.inj ? //.
   - intros l' Lt. rewrite IH2.
     + rewrite lookup_delete_ne; [done|]. move => Eql'. apply (Lt n); by [lia|].
     + move => ??. apply Lt. lia.

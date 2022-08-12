@@ -180,15 +180,15 @@ Section fix_heap.
     iMod (alloc_rel_remove_frac (λ _, alloc_rel_pred cols') _ q1 (Some (q1 / 2)%Qp) ((q1 / 2))%Qp with "Halloc Hσ_s") as (v_t) "(?&?&?&?&?)".
     { done. }
     { rewrite /alloc_rel_pred => q'. rewrite Hcom /q1. destruct q, q' => //= Hx. symmetry in Hx.
-      by move: Hx => /Qp_sub_Some ->. }
+      by move: Hx => /Qp.sub_Some ->. }
     { rewrite /alloc_rel_pred combine_na_locs_list_insert // Hcom /=. destruct q => /=.
       - unfold q1 => /=. simplify_eq/=. destruct q'' => //; simplify_eq/=. symmetry in Hcom'.
-        move: Hcom' => /Qp_sub_Some Hq. rewrite Hq /=.
-        rewrite [(_/2 + _)%Qp](comm) -assoc Qp_div_2. symmetry. by apply/Qp_sub_Some.
-      - by rewrite /q1 /= Qp_div_2.
+        move: Hcom' => /Qp.sub_Some Hq. rewrite Hq /=.
+        rewrite [(_/2 + _)%Qp](comm) -assoc Qp.div_2. symmetry. by apply/Qp.sub_Some.
+      - by rewrite /q1 /= Qp.div_2.
     }
     { move => q' o' ? /=. rewrite /alloc_rel_pred combine_na_locs_list_partial_alter_ne // => -[?]. done. }
-    { by rewrite Qp_div_2. }
+    { by rewrite Qp.div_2. }
     { done. }
     iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.

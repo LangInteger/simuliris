@@ -851,7 +851,7 @@ Proof.
     + by exists true.
     + intros j Ltj.
       rewrite shift_loc_assoc -Nat2Z.inj_add.
-      intros ?%shift_loc_inj%Z_of_nat_inj. subst i. lia.
+      intros ?%shift_loc_inj%Nat2Z.inj. subst i. lia.
   - apply Nat.nlt_ge in Ge1.
     have Le1: (i - (last + fsz) < usz)%nat by lia.
     have Eql: l +ₗ i = l +ₗ (last + fsz)%nat +ₗ (i - (last + fsz))%nat.
@@ -859,7 +859,7 @@ Proof.
     specialize (Eq2 _ Le1). rewrite -Eql in Eq2. rewrite -HF1.
     + by exists false.
     + intros ??. rewrite shift_loc_assoc -Nat2Z.inj_add.
-      intros ?%shift_loc_inj%Z_of_nat_inj. subst i. lia.
+      intros ?%shift_loc_inj%Nat2Z.inj. subst i. lia.
 Qed.
 
 
@@ -928,10 +928,10 @@ Proof.
     + intros i [Le Lt].
       case (decide (l1 ≤ i)%nat) => [Gel1|Ltl1].
       * rewrite -IH21; [by apply IH12|].
-        intros j [Lej Ltj] ?%shift_loc_inj%Z_of_nat_inj. subst j. lia.
+        intros j [Lej Ltj] ?%shift_loc_inj%Nat2Z.inj. subst j. lia.
       * apply Nat.nle_gt in Ltl1.
         rewrite IH11; [by apply IH22|].
-        intros j [Lej Ltj] ?%shift_loc_inj%Z_of_nat_inj. subst j. lia.
+        intros j [Lej Ltj] ?%shift_loc_inj%Nat2Z.inj. subst j. lia.
 Qed.
 
 Lemma visit_freeze_sensitive_stacks_unchanged l
@@ -965,14 +965,14 @@ Proof.
     + rewrite HF1.
       * apply EQ2. split; [lia|done].
       * intros j Ltj. rewrite shift_loc_assoc_nat.
-        intros ?%shift_loc_inj%Z_of_nat_inj. subst i. lia.
+        intros ?%shift_loc_inj%Nat2Z.inj. subst i. lia.
     + apply Nat.nlt_ge in Gel1. rewrite -EQ1.
       * have Ltc1: (i - l1 < c1)%nat by lia.
         specialize (HF2 _ Ltc1).
         have Eql: l +ₗ l1 +ₗ (i - l1)%nat = l +ₗ i.
         { rewrite shift_loc_assoc_nat. f_equal. lia. }
         rewrite Eql in HF2. by exists true.
-      * intros j [_ Ltj] ?%shift_loc_inj%Z_of_nat_inj. subst i. lia.
+      * intros j [_ Ltj] ?%shift_loc_inj%Nat2Z.inj. subst i. lia.
 Qed.
 
 Lemma reborrowN_lookup_case (α1 α2 : stacks) cids l n old new pm protector

@@ -243,10 +243,10 @@ Section coinductive_inductive_fairness.
     intros Hfair i Henabled.
     feed pose proof (Hfair i) as Hsteps.
     - destruct Henabled as (m & Hen). exists (m + n).
-      intros n' (n'' & ->)%nat_le_sum.
+      intros n' (n'' & ->)%Nat.le_sum.
       feed pose proof (Hen (m + n'')) as Hen; first lia.
       simpl in Hen. by replace (m + n + n'') with (n + (m + n'')) by lia.
-    - intros k. destruct (Hsteps (n + k)) as (m' & (m & ->)%nat_le_sum & Hstep).
+    - intros k. destruct (Hsteps (n + k)) as (m' & (m & ->)%Nat.le_sum & Hstep).
       exists (k + m). split; first lia. simpl.
       by replace (n + (k + m)) with (n + k + m) by lia.
   Qed.
