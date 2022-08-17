@@ -220,7 +220,7 @@ Module W.
   Lemma to_expr_subst x v e :
     to_expr (subst x v e) = simp_lang.subst x v (to_expr e).
   Proof.
-    elim: e => /= *.
+    elim: e; simpl; intros.
     all: (repeat case_decide => //=); f_equal; eauto.
     - by rewrite -subst_map_subst subst_map_empty.
     - by rewrite -subst_map_subst subst_map_empty.
@@ -283,7 +283,7 @@ Module W.
   Lemma to_expr_combine_subst_map xs e :
     to_expr (combine_subst_map xs e) = subst_map (list_to_map xs) (to_expr e).
   Proof.
-    elim: e xs => [^ e] /= xs; rewrite ?to_expr_add_substmap //=.
+    elim: e xs; simpl; intros; rewrite ?to_expr_add_substmap //=.
     { revert select (∀ xs, _) => ->. by rewrite list_to_map_app subst_map_subst_map. }
     all: do 2 f_equal.
     all: repeat match goal with | H : ∀ xs, _ |- _ => specialize (H []) end.
@@ -351,7 +351,7 @@ Module W.
   Lemma to_expr_is_closed xs e:
     is_closed xs e → simp_lang.free_vars (to_expr e) ⊆ list_to_set xs.
   Proof.
-    elim: e xs => [^ e] //= xs Hx.
+    elim: e xs; simpl; try done; intros.
     all: destruct_and?.
     all: repeat match goal with | H : (∀ xs, _) |- _ => specialize (H _ ltac:(done)) end.
     { etrans; [eassumption|]. set_unfold => ??. by apply: elem_of_submseteq. }
