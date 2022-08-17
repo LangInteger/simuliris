@@ -220,7 +220,7 @@ Module W.
   Lemma to_expr_subst x v e :
     to_expr (subst x v e) = simp_lang.subst x v (to_expr e).
   Proof.
-    elim: e => /= [^ e].
+    elim: e => /= *.
     all: (repeat case_decide => //=); f_equal; eauto.
     - by rewrite -subst_map_subst subst_map_empty.
     - by rewrite -subst_map_subst subst_map_empty.
