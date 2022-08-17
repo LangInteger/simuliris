@@ -35,10 +35,10 @@ Lemma tac_target_red_pure Δ n e_t e_t' K_t Ψ (ϕ : Prop):
   envs_entails Δ (target_red (fill K_t e_t') Ψ : iProp Σ) →
   envs_entails Δ (target_red (fill K_t e_t) Ψ).
 Proof.
-  intros ? ?. rewrite envs_entails_unseal.
+  intros ? ?. rewrite envs_entails_unseal. intros ->.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
-  rewrite target_red_lift_pure //.
+  apply: target_red_lift_pure. done.
 Qed.
 
 Lemma tac_source_red_pure Δ n e_s e_s' K_s Ψ π (ϕ : Prop):
@@ -47,10 +47,10 @@ Lemma tac_source_red_pure Δ n e_s e_s' K_s Ψ π (ϕ : Prop):
   envs_entails Δ (source_red (fill K_s e_s') π Ψ : iProp Σ) →
   envs_entails Δ (source_red (fill K_s e_s) π Ψ).
 Proof.
-  intros ? ?. rewrite envs_entails_unseal.
+  intros ? ?. rewrite envs_entails_unseal. intros ->.
   (* We want [pure_exec_fill] to be available to TC search locally. *)
   pose proof @pure_exec_ctx.
-  rewrite source_red_lift_pure //.
+  apply: source_red_lift_pure. done.
 Qed.
 
 Lemma tac_target_red_base e_t Ψ Δ :

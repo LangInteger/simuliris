@@ -21,6 +21,7 @@ Section lang.
   succeeding when it did not actually do anything. *)
   Class PureExec (φ : Prop) (n : nat) (e1 e2 : expr Λ) :=
     pure_exec : φ → nsteps pure_step n e1 e2.
+  Global Hint Mode PureExec - - ! - : typeclass_instances.
 
   Coercion fill : ectx >-> Funclass.
   Lemma pure_step_ctx (K : ectx Λ) e1 e2 :
