@@ -128,9 +128,9 @@ Section lang.
 End lang.
 
 #[global]
-Hint Mode SafeImplies - - - + - : core.
+Hint Mode SafeImplies + - - ! - : core.
 #[global]
-Hint Mode PureExec - - - + - : core.
+Hint Mode PureExec + - - ! - : core.
 
 Section fix_sim.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP}.
