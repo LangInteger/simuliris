@@ -139,7 +139,7 @@ Section fix_bi.
     target_load. destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_call; [done..|].
-      iIntros (v_t v_s) "Hv". iApply lift_post_val. target_store. sim_pures. iApply sim_expr_base.
+      iIntros (v_t v_s) "Hv'". iApply lift_post_val. target_store. sim_pures. iApply sim_expr_base.
       iRight. iExists _. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
@@ -160,7 +160,7 @@ Section fix_bi.
     destruct b; sim_pures.
     - sim_bind (Call _ _) (Call _ _).
       iApply sim_call; [done..|].
-      iIntros (v_t v_s) "Hv". iApply lift_post_val. source_store. sim_pures. iApply sim_expr_base.
+      iIntros (v_t v_s) "Hv'". iApply lift_post_val. source_store. sim_pures. iApply sim_expr_base.
       iRight. iExists v_t. eauto.
     - iApply sim_expr_base. iLeft. iExists #(), #(); eauto.
   Qed.
