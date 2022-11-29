@@ -610,7 +610,7 @@ Section lemmas.
   Proof. unseal. apply _. Qed.
 
     Local Lemma tkmap_elems_unseal γ m :
-    ([∗ map] k ↦ v' ∈ m, k ↪[γ]{v'.1} v'.2) ==∗
+    ([∗ map] k ↦ (v':_*_) ∈ m, k ↪[γ]{v'.1} v'.2) ==∗
     own γ ([^op map] k↦v' ∈ m, tkmap_view_frag (V:=leibnizO V) k v'.1 v'.2).
   Proof.
     unseal. destruct (decide (m = ∅)) as [->|Hne].
@@ -654,7 +654,7 @@ Section lemmas.
   (** * Lemmas about [tkmap_auth] *)
   Lemma tkmap_alloc_strong P m :
     pred_infinite P →
-    ⊢ |==> ∃ γ, ⌜P γ⌝ ∗ tkmap_auth γ 1 m ∗ [∗ map] k ↦ v' ∈ m, k ↪[γ]{v'.1} v'.2.
+    ⊢ |==> ∃ γ, ⌜P γ⌝ ∗ tkmap_auth γ 1 m ∗ [∗ map] k ↦ (v':_*_) ∈ m, k ↪[γ]{v'.1} v'.2.
   Proof.
     unseal. intros.
     iMod (own_alloc_strong (tkmap_view_auth (V:=leibnizO V) 1 ∅) P)
@@ -673,7 +673,7 @@ Section lemmas.
     intros. iMod (tkmap_alloc_strong P ∅) as (γ) "(% & Hauth & _)"; eauto.
   Qed.
   Lemma tkmap_alloc m :
-    ⊢ |==> ∃ γ, tkmap_auth γ 1 m ∗ [∗ map] k ↦ v' ∈ m, k ↪[γ]{v'.1} v'.2.
+    ⊢ |==> ∃ γ, tkmap_auth γ 1 m ∗ [∗ map] k ↦ (v':_*_) ∈ m, k ↪[γ]{v'.1} v'.2.
   Proof.
     iMod (tkmap_alloc_strong (λ _, True) m) as (γ) "[_ Hmap]".
     - by apply pred_infinite_True.
@@ -764,7 +764,7 @@ Section lemmas.
   (** Big-op versions of above lemmas *)
   Lemma tkmap_lookup_big {γ q m} m0 :
     tkmap_auth γ q m -∗
-    ([∗ map] k↦v' ∈ m0, k ↪[γ]{v'.1} v'.2) -∗
+    ([∗ map] k↦(v':_*_) ∈ m0, k ↪[γ]{v'.1} v'.2) -∗
     ⌜m0 ⊆ m⌝.
   Proof.
     iIntros "Hauth Hfrag". rewrite map_subseteq_spec. iIntros (k [] Hm0).
@@ -776,7 +776,7 @@ Section lemmas.
   Lemma tkmap_insert_big {γ m} m' :
     m' ##ₘ m →
     tkmap_auth γ 1 m ==∗
-    tkmap_auth γ 1 (m' ∪ m) ∗ ([∗ map] k ↦ v' ∈ m', k ↪[γ]{v'.1} v'.2).
+    tkmap_auth γ 1 (m' ∪ m) ∗ ([∗ map] k ↦ (v':_*_) ∈ m', k ↪[γ]{v'.1} v'.2).
   Proof.
     unseal. intros ?. rewrite -big_opM_own_1 -own_op.
     apply own_update. apply: tkmap_view_alloc_big; done.

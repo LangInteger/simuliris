@@ -9,7 +9,6 @@ From iris.prelude Require Import options.
 Lemma wf_init_state : state_wf init_state.
 Proof.
   constructor; simpl; try (intros ?; set_solver).
-  intros c Hc%elem_of_singleton_1. lia.
 Qed.
 
 (** Steps preserve wellformedness *)

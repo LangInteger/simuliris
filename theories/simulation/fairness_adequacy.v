@@ -183,7 +183,8 @@ Qed.
 *)
 
 
-Definition csim_expr_all π (P: list (expr Λ * expr Λ)) := ([∗ list] i↦p ∈ P, csim_expr (lift_post (ext_rel (π + i))) (π + i) (fst p) (snd p))%I.
+Definition csim_expr_all π (P: list (expr Λ * expr Λ)) :=
+  ([∗ list] i↦(p:_*_) ∈ P, csim_expr (lift_post (ext_rel (π + i))) (π + i) (fst p) (snd p))%I.
 Notation must_step_all π := (must_step (csim_expr_all π)).
 
 
@@ -251,7 +252,7 @@ Proof.
 Qed.
 
 Definition csim_expr_all_wo π P O :=
-  ([∗ list] k ↦ p ∈ P, if (decide (k ∈ O)) then emp else csim_expr (lift_post (ext_rel (π + k))) (π + k) (fst p) (snd p))%I.
+  ([∗ list] k ↦ (p:_*_) ∈ P, if (decide (k ∈ O)) then emp else csim_expr (lift_post (ext_rel (π + k))) (π + k) (fst p) (snd p))%I.
 
 Lemma csim_expr_all_to_wo P π:
   csim_expr_all π P ≡ csim_expr_all_wo π P ∅.

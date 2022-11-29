@@ -453,7 +453,7 @@ Section data_race.
         apply: safe_reach_safe_implies => ?.
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
       }
-      iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
+      iIntros (q v_t v_s) "{Hv} Hl_t Hl_s #Hv Hc".
       iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne2.
       source_load. sim_pures. source_load. sim_pures.
       source_bind (_ + _)%E. iApply source_red_safe_implies.
