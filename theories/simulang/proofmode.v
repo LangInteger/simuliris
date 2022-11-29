@@ -607,7 +607,7 @@ Tactic Notation "target_pure" open_constr(efoc) :=
     reshape_expr e_t ltac:(fun K_t e_t' =>
       unify e_t' efoc;
       eapply (tac_target_red_pure _ _ e_t' _ K_t _ _);
-      [ iSolveTC                       (* PureExec *)
+      [ tc_solve                       (* PureExec *)
       | try solve_vals_compare_safe    (* The pure condition for PureExec --
          handles trivial goals, including [vals_compare_safe] *)
       | target_finish                      (* new goal *)
@@ -653,7 +653,7 @@ Tactic Notation "source_pure" open_constr(efoc) :=
     reshape_expr e_s ltac:(fun K_s e_s' =>
       unify e_s' efoc;
       eapply (tac_source_red_pure _ _ _ e_s' _ K_s _ _);
-      [ iSolveTC                       (* PureExec *)
+      [ tc_solve                       (* PureExec *)
       | try solve_vals_compare_safe    (* The pure condition for PureExec --
          handles trivial goals, including [vals_compare_safe] *)
       | source_finish                      (* new goal *)
