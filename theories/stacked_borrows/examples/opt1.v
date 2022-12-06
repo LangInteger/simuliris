@@ -44,6 +44,8 @@ Definition ex1_opt : expr :=
     retag_place "x" (RefPtr Mutable) int Default #[ScCallId 0];;
     Call #[ScFnPtr "f"] #[] ;;
     *{int} "x" <- #[42] ;;
+    (* Turn v into a constant. That is actually easier than loading it
+    here since doing such a load would have to be justified. *)
     let: "v" := #[42] in
     Call #[ScFnPtr "g"] #[] ;;
     Free "x" ;;
