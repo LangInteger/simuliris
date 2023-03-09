@@ -67,7 +67,7 @@ Section gen_prog.
   Lemma has_prog_agree p1 p2 : has_prog p1 -∗ has_prog p2 -∗ ⌜p1 = p2⌝.
   Proof.
     iIntros "Hp1 Hp2".
-    iDestruct (own_valid_2 with "Hp1 Hp2") as %Hval.
+    iCombine "Hp1 Hp2" gives %Hval.
     setoid_rewrite to_agree_op_valid_L in Hval. done.
   Qed.
 

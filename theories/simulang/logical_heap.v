@@ -155,7 +155,7 @@ Section globals.
     heap_globals γ gs1 -∗ heap_globals γ gs2 -∗ ⌜gs1 = gs2⌝.
   Proof.
     rewrite heap_globals_eq. iIntros "H1 H2".
-    iDestruct (own_valid_2 with "H1 H2") as %Hvalid.
+    iCombine "H1 H2" gives %Hvalid.
     move: Hvalid => /to_agree_op_valid. by fold_leibniz.
   Qed.
 
@@ -350,7 +350,7 @@ Section heap.
   Proof.
     rewrite heap_block_size_eq.
     iIntros (?) "(%&->&Hl1) (%&->&Hl2)"; simplify_eq/=.
-    by iDestruct (ghost_map_elem_valid_2 with "Hl1 Hl2") as %[? ?].
+    by iCombine "Hl1 Hl2" gives %[? ?].
   Qed.
 
   Lemma heap_block_size_rel_stable σ h l p :
@@ -567,7 +567,7 @@ Section heap.
         h !! l = Some (match ls with RSt n => RSt (n+n') | WSt => WSt end, v)⌝.
   Proof.
     iIntros "H● H◯".
-    iDestruct (own_valid_2 with "H● H◯") as %[Hl?]%auth_both_valid_discrete.
+    iCombine "H● H◯" gives %[Hl?]%auth_both_valid_discrete.
     iPureIntro. move: Hl=> /singleton_included_l [[[q' ls'] dv]].
     rewrite /to_heap lookup_fmap fmap_Some_equiv.
     move=> [[[ls'' v'] [?[[/=??]->]]]]; simplify_eq.
@@ -586,7 +586,7 @@ Section heap.
     ⌜h !! l = Some (ls, v)⌝.
   Proof.
     iIntros "H● H◯".
-    iDestruct (own_valid_2 with "H● H◯") as %[Hl?]%auth_both_valid_discrete.
+    iCombine "H● H◯" gives %[Hl?]%auth_both_valid_discrete.
     iPureIntro. move: Hl=> /singleton_included_l [[[q' ls'] dv]].
     rewrite /to_heap lookup_fmap fmap_Some_equiv.
     move=> [[[ls'' v'] [?[[/=??]->]]] Hincl]; simplify_eq.

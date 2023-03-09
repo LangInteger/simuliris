@@ -108,6 +108,12 @@ Section gen_heap.
   Proof. split; [done|]. apply _. Qed.
   Global Instance mapsto_persistent l v : Persistent (l ↦□ v).
   Proof. rewrite mapsto_eq. apply _. Qed.
+  Global Instance mapsto_combine_sep_gives l dq1 dq2 v1 v2 :
+    CombineSepGives (l ↦{dq1} v1) (l ↦{dq2} v2) ⌜✓ (dq1 ⋅ dq2) ∧ v1 = v2⌝ | 20.
+  Proof.
+    rewrite /CombineSepGives mapsto_eq. iIntros "[H1 H2]".
+    iCombine "H1 H2" gives %[??]%gmap_view_frag_op_valid_L; auto.
+  Qed.
 
   Lemma mapsto_valid l dq v : l ↦{dq} v -∗ ⌜✓ dq⌝%Qp.
   Proof.
@@ -115,18 +121,10 @@ Section gen_heap.
     iDestruct (own_valid with "Hl") as %?%gmap_view_frag_valid. done.
   Qed.
   Lemma mapsto_valid_2 l dq1 dq2 v1 v2 : l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ ⌜✓ (dq1 ⋅ dq2) ∧ v1 = v2⌝.
-  Proof.
-    rewrite mapsto_eq. iIntros "H1 H2".
-    iDestruct (own_valid_2 with "H1 H2") as %[??]%gmap_view_frag_op_valid_L.
-    auto.
-  Qed.
+  Proof. iIntros "H1 H2". by iCombine "H1 H2" gives %[]. Qed.
   (** Almost all the time, this is all you really need. *)
   Lemma mapsto_agree l dq1 dq2 v1 v2 : l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ ⌜v1 = v2⌝.
-  Proof.
-    iIntros "H1 H2".
-    iDestruct (mapsto_valid_2 with "H1 H2") as %[_ ?].
-    done.
-  Qed.
+  Proof. iIntros "H1 H2". by iCombine "H1 H2" gives %[]. Qed.
 
   Lemma mapsto_combine l dq1 dq2 v1 v2 :
     l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ l ↦{dq1 ⋅ dq2} v1 ∗ ⌜v1 = v2⌝.
@@ -141,7 +139,7 @@ Section gen_heap.
     ¬ ✓(dq1 ⋅ dq2) → l1 ↦{dq1} v1 -∗ l2 ↦{dq2} v2 -∗ ⌜l1 ≠ l2⌝.
   Proof.
     iIntros (?) "Hl1 Hl2"; iIntros (->).
-    by iDestruct (mapsto_valid_2 with "Hl1 Hl2") as %[??].
+    by iCombine "Hl1 Hl2" gives %[??].
   Qed.
   Lemma mapsto_ne l1 l2 dq2 v1 v2 : l1 ↦ v1 -∗ l2 ↦{dq2} v2 -∗ ⌜l1 ≠ l2⌝.
   Proof. apply mapsto_frac_ne. intros ?%exclusive_l; [done|apply _]. Qed.
@@ -171,8 +169,8 @@ Section gen_heap.
   Proof.
     rewrite meta_token_eq /meta_token_def.
     iDestruct 1 as (γm1) "[#Hγm1 Hm1]". iDestruct 1 as (γm2) "[#Hγm2 Hm2]".
-    iDestruct (own_valid_2 with "Hγm1 Hγm2") as %[_ ->]%gmap_view_frag_op_valid_L.
-    iDestruct (own_valid_2 with "Hm1 Hm2") as %?%reservation_map_token_valid_op.
+    iCombine "Hγm1 Hγm2" gives %[_ ->]%gmap_view_frag_op_valid_L.
+    iCombine "Hm1 Hm2" gives %?%reservation_map_token_valid_op.
     iExists γm2. iFrame "Hγm2". rewrite reservation_map_token_union //. by iSplitL "Hm1".
   Qed.
   Lemma meta_token_union l E1 E2 :
@@ -194,8 +192,8 @@ Section gen_heap.
   Proof.
     rewrite meta_eq /meta_def.
     iDestruct 1 as (γm1) "[Hγm1 Hm1]"; iDestruct 1 as (γm2) "[Hγm2 Hm2]".
-    iDestruct (own_valid_2 with "Hγm1 Hγm2") as %[_ ->]%gmap_view_frag_op_valid_L.
-    iDestruct (own_valid_2 with "Hm1 Hm2") as %Hγ; iPureIntro.
+    iCombine "Hγm1 Hγm2" gives %[_ ->]%gmap_view_frag_op_valid_L.
+    iCombine "Hm1 Hm2" gives %Hγ; iPureIntro.
     move: Hγ. rewrite -reservation_map_data_op reservation_map_data_valid.
     move=> /to_agree_op_inv_L. naive_solver.
   Qed.
@@ -248,7 +246,7 @@ Section gen_heap.
   Proof.
     iDestruct 1 as (m Hσm) "[Hσ _]". iIntros "Hl".
     rewrite /gen_heap_interp mapsto_eq.
-    by iDestruct (own_valid_2 with "Hσ Hl") as %[??]%gmap_view_both_valid_L.
+    by iCombine "Hσ Hl" gives %[??]%gmap_view_both_valid_L.
   Qed.
 
   Lemma gen_heap_update σ l v1 v2 :
@@ -256,7 +254,7 @@ Section gen_heap.
   Proof.
     iDestruct 1 as (m Hσm) "[Hσ Hm]".
     iIntros "Hl". rewrite /gen_heap_interp mapsto_eq /mapsto_def.
-    iDestruct (own_valid_2 with "Hσ Hl") as %[_ Hl]%gmap_view_both_valid_L.
+    iCombine "Hσ Hl" gives %[_ Hl]%gmap_view_both_valid_L.
     iMod (own_update_2 with "Hσ Hl") as "[Hσ Hl]".
     { eapply gmap_view_update. }
     iModIntro. iFrame "Hl". iExists m. iFrame.
