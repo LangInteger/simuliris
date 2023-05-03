@@ -11,7 +11,7 @@ Class Lattice (L: Type) (leq: relation L) `{!Equiv L} := {
   inf_is_greatest_lower_bound l (A: L → Prop):
     (∀ l', A l' → leq l l') → leq l (inf A);
   lattice_anti_symm: AntiSymm equiv leq;
-  lattice_leq_proper:> Proper (equiv ==> equiv ==> iff) leq;
+  lattice_leq_proper:: Proper (equiv ==> equiv ==> iff) leq;
   lattice_preorder: PreOrder leq;
   lattice_equivalence: @Equivalence L equiv;
 }.

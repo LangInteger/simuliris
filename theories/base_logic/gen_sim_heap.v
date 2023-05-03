@@ -20,13 +20,13 @@ Import uPred.
 (** The CMRAs we need, and the global ghost names we are using. *)
 
 Class gen_heapGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
-  gen_heap_pre_heapG :> inG Σ (gmap_viewR L (leibnizO V));
-  gen_heap_pre_metaG :> inG Σ (gmap_viewR L gnameO);
-  gen_heap_pre_dataG :> inG Σ (reservation_mapR (agreeR positiveO));
+  gen_heap_pre_heapG :: inG Σ (gmap_viewR L (leibnizO V));
+  gen_heap_pre_metaG :: inG Σ (gmap_viewR L gnameO);
+  gen_heap_pre_dataG :: inG Σ (reservation_mapR (agreeR positiveO));
 }.
 
 Class gen_heapGS_named (L V : Type) (Σ : gFunctors) (gen_heap_name : gname) (gen_meta_name : gname)  `{Countable L} := GenHeapGSNamed {
-  gen_heap_named_GpreS :> gen_heapGpreS L V Σ
+  gen_heap_named_GpreS :: gen_heapGpreS L V Σ
 }.
 
 (** Variant for refinements between two languages *)
@@ -35,8 +35,8 @@ Class gen_sim_heapGS (L_t L_s V_t V_s : Type) (Σ : gFunctors) `{Countable L_s, 
   gen_meta_name_target : gname;
   gen_heap_name_source : gname;
   gen_meta_name_source : gname;
-  gen_heap_inG_source :> gen_heapGS_named L_s V_s Σ gen_heap_name_source gen_meta_name_source;
-  gen_heap_inG_target :> gen_heapGS_named L_t V_t Σ gen_heap_name_target gen_meta_name_target;
+  gen_heap_inG_source :: gen_heapGS_named L_s V_s Σ gen_heap_name_source gen_meta_name_source;
+  gen_heap_inG_target :: gen_heapGS_named L_t V_t Σ gen_heap_name_target gen_meta_name_target;
 }.
 Global Arguments GenSimHeapGS L_t L_s V_t V_s Σ {_ _ _ _} _ _ _ _ {_ _}.
 Global Arguments gen_heap_name_source {L_t L_s V_t V_s Σ _ _ _ _} _ : assert.

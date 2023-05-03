@@ -13,9 +13,9 @@ From iris.prelude Require Import options.
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap and includes reasoning about data-races. *)
 
 Class naGS (Σ : gFunctors) := NaGS {
-  naGS_heapGS :> sheapGS Σ;
-  naGS_bijGS :> heapbijGS Σ;
-  naGS_col_mapG :> ghost_mapG Σ nat (gmap loc (loc * na_locs_state));
+  naGS_heapGS :: sheapGS Σ;
+  naGS_bijGS :: heapbijGS Σ;
+  naGS_col_mapG :: ghost_mapG Σ nat (gmap loc (loc * na_locs_state));
   naGS_col_name : gname;
 }.
 

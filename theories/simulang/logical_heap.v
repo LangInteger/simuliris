@@ -19,9 +19,9 @@ Definition heapUR : ucmra :=
   gmapUR loc (prodR (prodR fracR lock_stateR) (agreeR valO)).
 
 Class heapG Σ := HeapG {
-  heap_inG :> inG Σ (authR heapUR);
-  heap_block_size_inG :> ghost_mapG Σ loc (option nat);
-  heap_globals_inG :> inG Σ (agreeR (leibnizO (gset string)));
+  heap_inG :: inG Σ (authR heapUR);
+  heap_block_size_inG :: ghost_mapG Σ loc (option nat);
+  heap_globals_inG :: inG Σ (agreeR (leibnizO (gset string)));
 }.
 Definition heapΣ := #[GFunctor (authR heapUR); ghost_mapΣ loc (option nat); GFunctor (agreeR (leibnizO (gset string)))].
 
@@ -93,7 +93,7 @@ Section definitions.
          ∗ ⌜heap_wf σ⌝)%I.
 End definitions.
 
-Typeclasses Opaque heap_mapsto heap_block_size heap_mapsto_vec.
+Global Typeclasses Opaque heap_mapsto heap_block_size heap_mapsto_vec.
 Global Instance: Params (@heap_mapsto) 4 := {}.
 Global Instance: Params (@heap_block_size) 5 := {}.
 

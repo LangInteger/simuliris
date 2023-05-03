@@ -554,7 +554,7 @@ End lemmas.
   (*oFunctorContractive F → rFunctorContractive (gmap_viewRF K F).*)
 (*Proof. apply gmap_viewURF_contractive. Qed.*)
 
-Typeclasses Opaque tkmap_view_auth tkmap_view_frag.
+Global Typeclasses Opaque tkmap_view_auth tkmap_view_frag.
 
 
 
@@ -567,7 +567,7 @@ From iris.bi.lib Require Import fractional.
 FIXME: This is intentionally discrete-only, but
 should we support setoids via [Equiv]? *)
 Class tkmapG Σ (K V : Type) `{Countable K} := TkMapG {
-  tkmap_inG :> inG Σ (tkmap_viewR K (leibnizO V));
+  tkmap_inG :: inG Σ (tkmap_viewR K (leibnizO V));
 }.
 Definition tkmapΣ (K V : Type) `{Countable K} : gFunctors :=
   #[ GFunctor (tkmap_viewR K (leibnizO V)) ].

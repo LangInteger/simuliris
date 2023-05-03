@@ -11,8 +11,8 @@ From iris.prelude Require Import options.
 
 (** Whole-program adequacy. *)
 Class simpleGpreS Σ := {
-  sbij_pre_heapG :> sheapGpreS Σ;
-  sbij_pre_bijG :> heapbijGpreS Σ;
+  sbij_pre_heapG :: sheapGpreS Σ;
+  sbij_pre_bijG :: heapbijGpreS Σ;
 }.
 Definition simpleΣ := #[sheapΣ; heapbijΣ].
 

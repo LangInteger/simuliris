@@ -7,11 +7,11 @@ From iris.algebra.lib Require Import gset_bij.
 
 (** * General ghost state construction that provides assertions that particular parts of the source and target heaps are in a bijection *)
 Class gen_heap_bijGpreS `{gen_sim_heapGS L_t L_s V_t V_s Σ} := GenHeapBijGPreS {
-  gen_heap_bij_pre_bijG :> gset_bijG Σ L_t L_s;
+  gen_heap_bij_pre_bijG :: gset_bijG Σ L_t L_s;
 }.
 
 Class gen_heap_bijGS `{gen_sim_heapGS L_t L_s V_t V_s Σ} := GenHeapBijGS {
-  gen_heap_bij_bijG :> gset_bijG Σ L_t L_s;
+  gen_heap_bij_bijG :: gset_bijG Σ L_t L_s;
   gen_heap_bij_name : gname;
 }.
 Arguments GenHeapBijGS L_t L_s V_t V_s Σ {_ _ _ _ _ _} _.

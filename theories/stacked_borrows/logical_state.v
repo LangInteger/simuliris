@@ -13,42 +13,42 @@ From iris.prelude Require Import options.
 (** * BorLang ghost state *)
 Class bor_stateGS Σ := BorStateGS {
   (* Maintaining the locations protected by each call id *)
-  call_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
+  call_inG :: ghost_mapG Σ call_id (gmap ptr_id (gset loc));
   call_name : gname;
 
   (* tag ownership *)
-  tag_inG :> tkmapG Σ ptr_id unit;
+  tag_inG :: tkmapG Σ ptr_id unit;
   tag_name : gname;
 
   (* A view of parts of the heap, conditional on the ptr_id *)
-  heap_view_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
+  heap_view_inG :: ghost_mapG Σ (ptr_id * loc) scalar;
   heap_view_source_name : gname;
   heap_view_target_name : gname;
 
   (* Public call IDs *)
-  pub_call_inG :> ghost_mapG Σ call_id unit;
+  pub_call_inG :: ghost_mapG Σ call_id unit;
   pub_call_name : gname;
 
   (* Tainted tags: a set of tag * source location *)
-  tainted_tag_collection :> ghost_mapG Σ (ptr_id * loc) unit;
+  tainted_tag_collection :: ghost_mapG Σ (ptr_id * loc) unit;
   tainted_tags_name : gname;
 }.
 
 Class bor_stateGpreS Σ := {
   (* Maintaining the locations protected by each call id *)
-  call_pre_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
+  call_pre_inG :: ghost_mapG Σ call_id (gmap ptr_id (gset loc));
 
   (* tag ownership *)
-  tag_pre_inG :> tkmapG Σ ptr_id unit;
+  tag_pre_inG :: tkmapG Σ ptr_id unit;
 
   (* A view of parts of the heap, conditional on the ptr_id *)
-  heap_view_pre_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
+  heap_view_pre_inG :: ghost_mapG Σ (ptr_id * loc) scalar;
 
   (* Public call IDs *)
-  pub_call_pre_inG :> ghost_mapG Σ call_id unit;
+  pub_call_pre_inG :: ghost_mapG Σ call_id unit;
 
   (* Tainted tags: a set of tag * source location *)
-  tainted_tag_pre_collection :> ghost_mapG Σ (ptr_id * loc) unit;
+  tainted_tag_pre_collection :: ghost_mapG Σ (ptr_id * loc) unit;
 }.
 
 Definition bor_stateΣ : gFunctors := (#[ghost_mapΣ call_id (gmap ptr_id (gset loc)); ghost_mapΣ (ptr_id * loc) scalar; ghost_mapΣ call_id unit; ghost_mapΣ (ptr_id * loc) unit; tkmapΣ ptr_id unit]).
@@ -1290,13 +1290,13 @@ End val_rel.
 (** Simulation / relation final setup *)
 Class sborGS (Σ: gFunctors) := SBorGS {
   (* program assertions *)
-  sborG_gen_progG :> gen_sim_progGS string (string*expr) (string*expr) Σ;
-  sborG_stateG :> bor_stateGS Σ;
+  sborG_gen_progG :: gen_sim_progGS string (string*expr) (string*expr) Σ;
+  sborG_stateG :: bor_stateGS Σ;
 }.
 Definition sborΣ : gFunctors := (#[bor_stateΣ; gen_progΣ string (string*expr)]).
 Class sborGpreS (Σ: gFunctors) := SBorGpreS {
-  sbor_pre_stateG :> bor_stateGpreS Σ | 10;
-  sbor_pre_progG :> gen_progGpreS Σ string (string*expr) | 10;
+  sbor_pre_stateG :: bor_stateGpreS Σ | 10;
+  sbor_pre_progG :: gen_progGpreS Σ string (string*expr) | 10;
 }.
 
 Global Instance subG_sborΣ Σ :

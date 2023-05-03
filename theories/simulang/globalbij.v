@@ -69,4 +69,4 @@ Section globalbij.
   Qed.
 End globalbij.
 
-Typeclasses Opaque globalbij_interp.
+Global Typeclasses Opaque globalbij_interp.

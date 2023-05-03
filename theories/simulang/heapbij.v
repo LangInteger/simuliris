@@ -15,11 +15,11 @@ From simuliris.simulang Require Import notation gen_val_rel primitive_laws.
 From iris.prelude Require Import options.
 
 Class heapbijGS (Σ : gFunctors) := HeapBijGS {
-  heapbijG_bijG :> gset_bijG Σ block block;
+  heapbijG_bijG :: gset_bijG Σ block block;
   heapbijG_bij_name : gname;
 }.
 Class heapbijGpreS (Σ: gFunctors) := HeapBijGpreS {
-  sbij_pre_progG :> gset_bijG Σ block block;
+  sbij_pre_progG :: gset_bijG Σ block block;
 }.
 Definition heapbijΣ := #[gset_bijΣ block block].
 Global Instance subG_heapbijΣ Σ :

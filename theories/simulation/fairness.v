@@ -113,7 +113,6 @@ Proof.
   revert p T σ f; induction n as [|n IH]; intros p T σ f.
   - destruct (exec_diverges _ _ _ f) as (-> & -> & ?); constructor.
   - rewrite div_exec_trace_succ.  econstructor; eauto using div_exec_next_step.
-    simpl. eapply IH.
 Qed.
 
 

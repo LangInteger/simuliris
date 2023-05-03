@@ -20,14 +20,14 @@ Class sheapGS (Σ: gFunctors) := SHeapGS {
   (* These instances need to have a lower priority than the sheapGpreS
   instances as otherwise the statement of [simplang_adequacy] uses the
   wrong instance. *)
-  sheapG_gen_progG :> gen_sim_progGS string func func Σ | 1;
-  sheapG_heapG :> heapG Σ | 1;
+  sheapG_gen_progG :: gen_sim_progGS string func func Σ | 1;
+  sheapG_heapG :: heapG Σ | 1;
   sheapG_heap_target : heap_names;
   sheapG_heap_source : heap_names;
 }.
 Class sheapGpreS (Σ: gFunctors) := SHeapGpreS {
-  sbij_pre_heapG :> heapG Σ | 10;
-  sbij_pre_progG :> gen_progGpreS Σ string func | 10;
+  sbij_pre_heapG :: heapG Σ | 10;
+  sbij_pre_progG :: gen_progGpreS Σ string func | 10;
 }.
 Definition sheapΣ := #[heapΣ; gen_progΣ string func].
 Global Instance subG_sheapΣ Σ :

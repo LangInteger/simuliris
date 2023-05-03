@@ -8,7 +8,7 @@ Class Language := {
   expr: Type;
   step: expr → expr → list expr → Prop;
   val: expr → Prop;
-  is_val:> ∀ e, Decision (val e);
+  is_val:: ∀ e, Decision (val e);
   val_no_step: ∀ e, val e → ¬ ∃ e' efs, step e e' efs;
 }.
 

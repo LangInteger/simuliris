@@ -11,9 +11,9 @@ From iris.prelude Require Import options.
 
 (** Whole-program adequacy. *)
 Class naGpreS Σ := {
-  na_pre_heapG :> sheapGpreS Σ;
-  na_pre_bijG :> heapbijGpreS Σ;
-  na_pre_col_mapG :> ghost_mapG Σ nat (gmap loc (loc * na_locs_state));
+  na_pre_heapG :: sheapGpreS Σ;
+  na_pre_bijG :: heapbijGpreS Σ;
+  na_pre_col_mapG :: ghost_mapG Σ nat (gmap loc (loc * na_locs_state));
 }.
 Definition naΣ := #[sheapΣ; heapbijΣ; ghost_mapΣ nat (gmap loc (loc * na_locs_state))].
 

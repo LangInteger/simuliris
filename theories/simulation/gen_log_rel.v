@@ -32,7 +32,7 @@ Section fix_lang.
   Definition prog_rel P_t P_s : PROP :=
     □ ∀ f fn_s, ⌜P_s !! f = Some fn_s⌝ →
        ∃ fn_t, ⌜P_t !! f = Some fn_t⌝ ∗ func_rel fn_t fn_s.
-  Typeclasses Opaque prog_rel.
+  Global Typeclasses Opaque prog_rel.
 
   Global Instance prog_rel_persistent P_t P_s : Persistent (prog_rel P_t P_s).
   Proof. rewrite /prog_rel; apply _. Qed.
@@ -246,4 +246,4 @@ End fix_lang.
 
 Arguments prog_rel : simpl never.
 Arguments gen_log_rel : simpl never.
-Typeclasses Opaque prog_rel gen_log_rel.
+Global Typeclasses Opaque prog_rel gen_log_rel.

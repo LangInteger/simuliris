@@ -11,8 +11,8 @@ From iris.prelude Require Import options.
 
 (** * Instance of the SimpLang program logic that provides a means of establishing bijections on the heap. *)
 Class simpleGS (Σ : gFunctors) := SimpleGS {
-  simpleGS_heapGS :> sheapGS Σ;
-  simpleGS_bijGS :> heapbijGS Σ;
+  simpleGS_heapGS :: sheapGS Σ;
+  simpleGS_bijGS :: heapbijGS Σ;
 }.
 
 Notation val_rel := (gen_val_rel loc_rel).

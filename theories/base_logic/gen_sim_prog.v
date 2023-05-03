@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 
 Local Definition gen_progR (F C : Type) `{Countable F} := agreeR (gmapO F (leibnizO C)).
 Class gen_progGpreS (Σ : gFunctors) (F C : Type) `{Countable F} := {
-  gen_prog_pre_inG :> inG Σ (gen_progR F C);
+  gen_prog_pre_inG :: inG Σ (gen_progR F C);
 }.
 Definition gen_progΣ (F C : Type) `{Countable F} := #[GFunctor (gen_progR F C)].
 
@@ -20,14 +20,14 @@ Proof. solve_inG. Qed.
 
 (* TODO: [Σ] should be the first parameter. *)
 Class gen_progGS_named (F C : Type) (Σ : gFunctors) (gen_prog_name : gname) `{Countable F} := GenProgGSNamed {
-  gen_prog_preNameG :> gen_progGpreS Σ F C
+  gen_prog_preNameG :: gen_progGpreS Σ F C
 }.
 
 Class gen_sim_progGS (F C_t C_s : Type) (Σ : gFunctors) `{Countable F} := GenSimProgG {
   gen_prog_name_target : gname;
   gen_prog_name_source : gname;
-  gen_prog_inG_source :> gen_progGS_named F C_s Σ gen_prog_name_source;
-  gen_prog_inG_target :> gen_progGS_named F C_t Σ gen_prog_name_target;
+  gen_prog_inG_source :: gen_progGS_named F C_s Σ gen_prog_name_source;
+  gen_prog_inG_target :: gen_progGS_named F C_t Σ gen_prog_name_target;
 }.
 
 Global Arguments GenSimProgG F C_t C_s Σ {_ _} _ _ {_ _}.
