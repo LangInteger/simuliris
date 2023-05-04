@@ -91,7 +91,7 @@ Section satisfiable.
     Qed.
 
     Lemma sat_frame_intro P F Q:
-      (P -∗ F ∗ Q) → sat P → sat_frame F Q.
+      (P ⊢ F ∗ Q) → sat P → sat_frame F Q.
     Proof.
       unfold sat_frame; eapply sat_mono.
     Qed.

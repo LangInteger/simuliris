@@ -747,7 +747,7 @@ Section lemmas.
     tk = tk_local ∨ tk = tk_unq →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (delete k m).
   Proof.
-    unseal => Htk. apply bi.wand_intro_r. rewrite -own_op.
+    unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -own_op.
     iApply own_update. by apply: tkmap_view_delete.
   Qed.
 
@@ -755,7 +755,7 @@ Section lemmas.
     tk = tk_local ∨ tk = tk_unq →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk, w)]> m) ∗ k ↪[γ]{tk} w.
   Proof.
-    unseal => Htk. apply bi.wand_intro_r. rewrite -!own_op.
+    unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -!own_op.
     apply own_update. by apply: tkmap_view_update.
   Qed.
 
@@ -777,7 +777,7 @@ Section lemmas.
     tkmap_auth γ 1 (m' ∪ m) ∗ ([∗ map] k ↦ (v':_*_) ∈ m', k ↪[γ]{v'.1} v'.2).
   Proof.
     unseal. intros ?. rewrite -big_opM_own_1 -own_op.
-    apply own_update. apply: tkmap_view_alloc_big; done.
+    apply bi.entails_wand, own_update. apply: tkmap_view_alloc_big; done.
   Qed.
 
   (*Lemma tkmap_delete_big {γ m} m0 :*)

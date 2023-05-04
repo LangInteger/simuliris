@@ -28,7 +28,7 @@ Program Instance : sheapInv Σ := {|
   sheap_inv _ _ _ := ⌜True⌝%I;
   sheap_ext_rel _ := val_rel;
  |}.
-Next Obligation. done. Qed.
+Next Obligation. auto. Qed.
 Global Instance : sheapInvStateIndependent.
 Proof. done. Qed.
 

@@ -807,7 +807,7 @@ Section tainted_tags.
 
   Lemma tag_tainted_interp_alloc σ l n :
     let nt := Tagged σ.(snp) in
-    tag_tainted_interp σ -∗ tag_tainted_interp (mkState (init_mem l n σ.(shp)) (init_stacks σ.(sst) l n nt) σ.(scs) (S σ.(snp)) σ.(snc)).
+    tag_tainted_interp σ ⊢ tag_tainted_interp (mkState (init_mem l n σ.(shp)) (init_stacks σ.(sst) l n nt) σ.(scs) (S σ.(snp)) σ.(snc)).
   Proof.
     intros nt. iIntros "Htainted".
     iApply (tag_tainted_interp_preserve σ with "Htainted"). { simpl. lia. }
@@ -1121,25 +1121,25 @@ Section val_rel.
 
   (* Inversion lemmas *)
   Lemma sc_rel_ptr_source sc_t l_s t_s :
-    sc_rel sc_t (ScPtr l_s t_s) -∗ ⌜sc_t = ScPtr l_s t_s⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
+    sc_rel sc_t (ScPtr l_s t_s) ⊢ ⌜sc_t = ScPtr l_s t_s⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
   Proof.
     iIntros "Hrel". destruct sc_t; [done | done | | done | done ].
     iDestruct "Hrel" as "(-> & [[-> ->] | (% & %t & -> & -> & -> & ?)])"; iFrame; done.
   Qed.
   Lemma sc_rel_fnptr_source sc_t fn :
-    sc_rel sc_t (ScFnPtr fn) -∗ ⌜sc_t = ScFnPtr fn⌝.
+    sc_rel sc_t (ScFnPtr fn) ⊢ ⌜sc_t = ScFnPtr fn⌝.
   Proof.
     iIntros "Hrel". destruct sc_t; [done | done | done | | done].
     by iDestruct "Hrel" as "->".
   Qed.
   Lemma sc_rel_int_source sc_t z :
-    sc_rel sc_t (ScInt z) -∗ ⌜sc_t = ScInt z⌝.
+    sc_rel sc_t (ScInt z) ⊢ ⌜sc_t = ScInt z⌝.
   Proof.
     iIntros "Hrel". destruct sc_t; [ done | | done..].
     by iDestruct "Hrel" as "->".
   Qed.
   Lemma sc_rel_cid_source sc_t c :
-    sc_rel sc_t (ScCallId c) -∗ ⌜sc_t = ScCallId c⌝ ∗ pub_cid c.
+    sc_rel sc_t (ScCallId c) ⊢ ⌜sc_t = ScCallId c⌝ ∗ pub_cid c.
   Proof. iIntros "Hrel"; destruct sc_t; [done.. | ]. by iDestruct "Hrel" as "[-> $]". Qed.
 
   Lemma sc_rel_poison_target sc_s :
@@ -1147,29 +1147,29 @@ Section val_rel.
   Proof. iIntros "Hrel". destruct sc_s; done. Qed.
 
   Lemma sc_rel_ptr_target sc_s l_t t_t :
-    sc_rel (ScPtr l_t t_t) sc_s -∗ (⌜sc_s = ScPtr l_t t_t⌝ ∗ (if t_t is Tagged t then t $$ tk_pub else True)) ∨ ⌜sc_s = ScPoison⌝.
+    sc_rel (ScPtr l_t t_t) sc_s ⊢ (⌜sc_s = ScPtr l_t t_t⌝ ∗ (if t_t is Tagged t then t $$ tk_pub else True)) ∨ ⌜sc_s = ScPoison⌝.
   Proof.
     iIntros "Hrel". destruct sc_s; [ by iRight | done | | done | done ].
     iDestruct "Hrel" as "(-> & [[-> ->] | (% & %t & -> & -> & -> & ?)])"; iLeft; iFrame; done.
   Qed.
   Lemma sc_rel_fnptr_target sc_s fn :
-    sc_rel (ScFnPtr fn) sc_s -∗ ⌜sc_s = ScFnPtr fn⌝ ∨ ⌜sc_s = ScPoison⌝.
+    sc_rel (ScFnPtr fn) sc_s ⊢ ⌜sc_s = ScFnPtr fn⌝ ∨ ⌜sc_s = ScPoison⌝.
   Proof.
     iIntros "Hrel". destruct sc_s; [by iRight | done | done | | done].
     iLeft. by iDestruct "Hrel" as "->".
   Qed.
   Lemma sc_rel_int_target sc_s z :
-    sc_rel (ScInt z) sc_s -∗ ⌜sc_s = ScInt z⌝ ∨ ⌜sc_s = ScPoison⌝.
+    sc_rel (ScInt z) sc_s ⊢ ⌜sc_s = ScInt z⌝ ∨ ⌜sc_s = ScPoison⌝.
   Proof.
     iIntros "Hrel". destruct sc_s; [ by iRight | | done..].
     iLeft. by iDestruct "Hrel" as "->".
   Qed.
   Lemma sc_rel_cid_target sc_s c :
-    sc_rel (ScCallId c) sc_s -∗ (⌜sc_s = ScCallId c⌝ ∗ pub_cid c) ∨ ⌜sc_s = ScPoison⌝.
+    sc_rel (ScCallId c) sc_s ⊢ (⌜sc_s = ScCallId c⌝ ∗ pub_cid c) ∨ ⌜sc_s = ScPoison⌝.
   Proof. iIntros "Hrel"; destruct sc_s; [ by iRight | done.. | ]. iLeft. by iDestruct "Hrel" as "[-> $]". Qed.
 
   Lemma rrel_place_source r_t l_s t_s T :
-    rrel r_t (PlaceR l_s t_s T) -∗
+    rrel r_t (PlaceR l_s t_s T) ⊢
     ⌜r_t = PlaceR l_s t_s T⌝ ∗ (if t_s is Tagged t then t $$ tk_pub else True).
   Proof.
     iIntros "Hrel".
@@ -1178,7 +1178,7 @@ Section val_rel.
     injection Heq as [= -> ->]. eauto.
   Qed.
   Lemma rrel_value_source r_t v_s :
-    rrel r_t (ValR v_s) -∗
+    rrel r_t (ValR v_s) ⊢
     ∃ v_t, ⌜r_t = ValR v_t⌝ ∗ value_rel v_t v_s.
   Proof.
     iIntros "Hrel". destruct r_t as [ v_t | ]; last done.
@@ -1193,7 +1193,7 @@ Section val_rel.
   Proof. by iApply big_sepL2_nil. Qed.
 
   Lemma value_rel_singleton_source v_t sc_s :
-    value_rel v_t [sc_s] -∗ ∃ sc_t, ⌜v_t = [sc_t]⌝ ∗ sc_rel sc_t sc_s.
+    value_rel v_t [sc_s] ⊢ ∃ sc_t, ⌜v_t = [sc_t]⌝ ∗ sc_rel sc_t sc_s.
   Proof.
     iIntros "Hv". iPoseProof (value_rel_length with "Hv") as "%Hlen".
     destruct v_t as [ | sc_t []]; [done | | done ].
@@ -1201,7 +1201,7 @@ Section val_rel.
   Qed.
 
   Lemma rrel_singleton_source r_t sc_s :
-    rrel r_t (ValR [sc_s]) -∗
+    rrel r_t (ValR [sc_s]) ⊢
     ∃ sc_t, ⌜r_t = ValR [sc_t]⌝ ∗ sc_rel sc_t sc_s.
   Proof.
     rewrite rrel_value_source. setoid_rewrite value_rel_singleton_source.

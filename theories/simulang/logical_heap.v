@@ -212,7 +212,7 @@ Section heap.
   Qed.
 
   Lemma heap_mapsto_combine_0 l q1 q2 v st:
-    l ↦{q1} v -∗ l ↦[st]{q2} v -∗
+    l ↦{q1} v ⊢ l ↦[st]{q2} v -∗
     l ↦[st]{q1 + q2} v.
   Proof.
     apply: wand_intro_r.
@@ -257,7 +257,7 @@ Section heap.
     rewrite singleton_op -pair_op singleton_valid => -[? /to_agree_op_inv_L->]; eauto.
   Qed.
 
-  Lemma heap_mapsto_valid l q v st : l ↦[st]{q} v -∗ ⌜(q ≤ 1)%Qp⌝.
+  Lemma heap_mapsto_valid l q v st : l ↦[st]{q} v ⊢ ⌜(q ≤ 1)%Qp⌝.
   Proof.
     rewrite heap_mapsto_eq. etrans; [apply: own_valid|]. iPureIntro.
     by rewrite auth_frag_valid singleton_valid !pair_valid => -[[??]?].
@@ -307,7 +307,7 @@ Section heap.
   Qed.
 
   Lemma heap_mapsto_vec_st_length l q vl sts:
-    l ↦∗[sts]{q} vl -∗ ⌜length sts = length vl⌝.
+    l ↦∗[sts]{q} vl ⊢ ⌜length sts = length vl⌝.
   Proof. apply big_sepL2_length. Qed.
 
   Lemma heap_mapsto_vec_to_st l q vl :
@@ -476,7 +476,7 @@ Section heap.
        ∗ own γ.(heap_name) (◯ [^op list] i ↦ v ∈ (replicate n v),
            {[l +ₗ i := (1%Qp, Cinr 0%nat, to_agree v)]}).
   Proof.
-    intros FREE. rewrite -own_op. apply own_update, auth_update_alloc.
+    intros FREE. rewrite -own_op. apply bi.entails_wand, own_update, auth_update_alloc.
     revert l FREE. induction n as [|n IH]=> l FRESH.
     { by rewrite left_id. }
     rewrite replicate_S (big_opL_consZ_l (λ k _, _ (_ k) _ )) /=.
@@ -523,7 +523,7 @@ Section heap.
       {[l +ₗ i := (1%Qp, to_lock_stateR v.1, to_agree v.2)]})
     ==∗ own γ.(heap_name) (● to_heap (free_mem l (length vl) h)).
   Proof.
-    rewrite -own_op => Hlen. apply own_update, auth_update_dealloc.
+    rewrite -own_op => Hlen. apply bi.entails_wand, own_update, auth_update_dealloc.
     revert h l sts Hlen. induction vl as [|v vl IH]=> h l; [by case |] => -[//|st sts][?].
     cbn [zip_with]. rewrite (big_opL_consZ_l (λ k _, _ (_ k) _ )) /= loc_add_0.
     apply local_update_total_valid=> _ Hvalid _.
@@ -602,7 +602,7 @@ Section heap.
         ∗ heap_mapsto γ l (RSt n2) q v.
   Proof.
     rewrite heap_mapsto_eq.
-    intros Hσv. apply wand_intro_r. rewrite -!own_op to_heap_insert.
+    intros Hσv. apply bi.entails_wand, wand_intro_r. rewrite -!own_op to_heap_insert.
     eapply own_update, auth_update, singleton_local_update.
     { by rewrite /to_heap lookup_fmap Hσv. }
     apply prod_local_update_1, prod_local_update_2, csum_local_update_r.
@@ -693,7 +693,7 @@ Section heap.
         ∗ heap_mapsto γ l st2 1%Qp v'.
   Proof.
     rewrite heap_mapsto_eq.
-    intros Hσv. apply wand_intro_r. rewrite -!own_op to_heap_insert.
+    intros Hσv. apply bi.entails_wand, wand_intro_r. rewrite -!own_op to_heap_insert.
     eapply own_update, auth_update, singleton_local_update.
     { by rewrite /to_heap lookup_fmap Hσv. }
     apply exclusive_local_update. by destruct st2.

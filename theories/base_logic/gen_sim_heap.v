@@ -147,7 +147,7 @@ Section gen_heap.
   (** Permanently turn any points-to predicate into a persistent
       points-to predicate. *)
   Lemma mapsto_persist l dq v : l ↦{dq} v ==∗ l ↦□ v.
-  Proof. rewrite mapsto_eq. apply own_update, gmap_view_frag_persist. Qed.
+  Proof. rewrite mapsto_eq. apply bi.entails_wand, own_update, gmap_view_frag_persist. Qed.
 
   (** General properties of [meta] and [meta_token] *)
   Global Instance meta_token_timeless l N : Timeless (meta_token l N).

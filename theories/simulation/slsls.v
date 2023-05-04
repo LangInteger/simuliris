@@ -475,7 +475,7 @@ Section fix_lang.
   Qed.
 
   Lemma sim_expr_bupd Φ π e_t e_s:
-    (e_t ⪯{π} e_s [{ λ e_t' e_s', |==> Φ e_t' e_s' }]) -∗ e_t ⪯{π} e_s [{ Φ }].
+    (e_t ⪯{π} e_s [{ λ e_t' e_s', |==> Φ e_t' e_s' }]) ⊢ e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "H". iApply (sim_expr_bupd_mono with "[] H").
     iIntros (??) "$".
@@ -500,7 +500,7 @@ Section fix_lang.
   Proof. solve_proper. Qed.
 
   Lemma sim_expr_bind K_t K_s e_t e_s Φ π :
-    e_t ⪯{π} e_s [{ λ e_t' e_s', fill K_t e_t' ⪯{π} fill K_s e_s' [{ Φ }] }] -∗
+    e_t ⪯{π} e_s [{ λ e_t' e_s', fill K_t e_t' ⪯{π} fill K_s e_s' [{ Φ }] }] ⊢
     fill K_t e_t ⪯{π} fill K_s e_s [{ Φ }].
   Proof.
     iIntros "H".
@@ -690,7 +690,7 @@ Section fix_lang.
 
 
   Lemma lift_post_mon Φ Φ' :
-    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗ (∀ e_t e_s, lift_post Φ e_t e_s -∗ lift_post Φ' e_t e_s).
+    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) ⊢ (∀ e_t e_s, lift_post Φ e_t e_s -∗ lift_post Φ' e_t e_s).
   Proof.
     iIntros "Hmon" (e_t e_s). rewrite /lift_post. iIntros "He".
     iDestruct "He" as (v_t v_s) "(-> & -> & Hp)". iExists v_t, v_s. do 2 (iSplitR; first done).
@@ -698,7 +698,7 @@ Section fix_lang.
   Qed.
 
   Lemma sim_mono Φ Φ' π :
-    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) -∗
+    (∀ v_t v_s, Φ v_t v_s -∗ Φ' v_t v_s) ⊢
     ∀ e_s e_t : exprO, e_t ⪯{π} e_s {{ Φ }} -∗ e_t ⪯{π} e_s {{ Φ' }}.
   Proof.
     iIntros "Hmon" (e_s e_t) "Ha". iApply (sim_expr_mono with "[Hmon] Ha").
@@ -706,7 +706,7 @@ Section fix_lang.
   Qed.
 
   Lemma sim_bupd Φ π e_t e_s :
-    (e_t ⪯{π} e_s {{ λ v_t v_s, |==> Φ v_t v_s }}) -∗ e_t ⪯{π} e_s {{ Φ }}.
+    (e_t ⪯{π} e_s {{ λ v_t v_s, |==> Φ v_t v_s }}) ⊢ e_t ⪯{π} e_s {{ Φ }}.
   Proof.
     iIntros "Hv". iApply sim_expr_bupd.
     iApply (sim_expr_mono with "[] Hv").
@@ -716,7 +716,7 @@ Section fix_lang.
   Qed.
 
   Lemma sim_bind e_t e_s K_t K_s Φ π :
-    e_t ⪯{π} e_s {{ λ v_t v_s, fill K_t (of_val v_t) ⪯{π} fill K_s (of_val v_s) [{ Φ }] }} -∗
+    e_t ⪯{π} e_s {{ λ v_t v_s, fill K_t (of_val v_t) ⪯{π} fill K_s (of_val v_s) [{ Φ }] }} ⊢
     fill K_t e_t ⪯{π} fill K_s e_s [{ Φ }].
   Proof.
     iIntros "Ha". iApply sim_expr_bind.
@@ -953,7 +953,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_base Ψ e_s π:
-    (|==> Ψ e_s) -∗ source_red e_s π Ψ.
+    (|==> Ψ e_s) ⊢ source_red e_s π Ψ.
   Proof.
     iIntros "Hpsi". rewrite source_red_unfold.
     iIntros (P_s σ_s P_t σ_t T_s K_s) "[Hstate %]". iRight. iMod ("Hpsi"). iModIntro. iFrame.
@@ -973,7 +973,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_sim_expr e_s e_t Φ π :
-    (source_red e_s π (λ e_s', e_t ⪯{π} e_s' [{ Φ }])) -∗
+    (source_red e_s π (λ e_s', e_t ⪯{π} e_s' [{ Φ }])) ⊢
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Hsource". iPoseProof (source_red_elim with "Hsource") as "Hsource".
@@ -983,7 +983,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_update_si e_s Φ π :
-    update_si (source_red e_s π Φ) -∗ source_red e_s π Φ.
+    update_si (source_red e_s π Φ) ⊢ source_red e_s π Φ.
   Proof.
     iIntros "Hupd". iApply source_red_step.
     iIntros (??????) "[Hs [% _]]". iExists _, _. rewrite list_insert_id //.
@@ -1010,7 +1010,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_stuck e_s π Ψ :
-    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜stuck P_s e_s σ_s⌝) -∗
+    (∀ P_t σ_t P_s σ_s T_s, state_interp P_t σ_t P_s σ_s T_s ==∗ ⌜stuck P_s e_s σ_s⌝) ⊢
     source_red e_s π Ψ.
   Proof.
     iIntros "Hstuck". iApply source_red_reach_stuck.
@@ -1020,7 +1020,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_bind e_s K_s π Ψ :
-    source_red e_s π (λ e_s', source_red (fill K_s e_s') π Ψ) -∗
+    source_red e_s π (λ e_s', source_red (fill K_s e_s') π Ψ) ⊢
     source_red (fill K_s e_s) π Ψ.
   Proof.
     iIntros "He".
@@ -1037,7 +1037,7 @@ Section fix_lang.
   Qed.
 
   Lemma source_red_mono Φ Ψ :
-    (∀ e_s, Φ e_s -∗ Ψ e_s) -∗
+    (∀ e_s, Φ e_s -∗ Ψ e_s) ⊢
     ∀ e_s π, source_red e_s π Φ -∗ source_red e_s π Ψ.
   Proof.
     iIntros "Hw" (e_s π) "Ht".
@@ -1116,7 +1116,7 @@ Section fix_lang.
   Qed.
 
   Lemma target_red_base Ψ e_t :
-    (|==> Ψ e_t) -∗ target_red e_t Ψ.
+    (|==> Ψ e_t) ⊢ target_red e_t Ψ.
   Proof.
     iIntros "Hpsi". rewrite target_red_unfold.
     iIntros (P_s σ_s P_t σ_t T_s) "Hstate". iRight. iMod ("Hpsi"). iModIntro. iFrame.
@@ -1133,7 +1133,7 @@ Section fix_lang.
   Qed.
 
   Lemma target_red_sim_expr e_s e_t Φ π:
-    (target_red e_t (λ e_t', e_t' ⪯{π} e_s [{ Φ }])) -∗
+    (target_red e_t (λ e_t', e_t' ⪯{π} e_s [{ Φ }])) ⊢
     e_t ⪯{π} e_s [{ Φ }].
   Proof.
     iIntros "Htarget". rewrite target_red_eq.
@@ -1148,7 +1148,7 @@ Section fix_lang.
   Qed.
 
   Lemma target_red_bind e_t K_t Ψ :
-    target_red e_t (λ e_t', target_red (fill K_t e_t') Ψ) -∗
+    target_red e_t (λ e_t', target_red (fill K_t e_t') Ψ) ⊢
     target_red (fill K_t e_t) Ψ.
   Proof.
     iIntros "He".
@@ -1165,7 +1165,7 @@ Section fix_lang.
   Qed.
 
   Lemma target_red_mono Φ Ψ :
-    (∀ e_t, Φ e_t -∗ Ψ e_t) -∗
+    (∀ e_t, Φ e_t -∗ Ψ e_t) ⊢
     ∀ e_t, target_red e_t Φ -∗ target_red e_t Ψ.
   Proof.
     iIntros "Hw" (e_t) "Ht".

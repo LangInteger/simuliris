@@ -44,7 +44,7 @@ Class sheapInv (Σ : gFunctors) := SHeapRel {
   sheap_inv_pure_prim_step P_s σ_s e_s T π e_s':
     T !! π = Some e_s →
     (∀ σ_s', σ_s'.(globals) = σ_s.(globals) → prim_step P_s e_s σ_s' e_s' σ_s' []) →
-    sheap_inv P_s σ_s T -∗
+    sheap_inv P_s σ_s T ⊢
     sheap_inv P_s σ_s (<[π:=e_s']>T);
   sheap_ext_rel : thread_id → val → val → iProp Σ;
 }.
@@ -64,7 +64,7 @@ Class sheapInvSupportsLoad `{!sheapInv Σ} (o : order) := {
     o ≠ Na2Ord →
     pool_safe P_s T_s σ_s →
     heap_wf σ_s →
-    sheap_inv P_s σ_s T_s -∗
+    sheap_inv P_s σ_s T_s ⊢
     sheap_inv P_s σ_s (<[π := fill K_s v]>T_s);
 }.
 Class sheapInvSupportsStore `{!sheapInv Σ} (o : order) := {
@@ -73,7 +73,7 @@ Class sheapInvSupportsStore `{!sheapInv Σ} (o : order) := {
     T_s !! π = Some (fill K_s (Store o #l_s v')) →
     pool_safe P_s T_s σ_s →
     heap_wf σ_s →
-    sheap_inv P_s σ_s T_s -∗
+    sheap_inv P_s σ_s T_s ⊢
     sheap_inv P_s (state_upd_heap <[l_s:=(RSt 0, v')]> σ_s) (<[π := fill K_s #()]>T_s);
 }.
 Class sheapInvSupportsAlloc `{!sheapInv Σ} := {
@@ -82,7 +82,7 @@ Class sheapInvSupportsAlloc `{!sheapInv Σ} := {
     T_s !! π = Some (fill K_s (AllocN #n v)) →
     pool_safe P_s T_s σ_s →
     heap_wf σ_s →
-    sheap_inv P_s σ_s T_s -∗
+    sheap_inv P_s σ_s T_s ⊢
     sheap_inv P_s
          {| heap :=
              heap_array (dyn_loc (fresh (used_dyn_blocks σ_s)))
@@ -97,7 +97,7 @@ Class sheapInvSupportsFree `{!sheapInv Σ} := {
     T_s !! π = Some (fill K_s (FreeN #n #l)) →
     pool_safe P_s T_s σ_s →
     heap_wf σ_s →
-    sheap_inv P_s σ_s T_s -∗
+    sheap_inv P_s σ_s T_s ⊢
     sheap_inv P_s (state_upd_heap (free_mem l (Z.to_nat n)) σ_s) (<[π:=fill K_s #()]> T_s);
 }.
 Class sheapInvSupportsFork `{!sheapInv Σ} := {
@@ -105,12 +105,12 @@ Class sheapInvSupportsFork `{!sheapInv Σ} := {
     T_s !! π = Some (fill K_s (Fork e_s)) →
     pool_safe P_s T_s σ_s →
     heap_wf σ_s →
-    sheap_inv P_s σ_s T_s -∗
+    sheap_inv P_s σ_s T_s ⊢
     sheap_inv P_s σ_s (<[π:=fill K_s #()]> T_s ++ [e_s])
 }.
 Class sheapInvStateIndependent `{!sheapInv Σ} := {
   sheap_inv_state_independent P_s1 σ_s1 T1 P_s2 σ_s2 T2:
-    sheap_inv P_s1 σ_s1 T1 -∗ sheap_inv P_s2 σ_s2 T2
+    sheap_inv P_s1 σ_s1 T1 ⊢ sheap_inv P_s2 σ_s2 T2
 }.
 Global Instance sheap_inv_state_independent_supports_load `{!sheapInv Σ} `{!sheapInvStateIndependent} o:
   sheapInvSupportsLoad o.

@@ -28,7 +28,7 @@ Section fix_heap.
         globalbij_interp loc_rel;
     sheap_ext_rel _ := val_rel;
   |}%I.
-  Next Obligation. done. Qed.
+  Next Obligation. auto. Qed.
   Global Instance : sheapInvStateIndependent.
   Proof. done. Qed.
 
@@ -266,7 +266,7 @@ Section sim.
     envs_entails Δ (sim_expr Φ π (fill K_t (Load o (LitV l_t))) (fill K_s (Load o (LitV l_s))))%I.
   Proof.
     rewrite envs_entails_unseal=> ? Hi.
-    rewrite -sim_expr_bind. eapply wand_apply; first exact: sim_bij_load.
+    rewrite -sim_expr_bind. eapply wand_apply; first by apply bi.wand_entails, sim_bij_load.
     rewrite envs_lookup_split //; simpl.
     iIntros "[#Ha He]". iSpecialize ("He" with "Ha").
     rewrite intuitionistically_if_elim. iSplitR; first done.

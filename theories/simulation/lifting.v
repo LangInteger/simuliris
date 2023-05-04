@@ -157,7 +157,7 @@ Section fix_sim.
   (** Pure reduction *)
   Lemma source_red_lift_pure π Ψ m e_s1 e_s2 ϕ :
     PureExec ϕ m e_s1 e_s2 →
-    ϕ → source_red e_s2 π Ψ -∗ source_red e_s1 π Ψ.
+    ϕ → source_red e_s2 π Ψ ⊢ source_red e_s1 π Ψ.
   Proof.
     intros Hp Hϕ. specialize (Hp Hϕ).
     induction Hp as [ e_s2 | n e_s1 e_s2 e_s3 Hstep _ IH]; first done.
@@ -172,7 +172,7 @@ Section fix_sim.
 
   Lemma target_red_lift_pure Ψ n e1 e2 ϕ :
     PureExec ϕ n e1 e2 →
-    ϕ → target_red e2 Ψ -∗ target_red e1 Ψ.
+    ϕ → target_red e2 Ψ ⊢ target_red e1 Ψ.
   Proof.
     intros Hp Hϕ. specialize (Hp Hϕ).
     induction Hp as [ e_t2 | n e_t1 e_t2 e_t3 Hpstep _ IH]; first done.

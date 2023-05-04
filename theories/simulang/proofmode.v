@@ -265,7 +265,7 @@ Lemma tac_target_red_loadsc Δ i K b l q v Ψ:
   envs_entails Δ (target_red (fill K (Load ScOrd (LitV l))) Ψ).
 Proof.
   rewrite envs_entails_unseal=> ? Hi.
-  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load_sc.
+  rewrite -target_red_bind. eapply wand_apply; first by apply bi.wand_entails, target_red_load_sc.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iIntros "_". iApply target_red_base. iModIntro.
@@ -279,7 +279,7 @@ Lemma tac_target_red_loadna Δ i K b l v Ψ q:
   envs_entails Δ (target_red (fill K (Load Na1Ord (LitV l))) Ψ).
 Proof.
   rewrite envs_entails_unseal=> ? Hi.
-  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_load_na.
+  rewrite -target_red_bind. eapply wand_apply; first by apply bi.wand_entails, target_red_load_na.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iIntros "_". iApply target_red_base. iModIntro.
@@ -300,7 +300,7 @@ Lemma tac_source_red_loadsc π Δ i K b l q v Ψ `{!sheapInvSupportsLoad ScOrd}:
   envs_entails Δ (source_red (fill K (Load ScOrd (LitV l))) π Ψ).
 Proof.
   rewrite envs_entails_unseal=> ? Hi.
-  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load_sc.
+  rewrite -source_red_bind. eapply wand_apply; first by apply bi.wand_entails, source_red_load_sc.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iIntros "_". iApply source_red_base. iModIntro.
@@ -314,7 +314,7 @@ Lemma tac_source_red_loadna π Δ i K b l v Ψ q `{!sheapInvSupportsLoad Na1Ord}
   envs_entails Δ (source_red (fill K (Load Na1Ord (LitV l))) π Ψ).
 Proof.
   rewrite envs_entails_unseal=> ? Hi.
-  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_load_na.
+  rewrite -source_red_bind. eapply wand_apply; first by apply bi.wand_entails, source_red_load_na.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iIntros "_". iApply source_red_base. iModIntro.
@@ -341,7 +341,7 @@ Lemma tac_target_red_store Δ i K l v v' o Ψ:
 Proof.
   rewrite envs_entails_unseal=> Ho ? Hi.
   destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  rewrite -target_red_bind. eapply wand_apply; first by eapply target_red_store.
+  rewrite -target_red_bind. eapply wand_apply; first by eapply bi.wand_entails, target_red_store.
   rewrite envs_simple_replace_sound //; simpl.
   rewrite right_id. apply sep_mono_r, wand_mono; first done.
   rewrite Hi. iIntros "Ht". iApply target_red_base; eauto.
@@ -364,7 +364,7 @@ Lemma tac_source_red_store π Δ i K l v v' o Ψ `{!sheapInvSupportsStore o}:
 Proof.
   rewrite envs_entails_unseal=> Ho ? Hi.
   destruct (envs_simple_replace _ _ _) as [Δ'|] eqn:HΔ'; [ | contradiction ].
-  rewrite -source_red_bind. eapply wand_apply; first by eapply source_red_store.
+  rewrite -source_red_bind. eapply wand_apply; first by eapply bi.wand_entails, source_red_store.
   rewrite envs_simple_replace_sound //; simpl.
   rewrite right_id. apply sep_mono_r, wand_mono; first done.
   rewrite Hi. iIntros "Hs". iApply source_red_base; eauto.
@@ -376,7 +376,7 @@ Lemma tac_target_red_call Δ i K b f v fn Ψ :
   envs_entails Δ (target_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) Ψ).
 Proof.
   rewrite envs_entails_unseal=> ? Hi.
-  rewrite -target_red_bind. eapply wand_apply; first exact: target_red_call.
+  rewrite -target_red_bind. eapply wand_apply; first by apply bi.wand_entails, target_red_call.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iApply target_red_base. iModIntro.
@@ -391,7 +391,7 @@ Lemma tac_source_red_call π Δ i K b f v fn Ψ :
   envs_entails Δ (source_red (fill K (Call (Val $ LitV $ LitFn f) (Val v))) π Ψ).
 Proof.
   rewrite envs_entails_unseal=> ? Hi.
-  rewrite -source_red_bind. eapply wand_apply; first exact: source_red_call.
+  rewrite -source_red_bind. eapply wand_apply; first by apply bi.wand_entails, source_red_call.
   rewrite envs_lookup_split //; simpl.
   destruct b; simpl.
   * iIntros "[#$ He]". iApply source_red_base. iModIntro.
