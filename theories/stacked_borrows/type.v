@@ -65,7 +65,7 @@ Proof.
   - subst. rewrite /= Nat.max_0_r elem_of_list_singleton.
     setoid_rewrite elem_of_list_singleton. naive_solver.
   - split.
-    + apply Max.max_case; [by left|by right].
+    + apply Nat.max_case; [by left|by right].
     + move => i' /elem_of_cons [->|In']; first by apply Nat.le_max_l.
       etrans; first by apply MAX. apply Nat.le_max_r.
 Qed.
@@ -131,7 +131,7 @@ Proof.
     [exfalso; move : IN ; apply not_elem_of_nil|].
   move : IN => /elem_of_cons [->|/IH Lt].
   - rewrite Nat.add_comm -(Nat.add_0_r (tnode_size Tc)).
-    apply plus_le_lt_compat; [|lia]. simpl.
+    apply Nat.add_le_lt_mono; [|lia]. simpl.
     etrans; [|apply foldl_inner_init_le]; intros; lia.
   - apply Lt.
 Qed.
@@ -456,16 +456,16 @@ Lemma foldl_inner_init_lt {A} (fL: nat → nat) (fR: A → nat) (la: list A)
   foldl (λ sz a, fL sz + fR a)%nat n la < foldl (λ sz a, fL sz + fR a)%nat m la.
 Proof.
   induction la as [|a0 la IH]; [done|]. move => n m Lt /=.
-  by apply IH, plus_lt_compat_r, MONO.
+  by apply IH, Nat.add_lt_mono_r, MONO.
 Qed.
 
 Lemma tnode_size_product_cons_lt Tc Ts :
   tnode_size (Product Ts) < tnode_size (Product (Tc :: Ts)).
-Proof. cbn. apply lt_n_S, foldl_inner_init_lt; [intros|]; lia. Qed.
+Proof. cbn. rewrite -Nat.succ_lt_mono. apply foldl_inner_init_lt; [intros|]; lia. Qed.
 
 Lemma tnode_size_sum_cons_lt Tc Ts :
   tnode_size (Sum Ts) < tnode_size (Sum (Tc :: Ts)).
-Proof. cbn. apply lt_n_S, foldl_inner_init_lt; [intros|]; lia. Qed.
+Proof. cbn. rewrite -Nat.succ_lt_mono. apply foldl_inner_init_lt; [intros|]; lia. Qed.
 
 Lemma sub_sum_types'_le n m Tc T: (n, Tc) ∈ sub_sum_types' T m → m ≤ n.
 Proof.

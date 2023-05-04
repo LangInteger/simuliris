@@ -247,7 +247,7 @@ Lemma remove_check_is_Some cids stk idx :
   is_Some (remove_check cids stk idx).
 Proof.
   revert idx. induction stk as [|si stk IH]; simpl; intros idx Le PR.
-  { apply le_n_0_eq in Le. subst idx. by eexists. }
+  { apply Nat.le_0_r in Le. subst idx. by eexists. }
   destruct idx as [|idx]; [by eexists|].
   have IA: item_inactive_protector cids si by (apply (PR O); [lia|done]).
   rewrite (Is_true_eq_true (check_protector cids si)).
