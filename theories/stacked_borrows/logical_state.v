@@ -807,7 +807,7 @@ Section tainted_tags.
 
   Lemma tag_tainted_interp_alloc σ l n :
     let nt := Tagged σ.(snp) in
-    tag_tainted_interp σ ⊢ tag_tainted_interp (mkState (init_mem l n σ.(shp)) (init_stacks σ.(sst) l n nt) σ.(scs) (S σ.(snp)) σ.(snc)).
+    tag_tainted_interp σ -∗ tag_tainted_interp (mkState (init_mem l n σ.(shp)) (init_stacks σ.(sst) l n nt) σ.(scs) (S σ.(snp)) σ.(snc)).
   Proof.
     intros nt. iIntros "Htainted".
     iApply (tag_tainted_interp_preserve σ with "Htainted"). { simpl. lia. }
