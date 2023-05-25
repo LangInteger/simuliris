@@ -5,6 +5,6 @@ style: $(VFILES)
 # Make sure everything imports the options.
 	$(SHOW)"COQLINT"
 	$(HIDE)for FILE in $(VFILES); do \
-	  if ! fgrep -q 'From iris.prelude Require Import options.' "$$FILE"; then echo "ERROR: $$FILE does not import 'options'."; echo; exit 1; fi ; \
+	  if ! grep -F -q 'From iris.prelude Require Import options.' "$$FILE"; then echo "ERROR: $$FILE does not import 'options'."; echo; exit 1; fi ; \
 	done
 .PHONY: style
