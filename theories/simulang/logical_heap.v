@@ -93,7 +93,7 @@ Section definitions.
          ∗ ⌜heap_wf σ⌝)%I.
 End definitions.
 
-Global Typeclasses Opaque heap_mapsto heap_block_size heap_mapsto_vec.
+Global Typeclasses Opaque heap_mapsto_vec.
 Global Instance: Params (@heap_mapsto) 4 := {}.
 Global Instance: Params (@heap_block_size) 5 := {}.
 
@@ -229,8 +229,7 @@ Section heap.
   Global Instance frame_heap_mapsto p l v q1 q2 q :
     FrameFractionalQp q1 q2 q →
     Frame p (l ↦{q1} v) (l ↦{q2} v) (l ↦{q} v) | 5.
-  (* FIXME: somehow Φ gets inferred wrong here. *)
-  Proof. apply: (frame_fractional _ _ _ (λ q, l ↦{q} v)%I). Qed.
+  Proof. apply: frame_fractional. Qed.
 
   Global Instance heap_mapsto_vec_timeless l st q vl : Timeless (l ↦∗[st]{q} vl).
   Proof. rewrite /heap_mapsto_vec. apply _. Qed.
