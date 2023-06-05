@@ -245,8 +245,8 @@ Section heap.
   Global Instance frame_heap_mapsto_vec p l v q1 q2 q :
     FrameFractionalQp q1 q2 q →
     Frame p (l ↦∗{q1} v) (l ↦∗{q2} v) (l ↦∗{q} v)%I | 5.
-  (* FIXME: somehow Φ gets inferred wrong here. *)
-  Proof. apply: (frame_fractional _ _ _ (λ q, l ↦∗{q} v)%I). Qed.
+  (* FIXME(https://github.com/coq/coq/issues/17688): Φ is not inferred. *)
+  Proof. apply: (frame_fractional (λ q, l ↦∗{q} v)%I). Qed.
 
   Global Instance heap_block_size_timeless q b n : Timeless (heap_block_size γ b q n).
   Proof. rewrite heap_block_size_eq /heap_block_size_def. apply _. Qed.
