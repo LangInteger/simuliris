@@ -24,8 +24,8 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | BinOp op e1 e2 => BinOp op (subst x es e1) (subst x es e2)
   | Proj e1 e2 => Proj (subst x es e1) (subst x es e2)
   | Conc e1 e2 => Conc (subst x es e1) (subst x es e2)
-  | Read atm e => Read atm (subst x es e)
-  | Write atm e1 e2 => Write atm (subst x es e1) (subst x es e2)
+  | Read e => Read (subst x es e)
+  | Write e1 e2 => Write (subst x es e1) (subst x es e2)
   | Alloc ptr => Alloc ptr
   | Free e => Free (subst x es e)
   | Deref e ptr => Deref (subst x es e) ptr
@@ -101,9 +101,9 @@ Inductive ectx_item :=
 | ProjLEctx (r2 : result)
 | ConcREctx (e1 : expr)
 | ConcLEctx (r2 : result)
-| ReadEctx (atm : atomicity)
-| WriteREctx (atm : atomicity) (e1 : expr)
-| WriteLEctx (atm : atomicity) (r2 : result)
+| ReadEctx
+| WriteREctx (e1 : expr)
+| WriteLEctx (r2 : result)
 | FreeEctx
 | DerefEctx (ptr:pointer)
 | RefEctx
@@ -125,9 +125,9 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | ProjLEctx r2 => Proj e (of_result r2)
   | ConcREctx e1 => Conc e1 e
   | ConcLEctx r2 => Conc e (of_result r2)
-  | ReadEctx atm => Read atm e
-  | WriteLEctx atm r2 => Write atm e (of_result r2)
-  | WriteREctx atm e1 => Write atm e1 e
+  | ReadEctx => Read e
+  | WriteLEctx r2 => Write e (of_result r2)
+  | WriteREctx e1 => Write e1 e
   | FreeEctx => Free e
   | DerefEctx ptr => Deref e ptr
   | RefEctx => Ref e
@@ -160,9 +160,9 @@ Inductive ctx_item :=
   | ProjRCtx (e1 : expr)
   | ConcLCtx (e2 : expr)
   | ConcRCtx (e1 : expr)
-  | ReadCtx (atm : atomicity)
-  | WriteLCtx (atm : atomicity) (e2 : expr)
-  | WriteRCtx (atm : atomicity) (e1 : expr)
+  | ReadCtx
+  | WriteLCtx (e2 : expr)
+  | WriteRCtx (e1 : expr)
   | FreeCtx
   | DerefCtx (ptr:pointer)
   | RefCtx
@@ -188,9 +188,9 @@ Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   | ProjRCtx e1 => Proj e1 e
   | ConcLCtx e2 => Conc e e2
   | ConcRCtx e1 => Conc e1 e
-  | ReadCtx atm => Read atm e
-  | WriteLCtx atm e2 => Write atm e e2
-  | WriteRCtx atm e1 => Write atm e1 e
+  | ReadCtx => Read e
+  | WriteLCtx e2 => Write e e2
+  | WriteRCtx e1 => Write e1 e
   | FreeCtx => Free e
   | DerefCtx ptr => Deref e ptr
   | RefCtx => Ref e
@@ -225,8 +225,8 @@ Inductive expr_head :=
   | PlaceHead (l : loc) (tg : tag) (ptr:pointer)
   | DerefHead (ptr:pointer)
   | RefHead
-  | ReadHead (atm : atomicity)
-  | WriteHead (atm : atomicity)
+  | ReadHead
+  | WriteHead
   | AllocHead (ptr:pointer)
   | FreeHead
   | RetagHead (ptr : pointer) (kind : retag_kind)
@@ -249,8 +249,8 @@ Definition expr_split_head (e : expr) : (expr_head * list expr) :=
   | Place l tg ptr => (PlaceHead l tg ptr, [])
   | Deref e ptr => (DerefHead ptr, [e])
   | Ref e => (RefHead, [e])
-  | Read atm e => (ReadHead atm, [e])
-  | Write atm e1 e2 => (WriteHead atm, [e1; e2])
+  | Read e => (ReadHead, [e])
+  | Write e1 e2 => (WriteHead, [e1; e2])
   | Fork e => (ForkHead, [e])
   | Alloc ptr => (AllocHead ptr, [])
   | Free e => (FreeHead, [e])
@@ -274,9 +274,9 @@ Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
   | ProjLEctx r => (ProjHead, [of_result r])
   | ConcREctx e => (ConcHead, [e])
   | ConcLEctx r => (ConcHead, [of_result r])
-  | ReadEctx atm => (ReadHead atm, [])
-  | WriteLEctx atm r => (WriteHead atm, [of_result r])
-  | WriteREctx atm e => (WriteHead atm, [e])
+  | ReadEctx => (ReadHead, [])
+  | WriteLEctx r => (WriteHead, [of_result r])
+  | WriteREctx e => (WriteHead, [e])
   | FreeEctx => (FreeHead, [])
   | DerefEctx ptr => (DerefHead ptr, [])
   | RefEctx => (RefHead, [])
@@ -298,9 +298,9 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   | ProjRCtx e1 => (ProjHead, [e1])
   | ConcLCtx e2 => (ConcHead, [e2])
   | ConcRCtx e1 => (ConcHead, [e1])
-  | ReadCtx atm => (ReadHead atm, [])
-  | WriteLCtx atm e2 => (WriteHead atm, [e2])
-  | WriteRCtx atm e1 => (WriteHead atm, [e1])
+  | ReadCtx => (ReadHead, [])
+  | WriteLCtx e2 => (WriteHead, [e2])
+  | WriteRCtx e1 => (WriteHead, [e1])
   | FreeCtx => (FreeHead, [])
   | DerefCtx ptr => (DerefHead ptr, [])
   | RefCtx => (RefHead, [])
@@ -331,7 +331,7 @@ Implicit Type (h : mem).
 Fixpoint init_mem (l:loc) (n:nat) h : mem :=
   match n with
   | O => h
-  | S n => <[l := (ReadLk 0, ☠%S)]>(init_mem (l +ₗ 1) n h)
+  | S n => <[l := ☠%S]>(init_mem (l +ₗ 1) n h)
   end.
 
 Fixpoint free_mem (l:loc) (n:nat) h : mem :=
@@ -421,7 +421,6 @@ Qed.
 
 Inductive scalar_policy : Type :=
   | PolWrite (s:scalar)
-  | PolTouch
   | PolRead
   .
 
@@ -441,16 +440,7 @@ Definition apply_policy sclp (old:scalar) : PolicyResult :=
   match sclp with
   | PolRead => {| swrite:=old; sread:=old |}
   | PolWrite s => {| swrite:=s; sread:=(☠%S) |}
-  | PolTouch => {| swrite:=old; sread:=(☠%S) |}
   end.
-
-Definition lock_policy : Type := lang_base.lock -> option lang_base.lock.
-Definition lock_acquire_write : lock_policy := fun lk => if lk is ReadLk O then Some WriteLk else None.
-Definition lock_release_write : lock_policy := fun lk => if lk is WriteLk then Some $ ReadLk O else None.
-Definition lock_atomic_write : lock_policy := fun lk => if lk is ReadLk O then Some lk else None.
-Definition lock_acquire_read : lock_policy := fun lk => if lk is ReadLk n then Some $ ReadLk (S n) else None.
-Definition lock_release_read : lock_policy := fun lk => if lk is ReadLk (S n) then Some $ ReadLk n else None.
-Definition lock_atomic_read : lock_policy := fun lk => if lk is ReadLk n then Some lk else None.
 
 (* Apply an action to the memory:
    - h and l are the memory and the starting location
@@ -461,39 +451,19 @@ Definition lock_atomic_read : lock_policy := fun lk => if lk is ReadLk n then So
          None => failure to obtain the lock
    - vlp defines what to do with the values
 *)
-Fixpoint mem_app l (lkp:lock_policy) (vlp:list scalar_policy) (h:mem)
+Fixpoint mem_app l (vlp:list scalar_policy) (h:mem)
   : option (value * mem) :=
   match vlp with
   | [] => Some ([], h)
   | sclp :: vlp' =>
-    '(oldlk, olds) ← h !! l; (* fail if no value present *)
-    newlk ← lkp oldlk; (* fail if lock unavailable *)
+    olds ← h !! l; (* fail if no value present *)
     let '{| swrite:=news; sread:=rets |} := apply_policy sclp olds in
-    '(recval, h') ← mem_app (l +ₗ 1) lkp vlp' (<[l := (newlk, news)]> h);
+    '(recval, h') ← mem_app (l +ₗ 1) vlp' (<[l := news]> h);
     Some (rets :: recval, h')
   end.
 
-Definition policy_touch len : list scalar_policy := repeat PolTouch len.
 Definition policy_read len : list scalar_policy := repeat PolRead len.
 Definition policy_write val : list scalar_policy := map PolWrite val.
-
-Definition mem_app_res : Type := mem -> option (value * mem).
-Definition write_acquire_mem l (len:nat) : mem_app_res :=
-  mem_app l lock_acquire_write (policy_touch len).
-Definition read_acquire_mem l (len:nat) : mem_app_res :=
-  mem_app l lock_acquire_read (policy_touch len).
-
-Definition write_release_mem l (v:value) : mem_app_res :=
-  mem_app l lock_release_write (policy_write v).
-Definition write_atomic_mem l (v:value) : mem_app_res :=
-  mem_app l lock_atomic_write (policy_write v).
-
-Definition read_release_mem l (len:nat) : mem_app_res :=
-  mem_app l lock_release_read (policy_read len).
-Definition read_atomic_mem l (len:nat) : mem_app_res :=
-  mem_app l lock_atomic_read (policy_read len).
-
-
 
 
 Definition fresh_block (h : mem) : block :=
@@ -556,7 +526,7 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
     (* unfold by one step *)
     pure_expr_step P h (While e1 e2) (if: e1 then (e2;; while: e1 do e2 od) else #[☠]) []
 | ForkPS (e : expr) :
-    pure_expr_step P h (Fork e) #[☠] [e]
+      pure_expr_step P h (Fork e) #[☠] [e]
   .
 
 Definition poison_of_size : nat -> value := repeat (☠%S).
@@ -569,53 +539,24 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
         (AllocEvt l tg ptr)
         (init_mem l sz h) (Place l tg ptr) []
   | DeallocBS l tg ptr h'
-    (WRITE: write_acquire_mem l (sizeof ptr) h = Some (poison_of_size (sizeof ptr), h')) :
+    (WRITE: mem_app l (policy_write (repeat ☠%S (sizeof ptr))) h = Some (poison_of_size (sizeof ptr), h')) :
     mem_expr_step
       h (Free (Place l tg ptr))
       (DeallocEvt l tg ptr)
       (free_mem l (sizeof ptr) h) #[☠] []
-  | AtomicReadBS l tg ptr val h'
-    (READ: read_atomic_mem l (sizeof ptr) h = Some (val, h'))
-    (BYTE: length val = 1%nat) :
+  | ReadBS l tg ptr val h'
+    (READ: mem_app l (policy_read (sizeof ptr)) h = Some (val, h')) :
     mem_expr_step
-      h (Read Atomic (Place l tg ptr))
-      (ReadEvt Atomic l tg ptr val)
+      h (Read (Place l tg ptr))
+      (ReadEvt l tg ptr val)
       h' (Val val) []
-  | NaReadBS l tg ptr val h'
-    (READ: read_acquire_mem l (sizeof ptr) h = Some (poison_of_size (sizeof ptr), h')) :
-    mem_expr_step
-      h (Read NaStart (Place l tg ptr))
-      (ReadEvt NaStart l tg ptr val)
-      h' (Read NaEnd (Place l tg ptr)) []
-  | NaTmpReadBS l tg ptr val h'
-    (READ: read_release_mem l (sizeof ptr) h = Some (val, h')) :
-    mem_expr_step
-      h (Read NaEnd (Place l tg ptr))
-      (ReadEvt NaEnd l tg ptr val)
-      h' (Val val) []
-  | AtomicWriteBS l tg ptr val h'
+  | WriteBS l tg ptr val h'
     (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
-    (WRITE: write_atomic_mem l val h = Some (poison_of_size (length val), h'))
-    (BYTE: length val = 1%nat) :
-    mem_expr_step
-      h (Write Atomic (Place l tg ptr) (Val val))
-      (WriteEvt Atomic l tg ptr val)
-      h' #[☠] []
-  | NaWriteBS l tg ptr val h'
-    (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
-    (WRITE: write_acquire_mem l (length val) h = Some (poison_of_size (length val), h'))
+    (WRITE: mem_app l (policy_write val) h = Some (poison_of_size (length val), h'))
     (SIZE_COMPAT: length val = sizeof ptr) :
     mem_expr_step
-      h (Write NaStart (Place l tg ptr) (Val val))
-      (WriteEvt NaStart l tg ptr val)
-      h' (Write NaEnd (Place l tg ptr) (Val val)) []
-  | NaTmpWriteBS l tg ptr val h'
-    (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
-    (WRITE: write_release_mem l val h = Some (poison_of_size (length val), h'))
-    (SIZE_COMPAT: length val = sizeof ptr) :
-    mem_expr_step
-      h (Write NaEnd (Place l tg ptr) (Val val))
-      (WriteEvt NaEnd l tg ptr val)
+      h (Write (Place l tg ptr) (Val val))
+      (WriteEvt l tg ptr val)
       h' #[☠] []
   | InitCallBS cid :
     mem_expr_step
@@ -635,73 +576,5 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
       (RetagEvt l oldt newt ptr rtk cid)
       h #[ScPtr l newt] []
   .
-
-Definition policy_nonwrite := Forall (λ p, match p with PolTouch | PolRead => True | _ => False end).
-Definition policy_nonread := Forall (λ p, match p with PolTouch | PolWrite _ => True | _ => False end).
-Lemma ignore_poison l lkp vlp h res :
-  policy_nonread vlp ->
-  mem_app l lkp vlp h = Some res ->
-  exists h', res = (poison_of_size (length vlp), h').
-Proof.
-  all: generalize dependent h.
-  all: generalize dependent res.
-  all: generalize dependent l.
-  all: generalize dependent vlp.
-  all: induction vlp; intros l res h NonRead Success; destruct res; simpl in *.
-  1: eexists; simpl; injection Success; intros; subst; auto.
-  destruct (h !! l); inversion Success as [Success']; clear Success.
-  destruct p as [oldlk olds]; destruct (lkp oldlk); inversion Success' as [Success'']; clear Success'.
-  inversion NonRead; destruct a; try contradiction.
-  all: subst; simpl in *.
-  all: destruct (mem_app (l +ₗ 1) lkp vlp (<[l:=_]> h)) eqn:SuccessRec; inversion Success'' as [Success''']; clear Success''.
-  all: destruct p as [recval h'].
-  all: injection Success'''; intros; subst.
-  all: destruct (IHvlp _ _ _ H2 SuccessRec); injection H; intros; subst.
-  all: exists x; f_equal; auto.
-Qed.
-
-Lemma policy_touch_is_nonread len : policy_nonread (policy_touch len).
-Proof. induction len; unfold policy_nonread; unfold policy_touch; simpl; auto. Qed.
-Lemma policy_write_is_nonread val : policy_nonread (policy_write val).
-Proof. induction val; unfold policy_nonread; unfold policy_write; simpl; auto. Qed.
-Lemma policy_touch_is_nonwrite len : policy_nonwrite (policy_touch len).
-Proof. induction len; unfold policy_nonwrite; unfold policy_touch; simpl; auto. Qed.
-Lemma policy_read_is_nonwrite len : policy_nonwrite (policy_read len).
-Proof. induction len; unfold policy_nonwrite; unfold policy_read; simpl; auto. Qed.
-
-Definition lock_round_trip (acq rel:lock_policy) :=
-  forall lk lk'',
-  (lk' ← acq lk; rel lk') = Some lk'' ->
-  lk'' = lk.
-Lemma lock_round_trip_write : lock_round_trip lock_acquire_write lock_release_write.
-Proof. intros lk lk''; destruct lk; simpl; try destruct n; simpl; intro H; inversion H; reflexivity. Qed.
-Lemma lock_round_trip_read : lock_round_trip lock_acquire_read lock_release_read.
-Proof. intros lk lk''; destruct lk; simpl; try destruct n; simpl; intro H; inversion H; reflexivity. Qed.
-
-Definition lock_noop (lkp:lock_policy) :=
-  forall lk lk', lkp lk = Some lk' -> lk = lk'.
-Lemma lock_noop_read : lock_noop lock_atomic_read.
-Proof. intros lk lk'. unfold lock_atomic_read; destruct lk; intro H; inversion H; reflexivity. Qed.
-Lemma lock_noop_write : lock_noop lock_atomic_write.
-Proof. intros lk lk'. unfold lock_atomic_write; destruct lk; [destruct n|]; intro H; inversion H; reflexivity. Qed.
-
-Lemma nonwrite_noop_atomic lkp :
-  lock_noop lkp ->
-  forall vlp l h h' v,
-  policy_nonwrite vlp ->
-  mem_app l lkp vlp h = Some (v, h') ->
-  h' = h.
-Proof.
-  intro Noop.
-  induction vlp; intros l h h' v NonWrite; simpl; intro H.
-  1: inversion H; auto.
-  destruct (h !! l) eqn:Access; inversion H; clear H.
-  destruct p; destruct (lkp l0) eqn:LockApplied; inversion H1; clear H1.
-  inversion NonWrite; destruct a; try contradiction; subst; simpl in H0.
-  all: destruct (mem_app (l +ₗ 1) lkp vlp (<[l:=_]>h)) eqn:Rec; inversion H0.
-  all: destruct p; rewrite (IHvlp (l +ₗ 1) (<[l:=(l1, s)]> h) m v0 H3 Rec) in H0.
-  all: inversion H0; apply insert_id.
-  all: rewrite <- (Noop l0 l1 LockApplied); assumption.
-Qed.
 
 

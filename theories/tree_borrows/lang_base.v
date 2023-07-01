@@ -137,19 +137,10 @@ Bind Scope sc_scope with scalar.
 Definition value := list scalar.
 Bind Scope val_scope with value.
 
-
-Inductive atomicity : Type := Atomic | NaStart | NaEnd.
 Inductive access_kind := AccessRead | AccessWrite.
 
-Global Instance atomicity_eq_dec : EqDecision atomicity.
-Proof. solve_decision. Qed.
 Global Instance access_kind_eq_dec : EqDecision access_kind.
 Proof. solve_decision. Qed.
-Global Instance atomicity_countable : Countable atomicity.
-Proof. refine (inj_countable'
-  (λ a, match a with NaStart => Some true | NaEnd => Some false | Atomic => None end)
-  (λ b, match b with Some true => NaStart | Some false => NaEnd | None => Atomic end) _); by intros [].
-Qed.
 
 (** Expressions *)
 Inductive expr :=
@@ -178,8 +169,8 @@ Inductive expr :=
                                      of the place `e`. `path` defines the path
                                      through the type. *) *)
 (* mem op *)
-| Read (atm:atomicity) (e : expr)                 (* Read from the place `e` *)
-| Write (atm:atomicity) (e1 e2 : expr)             (* Write the value `e2` to the place `e1` *)
+| Read (e : expr)                 (* Read from the place `e` *)
+| Write (e1 e2 : expr)             (* Write the value `e2` to the place `e1` *)
 | Alloc (ptr : pointer)                 (* Allocate a place of type `T` *)
 | Free (e : expr)                 (* Free the place `e` *)
 (* atomic mem op *)
@@ -211,8 +202,8 @@ Arguments Proj _%E _%E.
 Arguments Conc _%E _%E.
 Arguments Deref _%E _%Ptr.
 Arguments Ref _%E.
-Arguments Read _ _%E.
-Arguments Write _ _%E _%E.
+Arguments Read _%E.
+Arguments Write _%E _%E.
 Arguments Alloc _%Ptr.
 Arguments Free _%E.
 Arguments Retag _%E _%E _%Ptr _.
@@ -225,12 +216,12 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   match e with
   | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
-  | BinOp _ e1 e2 | Write _ e1 e2 | While e1 e2 
+  | BinOp _ e1 e2 | Write e1 e2 | While e1 e2 
       | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
-  | Fork e | Read _ e | Deref e _ | Ref e (* | Field e _ *)
+  | Fork e | Read e | Deref e _ | Ref e (* | Field e _ *)
       | Free e | EndCall e (* | AtomRead e | Fork e *)
       => is_closed X e
   end.
@@ -311,16 +302,15 @@ Proof.
 Qed.
 
 (** Main state: a heap of scalars, each with an associated lock to detect data races. *)
-Inductive lock := ReadLk (n:nat) | WriteLk.
-Definition mem := gmap loc (lock * scalar).
+Definition mem := gmap loc scalar.
 
 (** Internal events *)
 
 Inductive event :=
 | AllocEvt (l : loc) (lbor : tag) (ptr : pointer)
 | DeallocEvt (l : loc) (lbor: tag) (ptr : pointer)
-| ReadEvt (atm : atomicity) (l : loc) (lbor : tag) (ptr : pointer) (v : value)
-| WriteEvt (atm : atomicity) (l : loc) (lbor : tag) (ptr : pointer) (v : value)
+| ReadEvt (l : loc) (lbor : tag) (ptr : pointer) (v : value)
+| WriteEvt (l : loc) (lbor : tag) (ptr : pointer) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
 | RetagEvt (l : loc) (otag ntag : tag) (ptr : pointer) (kind : retag_kind) (c : call_id)

@@ -7,14 +7,14 @@ From iris.prelude Require Import options.
 
 Lemma init_mem_foldr' l n h (m: nat):
   init_mem (l +ₗ m) n h =
-  fold_right (λ (i: nat) hi, <[(l +ₗ i):=(ReadLk O, ☠%S)]> hi) h (seq m n).
+  fold_right (λ (i: nat) hi, <[(l +ₗ i):=☠%S]> hi) h (seq m n).
 Proof.
   revert m. induction n as [|n IHn]; intros m; [done|]. simpl. f_equal.
   by rewrite shift_loc_assoc -(Nat2Z.inj_add m 1) Nat.add_1_r IHn.
 Qed.
 Lemma init_mem_foldr l n h:
   init_mem l n h =
-  fold_right (λ (i: nat) hi, <[(l +ₗ i):=(ReadLk O, ☠%S)]> hi) h (seq 0 n).
+  fold_right (λ (i: nat) hi, <[(l +ₗ i):=☠%S]> hi) h (seq 0 n).
 Proof. by rewrite -init_mem_foldr' shift_loc_0. Qed.
 
 Lemma free_mem_foldr' l n h (m: nat):
@@ -152,7 +152,7 @@ Qed.
 *)
 
 Lemma init_mem_lookup l n h :
-  (∀ (i: nat), (i < n)%nat → init_mem l n h !! (l +ₗ i) = Some (ReadLk O, ☠%S)) ∧
+  (∀ (i: nat), (i < n)%nat → init_mem l n h !! (l +ₗ i) = Some ☠%S) ∧
   (∀ (l': loc), (∀ (i: nat), (i < n)%nat → l' ≠ l +ₗ i) →
     init_mem l n h !! l' = h !! l').
 Proof.

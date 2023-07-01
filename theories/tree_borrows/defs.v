@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 Global Open Scope Z_scope.
 
 Definition wf_mem_tag (h: mem) (nxtp: nat) :=
-  ∀ (l l':loc) lk pid, h !! l = Some (lk, ScPtr l' pid) →
+  ∀ (l l':loc) pid, h !! l = Some (ScPtr l' pid) →
     let '(Tag pid) := pid in
     (pid < nxtp)%nat.
 

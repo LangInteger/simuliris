@@ -146,14 +146,14 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
   | Retag e1 e2 ptr kind, Retag e1' e2' ptr' kind' =>
      bool_decide (ptr = ptr') && bool_decide (kind = kind')
      && expr_beq e1 e1' && expr_beq e2 e2'
-  | Read atm e, Read atm' e' => bool_decide (atm = atm') && expr_beq e e'
+  | Read e, Read e' => expr_beq e e'
   | Ref e, Ref e'  => expr_beq e e'
   | Let x e1 e2, Let x' e1' e2' =>
     bool_decide (x = x') && expr_beq e1 e1' && expr_beq e2 e2'
   | Proj e1 e2, Proj e1' e2' | Conc e1 e2, Conc e1' e2' =>
     expr_beq e1 e1' && expr_beq e2 e2'
-  | Write atm e1 e2, Write atm' e1' e2' =>
-      bool_decide (atm = atm') && expr_beq e1 e1' && expr_beq e2 e2'
+  | Write e1 e2, Write e1' e2' =>
+      expr_beq e1 e1' && expr_beq e2 e2'
   | Fork e, Fork e' => expr_beq e e'
   | Alloc T, Alloc T' => bool_decide (T = T')
   | Free e, Free e' | EndCall e, EndCall e' => expr_beq e e'
@@ -180,7 +180,7 @@ Inductive enc_expr_leaf : Type :=
   | EncString (str:string) | EncValue (val:value)
   | EncOperator (op:bin_op) | EncLoc (l:loc)
   | EncTag (tg:tag) | EncPointer (ptr:pointer)
-  | EncRetagKind (rtk:retag_kind) | EncAtomicity (atm:atomicity) | EncBinder (bind:binder)
+  | EncRetagKind (rtk:retag_kind) | EncBinder (bind:binder)
   .
 Global Instance enc_expr_leaf_dec_eq : EqDecision enc_expr_leaf.
 Proof. solve_decision. Qed.
@@ -191,15 +191,15 @@ Proof.
     | EncString str => inl $ inl $ inl str | EncValue val => inl $ inl $ inr val
     | EncOperator op => inl $ inr $ inl op | EncLoc l => inl $ inr $ inr l
     | EncTag tg => inr $ inl $ inl tg | EncPointer ptr => inr $ inl $ inr ptr
-    | EncRetagKind rtk => inr $ inr $ inl rtk | EncAtomicity atm => inr $ inr $ inr $ inl atm
-    | EncBinder bind => inr $ inr $ inr $ inr bind
+    | EncRetagKind rtk => inr $ inr $ inl rtk
+    | EncBinder bind => inr $ inr $ inr bind
     end)
     (λ e, match e with
     | (inl (inl (inl str))) => EncString str | (inl (inl (inr val))) => EncValue val
     | (inl (inr (inl op))) => EncOperator op | (inl (inr (inr l))) => EncLoc l
     | (inr (inl (inl tg))) => EncTag tg | (inr (inl (inr ptr))) => EncPointer ptr
-    | (inr (inr (inl rtk))) => EncRetagKind rtk | (inr (inr (inr (inl atm)))) => EncAtomicity atm
-    | (inr (inr (inr (inr bind)))) => EncBinder bind
+    | (inr (inr (inl rtk))) => EncRetagKind rtk
+    | (inr (inr (inr bind))) => EncBinder bind
     end) _); by intros [].
 Qed.
 
@@ -220,8 +220,8 @@ Proof.
       | Proj e1 e2 => GenNode 6 [go e1; go e2]
       | Conc e1 e2 => GenNode 7 [go e1; go e2]
       | Place l tag ptr => GenNode 8 [GenLeaf $ EncLoc l; GenLeaf $ EncTag tag; GenLeaf $ EncPointer ptr]
-      | Read atm e => GenNode 9 [GenLeaf $ EncAtomicity atm; go e]
-      | Write atm e1 e2 => GenNode 10 [GenLeaf $ EncAtomicity atm; go e1; go e2]
+      | Read e => GenNode 9 [go e]
+      | Write e1 e2 => GenNode 10 [go e1; go e2]
       | Free e => GenNode 11 [go e]
       | Alloc ptr => GenNode 12 [GenLeaf $ EncPointer ptr]
       | Deref e ptr => GenNode 13 [GenLeaf $ EncPointer ptr; go e]
@@ -246,8 +246,8 @@ Proof.
      | GenNode 8 [GenLeaf (EncLoc l);
                   GenLeaf (EncTag tag);
                   GenLeaf (EncPointer ptr)] => Place l tag ptr
-     | GenNode 9 [GenLeaf (EncAtomicity atm); e] => Read atm (go e)
-     | GenNode 10 [GenLeaf (EncAtomicity atm); e1; e2] => Write atm (go e1) (go e2)
+     | GenNode 9 [e] => Read (go e)
+     | GenNode 10 [e1; e2] => Write (go e1) (go e2)
      | GenNode 11 [e] => Free (go e)
      | GenNode 12 [GenLeaf (EncPointer ptr)] => Alloc ptr
      | GenNode 13 [GenLeaf (EncPointer ptr); e] => Deref (go e) ptr

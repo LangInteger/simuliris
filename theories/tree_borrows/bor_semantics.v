@@ -943,31 +943,19 @@ Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
       trs cids nxtp nxtc
       (AllocEvt x (Tag nxtp) ptr)
       (extend_trees (Tag nxtp) x.1 (x.2, sizeof ptr) trs) cids (S nxtp) nxtc
-  | NaFakeReadIS (x:loc) tg ptr val :
-    bor_step
-      trs cids nxtp nxtc
-      (ReadEvt NaStart x tg ptr val)
-      trs cids nxtp nxtc
-  | NaFakeWriteIS (x:loc) tg ptr val :
-    bor_step
-      trs cids nxtp nxtc
-      (WriteEvt NaStart x tg ptr val)
-      trs cids nxtp nxtc
-  | ReadIS atm trs' (x:loc) tg ptr val
+  | ReadIS trs' (x:loc) tg ptr val
     (EXISTS_TAG: tree_contains tg trs x.1)
-    (ACC: apply_within_trees (memory_read cids tg (x.2, sizeof ptr)) x.1 trs = Some trs')
-    (ATOMICITY: atm = Atomic \/ atm = NaEnd) :
+    (ACC: apply_within_trees (memory_read cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
-      (ReadEvt atm x tg ptr val)
+      (ReadEvt x tg ptr val)
       trs' cids nxtp nxtc
-  | WriteIS atm trs' (x:loc) tg ptr val
+  | WriteIS trs' (x:loc) tg ptr val
     (EXISTS_TAG: tree_contains tg trs x.1)
-    (ACC: apply_within_trees (memory_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs')
-    (ATOMICITY: atm = Atomic \/ atm = NaEnd) :
+    (ACC: apply_within_trees (memory_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
-      (WriteEvt atm x tg ptr val)
+      (WriteEvt x tg ptr val)
       trs' cids nxtp nxtc
   | DeallocIS trs' (x:loc) tg ptr
     (EXISTS_TAG: tree_contains tg trs x.1)

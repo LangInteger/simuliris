@@ -19,8 +19,8 @@ Lemma expr_ind (P : expr → Prop):
   (∀ e1 e2, P e1 → P e2 → P (Conc e1 e2)) →
   (∀ e ty, P e → P (Deref e ty)) →
   (∀ e, P e → P (Ref e)) →
-  (∀ atm e, P e → P (Read atm e)) →
-  (∀ atm e1 e2, P e1 → P e2 → P (Write atm e1 e2)) →
+  (∀ e, P e → P (Read e)) →
+  (∀ e1 e2, P e1 → P e2 → P (Write e1 e2)) →
   (∀ ty, P (Alloc ty)) →
   (∀ e, P e → P (Free e)) →
   (∀ e1 e2 ptr rk, P e1 → P e2 → P (Retag e1 e2 ptr rk)) →
@@ -66,8 +66,8 @@ Fixpoint subst_map (xs : gmap string result) (e : expr) : expr :=
   | BinOp op e1 e2 => BinOp op (subst_map xs e1) (subst_map xs e2)
   | Proj e1 e2 => Proj (subst_map xs e1) (subst_map xs e2)
   | Conc e1 e2 => Conc (subst_map xs e1) (subst_map xs e2)
-  | Read atm e => Read atm (subst_map xs e)
-  | Write atm e1 e2 => Write atm (subst_map xs e1) (subst_map xs e2)
+  | Read e => Read (subst_map xs e)
+  | Write e1 e2 => Write (subst_map xs e1) (subst_map xs e2)
   | Alloc T => Alloc T
   | Free e => Free (subst_map xs e)
   | Deref e T => Deref (subst_map xs e) T
@@ -165,10 +165,10 @@ Fixpoint free_vars (e : expr) : gset string :=
   | Var x => {[x]}
   | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
   | InitCall | Place _ _ _ | Alloc _ => ∅
-  | Fork e | Read _ e | Free e | Deref e _ | Ref e | EndCall e =>
+  | Fork e | Read e | Free e | Deref e _ | Ref e | EndCall e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Proj e1 e2 | Conc e1 e2
-    | Write _ e1 e2 | Retag e1 e2 _ _ =>
+    | Write e1 e2 | Retag e1 e2 _ _ =>
      free_vars e1 ∪ free_vars e2
   | Case e el =>
     (free_vars e) ∪ foldr (λ ei s, s ∪ free_vars ei) ∅ el

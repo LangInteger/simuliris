@@ -44,7 +44,7 @@ Notation "# v" := (Val v%V%R%L) (at level 8, format "# v") : expr_scope.
 
 (** Pointer operations *)
 Notation "& e" := (Ref e%E) (at level 8, format "& e") : expr_scope.
-Notation "*{ ptrk } e" := (Deref (Read (Some NaStart) e%E) ptrk)
+Notation "*{ ptrk } e" := (Deref (Read e%E) ptrk)
   (at level 9, format "*{ ptrk }  e") : expr_scope.
 
 (** Syntax inspired by Coq/Ocaml. Constructions with higher precedence come
@@ -61,7 +61,7 @@ Notation "☠" := ScPoison : sc_scope.
 (* Notation "! e" := (Read e%E) (at level 9, format "! e") : expr_scope. *)
 
 (* The unicode ← is already part of the notation "_ ← _; _" for bind. *)
-Notation "e1 <- e2" := (Write (Some NaStart) e1%E e2%E)
+Notation "e1 <- e2" := (Write e1%E e2%E)
   (at level 80) : expr_scope.
 
 Notation "e1 + e2" := (BinOp AddOp e1%E e2%E)
