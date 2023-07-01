@@ -1,0 +1,707 @@
+(** This file has been adapted from the Stacked Borrows development, available at 
+  https://gitlab.mpi-sws.org/FP/stacked-borrows
+*)
+
+From Coq Require Import Program.
+From Equations Require Import Equations.
+From iris.prelude Require Import prelude options.
+From stdpp Require Export gmap.
+From simuliris.tree_borrows Require Export lang_base notation type locations.
+From iris.prelude Require Import options.
+Local Open Scope Z_scope.
+
+(*** EXPRESSION SEMANTICS --------------------------------------------------***)
+
+(** Substitution *)
+Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
+  match e with
+  | Var y => if bool_decide (y = x) then es else Var y
+  | Val v => Val v
+  | Call e1 e2 => Call (subst x es e1) (subst x es e2)
+  | InitCall => InitCall
+  | EndCall e => EndCall (subst x es e)
+  | Place l tag T => Place l tag T
+  | BinOp op e1 e2 => BinOp op (subst x es e1) (subst x es e2)
+  | Proj e1 e2 => Proj (subst x es e1) (subst x es e2)
+  | Conc e1 e2 => Conc (subst x es e1) (subst x es e2)
+  | Read atm e => Read atm (subst x es e)
+  | Write atm e1 e2 => Write atm (subst x es e1) (subst x es e2)
+  | Alloc ptr => Alloc ptr
+  | Free e => Free (subst x es e)
+  | Deref e ptr => Deref (subst x es e) ptr
+  | Ref e => Ref (subst x es e)
+  | Retag e1 e2 ptr kind => Retag (subst x es e1) (subst x es e2) ptr kind
+  | Let x1 e1 e2 =>
+      Let x1 (subst x es e1)
+                 (if bool_decide (BNamed x ≠ x1) then subst x es e2 else e2)
+  | Case e el => Case (subst x es e) (fmap (subst x es) el)
+  | Fork e => Fork (subst x es e) 
+  | While e1 e2 => While (subst x es e1) (subst x es e2)
+  end.
+
+(* formal argument list substitution *)
+Definition subst' (mx : binder) (es : expr) : expr → expr :=
+  match mx with BNamed x => subst x es | BAnon => id end.
+
+Fixpoint subst_l (xl : list binder) (esl : list expr) (e : expr) : option expr :=
+  match xl, esl with
+  | [], [] => Some e
+  | x::xl, es::esl => subst_l xl esl (subst' x es e)
+  | _, _ => None
+  end.
+Arguments subst_l _%binder _ _%E.
+
+Lemma subst_l_is_Some xl el e :
+  length xl = length el → is_Some (subst_l xl el e).
+Proof.
+  revert el e. induction xl as [|x xl IH] => el e.
+  { destruct el; [by eexists|done]. }
+  destruct el as [|e1 el]; [done|].
+  rewrite /= /subst'. intros ?.
+  eapply IH. congruence.
+Qed.
+
+Lemma subst_l_is_Some_length xl el e e' :
+  subst_l xl el e = Some e' → length xl = length el.
+Proof.
+  revert e e' el. induction xl as [|x xl IH] => e e' el; [by destruct el|].
+  destruct el as [|e1 el]; [done|].
+  rewrite /= /subst'. intros Eq. f_equal.
+  eapply IH. done.
+Qed.
+
+Lemma subst_l_nil_is_Some el e e' :
+  subst_l [] el e = Some e' → e' = e.
+Proof.
+  intros Eq.
+  have EqN: el = [].
+  { apply nil_length_inv. by rewrite -(subst_l_is_Some_length _ _ _ _ Eq). }
+  subst el. simpl in Eq. by simplify_eq.
+Qed.
+
+Lemma subst_result x e r :
+  subst x e (of_result r) = of_result r.
+Proof. destruct r; simpl; done. Qed.
+Lemma subst'_result x e r : 
+  subst' x e (of_result r) = of_result r.
+Proof. destruct r, x; simpl; done. Qed.
+
+(** Functions and function calls *)
+Definition func : Type := string * expr.
+Definition apply_func (fn : func) (r : result) := subst fn.1 r fn.2.
+
+(** Evaluation contexts *)
+Inductive ectx_item :=
+| CallLEctx (r2 : result)
+| CallREctx (e1 : expr)
+| EndCallEctx
+| BinOpREctx (op : bin_op) (e1 : expr)
+| BinOpLEctx (op : bin_op) (r2 : result)
+| ProjREctx (e1 : expr)
+| ProjLEctx (r2 : result)
+| ConcREctx (e1 : expr)
+| ConcLEctx (r2 : result)
+| ReadEctx (atm : atomicity)
+| WriteREctx (atm : atomicity) (e1 : expr)
+| WriteLEctx (atm : atomicity) (r2 : result)
+| FreeEctx
+| DerefEctx (ptr:pointer)
+| RefEctx
+| RetagREctx (e1 : expr) (ptr : pointer) (kind : retag_kind)
+| RetagLEctx (r2 : result) (ptr : pointer) (kind : retag_kind)
+| LetEctx (x : binder) (e2 : expr)
+| CaseEctx (el : list expr)
+(* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
+.
+
+Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
+  match Ki with
+  | CallLEctx r2 => Call e (of_result r2)
+  | CallREctx e1 => Call e1 e
+  | EndCallEctx => EndCall e
+  | BinOpREctx op e1 => BinOp op e1 e
+  | BinOpLEctx op r2 => BinOp op e (of_result r2)
+  | ProjREctx e1 => Proj e1 e
+  | ProjLEctx r2 => Proj e (of_result r2)
+  | ConcREctx e1 => Conc e1 e
+  | ConcLEctx r2 => Conc e (of_result r2)
+  | ReadEctx atm => Read atm e
+  | WriteLEctx atm r2 => Write atm e (of_result r2)
+  | WriteREctx atm e1 => Write atm e1 e
+  | FreeEctx => Free e
+  | DerefEctx ptr => Deref e ptr
+  | RefEctx => Ref e
+  | RetagLEctx r2 pk kind => Retag e (of_result r2) pk kind
+  | RetagREctx e1 pk kind => Retag e1 e pk kind
+  | LetEctx x e2 => Let x e e2
+  | CaseEctx el => Case e el
+  end.
+
+(** Building actual evaluation contexts out of ectx_items *)
+Definition ectx := list ectx_item.
+Definition empty_ectx : ectx := [].
+Definition ectx_compose : ectx → ectx → ectx := flip (++).
+
+Definition fill (K : ectx) (e : expr) : expr := foldl (flip fill_item) e K.
+
+Lemma fill_app (K1 K2 : ectx) e : fill (K1 ++ K2) e = fill K2 (fill K1 e).
+Proof. apply foldl_app. Qed.
+
+(** General contexts *)
+Inductive ctx_item :=
+  | LetLCtx (x : binder) (e2 : expr)
+  | LetRCtx (x : binder) (e1 : expr)
+  | CallLCtx (e2 : expr)
+  | CallRCtx (e1 : expr)
+  | EndCallCtx
+  | BinOpLCtx (op : bin_op) (e2 : expr)
+  | BinOpRCtx (op : bin_op) (e1 : expr)
+  | ProjLCtx (e2 : expr)
+  | ProjRCtx (e1 : expr)
+  | ConcLCtx (e2 : expr)
+  | ConcRCtx (e1 : expr)
+  | ReadCtx (atm : atomicity)
+  | WriteLCtx (atm : atomicity) (e2 : expr)
+  | WriteRCtx (atm : atomicity) (e1 : expr)
+  | FreeCtx
+  | DerefCtx (ptr:pointer)
+  | RefCtx
+  | RetagLCtx (e2 : expr) (ptr : pointer) (kind : retag_kind)
+  | RetagRCtx (e1 : expr) (ptr : pointer) (kind : retag_kind)
+  | CaseLCtx (el : list expr)
+  | CaseRCtx (e : expr) (el1 el2 : list expr)
+  | WhileLCtx (e1 : expr)
+  | WhileRCtx (e0 : expr)
+  | ForkCtx
+  .
+
+Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
+  match Ci with
+  | LetLCtx x e2 => Let x e e2
+  | LetRCtx x e1 => Let x e1 e
+  | CallLCtx e2 => Call e e2
+  | CallRCtx e1 => Call e1 e
+  | EndCallCtx => EndCall e
+  | BinOpLCtx op e2 => BinOp op e e2
+  | BinOpRCtx op e1 => BinOp op e1 e
+  | ProjLCtx e2 => Proj e e2
+  | ProjRCtx e1 => Proj e1 e
+  | ConcLCtx e2 => Conc e e2
+  | ConcRCtx e1 => Conc e1 e
+  | ReadCtx atm => Read atm e
+  | WriteLCtx atm e2 => Write atm e e2
+  | WriteRCtx atm e1 => Write atm e1 e
+  | FreeCtx => Free e
+  | DerefCtx ptr => Deref e ptr
+  | RefCtx => Ref e
+  | RetagLCtx e2 ptr k => Retag e e2 ptr k
+  | RetagRCtx e1 ptr k => Retag e1 e ptr k
+  | CaseLCtx el => Case e el
+  | CaseRCtx e0 el1 el2 => Case e0 (el1 ++ e :: el2)
+  | WhileLCtx e1 => While e e1
+  | WhileRCtx e0 => While e0 e
+  | ForkCtx => Fork e
+  end.
+
+Definition ctx := list ctx_item.
+Definition fill_ctx (C : ctx) (e : expr) : expr :=
+  foldl (flip fill_ctx_item) e C.
+
+Lemma fill_ctx_app C1 C2 e :
+  fill_ctx (C1 ++ C2) e = fill_ctx C2 (fill_ctx C1 e).
+Proof. apply foldl_app. Qed.
+
+(** Splitting an expression into information about the head expression and subexpressions. *)
+Inductive expr_head :=
+  | ValHead (v : value)
+  | VarHead (x : string)
+  | LetHead (x : binder)
+  | CallHead
+  | InitCallHead
+  | EndCallHead
+  | ProjHead
+  | ConcHead
+  | BinOpHead (op : bin_op)
+  | PlaceHead (l : loc) (tg : tag) (ptr:pointer)
+  | DerefHead (ptr:pointer)
+  | RefHead
+  | ReadHead (atm : atomicity)
+  | WriteHead (atm : atomicity)
+  | AllocHead (ptr:pointer)
+  | FreeHead
+  | RetagHead (ptr : pointer) (kind : retag_kind)
+  | CaseHead
+  | ForkHead
+  | WhileHead
+.
+
+Definition expr_split_head (e : expr) : (expr_head * list expr) :=
+  match e with
+  | Val v => (ValHead v, [])
+  | Var x => (VarHead x, [])
+  | Let x e1 e2 => (LetHead x, [e1; e2])
+  | Call e1 e2 => (CallHead, [e1; e2])
+  | BinOp op e1 e2 => (BinOpHead op, [e1; e2])
+  | InitCall => (InitCallHead, [])
+  | EndCall e => (EndCallHead, [e])
+  | Proj e1 e2 => (ProjHead, [e1; e2])
+  | Conc e1 e2 => (ConcHead, [e1; e2])
+  | Place l tg ptr => (PlaceHead l tg ptr, [])
+  | Deref e ptr => (DerefHead ptr, [e])
+  | Ref e => (RefHead, [e])
+  | Read atm e => (ReadHead atm, [e])
+  | Write atm e1 e2 => (WriteHead atm, [e1; e2])
+  | Fork e => (ForkHead, [e])
+  | Alloc ptr => (AllocHead ptr, [])
+  | Free e => (FreeHead, [e])
+  | Retag e1 e2 pk k => (RetagHead pk k, [e1; e2])
+  | Case e el => (CaseHead, e :: el)
+  | While e0 e1 => (WhileHead, [e0; e1])
+  end.
+
+Global Instance expr_split_head_inj : Inj (=) (=) expr_split_head.
+Proof. move => [^ e1] [^ e2] => //=; move => [*]; by simplify_eq. Qed.
+
+Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
+  match Ki with
+  | LetEctx x e => (LetHead x, [e])
+  | CallLEctx r => (CallHead, [of_result r])
+  | CallREctx e => (CallHead, [e])
+  | EndCallEctx => (EndCallHead, [])
+  | BinOpLEctx op r => (BinOpHead op, [of_result r])
+  | BinOpREctx op e => (BinOpHead op, [e])
+  | ProjREctx e => (ProjHead, [e])
+  | ProjLEctx r => (ProjHead, [of_result r])
+  | ConcREctx e => (ConcHead, [e])
+  | ConcLEctx r => (ConcHead, [of_result r])
+  | ReadEctx atm => (ReadHead atm, [])
+  | WriteLEctx atm r => (WriteHead atm, [of_result r])
+  | WriteREctx atm e => (WriteHead atm, [e])
+  | FreeEctx => (FreeHead, [])
+  | DerefEctx ptr => (DerefHead ptr, [])
+  | RefEctx => (RefHead, [])
+  | RetagREctx e1 ptr k => (RetagHead ptr k, [e1])
+  | RetagLEctx r2 ptr k => (RetagHead ptr k, [of_result r2])
+  | CaseEctx el => (CaseHead, el)
+  end.
+
+Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
+  match Ci with
+  | LetLCtx x e2 => (LetHead x, [e2])
+  | LetRCtx x e1 => (LetHead x, [e1])
+  | CallLCtx e2 => (CallHead, [e2])
+  | CallRCtx e1 => (CallHead, [e1])
+  | EndCallCtx => (EndCallHead, [])
+  | BinOpLCtx op e2 => (BinOpHead op, [e2])
+  | BinOpRCtx op e1 => (BinOpHead op, [e1])
+  | ProjLCtx e2 => (ProjHead, [e2])
+  | ProjRCtx e1 => (ProjHead, [e1])
+  | ConcLCtx e2 => (ConcHead, [e2])
+  | ConcRCtx e1 => (ConcHead, [e1])
+  | ReadCtx atm => (ReadHead atm, [])
+  | WriteLCtx atm e2 => (WriteHead atm, [e2])
+  | WriteRCtx atm e1 => (WriteHead atm, [e1])
+  | FreeCtx => (FreeHead, [])
+  | DerefCtx ptr => (DerefHead ptr, [])
+  | RefCtx => (RefHead, [])
+  | RetagRCtx e1 ptr k => (RetagHead ptr k, [e1])
+  | RetagLCtx e2 ptr k => (RetagHead ptr k, [e2])
+  | CaseLCtx el => (CaseHead, el)
+  | CaseRCtx e el1 el2 => (CaseHead, e :: el1 ++ el2)
+  | WhileLCtx e1 => (WhileHead, [e1])
+  | WhileRCtx e0 => (WhileHead, [e0])
+  | ForkCtx => (ForkHead, [])
+  end.
+
+(** Global static function table *)
+Definition prog := gmap fname func.
+
+(** The stepping relation *)
+(* Be careful to make sure that poison is always stuck when used for anything
+   except for reading from or writing to memory! *)
+Definition sc_of_bool (b : bool) : scalar :=
+  ScInt $ Z.b2z b.
+
+Coercion sc_of_bool : bool >-> scalar.
+Coercion ScInt : Z >-> scalar.
+Coercion ScFnPtr : fname >-> scalar.
+
+Implicit Type (h : mem).
+
+Fixpoint init_mem (l:loc) (n:nat) h : mem :=
+  match n with
+  | O => h
+  | S n => <[l := (ReadLk 0, ☠%S)]>(init_mem (l +ₗ 1) n h)
+  end.
+
+Fixpoint free_mem (l:loc) (n:nat) h : mem :=
+  match n with
+  | O => h
+  | S n => delete l (free_mem (l +ₗ 1) n h)
+  end.
+
+Inductive scalar_eq h : scalar → scalar → Prop :=
+(* No refl case for poison *)
+| IntRefl z : scalar_eq h (ScInt z) (ScInt z)
+| LocRefl l tag1 tag2 : scalar_eq h (ScPtr l tag1) (ScPtr l tag2)
+(* Comparing unallocated pointers can non-deterministically say they are equal
+   even if they are not.  Given that our `free` actually makes addresses
+   re-usable, this may not be strictly necessary, but it is the most
+   conservative choice that avoids UB (and we cannot use UB as this operation is
+   possible in safe Rust). *)
+| LocUnallocL l1 l2 tag1 tag2 :
+    h !! l1 = None →
+    scalar_eq h (ScPtr l1 tag1) (ScPtr l2 tag2)
+| LocUnallocR l1 l2 tag1 tag2 :
+    h !! l2 = None →
+    scalar_eq h (ScPtr l1 tag1) (ScPtr l2 tag2).
+
+Inductive scalar_neq : scalar → scalar → Prop :=
+| IntNeq z1 z2 :
+    z1 ≠ z2 → scalar_neq (ScInt z1) (ScInt z2)
+| LocNeq l1 l2 tag1 tag2 :
+    l1 ≠ l2 → scalar_neq (ScPtr l1 tag1) (ScPtr l2 tag2)
+| LocNeqNullR l tag :
+    scalar_neq (ScPtr l tag) (ScInt 0)
+| LocNeqNullL l tag :
+    scalar_neq (ScInt 0) (ScPtr l tag).
+
+
+Inductive bin_op_eval h : bin_op → scalar → scalar → scalar → Prop :=
+| BinOpPlus z1 z2 :
+    bin_op_eval h AddOp (ScInt z1) (ScInt z2) (ScInt (z1 + z2))
+| BinOpMinus z1 z2 :
+    bin_op_eval h SubOp (ScInt z1) (ScInt z2) (ScInt (z1 - z2))
+| BinOpLe z1 z2 :
+    bin_op_eval h LeOp (ScInt z1) (ScInt z2) (sc_of_bool $ bool_decide (z1 ≤ z2)%Z)
+| BinOpLt z1 z2 :
+    bin_op_eval h LtOp (ScInt z1) (ScInt z2) (sc_of_bool $ bool_decide (z1 < z2)%Z)
+| BinOpEqTrue l1 l2 :
+    scalar_eq h l1 l2 → bin_op_eval h EqOp l1 l2 (sc_of_bool true)
+| BinOpEqFalse l1 l2 :
+    scalar_neq l1 l2 → bin_op_eval h EqOp l1 l2 (sc_of_bool false)
+| BinOpOffset l z tag :
+    bin_op_eval h OffsetOp (ScPtr l tag) (ScInt z) (ScPtr (l +ₗ z) tag).
+
+Global Hint Constructors scalar_eq : core.
+Global Hint Constructors scalar_neq : core.
+Global Hint Constructors bin_op_eval : core.
+Global Instance scalar_eq_dec h sc1 sc2 : Decision (scalar_eq h sc1 sc2).
+Proof.
+  destruct sc1 as [|n1|l1| |], sc2 as [|n2|l2| |]; try by (right; intros H; inversion H).
+  - destruct (decide (n1 = n2)) as [ -> | ];
+    [left; eauto | right; intros H; inversion H; done].
+  - destruct (decide (l1 = l2)) as [<- | Hneq]; first by left; eauto.
+    destruct (h !! l1) eqn:Heq; last left; eauto.
+    destruct (h !! l2) eqn:Heq'; last left; eauto.
+    right. intros H; inversion H; subst; congruence.
+Qed.
+Global Instance scalar_neq_dec sc1 sc2 : Decision (scalar_neq sc1 sc2).
+Proof.
+  destruct sc1 as [|n1|l1| |], sc2 as [|n2|l2| |]; try by (right; intros H; inversion H).
+  - destruct (decide (n1 = n2)) as [-> | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
+  - destruct (decide (n1 = 0)) as [-> | Hneq]; [left; eauto | right; intros H; inversion H; congruence].
+  - destruct (decide (n2 = 0)) as [-> | Hneq]; [left; eauto | right; intros H; inversion H; congruence].
+  - destruct (decide (l1 = l2)) as [<- | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
+Qed.
+
+(* For the sake of code reuse, let's define very generically what to do on a range of memory
+   Actions are
+   - reading a value
+   - writing a value
+   - doing nothing
+   and they all have as side effects modifications of the associated locks:
+   - acquire for reading/writing
+   - release for reading/writing
+   - bypass
+
+   These will combine in 6 different ways, all with the same skeleton,
+   to define the atomic and nonatomic read and write operations on values.
+ *)
+
+Inductive scalar_policy : Type :=
+  | PolWrite (s:scalar)
+  | PolTouch
+  | PolRead
+  .
+
+(* swrite is what should be written, sread is what has been read.
+   PolicyResult is computed while the previous value at that location `old` is known.
+   - for operations that do not read (Write and Touch), return `sread=poison`
+     (prevents usage of the returned value)
+   - for operations that do not write (Read and Touch), return `swrite=old`
+     (writes the value already there, effectively performing a noop)
+*)
+Record PolicyResult := mkPolRes {
+  swrite : scalar;
+  sread  : scalar;
+}.
+
+Definition apply_policy sclp (old:scalar) : PolicyResult :=
+  match sclp with
+  | PolRead => {| swrite:=old; sread:=old |}
+  | PolWrite s => {| swrite:=s; sread:=(☠%S) |}
+  | PolTouch => {| swrite:=old; sread:=(☠%S) |}
+  end.
+
+Definition lock_policy : Type := lang_base.lock -> option lang_base.lock.
+Definition lock_acquire_write : lock_policy := fun lk => if lk is ReadLk O then Some WriteLk else None.
+Definition lock_release_write : lock_policy := fun lk => if lk is WriteLk then Some $ ReadLk O else None.
+Definition lock_atomic_write : lock_policy := fun lk => if lk is ReadLk O then Some lk else None.
+Definition lock_acquire_read : lock_policy := fun lk => if lk is ReadLk n then Some $ ReadLk (S n) else None.
+Definition lock_release_read : lock_policy := fun lk => if lk is ReadLk (S n) then Some $ ReadLk n else None.
+Definition lock_atomic_read : lock_policy := fun lk => if lk is ReadLk n then Some lk else None.
+
+(* Apply an action to the memory:
+   - h and l are the memory and the starting location
+   - lkp defines what to do with the locks
+       lkp: lock_policy := lock -> option lock
+       where lkp old_lk is
+         Some new_lk => replace the old lock with lk
+         None => failure to obtain the lock
+   - vlp defines what to do with the values
+*)
+Fixpoint mem_app l (lkp:lock_policy) (vlp:list scalar_policy) (h:mem)
+  : option (value * mem) :=
+  match vlp with
+  | [] => Some ([], h)
+  | sclp :: vlp' =>
+    '(oldlk, olds) ← h !! l; (* fail if no value present *)
+    newlk ← lkp oldlk; (* fail if lock unavailable *)
+    let '{| swrite:=news; sread:=rets |} := apply_policy sclp olds in
+    '(recval, h') ← mem_app (l +ₗ 1) lkp vlp' (<[l := (newlk, news)]> h);
+    Some (rets :: recval, h')
+  end.
+
+Definition policy_touch len : list scalar_policy := repeat PolTouch len.
+Definition policy_read len : list scalar_policy := repeat PolRead len.
+Definition policy_write val : list scalar_policy := map PolWrite val.
+
+Definition mem_app_res : Type := mem -> option (value * mem).
+Definition write_acquire_mem l (len:nat) : mem_app_res :=
+  mem_app l lock_acquire_write (policy_touch len).
+Definition read_acquire_mem l (len:nat) : mem_app_res :=
+  mem_app l lock_acquire_read (policy_touch len).
+
+Definition write_release_mem l (v:value) : mem_app_res :=
+  mem_app l lock_release_write (policy_write v).
+Definition write_atomic_mem l (v:value) : mem_app_res :=
+  mem_app l lock_atomic_write (policy_write v).
+
+Definition read_release_mem l (len:nat) : mem_app_res :=
+  mem_app l lock_release_read (policy_read len).
+Definition read_atomic_mem l (len:nat) : mem_app_res :=
+  mem_app l lock_atomic_read (policy_read len).
+
+
+
+
+Definition fresh_block (h : mem) : block :=
+  let loclst : list loc := elements (dom h) in
+  let blockset : gset block := foldr (λ l, ({[l.1]} ∪.)) ∅ loclst in
+  fresh blockset.
+
+Lemma is_fresh_block h i : (fresh_block h,i) ∉ dom h.
+Proof.
+  assert (∀ l (ls: list loc) (X : gset block),
+    l ∈ ls → l.1 ∈ foldr (λ l, ({[l.1]} ∪.)) X ls) as help.
+  { induction 1; set_solver. }
+  rewrite /fresh_block /shift /= -elem_of_elements.
+  move=> /(help _ _ ∅) /=. apply is_fresh.
+Qed.
+
+Lemma fresh_block_equiv (h1 h2: mem) :
+  dom h1 ≡ dom h2 → fresh_block h1 = fresh_block h2.
+Proof.
+  intros EqD. apply elements_proper in EqD.
+  rewrite /fresh_block. apply (fresh_proper (C:= gset _)).
+  apply foldr_permutation; [apply _..|set_solver|done].
+Qed.
+
+Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → Prop :=
+| BinOpPS op (l1 l2 l': scalar) :
+    bin_op_eval h op l1 l2 l' →
+    pure_expr_step P h (BinOp op #[l1] #[l2]) #[l'] []
+(* TODO: add more operations for values *)
+| ProjPS (i: Z) (v : value) (s : scalar)
+    (DEFINED: 0 ≤ i ∧ v !! (Z.to_nat i) = Some s) :
+    pure_expr_step P h (Proj (Val v) #[i]) #[s] []
+| ConcPS v1 v2 :
+    pure_expr_step P h (Conc (Val v1) (Val v2))
+                       (Val (v1 ++ v2)) []
+| RefPS l lbor T :
+    (* is_Some (h !! l) → *)
+    pure_expr_step P h (Ref (Place l lbor T)) #[ScPtr l lbor] []
+| DerefPS l lbor T
+    (* (DEFINED: ∀ (i: nat), (i < tsize T)%nat → l +ₗ i ∈ dom h) *) :
+    pure_expr_step P h (Deref #[ScPtr l lbor] T) (Place l lbor T) []
+(* | FieldBS l lbor T path off T'
+    (FIELD: field_access T path = Some (off, T')) :
+    pure_expr_step FNs h (Field (Place l lbor T) path)
+                         SilentEvt (Place (l +ₗ off) lbor T') *)
+| LetPS x e1 e2 e' :
+    is_Some (to_result e1) →
+    subst' x e1 e2 = e' →
+    pure_expr_step P h (let: x := e1 in e2) e' []
+| CasePS i el e :
+    0 ≤ i →
+    el !! (Z.to_nat i) = Some e →
+    pure_expr_step P h (case: #[i] of el) e []
+| CallPS fn e2 f arg :
+    P !! f = Some fn →
+    to_result e2 = Some arg →
+    pure_expr_step P h (Call #[ScFnPtr f] e2)
+                       (apply_func fn arg) []
+| WhilePS e1 e2 :
+    (* unfold by one step *)
+    pure_expr_step P h (While e1 e2) (if: e1 then (e2;; while: e1 do e2 od) else #[☠]) []
+| ForkPS (e : expr) :
+    pure_expr_step P h (Fork e) #[☠] [e]
+  .
+
+Definition poison_of_size : nat -> value := repeat (☠%S).
+Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr → Prop :=
+  | AllocBS tg ptr :
+      let sz := sizeof ptr in
+      let l := (fresh_block h, 0) in
+      mem_expr_step
+        h (Alloc ptr)
+        (AllocEvt l tg ptr)
+        (init_mem l sz h) (Place l tg ptr) []
+  | DeallocBS l tg ptr h'
+    (WRITE: write_acquire_mem l (sizeof ptr) h = Some (poison_of_size (sizeof ptr), h')) :
+    mem_expr_step
+      h (Free (Place l tg ptr))
+      (DeallocEvt l tg ptr)
+      (free_mem l (sizeof ptr) h) #[☠] []
+  | AtomicReadBS l tg ptr val h'
+    (READ: read_atomic_mem l (sizeof ptr) h = Some (val, h'))
+    (BYTE: length val = 1%nat) :
+    mem_expr_step
+      h (Read Atomic (Place l tg ptr))
+      (ReadEvt Atomic l tg ptr val)
+      h' (Val val) []
+  | NaReadBS l tg ptr val h'
+    (READ: read_acquire_mem l (sizeof ptr) h = Some (poison_of_size (sizeof ptr), h')) :
+    mem_expr_step
+      h (Read NaStart (Place l tg ptr))
+      (ReadEvt NaStart l tg ptr val)
+      h' (Read NaEnd (Place l tg ptr)) []
+  | NaTmpReadBS l tg ptr val h'
+    (READ: read_release_mem l (sizeof ptr) h = Some (val, h')) :
+    mem_expr_step
+      h (Read NaEnd (Place l tg ptr))
+      (ReadEvt NaEnd l tg ptr val)
+      h' (Val val) []
+  | AtomicWriteBS l tg ptr val h'
+    (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
+    (WRITE: write_atomic_mem l val h = Some (poison_of_size (length val), h'))
+    (BYTE: length val = 1%nat) :
+    mem_expr_step
+      h (Write Atomic (Place l tg ptr) (Val val))
+      (WriteEvt Atomic l tg ptr val)
+      h' #[☠] []
+  | NaWriteBS l tg ptr val h'
+    (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
+    (WRITE: write_acquire_mem l (length val) h = Some (poison_of_size (length val), h'))
+    (SIZE_COMPAT: length val = sizeof ptr) :
+    mem_expr_step
+      h (Write NaStart (Place l tg ptr) (Val val))
+      (WriteEvt NaStart l tg ptr val)
+      h' (Write NaEnd (Place l tg ptr) (Val val)) []
+  | NaTmpWriteBS l tg ptr val h'
+    (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
+    (WRITE: write_release_mem l val h = Some (poison_of_size (length val), h'))
+    (SIZE_COMPAT: length val = sizeof ptr) :
+    mem_expr_step
+      h (Write NaEnd (Place l tg ptr) (Val val))
+      (WriteEvt NaEnd l tg ptr val)
+      h' #[☠] []
+  | InitCallBS cid :
+    mem_expr_step
+      h InitCall
+      (InitCallEvt cid)
+      h (Val $ [ScCallId cid]) []
+  | EndCallBS cid e :
+    to_value e = Some [ScCallId cid] →
+    mem_expr_step
+      h (EndCall e)
+      (EndCallEvt cid)
+      h #[☠] []
+  | RetagBS l (oldt newt:tag) ptr rtk cid :
+  (* Right now this is atomic, do we need nonatomicity of reborrows ? Definitely yes. How do we get that ? *)
+    mem_expr_step
+      h (Retag #[ScPtr l oldt] #[ScCallId cid] ptr rtk)
+      (RetagEvt l oldt newt ptr rtk cid)
+      h #[ScPtr l newt] []
+  .
+
+Definition policy_nonwrite := Forall (λ p, match p with PolTouch | PolRead => True | _ => False end).
+Definition policy_nonread := Forall (λ p, match p with PolTouch | PolWrite _ => True | _ => False end).
+Lemma ignore_poison l lkp vlp h res :
+  policy_nonread vlp ->
+  mem_app l lkp vlp h = Some res ->
+  exists h', res = (poison_of_size (length vlp), h').
+Proof.
+  all: generalize dependent h.
+  all: generalize dependent res.
+  all: generalize dependent l.
+  all: generalize dependent vlp.
+  all: induction vlp; intros l res h NonRead Success; destruct res; simpl in *.
+  1: eexists; simpl; injection Success; intros; subst; auto.
+  destruct (h !! l); inversion Success as [Success']; clear Success.
+  destruct p as [oldlk olds]; destruct (lkp oldlk); inversion Success' as [Success'']; clear Success'.
+  inversion NonRead; destruct a; try contradiction.
+  all: subst; simpl in *.
+  all: destruct (mem_app (l +ₗ 1) lkp vlp (<[l:=_]> h)) eqn:SuccessRec; inversion Success'' as [Success''']; clear Success''.
+  all: destruct p as [recval h'].
+  all: injection Success'''; intros; subst.
+  all: destruct (IHvlp _ _ _ H2 SuccessRec); injection H; intros; subst.
+  all: exists x; f_equal; auto.
+Qed.
+
+Lemma policy_touch_is_nonread len : policy_nonread (policy_touch len).
+Proof. induction len; unfold policy_nonread; unfold policy_touch; simpl; auto. Qed.
+Lemma policy_write_is_nonread val : policy_nonread (policy_write val).
+Proof. induction val; unfold policy_nonread; unfold policy_write; simpl; auto. Qed.
+Lemma policy_touch_is_nonwrite len : policy_nonwrite (policy_touch len).
+Proof. induction len; unfold policy_nonwrite; unfold policy_touch; simpl; auto. Qed.
+Lemma policy_read_is_nonwrite len : policy_nonwrite (policy_read len).
+Proof. induction len; unfold policy_nonwrite; unfold policy_read; simpl; auto. Qed.
+
+Definition lock_round_trip (acq rel:lock_policy) :=
+  forall lk lk'',
+  (lk' ← acq lk; rel lk') = Some lk'' ->
+  lk'' = lk.
+Lemma lock_round_trip_write : lock_round_trip lock_acquire_write lock_release_write.
+Proof. intros lk lk''; destruct lk; simpl; try destruct n; simpl; intro H; inversion H; reflexivity. Qed.
+Lemma lock_round_trip_read : lock_round_trip lock_acquire_read lock_release_read.
+Proof. intros lk lk''; destruct lk; simpl; try destruct n; simpl; intro H; inversion H; reflexivity. Qed.
+
+Definition lock_noop (lkp:lock_policy) :=
+  forall lk lk', lkp lk = Some lk' -> lk = lk'.
+Lemma lock_noop_read : lock_noop lock_atomic_read.
+Proof. intros lk lk'. unfold lock_atomic_read; destruct lk; intro H; inversion H; reflexivity. Qed.
+Lemma lock_noop_write : lock_noop lock_atomic_write.
+Proof. intros lk lk'. unfold lock_atomic_write; destruct lk; [destruct n|]; intro H; inversion H; reflexivity. Qed.
+
+Lemma nonwrite_noop_atomic lkp :
+  lock_noop lkp ->
+  forall vlp l h h' v,
+  policy_nonwrite vlp ->
+  mem_app l lkp vlp h = Some (v, h') ->
+  h' = h.
+Proof.
+  intro Noop.
+  induction vlp; intros l h h' v NonWrite; simpl; intro H.
+  1: inversion H; auto.
+  destruct (h !! l) eqn:Access; inversion H; clear H.
+  destruct p; destruct (lkp l0) eqn:LockApplied; inversion H1; clear H1.
+  inversion NonWrite; destruct a; try contradiction; subst; simpl in H0.
+  all: destruct (mem_app (l +ₗ 1) lkp vlp (<[l:=_]>h)) eqn:Rec; inversion H0.
+  all: destruct p; rewrite (IHvlp (l +ₗ 1) (<[l:=(l1, s)]> h) m v0 H3 Rec) in H0.
+  all: inversion H0; apply insert_id.
+  all: rewrite <- (Noop l0 l1 LockApplied); assumption.
+Qed.
+
+
