@@ -235,19 +235,6 @@ Proof.
   auto.
 Qed.
 
-Lemma tree_Forall_forall P tr :
-  tree_Forall P tr <-> (forall (it:item), tree_Exists (fun it' => it = it') tr -> P it).
-Proof. 
-  unfold tree_Forall.
-  induction tr; simpl; [split; [intros; contradiction|tauto]|].
-  rewrite IHtr1. rewrite IHtr2.
-  split; intro; try repeat split.
-  - destruct H as [H0 [H1 H2]]. intros it Hyp.
-    destruct Hyp as [H'0 | [H'1 | H'2]]; subst; auto.
-  - apply H; left; reflexivity.
-  - intros it Hyp; apply H; right; left; assumption.
-  - intros it Hyp; apply H; right; right; assumption.
-Qed.
 
 
 

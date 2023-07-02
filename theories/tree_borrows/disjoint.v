@@ -50,63 +50,58 @@ Qed.
 
 Lemma tree_Exists_increasing {X} (prop prop':Tprop X) tr :
   tree_Exists prop tr ->
-  (forall x, prop x -> prop' x) ->
+  tree_Forall (fun x => prop x -> prop' x) tr ->
   tree_Exists prop' tr.
 Proof.
   induction tr; simpl; [tauto|].
-  intros H Impl; destruct H as [H0 | [H1 | H2]].
-  - left; apply Impl; auto.
+  intros H Impl; destruct Impl as [Impl0 [Impl1 Impl2]]; destruct H as [H0 | [H1 | H2]].
+  - left; apply Impl0; auto.
   - right; left; apply IHtr1; auto.
   - right; right; apply IHtr2; auto.
 Qed.
 
+Lemma tree_Forall_increasing {X} (prop prop':Tprop X) tr :
+  tree_Forall prop tr ->
+  tree_Forall (fun x => prop x -> prop' x) tr ->
+  tree_Forall prop' tr.
+Proof.
+  repeat rewrite tree_Forall_forall.
+  intros Pre Trans x Ex.
+  apply Trans; [exact Ex|].
+  apply Pre.
+  exact Ex.
+Qed.
+
 Lemma access_preserves_tags tr tg :
-  forall tr' app cids range rel,
+  forall tr' app cids range dyn_rel,
+  (forall it it' cids rel range, app cids rel range it = Some it' -> itag it = itag it') ->
   tree_contains tg tr ->
-  tree_apply_access app cids tg range tr rel = Some tr' ->
+  tree_apply_access app cids tg range tr dyn_rel = Some tr' ->
   tree_contains tg tr'.
 Proof.
-  move=> tr' app ??? Contains Access.
+  move=> tr' app ??? Preserve Contains Access.
   unfold tree_apply_access in Access.
   unfold tree_contains in *.
   rewrite join_project_Exists.
   2: exact Access.
   rewrite tree_Exists_map.
   unfold compose.
-  apply (tree_Exists_increasing _ _ _ Contains).
-
-
-
-
-  generalize dependent tr'.
-  induction tr; [inversion Contains|].
-  intros tr' Access.
-  unfold tree_apply_access in *.
-  remember ( _ _ _ _ data) as newit.
-  remember (tree_join (tree_map _ tr1)) as new1.
-  remember (tree_join (tree_map _ tr2)) as new2.
-  destruct newit; simpl in Read; [|inversion Read].
-  destruct new1; simpl in Read; [|inversion Read].
-  destruct new2; simpl in Read; [|inversion Read].
-  injection Read; intros; subst.
-  destruct Contains as [C0 | [C1 | C2]].
-  - left.
+  pose proof (proj1 (join_success_condition (tree_map _ tr)) (mk_is_Some _ _ Access)).
+  rewrite tree_Forall_map in H.
+  eapply tree_Exists_increasing.
+  - exact Contains.
+  - unfold compose in H.
+    rewrite tree_Forall_forall.
+    rewrite tree_Forall_forall in H.
+    intros x Exists Tagx.
+    pose proof (H x Exists) as Hspec.
+    destruct Hspec as [v App].
+    exists v.
+    split; auto.
     unfold IsTag in *; subst.
-    symmetry in Heqnewit.
-    rewrite (item_apply_access_preserves_tag _ _ _ _ _ _ Heqnewit).
-    reflexivity.
-  - right; left.
-    symmetry in Heqnew1.
-    apply (IHtr1 _ _ _ _ Heqnew1).
-
-
-      + destruct (tree_join _); simpl in *; [|inversion H0].
-        injection H0; intros; subst.
-        destruct (item_apply_access _ _ _ _ data); simpl in *.
-        injection Read; intros; subst.
-
-  unfold memory_read in Read; unfold tree_apply_access in Read.
-
+    symmetry.
+    apply (Preserve _ _ _ _ _ App).
+Qed.
 
 Lemma new_item_has_tag tg :
   forall perm range,
@@ -117,7 +112,6 @@ Proof.
   unfold IsTag; simpl; reflexivity.
 Qed.
 
-(* fresh t -> fresh t' -> insert t -> insert t' -> ~child t t' *)
 Lemma insertion_contains tr tgp tgc :
   forall cids range tr' newp,
   tree_contains tgp tr ->
@@ -130,9 +124,21 @@ Proof.
   rewrite Insert.
   apply insert_True_produces_Exists.
   - apply new_item_has_tag.
-  - 
+  - eapply (access_preserves_tags _ _ _ _ _ _ _); [|exact ContainsParent|exact Read].
+    intros.
+    eapply item_apply_access_preserves_tag.
+    exact H.
+Qed.
 
+(* fresh t -> fresh t' -> insert t -> insert t' -> ~child t t' *)
 Lemma insertion_order_nonchild tr tg tg' :
+  tree_contains tg' tr ->
   ~tree_contains tg tr ->
-  ~tree_contains tg' tr ->
+  forall tgp cids range newp tr',
+  create_child cids tgp range tg newp tr = Some tr' ->
+  ~ParentChildIn tg tg' tr.
+Proof.
+  intros Present Fresh.
+
+
 

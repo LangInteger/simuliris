@@ -466,6 +466,39 @@ Proof.
     auto.
 Qed.
 
+Lemma tree_Forall_forall {X} P tr :
+  tree_Forall P tr <-> (forall (x:X), tree_Exists (fun x' => x = x') tr -> P x).
+Proof.
+  unfold tree_Forall.
+  induction tr; simpl; [split; [intros; contradiction|tauto]|].
+  rewrite IHtr1. rewrite IHtr2.
+  split; intro; try repeat split.
+  - destruct H as [H0 [H1 H2]]. intros it Hyp.
+    destruct Hyp as [H'0 | [H'1 | H'2]]; subst; auto.
+  - apply H; left; reflexivity.
+  - intros it Hyp; apply H; right; left; assumption.
+  - intros it Hyp; apply H; right; right; assumption.
+Qed.
+
+Lemma tree_Exists_exists {X} P tr :
+  tree_Exists P tr <-> (exists (x:X), tree_Exists (fun x' => x = x') tr /\ P x).
+Proof.
+  unfold tree_Exists.
+  induction tr; simpl; [split; [tauto|intro H; destruct H as [_ [Contra _]]; tauto]|].
+  rewrite IHtr1. rewrite IHtr2.
+  split; intro.
+  - destruct H as [H0 | [H1 | H2]].
+    * exists data; auto.
+    * destruct H1 as [x [Ex Px]].
+      exists x; auto.
+    * destruct H2 as [x [Ex Px]].
+      exists x; auto.
+  - destruct H as [x [[H0 | [H1 | H2]] Px]].
+    * left; subst; auto.
+    * right; left; exists x; auto.
+    * right; right; exists x; auto.
+Qed.
+
 (* Weakenings, compositions, transitivity *)
 
 Lemma StrictChild_impl_Child {X} (prop:Tprop X) (tr:tree X) :
