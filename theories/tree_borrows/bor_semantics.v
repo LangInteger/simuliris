@@ -501,6 +501,14 @@ Proof.
   tauto.
 Qed.
 
+Lemma tree_Exists_map {X Y} (tr:tree X) (fn:X -> Y) (prop:Y -> Prop) :
+  tree_Exists prop (tree_map fn tr) <-> tree_Exists (compose prop fn) tr.
+Proof.
+  unfold tree_Exists.
+  rewrite tree_permute_fold_map.
+  tauto.
+Qed.
+
 Lemma Forall_not_is_not_Exists {X} (prop:Tprop X) (tr:tree X) :
   tree_Forall (compose not prop) tr
   <-> ~tree_Exists prop tr.
@@ -878,11 +886,15 @@ Definition newperm_from_box
   let newprot := match rtk with FnEntry => Some {| weak:=true; call:=cid |} | Default => None end in
   Some {| initial_state:=initial; new_protector:=newprot |}.
 
+Definition create_new_item tg perm range :=
+  let perms := init_perms perm.(initial_state) range in
+  let it := {| itag:=tg; iprot:=perm.(new_protector); initp:=perm.(initial_state); iperm:=perms |} in
+  it.
+
 Definition create_child cids (oldt:tag) range (newt:tag) (newp:newperm)
   : app (tree item) := fun tr =>
   tr' ← memory_read cids oldt range tr;
-  let perms := init_perms newp.(initial_state) range in
-  let it := {| itag:=newt; iprot:=newp.(new_protector); initp:=newp.(initial_state); iperm:=perms |} in
+  let it := create_new_item newt newp range in
   Some $ insert_child_at tr' it (IsTag oldt).
 
 (* FIXME: do we need the visitor ? *)
@@ -902,11 +914,15 @@ Definition apply_within_trees (fn:app (tree item)) blk
   newtr ← fn oldtr;
   Some $ <[blk := newtr]> trs.
 
-Definition tree_contains t trs blk
+Definition tree_contains t tr
+  : Prop :=
+  tree_Exists (IsTag t) tr.
+
+Definition trees_contain t trs blk
   : Prop :=
   match trs !! blk with
   | None => False
-  | Some tr => tree_Exists (IsTag t) tr
+  | Some tr => tree_contains t tr
   end.
 
 Definition tag_included (tg: tag) (nxtp:tag) : Prop :=
@@ -944,21 +960,21 @@ Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
       (AllocEvt x (Tag nxtp) ptr)
       (extend_trees (Tag nxtp) x.1 (x.2, sizeof ptr) trs) cids (S nxtp) nxtc
   | ReadIS trs' (x:loc) tg ptr val
-    (EXISTS_TAG: tree_contains tg trs x.1)
+    (EXISTS_TAG: trees_contain tg trs x.1)
     (ACC: apply_within_trees (memory_read cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (ReadEvt x tg ptr val)
       trs' cids nxtp nxtc
   | WriteIS trs' (x:loc) tg ptr val
-    (EXISTS_TAG: tree_contains tg trs x.1)
+    (EXISTS_TAG: trees_contain tg trs x.1)
     (ACC: apply_within_trees (memory_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (WriteEvt x tg ptr val)
       trs' cids nxtp nxtc
   | DeallocIS trs' (x:loc) tg ptr
-    (EXISTS_TAG: tree_contains tg trs x.1)
+    (EXISTS_TAG: trees_contain tg trs x.1)
     (ACC: apply_within_trees (memory_deallocate cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
     (* FIXME: remove the tree ? *)
     bor_step
@@ -978,8 +994,8 @@ Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
       trs (cids ∖ {[c]}) nxtp nxtc
   | RetagIS trs' parentt (x:loc) (ptr:pointer) (rtk:retag_kind) newp c
     (EL: c ∈ cids)
-    (EXISTS_TAG: tree_contains parentt trs x.1)
-    (FRESH_CHILD: ~tree_contains (Tag nxtp) trs x.1)
+    (EXISTS_TAG: trees_contain parentt trs x.1)
+    (FRESH_CHILD: ~trees_contain (Tag nxtp) trs x.1)
     (NEW_PERM: reborrow_perm (kindof ptr) rtk c = Some newp)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt (x.2, sizeof ptr) (Tag nxtp) newp) x.1 trs = Some trs') :
     bor_step
