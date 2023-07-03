@@ -22,7 +22,7 @@ intro H; right; left. eapply insert_preserves_exists; auto.
   + rewrite IHtr1; clear IHtr1. rewrite IHtr2; clear IHtr2.
     simpl.
 split; intro Hyp.
-    - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
+- destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
       try repeat split; auto.
       intro H; auto.
       apply insert_preserves_exists; auto.
@@ -211,52 +211,6 @@ Proof.
   simpl; reflexivity.
 Qed.
 
-Lemma join_project_exists {X} tr prop :
-  forall tr',
-  join_nodes tr = Some tr' ->
-  exists_node prop tr' <-> exists_node (fun x => exists (v:X), x = Some v /\ prop v) tr.
-Proof.
-  induction tr; intros tr' JoinSome.
-  - simpl in JoinSome; injection JoinSome; intros; subst; tauto.
-  - simpl in JoinSome.
-    destruct data; simpl in *; [|inversion JoinSome].
-    destruct (join_nodes tr1); simpl in *; [|inversion JoinSome].
-    destruct (join_nodes tr2); simpl in *; [|inversion JoinSome].
-    injection JoinSome; intros; subst.
-    simpl.
-    split; intro H; destruct H as [H0 | [H1 | H2]].
-    * left. exists x; tauto.
-    * right; left. rewrite <- IHtr1; [exact H1|auto].
-    * right; right. rewrite <- IHtr2; [exact H2|auto].
-    * left. destruct H0 as [v [SomeV Pv]]; injection SomeV; intros; subst; auto.
-    * right; left. rewrite IHtr1; auto.
-    * right; right. rewrite IHtr2; auto.
-Qed.
-
-Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
-  exists_node prop tr ->
-  every_node (fun x => prop x -> prop' x) tr ->
-  exists_node prop' tr.
-Proof.
-  induction tr; simpl; [tauto|].
-  intros H Impl; destruct Impl as [Impl0 [Impl1 Impl2]]; destruct H as [H0 | [H1 | H2]].
-  - left; apply Impl0; auto.
-  - right; left; apply IHtr1; auto.
-  - right; right; apply IHtr2; auto.
-Qed.
-
-Lemma every_node_increasing {X} (prop prop':Tprop X) tr :
-  every_node prop tr ->
-  every_node (fun x => prop x -> prop' x) tr ->
-  every_node prop' tr.
-Proof.
-  repeat rewrite every_node_eqv_universal.
-  intros Pre Trans x Ex.
-  apply Trans; [exact Ex|].
-  apply Pre.
-  exact Ex.
-Qed.
-
 Lemma access_preserves_tags tr tg :
   forall tr' tg' app cids range dyn_rel,
   (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it') ->
@@ -374,6 +328,51 @@ Proof.
   - apply Present'.
   - apply Contra.
 Qed.
+
+Lemma apply_access_spec_per_node tr affected_tag access_tag pre:
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  every_node (fun it => IsTag affected_tag it -> it = pre) tr ->
+  forall fn cids range tr' dyn_rel,
+  (forall it it' rel, fn cids rel range it = Some it' -> itag it = itag it') ->
+  tree_apply_access fn cids access_tag range tr dyn_rel = Some tr' ->
+  every_node (fun it => IsTag affected_tag it ->
+    Some it = fn cids (if dyn_rel access_tag pre.(itag) then AccessChild else AccessForeign) range pre
+  ) tr'.
+Proof.
+  intros Contains Contains' TgSpec fn cids range tr' dyn_rel FnPreservesTag Success.
+  (* Grab the success condition of every node separately *)
+  pose proof (proj1 (join_success_condition _) (mk_is_Some _ _ Success)) as SuccessCond.
+  rewrite every_node_map in SuccessCond; rewrite every_node_eqv_universal in SuccessCond.
+  (* Also ensure unicity of affected_tag *)
+  rewrite every_node_eqv_universal in TgSpec.
+  (* Now do some transformations to get to the node level *)
+  rewrite join_project_every; [|exact Success].
+  rewrite every_node_map.
+  unfold compose.
+  rewrite every_node_eqv_universal.
+  intros n Exn.
+  pose proof (SuccessCond n Exn) as PerNodeSuccess.
+  pose proof (TgSpec n Exn) as PerNodeEqual.
+  (* Phew. Clean up a bit. *)
+  clear Success Contains SuccessCond TgSpec Contains' Exn.
+  destruct PerNodeSuccess as [res resSpec].
+  exists res.
+  split; [exact resSpec|].
+  intro resTg.
+  rewrite <- resSpec.
+  rewrite PerNodeEqual; [auto|].
+  f_equal.
+  unfold IsTag in *.
+  erewrite FnPreservesTag; [exact resTg|exact resSpec].
+Qed.
+
+Lemma nonchild_write_disables tr tg tg' :
+  tree_contains tg' tr ->
+  tree_contains tg tr ->
+  ~ParentChildIn tg tg' tr ->
+  forall range tr',
+  memory_write fn.
 
 
 

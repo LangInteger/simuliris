@@ -400,3 +400,73 @@ Lemma strict_child_of_exists_exists br prop (tr:tree item) :
   exists_strict_child prop br ->
   exists_node prop tr.
   *)
+
+Lemma join_project_exists {X} tr prop :
+  forall tr',
+  join_nodes tr = Some tr' ->
+  exists_node prop tr' <-> exists_node (fun x => exists (v:X), x = Some v /\ prop v) tr.
+Proof.
+  induction tr; intros tr' JoinSome.
+  - simpl in JoinSome; injection JoinSome; intros; subst; tauto.
+  - simpl in JoinSome.
+    destruct data; simpl in *; [|inversion JoinSome].
+    destruct (join_nodes tr1); simpl in *; [|inversion JoinSome].
+    destruct (join_nodes tr2); simpl in *; [|inversion JoinSome].
+    injection JoinSome; intros; subst.
+    simpl.
+    split; intro H; destruct H as [H0 | [H1 | H2]].
+    * left. exists x; tauto.
+    * right; left. rewrite <- IHtr1; [exact H1|auto].
+    * right; right. rewrite <- IHtr2; [exact H2|auto].
+    * left. destruct H0 as [v [SomeV Pv]]; injection SomeV; intros; subst; auto.
+    * right; left. rewrite IHtr1; auto.
+    * right; right. rewrite IHtr2; auto.
+Qed.
+
+Lemma join_project_every {X} tr prop :
+  forall tr',
+  join_nodes tr = Some tr' ->
+  every_node prop tr' <-> every_node (fun x => exists (v:X), x = Some v /\ prop v) tr.
+Proof.
+  induction tr; intros tr' JoinSome.
+  - simpl in JoinSome; injection JoinSome; intros; subst; tauto.
+  - simpl in JoinSome.
+    destruct data; simpl in *; [|inversion JoinSome].
+    destruct (join_nodes tr1); simpl in *; [|inversion JoinSome].
+    destruct (join_nodes tr2); simpl in *; [|inversion JoinSome].
+    injection JoinSome; intros; subst.
+    simpl.
+    try repeat split.
+    all: destruct H as [?[??]].
+    * eexists; easy.
+    * rewrite <- IHtr1; auto; auto.
+    * rewrite <- IHtr2; auto; auto.
+    * destruct H as [?[??]]; injection H; intros; subst; auto.
+    * rewrite IHtr1; auto.
+    * rewrite IHtr2; auto.
+Qed.
+
+Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
+  exists_node prop tr ->
+  every_node (fun x => prop x -> prop' x) tr ->
+  exists_node prop' tr.
+Proof.
+  induction tr; simpl; [tauto|].
+  intros H Impl; destruct Impl as [Impl0 [Impl1 Impl2]]; destruct H as [H0 | [H1 | H2]].
+  - left; apply Impl0; auto.
+  - right; left; apply IHtr1; auto.
+  - right; right; apply IHtr2; auto.
+Qed.
+
+Lemma every_node_increasing {X} (prop prop':Tprop X) tr :
+  every_node prop tr ->
+  every_node (fun x => prop x -> prop' x) tr ->
+  every_node prop' tr.
+Proof.
+  repeat rewrite every_node_eqv_universal.
+  intros Pre Trans x Ex.
+  apply Trans; [exact Ex|].
+  apply Pre.
+  exact Ex.
+Qed.
+

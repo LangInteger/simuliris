@@ -35,8 +35,6 @@ Proof. solve_decision. Defined.
 Global Instance tag_countable : Countable tag.
 Proof. refine (inj_countable (λ '(Tag t), t) (λ t, Some $ Tag t) _); by intros []. Qed.
 
-(* FIXME: should be possible to remove types (almost) entirely *)
-
 Inductive permission := Reserved | ReservedMut | Active | Frozen | Disabled.
 Global Instance permission_eq_dec : EqDecision permission.
 Proof. solve_decision. Defined.
