@@ -5,43 +5,14 @@ https://gitlab.mpi-sws.org/FP/stacked-borrows
 From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
-From simuliris.tree_borrows Require Export lang_base notation.
+From simuliris.tree_borrows Require Export lang_base notation tree tree_lemmas.
 From iris.prelude Require Import options.
 
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
 
-Implicit Type (V W X Y:Type).
 Implicit Type (c:call_id) (cids:call_id_set).
 Implicit Type (blk:block) (n sz:nat) (z:Z) (range:Z * nat).
 Implicit Type (trs:trees) (t:tag).
-
-Definition app X : Type := X -> option X.
-Definition Tprop X : Type := X -> Prop.
-
-(** General Preliminaries *)
-
-Definition unwrap {X} (default:X)
-  : option X -> X :=
-  fun o => match o with
-  | Some t => t
-  | None => default
-  end.
-
-Definition option_bind {X Y} (fn:X -> option Y)
-  : option X -> option Y :=
-  fun ox => x ← ox; fn x.
-
-Definition option_join {X}
-  : option (option X) -> option X :=
-  fun oox => ox ← oox; ox.
-
-Lemma option_map_compose {X Y Z} (fn:X -> Y) (fn':Y -> Z) :
-  forall ox, option_map fn' (option_map fn ox) = option_map (compose fn' fn) ox.
-Proof. intro ox. destruct ox; simpl; auto. Qed.
-
-Lemma option_bind_map_join {X Y} (fn:X -> option Y) :
-  option_bind fn = compose option_join (option_map fn).
-Proof. apply functional_extensionality. intro ox. destruct ox; simpl; auto. Qed.
 
 Definition range_contains range z : Prop :=
   (range.1 ≤ z)%Z /\ (z < range.1 + range.2)%Z.
@@ -135,149 +106,7 @@ Definition mem_foreach_defined {X} (fn:option X -> X) range
   : gmap Z X -> gmap Z X := fun map =>
   is_Some_proj (mem_foreach_defined_isSome map fn range).
 
-(** Tree-specific preliminaries *)
-
-Definition tree_fold {X Y} (unit:Y) (combine:X -> Y -> Y -> Y)
-  : tree X -> Y := fix aux tr : Y :=
-  match tr with
-  | empty => unit
-  | branch data sibling child => combine data (aux sibling) (aux child)
-  end.
-
-(* FIXME: do things flow better if this is a Fixpoint ? *)
-Definition tree_map {X Y} (fn:X -> Y) : tree X -> tree Y := tree_fold empty (compose branch fn).
-
-(* FIXME: Standard name for this ? *)
-Definition tree_join {X}
-  : tree (option X) -> option (tree X) := fix aux tr {struct tr} : option (tree X) :=
-  match tr with
-  | empty => Some empty
-  | branch data sibling child =>
-    data ← data;
-    sibling ← aux sibling;
-    child ← aux child;
-    Some $ branch data sibling child
-  end.
-
-Lemma tree_join_join {X} :
-  forall (tr:tree (option (option X))),
-  option_bind tree_join (tree_join tr) = tree_join (tree_map option_join tr).
-Proof.
-  induction tr; simpl; auto.
-  rewrite <- IHtr1; rewrite <- IHtr2.
-  destruct data; simpl; auto.
-  destruct o; simpl; auto.
-  all: destruct (tree_join tr1); simpl; auto.
-  all: destruct (tree_join tr2); simpl; auto.
-  destruct (tree_join t); simpl; auto.
-Qed.
-
-Lemma tree_join_omap_comm {X Y} (fn:X -> Y) :
-  forall (tr:tree (option X)),
-  tree_join (tree_map (option_map fn) tr) = option_map (tree_map fn) (tree_join tr).
-Proof.
-  induction tr; simpl; auto.
-  rewrite IHtr1; rewrite IHtr2; simpl.
-  destruct data; simpl; auto.
-  destruct (tree_join tr1); simpl; auto.
-  destruct (tree_join tr2); simpl; auto.
-Qed.
-
-Lemma tree_map_compose {W X Y} (fn:W -> X) (fn':X -> Y) :
-  forall (tr:tree W),
-  tree_map fn' (tree_map fn tr) = tree_map (compose fn' fn) tr.
-Proof.
-  induction tr; simpl; auto.
-  rewrite IHtr1. rewrite IHtr2; reflexivity.
-Qed.
-
-
-Lemma tree_join_delay {X Y} (fn:X -> option Y) :
-  forall (tr:tree (option X)),
-  tree_join (tree_map (option_bind fn) tr) = option_bind (compose tree_join (tree_map fn)) (tree_join tr).
-Proof.
-  intro tr.
-  rewrite option_bind_map_join.
-  rewrite option_bind_map_join.
-  rewrite <- tree_map_compose.
-  rewrite <- tree_join_join.
-  rewrite tree_join_omap_comm.
-  rewrite option_bind_map_join.
-  unfold compose.
-  rewrite option_map_compose.
-  f_equal.
-Qed.
-
-
-Definition tree_Forall {X} (prop:Tprop X) (tr:tree X) := tree_fold True (fun data lt rt => prop data /\ lt /\ rt) tr.
-Global Instance tree_Forall_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (tree_Forall prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
-
-Definition tree_Exists {X} (prop:Tprop X) (tr:tree X) := tree_fold False (fun data lt rt => prop data \/ lt \/ rt) tr.
-Global Instance tree_Exists_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (tree_Exists prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
-
-(*
-Definition tree_Once {X} (prop:Tprop X)
-  : Tprop (tree X) := fix aux tr : Prop :=
-  match tr with
-  | empty => False
-  | branch data sibling child =>
-    (prop data /\ tree_Forall (compose not prop) sibling /\ tree_Forall (compose not prop) child)
-    \/ (not $ prop data /\ aux sibling /\ tree_Forall (compose not prop) child)
-    \/ (not $ prop data /\ tree_Forall (compose not prop) sibling /\ aux child)
-  end.
-Global Instance tree_Once_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (tree_Once prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
-*)
-
-Definition tree_StrictChildExists {X} (prop:Tprop X)
-  : Tprop (tree X) := fun tr =>
-  match tr with
-  | empty => False
-  | branch _ _ child => tree_Exists prop child
-  end.
-Global Instance tree_StrictChildExists_dec {X} prop (tr:tree X) :
-  (forall u, Decision (prop u)) -> Decision (tree_StrictChildExists prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
-
-Definition tree_ChildExists {X} (prop:Tprop X)
-  : Tprop (tree X) := fun tr =>
-  match tr with
-  | empty => False
-  | branch self _ child => prop self \/ tree_Exists prop child
-  end.
-Global Instance tree_ChildExists_dec {X} prop (tr:tree X) :
-  (forall u, Decision (prop u)) -> Decision (tree_ChildExists prop tr).
-Proof. intro. rewrite /tree_ChildExists. case_match; solve_decision. Qed.
-
-Definition tree_AtNode {X} (search:Tprop X) (prop:Tprop (tree X))
-  : Tprop (tree X) := fix aux tr : Prop :=
-  match tr with
-  | empty => True
-  | branch data sibling child => (search data -> prop tr) /\ aux sibling /\ aux child
-  end.
-Global Instance tree_AtNode_dec {X} search prop (tr:tree X) :
-  (forall u, Decision (search u)) -> (forall tr', Decision (prop tr')) -> Decision (tree_AtNode search prop tr).
-Proof. intros. induction tr; rewrite /tree_AtNode; solve_decision. Qed.
-
-
-Definition insert_child_at {X} (tr:tree X) (ins:X) (search:Tprop X) {search_dec:forall x, Decision (search x)} : tree X :=
-  (fix aux tr : tree X :=
-    match tr with
-    | empty => empty
-    | branch data sibling child =>
-      let sibling := aux sibling in
-      let child := aux child in
-      if decide (search data)
-      then branch data sibling (branch ins child empty)
-      else branch data sibling child
-    end
-  ) tr.
-
 (** CORE SEMANTICS *)
-
-
 
 Inductive access_rel := AccessForeign | AccessChild.
 Global Instance access_rel_eq_dec : EqDecision access_rel.
@@ -287,11 +116,21 @@ Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
 Proof. rewrite /IsTag. solve_decision. Qed.
 
-Definition HasChildTag t' : Tprop (tree item) := tree_ChildExists (IsTag t').
-Global Instance HasChildTag_dec t' tr : Decision (HasChildTag t' tr).
-Proof. rewrite /HasChildTag. solve_decision. Qed.
+Definition HasRootTag t : Tprop (tbranch item) := fun br => IsTag t (root br).
+Global Instance HasRootTag_dec t it : Decision (HasRootTag t it).
+Proof. rewrite /HasRootTag. solve_decision. Qed.
 
-Definition ParentChildIn t t' : Tprop (tree item) := tree_AtNode (IsTag t) (HasChildTag t').
+Definition HasStrictChildTag t' : Tprop (tbranch item) := exists_strict_child (IsTag t').
+Global Instance HasChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
+Proof. rewrite /HasStrictChildTag. solve_decision. Qed.
+
+Definition StrictParentChildIn t t' : Tprop (tree item)
+  := every_subtree (fun br => (IsTag t (root br)) -> (HasStrictChildTag t' br)).
+Global Instance StrictParentChildIn_dec t t' tr : Decision (StrictParentChildIn t t' tr).
+Proof. rewrite /StrictParentChildIn. solve_decision. Qed.
+
+Definition ParentChildIn t t' : Tprop (tree item)
+  := fun tr => t = t' \/ StrictParentChildIn t t' tr.
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
 Proof. rewrite /ParentChildIn. solve_decision. Qed.
 
@@ -396,7 +235,7 @@ Definition tree_apply_access
   let app : item -> option item := fun it => (
     fn cids (if dyn_rel access_tag it.(itag) then AccessChild else AccessForeign) range it
   ) in
-  tree_join (tree_map app tr).
+  join_nodes (map_nodes app tr).
 
 Definition init_perms perm range
   : permissions := mem_foreach_defined (fun _ => mkPerm true perm) range gmap_empty.
@@ -448,440 +287,18 @@ Proof.
   all: inversion FirstPass; auto.
 Qed.
 
-Lemma join_success_condition {X} (tr:tree (option X)) :
-  is_Some (tree_join tr) <-> tree_Forall is_Some tr.
-Proof.
-  induction tr; simpl; split; auto.
-  - intro Computation.
-    destruct data; destruct (tree_join tr1); destruct (tree_join tr2).
-    all: simpl in Computation; inversion Computation; inversion H.
-    rewrite <- IHtr1.
-    rewrite <- IHtr2.
-    split; [|split]. all: auto.
-  - intro AllSuccess.
-    destruct AllSuccess as [DataSome [Success1 Success2]].
-    destruct DataSome; rewrite H; clear H; simpl.
-    destruct (proj2 IHtr1 Success1); rewrite H; clear H; simpl.
-    destruct (proj2 IHtr2 Success2); rewrite H; clear H; simpl.
-    auto.
-Qed.
-
-Lemma tree_Forall_forall {X} P tr :
-  tree_Forall P tr <-> (forall (x:X), tree_Exists (fun x' => x = x') tr -> P x).
-Proof.
-  unfold tree_Forall.
-  induction tr; simpl; [split; [intros; contradiction|tauto]|].
-  rewrite IHtr1. rewrite IHtr2.
-  split; intro; try repeat split.
-  - destruct H as [H0 [H1 H2]]. intros it Hyp.
-    destruct Hyp as [H'0 | [H'1 | H'2]]; subst; auto.
-  - apply H; left; reflexivity.
-  - intros it Hyp; apply H; right; left; assumption.
-  - intros it Hyp; apply H; right; right; assumption.
-Qed.
-
-Lemma tree_Exists_exists {X} P tr :
-  tree_Exists P tr <-> (exists (x:X), tree_Exists (fun x' => x = x') tr /\ P x).
-Proof.
-  unfold tree_Exists.
-  induction tr; simpl; [split; [tauto|intro H; destruct H as [_ [Contra _]]; tauto]|].
-  rewrite IHtr1. rewrite IHtr2.
-  split; intro.
-  - destruct H as [H0 | [H1 | H2]].
-    * exists data; auto.
-    * destruct H1 as [x [Ex Px]].
-      exists x; auto.
-    * destruct H2 as [x [Ex Px]].
-      exists x; auto.
-  - destruct H as [x [[H0 | [H1 | H2]] Px]].
-    * left; subst; auto.
-    * right; left; exists x; auto.
-    * right; right; exists x; auto.
-Qed.
-
-(* Weakenings, compositions, transitivity *)
-
-Lemma StrictChild_impl_Child {X} (prop:Tprop X) (tr:tree X) :
-  tree_StrictChildExists prop tr -> tree_ChildExists prop tr.
-Proof. intro. destruct tr; simpl; auto. Qed.
-
-(*
-Lemma Once_impl_Exists {X} (tr:tree X) (prop:Tprop X) :
-  tree_Once prop tr -> tree_Exists prop tr.
-Proof.
-  intro Once. induction tr; simpl; auto.
-  inversion Once as [
-    [H0 [_ _]] | [
-    [_ [H1 _]] |
-    [_ [_ H2]]
-  ]]; auto.
-Qed.
-*)
-
-Lemma tree_permute_fold_map {X Y Z} (tr:tree X) (unit:Z) (combine:Y -> Z -> Z -> Z) (fn:X -> Y) :
-  tree_fold unit combine (tree_map fn tr) = tree_fold unit (fun data lt rt => combine (fn data) lt rt) tr.
-Proof.
-  induction tr; simpl; auto.
-  rewrite IHtr1. rewrite IHtr2.
-  reflexivity.
-Qed.
-
-Lemma tree_Forall_map {X Y} (tr:tree X) (fn:X -> Y) (prop:Y -> Prop) :
-  tree_Forall prop (tree_map fn tr) <-> tree_Forall (compose prop fn) tr.
-Proof.
-  unfold tree_Forall.
-  rewrite tree_permute_fold_map.
-  tauto.
-Qed.
-
-Lemma tree_Exists_map {X Y} (tr:tree X) (fn:X -> Y) (prop:Y -> Prop) :
-  tree_Exists prop (tree_map fn tr) <-> tree_Exists (compose prop fn) tr.
-Proof.
-  unfold tree_Exists.
-  rewrite tree_permute_fold_map.
-  tauto.
-Qed.
-
-Lemma Forall_not_is_not_Exists {X} (prop:Tprop X) (tr:tree X) :
-  tree_Forall (compose not prop) tr
-  <-> ~tree_Exists prop tr.
-Proof.
-  unfold tree_Forall.
-  split.
-  - intros All Exists.
-    induction tr; simpl; auto.
-    inversion Exists as [Ex0 | [Ex1 | Ex2]]; simpl.
-    all: inversion All as [All0 [All1 All2]]; auto.
-  - intros nExists.
-    induction tr; simpl; auto.
-    try repeat split.
-    (* Now swap the goal and the hypothesis that are all negated *)
-    all: try apply IHtr1.
-    all: try apply IHtr2.
-    all: intro; apply nExists.
-    all: simpl; auto.
-Qed.
-
-Lemma ChildExists_Exists {X} (prop:Tprop X) :
-  forall tr,
-  tree_ChildExists prop tr -> tree_Exists prop tr.
-Proof. induction tr; simpl; auto; tauto. Qed.
-
-Lemma ExistsAtNode_transitive {X} (search search':Tprop X) :
-  forall tr,
-  tree_Exists search tr ->
-  tree_AtNode search (tree_ChildExists search') tr ->
-  tree_Exists search' tr.
-Proof.
-  intros tr Exists Search.
-  induction tr; simpl; auto.
-  destruct Search as [Search0 [Search1 Search2]].
-  destruct Exists as [Exists0 | [Exists1 | Exists2]]; auto.
-  destruct (Search0 Exists0); auto.
-Qed.
-
-Lemma AtNodeExists_transitive {X} (search search' search'':Tprop X) :
-  forall tr,
-  tree_AtNode search (tree_ChildExists search') tr ->
-  tree_AtNode search' (tree_ChildExists search'') tr ->
-  tree_AtNode search (tree_ChildExists search'') tr.
-Proof.
-  intros tr Search Search'.
-  induction tr; auto.
-  destruct Search' as [Search' [Search'1 Search'2]].
-  destruct Search as [Search [Search1 Search2]].
-  pose Found1 := (IHtr1 Search1 Search'1).
-  pose Found2 := (IHtr2 Search2 Search'2).
-  simpl; try repeat split; auto.
-  clear Found1; clear Found2; clear IHtr1; clear IHtr2.
-  intro Found; destruct (Search Found) as [Found' | FoundSub].
-  - destruct (Search' Found') as [Found'' | Found'Sub]; auto.
-  - right; clear Found; clear Search; clear Search1; clear Search2.
-    clear Search'.
-    apply (ExistsAtNode_transitive search'); auto.
-Qed.
-
-Lemma ParentChild_transitive (t t' t'':tag) (tr:tree item) :
-  ParentChildIn t t' tr -> ParentChildIn t' t'' tr -> ParentChildIn t t'' tr.
-Proof.
-  unfold ParentChildIn; unfold HasChildTag.
-  apply AtNodeExists_transitive.
-Qed.
-
 (* Insertion lemmas *)
 
-Lemma insert_True_preserves_Forall {X} (tr:tree X) (ins:X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  prop ins ->
-  tree_Forall prop tr <-> tree_Forall prop (insert_child_at tr ins search).
-Proof.
-  intro PropIns.
-  induction tr; simpl; auto.
-  destruct (decide (search data)) eqn:Found.
-  (* For most cases, this is straightforward: destruct all and apply inductive hypotheses *)
-  all: split; intro H.
-  all: destruct H as [HData [H1 H2]].
-  all: repeat try split; auto.
-  all: try apply IHtr1; auto.
-  all: try apply IHtr2; auto.
-  (* The one case where this is nontrivial is the case where we did find the object,
-     because IH handles (branch data sibling child) and we need (branch data (insert sibling) child) *)
-  inversion H2 as [HIns [H2' HE]]; auto.
-Qed.
+Definition tree_contains t tr
+  : Prop :=
+  exists_node (IsTag t) tr.
 
-(*
-Lemma insert_False_preserves_Once {X} (tr:tree X) (ins:X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  ~prop ins ->
-  tree_Once prop tr <-> tree_Once prop (insert_child_at tr ins search).
-Proof.
-  intro NotIns.
-  induction tr; simpl; auto.
-  destruct (bool_decide (search data)) eqn:Found.
-  all: split; intro H.
-  (* Similarly to the Forall version, do a case analysis and try greedily applying inductive hypotheses
-     This one is less straightforward because we can't split too agressively, we have to select the left/right path first *)
-  all: destruct H as [
-    [H0 [nH1 nH2]] | [
-    [nH0 [H1 nH2]] |
-    [nH0 [nH1 H2]]
-  ]]; simpl; auto.
-  all: try inversion H2 as [
-    [HIns [nHSub nHEmpty]] | [
-    [nHIns [HSub nHEmpty]] |
-    [nHIns [nHSub HEmpty]]
-  ]].
-  all: try inversion nH2 as [HIns [HSub HEmpty]].
-  (* Rewrite everything imaginable *)
-  all: try rewrite <- insert_True_preserves_Forall in *; auto.
-  all: try rewrite <- insert_True_preserves_Forall in *; auto.
-  all: try rewrite <- insert_True_preserves_Forall in *; auto.
-  all: try rewrite <- IHtr1 in *; auto.
-  all: try rewrite <- IHtr2 in *; auto.
-  (* Finally it's just disjunctions *)
-  all: try (left; try repeat split; auto; easy).
-  all: try (right; left; try repeat split; auto; easy).
-  all: try (right; right; try repeat split; auto; easy).
-Qed.
-*)
-
-Lemma insert_never_unchanged {X} (tr:tree X) (ins:X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  tree_Forall (compose not search) tr ->
-  insert_child_at tr ins search = tr.
-Proof.
-  induction tr; simpl; auto; intro H.
-  destruct H as [H0 [H1 H2]].
-  destruct (decide (search data)); [contradiction|].
-  rewrite (IHtr1 H1).
-  rewrite (IHtr2 H2).
-  reflexivity.
-Qed.
-
-(*
-Lemma insert_True_produces_Once {X} (tr:tree X) (ins:X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)}:
-  prop ins -> tree_Once search tr ->
-  tree_Forall (compose not prop) tr ->
-  tree_Once prop (insert_child_at tr ins search).
-Proof.
-  intros Ins OnceFind Absent.
-  induction tr; simpl; auto.
-  inversion OnceFind as [
-    [Find0 [nFind1 nFind2]] | [
-    [nFind0 [Find1 nFind2]] |
-    [nFind0 [nFind1 Find2]]
-  ]]; simpl; try rewrite Find0; try rewrite nFind0.
-  all: try unfold compose in nFind1.
-  all: try unfold compose in nFind2.
-  all: inversion Absent as [Absent0 [Absent1 Absent2]].
-  + (* it's the one we just inserted *)
-    unfold compose in Absent0; rewrite (bool_decide_eq_true_2 _ _); [|apply Find0].
-    simpl; right; right; try repeat split; auto.
-    - rewrite (insert_never_unchanged tr1 ins search (compose not prop) nFind1); exact Absent1.
-    - left; try repeat split; auto; rewrite insert_never_unchanged; auto.
-  + (* It's further down (1/2) *)
-    rewrite (bool_decide_eq_false_2 _ _); [|apply nFind0].
-    simpl; right; left; try repeat split; auto.
-    rewrite (insert_never_unchanged tr2 _ _ (compose not prop)); auto.
-  + (* It's further down (2/2) *)
-    rewrite (bool_decide_eq_false_2 _ _); [|apply nFind0].
-    simpl; right; right; try repeat split; auto.
-    rewrite (insert_never_unchanged tr1 _ _ (compose not prop)); auto.
-Qed.
-*)
-
-Lemma insert_preserves_Exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  tree_Exists prop tr -> tree_Exists prop (insert_child_at tr ins search).
-Proof.
-  intros Exists.
-  induction tr; simpl; auto.
-  destruct (decide (search data)).
-  all: simpl.
-  all: inversion Exists as [Ex0 | [Ex1 | Ex2]].
-  all: auto.
-  right; right; right; left; auto.
-Qed.
-
-Lemma insert_False_infer_Exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  ~prop ins ->
-  tree_Exists prop (insert_child_at tr ins search) ->
-  tree_Exists prop tr.
-Proof.
-  intros nIns Exists.
-  induction tr; simpl; auto.
-  simpl in Exists.
-  destruct (decide (search data)).
-  all: inversion Exists as [Ex0 | [Ex1 | Ex2]].
-  all: auto.
-  right; right; auto.
-  inversion Ex2 as [Ex20 | [Ex21 | Ex22]]; auto.
-  - contradiction Ex20.
-  - contradiction Ex22.
-Qed.
-
-Lemma insert_True_produces_Exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  prop ins ->
-  tree_Exists search tr ->
-  tree_Exists prop (insert_child_at tr ins search).
-Proof.
-  intros Ins Exists.
-  induction tr; simpl; auto.
-  destruct (decide (search data)).
-  - right; right; left; done.
-  - destruct Exists as [Ex0 | [Ex1 | Ex2]].
-    * contradiction.
-    * right; left; auto.
-    * right; right; auto.
-Qed.
-
-Lemma insert_preserves_ChildExists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  tree_ChildExists prop tr -> tree_ChildExists prop (insert_child_at tr ins search).
-Proof.
-  intro Exists.
-  destruct tr; simpl; auto.
-  destruct (decide (search data)) eqn:Found; simpl; auto.
-  all: simpl in Exists.
-  all: inversion Exists as [Ex0 | Ex2]; auto.
-  1: right; right; left; apply insert_preserves_Exists; auto.
-  right; apply insert_preserves_Exists; auto.
-Qed.
-
-Lemma insert_eqv_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
-  {search_dec:forall it, Decision (search it)} :
-  ~IsTag t ins -> ~IsTag t' ins ->
-  ParentChildIn t t' tr <-> ParentChildIn t t' (insert_child_at tr ins search).
-Proof.
-  intros Nott Nott'; unfold ParentChildIn; induction tr; simpl; auto.
-  all: split; intro Hyp.
-  + destruct (decide (search data)).
-    all: destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
-    * simpl; try repeat split.
-      - intro H; destruct (Hyp0 H); auto.
-        right; right; left. apply insert_preserves_Exists; auto.
-      - apply IHtr1; auto.
-      - intro H; right; apply Nott; auto.
-      - apply IHtr2; auto.
-    * simpl; try repeat split.
-      - intro H; destruct (Hyp0 H); auto.
-        right. apply insert_preserves_Exists; auto.
-      - apply IHtr1; auto.
-      - apply IHtr2; auto.
-  + destruct (decide (search data)).
-    all: destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
-    * simpl; try repeat split.
-      - intro H; destruct (Hyp0 H); auto.
-        right. apply (insert_False_infer_Exists ins tr2 search _); auto.
-        destruct H0 as [H0Data | [H0Sub | H0Empty]]; auto.
-        ++ contradiction Nott'; auto.
-        ++ contradiction H0Empty.
-      - apply IHtr1; auto.
-      - apply IHtr2; auto.
-        destruct Hyp2 as [Hyp2Data [Hyp2Sub Hyp2Empty]].
-        auto.
-    * simpl; try repeat split.
-      - intro H; destruct (Hyp0 H); auto.
-        right. apply (insert_False_infer_Exists ins tr2 search _); auto.
-      - apply IHtr1; auto.
-      - apply IHtr2; auto.
-Qed.
-
-Lemma insert_produces_ParentChild t (ins:item) (tr:tree item) :
-  ParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
-Proof.
-  induction tr; simpl; auto.
-  destruct (decide (IsTag t data)) eqn:Found.
-  - simpl; try repeat split; auto.
-    2: unfold IsTag; auto.
-    intro; right; left; unfold IsTag; auto.
-  - simpl; try repeat split; auto.
-    intro Contra; contradiction.
-Qed.
-
-Lemma insert_produces_ParentChild_transitive t t' (ins:item) (tr:tree item) :
-  ~IsTag t ins -> ~IsTag t' ins ->
-  ParentChildIn t t' tr ->
-  ParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t')).
-Proof.
-  intros Nott Nott' Ptt'.
-  apply (ParentChild_transitive t t' ins.(itag)).
-  - apply insert_eqv_rel; auto.
-  - apply insert_produces_ParentChild.
-Qed.
-
-Lemma exists_insert_requires_parent {X} (ins:X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  forall tr,
-  tree_Forall (compose not prop) tr ->
-  tree_Exists prop (insert_child_at tr ins search) ->
-  tree_Exists search tr.
-Proof.
-  induction tr; simpl; auto.
-  intros Hyp Ex.
-  destruct Hyp as [Nprop [Absent1 Absent2]].
-  destruct (decide (search data)) eqn:Found; auto.
-  all: destruct Ex as [Here | [Ex1 | Ex2]]; auto.
-  contradiction.
-Qed.
-
-Lemma remove_False_preserves_Exists {X} (ins:X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  ~prop ins ->
-  forall tr,
-  tree_Exists prop (insert_child_at tr ins search) ->
-  tree_Exists prop tr.
-Proof.
-  intros Nprop tr Hyp; induction tr; simpl in *; auto.
-  destruct (decide (search data)) eqn:Found; auto.
-  all: destruct Hyp as [Here | [Hyp1 | Hyp2]]; auto.
-  right; right. destruct Hyp2 as [Contra | [Hyp2Sub | Hyp2Empty]]; auto; contradiction.
-Qed.
-
-Lemma insert_produces_minimal_ParentChild (t t':tag) (ins:item) (tr:tree item) :
-  ~IsTag t ins ->
-  ~IsTag t' ins ->
-  tree_Forall (compose not (IsTag ins.(itag))) tr ->
-  ParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t')) ->
-  ParentChildIn t t' tr.
-Proof.
-  intros Nott Nott' Absent Pins.
-  induction tr; simpl; auto.
-  simpl in Pins; destruct (decide (IsTag t' data)).
-  all: destruct Pins as [Pins0 [Pins1 Pins2]].
-  all: destruct Absent as [NotHere [Absent1 Absent2]].
-  + try repeat split.
-    - intro Tg; left; done.
-    - exact (IHtr1 Absent1 Pins1).
-    - destruct Pins2 as [_ [Pins2Sub _]]. exact (IHtr2 Absent2 Pins2Sub).
-  + try repeat split; auto.
-    intro Tg. simpl in Pins0. destruct (Pins0 Tg) as [PinsFound | PinsEx].
-    - unfold compose in NotHere. contradiction PinsFound.
-    - right. eapply (exists_insert_requires_parent ins); [apply Absent2|apply PinsEx].
-Qed.
+Definition trees_contain t trs blk
+  : Prop :=
+  match trs !! blk with
+  | None => False
+  | Some tr => tree_contains t tr
+  end.
 
 (* FIXME: order of args *)
 
@@ -947,16 +364,6 @@ Definition apply_within_trees (fn:app (tree item)) blk
   newtr ← fn oldtr;
   Some $ <[blk := newtr]> trs.
 
-Definition tree_contains t tr
-  : Prop :=
-  tree_Exists (IsTag t) tr.
-
-Definition trees_contain t trs blk
-  : Prop :=
-  match trs !! blk with
-  | None => False
-  | Some tr => tree_contains t tr
-  end.
 
 Definition tag_included (tg: tag) (nxtp:tag) : Prop :=
   let 'Tag nxtp := nxtp in

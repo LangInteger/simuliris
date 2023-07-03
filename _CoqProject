@@ -130,8 +130,11 @@ theories/tree_borrows/locations.v
 theories/tree_borrows/lang_base.v
 theories/tree_borrows/notation.v
 theories/tree_borrows/expr_semantics.v
+theories/tree_borrows/tree.v
+theories/tree_borrows/tree_lemmas.v
 theories/tree_borrows/bor_semantics.v
 theories/tree_borrows/lang.v
+theories/tree_borrows/disjoint.v
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
 theories/tree_borrows/steps_list.v

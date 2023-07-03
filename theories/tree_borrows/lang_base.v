@@ -7,7 +7,7 @@ From iris.prelude Require Import prelude options.
 From iris.prelude Require Import options.
 
 (*Global Open Scope general_if_scope.*)
-From simuliris.tree_borrows Require Export type locations.
+From simuliris.tree_borrows Require Export type locations tree.
 
 Declare Scope expr_scope.
 Declare Scope val_scope.
@@ -83,21 +83,6 @@ Record item := mkItem {
 }.
 Global Instance item_eq_dec : EqDecision item.
 Proof. solve_decision. Defined.
-
-(* Generic tree
-   Note: we are using the "tilted" representation of n-ary trees
-         where the binary children are the next n-ary sibling and
-         the first n-ary child.
-         This is motivated by the much nicer induction principles
-         we get, but requires more careful definition of the
-         parent-child relationship.
-   *)
-Inductive tree (T:Type) :=
-  | empty
-  | branch (data:T) (sibling child:tree T)
-  .
-Arguments empty {T}.
-Arguments branch {T} data sibling child.
 
 (* Per-allocation borrow data *)
 Definition trees := gmap block (tree item).
