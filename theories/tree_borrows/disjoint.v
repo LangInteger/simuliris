@@ -39,7 +39,7 @@ Proof.
   intro Nott.
   unfold StrictParentChildIn.
   induction tr; simpl; auto.
-  destruct (decide (IsTag t data)) eqn:Found; simpl.
+destruct (decide (IsTag t data)) eqn:Found; simpl.
   - try repeat split; auto.
     intro H; left; easy.
   - try repeat split; auto.
@@ -48,7 +48,7 @@ Qed.
 
 Lemma StrictParentChild_transitive t t' t'' (tr:tree item) :
   StrictParentChildIn t t' tr ->
-  StrictParentChildIn t' t'' tr ->
+StrictParentChildIn t' t'' tr ->
   StrictParentChildIn t t'' tr.
 Proof.
   rewrite /StrictParentChildIn /HasStrictChildTag.
@@ -146,9 +146,19 @@ Qed.
 
 Lemma inserted_unique (t:tag) (ins:item) (tr:tree item) :
   ~tree_contains ins.(itag) tr ->
-  tree_unique ins.(itag) (insert_child_at tr ins (IsTag t)).
+  tree_unique ins.(itag) (insert_child_at tr ins (IsTag t)) ins.
 Proof.
-  
+  intro Fresh.
+  unfold tree_unique.
+  unfold tree_contains in Fresh; rewrite <- every_not_eqv_not_exists in Fresh.
+  induction tr; simpl in *; auto.
+  destruct Fresh as [?[??]].
+  destruct (decide (IsTag t data)).
+  - try repeat split; [|apply IHtr1; assumption|apply IHtr2; assumption].
+    simpl; intro; contradiction.
+  - try repeat split; [|apply IHtr1; assumption|apply IHtr2; assumption].
+    simpl; intro; contradiction.
+Qed.
 
 Lemma inserted_not_parent (t:tag) (ins:item) (tr:tree item) :
   tree_contains t tr ->
@@ -189,8 +199,6 @@ Proof.
     * destruct Contra as [Contra0 [Contra1 Contra2]]; auto.
 Qed.
 
-
-
 Lemma create_child_isSome tr tgp tgc :
   forall cids range tr' newp,
   create_child cids tgp range tgc newp tr = Some tr' ->
@@ -205,12 +213,10 @@ Proof.
   auto.
 Qed.
 
-Lemma item_apply_access_preserves_tag kind it :
-  forall cids rel range it',
-  item_apply_access kind cids rel range it = Some it' ->
-  itag it = itag it'.
+Lemma item_apply_access_preserves_tag kind :
+  app_preserves_tag (item_apply_access kind).
 Proof.
-  move=> ??? it'.
+  move=> ??? it it'.
   unfold item_apply_access.
   destruct (permissions_foreach); simpl; [|intro H; inversion H].
   intro H; injection H; intros; subst.
@@ -219,7 +225,7 @@ Qed.
 
 Lemma access_preserves_tags tr tg :
   forall tr' tg' app cids range dyn_rel,
-  (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it') ->
+  app_preserves_tag app ->
   tree_apply_access app cids tg' range tr dyn_rel = Some tr' ->
   tree_contains tg tr <-> tree_contains tg tr'.
 Proof.
@@ -335,58 +341,139 @@ Proof.
   - apply Contra.
 Qed.
 
+Lemma exists_unique_exists tr tg it :
+  tree_contains tg tr ->
+  tree_unique tg tr it ->
+  exists_node (eq it) tr.
+Proof.
+  move=> Contains Unique.
+  induction tr; simpl in *; auto.
+  destruct Unique as [?[??]].
+  destruct Contains as [?|[?|?]].
+  - left; symmetry; auto.
+  - right; left; auto.
+  - right; right; auto.
+Qed.
+
 Lemma apply_access_spec_per_node tr affected_tag access_tag pre:
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  every_node (fun it => IsTag affected_tag it -> it = pre) tr ->
+  tree_unique affected_tag tr pre ->
   forall fn cids range tr' dyn_rel,
-  (forall it it' rel, fn cids rel range it = Some it' -> itag it = itag it') ->
+  app_preserves_tag fn ->
   tree_apply_access fn cids access_tag range tr dyn_rel = Some tr' ->
-  every_node (fun it => IsTag affected_tag it ->
-    Some it = fn cids (if dyn_rel access_tag pre.(itag) then AccessChild else AccessForeign) range pre
-  ) tr'.
+  exists post,
+    Some post = fn cids (if dyn_rel pre.(itag) access_tag then AccessChild else AccessForeign) range pre
+    /\ tree_unique affected_tag tr' post.
 Proof.
   intros Contains Contains' TgSpec fn cids range tr' dyn_rel FnPreservesTag Success.
   (* Grab the success condition of every node separately *)
   pose proof (proj1 (join_success_condition _) (mk_is_Some _ _ Success)) as SuccessCond.
   rewrite every_node_map in SuccessCond; rewrite every_node_eqv_universal in SuccessCond.
-  (* Also ensure unicity of affected_tag *)
-  rewrite every_node_eqv_universal in TgSpec.
+  pose proof (exists_unique_exists _ _ _ Contains' TgSpec) as Expre.
+  pose proof (SuccessCond pre Expre) as [post postSpec].
+  unfold tree_unique in TgSpec. rewrite every_node_eqv_universal in TgSpec.
   (* Now do some transformations to get to the node level *)
+  unfold tree_unique.
+  exists post.
+  split; [symmetry; auto|].
   rewrite join_project_every; [|exact Success].
   rewrite every_node_map.
   unfold compose.
   rewrite every_node_eqv_universal.
   intros n Exn.
-  pose proof (SuccessCond n Exn) as PerNodeSuccess.
-  pose proof (TgSpec n Exn) as PerNodeEqual.
-  (* Phew. Clean up a bit. *)
-  clear Success Contains SuccessCond TgSpec Contains' Exn.
-  destruct PerNodeSuccess as [res resSpec].
-  exists res.
-  split; [exact resSpec|].
-  intro resTg.
-  rewrite <- resSpec.
-  rewrite PerNodeEqual; [auto|].
-  f_equal.
-  unfold IsTag in *.
-  erewrite FnPreservesTag; [exact resTg|exact resSpec].
+  destruct (decide (IsTag affected_tag n)).
+  * pose proof (TgSpec n Exn) as PerNodeEqual.
+    clear Success Contains SuccessCond TgSpec Contains' Exn.
+    exists post.
+    split; [|tauto].
+    rewrite PerNodeEqual; auto.
+  * pose proof (SuccessCond n Exn) as NodeSuccess.
+    destruct NodeSuccess as [post' post'Spec].
+    exists post'.
+    unfold IsTag; rewrite <- (FnPreservesTag _ _ _ _ _ post'Spec).
+    split; [|tauto].
+    exact post'Spec.
 Qed.
 
-Lemma nonchild_write_disables tr affected_tag access_tag :
+Lemma tree_unique_specifies_tag tr tg it :
+  tree_contains tg tr ->
+  tree_unique tg tr it ->
+  itag it = tg.
+Proof.
+  rewrite /tree_contains /tree_unique.
+  rewrite exists_node_eqv_existential.
+  rewrite every_node_eqv_universal.
+  intros [n [Exn Tgn]] Every.
+  rewrite <- (Every n); auto.
+Qed.
+
+Lemma nonchild_write_disables tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
   ~ParentChildIn affected_tag access_tag tr ->
-  forall cids range tr',
+  forall cids range tr' z,
+  range_contains range z ->
+  every_node (fun it =>
+    IsTag affected_tag it ->
+    item_perm_at_loc it z ≠ ReservedMut
+  ) tr ->
   memory_write cids access_tag range tr = Some tr' ->
   every_node (fun it =>
     IsTag affected_tag it ->
-    forall (z:Z), range_contains range z ->
-    (exists ps, it.(iperm) !! z = Some ps /\ ps.(perm) = Disabled)
+    item_perm_at_loc it z = Disabled
   ) tr'.
 Proof.
-  intros Contains Contains' Nonrel cids range tr' Write.
-
+  intros Contains Contains' Unique Nonrel cids range tr' z WithinRange NonReservedMut Write.
+  destruct (apply_access_spec_per_node _ _ _ _ Contains Contains' Unique _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write) as [post [postSpec postUnique]].
+  rewrite every_node_eqv_universal.
+  rewrite every_node_eqv_universal in NonReservedMut.
+  unfold tree_unique in postUnique; rewrite every_node_eqv_universal in postUnique.
+  intros n Exn Tgn.
+  unfold item_apply_access in postSpec.
+  remember (permissions_foreach _ _ _ _) as PermsForeach.
+  destruct PermsForeach; [|inversion postSpec]; simpl in postSpec.
+  injection postSpec; intros; subst.
+  rewrite (postUnique n Exn Tgn).
+  clear postSpec.
+  simpl.
+  symmetry in HeqPermsForeach.
+  pose proof (range_foreach_spec _ _ z _ _ HeqPermsForeach) as ForeachSpec.
+  rewrite (decide_True _ _ WithinRange) in ForeachSpec.
+  destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
+  destruct (naive_rel_dec _ _ _).
+  1: { clear HeqPermsForeach postUnique ForeachSpec PermExists WithinRange Exn Tgn Write.
+    rewrite (tree_unique_specifies_tag _ _ _ Contains' Unique) in p0.
+    contradiction.
+  }
+  unfold apply_access_perm in ForeachSpec.
+  remember (apply_access_perm_inner _ _ _ _) as InnerAccess; destruct InnerAccess; simpl in *; [|inversion ForeachSpec].
+  assert (perm (unwrap {| initialized := false; perm := initp pre |} (iperm pre !! z)) = item_perm_at_loc pre z) as InitPerm. {
+    unfold item_perm_at_loc.
+    destruct (iperm pre !! z); simpl; reflexivity.
+  }
+  rewrite InitPerm in ForeachSpec.
+  rewrite InitPerm in HeqInnerAccess.
+  destruct (initialized (unwrap _ _)); simpl in ForeachSpec; [|inversion ForeachSpec].
+  destruct (validate_access_perm_inner _ _); simpl in ForeachSpec; [|inversion ForeachSpec].
+  injection ForeachSpec; destruct lazy_perm; intros H; injection H; intros; subst; clear H; clear ForeachSpec.
+  remember (item_perm_at_loc pre z) as OldPerm.
+  destruct OldPerm; simpl in HeqInnerAccess.
+  - injection HeqInnerAccess; intros; subst.
+    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
+  - exfalso.
+    eapply NonReservedMut.
+    3: { symmetry; exact HeqOldPerm. }
+    * eapply exists_unique_exists; [exact Contains'|exact Unique].
+    * eapply tree_unique_specifies_tag; [exact Contains'|exact Unique].
+  - injection HeqInnerAccess; intros; subst.
+    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
+  - injection HeqInnerAccess; intros; subst.
+    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
+  - injection HeqInnerAccess; intros; subst.
+    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
+Qed.
 
 
 

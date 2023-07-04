@@ -233,7 +233,7 @@ Definition tree_apply_access
   cids (access_tag:tag) range (tr:tree item) (dyn_rel:rel_dec tr)
   : option (tree item) :=
   let app : item -> option item := fun it => (
-    fn cids (if dyn_rel access_tag it.(itag) then AccessChild else AccessForeign) range it
+    fn cids (if dyn_rel it.(itag) access_tag then AccessChild else AccessForeign) range it
   ) in
   join_nodes (map_nodes app tr).
 
@@ -287,8 +287,6 @@ Proof.
   all: inversion FirstPass; auto.
 Qed.
 
-(* Insertion lemmas *)
-
 Definition tree_contains t tr
   : Prop :=
   exists_node (IsTag t) tr.
@@ -303,6 +301,9 @@ Definition trees_contain t trs blk
   | None => False
   | Some tr => tree_contains t tr
   end.
+
+Definition app_preserves_tag app : Prop :=
+  (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it').
 
 (* FIXME: order of args *)
 
@@ -351,6 +352,13 @@ Definition create_child cids (oldt:tag) range (newt:tag) (newp:newperm)
   let it := create_new_item newt newp range in
   Some $ insert_child_at tr' it (IsTag oldt).
 
+Definition item_perm_at_loc it z
+  : permission :=
+  let op := (
+    p ← iperm it !! z;
+    Some $ perm p
+  ) in unwrap (initp it) op.
+
 (* FIXME: do we need the visitor ? *)
 (* NOTE: returns None on noop reborrows do not confuse that with returning None on UB ! *)
 Definition reborrow_perm (ptrk:pointer_kind) (rtk:retag_kind) (cid:call_id)
@@ -367,7 +375,6 @@ Definition apply_within_trees (fn:app (tree item)) blk
   oldtr ← trs !! blk;
   newtr ← fn oldtr;
   Some $ <[blk := newtr]> trs.
-
 
 Definition tag_included (tg: tag) (nxtp:tag) : Prop :=
   let 'Tag nxtp := nxtp in
