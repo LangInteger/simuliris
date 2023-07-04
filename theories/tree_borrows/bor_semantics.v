@@ -293,6 +293,10 @@ Definition tree_contains t tr
   : Prop :=
   exists_node (IsTag t) tr.
 
+Definition tree_unique t tr it
+  : Prop :=
+  every_node (fun it' => IsTag t it' -> it' = it) tr.
+
 Definition trees_contain t trs blk
   : Prop :=
   match trs !! blk with

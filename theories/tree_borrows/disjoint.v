@@ -144,6 +144,12 @@ Proof.
     - apply IHtr2; exact Fresh2.
 Qed.
 
+Lemma inserted_unique (t:tag) (ins:item) (tr:tree item) :
+  ~tree_contains ins.(itag) tr ->
+  tree_unique ins.(itag) (insert_child_at tr ins (IsTag t)).
+Proof.
+  
+
 Lemma inserted_not_parent (t:tag) (ins:item) (tr:tree item) :
   tree_contains t tr ->
   ~tree_contains ins.(itag) tr ->
@@ -367,12 +373,20 @@ Proof.
   erewrite FnPreservesTag; [exact resTg|exact resSpec].
 Qed.
 
-Lemma nonchild_write_disables tr tg tg' :
-  tree_contains tg' tr ->
-  tree_contains tg tr ->
-  ~ParentChildIn tg tg' tr ->
-  forall range tr',
-  memory_write fn.
+Lemma nonchild_write_disables tr affected_tag access_tag :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  ~ParentChildIn affected_tag access_tag tr ->
+  forall cids range tr',
+  memory_write cids access_tag range tr = Some tr' ->
+  every_node (fun it =>
+    IsTag affected_tag it ->
+    forall (z:Z), range_contains range z ->
+    (exists ps, it.(iperm) !! z = Some ps /\ ps.(perm) = Disabled)
+  ) tr'.
+Proof.
+  intros Contains Contains' Nonrel cids range tr' Write.
+
 
 
 
