@@ -34,7 +34,7 @@ Qed.
 
 Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
   ~IsTag t ins ->
-  StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
+StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
 Proof.
   intro Nott.
   unfold StrictParentChildIn.
@@ -54,7 +54,7 @@ Proof.
   rewrite /StrictParentChildIn /HasStrictChildTag.
   induction tr; simpl; auto.
   intros [Condtt' [Reltt'1 Reltt'2]] [Condt't'' [Relt't''1 Relt't''2]].
-  split; auto.
+split; auto.
   intro H.
   clear Relt't''1 Reltt'1 IHtr1 IHtr2.
   pose proof (Condtt' H) as Ex'.
@@ -406,6 +406,70 @@ Proof.
   rewrite every_node_eqv_universal.
   intros [n [Exn Tgn]] Every.
   rewrite <- (Every n); auto.
+Qed.
+
+Lemma option_bind_success_step {T U} (ox:option T) (f:T -> option U) (r:U) :
+  ((x ← ox; f x) = Some r) -> exists x, ox = Some x /\ f x = Some r.
+Proof.
+  intro H.
+  destruct ox; simpl in *; [|inversion H].
+  eexists. split; [reflexivity|assumption].
+Qed.
+
+(* Key lemma: converts the entire traversal to a per-node level.
+   This is applicable to every permission in the accessed range, all that's needed
+   to complement it should be preservation of permissions outside of said range. *)
+Lemma access_effect_per_node tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  forall kind cids range tr' z zpre,
+  range_contains range z ->
+  every_node (fun it =>
+    IsTag affected_tag it ->
+    item_lazy_perm_at_loc it z = zpre
+  ) tr ->
+  tree_apply_access (item_apply_access kind) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
+  exists zpost, (
+    let rel := if naive_rel_dec tr affected_tag access_tag then AccessChild else AccessForeign in
+    let prot := bool_decide (is_active_protector cids pre.(iprot)) in
+    apply_access_perm kind rel prot zpre = Some zpost /\
+    every_node (fun it =>
+      IsTag affected_tag it ->
+      item_lazy_perm_at_loc it z = zpost
+    ) tr'
+  ).
+Proof.
+  intros ContainsAcc ContainsAff UniqueAff kind cids range tr' z zpre WithinRange IsPre Success.
+  (* use apply_access_spec_per_node to get info on the post permission *)
+  destruct (apply_access_spec_per_node _ _ _ _
+    ContainsAcc ContainsAff UniqueAff
+    (item_apply_access kind) cids range tr' (naive_rel_dec tr)
+    (item_apply_access_preserves_tag kind) Success) as [post [postSpec postUnique]].
+  clear Success.
+  (* and then it's per-tag work *)
+  rewrite (tree_unique_specifies_tag _ _ _ ContainsAff UniqueAff) in postSpec.
+  symmetry in postSpec.
+  destruct (option_bind_success_step _ _ _  postSpec) as [tmpperm [tmpSpec tmpRes]].
+  injection tmpRes; intro H; subst; clear tmpRes.
+  (* now down to per-location *)
+  pose proof (range_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
+  rewrite (decide_True _ _ WithinRange) in ForeachSpec.
+  destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
+  assert (unwrap {| initialized := false; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
+    unfold item_lazy_perm_at_loc. destruct (iperm pre !! z); simpl; reflexivity.
+  } rewrite InitPerm in ForeachSpec.
+  rewrite every_node_eqv_universal in IsPre.
+  rewrite IsPre in ForeachSpec; [
+    |apply (exists_unique_exists _ _ _ ContainsAff UniqueAff)
+    |apply (tree_unique_specifies_tag _ _ _ ContainsAff UniqueAff)
+  ].
+  eexists; split; [exact ForeachSpec|].
+  (* Now we have to prove that tr' is indeed the per-node mapping of apply_access_perm, which is not too hard *)
+  rewrite every_node_eqv_universal; intros post Expost Tagpost.
+  unfold tree_unique in postUnique; rewrite every_node_eqv_universal in postUnique.
+  rewrite (postUnique post Expost Tagpost).
+  unfold item_lazy_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
 Qed.
 
 Lemma nonchild_write_disables tr affected_tag access_tag pre :

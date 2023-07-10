@@ -352,12 +352,14 @@ Definition create_child cids (oldt:tag) range (newt:tag) (newp:newperm)
   let it := create_new_item newt newp range in
   Some $ insert_child_at tr' it (IsTag oldt).
 
+Definition item_lazy_perm_at_loc it z
+  : lazy_permission :=
+  let op := iperm it !! z in
+  unwrap {| initialized := false; perm := initp it |} op.
+
 Definition item_perm_at_loc it z
   : permission :=
-  let op := (
-    p ← iperm it !! z;
-    Some $ perm p
-  ) in unwrap (initp it) op.
+  perm (item_lazy_perm_at_loc it z).
 
 (* FIXME: do we need the visitor ? *)
 (* NOTE: returns None on noop reborrows do not confuse that with returning None on UB ! *)
