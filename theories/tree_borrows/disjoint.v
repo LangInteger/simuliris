@@ -419,7 +419,7 @@ Qed.
 (* Key lemma: converts the entire traversal to a per-node level.
    This is applicable to every permission in the accessed range, all that's needed
    to complement it should be preservation of permissions outside of said range. *)
-Lemma access_effect_per_node tr affected_tag access_tag pre :
+Lemma access_effect_per_loc tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
   tree_unique affected_tag tr pre ->
@@ -477,70 +477,35 @@ Lemma nonchild_write_disables tr affected_tag access_tag pre :
   tree_contains affected_tag tr ->
   tree_unique affected_tag tr pre ->
   ~ParentChildIn affected_tag access_tag tr ->
-  forall cids range tr' z,
+  forall cids range tr' z zpre,
   range_contains range z ->
   every_node (fun it =>
     IsTag affected_tag it ->
-    item_perm_at_loc it z ≠ ReservedMut
+    item_lazy_perm_at_loc it z = zpre
   ) tr ->
+  perm zpre ≠ ReservedMut ->
   memory_write cids access_tag range tr = Some tr' ->
-  every_node (fun it =>
-    IsTag affected_tag it ->
-    item_perm_at_loc it z = Disabled
-  ) tr'.
+  exists zpost, (
+    every_node (fun it =>
+      IsTag affected_tag it ->
+      item_lazy_perm_at_loc it z = zpost
+    ) tr'
+    /\
+    perm zpost = Disabled
+  ).
 Proof.
-  intros Contains Contains' Unique Nonrel cids range tr' z WithinRange NonReservedMut Write.
-  destruct (apply_access_spec_per_node _ _ _ _ Contains Contains' Unique _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write) as [post [postSpec postUnique]].
-  rewrite every_node_eqv_universal.
-  rewrite every_node_eqv_universal in NonReservedMut.
-  unfold tree_unique in postUnique; rewrite every_node_eqv_universal in postUnique.
-  intros n Exn Tgn.
-  unfold item_apply_access in postSpec.
-  remember (permissions_foreach _ _ _ _) as PermsForeach.
-  destruct PermsForeach; [|inversion postSpec]; simpl in postSpec.
-  injection postSpec; intros; subst.
-  rewrite (postUnique n Exn Tgn).
-  clear postSpec.
-  simpl.
-  symmetry in HeqPermsForeach.
-  pose proof (range_foreach_spec _ _ z _ _ HeqPermsForeach) as ForeachSpec.
-  rewrite (decide_True _ _ WithinRange) in ForeachSpec.
-  destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
-  destruct (naive_rel_dec _ _ _).
-  1: { clear HeqPermsForeach postUnique ForeachSpec PermExists WithinRange Exn Tgn Write.
-    rewrite (tree_unique_specifies_tag _ _ _ Contains' Unique) in p0.
-    contradiction.
-  }
-  unfold apply_access_perm in ForeachSpec.
-  remember (apply_access_perm_inner _ _ _ _) as InnerAccess; destruct InnerAccess; simpl in *; [|inversion ForeachSpec].
-  assert (perm (unwrap {| initialized := false; perm := initp pre |} (iperm pre !! z)) = item_perm_at_loc pre z) as InitPerm. {
-    unfold item_perm_at_loc.
-    destruct (iperm pre !! z); simpl; reflexivity.
-  }
-  rewrite InitPerm in ForeachSpec.
-  rewrite InitPerm in HeqInnerAccess.
-  destruct (initialized (unwrap _ _)); simpl in ForeachSpec; [|inversion ForeachSpec].
-  destruct (validate_access_perm_inner _ _); simpl in ForeachSpec; [|inversion ForeachSpec].
-  injection ForeachSpec; destruct lazy_perm; intros H; injection H; intros; subst; clear H; clear ForeachSpec.
-  remember (item_perm_at_loc pre z) as OldPerm.
-  destruct OldPerm; simpl in HeqInnerAccess.
-  - injection HeqInnerAccess; intros; subst.
-    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
-  - exfalso.
-    eapply NonReservedMut.
-    3: { symmetry; exact HeqOldPerm. }
-    * eapply exists_unique_exists; [exact Contains'|exact Unique].
-    * eapply tree_unique_specifies_tag; [exact Contains'|exact Unique].
-  - injection HeqInnerAccess; intros; subst.
-    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
-  - injection HeqInnerAccess; intros; subst.
-    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
-  - injection HeqInnerAccess; intros; subst.
-    unfold item_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
+  intros ContainsAcc ContainsAff UniqueAff Nonrel cids range tr' z zpre WithinRange preLoc NonResMut Write.
+  destruct (access_effect_per_loc _ _ _ _
+    ContainsAcc ContainsAff UniqueAff
+    AccessWrite cids range tr' z zpre WithinRange preLoc Write) as [zpost [postSpec postLoc]].
+  exists zpost.
+  split; [exact postLoc|].
+  clear postLoc Write WithinRange preLoc ContainsAcc ContainsAff UniqueAff.
+  destruct (naive_rel_dec _ _ _); [contradiction|].
+  destruct zpre; destruct initialized; destruct perm; try contradiction.
+  all: destruct (bool_decide _); simpl in *.
+  all: try inversion postSpec.
+  all: simpl; reflexivity.
 Qed.
-
-
-
-
 
 
