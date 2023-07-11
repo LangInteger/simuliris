@@ -106,6 +106,31 @@ Definition mem_foreach_defined {X} (fn:option X -> X) range
   : gmap Z X -> gmap Z X := fun map =>
   is_Some_proj (mem_foreach_defined_isSome map fn range).
 
+Lemma is_Some_proj_extract {X} (ox:option X) (sx:is_Some ox) y :
+  is_Some_proj sx = y -> ox = Some y.
+Proof.
+  destruct ox; simpl in *.
+  - intro; subst; reflexivity.
+  - inversion sx; inversion H.
+Qed.
+
+Lemma mem_foreach_defined_spec {X} fn range z :
+  forall (map newmap: gmap Z X),
+  (mem_foreach_defined fn range map = newmap) ->
+  if (decide (range_contains range z))
+    then exists val, newmap !! z = Some val /\ fn (map !! z) = val
+    else newmap !! z = map !! z.
+Proof.
+  intros map newmap MemForeach.
+  unfold mem_foreach_defined in MemForeach.
+  pose proof (is_Some_proj_extract _ _ _ MemForeach) as Foreach.
+  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec.
+  destruct (decide (range_contains _ _)).
+  - destruct Spec as [x [Mapz Appfn]].
+    exists x; split; auto. injection Appfn; tauto.
+  - assumption.
+Qed.
+
 (** CORE SEMANTICS *)
 
 Inductive access_rel := AccessForeign | AccessChild.
@@ -238,7 +263,7 @@ Definition tree_apply_access
   join_nodes (map_nodes app tr).
 
 Definition init_perms perm range
-  : permissions := mem_foreach_defined (fun _ => mkPerm true perm) range gmap_empty.
+  : permissions := mem_foreach_defined (fun _ => mkPerm true perm) range ∅.
 
 Definition init_tree t range
   : tree item := branch (mkItem t None Active (init_perms Active range)) empty empty.
@@ -360,6 +385,10 @@ Definition item_lazy_perm_at_loc it z
 Definition item_perm_at_loc it z
   : permission :=
   perm (item_lazy_perm_at_loc it z).
+
+Definition every_tagged t (P:Tprop item) tr
+  : Prop :=
+  every_node (fun it => IsTag t it -> P it) tr.
 
 (* FIXME: do we need the visitor ? *)
 (* NOTE: returns None on noop reborrows do not confuse that with returning None on UB ! *)

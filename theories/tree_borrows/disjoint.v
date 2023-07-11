@@ -1,4 +1,7 @@
+From iris.prelude Require Import prelude options.
+From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas.
+From iris.prelude Require Import options.
 
 Lemma insert_eqv_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
   {search_dec:forall it, Decision (search it)} :
@@ -26,7 +29,7 @@ split; intro Hyp.
       try repeat split; auto.
       intro H; auto.
       apply insert_preserves_exists; auto.
-    - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
+- destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
       try repeat split; auto.
       intro H; auto.
       eapply insert_false_infer_exists; eauto.
@@ -59,7 +62,7 @@ split; auto.
   clear Relt't''1 Reltt'1 IHtr1 IHtr2.
   pose proof (Condtt' H) as Ex'.
   clear Condtt' H Condt't'' Reltt'2.
-  (* End of step 1: we have found a t'. Now look for a t''. *)
+(* End of step 1: we have found a t'. Now look for a t''. *)
   induction tr2; [destruct Ex'|].
   destruct Relt't''2 as [IfHere [IfLeft IfRight]].
   destruct Ex' as [Here | [Left | Right]].
@@ -160,7 +163,7 @@ Proof.
     simpl; intro; contradiction.
 Qed.
 
-Lemma inserted_not_parent (t:tag) (ins:item) (tr:tree item) :
+Lemma inserted_not_strict_parent (t:tag) (ins:item) (tr:tree item) :
   tree_contains t tr ->
   ~tree_contains ins.(itag) tr ->
   forall t',
@@ -302,7 +305,7 @@ Proof.
   exact Contains.
 Qed.
 
-Lemma insertion_order_nonchild tr tg tg' :
+Lemma insertion_order_nonstrictchild tr tg tg' :
   tree_contains tg' tr ->
   ~tree_contains tg tr ->
   forall tgp cids range newp tr',
@@ -334,11 +337,25 @@ Proof.
     - apply item_apply_access_preserves_tag.
     - exact Heqtr''.
   } clear ParentPresent.
-  eapply inserted_not_parent with (ins := (create_new_item tg _ _)).
+  eapply inserted_not_strict_parent with (ins := (create_new_item tg _ _)).
   - apply ParentPresent'.
   - simpl; apply Fresh'.
   - apply Present'.
   - apply Contra.
+Qed.
+
+Lemma insertion_order_nonchild tr tg tg' :
+  tree_contains tg' tr ->
+  ~tree_contains tg tr ->
+  forall tgp cids range newp tr',
+  tree_contains tgp tr ->
+  create_child cids tgp range tg newp tr = Some tr' ->
+  ~ParentChildIn tg tg' tr'.
+Proof.
+  intros; intro Related.
+  destruct Related.
+  - subst; contradiction.
+  - eapply (insertion_order_nonstrictchild _ tg tg'); eauto.
 Qed.
 
 Lemma exists_unique_exists tr tg it :
@@ -364,6 +381,7 @@ Lemma apply_access_spec_per_node tr affected_tag access_tag pre:
   tree_apply_access fn cids access_tag range tr dyn_rel = Some tr' ->
   exists post,
     Some post = fn cids (if dyn_rel pre.(itag) access_tag then AccessChild else AccessForeign) range pre
+    /\ tree_contains affected_tag tr'
     /\ tree_unique affected_tag tr' post.
 Proof.
   intros Contains Contains' TgSpec fn cids range tr' dyn_rel FnPreservesTag Success.
@@ -371,12 +389,13 @@ Proof.
   pose proof (proj1 (join_success_condition _) (mk_is_Some _ _ Success)) as SuccessCond.
   rewrite every_node_map in SuccessCond; rewrite every_node_eqv_universal in SuccessCond.
   pose proof (exists_unique_exists _ _ _ Contains' TgSpec) as Expre.
-  pose proof (SuccessCond pre Expre) as [post postSpec].
+  pose proof (SuccessCond pre Expre) as [post SpecPost].
   unfold tree_unique in TgSpec. rewrite every_node_eqv_universal in TgSpec.
   (* Now do some transformations to get to the node level *)
   unfold tree_unique.
   exists post.
   split; [symmetry; auto|].
+  split; [rewrite <- (access_preserves_tags _ _ _ _ _ _ _ _ FnPreservesTag Success); exact Contains'|].
   rewrite join_project_every; [|exact Success].
   rewrite every_node_map.
   unfold compose.
@@ -419,25 +438,20 @@ Qed.
 (* Key lemma: converts the entire traversal to a per-node level.
    This is applicable to every permission in the accessed range, all that's needed
    to complement it should be preservation of permissions outside of said range. *)
-Lemma access_effect_per_loc tr affected_tag access_tag pre :
+Lemma access_effect_per_loc_within_range tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
   tree_unique affected_tag tr pre ->
   forall kind cids range tr' z zpre,
   range_contains range z ->
-  every_node (fun it =>
-    IsTag affected_tag it ->
-    item_lazy_perm_at_loc it z = zpre
-  ) tr ->
+  item_lazy_perm_at_loc pre z = zpre ->
   tree_apply_access (item_apply_access kind) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
-  exists zpost, (
+  exists post zpost, (
     let rel := if naive_rel_dec tr affected_tag access_tag then AccessChild else AccessForeign in
     let prot := bool_decide (is_active_protector cids pre.(iprot)) in
-    apply_access_perm kind rel prot zpre = Some zpost /\
-    every_node (fun it =>
-      IsTag affected_tag it ->
-      item_lazy_perm_at_loc it z = zpost
-    ) tr'
+    apply_access_perm kind rel prot zpre = Some zpost
+    /\ tree_unique affected_tag tr' post
+    /\ item_lazy_perm_at_loc post z = zpost
   ).
 Proof.
   intros ContainsAcc ContainsAff UniqueAff kind cids range tr' z zpre WithinRange IsPre Success.
@@ -445,12 +459,12 @@ Proof.
   destruct (apply_access_spec_per_node _ _ _ _
     ContainsAcc ContainsAff UniqueAff
     (item_apply_access kind) cids range tr' (naive_rel_dec tr)
-    (item_apply_access_preserves_tag kind) Success) as [post [postSpec postUnique]].
+    (item_apply_access_preserves_tag kind) Success) as [post [SpecPost [ContainsPost UniquePost]]].
   clear Success.
   (* and then it's per-tag work *)
-  rewrite (tree_unique_specifies_tag _ _ _ ContainsAff UniqueAff) in postSpec.
-  symmetry in postSpec.
-  destruct (option_bind_success_step _ _ _  postSpec) as [tmpperm [tmpSpec tmpRes]].
+  rewrite (tree_unique_specifies_tag _ _ _ ContainsAff UniqueAff) in SpecPost.
+  symmetry in SpecPost.
+  destruct (option_bind_success_step _ _ _  SpecPost) as [tmpperm [tmpSpec tmpRes]].
   injection tmpRes; intro H; subst; clear tmpRes.
   (* now down to per-location *)
   pose proof (range_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
@@ -459,17 +473,45 @@ Proof.
   assert (unwrap {| initialized := false; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
     unfold item_lazy_perm_at_loc. destruct (iperm pre !! z); simpl; reflexivity.
   } rewrite InitPerm in ForeachSpec.
-  rewrite every_node_eqv_universal in IsPre.
-  rewrite IsPre in ForeachSpec; [
-    |apply (exists_unique_exists _ _ _ ContainsAff UniqueAff)
-    |apply (tree_unique_specifies_tag _ _ _ ContainsAff UniqueAff)
-  ].
-  eexists; split; [exact ForeachSpec|].
-  (* Now we have to prove that tr' is indeed the per-node mapping of apply_access_perm, which is not too hard *)
-  rewrite every_node_eqv_universal; intros post Expost Tagpost.
-  unfold tree_unique in postUnique; rewrite every_node_eqv_universal in postUnique.
-  rewrite (postUnique post Expost Tagpost).
-  unfold item_lazy_perm_at_loc; simpl; rewrite PermExists; simpl; reflexivity.
+  eexists. eexists.
+  try repeat split; [|exact UniquePost].
+  rewrite ForeachSpec.
+  unfold item_lazy_perm_at_loc.
+  rewrite PermExists; simpl; reflexivity.
+Qed.
+
+Lemma access_effect_per_loc_outside_range tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  forall kind cids range tr' z zpre,
+  ~range_contains range z ->
+  item_lazy_perm_at_loc pre z = zpre ->
+  tree_apply_access (item_apply_access kind) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
+  exists post, (
+    tree_unique affected_tag tr post
+    /\ item_lazy_perm_at_loc post z = zpre
+  ).
+Proof.
+  intros ContainsAcc ContainsAff UniqueAff kind cids range tr' z zpre OutsideRange IsPre Success.
+  destruct (apply_access_spec_per_node _ _ _ _
+    ContainsAcc ContainsAff UniqueAff _ _ _ _ _
+    (item_apply_access_preserves_tag kind)
+    Success) as [post [SpecPost [ContainsPost UniquePost]]].
+  (* We now show that
+     (1) post has zpre at loc z
+     (2) post is equal to whatever item the goal refers to *)
+  assert (item_lazy_perm_at_loc post z = item_lazy_perm_at_loc pre z) as SamePerm. {
+    symmetry in SpecPost.
+    destruct (option_bind_success_step _ _ _ SpecPost) as [perms [SpecPerms Injectable]].
+    injection Injectable; intros; subst; clear Injectable.
+    pose proof (range_foreach_spec _ _ z _ _ SpecPerms) as RangeForeach.
+    rewrite (decide_False _ _ OutsideRange) in RangeForeach.
+    unfold item_lazy_perm_at_loc; simpl.
+    rewrite RangeForeach; reflexivity.
+  }
+  eexists.
+  split; [exact UniqueAff|apply IsPre].
 Qed.
 
 Lemma nonchild_write_disables tr affected_tag access_tag pre :
@@ -479,33 +521,119 @@ Lemma nonchild_write_disables tr affected_tag access_tag pre :
   ~ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z zpre,
   range_contains range z ->
-  every_node (fun it =>
-    IsTag affected_tag it ->
-    item_lazy_perm_at_loc it z = zpre
-  ) tr ->
+  item_lazy_perm_at_loc pre z = zpre ->
   perm zpre ≠ ReservedMut ->
   memory_write cids access_tag range tr = Some tr' ->
-  exists zpost, (
-    every_node (fun it =>
-      IsTag affected_tag it ->
-      item_lazy_perm_at_loc it z = zpost
-    ) tr'
-    /\
-    perm zpost = Disabled
+  exists post zpost, (
+    tree_unique affected_tag tr' post
+    /\ item_lazy_perm_at_loc post z = zpost
+    /\ perm zpost = Disabled
   ).
 Proof.
   intros ContainsAcc ContainsAff UniqueAff Nonrel cids range tr' z zpre WithinRange preLoc NonResMut Write.
-  destruct (access_effect_per_loc _ _ _ _
+  destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessWrite cids range tr' z zpre WithinRange preLoc Write) as [zpost [postSpec postLoc]].
-  exists zpost.
-  split; [exact postLoc|].
-  clear postLoc Write WithinRange preLoc ContainsAcc ContainsAff UniqueAff.
+    AccessWrite cids range tr' z zpre WithinRange preLoc Write) as [post [zpost [SpecPost [UniqPost PermPost]]]].
+  exists post, zpost.
+  try repeat split; auto.
   destruct (naive_rel_dec _ _ _); [contradiction|].
   destruct zpre; destruct initialized; destruct perm; try contradiction.
   all: destruct (bool_decide _); simpl in *.
-  all: try inversion postSpec.
+  all: try inversion SpecPost.
   all: simpl; reflexivity.
+Qed.
+
+Lemma create_child_unique tr tgp newp tg range :
+  tree_contains tgp tr ->
+  ~tree_contains tg tr ->
+  forall cids tr',
+  create_child cids tgp range tg newp tr = Some tr' ->
+  (
+    tree_contains tg tr'
+    /\ tree_unique tg tr' (create_new_item tg newp range)
+  ).
+Proof.
+  intros ContainsTgp FreshTg cids tr' CreateChild.
+  destruct (create_child_isSome _ _ _ _ _ _ _ CreateChild) as [tr'' [MemRead Insertion]].
+  assert (tree_contains tgp tr''). { rewrite <- access_preserves_tags; eauto. apply item_apply_access_preserves_tag. }
+  assert (~tree_contains tg tr''). { rewrite <- access_preserves_tags; eauto. apply item_apply_access_preserves_tag. }
+  subst.
+  pose ins := create_new_item tg newp range.
+  assert (itag ins = tg) as TgIns by (apply new_item_has_tag).
+  rewrite <- TgIns.
+  split.
+  - eapply insert_true_produces_exists; [auto|assumption].
+  - eapply inserted_unique; simpl. assumption.
+Qed.
+
+Lemma create_new_item_uniform_perm tg newp range z :
+  item_lazy_perm_at_loc (create_new_item tg newp range) z = {|
+    initialized := bool_decide (range_contains range z);
+    perm := newp.(initial_state)
+  |}.
+Proof.
+  unfold item_lazy_perm_at_loc.
+  unfold create_new_item; simpl.
+  unfold init_perms.
+  pose proof (mem_foreach_defined_spec (fun _ => {|
+    initialized:=true;
+    perm:=initial_state newp
+  |}) range z ∅ _ eq_refl) as Spec.
+  destruct (decide (range_contains range z)) as [r|n].
+  - rewrite (bool_decide_eq_true_2 _ r).
+    destruct Spec as [v [Lookupv Specv]].
+    rewrite Lookupv; auto.
+  - rewrite (bool_decide_eq_false_2 _ n).
+    rewrite Spec.
+    erewrite lookup_empty.
+    reflexivity.
+Qed.
+
+Lemma write_write_disjoint tg tg' newp range0 range1 range2:
+  forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
+  tree_contains tg tr0 ->
+  tree_contains tgp tr0 ->
+  ~tree_contains tg' tr0 ->
+  initial_state newp ≠ ReservedMut ->
+  create_child cids0 tgp range0 tg' newp tr0 = Some tr1 ->
+  memory_write cids1 tg range1 tr1 = Some tr2 ->
+  memory_write cids2 tg' range2 tr2 = Some tr3 ->
+  ~exists z, range_contains range1 z /\ range_contains range2 z.
+Proof.
+  intros tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2.
+  intros TgEx0 TgpEx0 Tg'Fresh0 NonResMut Rebor Write12 Write23 [z [RContains1 RContains2]].
+  (* reborrow step *)
+  destruct (create_child_unique _ _ _ _ _ TgpEx0 Tg'Fresh0 _ _ Rebor) as [Tg'Ex1 Tg'Unique1].
+  pose proof (insertion_preserves_tags _ _ _ _ _ _ _ _ TgEx0 Rebor) as TgEx1.
+  pose proof (insertion_order_nonchild _ _ _ TgEx0 Tg'Fresh0 _ _ _ _ _ TgpEx0 Rebor) as Unrelated1.
+  clear TgEx0 TgpEx0 Tg'Fresh0 Rebor.
+  (* post reborrow: unfold newly created permission *)
+  pose pre1 := (create_new_item tg' newp range0).
+  fold pre1 in Tg'Unique1.
+  pose zpre1 := (item_lazy_perm_at_loc pre1 z).
+  assert (perm zpre1 ≠ ReservedMut) as NonResMut1. {
+    pose proof (create_new_item_uniform_perm tg' newp range0 z) as UniformPerm.
+    unfold zpre1. rewrite UniformPerm; simpl; exact NonResMut.
+  }
+  (* write step 1 *)
+  destruct (nonchild_write_disables _ _ _ _ TgEx1 Tg'Ex1 Tg'Unique1 Unrelated1 _ _ _ _ _ RContains1 eq_refl NonResMut1 Write12) as [post [zpost [Unique'Post2 [PermPost2 DisPost]]]].
+  pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write12) Tg'Ex1) as Tg'Ex2.
+  clear Tg'Ex1.
+
+  (* write step 2 *)
+  destruct (apply_access_spec_per_node _ _ _ _ Tg'Ex2 Tg'Ex2 Unique'Post2 _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write23) as [post2 [SpecPost2 [ExPost2 UniquePost2]]].
+  pose proof (tree_unique_specifies_tag _ _ _ Tg'Ex2 Unique'Post2); subst.
+  (* now there's a contradiction somewhere *)
+  destruct (naive_rel_dec _ _ _) as [r|n]; [|apply n; left; reflexivity].
+  symmetry in SpecPost2.
+  destruct (option_bind_success_step _ _ _ SpecPost2) as [perms [Foreachperms Injectable]].
+  pose proof (range_foreach_spec _ _ z _ _ Foreachperms) as RangeForeach.
+  erewrite decide_True in RangeForeach; [|exact RContains2].
+  destruct RangeForeach as [ps [SpecPs Appl]].
+  pose zpost := (item_lazy_perm_at_loc post z); replace (unwrap _ (iperm post !! z)) with zpost in Appl; [|reflexivity].
+  fold zpost in DisPost.
+  destruct (bool_decide _); destruct zpost; destruct initialized; simpl in DisPost; subst; simpl in Appl.
+  all: unfold apply_access_perm in Appl; simpl in Appl; inversion Appl.
 Qed.
 
 
