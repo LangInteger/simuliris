@@ -451,9 +451,8 @@ Definition create_new_item tg perm range :=
 
 Definition create_child cids (oldt:tag) range (newt:tag) (newp:newperm)
   : app (tree item) := fun tr =>
-  tr' ← memory_read cids oldt range tr;
   let it := create_new_item newt newp range in
-  Some $ insert_child_at tr' it (IsTag oldt).
+  Some $ insert_child_at tr it (IsTag oldt).
 
 Definition item_lazy_perm_at_loc it z
   : lazy_permission :=

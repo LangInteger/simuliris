@@ -287,14 +287,11 @@ Qed.
 Lemma create_child_isSome tr tgp tgc :
   forall cids range tr' newp,
   create_child cids tgp range tgc newp tr = Some tr' ->
-    (exists tr'', memory_read cids tgp range tr = Some tr''
-    /\ tr' = insert_child_at tr'' (create_new_item tgc newp range) (IsTag tgp)).
+  tr' = insert_child_at tr (create_new_item tgc newp range) (IsTag tgp).
 Proof.
   move=> ?? tr' ? CreateChild.
   unfold create_child in CreateChild.
-  destruct (memory_read _ tgp _ tr); simpl in *; inversion CreateChild.
-  injection CreateChild; intros; subst.
-  exists t.
+  inversion CreateChild.
   auto.
 Qed.
 
@@ -364,12 +361,11 @@ Lemma insertion_contains tr tgp tgc :
 Proof.
   move=> ?? tr' ? ContainsParent CreateChild.
   unfold tree_contains in *.
-  destruct (create_child_isSome tr tgp tgc _ _ _ _ CreateChild) as [tr'' [Read Insert]].
+  pose proof (create_child_isSome tr tgp tgc _ _ _ _ CreateChild) as Insert.
   rewrite Insert.
   apply insert_true_produces_exists.
   - apply new_item_has_tag.
-  - apply (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag _) Read).
-    exact ContainsParent.
+  - exact ContainsParent.
 Qed.
 
 Lemma insertion_preserves_tags tr tg :
@@ -380,10 +376,9 @@ Lemma insertion_preserves_tags tr tg :
 Proof.
   move=> ???? tr' ? Contains CreateChild.
   unfold tree_contains in *.
-  destruct (create_child_isSome tr _ _ _ _ _ _ CreateChild) as [tr'' [Read Insert]].
+  pose proof (create_child_isSome tr _ _ _ _ _ _ CreateChild) as Insert.
   rewrite Insert.
   apply insert_preserves_exists.
-  apply (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag _) Read).
   exact Contains.
 Qed.
 
@@ -397,32 +392,11 @@ Lemma insertion_order_nonstrictchild tr tg tg' :
 Proof.
   move=> Present Fresh tgp ??? tr' ParentPresent Insert Contra.
   unfold create_child in Insert.
-  remember (memory_read _ _ _ _) as tr''.
-  destruct tr'' as [tr''|]; simpl in *; try (inversion Insert; done).
   injection Insert; intros; subst; clear Insert.
-  symmetry in Heqtr''.
-  assert (tree_contains tg' tr'') as Present'. {
-    erewrite <- access_preserves_tags.
-    - apply Present.
-    - apply item_apply_access_preserves_tag.
-    - exact Heqtr''.
-  } clear Present.
-  assert (~tree_contains tg tr'') as Fresh'. {
-    intro Invert; apply Fresh; erewrite access_preserves_tags.
-    - apply Invert.
-    - apply item_apply_access_preserves_tag.
-    - exact Heqtr''.
-  } clear Fresh.
-  assert (tree_contains tgp tr'') as ParentPresent'. {
-    erewrite <- access_preserves_tags.
-    - apply ParentPresent.
-    - apply item_apply_access_preserves_tag.
-    - exact Heqtr''.
-  } clear ParentPresent.
   eapply inserted_not_strict_parent with (ins := (create_new_item tg _ _)).
-  - apply ParentPresent'.
-  - simpl; apply Fresh'.
-  - apply Present'.
+  - apply ParentPresent.
+  - simpl; apply Fresh.
+  - apply Present.
   - apply Contra.
 Qed.
 
@@ -719,6 +693,33 @@ Proof.
   all: injection SpecPost; intro H; destruct zpost; injection H; intros; subst; simpl; reflexivity.
 Qed.
 
+Lemma protected_nonchild_write_initialized_to_disabled tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  ~ParentChildIn affected_tag access_tag tr ->
+  forall cids range tr' z,
+  is_active_protector cids (iprot pre) ->
+  initialized (item_lazy_perm_at_loc pre z) = true ->
+  ~reach Disabled (perm (item_lazy_perm_at_loc pre z)) ->
+  range_contains range z ->
+  memory_write cids access_tag range tr = Some tr' ->
+  False.
+Proof.
+  move=> ContainsAcc ContainsAff UniqueAff Unrelated ???? Protected Initialized NonDis WithinRange Write.
+  destruct (access_effect_per_loc_within_range _ _ _ _
+    ContainsAcc ContainsAff UniqueAff
+    AccessWrite _ _ _ _ _ WithinRange
+    ltac:(reflexivity) Write) as [post [zpost [SpecPost [UniquePost PermPost]]]].
+  destruct (naive_rel_dec _ _ _); [contradiction|].
+  rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
+  destruct (item_lazy_perm_at_loc _ _); simpl in Initialized; subst.
+  destruct perm; unfold apply_access_perm in SpecPost; simpl in SpecPost.
+  all: inversion SpecPost.
+  (* One case remaining: was already Disabled *)
+  apply NonDis; simpl; tauto.
+Qed.
+
 Lemma create_child_unique tr tgp newp tg range :
   tree_contains tgp tr ->
   ~tree_contains tg tr ->
@@ -730,9 +731,7 @@ Lemma create_child_unique tr tgp newp tg range :
   ).
 Proof.
   intros ContainsTgp FreshTg cids tr' CreateChild.
-  destruct (create_child_isSome _ _ _ _ _ _ _ CreateChild) as [tr'' [MemRead Insertion]].
-  assert (tree_contains tgp tr''). { rewrite <- access_preserves_tags; eauto. apply item_apply_access_preserves_tag. }
-  assert (~tree_contains tg tr''). { rewrite <- access_preserves_tags; eauto. apply item_apply_access_preserves_tag. }
+  pose proof (create_child_isSome _ _ _ _ _ _ _ CreateChild) as Insertion.
   subst.
   pose ins := create_new_item tg newp range.
   assert (itag ins = tg) as TgIns by (apply new_item_has_tag).
@@ -930,7 +929,28 @@ Proof.
     Write34).
 Qed.
 
+Lemma protected_cwrite_fwrite_disjoint tg tg' newp range0 range1 range2 :
+  forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
+  tree_contains tg tr0 ->
+  tree_contains tgp tr0 ->
+  ~tree_contains tg' tr0 ->
+  create_child cids0 tgp range0 tg' newp tr0 = Some tr1 ->
+  memory_write cids1 tg' range1 tr1 = Some tr2 ->
+  memory_write cids2 tg range2 tr2 = Some tr3 ->
+  ~exists z, range_contains range1 z /\ range_contains range2 z.
+Proof.
+  move=> ? tr0 tr1 tr2 tr3 ??? TgEx0 TgpEx0 Tg'Fresh0 Rebor Write12 Write23 [z [RContains1 RContains2]].
+  (* reborrow step *)
+  created_unique tg' Tg'Ex1 Tg'Unique1.
+  pose proof (insertion_order_nonchild _ _ _ TgEx0 Tg'Fresh0 _ _ _ _ _ TgpEx0 Rebor) as Unrelated1.
+  migrate TgEx0 TgEx1.
+  forget tr0.
 
+  (* write step 1 *)
+  Check (protected_nonchild_write_initialized_to_disabled _ _ _ _
+    TgEx1 Tg'Ex1 Tg'Unique1 Unrelated1
+    _ _ _ _).
 
-Lemma protected_cwrite_fwrite_disjoint.
+Lemma protected_cread_fwrite_disjoint.
+Lemma protected_cwrite_fread_disjoint.
 Lemma protected_fread_cwrite_disjoint.
