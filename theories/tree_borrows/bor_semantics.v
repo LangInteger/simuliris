@@ -444,14 +444,12 @@ Definition newperm_from_box
   let newprot := match rtk with FnEntry => Some {| weak:=true; call:=cid |} | Default => None end in
   Some {| initial_state:=initial; new_protector:=newprot |}.
 
-Definition create_new_item tg perm range :=
-  let perms := init_perms perm.(initial_state) range in
-  let it := {| itag:=tg; iprot:=perm.(new_protector); initp:=perm.(initial_state); iperm:=perms |} in
-  it.
+Definition create_new_item tg perm :=
+  {| itag:=tg; iprot:=perm.(new_protector); initp:=perm.(initial_state); iperm:=∅ |}.
 
-Definition create_child cids (oldt:tag) range (newt:tag) (newp:newperm)
+Definition create_child cids (oldt:tag) (newt:tag) (newp:newperm)
   : app (tree item) := fun tr =>
-  let it := create_new_item newt newp range in
+  let it := create_new_item newt newp in
   Some $ insert_child_at tr it (IsTag oldt).
 
 Definition item_lazy_perm_at_loc it z
@@ -556,7 +554,7 @@ Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
     (EXISTS_TAG: trees_contain parentt trs x.1)
     (FRESH_CHILD: ~trees_contain (Tag nxtp) trs x.1)
     (NEW_PERM: reborrow_perm (kindof ptr) rtk c = Some newp)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt (x.2, sizeof ptr) (Tag nxtp) newp) x.1 trs = Some trs') :
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt (Tag nxtp) newp) x.1 trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (RetagEvt x parentt (Tag nxtp) ptr rtk c)
