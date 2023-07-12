@@ -3,7 +3,7 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas.
 From iris.prelude Require Import options.
 
-Lemma insert_eqv_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
+Lemma insert_eqv_strict_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
   {search_dec:forall it, Decision (search it)} :
   ~IsTag t ins ->
   ~IsTag t' ins ->
@@ -17,22 +17,104 @@ Proof.
     split; intro Hyp.
     - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
       try repeat split; auto.
-intro H; right; left. eapply insert_preserves_exists; auto.
+      intro H; right; left. eapply insert_preserves_exists; auto.
     - destruct Hyp as [Hyp0 [Hyp1 [Hyp21 [Hyp22 _]]]].
       try repeat split; auto.
       intro H; destruct (Hyp0 H) as [|[|]]; [contradiction| |contradiction].
       eapply insert_false_infer_exists; eauto.
   + rewrite IHtr1; clear IHtr1. rewrite IHtr2; clear IHtr2.
     simpl.
-split; intro Hyp.
+    split; intro Hyp.
 - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
-      try repeat split; auto.
-      intro H; auto.
-      apply insert_preserves_exists; auto.
+  try repeat split; auto.
+  intro H; auto.
+  apply insert_preserves_exists; auto.
 - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
-      try repeat split; auto.
-      intro H; auto.
-      eapply insert_false_infer_exists; eauto.
+  try repeat split; auto.
+  intro H; auto.
+  eapply insert_false_infer_exists; eauto.
+Qed.
+
+Lemma insert_eqv_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
+  {search_dec:forall it, Decision (search it)} :
+  ~IsTag t ins ->
+  ~IsTag t' ins ->
+  ParentChildIn t t' tr <-> ParentChildIn t t' (insert_child_at tr ins search).
+Proof.
+  move=> ??.
+  split; intro Hyp.
+  all: destruct Hyp as [Eq|Strict]; [left; assumption|right].
+  - erewrite <- insert_eqv_strict_rel; assumption.
+  - erewrite <- insert_eqv_strict_rel in Strict; assumption.
+Qed.
+
+Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:Tprop X) :
+  forall fn,
+  (forall x y, fn x = Some y -> prop x <-> prop y) ->
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  exists_node prop tr <-> exists_node prop tr'.
+Proof.
+  move=> ? Preserves JoinMap.
+  generalize dependent tr'.
+  induction tr; [simpl; move=> ? H; injection H; intros; subst; tauto|].
+  intros tr' JoinMap.
+  destruct (destruct_joined _ _ _ _ JoinMap) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]]; subst.
+  simpl.
+  erewrite IHtr1; [|eassumption].
+  erewrite IHtr2; [|eassumption].
+  rewrite Preserves; [|eassumption].
+  tauto.
+Qed.
+
+Lemma join_map_eqv_strict_rel t t' (tr tr':tree item) :
+  forall fn,
+  (forall it it', fn it = Some it' -> itag it = itag it') ->
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  StrictParentChildIn t t' tr <-> StrictParentChildIn t t' tr'.
+Proof.
+  intros fn FnPreservesTag Success.
+  generalize dependent tr'.
+  unfold StrictParentChildIn.
+  induction tr; intros tr' Success; simpl in *.
+  - inversion Success; auto.
+  - destruct (destruct_joined _ _ _ _ Success) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]].
+    rewrite IHtr1; [|eapply EqTr1'].
+    rewrite IHtr2; [|eapply EqTr2'].
+    subst; simpl.
+    split; intro H; destruct H as [?[??]]; try repeat split; try assumption.
+    all: intro Hyp.
+    + rewrite <- join_map_preserves_exists; unfold IsTag in *.
+      * apply H. erewrite FnPreservesTag; eassumption.
+      * intros; subst. erewrite FnPreservesTag; eauto.
+      * apply EqTr2'.
+    + rewrite join_map_preserves_exists; unfold IsTag in *.
+      * apply H. erewrite <- FnPreservesTag; eassumption.
+      * intros; subst. erewrite FnPreservesTag; eauto.
+      * apply EqTr2'.
+Qed.
+
+Lemma access_eqv_strict_rel t t' (tr tr':tree item) :
+  forall fn cids tg range dyn_rel,
+  app_preserves_tag fn ->
+  tree_apply_access fn cids tg range tr dyn_rel = Some tr' ->
+  StrictParentChildIn t t' tr <-> StrictParentChildIn t t' tr'.
+Proof.
+  move=> ????? Preserves Access.
+  eapply join_map_eqv_strict_rel; [|exact Access].
+  move=> ??.
+  apply Preserves.
+Qed.
+
+Lemma access_eqv_rel t t' (tr tr':tree item) :
+  forall fn cids tg range dyn_rel,
+  app_preserves_tag fn ->
+  tree_apply_access fn cids tg range tr dyn_rel = Some tr' ->
+  ParentChildIn t t' tr <-> ParentChildIn t t' tr'.
+Proof.
+  move=> ????? Preserves Access.
+  unfold ParentChildIn.
+  rewrite access_eqv_strict_rel; [|exact Preserves|exact Access].
+  tauto.
 Qed.
 
 Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
@@ -94,7 +176,7 @@ Lemma insert_produces_StrictParentChild_transitive t t' (ins:item) (tr:tree item
 Proof.
   intros Nott Nott' Ptt'.
   apply (StrictParentChild_transitive t t' ins.(itag)).
-  - apply insert_eqv_rel; auto.
+  - apply insert_eqv_strict_rel; auto.
   - apply insert_produces_StrictParentChild; auto.
 Qed.
 
@@ -427,14 +509,6 @@ Proof.
   rewrite <- (Every n); auto.
 Qed.
 
-Lemma option_bind_success_step {T U} (ox:option T) (f:T -> option U) (r:U) :
-  ((x ← ox; f x) = Some r) -> exists x, ox = Some x /\ f x = Some r.
-Proof.
-  intro H.
-  destruct ox; simpl in *; [|inversion H].
-  eexists. split; [reflexivity|assumption].
-Qed.
-
 (* Key lemma: converts the entire traversal to a per-node level.
    This is applicable to every permission in the accessed range, all that's needed
    to complement it should be preservation of permissions outside of said range. *)
@@ -514,7 +588,7 @@ Proof.
   split; [exact UniqueAff|apply IsPre].
 Qed.
 
-Lemma nonchild_write_disables tr affected_tag access_tag pre :
+Lemma nonchild_write_reserved_to_disabled tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
   tree_unique affected_tag tr pre ->
@@ -522,12 +596,12 @@ Lemma nonchild_write_disables tr affected_tag access_tag pre :
   forall cids range tr' z zpre,
   range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
-  perm zpre ≠ ReservedMut ->
+  reach Reserved (perm zpre) ->
   memory_write cids access_tag range tr = Some tr' ->
   exists post zpost, (
     tree_unique affected_tag tr' post
     /\ item_lazy_perm_at_loc post z = zpost
-    /\ perm zpost = Disabled
+    /\ reach Disabled (perm zpost)
   ).
 Proof.
   intros ContainsAcc ContainsAff UniqueAff Nonrel cids range tr' z zpre WithinRange preLoc NonResMut Write.
@@ -540,7 +614,109 @@ Proof.
   destruct zpre; destruct initialized; destruct perm; try contradiction.
   all: destruct (bool_decide _); simpl in *.
   all: try inversion SpecPost.
-  all: simpl; reflexivity.
+  all: simpl; tauto.
+Qed.
+
+Lemma nonchild_read_active_to_frozen tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  ~ParentChildIn affected_tag access_tag tr ->
+  forall cids range tr' z zpre,
+  range_contains range z ->
+  item_lazy_perm_at_loc pre z = zpre ->
+  reach Active (perm zpre) ->
+  memory_read cids access_tag range tr = Some tr' ->
+  exists post zpost, (
+    tree_unique affected_tag tr' post
+    /\ item_lazy_perm_at_loc post z = zpost
+    /\ reach Frozen (perm zpost)
+    /\ reach (perm zpre) (perm zpost)
+  ).
+Proof.
+  intros ContainsAcc ContainsAff UniqueAff Nonrel cids range tr' z zpre WithinRange preLoc NonResMut Read.
+  destruct (access_effect_per_loc_within_range _ _ _ _
+    ContainsAcc ContainsAff UniqueAff
+    AccessRead cids range tr' z zpre WithinRange preLoc Read) as [post [zpost [SpecPost [UniqPost PermPost]]]].
+  exists post, zpost.
+  try repeat split; auto.
+  all: destruct (naive_rel_dec _ _ _); [contradiction|].
+  all: destruct zpre; destruct initialized; destruct perm; try contradiction.
+  all: destruct (bool_decide _); simpl in *.
+  all: try inversion SpecPost.
+  all: simpl; tauto.
+Qed.
+
+Lemma child_write_frozen_to_ub tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  ParentChildIn affected_tag access_tag tr ->
+  forall cids range tr' z zpre,
+  range_contains range z ->
+  item_lazy_perm_at_loc pre z = zpre ->
+  reach Frozen (perm zpre) ->
+  memory_write cids access_tag range tr = Some tr' ->
+  False.
+Proof.
+  intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z zpre WithinRange PermPre ReachFrz Write.
+  destruct (access_effect_per_loc_within_range _ _ _ _
+  ContainsAcc ContainsAff UniqueAff
+  AccessWrite cids range tr' z zpre WithinRange PermPre Write) as [post [zpost [SpecPost [UniqPost PermPost]]]].
+  destruct (naive_rel_dec _ _ _); [|contradiction].
+  destruct zpre; destruct initialized; destruct perm; try contradiction.
+  all: destruct (bool_decide _); simpl in *.
+  all: try inversion SpecPost.
+Qed.
+
+Lemma child_read_disabled_to_ub tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  ParentChildIn affected_tag access_tag tr ->
+  forall cids range tr' z zpre,
+  range_contains range z ->
+  item_lazy_perm_at_loc pre z = zpre ->
+  reach Disabled (perm zpre) ->
+  memory_read cids access_tag range tr = Some tr' ->
+  False.
+Proof.
+  intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z zpre WithinRange PermPre ReachFrz Read.
+  destruct (access_effect_per_loc_within_range _ _ _ _
+    ContainsAcc ContainsAff UniqueAff
+    AccessRead cids range tr' z zpre WithinRange PermPre Read) as [post [zpost [SpecPost [UniqPost PermPost]]]].
+  destruct (naive_rel_dec _ _ _); [|contradiction].
+  destruct zpre; destruct initialized; destruct perm; try contradiction.
+  all: destruct (bool_decide _); simpl in *.
+  all: try inversion SpecPost.
+Qed.
+
+Lemma child_write_any_to_active tr affected_tag access_tag pre :
+  tree_contains access_tag tr ->
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag tr pre ->
+  ParentChildIn affected_tag access_tag tr ->
+  forall cids range tr' z,
+  range_contains range z ->
+  memory_write cids access_tag range tr = Some tr' ->
+  exists post zpost, (
+    tree_unique affected_tag tr' post
+    /\ item_lazy_perm_at_loc post z = zpost
+    /\ perm zpost = Active
+  ).
+Proof.
+  intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z WithinRange Write.
+  destruct (access_effect_per_loc_within_range _ _ _ _
+    ContainsAcc ContainsAff UniqueAff
+    AccessWrite cids range tr' z (item_lazy_perm_at_loc pre z) WithinRange ltac:(reflexivity) Write) as [post [zpost [SpecPost [UniqPost PermPost]]]].
+  destruct (naive_rel_dec _ _ _); [|contradiction].
+  exists post, zpost.
+  try repeat split; try assumption.
+  destruct (item_lazy_perm_at_loc _ _); destruct initialized; destruct perm; try contradiction.
+  all: destruct (bool_decide _); simpl in *.
+  all: unfold apply_access_perm in SpecPost; simpl in *.
+  all: try inversion SpecPost.
+  all: injection SpecPost; intro H; destruct zpost; injection H; intros; subst; simpl; reflexivity.
 Qed.
 
 Lemma create_child_unique tr tgp newp tg range :
@@ -589,12 +765,12 @@ Proof.
     reflexivity.
 Qed.
 
-Lemma write_write_disjoint tg tg' newp range0 range1 range2:
+Lemma fwrite_cwrite_disjoint tg tg' newp range0 range1 range2 :
   forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
   tree_contains tg tr0 ->
   tree_contains tgp tr0 ->
   ~tree_contains tg' tr0 ->
-  initial_state newp ≠ ReservedMut ->
+  reach Reserved (initial_state newp) ->
   create_child cids0 tgp range0 tg' newp tr0 = Some tr1 ->
   memory_write cids1 tg range1 tr1 = Some tr2 ->
   memory_write cids2 tg' range2 tr2 = Some tr3 ->
@@ -611,29 +787,110 @@ Proof.
   pose pre1 := (create_new_item tg' newp range0).
   fold pre1 in Tg'Unique1.
   pose zpre1 := (item_lazy_perm_at_loc pre1 z).
-  assert (perm zpre1 ≠ ReservedMut) as NonResMut1. {
+  assert (reach Reserved (perm zpre1)) as NonResMut1. {
     pose proof (create_new_item_uniform_perm tg' newp range0 z) as UniformPerm.
     unfold zpre1. rewrite UniformPerm; simpl; exact NonResMut.
   }
   (* write step 1 *)
-  destruct (nonchild_write_disables _ _ _ _ TgEx1 Tg'Ex1 Tg'Unique1 Unrelated1 _ _ _ _ _ RContains1 eq_refl NonResMut1 Write12) as [post [zpost [Unique'Post2 [PermPost2 DisPost]]]].
+  destruct (nonchild_write_reserved_to_disabled _ _ _ _ TgEx1 Tg'Ex1 Tg'Unique1 Unrelated1 _ _ _ _ _ RContains1 eq_refl NonResMut1 Write12) as [post [zpost [Unique'Post2 [PermPost2 DisPost]]]].
   pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write12) Tg'Ex1) as Tg'Ex2.
   clear Tg'Ex1.
 
   (* write step 2 *)
-  destruct (apply_access_spec_per_node _ _ _ _ Tg'Ex2 Tg'Ex2 Unique'Post2 _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write23) as [post2 [SpecPost2 [ExPost2 UniquePost2]]].
-  pose proof (tree_unique_specifies_tag _ _ _ Tg'Ex2 Unique'Post2); subst.
-  (* now there's a contradiction somewhere *)
-  destruct (naive_rel_dec _ _ _) as [r|n]; [|apply n; left; reflexivity].
-  symmetry in SpecPost2.
-  destruct (option_bind_success_step _ _ _ SpecPost2) as [perms [Foreachperms Injectable]].
-  pose proof (range_foreach_spec _ _ z _ _ Foreachperms) as RangeForeach.
-  erewrite decide_True in RangeForeach; [|exact RContains2].
-  destruct RangeForeach as [ps [SpecPs Appl]].
-  pose zpost := (item_lazy_perm_at_loc post z); replace (unwrap _ (iperm post !! z)) with zpost in Appl; [|reflexivity].
-  fold zpost in DisPost.
-  destruct (bool_decide _); destruct zpost; destruct initialized; simpl in DisPost; subst; simpl in Appl.
-  all: unfold apply_access_perm in Appl; simpl in Appl; inversion Appl.
+  destruct (child_write_frozen_to_ub _ _ _ _
+    Tg'Ex2 Tg'Ex2 Unique'Post2
+    ltac:(left; reflexivity) _ _ _ _ _
+    RContains2 PermPost2
+    ltac:(eapply (reach_transitive Frozen Disabled (perm zpost)); [done|exact DisPost])
+    Write23).
+Qed.
+
+Lemma fwrite_cread_disjoint tg tg' newp range0 range1 range2 :
+  forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
+  tree_contains tg tr0 ->
+  tree_contains tgp tr0 ->
+  ~tree_contains tg' tr0 ->
+  reach Reserved (initial_state newp) ->
+  create_child cids0 tgp range0 tg' newp tr0 = Some tr1 ->
+  memory_write cids1 tg range1 tr1 = Some tr2 ->
+  memory_read cids2 tg' range2 tr2 = Some tr3 ->
+  ~exists z, range_contains range1 z /\ range_contains range2 z.
+Proof.
+  move=> ???????? TgEx0 TgpEx0 Tg'Fresh0 ReachRes Rebor Write12 Read23 [z [RContains1 RContains2]].
+  (* reborrow step *)
+  destruct (create_child_unique _ _ _ _ _ TgpEx0 Tg'Fresh0 _ _ Rebor) as [Tg'Ex1 Tg'Unique1].
+  pose proof (insertion_preserves_tags _ _ _ _ _ _ _ _ TgEx0 Rebor) as TgEx1.
+  pose proof (insertion_order_nonchild _ _ _ TgEx0 Tg'Fresh0 _ _ _ _ _ TgpEx0 Rebor) as Unrelated1.
+  (* unfold newly created permission *)
+  pose pre1 := (create_new_item tg' newp range0).
+  fold pre1 in Tg'Unique1.
+  pose zpre1 := (item_lazy_perm_at_loc pre1 z).
+  assert (reach Reserved (perm zpre1)) as ReachRes1. {
+    pose proof (create_new_item_uniform_perm tg' newp range0 z) as UniformPerm.
+    unfold zpre1. rewrite UniformPerm; simpl; exact ReachRes.
+  }
+  (* write step 1 *)
+  destruct (nonchild_write_reserved_to_disabled _ _ _ _ TgEx1 Tg'Ex1 Tg'Unique1 Unrelated1 _ _ _ _ _ RContains1 eq_refl ReachRes1 Write12) as [post [zpost [Unique'Post2 [PermPost2 DisPost]]]].
+  pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write12) Tg'Ex1) as Tg'Ex2.
+
+  (* read step 2 *)
+  destruct (child_read_disabled_to_ub _ _ _ _
+    Tg'Ex2 Tg'Ex2 Unique'Post2
+    ltac:(left; reflexivity) _ _ _ _ _
+    RContains2 PermPost2
+    DisPost
+    Read23).
+Qed.
+
+Lemma activated_fread_cwrite_disjoint tg tg' newp range0 range1 range2 range3:
+  forall tgp tr0 tr1 tr2 tr3 tr4 cids0 cids1 cids2 cids3,
+  tree_contains tg tr0 ->
+  tree_contains tgp tr0 ->
+  ~tree_contains tg' tr0 ->
+  create_child cids0 tgp range0 tg' newp tr0 = Some tr1 ->
+  memory_write cids1 tg' range1 tr1 = Some tr2 ->
+  memory_read cids2 tg range2 tr2 = Some tr3 ->
+  memory_write cids3 tg' range3 tr3 = Some tr4 ->
+  ~exists z, range_contains range1 z /\ range_contains range2 z /\ range_contains range3 z.
+Proof.
+  move=> ?????????? TgEx0 TgpEx0 Tg'Fresh0 Rebor Write12 Read23 Write34 [z [RContains1 [RContains2 RContains3]]].
+  (* reborrow step *)
+  destruct (create_child_unique _ _ _ _ _ TgpEx0 Tg'Fresh0 _ _ Rebor) as [Tg'Ex1 Tg'Unique1].
+  pose proof (insertion_preserves_tags _ _ _ _ _ _ _ _ TgEx0 Rebor) as TgEx1.
+  pose proof (insertion_order_nonchild _ _ _ TgEx0 Tg'Fresh0 _ _ _ _ _ TgpEx0 Rebor) as Unrelated1.
+  (* unfold newly created permission *)
+  pose pre1 := (create_new_item tg' newp range0).
+  fold pre1 in Tg'Unique1.
+  pose zpre1 := (item_lazy_perm_at_loc pre1 z).
+  (* write step 1 *)
+  destruct (child_write_any_to_active _ _ _ _
+    Tg'Ex1 Tg'Ex1 Tg'Unique1
+    ltac:(left; reflexivity)
+    _ _ _ _ RContains1 Write12
+    ) as [post1 [zpost1 [Post'Unique2 [PostPerm PostActive]]]].
+  pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write12) Tg'Ex1) as Tg'Ex2.
+  pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write12) TgEx1) as TgEx2.
+  rewrite (access_eqv_rel _ _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) Write12) in Unrelated1.
+
+  (* read step 2 *)
+  destruct (nonchild_read_active_to_frozen _ _ _ _
+    TgEx2 Tg'Ex2 Post'Unique2
+    Unrelated1
+    _ _ _ _ _ RContains2 PostPerm
+    ltac:(rewrite PostActive; apply reach_reflexive)
+    Read23) as [post2 [zpost2 [Tg'Unique3 [PermPost2 [ReachFrzPost2 ReachPost1Post2]]]]].
+  pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessRead) Read23) Tg'Ex2) as Tg'Ex3.
+
+  (* write step 3 *)
+  destruct (child_write_frozen_to_ub _ _ _ _
+    Tg'Ex3 Tg'Ex3 Tg'Unique3
+    ltac:(left; reflexivity) _ _ _ _ _
+    RContains3 PermPost2
+    ReachFrzPost2
+    Write34).
 Qed.
 
 
+
+Lemma protected_cwrite_fwrite_disjoint.
+Lemma protected_fread_cwrite_disjoint.

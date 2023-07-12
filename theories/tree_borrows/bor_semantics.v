@@ -286,6 +286,84 @@ Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
   tree_apply_access item_dealloc cids t range tr (naive_rel_dec tr).
 
+Definition witness_transition p p' : Prop :=
+  match p, p' with
+  | ReservedMut, Active
+  | Reserved, Active
+  | Active, Frozen
+  | Frozen, Disabled
+  => True
+  | _, _ => False
+  end.
+
+Inductive witness_reach p p' : Prop :=
+  | witness_reach_refl : p = p' -> witness_reach p p'
+  | witness_reach_step p'' : witness_transition p p'' ->  witness_reach p'' p' -> witness_reach p p'
+  .
+
+Definition reach p p' : Prop :=
+  match p, p' with
+  | ReservedMut, (ReservedMut | Active | Frozen | Disabled)
+  | Reserved, (Reserved | Active | Frozen | Disabled)
+  | Active, (Active | Frozen | Disabled)
+  | Frozen, (Frozen | Disabled)
+  | Disabled, (Disabled)
+  => True
+  | _, _ => False
+  end.
+
+Ltac witness_reach_invert :=
+  match goal with
+  | H : witness_reach _ _ |- False =>
+    let perm := fresh "perm" in
+    let eql := fresh "Eql" in
+    let trans := fresh "Trans" in
+    let reach := fresh "Reach" in
+    inversion H as [eql|perm trans reach]; [inversion eql|destruct perm; try inversion trans]
+  end.
+
+Lemma reach_complete p p' :
+  witness_reach p p' -> reach p p'.
+Proof.
+  destruct p, p'; simpl; intro; try tauto.
+  all: repeat witness_reach_invert.
+Qed.
+
+Ltac witness_reach_solve :=
+  let p := fresh "p" in
+  let p' := fresh "p'" in
+  let p'' := fresh "p''" in
+  match goal with
+  | |- witness_reach ?p ?p => apply witness_reach_refl; reflexivity
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Active); simpl; [tauto|]
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Frozen); simpl; [tauto|]
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Disabled); simpl; [tauto|]
+  end.
+
+Lemma reach_sound p p' :
+  reach p p' -> witness_reach p p'.
+Proof.
+  destruct p, p'; simpl; intro; try tauto.
+  all: repeat witness_reach_solve.
+Qed.
+
+Lemma reach_correct p p' :
+  reach p p' <-> witness_reach p p'.
+Proof.
+  split; [apply reach_sound|apply reach_complete].
+Qed.
+
+Lemma reach_reflexive p : reach p p.
+Proof. rewrite reach_correct. apply witness_reach_refl. reflexivity.  Qed.
+
+Lemma reach_transitive p p' p'' : reach p p' -> reach p' p'' -> reach p p''.
+Proof.
+  repeat rewrite reach_correct.
+  intros Reachpp' Reachp'p''.
+  induction Reachpp'.
+  - subst; tauto.
+  - eapply witness_reach_step; [eassumption|auto].
+Qed.
 
 (** CONSISTENCY *)
 

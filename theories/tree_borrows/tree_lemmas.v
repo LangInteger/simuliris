@@ -14,6 +14,14 @@ Lemma option_bind_map_join {X Y} (fn:X -> option Y) :
   option_bind fn = compose option_join (option_map fn).
 Proof. apply functional_extensionality. intro ox. destruct ox; simpl; auto. Qed.
 
+Lemma option_bind_success_step {T U} (ox:option T) (f:T -> option U) (r:U) :
+  ((x ← ox; f x) = Some r) -> exists x, ox = Some x /\ f x = Some r.
+Proof.
+  intro H.
+  destruct ox; simpl in *; [|inversion H].
+  eexists. split; [reflexivity|assumption].
+Qed.
+
 Lemma join_join_nodes {X} :
   forall (tr:tree (option (option X))),
   option_bind join_nodes (join_nodes tr) = join_nodes (map_nodes option_join tr).
@@ -444,6 +452,24 @@ Proof.
     * destruct H as [?[??]]; injection H; intros; subst; auto.
     * rewrite IHtr1; auto.
     * rewrite IHtr2; auto.
+Qed.
+
+Lemma destruct_joined {X} (data:option X) (tr1 tr2:tree (option X)) tr' :
+  join_nodes (branch data tr1 tr2) = Some tr' ->
+  exists data' tr1' tr2',
+    tr' = branch data' tr1' tr2'
+    /\ data = Some data'
+    /\ join_nodes tr1 = Some tr1'
+    /\ join_nodes tr2 = Some tr2'
+  .
+Proof.
+  intros Join.
+  destruct (option_bind_success_step _ _ _ Join) as [data' [? Rest]]; clear Join.
+  destruct (option_bind_success_step _ _ _ Rest) as [tr1' [? Rest']]; clear Rest.
+  destruct (option_bind_success_step _ _ _ Rest') as [tr2' [? Done]]; clear Rest'.
+  exists data', tr1', tr2'.
+  try repeat split; try assumption.
+  injection Done; auto.
 Qed.
 
 Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
