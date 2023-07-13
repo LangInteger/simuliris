@@ -496,3 +496,22 @@ Proof.
   exact Ex.
 Qed.
 
+Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:Tprop X) :
+  forall fn,
+  (forall x y, fn x = Some y -> prop x <-> prop y) ->
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  exists_node prop tr <-> exists_node prop tr'.
+Proof.
+  move=> ? Preserves JoinMap.
+  generalize dependent tr'.
+  induction tr; [simpl; move=> ? H; injection H; intros; subst; tauto|].
+  intros tr' JoinMap.
+  destruct (destruct_joined _ _ _ _ JoinMap) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]]; subst.
+  simpl.
+  erewrite IHtr1; [|eassumption].
+  erewrite IHtr2; [|eassumption].
+  rewrite Preserves; [|eassumption].
+  tauto.
+Qed.
+
+

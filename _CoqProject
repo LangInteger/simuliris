@@ -133,7 +133,9 @@ theories/tree_borrows/expr_semantics.v
 theories/tree_borrows/tree.v
 theories/tree_borrows/tree_lemmas.v
 theories/tree_borrows/bor_semantics.v
+theories/tree_borrows/bor_lemmas.v
 theories/tree_borrows/lang.v
+theories/tree_borrows/steps_preserve.v
 theories/tree_borrows/disjoint.v
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
