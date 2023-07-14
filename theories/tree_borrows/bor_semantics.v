@@ -8,6 +8,14 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Export lang_base notation tree tree_lemmas.
 From iris.prelude Require Import options.
 
+Lemma decision_equiv (P Q:Prop) :
+  (P <-> Q) ->
+  Decision P ->
+  Decision Q.
+Proof.
+  unfold Decision. tauto.
+Qed.
+
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
 
 Implicit Type (c:call_id) (cids:call_id_set).
@@ -203,22 +211,63 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
       end
   end.
 
-Definition is_active_call cids c := (c ∈ cids).
-Definition is_active_protector cids prot :=
+(* MWE *)
+
+
+Definition call_is_active cids c := (c ∈ cids).
+Global Instance call_is_active_dec cids c : Decision (call_is_active cids c).
+Proof. rewrite /call_is_active. solve_decision. Qed.
+
+Definition call_of_protector prot :=
   match prot with
-  | Some (mkProtector _ c) => is_active_call cids c
+  | Some (mkProtector _ c) => Some c
+  | _ => None
+  end.
+
+Definition protector_is_for_call prot c := call_of_protector prot = Some c.
+Global Instance protector_is_for_call_dec prot c : Decision (protector_is_for_call prot c).
+Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Qed.
+
+Definition protector_is_active cids prot :=
+  exists c, protector_is_for_call prot c /\ call_is_active cids c.
+Definition witness_protector_is_active cids prot :=
+  match prot with
+  | Some (mkProtector _ c) => call_is_active cids c
   | _ => False
   end.
-Global Instance is_active_protector_dec cids prot : Decision (is_active_protector cids prot).
-Proof. rewrite /is_active_protector. rewrite /is_active_call. destruct prot as [[]|]; solve_decision. Qed.
+Global Instance witness_protector_is_active_dec cids prot :
+  Decision (witness_protector_is_active cids prot).
+Proof.
+  rewrite /witness_protector_is_active.
+  case_match; [case_match|]; solve_decision.
+Qed.
+Lemma protector_is_active_matches_witness cids prot :
+  witness_protector_is_active cids prot <-> protector_is_active cids prot.
+Proof.
+  rewrite /protector_is_active /witness_protector_is_active /protector_is_for_call /call_of_protector.
+  split; intro Hyp.
+  - destruct prot; [destruct p|].
+    * exists call; auto.
+    * inversion Hyp.
+  - destruct Hyp as [c [IsProt IsActive]].
+    destruct prot; [destruct p|].
+    * injection IsProt; intros; subst; assumption.
+    * inversion IsProt.
+Qed.
+Global Instance protector_is_active_dec cids prot :
+  Decision (protector_is_active cids prot).
+Proof.
+  eapply decision_equiv; [eapply protector_is_active_matches_witness|].
+  solve_decision.
+Qed.
 
-Definition is_strong_protector prot :=
+Definition protector_is_strong prot :=
   match prot with
   | Some (mkProtector weak _) => ~Is_true weak
   | _ => False
   end.
-Global Instance is_strong_protector_dec prot : Decision (is_strong_protector prot).
-Proof. rewrite /is_strong_protector. try repeat case_match; solve_decision. Qed.
+Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
+Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
 
 Definition validate_access_perm_inner
   : permission -> permission -> bool := fun old new =>
@@ -239,7 +288,7 @@ Definition apply_access_perm kind rel (isprot:bool)
 Definition item_apply_access kind cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
-  let isprot := bool_decide (is_active_protector cids it.(iprot)) in
+  let isprot := bool_decide (protector_is_active cids it.(iprot)) in
   newps ← permissions_foreach (mkPerm false it.(initp)) range (apply_access_perm kind rel isprot) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
@@ -247,8 +296,8 @@ Definition item_apply_access kind cids rel range
 Definition item_dealloc cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
-  let isprot := bool_decide (is_active_protector cids it.(iprot)) in
-  let isprot_strong := bool_decide (is_active_protector cids it.(iprot) /\ is_strong_protector it.(iprot)) in
+  let isprot := bool_decide (protector_is_active cids it.(iprot)) in
+  let isprot_strong := bool_decide (protector_is_active cids it.(iprot) /\ protector_is_strong it.(iprot)) in
   newps ← permissions_foreach (mkPerm false it.(initp)) range (apply_access_perm AccessWrite rel isprot) oldps;
   if isprot_strong then None else Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
