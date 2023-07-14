@@ -379,10 +379,10 @@ Ltac migrate prop dest :=
 Tactic Notation "migrate" constr(prop) "as" ident(dest) :=
   migrate prop dest.
 Tactic Notation "migrate" constr(prop) :=
-  let dest := fresh "dest" in
-  migrate prop as dest;
+  let tmp := fresh "tmp" in
+  migrate prop as tmp;
   clear prop;
-  rename dest into prop.
+  rename tmp into prop.
 
 
 Ltac forget x :=
@@ -399,6 +399,44 @@ Ltac created_unique tg bindEx bindUnq :=
       pose proof (create_child_unique _ _ _ _ Ex Fresh _ _ Rebor) as [bindEx bindUnq]
   end.
 
+Tactic Notation "created" constr(tg) "unique" "as" "[" ident(ex) ident(uq) "]" :=
+  created_unique tg ex uq.
+Tactic Notation "created" constr(tg) "unique" :=
+  let ex := fresh "Exists" in
+  let uq := fresh "Unique" in
+  created_unique tg ex uq.
+
+Ltac created_protected tg dest :=
+  let newp := fresh "newp" in
+  lazymatch goal with
+  | H : protector_is_for_call (new_protector ?newp) ?cid,
+    _ : context [create_new_item tg ?newp]
+    |- _ =>
+    assert (protector_is_for_call (iprot (create_new_item tg newp)) cid) as dest by (simpl; exact H)
+  end.
+
+Tactic Notation "created" constr(tg) "protected" "as" ident(prot) :=
+  created_protected tg prot.
+Tactic Notation "created" constr(tg) "protected" :=
+  let prot := fresh "Protected" in
+  created_protected tg prot.
+
+Ltac created_nonchild tg other dest :=
+  match goal with
+  | Exother : tree_contains other ?tr,
+    Exparent : tree_contains ?tgp ?tr,
+    Fresh : ~tree_contains tg ?tr,
+    Rebor : create_child _ ?tgp tg _ ?tr = Some _
+    |- _ =>
+    pose proof (insertion_order_nonchild _ _ _ Exother Fresh _ _ _ _ Exparent Rebor) as dest
+  end.
+
+Tactic Notation "created" constr(tg) "nonparent" "of" constr(other) "as" ident(dest) :=
+  created_nonchild tg other dest.
+Tactic Notation "created" constr(tg) "nonparent" "of" constr(other) :=
+  let unrel := fresh "Unrelated" in
+  created_nonchild tg other unrel.
+
 Lemma fwrite_cwrite_disjoint tg tg' newp range1 range2 :
   forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
   tree_contains tg tr0 ->
@@ -413,8 +451,8 @@ Proof.
   move=> ? tr0 tr1 tr2 tr3 ???.
   intros TgEx TgpEx Tg'Fresh NonResMut Rebor Write12 Write23 [z [RContains1 RContains2]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
   forget tr0.
 
@@ -449,8 +487,8 @@ Lemma fwrite_cread_disjoint tg tg' newp range1 range2 :
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ReachRes Rebor Write12 Read23 [z [RContains1 RContains2]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
   forget tr0.
 
@@ -485,8 +523,8 @@ Lemma activated_fread_cwrite_disjoint tg tg' newp range1 range2 range3:
 Proof.
   move=> ? tr0 tr1 tr2 tr3 tr4 ???? TgEx TgpEx Tg'Fresh Rebor Write12 Read23 Write34 [z [RContains1 [RContains2 RContains3]]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
   forget tr0.
 
@@ -522,15 +560,6 @@ Proof.
     Write34).
 Qed.
 
-Ltac created_protected tg' dest :=
-  let newp := fresh "newp" in
-  lazymatch goal with
-  | H : protector_is_for_call (new_protector ?newp) ?cid,
-    _ : context [create_new_item tg' ?newp]
-    |- _ =>
-    assert (protector_is_for_call (iprot (create_new_item tg' newp)) cid) as dest by (simpl; exact H)
-  end.
-
 Lemma protected_cwrite_fwrite_disjoint tg tg' cid newp range1 range2 :
   forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
   tree_contains tg tr0 ->
@@ -545,9 +574,9 @@ Lemma protected_cwrite_fwrite_disjoint tg tg' cid newp range1 range2 :
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ?? cids2 TgEx TgpEx Tg'Fresh ProtCall Rebor Write12 CallAct Write23 [z [RContains1 RContains2]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
-  created_protected tg' Protected.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' protected as Protected.
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
   forget tr0.
 
@@ -582,9 +611,9 @@ Lemma protected_cread_fwrite_disjoint tg tg' cid newp range1 range2 :
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ProtCall Rebor Read12 CallAct Write23 [z [RContains1 RContains2]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
-  created_protected tg' Protected.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' protected as Protected.
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
   forget tr0.
 
@@ -619,9 +648,9 @@ Lemma protected_cwrite_fread_disjoint tg tg' cid newp range1 range2 :
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ProtCall Rebor Write12 CallAct Read23 [z [RContains1 RContains2]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
-  created_protected tg' Protected.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' protected as Protected.
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
   forget tr0.
 
@@ -656,10 +685,10 @@ Lemma protected_fread_cwrite_disjoint tg tg' cid newp range1 range2 :
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ProtCall Rebor CallAct Read12 Write23 [z [RContains1 RContains2]].
   (* reborrow step *)
-  created_unique tg' Tg'Ex Tg'Unique.
-  pose proof (insertion_order_nonchild _ _ _ TgEx Tg'Fresh _ _ _ _ TgpEx Rebor) as Unrelated.
+  created tg' unique as [Tg'Ex Tg'Unique].
+  created tg' protected as Protected.
+  created tg' nonparent of tg as Unrelated.
   migrate TgEx.
-  created_protected tg' Protected.
   forget tr0.
 
   (* write step 1 *)
