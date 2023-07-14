@@ -437,6 +437,15 @@ Tactic Notation "created" constr(tg) "nonparent" "of" constr(other) :=
   let unrel := fresh "Unrelated" in
   created_nonchild tg other unrel.
 
+Ltac solve_reachability :=
+  let p := fresh "perm" in
+  multimatch goal with
+  | |- reach _ _ => assumption
+  | |- reach _ _ => eapply reach_reflexive; done
+  | |- reach _ (perm (item_lazy_perm_at_loc (create_new_item _ _) _)) => eapply create_new_item_perm_prop
+  | |- reach Frozen ?p => apply (reach_transitive Frozen Disabled p); [done|]
+  end.
+
 Lemma fwrite_cwrite_disjoint tg tg' newp range1 range2 :
   forall tgp tr0 tr1 tr2 tr3 cids0 cids1 cids2,
   tree_contains tg tr0 ->
@@ -461,16 +470,18 @@ Proof.
     TgEx Tg'Ex Tg'Unique
     Unrelated _ _ _ _ _
     RContains1 eq_refl
-    ltac:(apply create_new_item_perm_prop; auto) Write12) as [post [zpost [Unique'Post [PermPost [DisPost ProtPost]]]]].
+    ltac:(solve_reachability)
+    Write12
+  ) as [post [zpost [Unique'Post [PermPost [DisPost ProtPost]]]]].
   migrate Tg'Ex.
   forget tr1.
 
   (* write step 2 *)
   destruct (child_write_frozen_to_ub _ _ _ _
     Tg'Ex Tg'Ex Unique'Post
-    ltac:(left; reflexivity) _ _ _ _ _
+    ltac:(left; done) _ _ _ _ _
     RContains2 PermPost
-    ltac:(eapply (reach_transitive Frozen Disabled (perm zpost)); [done|exact DisPost])
+    ltac:(repeat solve_reachability)
     Write23).
 Qed.
 
@@ -497,7 +508,9 @@ Proof.
     TgEx Tg'Ex Tg'Unique
     Unrelated
     _ _ _ _ _ RContains1 eq_refl
-    ltac:(apply create_new_item_perm_prop; auto) Write12) as [post [zpost [Unique'Post [PermPost [DisPost ProtPost]]]]].
+    ltac:(solve_reachability)
+    Write12
+  ) as [post [zpost [Unique'Post [PermPost [DisPost ProtPost]]]]].
   migrate Tg'Ex.
   forget tr1.
 
@@ -506,7 +519,7 @@ Proof.
     Tg'Ex Tg'Ex Unique'Post
     ltac:(left; reflexivity) _ _ _ _ _
     RContains2 PermPost
-    DisPost
+    ltac:(solve_reachability)
     Read23).
 Qed.
 
@@ -532,8 +545,9 @@ Proof.
   destruct (child_write_any_to_init_active _ _ _ _
     Tg'Ex Tg'Ex Tg'Unique
     ltac:(left; reflexivity)
-    _ _ _ _ RContains1 Write12
-    ) as [post [zpost [Post'Unique [PostPerm [PostActive _]]]]].
+    _ _ _ _ RContains1
+    Write12
+  ) as [post [zpost [Post'Unique [PostPerm [PostActive _]]]]].
   migrate Tg'Ex.
   migrate TgEx.
   migrate Unrelated.
@@ -546,7 +560,7 @@ Proof.
     TgEx Tg'Ex Post'Unique
     Unrelated
     _ _ _ _ _ RContains2 PrePerm
-    ltac:(rewrite PreActive; apply reach_reflexive)
+    ltac:(solve_reachability)
     Read23) as [post [zpost [Tg'Unique [PostPerm [ReachFrzPost ReachPrePost]]]]].
   migrate Tg'Ex.
   forget tr2.
@@ -556,7 +570,7 @@ Proof.
     Tg'Ex Tg'Ex Tg'Unique
     ltac:(left; reflexivity) _ _ _ _ _
     RContains3 PostPerm
-    ReachFrzPost
+    ltac:(solve_reachability)
     Write34).
 Qed.
 
@@ -583,7 +597,9 @@ Proof.
   (* write step 1 *)
   destruct (child_write_any_to_init_active _ _ _ _
     Tg'Ex Tg'Ex Tg'Unique ltac:(left; reflexivity)
-    _ _ _ _ RContains1 Write12) as [post [zpost [Post'Unique [PostPerm [PostActive [PostProt PostInit]]]]]].
+    _ _ _ _ RContains1
+    Write12
+  ) as [post [zpost [Post'Unique [PostPerm [PostActive [PostProt PostInit]]]]]].
   migrate TgEx.
   migrate Tg'Ex.
   migrate Unrelated.
@@ -594,7 +610,9 @@ Proof.
   destruct (protected_nonchild_write_initialized_to_ub _ _ _ _
     TgEx Tg'Ex Post'Unique Unrelated
     _ _ _ _ ltac:(eexists; split; [exact Protected|exact CallAct])
-    PostInit ltac:(rewrite PostActive; tauto) RContains2 Write23).
+    PostInit
+    ltac:(rewrite PostActive; tauto)
+    RContains2 Write23).
 Qed.
 
 Lemma protected_cread_fwrite_disjoint tg tg' cid newp range1 range2 :
@@ -620,7 +638,8 @@ Proof.
   (* write step 1 *)
   destruct (child_read_any_to_init_nondis _ _ _ _
     Tg'Ex Tg'Ex Tg'Unique ltac:(left; reflexivity)
-    _ _ _ _ RContains1 Read12) as [post [zpost [Post'Unique [PostPerm [PostNonDis [PostProt PostInit]]]]]].
+    _ _ _ _ RContains1 Read12
+  ) as [post [zpost [Post'Unique [PostPerm [PostNonDis [PostProt PostInit]]]]]].
   migrate TgEx.
   migrate Tg'Ex.
   migrate Unrelated.
@@ -696,7 +715,8 @@ Proof.
     TgEx Tg'Ex Tg'Unique
     Unrelated
     _ _ _ _ ltac:(eexists; split; [exact Protected|exact CallAct])
-    RContains1 Read12) as [post [zpost [Unique'Post [PermPost FrzPost]]]].
+    RContains1 Read12
+  ) as [post [zpost [Unique'Post [PermPost FrzPost]]]].
   migrate Tg'Ex.
   forget tr1.
 
@@ -705,7 +725,7 @@ Proof.
     Tg'Ex Tg'Ex Unique'Post
     ltac:(left; reflexivity) _ _ _ _ _
     RContains2 PermPost
-    FrzPost
+    ltac:(solve_reachability)
     Write23).
 Qed.
 

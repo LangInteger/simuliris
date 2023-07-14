@@ -402,8 +402,8 @@ Proof.
   split; [apply reach_sound|apply reach_complete].
 Qed.
 
-Lemma reach_reflexive p : reach p p.
-Proof. rewrite reach_correct. apply witness_reach_refl. reflexivity.  Qed.
+Lemma reach_reflexive p q : p = q -> reach p q.
+Proof. rewrite reach_correct. apply witness_reach_refl. Qed.
 
 Lemma reach_transitive p p' p'' : reach p p' -> reach p' p'' -> reach p p''.
 Proof.
