@@ -240,14 +240,13 @@ Qed.
 
 Lemma tree_dealloc_Some tr fn cids tg range dyn_rel :
   is_Some (tree_apply_access fn cids tg range tr dyn_rel) ->
-  forall it,
-    tree_Exists (fun it' => it = it') tr ->
-    is_Some (fn cids (if dyn_rel tg (itag it) then AccessChild else AccessForeign) range it).
+  every_node (fun it => is_Some (fn cids (if dyn_rel (itag it) tg then AccessChild else AccessForeign) range it)) tr.
 Proof.
   unfold tree_apply_access.
   intro Success. rewrite join_success_condition in Success.
-  rewrite <- tree_Forall_forall.
-  rewrite tree_Forall_map in Success.
+  rewrite every_node_eqv_universal.
+  rewrite every_node_map in Success.
+  rewrite every_node_eqv_universal in Success.
   unfold compose in Success; apply Success.
 Qed.
 
