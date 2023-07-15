@@ -14,25 +14,17 @@ Definition wf_mem_tag (h: mem) (nxtp: nat) :=
     let '(Tag pid) := pid in
     (pid < nxtp)%nat.
 
-Definition item_included (si:item) (nxtp:nat) (nxtc:call_id) :=
-  (let 'Tag t := si.(itag) in
-  (t < nxtp)%nat) ∧
-  match si.(iprot) with
-  | Some {| weak:=_; call:=c |} => (c < nxtc)%nat
-  | _ => True
-  end.
+Definition item_wf (it:item) (nxtp:nat) (nxtc:call_id) :=
+  (forall tg, IsTag (Tag tg) it -> (tg < nxtp)%nat)
+  /\ (forall cid, protector_is_for_call (iprot it) cid -> (cid < nxtc)%nat).
 
 Definition tree_item_included (tr:tree item) (nxtp:nat) (nxtc: call_id) :=
-  ∀ si, (tree_Exists (fun it => si = it) tr) → item_included si nxtp nxtc.
-
-(*
-I don't think NoDup is important, but keep it around for now
-Definition stack_item_tagged_NoDup (stk : stack) :=
-  NoDup (fmap tg (filter is_tagged stk)).
-*)
+  forall tg,
+  tree_contains tg tr -> exists it,
+  tree_unique tg tr it /\ item_wf it nxtp nxtc.
 
 Definition wf_tree (tr:tree item) (nxtp:nat) (nxtc:call_id) :=
-  tree_item_included tr nxtp nxtc (*∧ stack_item_tagged_NoDup stk*).
+  tree_item_included tr nxtp nxtc.
 Definition wf_trees (trs:trees) (nxtp:nat) (nxtc: call_id) :=
   ∀ blk tr, trs !! blk = Some tr → wf_tree tr nxtp nxtc.
 Definition wf_non_empty (trs:trees) :=
