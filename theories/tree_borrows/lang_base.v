@@ -53,16 +53,35 @@ Proof.
       end) _); by intros [].
 Qed.
 
+Inductive prot_strong :=
+  | ProtStrong
+  | ProtWeak
+  .
+Global Instance prot_strong_eq_dec : EqDecision prot_strong.
+Proof. solve_decision. Defined.
+
 (** Tree of borrows. *)
 Record protector := mkProtector {
-  weak : bool;
+  strong : prot_strong;
   call : call_id;
 }.
 Global Instance protector_eq_dec : EqDecision protector.
 Proof. solve_decision. Defined.
 
+Inductive perm_init :=
+  | PermInit
+  | PermLazy
+  .
+Global Instance perm_init_eq_dec : EqDecision perm_init.
+Proof. solve_decision. Defined.
+Definition most_init p p' :=
+  match p with
+  | PermInit => PermInit
+  | PermLazy => p'
+  end.
+
 Record lazy_permission := mkPerm {
-  initialized : bool;
+  initialized : perm_init;
   perm        : permission;
 }.
 Global Instance lazy_perm_eq_dec : EqDecision lazy_permission.

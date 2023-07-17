@@ -178,10 +178,10 @@ Implicit Type (it:item).
 Implicit Type (prot:option protector).
 
 Definition requires_init (rel:access_rel)
-  : bool :=
+  : perm_init :=
   match rel with
-  | AccessChild => true
-  | AccessForeign => false
+  | AccessChild => PermInit
+  | AccessForeign => PermLazy
   end.
 
 Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:bool)
@@ -263,43 +263,39 @@ Qed.
 
 Definition protector_is_strong prot :=
   match prot with
-  | Some (mkProtector weak _) => ~Is_true weak
+  | Some (mkProtector weak _) => weak = ProtStrong
   | _ => False
   end.
 Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
 Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
 
-Definition validate_access_perm_inner
+Definition transition_triggers_protector
   : permission -> permission -> bool := fun old new =>
-  if decide (old = new) then true
+  if decide (old = new) then false
   else match old, new with
-  | _, Disabled => false
-  | Active, Frozen => false
-  | _, _ => true
+  | _, Disabled => true
+  | Active, Frozen => true
+  | _, _ => false
   end.
 
-Definition apply_access_perm kind rel (isprot:bool)
+Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
   : app lazy_permission := fun operm =>
   let old := operm.(perm) in
   new ← apply_access_perm_inner kind rel isprot old;
-  validated ← if operm.(initialized) && validate_access_perm_inner old new then Some new else None;
-  Some $ mkPerm (operm.(initialized) || requires_init rel) validated.
+  validated ← if operm.(initialized) then (
+    if isprot && protector_relevant && transition_triggers_protector old new then (
+        None
+    ) else Some new
+  ) else Some new;
+  Some $ mkPerm (most_init operm.(initialized) (requires_init rel)) validated.
 
-Definition item_apply_access kind cids rel range
+Definition item_apply_access kind strong cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
-  let isprot := bool_decide (protector_is_active cids it.(iprot)) in
-  newps ← permissions_foreach (mkPerm false it.(initp)) range (apply_access_perm kind rel isprot) oldps;
+  let protected := bool_decide (protector_is_active cids it.(iprot)) in
+  let protector_relevant := bool_decide (strong = ProtStrong \/ protector_is_strong it.(iprot)) in
+  newps ← permissions_foreach (mkPerm PermLazy it.(initp)) range (apply_access_perm kind rel protected protector_relevant) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
-
-(* FIXME: is this correct wrt strong protectors ? *)
-Definition item_dealloc cids rel range
-  : app item := fun it =>
-  let oldps := it.(iperm) in
-  let isprot := bool_decide (protector_is_active cids it.(iprot)) in
-  let isprot_strong := bool_decide (protector_is_active cids it.(iprot) /\ protector_is_strong it.(iprot)) in
-  newps ← permissions_foreach (mkPerm false it.(initp)) range (apply_access_perm AccessWrite rel isprot) oldps;
-  if isprot_strong then None else Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
 (* FIXME: share code *)
 Definition tree_apply_access
@@ -312,7 +308,7 @@ Definition tree_apply_access
   join_nodes (map_nodes app tr).
 
 Definition init_perms perm range
-  : permissions := mem_foreach_defined (fun _ => mkPerm true perm) range ∅.
+  : permissions := mem_foreach_defined (fun _ => mkPerm PermLazy perm) range ∅.
 
 Definition init_tree t range
   : tree item := branch (mkItem t None Active (init_perms Active range)) empty empty.
@@ -323,17 +319,21 @@ Definition extend_trees t blk range
 
 (* Perform the access check on a block of continuous memory.
  * This implements Tree::before_memory_{read,write,deallocation}. *)
-Definition memory_read cids t range
+Definition memory_strong_read cids t range
   : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access AccessRead) cids t range tr (naive_rel_dec tr).
+  tree_apply_access (item_apply_access AccessRead ProtStrong) cids t range tr (naive_rel_dec tr).
 
-Definition memory_write cids t range
+Definition memory_strong_write cids t range
   : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access AccessWrite) cids t range tr (naive_rel_dec tr).
+  tree_apply_access (item_apply_access AccessWrite ProtStrong) cids t range tr (naive_rel_dec tr).
+
+Definition memory_weak_write cids t range
+  : app (tree item) := fun tr =>
+  tree_apply_access (item_apply_access AccessWrite ProtWeak) cids t range tr (naive_rel_dec tr).
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
-  tree_apply_access item_dealloc cids t range tr (naive_rel_dec tr).
+  Some tr.
 
 Definition witness_transition p p' : Prop :=
   match p, p' with
@@ -427,16 +427,22 @@ Lemma IsTag_reverse it it' :
 Proof. unfold IsTag. auto. Qed.
 
 Lemma apply_access_idempotent :
-  forall kind rel (isprot isprot':bool) perm perm',
-  (apply_access_perm kind rel isprot perm = Some perm') ->
-  (apply_access_perm kind rel (if isprot then isprot' else false) perm' = Some perm').
+  forall kind rel (isprot isstrong isprot' isstrong':bool) perm perm',
+  (if isprot then True else isprot' = false) ->
+  (if isstrong' then True else isstrong = true) ->
+  (apply_access_perm kind rel isprot isstrong perm = Some perm') ->
+  (apply_access_perm kind rel isprot' isstrong' perm' = Some perm').
 Proof.
-  intros kind rel isprot isprot' perm perm' FirstPass.
+  intros kind rel isprot isstrong isprot' isstrong' perm perm' PROT_INCR STRONG_INCR FirstPass.
   destruct perm as [init perm]; destruct perm' as [init' perm'].
   destruct init; destruct init'; destruct perm; destruct perm'.
-  all: destruct kind; destruct rel; auto.
-  all: destruct isprot; auto.
-  all: inversion FirstPass; auto.
+  all: destruct kind; destruct rel.
+  all: try (inversion FirstPass; done).
+  all: destruct isprot; [|subst]; try destruct isprot'.
+  all: try (inversion FirstPass; done).
+  all: destruct isstrong'; [|subst]; try destruct isstrong.
+  all: inversion FirstPass.
+  all: done.
 Qed.
 
 Definition tree_contains t tr
@@ -479,7 +485,7 @@ Definition newperm_from_ref
     | Immutable, _, Freeze => Some Frozen
     | _, _, _ => None
     end;
-  let newprot := match rtk with FnEntry => Some {| weak:=false; call:=cid |} | Default => None end in
+  let newprot := match rtk with FnEntry => Some {| strong:=ProtStrong; call:=cid |} | Default => None end in
   Some {| initial_state:=initial; new_protector:=newprot |}.
 
 Definition newperm_from_box
@@ -490,7 +496,7 @@ Definition newperm_from_box
   (cid:call_id)
   : option newperm :=
   let initial := Reserved (* FIXME: mut ? *) in
-  let newprot := match rtk with FnEntry => Some {| weak:=true; call:=cid |} | Default => None end in
+  let newprot := match rtk with FnEntry => Some {| strong:=ProtWeak; call:=cid |} | Default => None end in
   Some {| initial_state:=initial; new_protector:=newprot |}.
 
 Definition create_new_item tg perm :=
@@ -504,7 +510,7 @@ Definition create_child cids (oldt:tag) (newt:tag) (newp:newperm)
 Definition item_lazy_perm_at_loc it z
   : lazy_permission :=
   let op := iperm it !! z in
-  unwrap {| initialized := false; perm := initp it |} op.
+  unwrap {| initialized := PermLazy; perm := initp it |} op.
 
 Definition item_perm_at_loc it z
   : permission :=
@@ -531,33 +537,89 @@ Definition apply_within_trees (fn:app (tree item)) blk
   newtr ← fn oldtr;
   Some $ <[blk := newtr]> trs.
 
-Definition tag_included (tg: tag) (nxtp:tag) : Prop :=
-  let 'Tag nxtp := nxtp in
-  let 'Tag tg := tg in
-  (tg < nxtp)%nat.
+Definition item_fresh_call cid it :=
+  ~protector_is_for_call (iprot it) cid.
 
-Infix "<t" := tag_included (at level 60, no associativity).
-Definition tag_values_included (v: value) nxtp :=
-  ∀ l tg, ScPtr l tg ∈ v → tg <t nxtp.
-Infix "<<t" := tag_values_included (at level 60, no associativity).
+Definition tree_fresh_call cid tr :=
+  every_node (item_fresh_call cid) tr.
 
-Global Instance tag_included_dec tg nxtp : Decision (tag_included tg nxtp).
-Proof. destruct tg; destruct nxtp; cbn; apply _. Qed.
-Global Instance tag_values_included_dec v nxtp : Decision (tag_values_included v nxtp).
-Proof.
-  rewrite /tag_values_included. induction v as [ | sc v IH].
-  - left; intros l tg Ha. exfalso. by eapply not_elem_of_nil.
-  - destruct sc as [| |l tg| |].
-    1,2,4,5: destruct IH as [IH | IH]; [left | right]; setoid_rewrite elem_of_cons; [intros ?? [ [=] | ]| contradict IH]; eauto.
-    destruct (decide (tg <t nxtp)) as [Hd | Hd]; destruct IH as [IH | IH]; [left | right | right | right]; setoid_rewrite elem_of_cons; [ | by eauto..].
-    intros ?? [[= -> ->] | He]; [done | by eapply IH].
-Qed.
+Definition trees_fresh_call cid trs blk :=
+  forall tr,
+  trs !! blk = Some tr ->
+  tree_fresh_call cid tr.
 
+(* FIXME: Check this much more thoroughly *)
+Inductive bor_estep trs cids
+  : event -> trees -> call_id_set -> Prop :=
+  | AllocEIS tg (x:loc) ptr
+    (FRESH_BLOCK : trs !! x.1 = None)
+    (FRESH_TAG : forall blk, ~trees_contain tg trs blk) :
+    (* Tagged nxtp is the first borrow of the variable x,
+       used when accessing x directly (not through another pointer) *)
+    (* FIXME: should we check that the block is absent from the trees ? *)
+    bor_estep
+      trs cids
+      (AllocEvt x tg ptr)
+      (extend_trees tg x.1 (x.2, sizeof ptr) trs) cids
+  | StrongReadEIS trs' (x:loc) tg ptr val
+    (EXISTS_TAG: trees_contain tg trs x.1)
+    (ACC: apply_within_trees (memory_strong_read cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+    bor_estep
+      trs cids
+      (ReadEvt x tg ptr val)
+      trs' cids
+  | StrongWriteEIS trs' (x:loc) tg ptr val
+    (EXISTS_TAG: trees_contain tg trs x.1)
+    (ACC: apply_within_trees (memory_strong_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+    bor_estep
+      trs cids
+      (WriteEvt x tg ptr val)
+      trs' cids
+  | WeakWriteEIS trs' (x:loc) tg ptr val
+    (EXISTS_TAG: trees_contain tg trs x.1)
+    (ACC: apply_within_trees (memory_weak_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+    bor_estep
+      trs cids
+      (WriteEvt x tg ptr val)
+      trs' cids
+  | DeallocEIS trs' (x:loc) tg ptr
+    (EXISTS_TAG: trees_contain tg trs x.1)
+    (ACC: apply_within_trees (memory_deallocate cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+    (* FIXME: remove the tree ? *)
+    bor_estep
+      trs cids
+      (DeallocEvt x tg ptr)
+      trs' cids
+  | InitCallEIS cid
+    (INACTIVE_CID : ~cid ∈ cids)
+    (FRESH_CID : forall blk, trees_fresh_call cid trs blk) :
+    bor_estep
+      trs cids
+      (InitCallEvt cid)
+      trs ({[cid]} ∪ cids)
+  | EndCallEIS cid
+    (EL: cid ∈ cids) :
+    bor_estep
+      trs cids
+      (EndCallEvt cid)
+      trs (cids ∖ {[cid]})
+  | RetagEIS trs' parentt tg x (ptr:pointer) (rtk:retag_kind) newp c
+    (EL: c ∈ cids)
+    (EXISTS_PARENT: trees_contain parentt trs x.1)
+    (FRESH_CHILD: ~trees_contain tg trs x.1)
+    (NEW_PERM: reborrow_perm (kindof ptr) rtk c = Some newp)
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt tg newp) x.1 trs = Some trs') :
+    bor_estep
+      trs cids
+      (RetagEvt x parentt tg ptr rtk c)
+      trs' cids
+  .
 
 (* FIXME: Check this much more thoroughly *)
 Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
-  | AllocIS (x:loc) ptr :
+  | AllocIS (x:loc) ptr
+    (FRESH : trs !! x.1 = None) :
     (* Tagged nxtp is the first borrow of the variable x,
        used when accessing x directly (not through another pointer) *)
     (* FIXME: should we check that the block is absent from the trees ? *)

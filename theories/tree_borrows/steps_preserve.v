@@ -133,7 +133,45 @@ Proof.
     exact post'Spec.
 Qed.
 
+Lemma bor_estep_preserves_contains tg trs blk :
+  trees_contain tg trs blk ->
+  forall trs' cids cids' evt,
+  bor_estep
+    trs cids
+    evt
+    trs' cids'
+  ->
+  trees_contain tg trs' blk.
+Proof.
+  move=> Ex ???? Step.
+  inversion Step; subst.
+  - destruct (decide (blk = x.1)); [subst|].
+    * rewrite /trees_contain FRESH_BLOCK in Ex; contradiction.
+    * rewrite /trees_contain /extend_trees; rewrite lookup_insert_ne; [|done]; exact Ex.
+  - destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
+    destruct (option_bind_success_step _ _ _ ACC') as [?[H' ACC'']]; clear ACC'.
+    injection ACC''; intros; subst; clear ACC''.
+    destruct (decide (blk = x.1)); [subst|].
+    * rewrite /trees_contain lookup_insert.
+      rewrite /trees_contain H in Ex.
+      rewrite <- access_preserves_tags; [exact Ex|apply item_apply_access_preserves_tag|exact H'].
+    * rewrite /trees_contain; rewrite lookup_insert_ne; [|done]; exact Ex.
+  - destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
+    destruct (option_bind_success_step _ _ _ ACC') as [?[H' ACC'']]; clear ACC'.
+    injection ACC''; intros; subst; clear ACC''.
+    destruct (decide (blk = x.1)); [subst|].
+    * rewrite /trees_contain lookup_insert.
+      rewrite /trees_contain H in Ex.
+      rewrite <- access_preserves_tags; [exact Ex|apply item_apply_access_preserves_tag|exact H'].
+    * rewrite /trees_contain; rewrite lookup_insert_ne; [|done]; exact Ex.
+  - destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
+    destruct (option_bind_success_step _ _ _ ACC') as [?[H' ACC'']]; clear ACC'.
+    injection ACC''; intros; subst; clear ACC''.
+    destruct (decide (blk = x.1)); [subst|].
+Abort.
+
 (* FIXME: this needs some well-formedness
+Lemma bor_step_alloc_prouces_contains.
 Lemma bor_step_preserves_contains.
 Lemma bor_step_preserves_unique.
 Lemma bor_step_preserves_rel.
