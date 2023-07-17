@@ -307,15 +307,15 @@ Definition tree_apply_access
   ) in
   join_nodes (map_nodes app tr).
 
-Definition init_perms perm range
-  : permissions := mem_foreach_defined (fun _ => mkPerm PermLazy perm) range ∅.
+Definition init_perms perm
+  : permissions := mem_foreach_defined (fun _ => mkPerm PermLazy perm) (0%Z, O) ∅.
 
-Definition init_tree t range
-  : tree item := branch (mkItem t None Active (init_perms Active range)) empty empty.
+Definition init_tree t
+  : tree item := branch (mkItem t None Active (init_perms Active)) empty empty.
 
-Definition extend_trees t blk range
+Definition extend_trees t blk
   : trees -> trees := fun ts =>
-  <[blk := init_tree t range]>ts.
+  <[blk := init_tree t]>ts.
 
 (* Perform the access check on a block of continuous memory.
  * This implements Tree::before_memory_{read,write,deallocation}. *)
@@ -437,20 +437,35 @@ Proof.
   all: done.
 Qed.
 
-Definition tree_contains t tr
+Definition tree_contains tg tr
   : Prop :=
-  exists_node (IsTag t) tr.
+  exists_node (IsTag tg) tr.
 
-Definition tree_unique t tr it
+Definition tree_unique tg it tr
   : Prop :=
-  every_node (fun it' => IsTag t it' -> it' = it) tr.
+  every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
-Definition trees_contain t trs blk
+Definition trees_at_block prop trs blk
   : Prop :=
   match trs !! blk with
   | None => False
-  | Some tr => tree_contains t tr
+  | Some tr => prop tr
   end.
+
+Definition trees_contain tg trs blk :=
+  trees_at_block (tree_contains tg) trs blk.
+
+Definition trees_unique_tag tg trs blk
+  : Prop :=
+  (forall blk', trees_contain tg trs blk' -> blk' = blk).
+
+Definition trees_unique_item tg trs blk it :=
+  trees_at_block (tree_unique tg it) trs blk.
+
+Definition trees_unique tg trs blk it
+  : Prop :=
+  trees_unique_tag tg trs blk
+  /\ trees_unique_item tg trs blk it.
 
 Definition app_preserves_tag app : Prop :=
   (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it').
@@ -459,10 +474,6 @@ Definition app_preserves_tag app : Prop :=
 
 (** Reborrow *)
 
-Record newperm := mkNewPerm {
-  initial_state : permission;
-  new_protector : option protector;
-}.
 
 Definition newperm_from_ref
   (mut:mutability)
@@ -542,58 +553,57 @@ Definition trees_fresh_call cid trs blk :=
 
 (* FIXME: Check this much more thoroughly *)
 Inductive bor_estep trs cids
-  : event -> trees -> call_id_set -> Prop :=
-  | AllocEIS tg (x:loc) ptr
-    (FRESH_BLOCK : trs !! x.1 = None)
+  : bor_event -> trees -> call_id_set -> Prop :=
+  | AllocEIS tg blk
+    (FRESH_BLOCK : trs !! blk = None)
     (FRESH_TAG : forall blk, ~trees_contain tg trs blk) :
     (* Tagged nxtp is the first borrow of the variable x,
        used when accessing x directly (not through another pointer) *)
     (* FIXME: should we check that the block is absent from the trees ? *)
     bor_estep
       trs cids
-      (AllocEvt x tg ptr)
-      (extend_trees tg x.1 (x.2, sizeof ptr) trs) cids
-  | AccessEIS kind strong trs' (x:loc) tg ptr val
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_access kind strong cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+      (AllocBEvt blk tg)
+      (extend_trees tg blk trs) cids
+  | AccessEIS kind strong trs' blk range tg
+    (EXISTS_TAG: trees_contain tg trs blk)
+    (ACC: apply_within_trees (memory_access kind strong cids tg range) blk trs = Some trs') :
     bor_estep
       trs cids
-      (AccessEvt kind strong x tg ptr val)
+      (AccessBEvt kind strong tg blk range)
       trs' cids
-  | DeallocEIS trs' (x:loc) tg ptr
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_deallocate cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+  | DeallocEIS trs' blk
+    (UNCHANGED : trs = trs') :
     (* FIXME: remove the tree ? *)
     bor_estep
       trs cids
-      (DeallocEvt x tg ptr)
+      (DeallocBEvt blk)
       trs' cids
   | InitCallEIS cid
     (INACTIVE_CID : ~cid ∈ cids)
-    (FRESH_CID : forall blk, trees_fresh_call cid trs blk) :
+    (FRESH_CID : forall blk', trees_fresh_call cid trs blk') :
     bor_estep
       trs cids
-      (InitCallEvt cid)
+      (InitCallBEvt cid)
       trs ({[cid]} ∪ cids)
   | EndCallEIS cid
     (EL: cid ∈ cids) :
     bor_estep
       trs cids
-      (EndCallEvt cid)
+      (EndCallBEvt cid)
       trs (cids ∖ {[cid]})
-  | RetagEIS trs' parentt tg x (ptr:pointer) (rtk:retag_kind) newp c
-    (EL: c ∈ cids)
-    (EXISTS_PARENT: trees_contain parentt trs x.1)
-    (FRESH_CHILD: ~trees_contain tg trs x.1)
-    (NEW_PERM: reborrow_perm (kindof ptr) rtk c = Some newp)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt tg newp) x.1 trs = Some trs') :
+  | RetagEIS trs' tgp tg blk newp (cid : call_id)
+    (EL: cid ∈ cids)
+    (EXISTS_PARENT: trees_contain tgp trs blk)
+    (FRESH_CHILD: forall blk', ~trees_contain tg trs blk')
+    (RETAG_EFFECT: apply_within_trees (create_child cids tgp tg newp) blk trs = Some trs') :
     bor_estep
       trs cids
-      (RetagEvt x parentt tg ptr rtk c)
+      (RetagBEvt tgp tg newp cid)
       trs' cids
   .
 
 (* FIXME: Check this much more thoroughly *)
+(*
 Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (x:loc) ptr
@@ -649,4 +659,4 @@ Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
       (RetagEvt x parentt (Tag nxtp) ptr rtk c)
       trs' cids (S nxtp) nxtc
   .
-
+*)

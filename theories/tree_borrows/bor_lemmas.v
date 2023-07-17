@@ -5,7 +5,7 @@ From iris.prelude Require Import options.
 
 Lemma exists_unique_exists tr tg it :
   tree_contains tg tr ->
-  tree_unique tg tr it ->
+  tree_unique tg it tr ->
   exists_node (eq it) tr.
 Proof.
   move=> Contains Unique.
@@ -202,16 +202,17 @@ Proof.
     - apply IHtr2; exact Fresh2.
 Qed.
 
-Lemma inserted_unique (t:tag) (ins:item) (tr:tree item) :
-  ~tree_contains ins.(itag) tr ->
-  tree_unique ins.(itag) (insert_child_at tr ins (IsTag t)) ins.
+Lemma inserted_unique (tgp tg:tag) (ins:item) (tr:tree item) :
+  IsTag tg ins ->
+  ~tree_contains tg tr ->
+  tree_unique tg ins (insert_child_at tr ins (IsTag tgp)).
 Proof.
-  intro Fresh.
+  intros Tg Fresh.
   unfold tree_unique.
   unfold tree_contains in Fresh; rewrite <- every_not_eqv_not_exists in Fresh.
   induction tr; simpl in *; auto.
   destruct Fresh as [?[??]].
-  destruct (decide (IsTag t data)).
+  destruct (decide (IsTag tgp data)).
   - try repeat split; [|apply IHtr1; assumption|apply IHtr2; assumption].
     simpl; intro; contradiction.
   - try repeat split; [|apply IHtr1; assumption|apply IHtr2; assumption].
@@ -326,7 +327,7 @@ Qed.
 
 Lemma tree_unique_specifies_tag tr tg it :
   tree_contains tg tr ->
-  tree_unique tg tr it ->
+  tree_unique tg it tr ->
   itag it = tg.
 Proof.
   rewrite /tree_contains /tree_unique.
@@ -344,7 +345,7 @@ Lemma create_child_unique tr tgp newp tg :
   create_child cids tgp tg newp tr = Some tr' ->
   (
     tree_contains tg tr'
-    /\ tree_unique tg tr' (create_new_item tg newp)
+    /\ tree_unique tg (create_new_item tg newp) tr'
   ).
 Proof.
   intros ContainsTgp FreshTg cids tr' CreateChild.
@@ -355,12 +356,12 @@ Proof.
   rewrite <- TgIns.
   split.
   - eapply insert_true_produces_exists; [auto|assumption].
-  - eapply inserted_unique; simpl. assumption.
+  - eapply inserted_unique; simpl; assumption.
 Qed.
 
 Lemma create_new_item_uniform_perm tg newp z :
   item_lazy_perm_at_loc (create_new_item tg newp) z = {|
-    initialized := false;
+    initialized := PermLazy;
     perm := newp.(initial_state)
   |}.
 Proof.
@@ -380,5 +381,3 @@ Lemma create_new_item_prot_prop prop tg newp :
   prop (new_protector newp) ->
   prop (iprot (create_new_item tg newp)).
 Proof. simpl; tauto. Qed.
-
-

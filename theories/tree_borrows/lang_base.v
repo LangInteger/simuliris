@@ -306,13 +306,18 @@ Qed.
 (** Main state: a heap of scalars, each with an associated lock to detect data races. *)
 Definition mem := gmap loc scalar.
 
+Record newperm := mkNewPerm {
+  initial_state : permission;
+  new_protector : option protector;
+}.
+
 (** Internal events *)
 
-Inductive event :=
-| AllocEvt (l : loc) (lbor : tag) (ptr : pointer)
-| DeallocEvt (l : loc) (lbor: tag) (ptr : pointer)
-| AccessEvt (kind : access_kind) (strong : prot_strong) (l : loc) (lbor : tag) (ptr : pointer) (v : value)
-| InitCallEvt (c : call_id)
-| EndCallEvt (c : call_id)
-| RetagEvt (l : loc) (otag ntag : tag) (ptr : pointer) (kind : retag_kind) (c : call_id)
-| SilentEvt.
+Inductive bor_event :=
+| AllocBEvt (blk : block) (tg : tag)
+| DeallocBEvt (blk : block)
+| AccessBEvt (kind : access_kind) (strong : prot_strong) (tg : tag) (blk : block) (range : Z * nat)
+| InitCallBEvt (cid : call_id)
+| EndCallBEvt (cid : call_id)
+| RetagBEvt (tgp tg : tag) (newp : newperm) (c : call_id)
+| SilentBEvt.

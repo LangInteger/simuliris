@@ -3,6 +3,59 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas.
 From iris.prelude Require Import options.
 
+
+Lemma trees_at_block_build (prop : tree item -> Prop) trs blk :
+  forall tr,
+  trs !! blk = Some tr ->
+  prop tr ->
+  trees_at_block prop trs blk.
+Proof.
+  move=> ? Eq ?.
+  rewrite /trees_at_block.
+  rewrite Eq; auto.
+Qed.
+
+Lemma trees_at_block_destruct (prop : tree item -> Prop) trs blk :
+  trees_at_block prop trs blk ->
+  exists tr,
+  trs !! blk = Some tr
+  /\ prop tr.
+Proof.
+  rewrite /trees_at_block.
+  case_match; [eauto|intro Contra; inversion Contra].
+Qed.
+
+Lemma trees_at_block_project (prop : tree item -> Prop) trs blk :
+  forall tr,
+  trees_at_block prop trs blk ->
+  trs !! blk = Some tr ->
+  prop tr.
+Proof.
+  rewrite /trees_at_block.
+  move=> ? H H'.
+  rewrite H' in H.
+  assumption.
+Qed.
+
+Lemma trees_at_block_insert (prop : tree item -> Prop) trs blk tr' :
+  prop tr' ->
+  trees_at_block prop (<[blk := tr']>trs) blk.
+Proof.
+  move=> ?.
+  rewrite /trees_at_block lookup_insert.
+  assumption.
+Qed.
+
+Lemma trees_at_block_insert_ne (prop : tree item -> Prop) trs blk :
+  forall blk' tr',
+  blk' ≠ blk ->
+  trees_at_block prop trs blk <-> trees_at_block prop (<[blk' := tr']>trs) blk.
+Proof.
+  move=> ?? Ne.
+  rewrite /trees_at_block lookup_insert_ne; [|auto].
+  reflexivity.
+Qed.
+
 Lemma access_eqv_strict_rel t t' (tr tr':tree item) :
   forall fn cids tg range dyn_rel,
   app_preserves_tag fn ->
@@ -27,8 +80,8 @@ Proof.
   tauto.
 Qed.
 
-Lemma item_apply_access_preserves_tag kind :
-  app_preserves_tag (item_apply_access kind).
+Lemma item_apply_access_preserves_tag kind strong :
+  app_preserves_tag (item_apply_access kind strong).
 Proof.
   move=> ??? it it'.
   unfold item_apply_access.
@@ -93,14 +146,14 @@ Qed.
 Lemma apply_access_spec_per_node tr affected_tag access_tag pre:
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   forall fn cids range tr' dyn_rel,
   app_preserves_tag fn ->
   tree_apply_access fn cids access_tag range tr dyn_rel = Some tr' ->
   exists post,
     Some post = fn cids (if dyn_rel pre.(itag) access_tag then AccessChild else AccessForeign) range pre
     /\ tree_contains affected_tag tr'
-    /\ tree_unique affected_tag tr' post.
+    /\ tree_unique affected_tag post tr'.
 Proof.
   intros Contains Contains' TgSpec fn cids range tr' dyn_rel FnPreservesTag Success.
   (* Grab the success condition of every node separately *)
@@ -133,45 +186,106 @@ Proof.
     exact post'Spec.
 Qed.
 
-Lemma bor_estep_preserves_contains tg trs blk :
-  trees_contain tg trs blk ->
+Lemma bor_estep_preserves_contains tg trs blk' :
+  trees_contain tg trs blk' ->
   forall trs' cids cids' evt,
   bor_estep
     trs cids
     evt
     trs' cids'
   ->
-  trees_contain tg trs' blk.
+  trees_contain tg trs' blk'.
 Proof.
   move=> Ex ???? Step.
   inversion Step; subst.
-  - destruct (decide (blk = x.1)); [subst|].
-    * rewrite /trees_contain FRESH_BLOCK in Ex; contradiction.
-    * rewrite /trees_contain /extend_trees; rewrite lookup_insert_ne; [|done]; exact Ex.
-  - destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
+  - (* Alloc *) destruct (decide (blk = blk')); [subst|].
+    * destruct (trees_at_block_destruct _ _ _ Ex) as [?[Contra ?]]; rewrite Contra in FRESH_BLOCK; inversion FRESH_BLOCK.
+    * apply trees_at_block_insert_ne; [auto|]. exact Ex.
+  - (* Access *) destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
     destruct (option_bind_success_step _ _ _ ACC') as [?[H' ACC'']]; clear ACC'.
     injection ACC''; intros; subst; clear ACC''.
-    destruct (decide (blk = x.1)); [subst|].
-    * rewrite /trees_contain lookup_insert.
-      rewrite /trees_contain H in Ex.
-      rewrite <- access_preserves_tags; [exact Ex|apply item_apply_access_preserves_tag|exact H'].
-    * rewrite /trees_contain; rewrite lookup_insert_ne; [|done]; exact Ex.
-  - destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
-    destruct (option_bind_success_step _ _ _ ACC') as [?[H' ACC'']]; clear ACC'.
-    injection ACC''; intros; subst; clear ACC''.
-    destruct (decide (blk = x.1)); [subst|].
-    * rewrite /trees_contain lookup_insert.
-      rewrite /trees_contain H in Ex.
-      rewrite <- access_preserves_tags; [exact Ex|apply item_apply_access_preserves_tag|exact H'].
-    * rewrite /trees_contain; rewrite lookup_insert_ne; [|done]; exact Ex.
-  - destruct (option_bind_success_step _ _ _ ACC) as [?[H ACC']]; clear ACC.
-    destruct (option_bind_success_step _ _ _ ACC') as [?[H' ACC'']]; clear ACC'.
-    injection ACC''; intros; subst; clear ACC''.
-    destruct (decide (blk = x.1)); [subst|].
-Abort.
+    destruct (decide (blk = blk')); [subst|].
+    * apply trees_at_block_insert.
+      rewrite <- access_preserves_tags; [|eapply item_apply_access_preserves_tag|exact H'].
+      + eapply trees_at_block_project; [exact Ex|exact H].
+    * apply trees_at_block_insert_ne; [auto|]. exact Ex.
+  - (* Dealloc *) assumption.
+  - (* InitCall *) assumption.
+  - (* EndCall *) assumption.
+  - (* Retag *) destruct (option_bind_success_step _ _ _ RETAG_EFFECT) as [?[H RETAG']]; clear RETAG_EFFECT.
+    destruct (option_bind_success_step _ _ _ RETAG') as [?[H' RETAG'']]; clear RETAG'.
+    injection RETAG''; intros; subst; clear RETAG''.
+    destruct (decide (blk = blk')); [subst|].
+    * apply trees_at_block_insert.
+      eapply insertion_preserves_tags.
+      + eapply trees_at_block_project; [exact Ex|exact H].
+      + exact H'.
+    * apply trees_at_block_insert_ne; [auto|]. exact Ex.
+Qed.
 
-(* FIXME: this needs some well-formedness
-Lemma bor_step_alloc_prouces_contains.
+Lemma bor_step_alloc_produces_contains_unique tg trs blk :
+  forall trs' cids cids',
+  bor_estep
+    trs cids
+    (AllocBEvt blk tg)
+    trs' cids'
+  -> (
+  trees_contain tg trs' blk
+  /\ trees_unique tg trs' blk (create_new_item tg {| initial_state:=Active; new_protector:=None |})).
+Proof.
+  move=> ??? Step.
+  inversion Step; subst.
+  split; [|split].
+  - apply trees_at_block_insert; left; done.
+  - move=> blk' Ex'.
+    rewrite /extend_trees in Ex'.
+    destruct (decide (blk = blk')); [easy|exfalso].
+    pose proof (trees_at_block_destruct _ _ _ Ex') as [?[Lookup Contra]].
+    rewrite lookup_insert_ne in Lookup; [|easy].
+    eapply FRESH_TAG.
+    eapply trees_at_block_build; [exact Lookup|].
+    exact Contra.
+  - apply trees_at_block_insert.
+    rewrite /init_tree /create_new_item.
+    simpl; tauto.
+Qed.
+
+Lemma bor_step_retag_produces_contains_unique tgp tg trs blk trs' :
+  trees_contain tgp trs blk ->
+  trees_unique_tag tgp trs blk ->
+  forall cids cids' newp cid,
+  bor_estep
+    trs cids
+    (RetagBEvt tgp tg newp cid)
+    trs' cids'
+  -> (
+    trees_contain tg trs' blk
+    /\ trees_unique tg trs' blk (create_new_item tg newp)).
+Proof.
+  move=> Exp Unqp ???? Step.
+  inversion Step; subst.
+  destruct (option_bind_success_step _ _ _ RETAG_EFFECT) as [?[H RETAG']]; clear RETAG_EFFECT.
+  destruct (option_bind_success_step _ _ _ RETAG') as [?[H' RETAG'']]; clear RETAG'.
+  injection RETAG''; intros; subst; clear RETAG''.
+  pose proof (Unqp blk0 EXISTS_PARENT); subst.
+  split; [|split].
+  - apply trees_at_block_insert.
+    eapply insertion_contains; [|exact H'].
+    eapply trees_at_block_project; [|exact H].
+    exact Exp.
+  - move=> blk' Ex'.
+    destruct (decide (blk = blk')); [auto|].
+    rewrite /trees_contain in Ex'. rewrite <- trees_at_block_insert_ne in Ex'; [|auto].
+    exfalso. eapply FRESH_CHILD. apply Ex'.
+  - apply trees_at_block_insert.
+    inversion H'; auto.
+    eapply inserted_unique; [apply new_item_has_tag|].
+    move=> Contra. apply (FRESH_CHILD blk).
+    eapply trees_at_block_build; [exact H|].
+    exact Contra.
+Qed.
+
+(*
 Lemma bor_step_preserves_contains.
 Lemma bor_step_preserves_unique.
 Lemma bor_step_preserves_rel.
