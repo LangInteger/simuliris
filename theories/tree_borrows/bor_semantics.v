@@ -319,17 +319,9 @@ Definition extend_trees t blk range
 
 (* Perform the access check on a block of continuous memory.
  * This implements Tree::before_memory_{read,write,deallocation}. *)
-Definition memory_strong_read cids t range
+Definition memory_access kind strong cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access AccessRead ProtStrong) cids t range tr (naive_rel_dec tr).
-
-Definition memory_strong_write cids t range
-  : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access AccessWrite ProtStrong) cids t range tr (naive_rel_dec tr).
-
-Definition memory_weak_write cids t range
-  : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access AccessWrite ProtWeak) cids t range tr (naive_rel_dec tr).
+  tree_apply_access (item_apply_access kind strong) cids tg range tr (naive_rel_dec tr).
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
@@ -561,26 +553,12 @@ Inductive bor_estep trs cids
       trs cids
       (AllocEvt x tg ptr)
       (extend_trees tg x.1 (x.2, sizeof ptr) trs) cids
-  | StrongReadEIS trs' (x:loc) tg ptr val
+  | AccessEIS kind strong trs' (x:loc) tg ptr val
     (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_strong_read cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+    (ACC: apply_within_trees (memory_access kind strong cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
     bor_estep
       trs cids
-      (ReadEvt x tg ptr val)
-      trs' cids
-  | StrongWriteEIS trs' (x:loc) tg ptr val
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_strong_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
-    bor_estep
-      trs cids
-      (WriteEvt x tg ptr val)
-      trs' cids
-  | WeakWriteEIS trs' (x:loc) tg ptr val
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_weak_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
-    bor_estep
-      trs cids
-      (WriteEvt x tg ptr val)
+      (AccessEvt kind strong x tg ptr val)
       trs' cids
   | DeallocEIS trs' (x:loc) tg ptr
     (EXISTS_TAG: trees_contain tg trs x.1)

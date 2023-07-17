@@ -311,8 +311,7 @@ Definition mem := gmap loc scalar.
 Inductive event :=
 | AllocEvt (l : loc) (lbor : tag) (ptr : pointer)
 | DeallocEvt (l : loc) (lbor: tag) (ptr : pointer)
-| ReadEvt (l : loc) (lbor : tag) (ptr : pointer) (v : value)
-| WriteEvt (l : loc) (lbor : tag) (ptr : pointer) (v : value)
+| AccessEvt (kind : access_kind) (strong : prot_strong) (l : loc) (lbor : tag) (ptr : pointer) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
 | RetagEvt (l : loc) (otag ntag : tag) (ptr : pointer) (kind : retag_kind) (c : call_id)
