@@ -381,3 +381,28 @@ Lemma create_new_item_prot_prop prop tg newp :
   prop (new_protector newp) ->
   prop (iprot (create_new_item tg newp)).
 Proof. simpl; tauto. Qed.
+
+Lemma create_child_preserves_unique tg it tr tr':
+  forall tg' cids tgp newp,
+  tg ≠ tg' ->
+  tree_unique tg it tr ->
+  create_child cids tgp tg' newp tr = Some tr' ->
+  tree_unique tg it tr'.
+Proof.
+  move=> ???? Ne.
+  rewrite /tree_unique every_node_eqv_universal every_node_eqv_universal.
+  move=> Unq CreateChild.
+  injection CreateChild; intro; subst.
+  intro n; specialize Unq with n.
+  move=> Unq' Tg; apply Unq; [|assumption].
+  eapply insert_false_infer_exists; [|exact Unq'].
+  assert (forall it it', itag it ≠ itag it' -> it ≠ it') as Deterministic. {
+    clear; intros it it'; destruct it; destruct it'; simpl.
+    intros NEq Eq; injection Eq; intros; contradiction.
+  } apply Deterministic.
+  rewrite new_item_has_tag.
+  rewrite Tg.
+  assumption.
+Qed.
+
+  
