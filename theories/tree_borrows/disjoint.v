@@ -9,26 +9,27 @@ From iris.prelude Require Import options.
 Lemma access_effect_per_loc_within_range tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
-  forall kind cids range tr' z zpre,
+  tree_unique affected_tag pre tr ->
+  forall kind strong cids range tr' z zpre,
   range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
-  tree_apply_access (item_apply_access kind) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
+  tree_apply_access (item_apply_access kind strong) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
   exists post zpost, (
     let rel := if naive_rel_dec tr affected_tag access_tag then AccessChild else AccessForeign in
-    let prot := bool_decide (protector_is_active cids pre.(iprot)) in
-    apply_access_perm kind rel prot zpre = Some zpost
-    /\ tree_unique affected_tag tr' post
+    let isprot := bool_decide (protector_is_active cids pre.(iprot)) in
+    let isstrong := bool_decide (strong = ProtStrong \/ protector_is_strong pre.(iprot)) in
+    apply_access_perm kind rel isprot isstrong zpre = Some zpost
+    /\ tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
   ).
 Proof.
-  intros ContainsAcc ContainsAff UniqueAff kind cids range tr' z zpre WithinRange IsPre Success.
+  intros ContainsAcc ContainsAff UniqueAff kind strong cids range tr' z zpre WithinRange IsPre Success.
   (* use apply_access_spec_per_node to get info on the post permission *)
   destruct (apply_access_spec_per_node _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    (item_apply_access kind) cids range tr' (naive_rel_dec tr)
-    (item_apply_access_preserves_tag kind) Success) as [post [SpecPost [ContainsPost UniquePost]]].
+    (item_apply_access _ _) cids range tr' (naive_rel_dec tr)
+    (item_apply_access_preserves_tag _ _) Success) as [post [SpecPost [ContainsPost UniquePost]]].
   clear Success.
   (* and then it's per-tag work *)
   rewrite (tree_unique_specifies_tag _ _ _ ContainsAff UniqueAff) in SpecPost.
@@ -39,7 +40,7 @@ Proof.
   pose proof (range_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
   rewrite (decide_True _ _ WithinRange) in ForeachSpec.
   destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
-  assert (unwrap {| initialized := false; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
+  assert (unwrap {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
     unfold item_lazy_perm_at_loc. destruct (iperm pre !! z); simpl; reflexivity.
   } rewrite InitPerm in ForeachSpec.
   eexists. eexists.
@@ -52,21 +53,21 @@ Qed.
 Lemma access_effect_per_loc_outside_range tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
-  forall kind cids range tr' z zpre,
+  tree_unique affected_tag pre tr ->
+  forall kind strong cids range tr' z zpre,
   ~range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
-  tree_apply_access (item_apply_access kind) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
+  tree_apply_access (item_apply_access kind strong) cids access_tag range tr (naive_rel_dec tr) = Some tr' ->
   exists post, (
-    tree_unique affected_tag tr post
+    tree_unique affected_tag post tr
     /\ item_lazy_perm_at_loc post z = zpre
     /\ iprot post = iprot pre
   ).
 Proof.
-  intros ContainsAcc ContainsAff UniqueAff kind cids range tr' z zpre OutsideRange IsPre Success.
+  intros ContainsAcc ContainsAff UniqueAff kind strong cids range tr' z zpre OutsideRange IsPre Success.
   destruct (apply_access_spec_per_node _ _ _ _
     ContainsAcc ContainsAff UniqueAff _ _ _ _ _
-    (item_apply_access_preserves_tag kind)
+    (item_apply_access_preserves_tag _ _)
     Success) as [post [SpecPost [ContainsPost UniquePost]]].
   (* We now show that
      (1) post has zpre at loc z
@@ -87,15 +88,15 @@ Qed.
 Lemma nonchild_write_reserved_to_disabled tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ~ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z zpre,
   range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
   reach Reserved (perm zpre) ->
-  memory_write cids access_tag range tr = Some tr' ->
+  memory_access AccessWrite ProtStrong cids access_tag range tr = Some tr' ->
   exists post zpost, (
-    tree_unique affected_tag tr' post
+    tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
@@ -104,7 +105,7 @@ Proof.
   intros ContainsAcc ContainsAff UniqueAff Nonrel cids range tr' z zpre WithinRange preLoc NonResMut Write.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessWrite cids range tr' z zpre WithinRange preLoc Write) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
+    AccessWrite ProtStrong cids range tr' z zpre WithinRange preLoc Write) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
   exists post, zpost.
   try repeat split; auto.
   destruct (naive_rel_dec _ _ _); [contradiction|].
@@ -117,15 +118,15 @@ Qed.
 Lemma nonchild_read_active_to_frozen tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ~ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z zpre,
   range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
   reach Active (perm zpre) ->
-  memory_read cids access_tag range tr = Some tr' ->
+  memory_access AccessRead ProtStrong cids access_tag range tr = Some tr' ->
   exists post zpost, (
-    tree_unique affected_tag tr' post
+    tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Frozen (perm zpost)
     /\ reach (perm zpre) (perm zpost)
@@ -134,7 +135,7 @@ Proof.
   intros ContainsAcc ContainsAff UniqueAff Nonrel cids range tr' z zpre WithinRange preLoc NonResMut Read.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessRead cids range tr' z zpre WithinRange preLoc Read) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
+    AccessRead ProtStrong cids range tr' z zpre WithinRange preLoc Read) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
   exists post, zpost.
   try repeat split; auto.
   all: destruct (naive_rel_dec _ _ _); [contradiction|].
@@ -147,19 +148,19 @@ Qed.
 Lemma child_write_frozen_to_ub tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z zpre,
   range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
   reach Frozen (perm zpre) ->
-  memory_write cids access_tag range tr = Some tr' ->
+  memory_access AccessWrite ProtStrong cids access_tag range tr = Some tr' ->
   False.
 Proof.
   intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z zpre WithinRange PermPre ReachFrz Write.
   destruct (access_effect_per_loc_within_range _ _ _ _
   ContainsAcc ContainsAff UniqueAff
-  AccessWrite cids range tr' z zpre WithinRange PermPre Write) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
+  AccessWrite ProtStrong cids range tr' z zpre WithinRange PermPre Write) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [|contradiction].
   destruct zpre; destruct initialized; destruct perm; try contradiction.
   all: destruct (bool_decide _); simpl in *.
@@ -169,19 +170,19 @@ Qed.
 Lemma child_read_disabled_to_ub tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z zpre,
   range_contains range z ->
   item_lazy_perm_at_loc pre z = zpre ->
   reach Disabled (perm zpre) ->
-  memory_read cids access_tag range tr = Some tr' ->
+  memory_access AccessRead ProtStrong cids access_tag range tr = Some tr' ->
   False.
 Proof.
   intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z zpre WithinRange PermPre ReachFrz Read.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessRead cids range tr' z zpre WithinRange PermPre Read) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
+    AccessRead ProtStrong cids range tr' z zpre WithinRange PermPre Read) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [|contradiction].
   destruct zpre; destruct initialized; destruct perm; try contradiction.
   all: destruct (bool_decide _); simpl in *.
@@ -191,23 +192,23 @@ Qed.
 Lemma child_write_any_to_init_active tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z,
   range_contains range z ->
-  memory_write cids access_tag range tr = Some tr' ->
+  memory_access AccessWrite ProtStrong cids access_tag range tr = Some tr' ->
   exists post zpost, (
-    tree_unique affected_tag tr' post
+    tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ perm zpost = Active
     /\ iprot post = iprot pre
-    /\ initialized zpost = true
+    /\ initialized zpost = PermInit
   ).
 Proof.
   intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z WithinRange Write.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessWrite cids range tr' z
+    AccessWrite ProtStrong cids range tr' z
     (item_lazy_perm_at_loc pre z) WithinRange ltac:(reflexivity) Write) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [|contradiction].
   exists post, zpost.
@@ -222,23 +223,23 @@ Qed.
 Lemma child_read_any_to_init_nondis tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z,
   range_contains range z ->
-  memory_read cids access_tag range tr = Some tr' ->
+  memory_access AccessRead ProtStrong cids access_tag range tr = Some tr' ->
   exists post zpost, (
-    tree_unique affected_tag tr' post
+    tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ ~reach Disabled (perm zpost)
     /\ iprot post = iprot pre
-    /\ initialized zpost = true
+    /\ initialized zpost = PermInit
   ).
 Proof.
   intros ContainsAcc ContainsAff UniqueAff Related cids range tr' z WithinRange Read.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessRead cids range tr' z
+    AccessRead ProtStrong cids range tr' z
     (item_lazy_perm_at_loc pre z) WithinRange ltac:(reflexivity) Read) as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [|contradiction].
   exists post, zpost.
@@ -253,20 +254,20 @@ Qed.
 Lemma protected_nonchild_write_initialized_to_ub tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ~ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z,
   protector_is_active cids (iprot pre) ->
-  initialized (item_lazy_perm_at_loc pre z) = true ->
+  initialized (item_lazy_perm_at_loc pre z) = PermInit ->
   ~reach Disabled (perm (item_lazy_perm_at_loc pre z)) ->
   range_contains range z ->
-  memory_write cids access_tag range tr = Some tr' ->
+  memory_access AccessWrite ProtStrong cids access_tag range tr = Some tr' ->
   False.
 Proof.
   move=> ContainsAcc ContainsAff UniqueAff Unrelated ???? Protected Initialized NonDis WithinRange Write.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessWrite _ _ _ _ _ WithinRange
+    AccessWrite ProtStrong _ _ _ _ _ WithinRange
     ltac:(reflexivity) Write) as [post [zpost [SpecPost [UniquePost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [contradiction|].
   rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
@@ -280,20 +281,20 @@ Qed.
 Lemma protected_nonchild_read_initialized_active_to_ub tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ~ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z,
   protector_is_active cids (iprot pre) ->
-  initialized (item_lazy_perm_at_loc pre z) = true ->
+  initialized (item_lazy_perm_at_loc pre z) = PermInit ->
   perm (item_lazy_perm_at_loc pre z) = Active ->
   range_contains range z ->
-  memory_read cids access_tag range tr = Some tr' ->
+  memory_access AccessRead ProtStrong cids access_tag range tr = Some tr' ->
   False.
 Proof.
   move=> ContainsAcc ContainsAff UniqueAff Unrelated ???? Protected Initialized Active WithinRange Read.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessRead _ _ _ _ _ WithinRange
+    AccessRead ProtStrong _ _ _ _ _ WithinRange
     ltac:(reflexivity) Read) as [post [zpost [SpecPost [UniquePost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [contradiction|].
   rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
@@ -306,14 +307,14 @@ Qed.
 Lemma protected_nonchild_read_any_to_frozen tr affected_tag access_tag pre :
   tree_contains access_tag tr ->
   tree_contains affected_tag tr ->
-  tree_unique affected_tag tr pre ->
+  tree_unique affected_tag pre tr ->
   ~ParentChildIn affected_tag access_tag tr ->
   forall cids range tr' z,
   protector_is_active cids (iprot pre) ->
   range_contains range z ->
-  memory_read cids access_tag range tr = Some tr' ->
+  memory_access AccessRead ProtStrong cids access_tag range tr = Some tr' ->
   exists post zpost, (
-    tree_unique affected_tag tr' post
+    tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Frozen (perm zpost)
   ).
@@ -321,7 +322,7 @@ Proof.
   move=> ContainsAcc ContainsAff UniqueAff Unrelated ???? Protected WithinRange Read.
   destruct (access_effect_per_loc_within_range _ _ _ _
     ContainsAcc ContainsAff UniqueAff
-    AccessRead _ _ _ _ _ WithinRange
+    AccessRead ProtStrong _ _ _ _ _ WithinRange
     ltac:(reflexivity) Read) as [post [zpost [SpecPost [UniquePost [PermPost ProtPost]]]]].
   destruct (naive_rel_dec _ _ _); [contradiction|].
   rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
@@ -341,12 +342,8 @@ Ltac migrate prop dest :=
   | tree_contains ?tg ?tr =>
     idtac "found" tg;
     match goal with
-    | ACC: memory_write _ _ _ ?tr = Some _ |- _ =>
-      idtac "passing through write";
-      pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) ACC) prop) as dest
-    | ACC: memory_read _ _ _ ?tr = Some _ |- _ =>
-      idtac "passing through read";
-      pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessRead) ACC) prop) as dest
+    | ACC: memory_access _ _ _ _ _ ?tr = Some _ |- _ =>
+      pose proof (proj1 (access_preserves_tags _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag _ _) ACC) prop) as dest
     | ACC: create_child _ _ _ _ _ = Some _ |- _ =>
       idtac "passing through insertion";
       pose proof (insertion_preserves_tags _ _ _ _ _ _ _ prop ACC) as dest
@@ -354,12 +351,9 @@ Ltac migrate prop dest :=
   (* Migrate a parent-child relation *)
   | context [ParentChildIn ?tg ?tg' ?tr] =>
     match goal with
-    | ACC: memory_write _ _ _ ?tr = Some _ |- _ =>
+    | ACC: memory_access _ _ _ _ _ ?tr = Some _ |- _ =>
       pose proof prop as dest;
-      rewrite (access_eqv_rel _ _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessWrite) ACC) in dest
-    | ACC: memory_read _ _ _ ?tr = Some _ |- _ =>
-      pose proof prop as dest;
-      rewrite (access_eqv_rel _ _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag AccessRead) ACC) in dest
+      rewrite (access_eqv_rel _ _ _ _ _ _ _ _ _ (item_apply_access_preserves_tag _ _) ACC) in dest
     end
   (* Migrate info on a protector *)
   | context [protector_is_for_call ?old _] =>
@@ -453,8 +447,8 @@ Lemma fwrite_cwrite_disjoint tg tg' newp range1 range2 :
   ~tree_contains tg' tr0 ->
   reach Reserved (initial_state newp) ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
-  memory_write cids1 tg range1 tr1 = Some tr2 ->
-  memory_write cids2 tg' range2 tr2 = Some tr3 ->
+  memory_access AccessWrite ProtStrong cids1 tg range1 tr1 = Some tr2 ->
+  memory_access AccessWrite ProtStrong cids2 tg' range2 tr2 = Some tr3 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ???.
@@ -492,8 +486,8 @@ Lemma fwrite_cread_disjoint tg tg' newp range1 range2 :
   ~tree_contains tg' tr0 ->
   reach Reserved (initial_state newp) ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
-  memory_write cids1 tg range1 tr1 = Some tr2 ->
-  memory_read cids2 tg' range2 tr2 = Some tr3 ->
+  memory_access AccessWrite ProtStrong cids1 tg range1 tr1 = Some tr2 ->
+  memory_access AccessRead ProtStrong cids2 tg' range2 tr2 = Some tr3 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ReachRes Rebor Write12 Read23 [z [RContains1 RContains2]].
@@ -529,9 +523,9 @@ Lemma activated_fread_cwrite_disjoint tg tg' newp range1 range2 range3:
   tree_contains tgp tr0 ->
   ~tree_contains tg' tr0 ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
-  memory_write cids1 tg' range1 tr1 = Some tr2 ->
-  memory_read cids2 tg range2 tr2 = Some tr3 ->
-  memory_write cids3 tg' range3 tr3 = Some tr4 ->
+  memory_access AccessWrite ProtStrong cids1 tg' range1 tr1 = Some tr2 ->
+  memory_access AccessRead ProtStrong cids2 tg range2 tr2 = Some tr3 ->
+  memory_access AccessWrite ProtStrong cids3 tg' range3 tr3 = Some tr4 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z /\ range_contains range3 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 tr4 ???? TgEx TgpEx Tg'Fresh Rebor Write12 Read23 Write34 [z [RContains1 [RContains2 RContains3]]].
@@ -581,9 +575,9 @@ Lemma protected_cwrite_fwrite_disjoint tg tg' cid newp range1 range2 :
   ~tree_contains tg' tr0 ->
   protector_is_for_call (new_protector newp) cid ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
-  memory_write cids1 tg' range1 tr1 = Some tr2 ->
+  memory_access AccessWrite ProtStrong cids1 tg' range1 tr1 = Some tr2 ->
   call_is_active cids2 cid ->
-  memory_write cids2 tg range2 tr2 = Some tr3 ->
+  memory_access AccessWrite ProtStrong cids2 tg range2 tr2 = Some tr3 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ?? cids2 TgEx TgpEx Tg'Fresh ProtCall Rebor Write12 CallAct Write23 [z [RContains1 RContains2]].
@@ -622,9 +616,9 @@ Lemma protected_cread_fwrite_disjoint tg tg' cid newp range1 range2 :
   ~tree_contains tg' tr0 ->
   protector_is_for_call (new_protector newp) cid ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
-  memory_read cids1 tg' range1 tr1 = Some tr2 ->
+  memory_access AccessRead ProtStrong cids1 tg' range1 tr1 = Some tr2 ->
   call_is_active cids2 cid ->
-  memory_write cids2 tg range2 tr2 = Some tr3 ->
+  memory_access AccessWrite ProtStrong cids2 tg range2 tr2 = Some tr3 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ProtCall Rebor Read12 CallAct Write23 [z [RContains1 RContains2]].
@@ -660,9 +654,9 @@ Lemma protected_cwrite_fread_disjoint tg tg' cid newp range1 range2 :
   ~tree_contains tg' tr0 ->
   protector_is_for_call (new_protector newp) cid ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
-  memory_write cids1 tg' range1 tr1 = Some tr2 ->
+  memory_access AccessWrite ProtStrong cids1 tg' range1 tr1 = Some tr2 ->
   call_is_active cids2 cid ->
-  memory_read cids2 tg range2 tr2 = Some tr3 ->
+  memory_access AccessRead ProtStrong cids2 tg range2 tr2 = Some tr3 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ProtCall Rebor Write12 CallAct Read23 [z [RContains1 RContains2]].
@@ -698,8 +692,8 @@ Lemma protected_fread_cwrite_disjoint tg tg' cid newp range1 range2 :
   protector_is_for_call (new_protector newp) cid ->
   create_child cids0 tgp tg' newp tr0 = Some tr1 ->
   call_is_active cids1 cid ->
-  memory_read cids1 tg range1 tr1 = Some tr2 ->
-  memory_write cids2 tg' range2 tr2 = Some tr3 ->
+  memory_access AccessRead ProtStrong cids1 tg range1 tr1 = Some tr2 ->
+  memory_access AccessWrite ProtStrong cids2 tg' range2 tr2 = Some tr3 ->
   ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
   move=> ? tr0 tr1 tr2 tr3 ??? TgEx TgpEx Tg'Fresh ProtCall Rebor CallAct Read12 Write23 [z [RContains1 RContains2]].
