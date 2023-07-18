@@ -92,7 +92,7 @@ Qed.
 
 Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
   ~IsTag t ins ->
-StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
+  StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
 Proof.
   intro Nott.
   unfold StrictParentChildIn.
@@ -102,6 +102,18 @@ destruct (decide (IsTag t data)) eqn:Found; simpl.
     intro H; left; easy.
   - try repeat split; auto.
     intro H; contradiction.
+Qed.
+
+Lemma insert_produces_ParentChild t tg (ins:item) (tr:tree item) :
+  IsTag tg ins ->
+  tg ≠ t ->
+  ParentChildIn t tg (insert_child_at tr ins (IsTag t)).
+Proof.
+  move=> Tg Ne.
+  right.
+  assert (~IsTag t ins) as NotTg by (intro H; rewrite <- H in Ne; rewrite <- Tg in Ne; contradiction).
+  pose proof (insert_produces_StrictParentChild _ _ tr NotTg) as H.
+  rewrite Tg in H; assumption.
 Qed.
 
 Lemma StrictParentChild_transitive t t' t'' (tr:tree item) :
@@ -405,4 +417,19 @@ Proof.
   assumption.
 Qed.
 
-  
+Lemma tree_unique_unify tg tr it it' :
+  tree_contains tg tr ->
+  tree_unique tg it tr ->
+  tree_unique tg it' tr ->
+  it = it'.
+Proof.
+  rewrite /tree_unique /tree_contains.
+  repeat rewrite every_node_eqv_universal.
+  repeat rewrite exists_node_eqv_existential.
+  move=> Ex Unq Unq'.
+  destruct Ex as [it0 [??]].
+  assert (it0 = it) by (apply Unq; assumption).
+  assert (it0 = it') by (apply Unq'; assumption).
+  subst; reflexivity.
+Qed.
+

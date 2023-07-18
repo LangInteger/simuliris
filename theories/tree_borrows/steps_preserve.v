@@ -459,7 +459,231 @@ Proof.
     + apply trees_at_block_insert_ne; [auto|].
       assumption.
 Qed.
-(*
-Lemma bor_estep_preserves_rel.
-Lemma bor_estep_access_spec.
-*)
+
+Lemma bor_estep_eqv_rel tg tg' trs trs' blk :
+  trees_contain tg trs blk ->
+  trees_contain tg' trs blk ->
+  forall cids cids' evt,
+  bor_estep
+    trs cids
+    evt
+    trs' cids'
+  ->
+  ParentChildInBlk tg tg' trs blk <->
+  ParentChildInBlk tg tg' trs' blk.
+Proof.
+  move=> Ex Ex' ??? Step.
+  rewrite /ParentChildInBlk.
+  inversion Step; subst.
+  - (* Alloc *)
+    rewrite /extend_trees.
+    rewrite <- trees_at_block_insert_ne.
+    * tauto.
+    * destruct (trees_at_block_destruct _ _ _ Ex) as [?[Lookup ?]].
+      intro; subst. rewrite Lookup in FRESH_BLOCK; inversion FRESH_BLOCK.
+  - (* Access *)
+    destruct (option_bind_success_step _ _ _ ACC) as [?[Lookup ACC']]; clear ACC.
+    destruct (option_bind_success_step _ _ _ ACC') as [?[Access ACC'']]; clear ACC'.
+    injection ACC''; intros; subst.
+    destruct (decide (blk0 = blk)); [subst|].
+    + rewrite trees_at_block_inserted.
+      rewrite <- access_eqv_rel; [|apply item_apply_access_preserves_tag|exact Access].
+      split; intro Rel; [eapply trees_at_block_project; eauto|eapply trees_at_block_build; eauto].
+    + rewrite <- trees_at_block_insert_ne; auto.
+  - tauto.
+  - tauto.
+  - tauto.
+  - (* Retag *)
+    destruct (option_bind_success_step _ _ _ RETAG_EFFECT) as [?[Lookup RETAG']]; clear RETAG_EFFECT.
+    destruct (option_bind_success_step _ _ _ RETAG') as [?[Ins RETAG'']]; clear RETAG'.
+    injection RETAG''; intros; subst; clear RETAG''.
+    injection Ins; intro; subst.
+    destruct (decide (blk0 = blk)); [subst|].
+    + rewrite trees_at_block_inserted.
+      rewrite <- insert_eqv_rel.
+      * split; intro Rel; [eapply trees_at_block_project; eauto|eapply trees_at_block_build; eauto].
+      * rewrite /IsTag new_item_has_tag; intro; subst; destruct (FRESH_CHILD _ Ex).
+      * rewrite /IsTag new_item_has_tag; intro; subst; destruct (FRESH_CHILD _ Ex').
+    + rewrite <- trees_at_block_insert_ne; [tauto|assumption].
+Qed.
+
+Lemma bor_estep_retag_produces_rel tgp tg trs trs' blk :
+  trees_contain tgp trs blk ->
+  trees_unique_tag tgp trs blk ->
+  (forall blk', ~trees_contain tg trs blk') ->
+  forall cids cids' newp cid,
+  bor_estep
+    trs cids
+    (RetagBEvt tgp tg newp cid)
+    trs' cids'
+  ->
+  ParentChildInBlk tgp tg trs' blk.
+Proof.
+  move=> Ex Unqt Fresh ???? Step.
+  inversion Step; subst.
+  destruct (option_bind_success_step _ _ _ RETAG_EFFECT) as [?[Lookup RETAG']]; clear RETAG_EFFECT.
+  destruct (option_bind_success_step _ _ _ RETAG') as [?[Ins RETAG'']]; clear RETAG'.
+  injection RETAG''; intros; subst; clear RETAG''.
+  injection Ins; intro; subst.
+  rewrite /ParentChildInBlk.
+  pose proof (Unqt _ EXISTS_PARENT); subst.
+  apply trees_at_block_inserted.
+  eapply insert_produces_ParentChild.
+  * eapply new_item_has_tag.
+  * intro; subst; destruct (Fresh _ Ex).
+Qed.
+
+Lemma bor_estep_retag_order_nonchild_same_alloc tgp tg tg' trs trs' blk :
+  trees_contain tgp trs blk ->
+  trees_contain tg' trs blk ->
+  trees_unique_tag tgp trs blk ->
+  (forall blk', ~trees_contain tg trs blk') ->
+  forall cids cids' newp cid,
+  bor_estep
+    trs cids
+    (RetagBEvt tgp tg newp cid)
+    trs' cids'
+  ->
+  ~ParentChildInBlk tg tg' trs' blk.
+Proof.
+  move=> Exp Ex' Unqt Fresh ???? Step Rel.
+  inversion Step; subst.
+  destruct (option_bind_success_step _ _ _ RETAG_EFFECT) as [?[Lookup RETAG']]; clear RETAG_EFFECT.
+  destruct (option_bind_success_step _ _ _ RETAG') as [?[Ins RETAG'']]; clear RETAG'.
+  injection RETAG''; intros; subst; clear RETAG''.
+  injection Ins; intro; subst.
+  pose proof (Unqt _ EXISTS_PARENT); subst.
+  eapply insertion_order_nonchild.
+  - eapply trees_at_block_project; [exact Ex'|exact Lookup].
+  - intro Contra; eapply Fresh. eapply trees_at_block_build; [exact Lookup|exact Contra].
+  - eapply trees_at_block_project; [exact Exp|exact Lookup].
+  - exact Ins.
+  - eapply trees_at_block_project; [exact Rel|rewrite lookup_insert; reflexivity].
+Qed.
+
+Lemma ParentChildInBlk_transitive tg tg' tg'' trs blk :
+  ParentChildInBlk tg tg' trs blk ->
+  ParentChildInBlk tg' tg'' trs blk ->
+  ParentChildInBlk tg tg'' trs blk.
+Proof.
+  move=> Rel Rel'.
+  destruct (trees_at_block_destruct _ _ _ Rel) as [?[Lkup R]].
+  pose proof (trees_at_block_project _ _ _ x Rel' Lkup) as R'.
+  eapply trees_at_block_build; [exact Lkup|].
+  eapply ParentChild_transitive; eassumption.
+Qed.
+
+Lemma bor_estep_access_same_alloc_project_exists access_tag blk trs trs' :
+  forall kind strong cids cids' range,
+  bor_estep
+    trs cids
+    (AccessBEvt kind strong access_tag blk range)
+    trs' cids'
+  ->
+  exists tr tr', (
+   trs !! blk = Some tr
+   /\ trs' !! blk = Some tr'
+   /\ memory_access kind strong cids access_tag range tr = Some tr'
+  ).
+Proof.
+  move=> ????? Step.
+  inversion Step; subst.
+  destruct (option_bind_success_step _ _ _ ACC) as [?[Lookup ACC']]; clear ACC.
+  destruct (option_bind_success_step _ _ _ ACC') as [?[Access ACC'']]; clear ACC'.
+  injection ACC''; intros; subst.
+  eexists. eexists.
+  try repeat split; eauto.
+  rewrite lookup_insert.
+  reflexivity.
+Qed.
+
+Lemma apply_access_perm_preserves_backwards_reach pre post :
+  forall kind rel b b',
+  apply_access_perm kind rel b b' pre = Some post ->
+  forall p0,
+  reach p0 (perm pre) -> reach p0 (perm post).
+Proof.
+  move=> kind rel b b' Apply p0.
+  destruct b, b', kind, rel.
+  all: destruct pre, initialized, perm.
+  all: destruct p0.
+  all: inversion Apply.
+  (* all cases easy *)
+  all: intro H; inversion H.
+  all: auto.
+Qed.
+
+Lemma apply_access_perm_preserves_forward_unreach pre post :
+  forall kind rel b b',
+  apply_access_perm kind rel b b' pre = Some post ->
+  forall p0,
+  ~reach (perm pre) p0 -> ~reach (perm post) p0.
+Proof.
+  move=> kind rel b b' Apply p0.
+  destruct b, b', kind, rel.
+  all: destruct pre, initialized, perm.
+  all: destruct p0.
+  all: inversion Apply.
+  (* all cases easy *)
+  all: intros H H'; apply H; inversion H'.
+  all: auto.
+Qed.
+
+(* Preservation of reachability *)
+Lemma memory_access_preserves_backwards_reach access_tag affected_tag pre tr post tr' :
+  forall kind strong cids range,
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag pre tr ->
+  tree_contains access_tag tr ->
+  memory_access kind strong cids access_tag range tr = Some tr' ->
+  tree_unique affected_tag post tr' ->
+  forall p0 z,
+  reach p0 (item_perm_at_loc pre z) -> reach p0 (item_perm_at_loc post z).
+Proof.
+  move=> ???? ExAff UnqAff ExAcc Access UnqAff' p0 z.
+  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  pose proof (tree_unique_unify _ _ _ _ ExPost UnqPost UnqAff'); subst.
+  (* now it's just bruteforce case analysis *)
+  generalize dependent post.
+  generalize dependent pre.
+  clear. move=> pre _ post _ Access _.
+  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
+  injection Access'; intros e; subst; clear Access'.
+  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  destruct (decide (range_contains _ _)).
+  - destruct Spec as [?[Lkup Apply]].
+    eapply apply_access_perm_preserves_backwards_reach.
+    rewrite Lkup; simpl. exact Apply.
+  - rewrite Spec; tauto.
+Qed.
+
+Lemma memory_access_preserves_forward_unreach access_tag affected_tag pre tr post tr' :
+  forall kind strong cids range,
+  tree_contains affected_tag tr ->
+  tree_unique affected_tag pre tr ->
+  tree_contains access_tag tr ->
+  memory_access kind strong cids access_tag range tr = Some tr' ->
+  tree_unique affected_tag post tr' ->
+  forall p0 z,
+  ~reach (item_perm_at_loc pre z) p0 -> ~reach (item_perm_at_loc post z) p0.
+Proof.
+  move=> ???? ExAff UnqAff ExAcc Access UnqAff' p0 z.
+  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  pose proof (tree_unique_unify _ _ _ _ ExPost UnqPost UnqAff'); subst.
+  (* now it's just bruteforce case analysis *)
+  generalize dependent post.
+  generalize dependent pre.
+  clear. move=> pre _ post _ Access _.
+  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
+  injection Access'; intros e; subst; clear Access'.
+  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  destruct (decide (range_contains _ _)).
+  - destruct Spec as [?[Lkup Apply]].
+    eapply apply_access_perm_preserves_forward_unreach.
+    rewrite Lkup; simpl. exact Apply.
+  - rewrite Spec; tauto.
+Qed.
+
+

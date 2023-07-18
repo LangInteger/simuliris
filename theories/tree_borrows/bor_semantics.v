@@ -467,6 +467,9 @@ Definition trees_unique tg trs blk it
   trees_unique_tag tg trs blk
   /\ trees_unique_item tg trs blk it.
 
+Definition ParentChildInBlk tg tg' trs blk :=
+  trees_at_block (ParentChildIn tg tg') trs blk.
+
 Definition app_preserves_tag app : Prop :=
   (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it').
 
