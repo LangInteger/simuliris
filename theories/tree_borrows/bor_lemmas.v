@@ -417,16 +417,16 @@ Proof.
   assumption.
 Qed.
 
-Lemma tree_unique_unify tg tr it it' :
-  tree_contains tg tr ->
-  tree_unique tg it tr ->
-  tree_unique tg it' tr ->
-  it = it'.
+Lemma tree_unique_unify
+  {tg tr it it'}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg it tr)
+  (Unq' : tree_unique tg it' tr)
+  : it = it'.
 Proof.
-  rewrite /tree_unique /tree_contains.
-  repeat rewrite every_node_eqv_universal.
-  repeat rewrite exists_node_eqv_existential.
-  move=> Ex Unq Unq'.
+  rewrite /tree_unique /tree_contains in Ex, Unq, Unq'.
+  repeat rewrite every_node_eqv_universal in Ex, Unq, Unq'.
+  repeat rewrite exists_node_eqv_existential in Ex, Unq, Unq'.
   destruct Ex as [it0 [??]].
   assert (it0 = it) by (apply Unq; assumption).
   assert (it0 = it') by (apply Unq'; assumption).
