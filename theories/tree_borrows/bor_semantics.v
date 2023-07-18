@@ -445,6 +445,7 @@ Definition tree_unique tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
+(*
 Definition trees_at_block prop trs blk
   : Prop :=
   match trs !! blk with
@@ -455,20 +456,12 @@ Definition trees_at_block prop trs blk
 Definition trees_contain tg trs blk :=
   trees_at_block (tree_contains tg) trs blk.
 
-Definition trees_unique_tag tg trs blk
-  : Prop :=
-  (forall blk', trees_contain tg trs blk' -> blk' = blk).
-
-Definition trees_unique_item tg trs blk it :=
+Definition trees_unique tg trs blk it :=
   trees_at_block (tree_unique tg it) trs blk.
-
-Definition trees_unique tg trs blk it
-  : Prop :=
-  trees_unique_tag tg trs blk
-  /\ trees_unique_item tg trs blk it.
 
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
+*)
 
 Definition app_preserves_tag app : Prop :=
   (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it').
@@ -555,54 +548,37 @@ Definition trees_fresh_call cid trs blk :=
   tree_fresh_call cid tr.
 
 (* FIXME: Check this much more thoroughly *)
-Inductive bor_estep trs cids
-  : bor_event -> trees -> call_id_set -> Prop :=
-  | AllocEIS tg blk
-    (FRESH_BLOCK : trs !! blk = None)
-    (FRESH_TAG : forall blk, ~trees_contain tg trs blk) :
-    (* Tagged nxtp is the first borrow of the variable x,
-       used when accessing x directly (not through another pointer) *)
-    (* FIXME: should we check that the block is absent from the trees ? *)
-    bor_estep
-      trs cids
-      (AllocBEvt blk tg)
-      (extend_trees tg blk trs) cids
-  | AccessEIS kind strong trs' blk range tg
-    (EXISTS_TAG: trees_contain tg trs blk)
-    (ACC: apply_within_trees (memory_access kind strong cids tg range) blk trs = Some trs') :
-    bor_estep
-      trs cids
-      (AccessBEvt kind strong tg blk range)
-      trs' cids
-  | DeallocEIS trs' blk
-    (UNCHANGED : trs = trs') :
-    (* FIXME: remove the tree ? *)
-    bor_estep
-      trs cids
-      (DeallocBEvt blk)
-      trs' cids
-  | InitCallEIS cid
+Inductive bor_local_step tr cids
+  : bor_local_event -> tree item -> call_id_set -> Prop :=
+  | AccessLIS kind strong tr' range tg
+    (EXISTS_TAG: tree_contains tg tr)
+    (ACC: memory_access kind strong cids tg range tr = Some tr') :
+    bor_local_step
+      tr cids
+      (AccessBLEvt kind strong tg range)
+      tr' cids
+  | InitCallLIS cid
     (INACTIVE_CID : ~cid ∈ cids)
-    (FRESH_CID : forall blk', trees_fresh_call cid trs blk') :
-    bor_estep
-      trs cids
-      (InitCallBEvt cid)
-      trs ({[cid]} ∪ cids)
-  | EndCallEIS cid
+    (FRESH_CID : tree_fresh_call cid tr) :
+    bor_local_step
+      tr cids
+      (InitCallBLEvt cid)
+      tr ({[cid]} ∪ cids)
+  | EndCallLIS cid
     (EL: cid ∈ cids) :
-    bor_estep
-      trs cids
-      (EndCallBEvt cid)
-      trs (cids ∖ {[cid]})
-  | RetagEIS trs' tgp tg blk newp (cid : call_id)
+    bor_local_step
+      tr cids
+      (EndCallBLEvt cid)
+      tr (cids ∖ {[cid]})
+  | RetagLIS tr' tgp tg newp (cid : call_id)
     (EL: cid ∈ cids)
-    (EXISTS_PARENT: trees_contain tgp trs blk)
-    (FRESH_CHILD: forall blk', ~trees_contain tg trs blk')
-    (RETAG_EFFECT: apply_within_trees (create_child cids tgp tg newp) blk trs = Some trs') :
-    bor_estep
-      trs cids
-      (RetagBEvt tgp tg newp cid)
-      trs' cids
+    (EXISTS_PARENT: tree_contains tgp tr)
+    (FRESH_CHILD: ~tree_contains tg tr)
+    (RETAG_EFFECT: create_child cids tgp tg newp tr = Some tr') :
+    bor_local_step
+      tr cids
+      (RetagBLEvt tgp tg newp cid)
+      tr' cids
   .
 
 (* FIXME: Check this much more thoroughly *)

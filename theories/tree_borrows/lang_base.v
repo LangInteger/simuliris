@@ -313,11 +313,22 @@ Record newperm := mkNewPerm {
 
 (** Internal events *)
 
+(*
 Inductive bor_event :=
 | AllocBEvt (blk : block) (tg : tag)
 | DeallocBEvt (blk : block)
 | AccessBEvt (kind : access_kind) (strong : prot_strong) (tg : tag) (blk : block) (range : Z * nat)
 | InitCallBEvt (cid : call_id)
 | EndCallBEvt (cid : call_id)
-| RetagBEvt (tgp tg : tag) (newp : newperm) (c : call_id)
+| RetagBEvt (tgp tg : tag) (newp : newperm) (blk : block) (c : call_id)
 | SilentBEvt.
+*)
+
+Inductive bor_local_event :=
+| AccessBLEvt (kind : access_kind) (strong : prot_strong) (tg : tag) (range : Z * nat)
+| InitCallBLEvt (cid : call_id)
+| EndCallBLEvt (cid : call_id)
+| RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)
+| SilentBLEvt.
+
+

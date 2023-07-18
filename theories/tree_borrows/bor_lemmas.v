@@ -305,7 +305,7 @@ Proof.
   - exact ContainsParent.
 Qed.
 
-Lemma insertion_order_nonstrictchild tr tg tg' :
+Lemma insertion_order_nonstrictparent tr tg tg' :
   tree_contains tg' tr ->
   ~tree_contains tg tr ->
   forall tgp cids newp tr',
@@ -323,7 +323,7 @@ Proof.
   - apply Contra.
 Qed.
 
-Lemma insertion_order_nonchild tr tg tg' :
+Lemma insertion_order_nonparent tr tg tg' :
   tree_contains tg' tr ->
   ~tree_contains tg tr ->
   forall tgp cids newp tr',
@@ -334,7 +334,7 @@ Proof.
   intros; intro Related.
   destruct Related.
   - subst; contradiction.
-  - eapply (insertion_order_nonstrictchild _ tg tg'); eauto.
+  - eapply (insertion_order_nonstrictparent _ tg tg'); eauto.
 Qed.
 
 Lemma tree_unique_specifies_tag tr tg it :
