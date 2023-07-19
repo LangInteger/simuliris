@@ -470,14 +470,15 @@ Proof.
 Qed.
 
 Lemma seq_always_build_forward
-  {Ptr : tree item -> Prop}
-  {Pcids : call_id_set -> Prop}
-  {INVtr INVcids tr cids evts tr' cids'}
+  {Ptr INVtr : tree item -> Prop}
+  {Pcids INVcids : call_id_set -> Prop}
+  {tr cids evts tr' cids'}
   (PTR0 : Ptr tr)
   (PCID0 : Pcids cids)
   (Preserve : forall tr cids tr' cids' evt,
     bor_local_step tr cids evt tr' cids' ->
     Ptr tr -> Pcids cids ->
+    INVtr tr -> INVcids cids ->
     Ptr tr' /\ Pcids cids'
   )
   (Seq : bor_local_seq INVtr INVcids tr cids evts tr' cids')
@@ -490,7 +491,7 @@ Proof.
   induction evts; move=> ?????? Seq; inversion Seq; subst.
   - constructor; assumption.
   - econstructor; eauto.
-    destruct (Preserve _ _ _ _ _ HEAD ltac:(assumption) ltac:(assumption)) as [??].
+    destruct (Preserve _ _ _ _ _ HEAD) as [??]; try assumption.
     eapply IHevts; auto.
 Qed.
 
@@ -563,7 +564,6 @@ Proof.
     eapply IHevts; assumption.
 Qed.
 
-
 Lemma seq_always_merge
   {tr cids evts tr' cids'}
   {Ptr1 Ptr2 : tree item -> Prop}
@@ -603,44 +603,85 @@ Proof.
   assumption.
 Qed.
 
-Lemma bor_local_seq_preserves_unique
+Lemma bor_local_seq_always_unique
+  {tg tr tr' prot cids cids' evts pre}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg pre tr)
+  (ProtEq : iprot pre = prot)
+  (Seq : bor_local_seq (tree_contains tg) ignore tr cids evts tr' cids')
+  : bor_local_seq (fun tr => exists it, tree_unique tg it tr /\ iprot it = prot) ignore tr cids evts tr' cids'.
+Proof.
+  eapply seq_always_build_forward; [|apply ignore_always_True| |exact Seq].
+  - eexists; split; eassumption.
+  - clear. move=> ???? evt Step [?[Unq Prot]] _ Ex _.
+    split; [|apply ignore_always_True].
+    destruct (bor_local_step_preserves_unique_easy Ex Unq Step) as [?[??]].
+    eexists.
+    split; [eassumption|].
+    destruct evt; subst; auto.
+Qed.
+
+Lemma bor_local_seq_last_unique
   {tg tr tr' cids cids' evts pre}
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
   (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
   : exists post, tree_unique tg post tr' /\ iprot pre = iprot post.
 Proof.
-  generalize dependent tr.
-  generalize dependent cids.
-  generalize dependent pre.
-  induction evts; move=> ??? Ex Unq Seq; inversion Seq; subst.
-  - eexists; split; [eassumption|reflexivity].
-  - destruct (bor_local_step_preserves_unique_easy Ex Unq HEAD) as [?[Unq' Spec]].
-    pose proof (bor_local_step_preserves_contains Ex HEAD) as Ex0.
-    destruct (IHevts _ _ _ Ex0 Unq' REST) as [?[? SameProt]].
-    eexists; split; [eassumption|].
-    rewrite <- SameProt.
-    destruct a; subst; auto.
+  pose proof (bor_local_seq_always_contains Ex Seq) as AllEx.
+  destruct (seq_always_destruct_last (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as [[?[??]]?].
+  eexists; split; subst; eauto.
 Qed.
 
-Lemma bor_local_seq_eqv_rel
+Lemma bor_local_seq_always_rel
+  {tg tg' tr tr' cids cids' evts}
+  (Rel : ParentChildIn tg tg' tr)
+  (Ex : tree_contains tg tr)
+  (Ex' : tree_contains tg' tr)
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  : bor_local_seq (ParentChildIn tg tg') ignore tr cids evts tr' cids'.
+Proof.
+  pose proof (seq_always_merge
+    (bor_local_seq_always_contains Ex Seq)
+    (bor_local_seq_always_contains Ex' Seq)) as AllExEx'.
+  eapply seq_always_build_forward; [assumption|apply ignore_always_True| |exact AllExEx'].
+  clear; simpl; move=> ????? Step Rel _ [Ex Ex'] _.
+  split; [|apply ignore_always_True].
+  rewrite <- (bor_local_step_eqv_rel Ex Ex' Step).
+  assumption.
+Qed.
+
+Lemma bor_local_seq_always_unrel
+  {tg tg' tr tr' cids cids' evts}
+  (Rel : ~ParentChildIn tg tg' tr)
+  (Ex : tree_contains tg tr)
+  (Ex' : tree_contains tg' tr)
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  : bor_local_seq (compose not (ParentChildIn tg tg')) ignore tr cids evts tr' cids'.
+Proof.
+  pose proof (seq_always_merge
+    (bor_local_seq_always_contains Ex Seq)
+    (bor_local_seq_always_contains Ex' Seq)) as AllExEx'.
+  eapply seq_always_build_forward; [assumption|apply ignore_always_True| |exact AllExEx'].
+  clear; simpl; move=> ????? Step Rel _ [Ex Ex'] _.
+  split; [|apply ignore_always_True].
+  rewrite <- (bor_local_step_eqv_rel Ex Ex' Step).
+  assumption.
+Qed.
+
+Lemma bor_local_seq_last_eqv_rel
   {tg tg' tr tr' cids cids' evts}
   (Ex : tree_contains tg tr)
   (Ex' : tree_contains tg' tr)
-  (Step : bor_local_seq ignore ignore
-    tr cids
-    evts
-    tr' cids')
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
   : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
 Proof.
-  generalize dependent tr.
-  generalize dependent cids.
-  induction evts; move=> ??? Ex Seq; inversion Seq; subst.
-  - tauto.
-  - eapply iff_trans.
-    * eapply bor_local_step_eqv_rel; eauto.
-    * eapply IHevts; eauto.
-      all: eapply bor_local_step_preserves_contains; eauto.
+  destruct (decide (ParentChildIn tg tg' tr)) as [Rel|Unrel].
+  - destruct (seq_always_destruct_last (bor_local_seq_always_rel Rel Ex Ex' Seq)).
+    tauto.
+  - destruct (seq_always_destruct_last (bor_local_seq_always_unrel Unrel Ex Ex' Seq)).
+    simpl in *.
+    tauto.
 Qed.
 
 Lemma bor_local_seq_preserves_backward_reach_aux

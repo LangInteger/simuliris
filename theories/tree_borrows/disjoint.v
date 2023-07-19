@@ -368,7 +368,7 @@ Ltac migrate prop dest :=
       Ex' : tree_contains tg' tr
       |- _ =>
       pose proof prop as dest;
-      rewrite (bor_local_seq_eqv_rel Ex Ex' Seq) in dest
+      rewrite (bor_local_seq_last_eqv_rel Ex Ex' Seq) in dest
     end
   (* Migrate info on a protector *)
   | context [protector_is_for_call _ ?old] =>
@@ -386,7 +386,7 @@ Ltac migrate prop dest :=
     | Seq : bor_local_seq _ _  tr _ _ _ _,
       Ex : tree_contains tg tr
       |- _ =>
-      pose proof (bor_local_seq_preserves_unique Ex prop Seq) as dest
+      pose proof (bor_local_seq_last_unique Ex prop Seq) as dest
     end
   (* failed *)
   | ?other =>
