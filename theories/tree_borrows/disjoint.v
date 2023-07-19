@@ -496,6 +496,7 @@ Tactic Notation "pose" "replace" constr(target) "with" uconstr(a) uconstr(b) := 
 Tactic Notation "pose" "replace" constr(target) "with" "@" uconstr(b) := xspecialize target (target b).
 Tactic Notation "pose" "replace" constr(target) "with" "@" uconstr(b) uconstr(c) := xspecialize target (target b c).
 Tactic Notation "pose" "replace" constr(target) "with" uconstr(a) uconstr(b) uconstr(c) uconstr(d) "@" := xspecialize target (a b c d target).
+Tactic Notation "pose" "replace" constr(target) "with" uconstr(a) uconstr(b) uconstr(c) "@" uconstr(d) := xspecialize target (a b c target d).
 
 Lemma fwrite_cwrite_disjoint
   {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
@@ -519,7 +520,7 @@ Proof.
   destruct Seq01 as [evts01 Seq01].
   assert (reach Reserved (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
   migrate Unrelated.
-  pose replace ResReach1 with bor_local_seq_preserves_backward_reach Ex' Unq' Seq01 @.
+  pose replace ResReach1 with bor_local_seq_last_backward_reach Ex' Unq' @ Seq01.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
   pose replace ResReach1 with @ post Unq'.
   migrate Ex'.
@@ -538,9 +539,9 @@ Proof.
   rename Unq'Post into Unq'.
   rename post into pre.
   destruct Seq12 as [evts12 Seq12].
-  pose proof (bor_local_seq_preserves_backward_reach Ex' Unq' Seq12 DisPost) as DisPost'.
+  pose replace DisPost with bor_local_seq_last_backward_reach Ex' Unq' @ Seq12.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
-  pose replace DisPost' with @ post Unq'.
+  pose replace DisPost with @ post Unq'.
   migrate Ex'.
 
   (* write step 2 *)
@@ -569,7 +570,7 @@ Proof.
   destruct Seq01 as [evts01 Seq01].
   assert (reach Reserved (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
   migrate Unrelated.
-  pose replace ResReach1 with bor_local_seq_preserves_backward_reach Ex' Unq' Seq01 @.
+  pose replace ResReach1 with bor_local_seq_last_backward_reach Ex' Unq' @ Seq01.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
   pose replace ResReach1 with @ post Unq'.
   migrate Ex'.
@@ -593,7 +594,7 @@ Proof.
   rename Unq'Post into Unq'.
   rename post into pre.
   destruct Seq12 as [evts12 Seq12].
-  pose replace DisPost with bor_local_seq_preserves_backward_reach Ex' Unq' Seq12 @.
+  pose replace DisPost with bor_local_seq_last_backward_reach Ex' Unq' @ Seq12.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
   pose replace DisPost with @ post Unq'.
   migrate Ex'.
@@ -655,7 +656,7 @@ Proof.
   rename post into pre.
   destruct Seq12 as [evts12 Seq12].
   migrate Unrelated.
-  pose replace ActReachPost with bor_local_seq_preserves_backward_reach Ex' Unq' Seq12 @.
+  pose replace ActReachPost with bor_local_seq_last_backward_reach Ex' Unq' @ Seq12.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
   pose replace ActReachPost with @ post Unq'.
   migrate Ex'.
@@ -679,7 +680,7 @@ Proof.
   rename Unq'Post into Unq'.
   rename post into pre.
   destruct Seq23 as [evts23 Seq23].
-  pose replace FrzReachPost with bor_local_seq_preserves_backward_reach Ex' Unq' Seq23 @.
+  pose replace FrzReachPost with bor_local_seq_last_backward_reach Ex' Unq' @ Seq23.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
   pose replace FrzReachPost with @ post Unq'.
   migrate Ex'.

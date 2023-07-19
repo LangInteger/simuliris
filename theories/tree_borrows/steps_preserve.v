@@ -684,70 +684,67 @@ Proof.
     tauto.
 Qed.
 
-Lemma bor_local_seq_preserves_backward_reach_aux
-  {tg tr tr' cids cids' pre post evts p0 z}
-  (Ex : tree_contains tg tr)
-  (UnqPre : tree_unique tg pre tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  (UnqPost : tree_unique tg post tr')
-  : reach p0 (item_perm_at_loc pre z) -> reach p0 (item_perm_at_loc post z).
-Proof.
-  generalize dependent tr.
-  generalize dependent cids.
-  generalize dependent post.
-  generalize dependent pre.
-  induction evts; move=> ?? UnqPost ?? Ex UnqPre Seq; inversion Seq; subst.
-  - pose proof (tree_unique_unify Ex UnqPre UnqPost); subst; tauto.
-  - destruct (bor_local_step_preserves_unique_easy Ex UnqPre HEAD) as [?[Unq' _]].
-    eapply impl_transitive.
-    * eapply bor_local_step_preserves_backward_reach; eauto.
-    * eapply IHevts; [| | |exact REST]; eauto.
-      eapply bor_local_step_preserves_contains; [|exact HEAD].
-      assumption.
-Qed.
-
-(* Same lemma as above but rewritten in a form that makes it easier to manipulate
-   when we only have access to a single Unq at a time *)
-Lemma bor_local_seq_preserves_backward_reach
+Lemma bor_local_seq_always_backward_reach
   {tg tr tr' cids cids' pre evts p0 z}
   (Ex : tree_contains tg tr)
-  (UnqPre : tree_unique tg pre tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  (Unq : tree_unique tg pre tr)
   (Reach : reach p0 (item_perm_at_loc pre z))
-  : forall post (UnqPost : tree_unique tg post tr'), reach p0 (item_perm_at_loc post z).
-Proof. intros. eapply bor_local_seq_preserves_backward_reach_aux; eauto. Qed.
-
-
-Lemma bor_local_seq_preserves_forward_unreach_aux
-  {tg tr tr' cids cids' pre post evts p0 z}
-  (Ex : tree_contains tg tr)
-  (UnqPre : tree_unique tg pre tr)
   (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  (UnqPost : tree_unique tg post tr')
-  : ~reach (item_perm_at_loc pre z) p0 -> ~reach (item_perm_at_loc post z) p0.
+  : bor_local_seq (fun tr => forall post (UnqPost : tree_unique tg post tr), reach p0 (item_perm_at_loc post z)) ignore
+      tr cids evts tr' cids'.
 Proof.
-  generalize dependent tr.
-  generalize dependent cids.
-  generalize dependent post.
-  generalize dependent pre.
-  induction evts; move=> ?? UnqPost ?? Ex UnqPre Seq; inversion Seq; subst.
-  - pose proof (tree_unique_unify Ex UnqPre UnqPost); subst; tauto.
-  - destruct (bor_local_step_preserves_unique_easy Ex UnqPre HEAD) as [?[Unq' _]].
-    eapply impl_transitive.
-    * eapply bor_local_step_preserves_forward_unreach; eauto.
-    * eapply IHevts; [| | |exact REST]; eauto.
-      eapply bor_local_step_preserves_contains; [|exact HEAD].
-      assumption.
+  pose proof (bor_local_seq_always_contains Ex Seq) as AllEx.
+  pose proof (seq_always_merge AllEx (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as AllExUnq.
+  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnq].
+  + move=> ? Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
+  + clear; move=> ????? Step Reach _ [Ex [?[Unq _]]] _.
+    split; [|apply ignore_always_True].
+    move=> ? Unq'.
+    eapply bor_local_step_preserves_backward_reach; eauto.
 Qed.
 
-Lemma bor_local_seq_preserves_forward_unreach
+Lemma bor_local_seq_last_backward_reach
   {tg tr tr' cids cids' pre evts p0 z}
   (Ex : tree_contains tg tr)
-  (UnqPre : tree_unique tg pre tr)
+  (Unq : tree_unique tg pre tr)
+  (Reach : reach p0 (item_perm_at_loc pre z))
   (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  : forall post (UnqPost : tree_unique tg post tr'), reach p0 (item_perm_at_loc post z).
+Proof.
+  pose proof (seq_always_destruct_last (bor_local_seq_always_backward_reach Ex Unq Reach Seq)) as [??].
+  assumption.
+Qed.
+
+Lemma bor_local_seq_always_forward_unreach
+  {tg tr tr' cids cids' pre evts p0 z}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg pre tr)
   (Unreach : ~reach (item_perm_at_loc pre z) p0)
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  : bor_local_seq (fun tr => forall post (UnqPost : tree_unique tg post tr), ~reach (item_perm_at_loc post z) p0) ignore
+      tr cids evts tr' cids'.
+Proof.
+  pose proof (bor_local_seq_always_contains Ex Seq) as AllEx.
+  pose proof (seq_always_merge AllEx (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as AllExUnq.
+  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnq].
+  + move=> ? Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
+  + clear; move=> ????? Step Reach _ [Ex [?[Unq _]]] _.
+    split; [|apply ignore_always_True].
+    move=> ? Unq'.
+    eapply bor_local_step_preserves_forward_unreach; eauto.
+Qed.
+
+Lemma bor_local_seq_last_forward_unreach
+  {tg tr tr' cids cids' pre evts p0 z}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg pre tr)
+  (Unreach : ~reach (item_perm_at_loc pre z) p0)
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
   : forall post (UnqPost : tree_unique tg post tr'), ~reach (item_perm_at_loc post z) p0.
-Proof. intros. eapply bor_local_seq_preserves_forward_unreach_aux; eauto. Qed.
+Proof.
+  pose proof (seq_always_destruct_last (bor_local_seq_always_forward_unreach Ex Unq Unreach Seq)) as [??].
+  assumption.
+Qed.
 
 Lemma bor_local_seq_split
   {Ptr Pcids tr tr' cids cids' l l'}
@@ -826,57 +823,52 @@ Proof.
 Qed.
 
 Lemma protected_during_step_stays_active
-  {affected_tag tr cids evt tr' cids' pre post z zpre zpost}
+  {affected_tag tr cids evt tr' cids' pre z zpre}
   (Ex : tree_contains affected_tag tr)
-  (UnqAff : tree_unique affected_tag pre tr)
+  (Unq : tree_unique affected_tag pre tr)
   (Prot : protector_is_active (iprot pre) cids)
-  (Step : bor_local_step tr cids evt tr' cids')
-  (UnqAff' : tree_unique affected_tag post tr')
   (ItemPre : item_lazy_perm_at_loc pre z = zpre)
-  (ItemPost : item_lazy_perm_at_loc post z = zpost)
   (Init : initialized zpre = PermInit)
-  : perm zpre = Active -> perm zpost = Active.
+  (ActPre : perm zpre = Active)
+  (Step : bor_local_step tr cids evt tr' cids')
+  : forall post, tree_unique affected_tag post tr' -> item_perm_at_loc post z = Active.
 Proof.
+  move=> ? Unq'.
   inversion Step; subst.
-  - apply (memory_access_protected_initialized_preserves_active Ex UnqAff EXISTS_TAG ACC UnqAff' Prot eq_refl eq_refl Init).
-  - rewrite (tree_unique_unify Ex UnqAff UnqAff'); tauto.
-  - rewrite (tree_unique_unify Ex UnqAff UnqAff'); tauto.
+  - apply (memory_access_protected_initialized_preserves_active Ex Unq EXISTS_TAG ACC Unq' Prot eq_refl eq_refl Init ActPre).
+  - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
+  - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
   - pose proof (bor_local_step_preserves_contains Ex Step) as ExPost'.
-    pose proof (bor_local_step_preserves_unique_easy Ex UnqAff Step) as [it' [UnqPost' Eq]]; subst; simpl in UnqPost'.
-    rewrite (tree_unique_unify ExPost' UnqPost' UnqAff'); tauto.
+    pose proof (bor_local_step_preserves_unique_easy Ex Unq Step) as [it' [UnqPost' Eq]]; subst; simpl in UnqPost'.
+    rewrite <- (tree_unique_unify ExPost' UnqPost' Unq'); tauto.
 Qed.
 
-
-Lemma protected_during_seq_stays_active_aux
-  {affected_tag tr cids evts tr' cids' prot pre post z zpre zpost}
+Lemma protected_during_seq_always_stays_active
+  {affected_tag tr cids evts tr' cids' prot pre z}
   (Ex : tree_contains affected_tag tr)
-  (UnqAff : tree_unique affected_tag pre tr)
+  (Unq : tree_unique affected_tag pre tr)
   (Prot : iprot pre = prot)
+  (StartsActive : item_perm_at_loc pre z = Active)
   (Seq : bor_local_seq
     (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
     (protector_is_active prot)
     tr cids evts tr' cids')
-  (UnqAff' : tree_unique affected_tag post tr')
-  (ItemPre : item_lazy_perm_at_loc pre z = zpre)
-  (ItemPost : item_lazy_perm_at_loc post z = zpost)
-  : perm zpre = Active -> perm zpost = Active.
+  : bor_local_seq
+    (fun tr => forall it, tree_unique affected_tag it tr -> perm (item_lazy_perm_at_loc it z) = Active)
+    ignore
+    tr cids evts tr' cids'.
 Proof.
-  generalize dependent tr.
-  generalize dependent cids.
-  generalize dependent post.
-  generalize dependent pre.
-  generalize dependent zpre.
-  generalize dependent zpost.
-  induction evts; move=> ??? Prot ItemPre ? UnqAff' ItemPost ?? Ex UnqAff Seq; inversion Seq; subst.
-  - pose proof (tree_unique_unify Ex UnqAff UnqAff'); subst; tauto.
-  - destruct (bor_local_step_preserves_unique_easy Ex UnqAff HEAD) as [?[Unq' Spec]].
-    intro ActiveNow.
-    pose proof (protected_during_step_stays_active Ex UnqAff PCIDS HEAD Unq' eq_refl eq_refl (PTR _ UnqAff) ActiveNow) as ActiveAfterStep.
-    eapply IHevts; [|reflexivity| | | | |exact REST|exact ActiveAfterStep]; eauto.
-    + destruct a; subst; auto.
-    + eapply bor_local_step_preserves_contains; [|exact HEAD]; assumption.
+  pose proof (bor_local_seq_always_contains Ex (bor_local_seq_forget Seq)) as AllEx.
+  pose proof (bor_local_seq_always_unique Ex Unq Prot AllEx) as AllUnq.
+  pose proof (seq_always_merge AllEx (seq_always_merge Seq AllUnq)) as AllExUnqInitProt.
+  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnqInitProt].
+  + move=> it Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
+  + clear; simpl; move=> ????? Step Act _ [Ex [Init [?[Unq ProtEq]]]] [_ [Prot _]].
+    split; [|apply ignore_always_True].
+    move=> ? Unq'.
+    subst.
+    eapply protected_during_step_stays_active; eauto.
 Qed.
-(* FIXME: specialize-friendly version *)
 
 (* For bor_seq
 
