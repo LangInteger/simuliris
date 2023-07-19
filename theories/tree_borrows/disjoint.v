@@ -373,12 +373,12 @@ Ltac migrate prop dest :=
   (* Migrate info on a protector *)
   | context [protector_is_for_call ?old _] =>
     lazymatch goal with
-    | ACC: ?old = ?new |- _ =>
+    | ACC: old = ?new |- _ =>
       pose proof prop as dest;
-      rewrite <- ACC in dest
-    | ACC: ?new = ?old |- _ =>
+      rewrite ACC in dest
+    | ACC: ?new = old |- _ =>
       pose proof prop as dest;
-      rewrite ACC in prop
+      rewrite <- ACC in prop
     end
   (* Migrate a tree_unique (lossy) *)
   | tree_unique ?tg _ ?tr =>
@@ -724,6 +724,7 @@ Proof.
   forget tr1.
 
   subst.
+  rewrite <- ProtPost in Protected.
   destruct (protected_nonchild_write_initialized_to_ub
     Ex' Unq'Post Unrelated
     ltac:(eexists; split; [exact Protected|exact Call2])
@@ -755,7 +756,7 @@ Proof.
   destruct (child_read_any_to_init_nondis
     Ex' Unq' ltac:(left; reflexivity)
     RContains1 eq_refl Read1
-  ) as [post [zpost [Unq'Post [PermPost [DisUnreachPost [ProtPost InitPost]]]]]].
+  ) as [post [zpost [Unq'Post [PermPost [DisUnreachPost [PostProt InitPost]]]]]].
   migrate Unrelated.
   migrate Ex.
   migrate Ex'.
@@ -763,6 +764,7 @@ Proof.
   forget tr1.
 
   subst.
+  rewrite <- PostProt in Protected.
   destruct (protected_nonchild_write_initialized_to_ub
     Ex' Unq'Post Unrelated
     ltac:(eexists; split; [exact Protected|exact Call2])
@@ -798,6 +800,7 @@ Proof.
   forget tr1.
 
   subst.
+  rewrite <- PostProt in Protected.
   destruct (protected_nonchild_read_initialized_active_to_ub
     Ex' Unq'Post Unrelated
     ltac:(eexists; split; [exact Protected|exact Call2])

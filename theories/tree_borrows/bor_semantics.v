@@ -214,8 +214,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
 (* MWE *)
 
 
-Definition call_is_active cids c := (c ∈ cids).
-Global Instance call_is_active_dec cids c : Decision (call_is_active cids c).
+Definition call_is_active c cids := (c ∈ cids).
+Global Instance call_is_active_dec c cids : Decision (call_is_active c cids).
 Proof. rewrite /call_is_active. solve_decision. Qed.
 
 Definition call_of_protector prot :=
@@ -224,25 +224,25 @@ Definition call_of_protector prot :=
   | _ => None
   end.
 
-Definition protector_is_for_call prot c := call_of_protector prot = Some c.
-Global Instance protector_is_for_call_dec prot c : Decision (protector_is_for_call prot c).
+Definition protector_is_for_call c prot := call_of_protector prot = Some c.
+Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
 Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Qed.
 
-Definition protector_is_active cids prot :=
-  exists c, protector_is_for_call prot c /\ call_is_active cids c.
-Definition witness_protector_is_active cids prot :=
+Definition protector_is_active prot cids :=
+  exists c, protector_is_for_call c prot /\ call_is_active c cids.
+Definition witness_protector_is_active prot cids :=
   match prot with
-  | Some (mkProtector _ c) => call_is_active cids c
+  | Some (mkProtector _ c) => call_is_active c cids
   | _ => False
   end.
-Global Instance witness_protector_is_active_dec cids prot :
-  Decision (witness_protector_is_active cids prot).
+Global Instance witness_protector_is_active_dec prot cids :
+  Decision (witness_protector_is_active prot cids).
 Proof.
   rewrite /witness_protector_is_active.
   case_match; [case_match|]; solve_decision.
 Qed.
-Lemma protector_is_active_matches_witness cids prot :
-  witness_protector_is_active cids prot <-> protector_is_active cids prot.
+Lemma protector_is_active_matches_witness prot cids :
+  witness_protector_is_active prot cids <-> protector_is_active prot cids.
 Proof.
   rewrite /protector_is_active /witness_protector_is_active /protector_is_for_call /call_of_protector.
   split; intro Hyp.
@@ -254,8 +254,8 @@ Proof.
     * injection IsProt; intros; subst; assumption.
     * inversion IsProt.
 Qed.
-Global Instance protector_is_active_dec cids prot :
-  Decision (protector_is_active cids prot).
+Global Instance protector_is_active_dec prot cids :
+  Decision (protector_is_active prot cids).
 Proof.
   eapply decision_equiv; [eapply protector_is_active_matches_witness|].
   solve_decision.
@@ -292,7 +292,7 @@ Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
 Definition item_apply_access kind strong cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
-  let protected := bool_decide (protector_is_active cids it.(iprot)) in
+  let protected := bool_decide (protector_is_active it.(iprot) cids) in
   let protector_relevant := bool_decide (strong = ProtStrong \/ protector_is_strong it.(iprot)) in
   newps ← permissions_foreach (mkPerm PermLazy it.(initp)) range (apply_access_perm kind rel protected protector_relevant) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
@@ -537,7 +537,7 @@ Definition apply_within_trees (fn:app (tree item)) blk
   Some $ <[blk := newtr]> trs.
 
 Definition item_fresh_call cid it :=
-  ~protector_is_for_call (iprot it) cid.
+  ~protector_is_for_call cid (iprot it).
 
 Definition tree_fresh_call cid tr :=
   every_node (item_fresh_call cid) tr.
@@ -547,14 +547,15 @@ Definition trees_fresh_call cid trs blk :=
   trs !! blk = Some tr ->
   tree_fresh_call cid tr.
 
+(* FIXME: this can only do strong accesses *)
 Inductive bor_local_step tr cids
   : bor_local_event -> tree item -> call_id_set -> Prop :=
-  | AccessLIS kind strong tr' range tg
+  | AccessLIS kind tr' range tg
     (EXISTS_TAG: tree_contains tg tr)
-    (ACC: memory_access kind strong cids tg range tr = Some tr') :
+    (ACC: memory_access kind ProtStrong cids tg range tr = Some tr') :
     bor_local_step
       tr cids
-      (AccessBLEvt kind strong tg range)
+      (AccessBLEvt kind ProtStrong tg range)
       tr' cids
   | InitCallLIS cid
     (INACTIVE_CID : ~cid ∈ cids)
@@ -580,17 +581,22 @@ Inductive bor_local_step tr cids
       tr' cids
   .
 
-Inductive bor_local_seq tr cids
+Definition ignore {T} : T -> Prop := fun _ => True.
+Inductive bor_local_seq (Ptr : tree item -> Prop) (Pcids : call_id_set -> Prop) tr cids
   : list bor_local_event -> tree item -> call_id_set -> Prop :=
-  | bor_nil :
-    bor_local_seq
+  | bor_nil
+    (PTR : Ptr tr)
+    (PCIDS : Pcids cids) :
+    bor_local_seq Ptr Pcids
       tr cids
       []
       tr cids
   | bor_cons evt tr' cids' evts tr'' cids''
+    (PTR : Ptr tr)
+    (PCIDS : Pcids cids)
     (HEAD : bor_local_step tr cids evt tr' cids')
-    (REST : bor_local_seq tr' cids' evts tr'' cids'') :
-    bor_local_seq
+    (REST : bor_local_seq Ptr Pcids tr' cids' evts tr'' cids'') :
+    bor_local_seq Ptr Pcids
       tr cids
       (evt :: evts)
       tr'' cids''.
