@@ -469,21 +469,138 @@ Proof.
     rewrite (tree_unique_unify ExPost' UnqPost' UnqPost); tauto.
 Qed.
 
-Lemma bor_local_seq_preserves_contains
+Lemma seq_always_build_forward
+  {Ptr : tree item -> Prop}
+  {Pcids : call_id_set -> Prop}
+  {INVtr INVcids tr cids evts tr' cids'}
+  (PTR0 : Ptr tr)
+  (PCID0 : Pcids cids)
+  (Preserve : forall tr cids tr' cids' evt,
+    bor_local_step tr cids evt tr' cids' ->
+    Ptr tr -> Pcids cids ->
+    Ptr tr' /\ Pcids cids'
+  )
+  (Seq : bor_local_seq INVtr INVcids tr cids evts tr' cids')
+  : bor_local_seq Ptr Pcids tr cids evts tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent tr'.
+  generalize dependent cids.
+  generalize dependent cids'.
+  induction evts; move=> ?????? Seq; inversion Seq; subst.
+  - constructor; assumption.
+  - econstructor; eauto.
+    destruct (Preserve _ _ _ _ _ HEAD ltac:(assumption) ltac:(assumption)) as [??].
+    eapply IHevts; auto.
+Qed.
+
+Lemma seq_always_destruct_first
+  {Ptr : tree item -> Prop}
+  {Pcids : call_id_set -> Prop}
+  {tr cids evts tr' cids'}
+  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
+  : Ptr tr /\ Pcids cids.
+Proof. inversion Seq; subst; split; assumption. Qed.
+
+Lemma seq_always_destruct_last
+  {Ptr : tree item -> Prop}
+  {Pcids : call_id_set -> Prop}
+  {tr cids evts tr' cids'}
+  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
+  : Ptr tr' /\ Pcids cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ?? Seq; inversion Seq; subst.
+  - split; assumption.
+  - eapply IHevts; eauto.
+Qed.
+
+Lemma bor_local_step_deterministic
+  {tr cids evt tr1 cids1 tr2 cids2}
+  (Step1 : bor_local_step tr cids evt tr1 cids1)
+  (Step2 : bor_local_step tr cids evt tr2 cids2)
+  : tr1 = tr2 /\ cids1 = cids2.
+Proof.
+  destruct evt; inversion Step1; inversion Step2; subst.
+  - rewrite ACC in ACC0; injection ACC0; tauto.
+  - tauto.
+  - tauto.
+  - rewrite RETAG_EFFECT in RETAG_EFFECT0; injection RETAG_EFFECT0; tauto.
+Qed.
+
+Lemma bor_local_seq_deterministic
+  {tr cids evts tr1 cids1 tr2 cids2}
+  (Seq1 : bor_local_seq ignore ignore tr cids evts tr1 cids1)
+  (Seq2 : bor_local_seq ignore ignore tr cids evts tr2 cids2)
+  : tr1 = tr2 /\ cids1 = cids2.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  generalize dependent tr1.
+  generalize dependent cids1.
+  generalize dependent tr2.
+  generalize dependent cids2.
+  induction evts; move=> ?????? Seq1 Seq2; inversion Seq1; inversion Seq2; subst.
+  - tauto.
+  - pose proof (bor_local_step_deterministic HEAD HEAD0) as [??]; subst.
+    eapply IHevts; eauto.
+Qed.
+
+Lemma ignore_always_True {T} : forall (t:T), ignore t.
+Proof. rewrite /ignore; tauto. Qed.
+
+Lemma bor_local_seq_forget
+  {Ptr Pcids tr cids evts tr' cids'}
+  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
+  : bor_local_seq ignore ignore tr cids evts tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ?? Seq; inversion Seq; subst.
+  - constructor; apply ignore_always_True.
+  - econstructor; [apply ignore_always_True|apply ignore_always_True|exact HEAD|].
+    eapply IHevts; assumption.
+Qed.
+
+
+Lemma seq_always_merge
+  {tr cids evts tr' cids'}
+  {Ptr1 Ptr2 : tree item -> Prop}
+  {Pcids1 Pcids2 : call_id_set -> Prop}
+  (Seq1 : bor_local_seq Ptr1 Pcids1 tr cids evts tr' cids')
+  (Seq2 : bor_local_seq Ptr2 Pcids2 tr cids evts tr' cids')
+  : bor_local_seq (fun tr => Ptr1 tr /\ Ptr2 tr) (fun cids => Pcids1 cids /\ Pcids2 cids) tr cids evts tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ?? Seq1 Seq2; inversion Seq1; inversion Seq2; subst.
+  - constructor; split; assumption.
+  - pose proof (bor_local_step_deterministic HEAD HEAD0) as [??]; subst.
+    pose proof (bor_local_seq_deterministic (bor_local_seq_forget REST) (bor_local_seq_forget REST0)) as [??]; subst.
+    econstructor; eauto.
+Qed.
+
+Lemma bor_local_seq_always_contains
+  {tg tr cids tr' cids' evts}
+  (Ex : tree_contains tg tr)
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  : bor_local_seq (tree_contains tg) ignore tr cids evts tr' cids'.
+Proof.
+  eapply seq_always_build_forward; [assumption|apply ignore_always_True| |exact Seq].
+  clear.
+  move=> ????? Step Ex _; split; [|apply ignore_always_True].
+  eapply bor_local_step_preserves_contains; eassumption.
+Qed.
+
+Lemma bor_local_seq_last_contains
   {tg tr cids tr' cids' evts}
   (Ex : tree_contains tg tr)
   (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
   : tree_contains tg tr'.
 Proof.
-  generalize dependent tr'.
-  generalize dependent tr.
-  generalize dependent cids'.
-  generalize dependent cids.
-  induction evts; move=> ????? Seq; inversion Seq; subst.
-  - assumption.
-  - eapply IHevts; [|exact REST].
-    eapply bor_local_step_preserves_contains; [|exact HEAD].
-    assumption.
+  destruct (seq_always_destruct_last (bor_local_seq_always_contains Ex Seq)) as [??].
+  assumption.
 Qed.
 
 Lemma bor_local_seq_preserves_unique
@@ -688,36 +805,6 @@ Proof.
     rewrite (tree_unique_unify ExPost' UnqPost' UnqAff'); tauto.
 Qed.
 
-Lemma bor_local_step_deterministic
-  {tr cids evt tr1 cids1 tr2 cids2}
-  (Step1 : bor_local_step tr cids evt tr1 cids1)
-  (Step2 : bor_local_step tr cids evt tr2 cids2)
-  : tr1 = tr2 /\ cids1 = cids2.
-Proof.
-  destruct evt; inversion Step1; inversion Step2; subst.
-  - rewrite ACC in ACC0; injection ACC0; tauto.
-  - tauto.
-  - tauto.
-  - rewrite RETAG_EFFECT in RETAG_EFFECT0; injection RETAG_EFFECT0; tauto.
-Qed.
-
-Lemma bor_local_seq_deterministic
-  {tr cids evts tr1 cids1 tr2 cids2}
-  (Seq1 : bor_local_seq ignore ignore tr cids evts tr1 cids1)
-  (Seq2 : bor_local_seq ignore ignore tr cids evts tr2 cids2)
-  : tr1 = tr2 /\ cids1 = cids2.
-Proof.
-  generalize dependent tr.
-  generalize dependent cids.
-  generalize dependent tr1.
-  generalize dependent cids1.
-  generalize dependent tr2.
-  generalize dependent cids2.
-  induction evts; move=> ?????? Seq1 Seq2; inversion Seq1; inversion Seq2; subst.
-  - tauto.
-  - pose proof (bor_local_step_deterministic HEAD HEAD0) as [??]; subst.
-    eapply IHevts; eauto.
-Qed.
 
 Lemma protected_during_seq_stays_active_aux
   {affected_tag tr cids evts tr' cids' prot pre post z zpre zpost}
@@ -748,6 +835,7 @@ Proof.
     + destruct a; subst; auto.
     + eapply bor_local_step_preserves_contains; [|exact HEAD]; assumption.
 Qed.
+(* FIXME: specialize-friendly version *)
 
 (* For bor_seq
 
