@@ -564,6 +564,38 @@ Proof.
     eapply IHevts; assumption.
 Qed.
 
+Lemma seq_always_build_direct
+  {Ptr : tree item -> Prop}
+  {Pcids : call_id_set -> Prop}
+  {tr cids evts tr' cids'}
+  (PTR : forall tr, Ptr tr)
+  (PCIDS : forall cids, Pcids cids)
+  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  : bor_local_seq Ptr Pcids tr cids evts tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ?? Seq; inversion Seq; subst.
+  + constructor; auto.
+  + econstructor; eauto.
+Qed.
+
+Lemma seq_always_build_weaken
+  {Ptr Ptr' : tree item -> Prop}
+  {Pcids Pcids' : call_id_set -> Prop}
+  {tr cids evts tr' cids'}
+  (PTR_WEAKEN : forall tr, Ptr tr -> Ptr' tr)
+  (PCIDS_WEAKEN : forall cids, Pcids cids -> Pcids' cids)
+  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
+  : bor_local_seq Ptr' Pcids' tr cids evts tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ?? Seq; inversion Seq; subst.
+  + constructor; auto.
+  + econstructor; eauto.
+Qed.
+
 Lemma seq_always_merge
   {tr cids evts tr' cids'}
   {Ptr1 Ptr2 : tree item -> Prop}
@@ -844,14 +876,15 @@ Proof.
 Qed.
 
 Lemma protected_during_seq_always_stays_active
-  {affected_tag tr cids evts tr' cids' prot pre z}
+  {affected_tag tr cids evts tr' cid cids' prot pre z}
   (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
   (Prot : iprot pre = prot)
+  (Call : protector_is_for_call cid prot)
   (StartsActive : item_perm_at_loc pre z = Active)
   (Seq : bor_local_seq
     (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (protector_is_active prot)
+    (call_is_active cid)
     tr cids evts tr' cids')
   : bor_local_seq
     (fun tr => forall it, tree_unique affected_tag it tr -> perm (item_lazy_perm_at_loc it z) = Active)
@@ -863,12 +896,31 @@ Proof.
   pose proof (seq_always_merge AllEx (seq_always_merge Seq AllUnq)) as AllExUnqInitProt.
   eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnqInitProt].
   + move=> it Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
-  + clear; simpl; move=> ????? Step Act _ [Ex [Init [?[Unq ProtEq]]]] [_ [Prot _]].
+  + generalize Call; clear; simpl; move=> Call ????? Step Act _ [Ex [Init [?[Unq ProtEq]]]] [_ [Prot _]].
     split; [|apply ignore_always_True].
     move=> ? Unq'.
     subst.
     eapply protected_during_step_stays_active; eauto.
+    eexists; split; eauto.
 Qed.
+
+Lemma protected_during_seq_last_stays_active
+  {affected_tag tr cids evts tr' cids' cid prot pre z}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (Prot : iprot pre = prot)
+  (Call : protector_is_for_call cid prot)
+  (StartsActive : item_perm_at_loc pre z = Active)
+  (Seq : bor_local_seq
+    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+    (call_is_active cid)
+    tr cids evts tr' cids')
+  : forall post, tree_unique affected_tag post tr' -> perm (item_lazy_perm_at_loc post z) = Active.
+Proof.
+  pose proof (seq_always_destruct_last (protected_during_seq_always_stays_active Ex Unq Prot Call StartsActive Seq)) as [??].
+  assumption.
+Qed.
+
 
 (* For bor_seq
 
