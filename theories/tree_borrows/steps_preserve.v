@@ -264,20 +264,24 @@ Lemma bor_local_step_preserves_unique_easy
     tr cids
     evt
     tr' cids')
-  : match evt with
-  | AccessBLEvt _ _ _ _ => exists it', tree_unique tg it' tr'
+  : exists it',
+  tree_unique tg it' tr'
+  /\ match evt with
+  | AccessBLEvt _ _ _ _ => True
   | InitCallBLEvt _
   | EndCallBLEvt _
   | RetagBLEvt _ _ _ _
-  | SilentBLEvt => tree_unique tg it tr'
+  | SilentBLEvt => it = it'
   end.
 Proof.
   inversion Step; subst.
-  all: try assumption.
   - (* Access *)
     destruct (apply_access_spec_per_node _ _ _ _ EXISTS_TAG Ex Unq _ _ _ _ _ (item_apply_access_preserves_tag _ _) ACC) as [?[_[_?]]].
     eexists; eauto.
+  - eexists; split; [|reflexivity]; assumption.
+  - eexists; split; [|reflexivity]; assumption.
   - (* Retag *)
+    eexists; split; [|reflexivity].
     eapply create_child_preserves_unique; [|exact Unq|exact RETAG_EFFECT].
     intro; subst. destruct (FRESH_CHILD Ex).
 Qed.
@@ -433,7 +437,7 @@ Proof.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - pose proof (bor_local_step_preserves_contains Ex Step) as ExPost'.
-    pose proof (bor_local_step_preserves_unique_easy Ex UnqPre Step) as UnqPost'; simpl in UnqPost'.
+    pose proof (bor_local_step_preserves_unique_easy Ex UnqPre Step) as [it' [UnqPost' Eq]]; subst; simpl in UnqPost'.
     rewrite (tree_unique_unify ExPost' UnqPost' UnqPost); tauto.
 Qed.
 
@@ -450,6 +454,171 @@ Proof.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - pose proof (bor_local_step_preserves_contains Ex Step) as ExPost'.
-    pose proof (bor_local_step_preserves_unique_easy Ex UnqPre Step) as UnqPost'; simpl in UnqPost'.
+    pose proof (bor_local_step_preserves_unique_easy Ex UnqPre Step) as [it' [UnqPost' Eq]]; subst; simpl in UnqPost'.
     rewrite (tree_unique_unify ExPost' UnqPost' UnqPost); tauto.
 Qed.
+
+Lemma bor_local_seq_preserves_contains
+  {tg tr cids tr' cids' evts}
+  (Ex : tree_contains tg tr)
+  (Seq : bor_local_seq tr cids evts tr' cids')
+  : tree_contains tg tr'.
+Proof.
+  generalize dependent tr'.
+  generalize dependent tr.
+  generalize dependent cids'.
+  generalize dependent cids.
+  induction evts; move=> ????? Seq; inversion Seq; subst.
+  - assumption.
+  - eapply IHevts; [|exact REST].
+    eapply bor_local_step_preserves_contains; [|exact HEAD].
+    assumption.
+Qed.
+
+Lemma bor_local_seq_preserves_unique
+  {tg tr tr' cids cids' evts pre}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg pre tr)
+  (Seq : bor_local_seq tr cids evts tr' cids')
+  : exists post, tree_unique tg post tr'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  generalize dependent pre.
+  induction evts; move=> ??? Ex Unq Seq; inversion Seq; subst.
+  - eexists. eassumption.
+  - destruct (bor_local_step_preserves_unique_easy Ex Unq HEAD) as [?[Unq' _]].
+    eapply IHevts; [| |exact REST].
+    * eapply bor_local_step_preserves_contains; [|exact HEAD].
+      assumption.
+    * eassumption.
+Qed.
+
+Lemma bor_local_seq_eqv_rel
+  {tg tg' tr tr' cids cids' evts}
+  (Ex : tree_contains tg tr)
+  (Ex' : tree_contains tg' tr)
+  (Step : bor_local_seq
+    tr cids
+    evts
+    tr' cids')
+  : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ??? Ex Seq; inversion Seq; subst.
+  - tauto.
+  - eapply iff_trans.
+    * eapply bor_local_step_eqv_rel; eauto.
+    * eapply IHevts; eauto.
+      all: eapply bor_local_step_preserves_contains; eauto.
+Qed.
+
+Lemma bor_local_seq_preserves_backward_reach_aux
+  {tg tr tr' cids cids' pre post evts p0 z}
+  (Ex : tree_contains tg tr)
+  (UnqPre : tree_unique tg pre tr)
+  (Seq : bor_local_seq tr cids evts tr' cids')
+  (UnqPost : tree_unique tg post tr')
+  : reach p0 (item_perm_at_loc pre z) -> reach p0 (item_perm_at_loc post z).
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  generalize dependent post.
+  generalize dependent pre.
+  induction evts; move=> ?? UnqPost ?? Ex UnqPre Seq; inversion Seq; subst.
+  - pose proof (tree_unique_unify Ex UnqPre UnqPost); subst; tauto.
+  - destruct (bor_local_step_preserves_unique_easy Ex UnqPre HEAD) as [?[Unq' _]].
+    eapply impl_transitive.
+    * eapply bor_local_step_preserves_backward_reach; eauto.
+    * eapply IHevts; [| | |exact REST]; eauto.
+      eapply bor_local_step_preserves_contains; [|exact HEAD].
+      assumption.
+Qed.
+
+(* Same lemma as above but rewritten in a form that makes it easier to manipulate
+   when we only have access to a single Unq at a time *)
+Lemma bor_local_seq_preserves_backward_reach
+  {tg tr tr' cids cids' pre evts p0 z}
+  (Ex : tree_contains tg tr)
+  (UnqPre : tree_unique tg pre tr)
+  (Seq : bor_local_seq tr cids evts tr' cids')
+  (Reach : reach p0 (item_perm_at_loc pre z))
+  : forall post (UnqPost : tree_unique tg post tr'), reach p0 (item_perm_at_loc post z).
+Proof. intros. eapply bor_local_seq_preserves_backward_reach_aux; eauto. Qed.
+
+
+Lemma bor_local_seq_preserves_forward_unreach_aux
+  {tg tr tr' cids cids' pre post evts p0 z}
+  (Ex : tree_contains tg tr)
+  (UnqPre : tree_unique tg pre tr)
+  (Seq : bor_local_seq tr cids evts tr' cids')
+  (UnqPost : tree_unique tg post tr')
+  : ~reach (item_perm_at_loc pre z) p0 -> ~reach (item_perm_at_loc post z) p0.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  generalize dependent post.
+  generalize dependent pre.
+  induction evts; move=> ?? UnqPost ?? Ex UnqPre Seq; inversion Seq; subst.
+  - pose proof (tree_unique_unify Ex UnqPre UnqPost); subst; tauto.
+  - destruct (bor_local_step_preserves_unique_easy Ex UnqPre HEAD) as [?[Unq' _]].
+    eapply impl_transitive.
+    * eapply bor_local_step_preserves_forward_unreach; eauto.
+    * eapply IHevts; [| | |exact REST]; eauto.
+      eapply bor_local_step_preserves_contains; [|exact HEAD].
+      assumption.
+Qed.
+
+Lemma bor_local_seq_preserves_forward_unreach
+  {tg tr tr' cids cids' pre evts p0 z}
+  (Ex : tree_contains tg tr)
+  (UnqPre : tree_unique tg pre tr)
+  (Seq : bor_local_seq tr cids evts tr' cids')
+  (Unreach : ~reach (item_perm_at_loc pre z) p0)
+  : forall post (UnqPost : tree_unique tg post tr'), ~reach (item_perm_at_loc post z) p0.
+Proof. intros. eapply bor_local_seq_preserves_forward_unreach_aux; eauto. Qed.
+
+Lemma bor_local_seq_split
+  {tr tr' cids cids' l l'}
+  : bor_local_seq tr cids (l ++ l') tr' cids'
+  <-> exists tr'' cids'', bor_local_seq tr cids l tr'' cids'' /\ bor_local_seq tr'' cids'' l' tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction l; move=> ??.
+  - simpl; split; intro Hyp.
+    + eexists. eexists. split; [constructor|assumption].
+    + destruct Hyp as [?[?[S S']]].
+      inversion S; subst.
+      exact S'.
+  - simpl; split; intro Hyp.
+    + inversion Hyp; subst.
+      rewrite IHl in REST.
+      destruct REST as [?[?[S' S'']]].
+      eexists. eexists.
+      split.
+      * econstructor; [exact HEAD|exact S'].
+      * assumption.
+    + destruct Hyp as [?[?[S S']]].
+      inversion S; subst.
+      econstructor; [exact HEAD|].
+      rewrite IHl.
+      eexists. eexists.
+      split; eassumption.
+Qed.
+
+(* For bor_seq
+
+== Preservation lemmas ==
+[X] contains
+[X] unique (quantified)
+[X] reach, unreach
+
+== Lookahead lemmas ==
+[ ] future EndCall implies call currently active
+
+== Other lemmas ==
+[X] split/merge list manipulations
+
+*)

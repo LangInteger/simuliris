@@ -547,7 +547,6 @@ Definition trees_fresh_call cid trs blk :=
   trs !! blk = Some tr ->
   tree_fresh_call cid tr.
 
-(* FIXME: Check this much more thoroughly *)
 Inductive bor_local_step tr cids
   : bor_local_event -> tree item -> call_id_set -> Prop :=
   | AccessLIS kind strong tr' range tg
@@ -580,6 +579,21 @@ Inductive bor_local_step tr cids
       (RetagBLEvt tgp tg newp cid)
       tr' cids
   .
+
+Inductive bor_local_seq tr cids
+  : list bor_local_event -> tree item -> call_id_set -> Prop :=
+  | bor_nil :
+    bor_local_seq
+      tr cids
+      []
+      tr cids
+  | bor_cons evt tr' cids' evts tr'' cids''
+    (HEAD : bor_local_step tr cids evt tr' cids')
+    (REST : bor_local_seq tr' cids' evts tr'' cids'') :
+    bor_local_seq
+      tr cids
+      (evt :: evts)
+      tr'' cids''.
 
 (* FIXME: Check this much more thoroughly *)
 (*
