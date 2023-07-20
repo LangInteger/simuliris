@@ -1040,11 +1040,13 @@ Qed.
 [X] contains
 [X] unique (quantified)
 [X] reach, unreach
-[ ] when protected: stays active, stays frozen
-[ ] stays initialized
+[X] when protected: stays active, stays frozen
+[X] stays initialized
 
 == Lookahead lemmas ==
 [ ] future EndCall implies call currently active
+[ ] future retag implies currently fresh
+[ ] future retag implies parent exists
 
 == Other lemmas ==
 [X] split/merge list manipulations
