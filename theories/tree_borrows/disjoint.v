@@ -996,3 +996,8 @@ Proof.
     Write2).
 Qed.
 
+(* reorder two arbitrary reads and reach the same borrow state *)
+(* rename bor_local_seq: bor_local_steps *)
+(* noalias interior mutable reserved foreign write + child write should work *)
+(* backwards reach is tricky: it prevents us from doing nontermination. don't rely on an EndCall later, assume no EndCall for the particular cid at every step *)
+(* ghost state, ressource algebras, invariants *)
