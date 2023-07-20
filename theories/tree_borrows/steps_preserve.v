@@ -921,6 +921,118 @@ Proof.
   assumption.
 Qed.
 
+Lemma apply_access_perm_protected_initialized_preserves_nondis
+  {pre post kind rel}
+  (Access : apply_access_perm kind rel true true pre = Some post)
+  : (initialized pre) = PermInit -> ~reach Disabled (perm pre) -> ~reach Disabled (perm post).
+Proof.
+  destruct kind, rel.
+  all: destruct pre, initialized, perm.
+  all: inversion Access.
+  (* all cases easy *)
+  all: simpl; auto.
+  all: intro H; inversion H.
+Qed.
+
+Lemma memory_access_protected_initialized_preserves_nondis
+  {access_tag affected_tag pre tr post tr' kind cids range z zpre zpost}
+  (ExAff : tree_contains affected_tag tr)
+  (UnqAff : tree_unique affected_tag pre tr)
+  (ExAcc : tree_contains access_tag tr)
+  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (UnqAff' : tree_unique affected_tag post tr')
+  (Prot : protector_is_active (iprot pre) cids)
+  (ItemPre : item_lazy_perm_at_loc pre z = zpre)
+  (ItemPost : item_lazy_perm_at_loc post z = zpost)
+  (Init : initialized zpre = PermInit)
+  : ~reach Disabled (perm zpre) -> ~reach Disabled (perm zpost).
+Proof.
+  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
+  (* now it's just bruteforce case analysis *)
+  generalize dependent post.
+  generalize dependent pre.
+  clear. move=> pre _ Prot Init post _ Access _.
+  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
+  injection Access'; intros e; subst; clear Access'.
+  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite bool_decide_eq_true_2 in Spec; [|assumption].
+  rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].
+  destruct (decide (range_contains _ _)).
+  - destruct Spec as [?[Lkup Apply]].
+    eapply apply_access_perm_protected_initialized_preserves_nondis.
+    + rewrite Lkup; simpl. exact Apply.
+    + assumption.
+  - rewrite Spec; tauto.
+Qed.
+
+Lemma protected_during_step_stays_nondis
+  {affected_tag tr cids evt tr' cids' pre z zpre}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (Prot : protector_is_active (iprot pre) cids)
+  (ItemPre : item_lazy_perm_at_loc pre z = zpre)
+  (Init : initialized zpre = PermInit)
+  (NonDisPre : ~reach Disabled (perm zpre))
+  (Step : bor_local_step tr cids evt tr' cids')
+  : forall post, tree_unique affected_tag post tr' -> ~reach Disabled (item_perm_at_loc post z).
+Proof.
+  move=> ? Unq'.
+  inversion Step; subst.
+  - apply (memory_access_protected_initialized_preserves_nondis Ex Unq EXISTS_TAG ACC Unq' Prot eq_refl eq_refl Init NonDisPre).
+  - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
+  - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
+  - pose proof (bor_local_step_preserves_contains Ex Step) as ExPost'.
+    pose proof (bor_local_step_preserves_unique_easy Ex Unq Step) as [it' [UnqPost' Eq]]; subst; simpl in UnqPost'.
+    rewrite <- (tree_unique_unify ExPost' UnqPost' Unq'); tauto.
+Qed.
+
+Lemma protected_during_seq_always_stays_nondis
+  {affected_tag tr cids evts tr' cid cids' prot pre z}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (Prot : iprot pre = prot)
+  (Call : protector_is_for_call cid prot)
+  (StartsNonDis : ~reach Disabled (item_perm_at_loc pre z))
+  (Seq : bor_local_seq
+    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+    (call_is_active cid)
+    tr cids evts tr' cids')
+  : bor_local_seq
+    (fun tr => forall it, tree_unique affected_tag it tr -> ~reach Disabled (perm (item_lazy_perm_at_loc it z)))
+    ignore
+    tr cids evts tr' cids'.
+Proof.
+  pose proof (bor_local_seq_always_contains Ex (bor_local_seq_forget Seq)) as AllEx.
+  pose proof (bor_local_seq_always_unique Ex Unq Prot AllEx) as AllUnq.
+  pose proof (seq_always_merge AllEx (seq_always_merge Seq AllUnq)) as AllExUnqInitProt.
+  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnqInitProt].
+  + move=> it Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
+  + generalize Call; clear; simpl; move=> Call ????? Step Act _ [Ex [Init [?[Unq ProtEq]]]] [_ [Prot _]].
+    split; [|apply ignore_always_True].
+    move=> ? Unq'.
+    subst.
+    eapply protected_during_step_stays_nondis; eauto.
+    eexists; split; eauto.
+Qed.
+
+Lemma protected_during_seq_last_stays_nondis
+  {affected_tag tr cids evts tr' cids' cid prot pre z}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (Prot : iprot pre = prot)
+  (Call : protector_is_for_call cid prot)
+  (StartsNonDis : ~reach Disabled (item_perm_at_loc pre z))
+  (Seq : bor_local_seq
+    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+    (call_is_active cid)
+    tr cids evts tr' cids')
+  : forall post, tree_unique affected_tag post tr' -> ~reach Disabled (perm (item_lazy_perm_at_loc post z)).
+Proof.
+  pose proof (seq_always_destruct_last (protected_during_seq_always_stays_nondis Ex Unq Prot Call StartsNonDis Seq)) as [??].
+  assumption.
+Qed.
 
 (* For bor_seq
 
