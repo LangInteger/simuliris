@@ -325,7 +325,7 @@ Inductive bor_event :=
 *)
 
 Inductive bor_local_event :=
-| AccessBLEvt (kind : access_kind) (strong : prot_strong) (tg : tag) (range : Z * nat)
+| AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
 | InitCallBLEvt (cid : call_id)
 | EndCallBLEvt (cid : call_id)
 | RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)

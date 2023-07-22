@@ -277,7 +277,7 @@ Lemma bor_local_step_preserves_unique_easy
   : exists it',
   tree_unique tg it' tr'
   /\ match evt with
-  | AccessBLEvt _ _ _ _ => iprot it = iprot it'
+  | AccessBLEvt _ _ _ => iprot it = iprot it'
   | InitCallBLEvt _
   | EndCallBLEvt _
   | RetagBLEvt _ _ _ _

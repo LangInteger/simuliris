@@ -555,7 +555,7 @@ Inductive bor_local_step tr cids
     (ACC: memory_access kind ProtStrong cids tg range tr = Some tr') :
     bor_local_step
       tr cids
-      (AccessBLEvt kind ProtStrong tg range)
+      (AccessBLEvt kind tg range)
       tr' cids
   | InitCallLIS cid
     (INACTIVE_CID : ~cid ∈ cids)
