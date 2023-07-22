@@ -85,6 +85,80 @@ Proof.
 Qed.
 Arguments access_effect_per_loc_outside_range {_ _ _ _} Ex Unq {_ _ _ _ _ _ _} Outside IsPre Step.
 
+(* Strategy for lemmas of the form
+
+Lemma _
+  (Ex : tree_contains ?aff ?tr)
+  (Unq : tree_unique ?aff ?pre ?tr)
+  (Within : range_contains ?range ?z)
+
+  optional: (Nonchild : ~ParentChildIn ?aff ?acc ?tr)
+  optional: (Child : ParentChildIn ?aff ?acc ?tr)
+  optional: restrictions on (perm ?pre), e.g. reachability
+  optional: protector_is_active (iprot ?pre) ?cids
+
+  (Step : bor_local_step ?tr ?cids (AccessBLEvt _ ?acc ?range) ?tr' _)
+  : _.
+
+Where the conclusion can be either
+* there is UB:
+  : False.
+* there is some item in the new tree that is related to ?pre:
+  : exists post zpost, (
+    tree_unique ?aff post ?tr'
+    /\ item_lazy_perm_at_loc post z = zpost
+    /\ iprot post = iprot pre
+    /\ ...
+      optional: restrictions on reachability of (perm zpost),
+      e.g. reach (perm ?pre) ?(perm zpost)
+  ).
+
+These lemmas can be solved by a case analysis on ?pre, which the following tactic performs *)
+Ltac auto_access_event_within_range :=
+  match goal with
+  (* First off, if we see an access step, we apply the key per-location lemma *)
+  | Ex : tree_contains ?aff ?tr,
+    Unq : tree_unique ?aff ?pre ?tr,
+    Within : range_contains ?range ?z,
+    Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
+    |- exists _ _, _ =>
+    destruct (access_effect_per_loc_within_range Ex Unq Within eq_refl Step) as [post[zpost[?[?[??]]]]];
+    exists post, zpost;
+    clear Step Unq Within Ex
+  | Ex : tree_contains ?aff ?tr,
+    Unq : tree_unique ?aff ?pre ?tr,
+    Within : range_contains ?range ?z,
+    Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
+    |- _ =>
+    destruct (access_effect_per_loc_within_range Ex Unq Within eq_refl Step) as [post[zpost[?[?[??]]]]];
+    clear Step Unq Within Ex
+  (* if we need to solve a naive_rel_dec, we look for a known one *)
+  | H : context[naive_rel_dec ?tr ?aff ?acc],
+    Rel : ParentChildIn ?aff ?acc ?tr
+    |- _ => destruct (naive_rel_dec _ _ _); [|contradiction]; clear Rel
+  | H : context[naive_rel_dec ?tr ?aff ?acc],
+    Rel : ~ParentChildIn ?aff ?acc ?tr
+    |- _ => destruct (naive_rel_dec _ _ _); [contradiction|]; clear Rel
+  (* we might need to decide protectors *)
+  | H : context[bool_decide (protector_is_active ?p ?cids)],
+    P : protector_is_active ?p ?cids
+    |- _ => rewrite (bool_decide_eq_true_2 _ P) in H
+  | H : context[bool_decide (protector_is_active ?p ?cids)]
+    |- _ => destruct (bool_decide (protector_is_active _ _))
+  (* we'd always rather work on permissions directly than item_lazy_perm_at_loc *)
+  | E : item_lazy_perm_at_loc ?x ?z = _,
+    H : context[item_lazy_perm_at_loc ?x ?z]
+    |- _ => rewrite E in H
+  (* and then big case analysis *)
+  | x : lazy_permission |- _ => destruct x; simpl in *
+  | p : permission |- _ => destruct p; simpl in *
+  | i : perm_init |- _ => destruct i; simpl in *
+  | H : apply_access_perm _ _ _ _ _ = Some _ |- _ => try (inversion H; done); clear H
+  (* when all the rest is done, you can split and auto *)
+  | |- _ => subst; try repeat split; eauto
+  end
+  .
+
 Lemma nonchild_write_reserved_to_disabled
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
@@ -101,17 +175,7 @@ Lemma nonchild_write_reserved_to_disabled
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
   ).
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  exists post, zpost.
-  try repeat split; auto.
-  destruct (naive_rel_dec _ _ _); [contradiction|].
-  destruct zpre; destruct initialized; destruct perm; try contradiction.
-  all: destruct (bool_decide _); simpl in *.
-  all: try inversion SpecPost.
-  all: simpl; tauto.
-Qed.
+Proof. do 11 auto_access_event_within_range. Qed.
 
 Lemma nonchild_write_any_protected_to_disabled
   {tr affected_tag access_tag pre}
@@ -129,17 +193,7 @@ Lemma nonchild_write_any_protected_to_disabled
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
   ).
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  exists post, zpost.
-  try repeat split; auto.
-  destruct (naive_rel_dec _ _ _); [contradiction|].
-  destruct zpre; destruct initialized; destruct perm; try contradiction.
-  all: rewrite (bool_decide_eq_true_2 _ Protected) in SpecPost.
-  all: try inversion SpecPost.
-  all: simpl; try tauto.
-Qed.
+Proof. do 11 auto_access_event_within_range. Qed.
 
 Lemma nonchild_read_active_to_frozen
   {tr affected_tag access_tag pre}
@@ -157,17 +211,7 @@ Lemma nonchild_read_active_to_frozen
     /\ reach Frozen (perm zpost)
     /\ reach (perm zpre) (perm zpost)
   ).
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  exists post, zpost.
-  try repeat split; auto.
-  all: destruct (naive_rel_dec _ _ _); [contradiction|].
-  all: destruct zpre; destruct initialized; destruct perm; try contradiction.
-  all: destruct (bool_decide _); simpl in *.
-  all: try inversion SpecPost.
-  all: simpl; tauto.
-Qed.
+Proof. do 11 auto_access_event_within_range. Qed.
 
 Lemma child_write_frozen_to_ub
   {tr affected_tag access_tag pre}
@@ -180,14 +224,7 @@ Lemma child_write_frozen_to_ub
   (Reach : reach Frozen (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : False.
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [|contradiction].
-  destruct zpre; destruct initialized; destruct perm; try contradiction.
-  all: destruct (bool_decide _); simpl in *.
-  all: try inversion SpecPost.
-Qed.
+Proof. do 11 auto_access_event_within_range. Qed.
 
 Lemma child_read_disabled_to_ub
   {tr affected_tag access_tag pre}
@@ -200,14 +237,7 @@ Lemma child_read_disabled_to_ub
   (Reach : reach Disabled (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : False.
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [|contradiction].
-  destruct zpre; destruct initialized; destruct perm; try contradiction.
-  all: destruct (bool_decide _); simpl in *.
-  all: try inversion SpecPost.
-Qed.
+Proof. do 11 auto_access_event_within_range. Qed.
 
 Lemma child_write_any_to_init_active
   {tr affected_tag access_tag pre}
@@ -225,20 +255,7 @@ Lemma child_write_any_to_init_active
     /\ iprot post = iprot pre
     /\ initialized zpost = PermInit
   ).
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [|contradiction].
-  exists post, zpost.
-  try repeat split; try assumption.
-  all: destruct (item_lazy_perm_at_loc _ _); destruct initialized; destruct perm; try contradiction.
-  all: destruct (bool_decide _); simpl in *.
-  all: unfold apply_access_perm in SpecPost; simpl in *.
-  all: destruct (perm zpre); simpl in *.
-  all: destruct (initialized zpre); simpl in *.
-  all: try inversion SpecPost.
-  all: injection SpecPost; intro H; destruct zpost; injection H; intros; subst; simpl; reflexivity.
-Qed.
+Proof. do 11 auto_access_event_within_range. Qed.
 
 Lemma child_read_any_to_init_nondis
   {tr affected_tag access_tag pre}
@@ -256,20 +273,7 @@ Lemma child_read_any_to_init_nondis
     /\ iprot post = iprot pre
     /\ initialized zpost = PermInit
   ).
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [|contradiction].
-  exists post, zpost.
-  try repeat split; try assumption.
-  all: destruct (item_lazy_perm_at_loc _ _); destruct initialized; destruct perm; try contradiction.
-  all: destruct (bool_decide _); simpl in *.
-  all: unfold apply_access_perm in SpecPost; simpl in *.
-  all: destruct (perm zpre); simpl in *.
-  all: destruct (initialized zpre); simpl in *.
-  all: try inversion SpecPost.
-  all: injection SpecPost; intro H; destruct zpost; simpl; tauto.
-Qed.
+Proof. do 15 auto_access_event_within_range. Qed.
 
 
 Lemma protected_nonchild_write_initialized_to_ub
@@ -285,17 +289,7 @@ Lemma protected_nonchild_write_initialized_to_ub
   (NonDis : ~reach Disabled (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : False.
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [contradiction|].
-  rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
-  destruct (item_lazy_perm_at_loc _ _); simpl in Initialized; subst.
-  destruct perm; unfold apply_access_perm in SpecPost; simpl in SpecPost.
-  all: inversion SpecPost.
-  (* One case remaining: was already Disabled *)
-  apply NonDis; simpl; tauto.
-Qed.
+Proof. do 15 auto_access_event_within_range. Qed.
 
 Lemma protected_nonchild_read_initialized_active_to_ub
   {tr affected_tag access_tag pre}
@@ -310,16 +304,7 @@ Lemma protected_nonchild_read_initialized_active_to_ub
   (Activated : perm zpre = Active)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : False.
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [contradiction|].
-  rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
-  destruct (item_lazy_perm_at_loc _ _); simpl in Initialized; subst.
-  destruct perm; unfold apply_access_perm in SpecPost; simpl in SpecPost.
-  all: try inversion Activated.
-  inversion SpecPost.
-Qed.
+Proof. do 15 auto_access_event_within_range. Qed.
 
 Lemma protected_nonchild_read_any_to_frozen
   {tr affected_tag access_tag pre}
@@ -336,20 +321,7 @@ Lemma protected_nonchild_read_any_to_frozen
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Frozen (perm zpost)
   ).
-Proof.
-  destruct (access_effect_per_loc_within_range Ex Unq Within IsPre Step)
-    as [post [zpost [SpecPost [UniqPost [PermPost ProtPost]]]]].
-  destruct (naive_rel_dec _ _ _); [contradiction|].
-  rewrite bool_decide_eq_true_2 in SpecPost; [|assumption].
-  eexists. eexists.
-  try repeat split; [exact UniqPost|].
-  destruct (item_lazy_perm_at_loc pre _); simpl in SpecPost; subst.
-  destruct (item_lazy_perm_at_loc post _); simpl in SpecPost; subst.
-  destruct perm; destruct initialized; simpl.
-  all: unfold apply_access_perm in SpecPost; simpl in SpecPost.
-  all: try injection SpecPost; intros; subst; try tauto.
-  all: inversion SpecPost.
-Qed.
+Proof. do 15 auto_access_event_within_range. Qed.
 
 (* `migrate` facilitates moving hypotheses across borrow steps.
    Usage:
