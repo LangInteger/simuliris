@@ -7,10 +7,9 @@ From iris.prelude Require Import options.
    This is applicable to every permission in the accessed range, all that's needed
    to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
-  tr affected_tag access_tag pre
+  {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
-  kind cids cids' range tr' z zpre
   (Within : range_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
@@ -25,15 +24,13 @@ Lemma access_effect_per_loc_within_range
 Proof.
   inversion Step; subst.
   (* use apply_access_spec_per_node to get info on the post permission *)
-  destruct (apply_access_spec_per_node _ _ _ _
+  destruct (apply_access_spec_per_node
     EXISTS_TAG Ex Unq
-    (item_apply_access _ _) cids' range tr' (naive_rel_dec tr)
     (item_apply_access_preserves_tag _ _) ACC) as [post [SpecPost [ContainsPost UniquePost]]].
   (* and then it's per-tag work *)
   rewrite (tree_unique_specifies_tag _ _ _ Ex Unq) in SpecPost.
-  symmetry in SpecPost.
-  destruct (option_bind_success_step _ _ _  SpecPost) as [tmpperm [tmpSpec tmpRes]].
-  injection tmpRes; intro H; subst; clear tmpRes.
+  option step in SpecPost as ?:tmpSpec.
+  injection SpecPost; intro H; subst; clear SpecPost.
   (* now down to per-location *)
   pose proof (range_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
   rewrite (decide_True _ _ Within) in ForeachSpec.
@@ -47,13 +44,11 @@ Proof.
   unfold item_lazy_perm_at_loc.
   rewrite PermExists; simpl; reflexivity.
 Qed.
-Arguments access_effect_per_loc_within_range {_ _ _ _} Ex Unq {_ _ _ _ _ _ _} Within IsPre Step.
 
 Lemma access_effect_per_loc_outside_range
-  tr affected_tag access_tag pre
+  {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
-  kind cids cids' range tr' z zpre
   (Outside : ~range_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
@@ -64,17 +59,16 @@ Lemma access_effect_per_loc_outside_range
   ).
 Proof.
   inversion Step; subst.
-  destruct (apply_access_spec_per_node _ _ _ _
-    EXISTS_TAG Ex Unq _ _ _ _ _
+  destruct (apply_access_spec_per_node
+    EXISTS_TAG Ex Unq
     (item_apply_access_preserves_tag _ _)
     ACC) as [post [SpecPost [ContainsPost UniquePost]]].
   (* We now show that
      (1) post has zpre at loc z
      (2) post is equal to whatever item the goal refers to *)
   assert (item_lazy_perm_at_loc post z = item_lazy_perm_at_loc pre z) as SamePerm. {
-    symmetry in SpecPost.
-    destruct (option_bind_success_step _ _ _ SpecPost) as [perms [SpecPerms Injectable]].
-    injection Injectable; intros; subst; clear Injectable.
+    option step in SpecPost as ?:SpecPerms.
+    injection SpecPost; intros; subst; clear SpecPost.
     pose proof (range_foreach_spec _ _ z _ _ SpecPerms) as RangeForeach.
     rewrite (decide_False _ _ Outside) in RangeForeach.
     unfold item_lazy_perm_at_loc; simpl.
@@ -83,7 +77,6 @@ Proof.
   eexists.
   split; [|split]; [exact Unq|reflexivity|reflexivity].
 Qed.
-Arguments access_effect_per_loc_outside_range {_ _ _ _} Ex Unq {_ _ _ _ _ _ _} Outside IsPre Step.
 
 (* Strategy for lemmas of the form
 
@@ -1106,6 +1099,5 @@ Qed.
 
 (* reorder two arbitrary reads and reach the same borrow state *)
 (* rename bor_local_seq: bor_local_steps *)
-(* noalias interior mutable reserved foreign write + child write should work *)
 (* backwards reach is tricky: it prevents us from doing nontermination. don't rely on an EndCall later, assume no EndCall for the particular cid at every step *)
 (* ghost state, ressource algebras, invariants *)

@@ -3,91 +3,23 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas.
 From iris.prelude Require Import options.
 
-(*
-Lemma trees_at_block_build (prop : tree item -> Prop) trs blk :
-  forall tr,
-  trs !! blk = Some tr ->
-  prop tr ->
-  trees_at_block prop trs blk.
+Lemma access_eqv_strict_rel
+  {t t' tr tr' fn cids tg range dyn_rel}
+  (Preserves : app_preserves_tag fn)
+  (Access : tree_apply_access fn cids tg range tr dyn_rel = Some tr')
+  : StrictParentChildIn t t' tr <-> StrictParentChildIn t t' tr'.
 Proof.
-  move=> ? Eq ?.
-  rewrite /trees_at_block.
-  rewrite Eq; auto.
-Qed.
-
-Lemma trees_at_block_destruct (prop : tree item -> Prop) trs blk :
-  trees_at_block prop trs blk ->
-  exists tr,
-  trs !! blk = Some tr
-  /\ prop tr.
-Proof.
-  rewrite /trees_at_block.
-  case_match; [eauto|intro Contra; inversion Contra].
-Qed.
-
-Lemma trees_at_block_project (prop : tree item -> Prop) trs blk :
-  forall tr,
-  trees_at_block prop trs blk ->
-  trs !! blk = Some tr ->
-  prop tr.
-Proof.
-  rewrite /trees_at_block.
-  move=> ? H H'.
-  rewrite H' in H.
-  assumption.
-Qed.
-
-Lemma trees_at_block_project_neg (prop : tree item -> Prop) trs blk :
-  forall tr,
-  ~trees_at_block prop trs blk ->
-  trs !! blk = Some tr ->
-  ~prop tr.
-Proof.
-  rewrite /trees_at_block.
-  move=> ? H H'.
-  rewrite H' in H.
-  assumption.
-Qed.
-
-Lemma trees_at_block_insert (prop : tree item -> Prop) trs blk tr' :
-  prop tr' ->
-  trees_at_block prop (<[blk := tr']>trs) blk.
-Proof.
-  move=> ?.
-  rewrite /trees_at_block lookup_insert.
-  assumption.
-Qed.
-
-Lemma trees_at_block_insert_ne (prop : tree item -> Prop) trs blk :
-  forall blk' tr',
-  blk' ≠ blk ->
-  trees_at_block prop trs blk <-> trees_at_block prop (<[blk' := tr']>trs) blk.
-Proof.
-  move=> ?? Ne.
-  rewrite /trees_at_block lookup_insert_ne; [|auto].
-  reflexivity.
-Qed.
-*)
-
-Lemma access_eqv_strict_rel t t' (tr tr':tree item) :
-  forall fn cids tg range dyn_rel,
-  app_preserves_tag fn ->
-  tree_apply_access fn cids tg range tr dyn_rel = Some tr' ->
-  StrictParentChildIn t t' tr <-> StrictParentChildIn t t' tr'.
-Proof.
-  move=> ????? Preserves Access.
   eapply join_map_eqv_strict_rel; [|exact Access].
   move=> ??.
   apply Preserves.
 Qed.
 
-Lemma access_eqv_rel t t' (tr tr':tree item) :
-  forall fn cids tg range dyn_rel,
-  app_preserves_tag fn ->
-  tree_apply_access fn cids tg range tr dyn_rel = Some tr' ->
-  ParentChildIn t t' tr <-> ParentChildIn t t' tr'.
+Lemma access_eqv_rel
+  {t t' tr tr' fn cids tg range dyn_rel}
+  (Preserves : app_preserves_tag fn)
+  (Access : tree_apply_access fn cids tg range tr dyn_rel = Some tr')
+  : ParentChildIn t t' tr <-> ParentChildIn t t' tr'.
 Proof.
-  move=> ????? Preserves Access.
   unfold ParentChildIn.
   rewrite access_eqv_strict_rel; [|exact Preserves|exact Access].
   tauto.
@@ -98,28 +30,26 @@ Lemma item_apply_access_preserves_tag kind strong :
 Proof.
   move=> ??? it it'.
   unfold item_apply_access.
-  destruct (permissions_foreach); simpl; [|intro H; inversion H].
-  intro H; injection H; intros; subst.
+  intro Comp. option step in Comp as ?:?. injection Comp; intros; subst.
   simpl; reflexivity.
 Qed.
 
-Lemma item_apply_access_preserves_prot kind strong :
-  forall it it' cids rel range, item_apply_access kind strong cids rel range it = Some it' -> iprot it = iprot it'.
+Lemma item_apply_access_preserves_prot
+  {kind strong it it' cids rel range}
+  (Access : item_apply_access kind strong cids rel range it = Some it')
+  : iprot it = iprot it'.
 Proof.
-  move=> ?????.
-  unfold item_apply_access.
-  destruct (permissions_foreach); simpl; [|intro H; inversion H].
-  intro H; injection H; intros; subst.
+  option step in Access as ?:?.
+  injection Access; intros; subst.
   simpl; reflexivity.
 Qed.
 
-Lemma access_preserves_tags tr tg :
-  forall tr' tg' app cids range dyn_rel,
-  app_preserves_tag app ->
-  tree_apply_access app cids tg' range tr dyn_rel = Some tr' ->
-  tree_contains tg tr <-> tree_contains tg tr'.
+Lemma access_preserves_tags
+  {tr tg  tr' tg' app cids range dyn_rel}
+  (Preserves : app_preserves_tag app)
+  (Access : tree_apply_access app cids tg' range tr dyn_rel = Some tr')
+  : tree_contains tg tr <-> tree_contains tg tr'.
 Proof.
-  move=> tr' tg' app ??? Preserve Access.
   unfold tree_apply_access in Access.
   unfold tree_contains in *.
   rewrite (join_project_exists _ _ tr').
@@ -141,7 +71,7 @@ Proof.
       split; auto.
       unfold IsTag in *; subst.
       symmetry.
-      apply (Preserve _ _ _ _ _ App).
+      apply (Preserves _ _ _ _ _ App).
   * eapply exists_node_increasing.
     - exact Contains.
     - rewrite every_node_eqv_universal.
@@ -149,85 +79,81 @@ Proof.
       destruct xspec as [v App].
       destruct App.
       unfold IsTag in *; subst.
-      apply (Preserve _ _ _ _ _ H0).
+      apply (Preserves _ _ _ _ _ H0).
 Qed.
 
-Lemma insertion_preserves_tags tr tg :
-  forall tgp tgc cids tr' newp,
-  tree_contains tg tr ->
-  create_child cids tgp tgc newp tr = Some tr' ->
-  tree_contains tg tr'.
+Lemma insertion_preserves_tags
+  {tr tg tgp tgc cids tr' newp}
+  (Ex : tree_contains tg tr)
+  (Create : create_child cids tgp tgc newp tr = Some tr')
+  : tree_contains tg tr'.
 Proof.
-  move=> ??? tr' ? Contains CreateChild.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr _ _ _ _ _ CreateChild) as Insert.
+  pose proof (create_child_isSome tr _ _ _ _ _ Create) as Insert.
   rewrite Insert.
   apply insert_preserves_exists.
-  exact Contains.
+  exact Ex.
 Qed.
 
-Lemma insertion_minimal_tags tr tg :
-  forall tgp tgc cids tr' newp,
-  tgc ≠ tg ->
-  tree_contains tg tr' ->
-  create_child cids tgp tgc newp tr = Some tr' ->
-  tree_contains tg tr.
+Lemma insertion_minimal_tags
+  {tr tg tgp tgc cids tr' newp}
+  (Ne : tgc ≠ tg)
+  (Ex : tree_contains tg tr')
+  (Create : create_child cids tgp tgc newp tr = Some tr')
+  : tree_contains tg tr.
 Proof.
-  move=> ????? Ne Contains CreateChild.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr _ _ _ _ _ CreateChild) as Insert.
-  all: rewrite Insert in Contains.
-  eapply insert_false_infer_exists; [|exact Contains].
+  pose proof (create_child_isSome tr _ _ _ _ _ Create) as Insert.
+  all: rewrite Insert in Ex.
+  eapply insert_false_infer_exists; [|exact Ex].
   rewrite /IsTag; simpl; assumption.
 Qed.
 
-Lemma apply_access_spec_per_node tr affected_tag access_tag pre:
-  tree_contains access_tag tr ->
-  tree_contains affected_tag tr ->
-  tree_unique affected_tag pre tr ->
-  forall fn cids range tr' dyn_rel,
-  app_preserves_tag fn ->
-  tree_apply_access fn cids access_tag range tr dyn_rel = Some tr' ->
-  exists post,
+Lemma apply_access_spec_per_node
+  {tr affected_tag access_tag pre fn cids range tr' dyn_rel}
+  (ExAcc : tree_contains access_tag tr)
+  (ExAff : tree_contains affected_tag tr)
+  (UnqAff : tree_unique affected_tag pre tr)
+  (Preserves : app_preserves_tag fn)
+  (Access : tree_apply_access fn cids access_tag range tr dyn_rel = Some tr')
+  : exists post,
     Some post = fn cids (if dyn_rel pre.(itag) access_tag then AccessChild else AccessForeign) range pre
     /\ tree_contains affected_tag tr'
     /\ tree_unique affected_tag post tr'.
 Proof.
-  intros Contains Contains' TgSpec fn cids range tr' dyn_rel FnPreservesTag Success.
   (* Grab the success condition of every node separately *)
-  pose proof (proj1 (join_success_condition _) (mk_is_Some _ _ Success)) as SuccessCond.
+  pose proof (proj1 (join_success_condition _) (mk_is_Some _ _ Access)) as SuccessCond.
   rewrite every_node_map in SuccessCond; rewrite every_node_eqv_universal in SuccessCond.
-  pose proof (exists_unique_exists _ _ _ Contains' TgSpec) as Expre.
+  pose proof (exists_unique_exists _ _ _ ExAff UnqAff) as Expre.
   pose proof (SuccessCond pre Expre) as [post SpecPost].
-  unfold tree_unique in TgSpec. rewrite every_node_eqv_universal in TgSpec.
+  unfold tree_unique in UnqAff. rewrite every_node_eqv_universal in UnqAff.
   (* Now do some transformations to get to the node level *)
   unfold tree_unique.
   exists post.
   split; [symmetry; auto|].
-  split; [rewrite <- (access_preserves_tags _ _ _ _ _ _ _ _ FnPreservesTag Success); exact Contains'|].
-  rewrite join_project_every; [|exact Success].
+  split; [rewrite <- (access_preserves_tags Preserves Access); exact ExAff|].
+  rewrite join_project_every; [|exact Access].
   rewrite every_node_map.
   unfold compose.
   rewrite every_node_eqv_universal.
   intros n Exn.
   destruct (decide (IsTag affected_tag n)).
-  * pose proof (TgSpec n Exn) as PerNodeEqual.
-    clear Success Contains SuccessCond TgSpec Contains' Exn.
+  * pose proof (UnqAff n Exn) as PerNodeEqual.
+    clear Access ExAff SuccessCond UnqAff ExAff Exn.
     exists post.
     split; [|tauto].
     rewrite PerNodeEqual; auto.
   * pose proof (SuccessCond n Exn) as NodeSuccess.
     destruct NodeSuccess as [post' post'Spec].
     exists post'.
-    unfold IsTag; rewrite <- (FnPreservesTag _ _ _ _ _ post'Spec).
+    unfold IsTag; rewrite <- (Preserves _ _ _ _ _ post'Spec).
     split; [|tauto].
     exact post'Spec.
 Qed.
 
 Lemma bor_local_step_preserves_contains
-  tg tr
+  {tg tr tr' cids cids' evt}
   (Ex : tree_contains tg tr)
-  tr' cids cids' evt
   (Step : bor_local_step
     tr cids
     evt
@@ -236,17 +162,16 @@ Lemma bor_local_step_preserves_contains
 Proof.
   inversion Step; subst.
   - (* Access *)
-    rewrite <- access_preserves_tags; [eassumption| |exact ACC].
+    erewrite <- access_preserves_tags; [eassumption| |exact ACC].
     eapply item_apply_access_preserves_tag.
   - (* InitCall *) assumption.
   - (* EndCall *) assumption.
   - (* Retag *)
     eapply insertion_preserves_tags; eauto.
 Qed.
-Arguments bor_local_step_preserves_contains {_ _} Ex {_ _ _ _} Step.
 
 Lemma bor_local_step_retag_produces_contains_unique
-  tgp tg tr tr' cids cids' newp cid
+  {tgp tg tr tr' cids cids' newp cid}
   (Step : bor_local_step
     tr cids
     (RetagBLEvt tgp tg newp cid)
@@ -261,19 +186,14 @@ Proof.
     eapply inserted_unique; [apply new_item_has_tag|].
     assumption.
 Qed.
-Arguments bor_local_step_retag_produces_contains_unique {_ _ _ _ _ _ _ _} Step.
 
 (* This lemma does not handle the complicated case of an access in the same block as blk.
    See bor_estep_access_spec. *)
 Lemma bor_local_step_preserves_unique_easy
-  tg tr it tr'
+  {tg tr it tr' cids cids' evt}
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg it tr)
-  cids cids' evt
-  (Step : bor_local_step
-    tr cids
-    evt
-    tr' cids')
+  (Step : bor_local_step tr cids evt tr' cids')
   : exists it',
   tree_unique tg it' tr'
   /\ match evt with
@@ -286,7 +206,7 @@ Lemma bor_local_step_preserves_unique_easy
 Proof.
   inversion Step; subst.
   - (* Access *)
-    destruct (apply_access_spec_per_node _ _ _ _ EXISTS_TAG Ex Unq _ _ _ _ _ (item_apply_access_preserves_tag _ _) ACC) as [?[Spec[_?]]].
+    destruct (apply_access_spec_per_node EXISTS_TAG Ex Unq (item_apply_access_preserves_tag _ _) ACC) as [?[Spec[_?]]].
     eexists; split; eauto.
     symmetry in Spec. eapply item_apply_access_preserves_prot; exact Spec.
   - eexists; split; [|reflexivity]; assumption.
@@ -296,16 +216,12 @@ Proof.
     eapply create_child_preserves_unique; [|exact Unq|exact RETAG_EFFECT].
     intro; subst. destruct (FRESH_CHILD Ex).
 Qed.
-Arguments bor_local_step_preserves_unique_easy {_ _ _ _} Ex Unq {_ _ _} Step.
 
 Lemma bor_local_step_eqv_rel
   {tg tg' tr tr' cids cids' evt}
   (Ex : tree_contains tg tr)
   (Ex' : tree_contains tg' tr)
-  (Step : bor_local_step
-    tr cids
-    evt
-    tr' cids')
+  (Step : bor_local_step tr cids evt tr' cids')
   : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
 Proof.
   inversion Step; subst.
@@ -347,11 +263,7 @@ Lemma bor_local_step_retag_order_nonparent
 Proof.
   inversion Step; subst.
   injection RETAG_EFFECT; intros; subst.
-  eapply insertion_order_nonparent.
-  - exact Ex'.
-  - exact FRESH_CHILD.
-  - exact EXISTS_PARENT.
-  - exact RETAG_EFFECT.
+  eapply insertion_order_nonparent; eassumption.
 Qed.
 
 Lemma apply_access_perm_preserves_backward_reach
@@ -392,14 +304,14 @@ Lemma memory_access_preserves_backward_reach
   (UnqAff' : tree_unique affected_tag post tr')
   : reach p0 (item_perm_at_loc pre z) -> reach p0 (item_perm_at_loc post z).
 Proof.
-  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
   pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
   (* now it's just bruteforce case analysis *)
   generalize dependent post.
   generalize dependent pre.
   clear. move=> pre _ post _ Access _.
-  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
-  injection Access'; intros e; subst; clear Access'.
+  option step in Access as ?:Foreach.
+  injection Access; intros e; subst; clear Access.
   pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (decide (range_contains _ _)).
@@ -418,14 +330,14 @@ Lemma memory_access_preserves_forward_unreach
   (UnqAff' : tree_unique affected_tag post tr')
   : ~reach (item_perm_at_loc pre z) p0 -> ~reach (item_perm_at_loc post z) p0.
 Proof.
-  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
   pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
   (* now it's just bruteforce case analysis *)
   generalize dependent post.
   generalize dependent pre.
   clear. move=> pre _ post _ Access _.
-  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
-  injection Access'; intros e; subst; clear Access'.
+  option step in Access as ?:Foreach.
+  injection Access; intros e; subst; clear Access.
   pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (decide (range_contains _ _)).
@@ -834,14 +746,14 @@ Lemma memory_access_protected_initialized_preserves_active
   (Init : initialized zpre = PermInit)
   : perm zpre = Active -> perm zpost = Active.
 Proof.
-  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
   pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
   (* now it's just bruteforce case analysis *)
   generalize dependent post.
   generalize dependent pre.
   clear. move=> pre _ Prot Init post _ Access _.
-  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
-  injection Access'; intros e; subst; clear Access'.
+  option step in Access as ?:Foreach.
+  injection Access; intros e; subst; clear Access.
   pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
@@ -947,14 +859,14 @@ Lemma memory_access_protected_initialized_preserves_nondis
   (Init : initialized zpre = PermInit)
   : ~reach Disabled (perm zpre) -> ~reach Disabled (perm zpost).
 Proof.
-  destruct (apply_access_spec_per_node _ _ _ _ ExAcc ExAff UnqAff _ _ _ _ _ (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
   pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
   (* now it's just bruteforce case analysis *)
   generalize dependent post.
   generalize dependent pre.
   clear. move=> pre _ Prot Init post _ Access _.
-  symmetry in Access; destruct (option_bind_success_step _ _ _ Access) as [?[Foreach Access']]; clear Access.
-  injection Access'; intros e; subst; clear Access'.
+  option step in Access as ?:Foreach.
+  injection Access; intros e; subst; clear Access.
   pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].

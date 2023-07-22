@@ -22,6 +22,29 @@ Proof.
   eexists. split; [reflexivity|assumption].
 Qed.
 
+Ltac option_bind_success H x C :=
+  let tmp := fresh "H" in
+  match type of H with
+  | _ = Some _ => idtac
+  | Some _ = _ => symmetry in H
+  | is_Some _ => let x' := fresh "x" in destruct H as [x' H]
+  end;
+  destruct (option_bind_success_step _ _ _ H) as [x [C tmp]];
+  clear H; rename tmp into H.
+
+Tactic Notation "option" "step" "in" constr(H) "as" ident(x) ":" ident(C) :=
+  option_bind_success H x C.
+Tactic Notation "option" "step" "in" constr(H) "as" "?" ":" ident(C) :=
+  let x := fresh "x" in
+  option_bind_success H x C.
+Tactic Notation "option" "step" "in" constr(H) "as" ident(x) ":" "?" :=
+  let C := fresh "C" in
+  option_bind_success H x C.
+Tactic Notation "option" "step" "in" constr(H) "as" "?" ":" "?" :=
+  let x := fresh "x" in
+  let C := fresh "C" in
+  option_bind_success H x C.
+
 Lemma join_join_nodes {X} :
   forall (tr:tree (option (option X))),
   option_bind join_nodes (join_nodes tr) = join_nodes (map_nodes option_join tr).
@@ -75,11 +98,13 @@ Lemma join_success_condition {X} (tr:tree (option X)) :
 Proof.
   induction tr; simpl; split; auto.
   - intro Computation.
-    destruct data; destruct (join_nodes tr1); destruct (join_nodes tr2).
-    all: simpl in Computation; inversion Computation; inversion H.
+    option step in Computation as ?:?.
+    option step in Computation as ?:?.
+    option step in Computation as ?:?.
+    injection Computation; intros; subst.
     rewrite <- IHtr1.
     rewrite <- IHtr2.
-    split; [|split]. all: auto.
+    done.
   - intro AllSuccess.
     destruct AllSuccess as [DataSome [Success1 Success2]].
     destruct DataSome; rewrite H; clear H; simpl.
@@ -416,17 +441,16 @@ Lemma join_project_exists {X} tr prop :
 Proof.
   induction tr; intros tr' JoinSome.
   - simpl in JoinSome; injection JoinSome; intros; subst; tauto.
-  - simpl in JoinSome.
-    destruct data; simpl in *; [|inversion JoinSome].
-    destruct (join_nodes tr1); simpl in *; [|inversion JoinSome].
-    destruct (join_nodes tr2); simpl in *; [|inversion JoinSome].
+  - option step in JoinSome as ?:?.
+    option step in JoinSome as ?:?.
+    option step in JoinSome as ?:?.
     injection JoinSome; intros; subst.
     simpl.
-    split; intro H; destruct H as [H0 | [H1 | H2]].
-    * left. exists x; tauto.
-    * right; left. rewrite <- IHtr1; [exact H1|auto].
-    * right; right. rewrite <- IHtr2; [exact H2|auto].
-    * left. destruct H0 as [v [SomeV Pv]]; injection SomeV; intros; subst; auto.
+    split; intro H; destruct H as [H0|[?|?]].
+    * left. eexists; tauto.
+    * right; left. rewrite <- IHtr1; eauto.
+    * right; right. rewrite <- IHtr2; eauto.
+    * left. destruct H0 as [?[SomeV ?]]; injection SomeV; intros; subst; auto.
     * right; left. rewrite IHtr1; auto.
     * right; right. rewrite IHtr2; auto.
 Qed.
@@ -437,39 +461,38 @@ Lemma join_project_every {X} tr prop :
   every_node prop tr' <-> every_node (fun x => exists (v:X), x = Some v /\ prop v) tr.
 Proof.
   induction tr; intros tr' JoinSome.
-  - simpl in JoinSome; injection JoinSome; intros; subst; tauto.
-  - simpl in JoinSome.
-    destruct data; simpl in *; [|inversion JoinSome].
-    destruct (join_nodes tr1); simpl in *; [|inversion JoinSome].
-    destruct (join_nodes tr2); simpl in *; [|inversion JoinSome].
+  - injection JoinSome; intros; subst; tauto.
+  - option step in JoinSome as ?:?.
+    option step in JoinSome as ?:?.
+    option step in JoinSome as ?:?.
     injection JoinSome; intros; subst.
     simpl.
     try repeat split.
     all: destruct H as [?[??]].
     * eexists; easy.
-    * rewrite <- IHtr1; auto; auto.
-    * rewrite <- IHtr2; auto; auto.
+    * rewrite <- IHtr1; [|eauto]; done.
+    * rewrite <- IHtr2; [|eauto]; done.
     * destruct H as [?[??]]; injection H; intros; subst; auto.
-    * rewrite IHtr1; auto.
-    * rewrite IHtr2; auto.
+    * rewrite IHtr1; done.
+    * rewrite IHtr2; done.
 Qed.
 
 Lemma destruct_joined {X} (data:option X) (tr1 tr2:tree (option X)) tr' :
   join_nodes (branch data tr1 tr2) = Some tr' ->
-  exists data' tr1' tr2',
+  exists data' tr1' tr2', (
     tr' = branch data' tr1' tr2'
     /\ data = Some data'
     /\ join_nodes tr1 = Some tr1'
     /\ join_nodes tr2 = Some tr2'
-  .
+  ).
 Proof.
   intros Join.
-  destruct (option_bind_success_step _ _ _ Join) as [data' [? Rest]]; clear Join.
-  destruct (option_bind_success_step _ _ _ Rest) as [tr1' [? Rest']]; clear Rest.
-  destruct (option_bind_success_step _ _ _ Rest') as [tr2' [? Done]]; clear Rest'.
-  exists data', tr1', tr2'.
-  try repeat split; try assumption.
-  injection Done; auto.
+  option step in Join as ?:?.
+  option step in Join as ?:?.
+  option step in Join as ?:?.
+  injection Join; intros; subst.
+  do 3 eexists.
+  try repeat split; eassumption.
 Qed.
 
 Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
