@@ -228,6 +228,8 @@ Definition protector_is_for_call c prot := call_of_protector prot = Some c.
 Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
 Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Qed.
 
+Definition protector_compatible_call c prot := is_Some prot -> protector_is_for_call c prot.
+
 Definition protector_is_active prot cids :=
   exists c, protector_is_for_call c prot /\ call_is_active c cids.
 Definition witness_protector_is_active prot cids :=
@@ -574,6 +576,7 @@ Inductive bor_local_step tr cids
     (EL: cid ∈ cids)
     (EXISTS_PARENT: tree_contains tgp tr)
     (FRESH_CHILD: ~tree_contains tg tr)
+    (COMPAT_CID: protector_compatible_call cid (new_protector newp))
     (RETAG_EFFECT: create_child cids tgp tg newp tr = Some tr') :
     bor_local_step
       tr cids
