@@ -1582,5 +1582,57 @@ Proof.
   assumption.
 Qed.
 
-Print memory_access.
-Print bor_local_step.
+Lemma memory_access_read_commutes
+  {cids access_tag1 access_tag2 range1 range2}
+  : commutes_if
+    (every_node (fun it0 => initp it0 ≠ Active /\ forall z p, iperm it0 !! z = Some p -> not_lazy_active p))
+    (memory_access AccessRead ProtStrong cids access_tag1 range1)
+    (memory_access AccessRead ProtStrong cids access_tag2 range2).
+Proof.
+  unfold memory_access.
+  apply tree_apply_access_commutes.
+  1,2: intros; eapply item_apply_access_preserves_tag; eassumption.
+  intros.
+  apply item_apply_access_read_commutes.
+Qed.
+
+Lemma llvm_read_read_reorder
+  {tr_initial cids_initial tr_final cids_final access_tag1 access_tag2 range1 range2}
+  (ActiveRequiresInitialized :
+    every_node (fun it0 => initp it0 ≠ Active /\ forall z p, iperm it0 !! z = Some p -> not_lazy_active p) tr_initial)
+  (Seq12 : bor_local_seq
+    ignore ignore
+    tr_initial cids_initial
+    (
+         [AccessBLEvt AccessRead access_tag1 range1]
+      ++ [AccessBLEvt AccessRead access_tag2 range2]
+    )
+    tr_final cids_final
+  )
+  : bor_local_seq
+    ignore ignore
+    tr_initial cids_initial
+    (
+         [AccessBLEvt AccessRead access_tag2 range2]
+      ++ [AccessBLEvt AccessRead access_tag1 range1]
+    )
+    tr_final cids_final.
+Proof.
+  rewrite bor_local_seq_split.
+  rewrite bor_local_seq_split in Seq12.
+  destruct Seq12 as [tr_interm [cids_interm [Pre Post]]].
+  inversion Pre; subst.
+  inversion Post; subst.
+  inversion REST; subst.
+  inversion REST0; subst.
+  inversion HEAD; subst.
+  inversion HEAD0; subst.
+  destruct (memory_access_read_commutes tr_initial tr_interm tr_final ActiveRequiresInitialized ACC ACC0) as [tr_alt [PreAlt PostAlt]].
+
+  exists tr_alt, cids_final.
+  split.
+  - econstructor; [done|done|constructor; [|exact PreAlt]|constructor; done].
+    erewrite access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+  - econstructor; [done|done|constructor; [|exact PostAlt]|constructor; done].
+    erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+Qed.
