@@ -382,50 +382,44 @@ Proof.
 Qed.
 
 Lemma seq_always_build_forward
-  {Ptr INVtr : tree item -> Prop}
-  {Pcids INVcids : call_id_set -> Prop}
+  {invariant invariant'}
   {tr cids evts tr' cids'}
-  (PTR0 : Ptr tr)
-  (PCID0 : Pcids cids)
+  (INV0 : invariant'.(seq_inv) tr cids)
   (Preserve : forall tr cids tr' cids' evt,
     bor_local_step tr cids evt tr' cids' ->
-    Ptr tr -> Pcids cids ->
-    INVtr tr -> INVcids cids ->
-    Ptr tr' /\ Pcids cids'
+    invariant.(seq_inv) tr cids ->
+    invariant'.(seq_inv) tr cids ->
+    invariant'.(seq_inv) tr' cids'
   )
-  (Seq : bor_local_seq INVtr INVcids tr cids evts tr' cids')
-  : bor_local_seq Ptr Pcids tr cids evts tr' cids'.
+  (Seq : bor_local_seq invariant tr cids evts tr' cids')
+  : bor_local_seq invariant' tr cids evts tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent tr'.
   generalize dependent cids.
   generalize dependent cids'.
-  induction evts; move=> ?????? Seq; inversion Seq; subst.
+  induction evts; move=> ????? Seq; inversion Seq; subst.
   - constructor; assumption.
   - econstructor; eauto.
-    destruct (Preserve _ _ _ _ _ HEAD) as [??]; try assumption.
-    eapply IHevts; auto.
 Qed.
 
 Lemma seq_always_destruct_first
-  {Ptr : tree item -> Prop}
-  {Pcids : call_id_set -> Prop}
+  {invariant}
   {tr cids evts tr' cids'}
-  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
-  : Ptr tr /\ Pcids cids.
-Proof. inversion Seq; subst; split; assumption. Qed.
+  (Seq : bor_local_seq invariant tr cids evts tr' cids')
+  : invariant.(seq_inv) tr cids.
+Proof. inversion Seq; subst; assumption. Qed.
 
 Lemma seq_always_destruct_last
-  {Ptr : tree item -> Prop}
-  {Pcids : call_id_set -> Prop}
+  {invariant}
   {tr cids evts tr' cids'}
-  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
-  : Ptr tr' /\ Pcids cids'.
+  (Seq : bor_local_seq invariant tr cids evts tr' cids')
+  : invariant.(seq_inv) tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent cids.
   induction evts; move=> ?? Seq; inversion Seq; subst.
-  - split; assumption.
+  - assumption.
   - eapply IHevts; eauto.
 Qed.
 
@@ -443,9 +437,9 @@ Proof.
 Qed.
 
 Lemma bor_local_seq_deterministic
-  {tr cids evts tr1 cids1 tr2 cids2}
-  (Seq1 : bor_local_seq ignore ignore tr cids evts tr1 cids1)
-  (Seq2 : bor_local_seq ignore ignore tr cids evts tr2 cids2)
+  {invariant tr cids evts tr1 cids1 tr2 cids2}
+  (Seq1 : bor_local_seq invariant tr cids evts tr1 cids1)
+  (Seq2 : bor_local_seq invariant tr cids evts tr2 cids2)
   : tr1 = tr2 /\ cids1 = cids2.
 Proof.
   generalize dependent tr.
@@ -460,30 +454,24 @@ Proof.
     eapply IHevts; eauto.
 Qed.
 
-Lemma ignore_always_True {T} : forall (t:T), ignore t.
-Proof. rewrite /ignore; tauto. Qed.
-
 Lemma bor_local_seq_forget
-  {Ptr Pcids tr cids evts tr' cids'}
-  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
-  : bor_local_seq ignore ignore tr cids evts tr' cids'.
+  {invariant tr cids evts tr' cids'}
+  (Seq : bor_local_seq invariant tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent cids.
   induction evts; move=> ?? Seq; inversion Seq; subst.
-  - constructor; apply ignore_always_True.
-  - econstructor; [apply ignore_always_True|apply ignore_always_True|exact HEAD|].
+  - constructor; done.
+  - econstructor; [done|exact HEAD|].
     eapply IHevts; assumption.
 Qed.
 
 Lemma seq_always_build_direct
-  {Ptr : tree item -> Prop}
-  {Pcids : call_id_set -> Prop}
-  {tr cids evts tr' cids'}
-  (PTR : forall tr, Ptr tr)
-  (PCIDS : forall cids, Pcids cids)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  : bor_local_seq Ptr Pcids tr cids evts tr' cids'.
+  {invariant tr cids evts tr' cids'}
+  (PTR : forall tr cids, invariant.(seq_inv) tr cids)
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq invariant tr cids evts tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent cids.
@@ -493,13 +481,10 @@ Proof.
 Qed.
 
 Lemma seq_always_build_weaken
-  {Ptr Ptr' : tree item -> Prop}
-  {Pcids Pcids' : call_id_set -> Prop}
-  {tr cids evts tr' cids'}
-  (PTR_WEAKEN : forall tr, Ptr tr -> Ptr' tr)
-  (PCIDS_WEAKEN : forall cids, Pcids cids -> Pcids' cids)
-  (Seq : bor_local_seq Ptr Pcids tr cids evts tr' cids')
-  : bor_local_seq Ptr' Pcids' tr cids evts tr' cids'.
+  {invariant invariant' tr cids evts tr' cids'}
+  (WEAKEN : forall tr cids, invariant.(seq_inv) tr cids -> invariant'.(seq_inv) tr cids)
+  (Seq : bor_local_seq invariant tr cids evts tr' cids')
+  : bor_local_seq invariant' tr cids evts tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent cids.
@@ -509,12 +494,10 @@ Proof.
 Qed.
 
 Lemma seq_always_merge
-  {tr cids evts tr' cids'}
-  {Ptr1 Ptr2 : tree item -> Prop}
-  {Pcids1 Pcids2 : call_id_set -> Prop}
-  (Seq1 : bor_local_seq Ptr1 Pcids1 tr cids evts tr' cids')
-  (Seq2 : bor_local_seq Ptr2 Pcids2 tr cids evts tr' cids')
-  : bor_local_seq (fun tr => Ptr1 tr /\ Ptr2 tr) (fun cids => Pcids1 cids /\ Pcids2 cids) tr cids evts tr' cids'.
+  {invariant1 invariant2 tr cids evts tr' cids'}
+  (Seq1 : bor_local_seq invariant1 tr cids evts tr' cids')
+  (Seq2 : bor_local_seq invariant2 tr cids evts tr' cids')
+  : bor_local_seq {| seq_inv:=fun tr cids => invariant1.(seq_inv) tr cids /\ invariant2.(seq_inv) tr cids|} tr cids evts tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent cids.
@@ -522,28 +505,28 @@ Proof.
   - constructor; split; assumption.
   - pose proof (bor_local_step_deterministic HEAD HEAD0) as [??]; subst.
     pose proof (bor_local_seq_deterministic (bor_local_seq_forget REST) (bor_local_seq_forget REST0)) as [??]; subst.
-    econstructor; eauto.
+    econstructor; simpl; eauto.
 Qed.
 
 Lemma bor_local_seq_always_contains
   {tg tr cids tr' cids' evts}
   (Ex : tree_contains tg tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  : bor_local_seq (tree_contains tg) ignore tr cids evts tr' cids'.
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => (tree_contains tg) tr|} tr cids evts tr' cids'.
 Proof.
-  eapply seq_always_build_forward; [assumption|apply ignore_always_True| |exact Seq].
+  eapply seq_always_build_forward; [assumption| |exact Seq].
   clear.
-  move=> ????? Step Ex _; split; [|apply ignore_always_True].
+  move=> ????? Step _ Ex; simpl in *.
   eapply bor_local_step_preserves_contains; eassumption.
 Qed.
 
 Lemma bor_local_seq_last_contains
   {tg tr cids tr' cids' evts}
   (Ex : tree_contains tg tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
   : tree_contains tg tr'.
 Proof.
-  destruct (seq_always_destruct_last (bor_local_seq_always_contains Ex Seq)) as [??].
+  pose proof (seq_always_destruct_last (bor_local_seq_always_contains Ex Seq)).
   assumption.
 Qed.
 
@@ -552,13 +535,12 @@ Lemma bor_local_seq_always_unique
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
   (ProtEq : iprot pre = prot)
-  (Seq : bor_local_seq (tree_contains tg) ignore tr cids evts tr' cids')
-  : bor_local_seq (fun tr => exists it, tree_unique tg it tr /\ iprot it = prot) ignore tr cids evts tr' cids'.
+  (Seq : bor_local_seq {|seq_inv:=fun tr _ => (tree_contains tg) tr|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => exists it, tree_unique tg it tr /\ iprot it = prot|} tr cids evts tr' cids'.
 Proof.
-  eapply seq_always_build_forward; [|apply ignore_always_True| |exact Seq].
+  eapply seq_always_build_forward; [| |exact Seq].
   - eexists; split; eassumption.
-  - clear. move=> ???? evt Step [?[Unq Prot]] _ Ex _.
-    split; [|apply ignore_always_True].
+  - clear. simpl. move=> ???? evt Step Ex [?[Unq Prot]].
     destruct (bor_local_step_preserves_unique_easy Ex Unq Step) as [?[??]].
     eexists.
     split; [eassumption|].
@@ -569,11 +551,11 @@ Lemma bor_local_seq_last_unique
   {tg tr tr' cids cids' evts pre}
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
   : exists post, tree_unique tg post tr' /\ iprot pre = iprot post.
 Proof.
   pose proof (bor_local_seq_always_contains Ex Seq) as AllEx.
-  destruct (seq_always_destruct_last (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as [[?[??]]?].
+  destruct (seq_always_destruct_last (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as [?[??]].
   eexists; split; subst; eauto.
 Qed.
 
@@ -582,15 +564,14 @@ Lemma bor_local_seq_always_rel
   (Rel : ParentChildIn tg tg' tr)
   (Ex : tree_contains tg tr)
   (Ex' : tree_contains tg' tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  : bor_local_seq (ParentChildIn tg tg') ignore tr cids evts tr' cids'.
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => (ParentChildIn tg tg') tr|} tr cids evts tr' cids'.
 Proof.
   pose proof (seq_always_merge
     (bor_local_seq_always_contains Ex Seq)
     (bor_local_seq_always_contains Ex' Seq)) as AllExEx'.
-  eapply seq_always_build_forward; [assumption|apply ignore_always_True| |exact AllExEx'].
-  clear; simpl; move=> ????? Step Rel _ [Ex Ex'] _.
-  split; [|apply ignore_always_True].
+  eapply seq_always_build_forward; [assumption| |exact AllExEx'].
+  clear; simpl; move=> ????? Step [Ex Ex'] Rel.
   rewrite <- (bor_local_step_eqv_rel Ex Ex' Step).
   assumption.
 Qed.
@@ -600,15 +581,14 @@ Lemma bor_local_seq_always_unrel
   (Rel : ~ParentChildIn tg tg' tr)
   (Ex : tree_contains tg tr)
   (Ex' : tree_contains tg' tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  : bor_local_seq (compose not (ParentChildIn tg tg')) ignore tr cids evts tr' cids'.
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => ~ParentChildIn tg tg' tr|} tr cids evts tr' cids'.
 Proof.
   pose proof (seq_always_merge
     (bor_local_seq_always_contains Ex Seq)
     (bor_local_seq_always_contains Ex' Seq)) as AllExEx'.
-  eapply seq_always_build_forward; [assumption|apply ignore_always_True| |exact AllExEx'].
-  clear; simpl; move=> ????? Step Rel _ [Ex Ex'] _.
-  split; [|apply ignore_always_True].
+  eapply seq_always_build_forward; [assumption| |exact AllExEx'].
+  clear; simpl; move=> ????? Step [Ex Ex'] Rel.
   rewrite <- (bor_local_step_eqv_rel Ex Ex' Step).
   assumption.
 Qed.
@@ -617,13 +597,13 @@ Lemma bor_local_seq_last_eqv_rel
   {tg tg' tr tr' cids cids' evts}
   (Ex : tree_contains tg tr)
   (Ex' : tree_contains tg' tr)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
   : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
 Proof.
   destruct (decide (ParentChildIn tg tg' tr)) as [Rel|Unrel].
-  - destruct (seq_always_destruct_last (bor_local_seq_always_rel Rel Ex Ex' Seq)).
+  - pose proof (seq_always_destruct_last (bor_local_seq_always_rel Rel Ex Ex' Seq)).
     tauto.
-  - destruct (seq_always_destruct_last (bor_local_seq_always_unrel Unrel Ex Ex' Seq)).
+  - pose proof (seq_always_destruct_last (bor_local_seq_always_unrel Unrel Ex Ex' Seq)).
     simpl in *.
     tauto.
 Qed.
@@ -633,16 +613,15 @@ Lemma bor_local_seq_always_backward_reach
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
   (Reach : reach p0 (item_perm_at_loc pre z))
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  : bor_local_seq (fun tr => forall post (UnqPost : tree_unique tg post tr), reach p0 (item_perm_at_loc post z)) ignore
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => forall post (UnqPost : tree_unique tg post tr), reach p0 (item_perm_at_loc post z)|}
       tr cids evts tr' cids'.
 Proof.
   pose proof (bor_local_seq_always_contains Ex Seq) as AllEx.
   pose proof (seq_always_merge AllEx (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as AllExUnq.
-  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnq].
+  eapply seq_always_build_forward; [| |exact AllExUnq].
   + move=> ? Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
-  + clear; move=> ????? Step Reach _ [Ex [?[Unq _]]] _.
-    split; [|apply ignore_always_True].
+  + clear; simpl; move=> ????? Step [Ex [?[Unq _]]] Reach.
     move=> ? Unq'.
     eapply bor_local_step_preserves_backward_reach; eauto.
 Qed.
@@ -652,10 +631,10 @@ Lemma bor_local_seq_last_backward_reach
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
   (Reach : reach p0 (item_perm_at_loc pre z))
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
   : forall post (UnqPost : tree_unique tg post tr'), reach p0 (item_perm_at_loc post z).
 Proof.
-  pose proof (seq_always_destruct_last (bor_local_seq_always_backward_reach Ex Unq Reach Seq)) as [??].
+  pose proof (seq_always_destruct_last (bor_local_seq_always_backward_reach Ex Unq Reach Seq)).
   assumption.
 Qed.
 
@@ -664,16 +643,15 @@ Lemma bor_local_seq_always_forward_unreach
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
   (Unreach : ~reach (item_perm_at_loc pre z) p0)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
-  : bor_local_seq (fun tr => forall post (UnqPost : tree_unique tg post tr), ~reach (item_perm_at_loc post z) p0) ignore
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => forall post (UnqPost : tree_unique tg post tr), ~reach (item_perm_at_loc post z) p0|}
       tr cids evts tr' cids'.
 Proof.
   pose proof (bor_local_seq_always_contains Ex Seq) as AllEx.
   pose proof (seq_always_merge AllEx (bor_local_seq_always_unique Ex Unq eq_refl AllEx)) as AllExUnq.
-  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnq].
+  eapply seq_always_build_forward; [| |exact AllExUnq].
   + move=> ? Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
-  + clear; move=> ????? Step Reach _ [Ex [?[Unq _]]] _.
-    split; [|apply ignore_always_True].
+  + clear; move=> ????? Step [Ex [?[Unq _]]] Reach.
     move=> ? Unq'.
     eapply bor_local_step_preserves_forward_unreach; eauto.
 Qed.
@@ -683,17 +661,17 @@ Lemma bor_local_seq_last_forward_unreach
   (Ex : tree_contains tg tr)
   (Unq : tree_unique tg pre tr)
   (Unreach : ~reach (item_perm_at_loc pre z) p0)
-  (Seq : bor_local_seq ignore ignore tr cids evts tr' cids')
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
   : forall post (UnqPost : tree_unique tg post tr'), ~reach (item_perm_at_loc post z) p0.
 Proof.
-  pose proof (seq_always_destruct_last (bor_local_seq_always_forward_unreach Ex Unq Unreach Seq)) as [??].
+  pose proof (seq_always_destruct_last (bor_local_seq_always_forward_unreach Ex Unq Unreach Seq)).
   assumption.
 Qed.
 
 Lemma bor_local_seq_split
-  {Ptr Pcids tr tr' cids cids' l l'}
-  : bor_local_seq Ptr Pcids tr cids (l ++ l') tr' cids'
-  <-> exists tr'' cids'', bor_local_seq Ptr Pcids tr cids l tr'' cids'' /\ bor_local_seq Ptr Pcids tr'' cids'' l' tr' cids'.
+  {invariant tr tr' cids cids' l l'}
+  : bor_local_seq invariant tr cids (l ++ l') tr' cids'
+  <-> exists tr'' cids'', bor_local_seq invariant tr cids l tr'' cids'' /\ bor_local_seq invariant tr'' cids'' l' tr' cids'.
 Proof.
   generalize dependent tr.
   generalize dependent cids.
@@ -710,11 +688,11 @@ Proof.
       destruct REST as [?[?[S' S'']]].
       eexists. eexists.
       split.
-      * econstructor; [assumption|assumption|exact HEAD|exact S'].
+      * econstructor; [assumption|exact HEAD|exact S'].
       * assumption.
     + destruct Hyp as [?[?[S S']]].
       inversion S; subst.
-      econstructor; [assumption|assumption|exact HEAD|].
+      econstructor; [assumption|exact HEAD|].
       rewrite IHl.
       eexists. eexists.
       split; eassumption.
@@ -795,21 +773,20 @@ Lemma protected_during_seq_always_stays_active
   (Call : protector_is_for_call cid prot)
   (StartsActive : item_perm_at_loc pre z = Active)
   (Seq : bor_local_seq
-    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
+    {|seq_inv:=fun tr cids =>
+      (forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+      /\ call_is_active cid cids|}
     tr cids evts tr' cids')
   : bor_local_seq
-    (fun tr => forall it, tree_unique affected_tag it tr -> perm (item_lazy_perm_at_loc it z) = Active)
-    ignore
+    {|seq_inv:=fun tr _ => forall it, tree_unique affected_tag it tr -> perm (item_lazy_perm_at_loc it z) = Active|}
     tr cids evts tr' cids'.
 Proof.
   pose proof (bor_local_seq_always_contains Ex (bor_local_seq_forget Seq)) as AllEx.
   pose proof (bor_local_seq_always_unique Ex Unq Prot AllEx) as AllUnq.
   pose proof (seq_always_merge AllEx (seq_always_merge Seq AllUnq)) as AllExUnqInitProt.
-  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnqInitProt].
+  eapply seq_always_build_forward; [| |exact AllExUnqInitProt].
   + move=> it Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
-  + generalize Call; clear; simpl; move=> Call ????? Step Act _ [Ex [Init [?[Unq ProtEq]]]] [_ [Prot _]].
-    split; [|apply ignore_always_True].
+  + generalize Call; clear; simpl; move=> Call ????? Step [Ex [[Init CallAct] [?[Unq ProtEq]]]] Act.
     move=> ? Unq'.
     subst.
     eapply protected_during_step_stays_active; eauto.
@@ -824,12 +801,13 @@ Lemma protected_during_seq_last_stays_active
   (Call : protector_is_for_call cid prot)
   (StartsActive : item_perm_at_loc pre z = Active)
   (Seq : bor_local_seq
-    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
+    {|seq_inv:=fun tr cids =>
+      (forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+      /\ call_is_active cid cids|}
     tr cids evts tr' cids')
   : forall post, tree_unique affected_tag post tr' -> perm (item_lazy_perm_at_loc post z) = Active.
 Proof.
-  pose proof (seq_always_destruct_last (protected_during_seq_always_stays_active Ex Unq Prot Call StartsActive Seq)) as [??].
+  pose proof (seq_always_destruct_last (protected_during_seq_always_stays_active Ex Unq Prot Call StartsActive Seq)).
   assumption.
 Qed.
 
@@ -908,21 +886,20 @@ Lemma protected_during_seq_always_stays_nondis
   (Call : protector_is_for_call cid prot)
   (StartsNonDis : ~reach Disabled (item_perm_at_loc pre z))
   (Seq : bor_local_seq
-    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
+    {|seq_inv:=fun tr cids =>
+      (forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+      /\ call_is_active cid cids|}
     tr cids evts tr' cids')
   : bor_local_seq
-    (fun tr => forall it, tree_unique affected_tag it tr -> ~reach Disabled (perm (item_lazy_perm_at_loc it z)))
-    ignore
+    {|seq_inv:=fun tr _ => forall it, tree_unique affected_tag it tr -> ~reach Disabled (perm (item_lazy_perm_at_loc it z))|}
     tr cids evts tr' cids'.
 Proof.
   pose proof (bor_local_seq_always_contains Ex (bor_local_seq_forget Seq)) as AllEx.
   pose proof (bor_local_seq_always_unique Ex Unq Prot AllEx) as AllUnq.
   pose proof (seq_always_merge AllEx (seq_always_merge Seq AllUnq)) as AllExUnqInitProt.
-  eapply seq_always_build_forward; [|apply ignore_always_True| |exact AllExUnqInitProt].
+  eapply seq_always_build_forward; [| |exact AllExUnqInitProt].
   + move=> it Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. assumption.
-  + generalize Call; clear; simpl; move=> Call ????? Step Act _ [Ex [Init [?[Unq ProtEq]]]] [_ [Prot _]].
-    split; [|apply ignore_always_True].
+  + generalize Call; clear; simpl; move=> Call ????? Step [Ex [[Init CallAct] [?[Unq ProtEq]]]] Act.
     move=> ? Unq'.
     subst.
     eapply protected_during_step_stays_nondis; eauto.
@@ -937,12 +914,13 @@ Lemma protected_during_seq_last_stays_nondis
   (Call : protector_is_for_call cid prot)
   (StartsNonDis : ~reach Disabled (item_perm_at_loc pre z))
   (Seq : bor_local_seq
-    (fun tr => forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
+    {|seq_inv:=fun tr cids =>
+      (forall it, tree_unique affected_tag it tr -> initialized (item_lazy_perm_at_loc it z) = PermInit)
+      /\ call_is_active cid cids|}
     tr cids evts tr' cids')
   : forall post, tree_unique affected_tag post tr' -> ~reach Disabled (perm (item_lazy_perm_at_loc post z)).
 Proof.
-  pose proof (seq_always_destruct_last (protected_during_seq_always_stays_nondis Ex Unq Prot Call StartsNonDis Seq)) as [??].
+  pose proof (seq_always_destruct_last (protected_during_seq_always_stays_nondis Ex Unq Prot Call StartsNonDis Seq)).
   assumption.
 Qed.
 

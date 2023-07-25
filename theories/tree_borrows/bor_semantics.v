@@ -586,22 +586,22 @@ Inductive bor_local_step tr cids
       tr' cids
   .
 
-Definition ignore {T} : T -> Prop := fun _ => True.
-Inductive bor_local_seq (Ptr : tree item -> Prop) (Pcids : call_id_set -> Prop) tr cids
+Record seq_invariant := MkRecord {
+  seq_inv : tree item -> call_id_set -> Prop;
+}.
+Inductive bor_local_seq (invariant : seq_invariant) tr cids
   : list bor_local_event -> tree item -> call_id_set -> Prop :=
   | bor_nil
-    (PTR : Ptr tr)
-    (PCIDS : Pcids cids) :
-    bor_local_seq Ptr Pcids
+    (INV : invariant.(seq_inv) tr cids) :
+    bor_local_seq invariant
       tr cids
       []
       tr cids
   | bor_cons evt tr' cids' evts tr'' cids''
-    (PTR : Ptr tr)
-    (PCIDS : Pcids cids)
+    (INV : invariant.(seq_inv) tr cids)
     (HEAD : bor_local_step tr cids evt tr' cids')
-    (REST : bor_local_seq Ptr Pcids tr' cids' evts tr'' cids'') :
-    bor_local_seq Ptr Pcids
+    (REST : bor_local_seq invariant tr' cids' evts tr'' cids'') :
+    bor_local_seq invariant
       tr cids
       (evt :: evts)
       tr'' cids''.
