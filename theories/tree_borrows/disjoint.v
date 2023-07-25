@@ -8,12 +8,12 @@ From iris.prelude Require Import options.
 to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
   {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
-  (Ex : tree_contains affected_tag tr)
+(Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
   (Within : range_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
-  : exists post zpost, (
+: exists post zpost, (
     let rel := if naive_rel_dec tr affected_tag access_tag then AccessChild else AccessForeign in
     let isprot := bool_decide (protector_is_active pre.(iprot) cids) in
     apply_access_perm kind rel isprot true zpre = Some zpost
@@ -1245,3 +1245,342 @@ Lemma protected_fread_cwrite_disjoint
   : ~exists z, range_contains range1 z /\ range_contains range2 z.
 *)
 
+Lemma item_eq
+  {it0 it1}
+  (EQ_IPROT : iprot it0 = iprot it1)
+  (EQ_INITP : initp it0 = initp it1)
+  (EQ_ITAG : itag it0 = itag it1)
+  (EQ_EVERY_IPERM : forall z, iperm it0 !! z = iperm it1 !! z)
+  : it0 = it1.
+Proof.
+  destruct it0; destruct it1; simpl in *.
+  f_equal; [assumption|assumption|assumption|].
+  apply map_eq; assumption.
+Qed.
+
+Definition commutes_if {X}
+  (P : X -> Prop)
+  (fn1 fn2 : X -> option X)
+  := forall x0 x1 x2,
+  P x0 ->
+  fn1 x0 = Some x1 ->
+  fn2 x1 = Some x2 ->
+  exists x1', (
+    fn2 x0 = Some x1'
+    /\ fn1 x1' = Some x2
+  ).
+
+Definition commutes_if_option {X}
+  (P : X -> Prop)
+  (fn1 fn2 : option X -> option X)
+  := forall x0 x1 x2,
+  (forall x0v, x0 = Some x0v -> P x0v) ->
+  fn1 x0 = Some x1 ->
+  fn2 (Some x1) = Some x2 ->
+  exists x1', (
+    fn2 x0 = Some x1'
+    /\ fn1 (Some x1') = Some x2
+  ).
+
+Definition not_lazy_active p := p ≠ {| perm:=Active; initialized:=PermLazy |}.
+
+Lemma apply_access_perm_read_commutes
+  {rel1 rel2 prot}
+  : commutes_if
+    not_lazy_active
+    (apply_access_perm AccessRead rel1 prot true)
+    (apply_access_perm AccessRead rel2 prot true).
+Proof.
+  unfold commutes_if; move=> p0 p1 p2 ActiveRequiresInit Step01 Step12.
+  unfold apply_access_perm in *.
+  all: destruct p0 as [[][]].
+  all: destruct prot; simpl in *.
+  all: destruct rel1; simpl in *.
+  all: try (inversion Step01; done).
+  all: injection Step01; intros; subst.
+  all: simpl.
+  all: destruct rel2; simpl in *.
+  all: try (inversion Step12; done).
+  all: injection Step12; intros; subst; simpl.
+  all: try (eexists; split; [reflexivity|]); simpl.
+  all: reflexivity.
+Qed.
+
+Lemma range_foreach_success_condition
+  {X} {fn : option X -> option X} {range mem}
+  (ALL_SOME : forall z, range_contains range z -> is_Some (fn (mem !! z)))
+  : exists mem', range_foreach fn range mem = Some mem'.
+Proof.
+  unfold range_foreach.
+  destruct range as [z sz]; simpl.
+  generalize dependent z.
+  induction sz; move=> z ALL_SOME.
+  - eexists. simpl. reflexivity.
+  - destruct (IHsz (z + 1)%Z
+      ltac:(intros mem' H; apply ALL_SOME; unfold range_contains; unfold range_contains in H; simpl; simpl in H; lia))
+      as [sub' Specsub'].
+    destruct (ALL_SOME z ltac:(unfold range_contains; simpl; lia)) as [fnz Specfnz].
+    eexists (<[z:=fnz]>sub').
+    unfold mem_foreach; simpl.
+    unfold mem_foreach in Specsub'.
+    rewrite Specfnz; simpl.
+    rewrite Specsub'; simpl.
+    reflexivity.
+Qed.
+
+Lemma range_foreach_success_specification
+  {X} {fn : option X -> option X} {range mem mem'}
+  (ALL_SOME : forall z, range_contains range z -> exists x', fn (mem !! z) = Some x' /\ mem' !! z = Some x')
+  (REST_SAME : forall z, ~range_contains range z -> mem !! z = mem' !! z)
+  : range_foreach fn range mem = Some mem'.
+Proof.
+  assert (forall z, range_contains range z -> is_Some (fn (mem !! z))) as ALL_SOME_weaker. {
+    intros z R; destruct (ALL_SOME z R) as [?[??]]; auto.
+  }
+  destruct (range_foreach_success_condition ALL_SOME_weaker) as [mem'' Spec''].
+  rewrite Spec''; f_equal; apply map_eq.
+  intro z.
+  pose proof (range_foreach_spec _ _ z _ _ Spec'') as Spec.
+  destruct (decide (range_contains range z)) as [R|nR].
+  - destruct Spec as [v[vSpec fnvSpec]].
+    destruct (ALL_SOME z R) as [v' [fnv'Spec v'Spec]].
+    rewrite v'Spec.
+    rewrite vSpec.
+    rewrite <- fnv'Spec.
+    rewrite <- fnvSpec.
+    reflexivity.
+  - rewrite <- (REST_SAME z nR).
+    assumption.
+Qed.
+
+Lemma range_foreach_commutes
+  {X P}
+  range1 range2
+  (fn1 fn2 : option X -> option X)
+  (FnCommutes : commutes_if_option P fn1 fn2)
+  : commutes_if
+    (fun mem0 => forall z v, mem0 !! z = Some v -> P v)
+    (range_foreach fn1 range1)
+    (range_foreach fn2 range2).
+Proof.
+  intros mem0 mem1 mem2 AllP Success01 Success12.
+  assert (forall z, range_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
+    intros z R2.
+    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range_contains range1 z)).
+    - destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
+      rewrite decide_True in Spec12; [|assumption].
+      destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
+      rewrite z1Spec in fn2z1Spec.
+      destruct (FnCommutes _ _ _ (AllP z) fn1z0Spec fn2z1Spec) as [x1' [fn2z0Spec fn1x1'Spec]].
+      exists x1'; assumption.
+    - rewrite decide_True in Spec12; [|assumption].
+      destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
+      exists x2; rewrite <- Spec01; assumption.
+  }
+  destruct (range_foreach_success_condition fn2mem0) as [mem1' Success01'].
+  exists mem1'.
+  split; [assumption|].
+  apply range_foreach_success_specification.
+  - intros z R1.
+    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    destruct (decide (range_contains range2 z)).
+    + rewrite decide_True in Spec01; [|assumption].
+      destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
+      destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
+      destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
+      rewrite z1Spec in fn2z1Spec.
+      destruct (FnCommutes _ _ _ (AllP z) fn1z0Spec fn2z1Spec) as [x2' [fn2z0'Spec fn1x2'Spec]].
+      rewrite z1'Spec.
+      rewrite <- fn2z0Spec.
+      exists fn2z1.
+      split; [|assumption].
+      destruct (FnCommutes _ _ _ (AllP z) fn1z0Spec fn2z1Spec) as [x1' [fn2z0Spec' fn1x1'Spec]].
+      rewrite fn2z0Spec'.
+      rewrite fn1x1'Spec.
+      reflexivity.
+    + rewrite decide_True in Spec01; [|assumption].
+      destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
+      rewrite Spec01'.
+      rewrite Spec12.
+      exists fn1z0; split; assumption.
+  - intros z nR1.
+    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range_contains range2 z)).
+    + rewrite decide_False in Spec01; [|assumption].
+      destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
+      destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
+      rewrite z1'Spec.
+      rewrite <- fn2z0Spec.
+      rewrite <- Spec01.
+      rewrite fn2z1Spec.
+      rewrite z2Spec.
+      reflexivity.
+    + rewrite decide_False in Spec01; [|assumption].
+      rewrite Spec01'.
+      rewrite <- Spec01.
+      rewrite Spec12.
+      reflexivity.
+Qed.
+
+Lemma commutes_if_option_build
+  {X} {P : X -> Prop} {default fn1 fn2}
+  (DefaultOk : P default)
+  (Commutes : commutes_if P fn1 fn2)
+  : commutes_if_option P
+    (fun ox => fn1 (unwrap default ox))
+    (fun ox => fn2 (unwrap default ox)).
+Proof.
+  intros x0 x1 x2 AllP Step01 Step12.
+  assert (P (unwrap default x0)) as Pinput0 by (destruct x0 eqn:x0Eq; simpl; auto).
+  destruct (Commutes (unwrap default x0) _ _ Pinput0 Step01 Step12) as [?[??]].
+  eexists; eauto.
+Qed.
+
+Lemma permissions_foreach_commutes
+  {P : lazy_permission -> Prop}
+  range1 range2
+  (fn1 fn2 : lazy_permission -> option lazy_permission)
+  default
+  (DefaultOk : P default)
+  (FnCommutes : commutes_if P fn1 fn2)
+  : commutes_if
+    (fun mem0 => forall z v, mem0 !! z = Some v -> P v)
+    (permissions_foreach default range1 fn1)
+    (permissions_foreach default range2 fn2).
+Proof.
+  apply range_foreach_commutes.
+  apply commutes_if_option_build.
+  - assumption.
+  - assumption.
+Qed.
+
+Lemma item_apply_access_read_commutes
+  {cids rel1 rel2 range1 range2}
+  : commutes_if
+    (fun it0 => initp it0 ≠ Active /\ forall z p, iperm it0 !! z = Some p -> not_lazy_active p)
+    (item_apply_access AccessRead ProtStrong cids rel1 range1)
+    (item_apply_access AccessRead ProtStrong cids rel2 range2).
+Proof.
+  intros it0 it1 it2 [PDefault AllP] Step01 Step12.
+  option step in Step01 as ?:S1.
+  option step in Step12 as ?:S2.
+  injection Step01; destruct it1; intro H; injection H; intros; subst; simpl in *; clear Step01; clear H.
+  injection Step12; destruct it2; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
+  assert (not_lazy_active {| initialized:=PermLazy; perm:=initp it0 |}) as PDefaultLazy. {
+    intro H; injection H; auto.
+  }
+  destruct (permissions_foreach_commutes
+    range1 range2
+    _ _
+    {| initialized:=PermLazy; perm:=initp it0 |} PDefaultLazy
+    (apply_access_perm_read_commutes (rel1:=rel1) (rel2:=rel2) (prot:=bool_decide (protector_is_active (iprot it0) cids)))
+    (lang_base.iperm it0) iperm iperm0) as [perms' [Pre Post]]; [exact AllP|exact S1|exact S2|].
+  unfold item_apply_access.
+  rewrite Pre; simpl.
+  eexists; split; [reflexivity|].
+  simpl. rewrite Post; simpl.
+  reflexivity.
+Qed.
+
+Lemma apply_access_success_condition
+  {fn cids access_tag range tr} {dyn_rel : rel_dec tr}
+  (ALL_SOME : every_node
+    (fun it => is_Some (fn cids (if dyn_rel (itag it) access_tag then AccessChild else AccessForeign) range it)) tr)
+  : exists tr', tree_apply_access fn cids access_tag range tr dyn_rel = Some tr'.
+Proof.
+  assert (every_node is_Some (map_nodes (fun it => fn cids (if dyn_rel (itag it) access_tag then AccessChild else AccessForeign) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
+  destruct (proj2 (join_success_condition _) AllSomeMap).
+  eexists; eassumption.
+Qed.
+
+Lemma join_map_commutes
+  {P} {fn1 fn2 : call_id_set -> access_rel -> Z * nat -> tree.app item} {cids access_tag1 access_tag2 range1 range2}
+  (Fn1PreservesTag : forall it it' cids rel range, fn1 cids rel range it = Some it' -> itag it = itag it')
+  (Fn2PreservesTag : forall it it' cids rel range, fn2 cids rel range it = Some it' -> itag it = itag it')
+  (Commutes : forall rel1 rel2, commutes_if P
+    (fn1 cids rel1 range1)
+    (fn2 cids rel2 range2))
+  : forall tr (dyn_rel : rel_dec tr),
+    commutes_if (every_node P)
+      (fun tr => join_nodes (map_nodes (fun it => fn1 cids (if dyn_rel (itag it) access_tag1 then AccessChild else AccessForeign) range1 it) tr))
+      (fun tr => join_nodes (map_nodes (fun it => fn2 cids (if dyn_rel (itag it) access_tag2 then AccessChild else AccessForeign) range2 it) tr)).
+Proof.
+  intros tr dyn_rel tr0.
+  induction tr0 as [|data0 left0 IHleft right0 IHright]; intros tr1 tr2 AllP Step01 Step12.
+  - simpl in Step01; injection Step01; intros; subst.
+    simpl in Step12; injection Step12; intros; subst.
+    exists tree.empty; simpl; tauto.
+  - destruct AllP as [Pdata [Pleft Pright]].
+    option step in Step01 as data1:Data01.
+    option step in Step01 as left1:Left01.
+    option step in Step01 as right1:Right01.
+    injection Step01; intros; subst.
+    option step in Step12 as data2:Data12.
+    option step in Step12 as left2:Left12.
+    option step in Step12 as right2:Right12.
+    injection Step12; intros; subst.
+    destruct (Commutes _ _ data0 data1 data2 Pdata Data01 Data12) as [data1' [Data01' Data1'2]].
+    destruct (IHleft left1 left2 Pleft Left01 Left12) as [left1' [Left01' Left1'2]].
+    destruct (IHright right1 right2 Pright Right01 Right12) as [right1' [Right01' Right1'2]].
+    exists (branch data1' left1' right1').
+    simpl in *.
+    assert (itag data0 = itag data1) as Tg01 by (eapply Fn1PreservesTag; eassumption).
+    assert (itag data0 = itag data1') as Tg01' by (eapply Fn2PreservesTag; eassumption).
+    rewrite Tg01; rewrite Data01'; simpl.
+    rewrite Left01'; simpl.
+    rewrite Right01'; simpl.
+    rewrite <- Tg01'; rewrite Data1'2; simpl.
+    rewrite Left1'2; simpl.
+    rewrite Right1'2; simpl.
+    tauto.
+Qed.
+
+Lemma tree_apply_access_only_cares_about_rel_on_support
+  {tr} {fn : call_id_set -> access_rel -> Z * nat -> tree.app item} {cids access_tag range}
+  {tr1 tr2} (dyn_rel1 : rel_dec tr1) (dyn_rel2 : rel_dec tr2)
+  (Agree : forall tg tg', tree_contains tg tr -> ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
+  : join_nodes (map_nodes (fun it => fn cids (if dyn_rel1 (itag it) access_tag then AccessChild else AccessForeign) range it) tr)
+  = join_nodes (map_nodes (fun it => fn cids (if dyn_rel2 (itag it) access_tag then AccessChild else AccessForeign) range it) tr).
+Proof.
+  induction tr as [|data sibling IHsibling child IHchild]; [simpl; reflexivity|].
+  simpl.
+  rewrite IHsibling; [|intros; apply Agree; right; left; assumption].
+  rewrite IHchild; [|intros; apply Agree; right; right; assumption].
+  destruct (dyn_rel2 _ _) as [R|R]; destruct (dyn_rel1 _ _).
+  all: rewrite <- Agree in R; [|left; simpl; done].
+  all: try contradiction.
+  all: reflexivity.
+Qed.
+
+Lemma tree_apply_access_commutes
+  {P fn1 fn2 cids access_tag1 access_tag2 range1 range2}
+  (Fn1PreservesTag : forall it it' cids rel range, fn1 cids rel range it = Some it' -> itag it = itag it')
+  (Fn2PreservesTag : forall it it' cids rel range, fn2 cids rel range it = Some it' -> itag it = itag it')
+  (Commutes : forall rel1 rel2, commutes_if P
+    (fn1 cids rel1 range1)
+    (fn2 cids rel2 range2))
+  : commutes_if
+    (every_node P)
+    (fun tr => tree_apply_access fn1 cids access_tag1 range1 tr (naive_rel_dec tr))
+    (fun tr => tree_apply_access fn2 cids access_tag2 range2 tr (naive_rel_dec tr)).
+Proof.
+  unfold tree_apply_access.
+  intros tr0 tr1 tr2 AllP Step01 Step12.
+  erewrite (tree_apply_access_only_cares_about_rel_on_support _ (naive_rel_dec tr0)) in Step12.
+  2: { intros. symmetry. exact (join_map_eqv_rel (fun it it' => Fn1PreservesTag it it' _ _ _) Step01). }
+  destruct (join_map_commutes Fn1PreservesTag Fn2PreservesTag Commutes _ (naive_rel_dec tr0) tr0 tr1 tr2 AllP Step01 Step12) as [tr1' [Step01' Step1'2]].
+  exists tr1'.
+  split; [assumption|].
+  erewrite (tree_apply_access_only_cares_about_rel_on_support _ (naive_rel_dec tr0)).
+  2: { intros. symmetry. exact (join_map_eqv_rel (fun it it' => Fn2PreservesTag it it' _ _ _) Step01'). }
+  assumption.
+Qed.
+
+Print memory_access.
+Print bor_local_step.

@@ -90,6 +90,16 @@ Proof.
       * apply EqTr2'.
 Qed.
 
+Lemma join_map_eqv_rel
+  {t t' tr tr' fn}
+  (PreservesTags : forall it it', fn it = Some it' -> itag it = itag it')
+  (Success : join_nodes (map_nodes fn tr) = Some tr')
+  : ParentChildIn t t' tr <-> ParentChildIn t t' tr'.
+Proof.
+  unfold ParentChildIn.
+  rewrite join_map_eqv_strict_rel; eauto.
+Qed.
+
 Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
   ~IsTag t ins ->
   StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).

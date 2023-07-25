@@ -1,4 +1,5 @@
 From iris.prelude Require Import prelude options.
+From iris.prelude Require Import options.
 
 Implicit Type (V W X Y:Type).
 
