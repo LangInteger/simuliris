@@ -190,7 +190,9 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
   | AccessRead, AccessForeign =>
       match perm with
       | Reserved | ReservedMut => if isprot then Some Frozen else Some perm
-      | Active => Some Frozen
+      | Active => if isprot then
+        (* This is just a trick for commutativity of read operations. Protector should get triggered anyway *)
+        Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
   | AccessWrite, AccessForeign =>
