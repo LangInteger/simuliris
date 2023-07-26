@@ -698,6 +698,169 @@ Proof.
       split; eassumption.
 Qed.
 
+Lemma apply_access_perm_preserves_perminit
+  {pre post kind rel b b'}
+  (Access : apply_access_perm kind rel b b' pre = Some post)
+  : (initialized pre) = PermInit -> initialized post = PermInit.
+Proof.
+  destruct kind, rel.
+  all: destruct pre, initialized, perm, b, b'.
+  all: inversion Access.
+  (* all cases easy *)
+  all: simpl; auto.
+  all: intros H H'; inversion H'; inversion H.
+Qed.
+
+
+Lemma memory_access_preserves_perminit
+  {access_tag affected_tag pre tr post tr' kind cids range z zpre zpost}
+  (ExAff : tree_contains affected_tag tr)
+  (UnqAff : tree_unique affected_tag pre tr)
+  (ExAcc : tree_contains access_tag tr)
+  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (UnqAff' : tree_unique affected_tag post tr')
+  (ItemPre : item_lazy_perm_at_loc pre z = zpre)
+  (ItemPost : item_lazy_perm_at_loc post z = zpost)
+  (Init : initialized zpre = PermInit)
+  : initialized zpost = PermInit.
+Proof.
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
+  generalize dependent post.
+  generalize dependent pre.
+  clear. move=> pre _ Init post _ Access _.
+  option step in Access as ?:Foreach.
+  injection Access; intros e; subst; clear Access.
+  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  destruct (bool_decide _).
+  all: destruct (bool_decide _).
+  all: destruct (decide (range_contains _ _)).
+  all: try (rewrite Spec; tauto).
+  all: destruct Spec as [?[Lkup Apply]].
+  all: eapply apply_access_perm_preserves_perminit; [|eassumption].
+  all: rewrite Lkup; simpl; try exact Apply.
+Qed.
+
+Lemma apply_access_perm_child_produces_perminit
+  {pre post kind b b'}
+  (Access : apply_access_perm kind AccessChild b b' pre = Some post)
+  : initialized post = PermInit.
+Proof.
+  destruct kind.
+  all: destruct pre, initialized, perm, b, b'.
+  all: inversion Access.
+  (* all cases easy *)
+  all: simpl; auto.
+Qed.
+
+Lemma memory_access_child_produces_perminit
+  {access_tag affected_tag pre tr post tr' kind cids range z zpre zpost}
+  (ExAff : tree_contains affected_tag tr)
+  (UnqAff : tree_unique affected_tag pre tr)
+  (ExAcc : tree_contains access_tag tr)
+  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (Rel : ParentChildIn affected_tag access_tag tr)
+  (WithinRange : range_contains range z)
+  (UnqAff' : tree_unique affected_tag post tr')
+  (ItemPre : item_lazy_perm_at_loc pre z = zpre)
+  (ItemPost : item_lazy_perm_at_loc post z = zpost)
+  : initialized zpost = PermInit.
+Proof.
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
+  rewrite (tree_unique_specifies_tag _ _ _ ExAff UnqAff) in PostSpec.
+  destruct (naive_rel_dec _ _ _); [|contradiction].
+  option step in PostSpec as ?:Foreach.
+  injection PostSpec; intros e; subst; clear PostSpec.
+  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  destruct (bool_decide _).
+  all: destruct (bool_decide _).
+  all: destruct (decide (range_contains _ _)); [|contradiction].
+  all: try (rewrite Spec; tauto).
+  all: destruct Spec as [?[Lkup Apply]].
+  all: eapply apply_access_perm_child_produces_perminit.
+  all: try eassumption.
+  all: try (rewrite Lkup; simpl; try exact Apply).
+Qed.
+
+Lemma bor_local_step_preserves_perminit
+  {affected_tag tr cids evt tr' cids' pre z zpre}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (ItemPre : item_lazy_perm_at_loc pre z = zpre)
+  (Initialized : initialized zpre = PermInit)
+  (Step : bor_local_step tr cids evt tr' cids')
+  : forall post,
+    tree_unique affected_tag post tr' ->
+    initialized (item_lazy_perm_at_loc post z) = PermInit.
+Proof.
+  move=> post Unq'.
+  inversion Step; subst.
+  - eapply memory_access_preserves_perminit.
+    + exact Ex.
+    + exact Unq.
+    + exact EXISTS_TAG.
+    + exact ACC.
+    + exact Unq'.
+    + reflexivity.
+    + reflexivity.
+    + exact Initialized.
+  - pose proof (tree_unique_unify Ex Unq Unq'); subst.
+    assumption.
+  - pose proof (tree_unique_unify Ex Unq Unq'); subst.
+    assumption.
+  - assert (affected_tag ≠ tg) as Ne by (intro; subst; contradiction).
+    pose proof (create_child_preserves_unique _ _ _ _ _ _ _ _ Ne Unq RETAG_EFFECT) as UnqPost.
+    pose proof (insertion_preserves_tags Ex RETAG_EFFECT) as Ex'.
+    pose proof (tree_unique_unify Ex' UnqPost Unq'); subst.
+    assumption.
+Qed.
+
+Lemma bor_local_step_child_produces_perminit
+  {access_tag affected_tag pre tr tr' kind cids cids' z range}
+  (ExAff : tree_contains affected_tag tr)
+  (UnqAff : tree_unique affected_tag pre tr)
+  (Rel : ParentChildIn affected_tag access_tag tr)
+  (WithinRange : range_contains range z)
+  (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
+  : forall post,
+    tree_unique affected_tag post tr' ->
+    initialized (item_lazy_perm_at_loc post z) = PermInit.
+Proof.
+  inversion Step; subst.
+  intros.
+  eapply memory_access_child_produces_perminit.
+  1: exact ExAff.
+  all: eauto.
+Qed.
+
+Lemma bor_local_seq_always_perminit
+  {affected_tag tr tr' cids cids' evts pre z}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (InitPre : initialized (item_lazy_perm_at_loc pre z) = PermInit)
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  : bor_local_seq
+    {|seq_inv:=fun tr _ =>
+      forall it,
+      tree_unique affected_tag it tr ->
+      initialized (item_lazy_perm_at_loc it z) = PermInit|}
+    tr cids evts tr' cids'.
+Proof.
+  pose proof (bor_local_seq_always_contains Ex Seq) as SeqEx.
+  pose proof (bor_local_seq_always_unique Ex Unq eq_refl SeqEx) as SeqUnq.
+  eapply seq_always_build_forward; simpl; [| |exact (seq_always_merge SeqEx SeqUnq)].
+  - intros pre' Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst.
+    assumption.
+  - intros ????? Step Inv Init.
+    simpl in Inv; destruct Inv as [Exi [?[Unqi ?]]].
+    eapply bor_local_step_preserves_perminit.
+    1: exact Exi.
+    all: eauto.
+Qed.
+
 Lemma apply_access_perm_protected_initialized_preserves_active
   {pre post kind rel}
   (Access : apply_access_perm kind rel true true pre = Some post)

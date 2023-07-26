@@ -90,7 +90,7 @@ Lemma _
   optional: restrictions on (perm ?pre), e.g. reachability
   optional: protector_is_active (iprot ?pre) ?cids
 
-  (Step : bor_local_step ?tr ?cids (AccessBLEvt _ ?acc ?range) ?tr' _)
+(Step : bor_local_step ?tr ?cids (AccessBLEvt _ ?acc ?range) ?tr' _)
   : _.
 
 Where the conclusion can be either
@@ -804,14 +804,7 @@ Lemma protected_cwrite_fwrite_disjoint
   (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq
-    {|seq_inv:=fun tr cids =>
-      (forall it z,
-        tree_unique tg' it tr ->
-        range_contains range1 z ->
-        initialized (item_lazy_perm_at_loc it z) = PermInit)
-      /\ call_is_active cid cids|}
-    tr1' cids1' l tr2 cids2)
+  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg range2) tr2' cids2')
   : ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
@@ -860,7 +853,8 @@ Proof.
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenActPost. {
-    eapply seq_always_build_weaken; [|exact Seq12].
+    pose proof (bor_local_seq_always_perminit Ex' Unq' InitPost (bor_local_seq_forget Seq12)) as Seq12Init.
+    eapply seq_always_build_weaken; [|exact (seq_always_merge Seq12Init Seq12)].
     simpl. move=> ?? H; split; edestruct H; eauto.
   }
   pose replace ActPost with protected_during_seq_last_stays_active Ex' Unq' eq_refl Protected @ GenActPost.
@@ -889,14 +883,7 @@ Lemma protected_cread_fwrite_disjoint
   (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg' range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq
-    {|seq_inv:=fun tr cids =>
-      (forall it z,
-        tree_unique tg' it tr ->
-        range_contains range1 z ->
-        initialized (item_lazy_perm_at_loc it z) = PermInit)
-      /\ call_is_active cid cids|}
-    tr1' cids1' l tr2 cids2)
+  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg range2) tr2' cids2')
   : ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
@@ -944,7 +931,8 @@ Proof.
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenNonDisPost. {
-    eapply seq_always_build_weaken; [|exact Seq12].
+    pose proof (bor_local_seq_always_perminit Ex' Unq' InitPost (bor_local_seq_forget Seq12)) as Seq12Init.
+    eapply seq_always_build_weaken; [|exact (seq_always_merge Seq12Init Seq12)].
     simpl. move=> ?? [??]; auto.
   }
   pose replace DisUnreachPost with protected_during_seq_last_stays_nondis Ex' Unq' eq_refl Protected @ GenNonDisPost.
@@ -969,14 +957,7 @@ Lemma protected_cwrite_fread_disjoint
   (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq
-    {|seq_inv:=fun tr cids =>
-      (forall it z,
-        tree_unique tg' it tr ->
-        range_contains range1 z ->
-        initialized (item_lazy_perm_at_loc it z) = PermInit)
-      /\ call_is_active cid cids|}
-    tr1' cids1' l tr2 cids2)
+  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Read2 : bor_local_step tr2 cids2 (AccessBLEvt AccessRead tg range2) tr2' cids2')
   : ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
@@ -1001,7 +982,7 @@ Proof.
   rename post into pre.
   destruct (child_write_any_to_init_active
     Ex' Unq' ltac:(left; reflexivity)
-    RContains1 eq_refl Write1) as [post [zpost [Unq'Post [PermPost [ActPost [ProtPost PostInit]]]]]].
+    RContains1 eq_refl Write1) as [post [zpost [Unq'Post [PermPost [ActPost [ProtPost InitPost]]]]]].
   migrate Unrelated.
   migrate Ex.
   migrate Ex'.
@@ -1023,7 +1004,8 @@ Proof.
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenActPost. {
-    eapply seq_always_build_weaken; [|exact Seq12].
+    pose proof (bor_local_seq_always_perminit Ex' Unq' InitPost (bor_local_seq_forget Seq12)) as Seq12Init.
+    eapply seq_always_build_weaken; [|exact (seq_always_merge Seq12Init Seq12)].
     simpl. move=> ?? [??]; auto.
   }
   pose replace ActPost with protected_during_seq_last_stays_active Ex' Unq' eq_refl Protected @ GenActPost.
@@ -1050,7 +1032,7 @@ Lemma protected_fread_cwrite_disjoint
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Call1 : call_is_active cid cids1)
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids0' l tr2 cids2)
+  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg' range2) tr2' cids2')
   : ~exists z, range_contains range1 z /\ range_contains range2 z.
 Proof.
@@ -1103,9 +1085,7 @@ Proof.
     Write2).
 Qed.
 
-(* reorder two arbitrary reads and reach the same borrow state *)
 (* rename bor_local_seq: bor_local_steps *)
-(* backwards reach is tricky: it prevents us from doing nontermination. don't rely on an EndCall later, assume no EndCall for the particular cid at every step *)
 (* ghost state, ressource algebras, invariants *)
 
 Definition disjoint range range' := ~exists z, range_contains range z /\ range_contains range' z.
@@ -1163,10 +1143,10 @@ Lemma llvm_retagx_opaque_writey_readx_disjoint
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
-  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqWritex]]]; clear Seq''.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqReadx]]]; clear Seq''.
   inversion SeqRetag; subst.
   inversion SeqWritey; subst.
-  inversion SeqWritex; subst.
+  inversion SeqReadx; subst.
   inversion REST; subst.
   inversion HEAD; subst.
   eapply protected_fwrite_cread_disjoint.
@@ -1180,76 +1160,146 @@ Proof.
   - exact HEAD1.
 Qed.
 
-(*
-Lemma protected_cwrite_fwrite_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
-  (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
-  (Seq01 : exists l, bor_local_seq no_restriction_on_tree no_restriction_on_cids tr0' cids0' l tr1 cids1)
-  (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq
-    (fun tr => forall it z,
-      tree_unique tg' it tr ->
-      range_contains range1 z ->
-      initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
-    tr1' cids1' l tr2 cids2)
-  (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
-*)
+Lemma llvm_retagx_opaque_readx_writey_disjoint
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
+  (Prot : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial)
+  (Seq : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt AccessRead tg_x range_x]
+      ++ [AccessBLEvt AccessWrite tg_y range_y]
+    )
+    tr_final cids_final)
+  : disjoint range_x range_y.
+Proof.
+  destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
+  destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqReadx]]]; clear Seq''.
+  inversion SeqRetag; subst.
+  inversion SeqReadx; subst.
+  inversion SeqWritey; subst.
+  inversion REST; subst.
+  inversion HEAD; subst.
+  eapply protected_cread_fwrite_disjoint.
+  - exact AlreadyExists_y.
+  - eapply COMPAT_CID. exact Prot.
+  - exact HEAD.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact HEAD1.
+  - exists []. exact REST1.
+  - exact HEAD0.
+Qed.
 
-(*
-Lemma protected_cread_fwrite_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
-  (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
-  (Seq01 : exists l, bor_local_seq no_restriction_on_tree no_restriction_on_cids tr0' cids0' l tr1 cids1)
-  (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg' range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq
-    (fun tr => forall it z,
-      tree_unique tg' it tr ->
-      range_contains range1 z ->
-      initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
-    tr1' cids1' l tr2 cids2)
-  (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
-*)
+Lemma llvm_retagx_opaque_writex_writey_disjoint
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
+  (Prot : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial)
+  (Seq : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt AccessWrite tg_x range_x]
+      ++ [AccessBLEvt AccessWrite tg_y range_y]
+    )
+    tr_final cids_final)
+  : disjoint range_x range_y.
+Proof.
+  destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
+  destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritex SeqWritey]]]; clear Seq''.
+  inversion SeqRetag; subst.
+  inversion SeqWritey; subst.
+  inversion SeqWritex; subst.
+  inversion REST; subst.
+  inversion HEAD; subst.
+  eapply protected_cwrite_fwrite_disjoint.
+  - exact AlreadyExists_y.
+  - eapply COMPAT_CID. exact Prot.
+  - exact HEAD.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact HEAD1.
+  - exists []. exact REST1.
+  - exact HEAD0.
+Qed.
 
-(*
-Lemma protected_cwrite_fread_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
-  (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
-  (Seq01 : exists l, bor_local_seq no_restriction_on_tree no_restriction_on_cids tr0' cids0' l tr1 cids1)
-  (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq
-    (fun tr => forall it z,
-      tree_unique tg' it tr ->
-      range_contains range1 z ->
-      initialized (item_lazy_perm_at_loc it z) = PermInit)
-    (call_is_active cid)
-    tr1' cids1' l tr2 cids2)
-  (Read2 : bor_local_step tr2 cids2 (AccessBLEvt AccessRead tg range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
-*)
+Lemma llvm_retagx_opaque_writex_ready_disjoint
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
+  (Prot : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial)
+  (Seq : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt AccessWrite tg_x range_x]
+      ++ [AccessBLEvt AccessRead tg_y range_y]
+    )
+    tr_final cids_final)
+  : disjoint range_x range_y.
+Proof.
+  destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
+  destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritex SeqWritey]]]; clear Seq''.
+  inversion SeqRetag; subst.
+  inversion SeqWritey; subst.
+  inversion SeqWritex; subst.
+  inversion REST; subst.
+  inversion HEAD; subst.
+  eapply protected_cwrite_fread_disjoint.
+  - exact AlreadyExists_y.
+  - eapply COMPAT_CID. exact Prot.
+  - exact HEAD.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact HEAD1.
+  - exists []. exact REST1.
+  - exact HEAD0.
+Qed.
 
-(*
-Lemma protected_fread_cwrite_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
-  (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
-  (Seq01 : exists l, bor_local_seq no_restriction_on_tree no_restriction_on_cids tr0' cids0' l tr1 cids1)
-  (Call1 : call_is_active cid cids1)
-  (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq no_restriction_on_tree no_restriction_on_cids tr1' cids0' l tr2 cids2)
-  (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg' range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
-*)
+Lemma llvm_retagx_opaque_ready_writex_disjoint
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
+  (Prot : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial)
+  (Seq : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt AccessRead tg_y range_y]
+      ++ [AccessBLEvt AccessWrite tg_x range_x]
+    )
+    tr_final cids_final)
+  : disjoint range_y range_x.
+Proof.
+  destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
+  destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqWritex]]]; clear Seq''.
+  inversion SeqRetag; subst.
+  inversion SeqWritey; subst.
+  inversion SeqWritex; subst.
+  inversion REST; subst.
+  inversion HEAD; subst.
+  eapply protected_fread_cwrite_disjoint.
+  - exact AlreadyExists_y.
+  - eapply COMPAT_CID. exact Prot.
+  - exact HEAD.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact INV0.
+  - exact HEAD0.
+  - exists []. exact (bor_local_seq_forget REST0).
+  - exact HEAD1.
+Qed.
+
+
+
+(* --- Reordering read-read --- *)
 
 Lemma item_eq
   {it0 it1}
