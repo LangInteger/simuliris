@@ -4,7 +4,7 @@ From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree
 From iris.prelude Require Import options.
 
 (* Key lemma: converts the entire traversal to a per-node level.
-   This is applicable to every permission in the accessed range, all that's needed
+This is applicable to every permission in the accessed range, all that's needed
 to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
 {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
@@ -1819,6 +1819,36 @@ Proof.
     erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
 Qed.
 
+Lemma bor_local_seq_accesses_same_cids
+  {tr cid cids evts tr' cids'}
+  (StartsActive : call_is_active cid cids)
+  (Seq : bor_local_seq {|seq_inv:=fun _ _ => True|} tr cids evts tr' cids')
+  (NoEndCall : Forall (fun evt => evt ≠ EndCallBLEvt cid) evts)
+  : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr cids evts tr' cids'.
+Proof.
+  generalize dependent tr.
+  generalize dependent cids.
+  induction evts; move=> ??? Seq; inversion Seq; subst.
+  - constructor; assumption.
+  - econstructor.
+    + assumption.
+    + eassumption.
+    + eapply IHevts.
+      * inversion NoEndCall; subst; assumption.
+      * inversion HEAD; subst.
+        -- eassumption.
+        -- unfold call_is_active. rewrite elem_of_union. right.
+           assumption.
+        -- assert (cid ≠ cid0) as OtherCid by (intro; inversion NoEndCall; apply H2; subst; reflexivity).
+           unfold call_is_active. rewrite elem_of_difference.
+           split; [assumption|].
+           rewrite not_elem_of_singleton; assumption.
+        -- assumption.
+      * assumption.
+Qed.
+
 Lemma llvm_noalias_reorder_up
   {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque kind_x kind_y range_x range_y}
   (Prot : is_Some (new_protector new_permission))
@@ -1834,7 +1864,7 @@ Lemma llvm_noalias_reorder_up
     )
     tr_final cids_final)
   : bor_local_seq
-    {|seq_inv:=fun _ _ => True (* FIXME: we can get the same invariant afterwards, because it depends only on cids *)|}
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
          [RetagBLEvt tg_xparent tg_x new_permission cid]
@@ -1850,8 +1880,9 @@ Proof.
   4: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_writey_writex_disjoint; eassumption).
   all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
   all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+  all: eapply bor_local_seq_accesses_same_cids; [exact (seq_always_destruct_first Seq)| |simpl; auto].
   1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
   all: apply llvm_disjoint_reorder; [assumption|].
   all: eapply bor_local_seq_forget; eassumption.
@@ -1872,7 +1903,7 @@ Lemma llvm_noalias_reorder_down
     )
     tr_final cids_final)
   : bor_local_seq
-    {|seq_inv:=fun _ _ => True (* FIXME: we can get the same invariant afterwards, because it depends only on cids *)|}
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
          [RetagBLEvt tg_xparent tg_x new_permission cid]
@@ -1888,8 +1919,9 @@ Proof.
   4: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_writex_writey_disjoint; eassumption).
   all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
   all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+  all: eapply bor_local_seq_accesses_same_cids; [exact (seq_always_destruct_first Seq)| |simpl; auto].
   1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
   all: apply llvm_disjoint_reorder; [assumption|].
   all: eapply bor_local_seq_forget; eassumption.
