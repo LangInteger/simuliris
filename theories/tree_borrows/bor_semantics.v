@@ -213,9 +213,6 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
       end
   end.
 
-(* MWE *)
-
-
 Definition call_is_active c cids := (c ∈ cids).
 Global Instance call_is_active_dec c cids : Decision (call_is_active c cids).
 Proof. rewrite /call_is_active. solve_decision. Qed.
@@ -273,21 +270,12 @@ Definition protector_is_strong prot :=
 Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
 Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
 
-Definition transition_triggers_protector
-  : permission -> permission -> bool := fun old new =>
-  if decide (old = new) then false
-  else match old, new with
-  | _, Disabled => true
-  | Active, Frozen => true
-  | _, _ => false
-  end.
-
 Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
   : app lazy_permission := fun operm =>
   let old := operm.(perm) in
   new ← apply_access_perm_inner kind rel isprot old;
   validated ← if operm.(initialized) then (
-    if isprot && protector_relevant && transition_triggers_protector old new then (
+    if isprot && protector_relevant && bool_decide (new = Disabled) then (
         None
     ) else Some new
   ) else Some new;
@@ -422,23 +410,23 @@ Lemma IsTag_reverse it it' :
   IsTag it.(itag) it' -> IsTag it'.(itag) it.
 Proof. unfold IsTag. auto. Qed.
 
-Lemma apply_access_idempotent :
-  forall kind rel (isprot isstrong isprot' isstrong':bool) perm perm',
-  (if isprot then True else isprot' = false) ->
-  (if isstrong' then True else isstrong = true) ->
-  (apply_access_perm kind rel isprot isstrong perm = Some perm') ->
-  (apply_access_perm kind rel isprot' isstrong' perm' = Some perm').
+Lemma apply_access_idempotent
+  {kind rel} (isprot isstrong isprot' isstrong':bool) {perm perm'}
+  (ProtIncr : if isprot then True else isprot' = false)
+  (StongIncr : if isstrong then True else isstrong' = false)
+  (Acc1 : apply_access_perm kind rel isprot isstrong perm = Some perm')
+  (Witness : exists x, x = (kind, rel, perm, perm', isprot, isstrong, isprot', isstrong'))
+  : apply_access_perm kind rel isprot' isstrong' perm' = Some perm'.
 Proof.
-  intros kind rel isprot isstrong isprot' isstrong' perm perm' PROT_INCR STRONG_INCR FirstPass.
   destruct perm as [init perm]; destruct perm' as [init' perm'].
   destruct init; destruct init'; destruct perm; destruct perm'.
   all: destruct kind; destruct rel.
   all: try (inversion FirstPass; done).
   all: destruct isprot; [|subst]; try destruct isprot'.
   all: try (inversion FirstPass; done).
-  all: destruct isstrong'; [|subst]; try destruct isstrong.
-  all: inversion FirstPass.
-  all: done.
+  all: destruct isstrong; [|subst]; try destruct isstrong'.
+  all: inversion Acc1.
+  all: unfold apply_access_perm; simpl; done.
 Qed.
 
 Definition tree_contains tg tr
