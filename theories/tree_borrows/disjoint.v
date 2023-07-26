@@ -7,7 +7,7 @@ From iris.prelude Require Import options.
    This is applicable to every permission in the accessed range, all that's needed
 to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
-  {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
+{tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
 (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
   (Within : range_contains range z)
@@ -20,7 +20,7 @@ Lemma access_effect_per_loc_within_range
     /\ tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
-  ).
+).
 Proof.
   inversion Step; subst.
   (* use apply_access_spec_per_node to get info on the post permission *)
@@ -1476,6 +1476,60 @@ Proof.
       reflexivity.
 Qed.
 
+Lemma range_foreach_disjoint_commutes
+  {X} {fn1 fn2 : option X -> option X} {range1 range2}
+  (Disjoint : disjoint range1 range2)
+  : commutes
+    (range_foreach fn1 range1)
+    (range_foreach fn2 range2).
+Proof.
+  intros mem0 mem1 mem2 Success01 Success12.
+  assert (forall z, range_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
+    intros z R2.
+    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range_contains range1 z)).
+    - exfalso; apply Disjoint; eexists; eauto.
+    - rewrite decide_True in Spec12; [|assumption].
+      destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
+      exists x2; rewrite <- Spec01; assumption.
+  }
+  destruct (range_foreach_success_condition fn2mem0) as [mem1' Success01'].
+  exists mem1'.
+  split; [assumption|].
+  apply range_foreach_success_specification.
+  - intros z R1.
+    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    destruct (decide (range_contains range2 z)).
+    + exfalso; apply Disjoint; eexists; eauto.
+    + rewrite decide_True in Spec01; [|assumption].
+      destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
+      rewrite Spec01'.
+      rewrite Spec12.
+      exists fn1z0; split; assumption.
+  - intros z nR1.
+    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range_contains range2 z)).
+    + rewrite decide_False in Spec01; [|assumption].
+      destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
+      destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
+      rewrite z1'Spec.
+      rewrite <- fn2z0Spec.
+      rewrite <- Spec01.
+      rewrite fn2z1Spec.
+      rewrite z2Spec.
+      reflexivity.
+    + rewrite decide_False in Spec01; [|assumption].
+      rewrite Spec01'.
+      rewrite <- Spec01.
+      rewrite Spec12.
+      reflexivity.
+Qed.
+
 Lemma commutes_option_build
   {X} {default : X} {fn1 fn2}
   (Commutes : commutes fn1 fn2)
@@ -1502,6 +1556,19 @@ Proof.
   assumption.
 Qed.
 
+Lemma permissions_foreach_disjoint_commutes
+  range1 range2
+  (fn1 fn2 : lazy_permission -> option lazy_permission)
+  default
+  (Disjoint : disjoint range1 range2)
+  : commutes
+    (permissions_foreach default range1 fn1)
+    (permissions_foreach default range2 fn2).
+Proof.
+  apply range_foreach_disjoint_commutes.
+  assumption.
+Qed.
+
 Lemma item_apply_access_read_commutes
   {cids rel1 rel2 range1 range2}
   : commutes
@@ -1519,6 +1586,31 @@ Proof.
     {| initialized:=PermLazy; perm:=initp it0 |}
     (apply_access_perm_read_commutes (rel1:=rel1) (rel2:=rel2) (prot:=bool_decide (protector_is_active (iprot it0) cids)))
     (lang_base.iperm it0) iperm iperm0) as [perms' [Pre Post]]; [exact S1|exact S2|].
+  unfold item_apply_access.
+  rewrite Pre; simpl.
+  eexists; split; [reflexivity|].
+  simpl. rewrite Post; simpl.
+  reflexivity.
+Qed.
+
+Lemma item_apply_access_disjoint_commutes
+  {cids rel1 rel2 kind1 kind2 range1 range2}
+  (Disjoint : disjoint range1 range2)
+  : commutes
+    (item_apply_access kind1 ProtStrong cids rel1 range1)
+    (item_apply_access kind2 ProtStrong cids rel2 range2).
+Proof.
+  intros it0 it1 it2 Step01 Step12.
+  option step in Step01 as ?:S1.
+  option step in Step12 as ?:S2.
+  injection Step01; destruct it1; intro H; injection H; intros; subst; simpl in *; clear Step01; clear H.
+  injection Step12; destruct it2; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
+  edestruct (permissions_foreach_disjoint_commutes
+    range1 range2
+    (apply_access_perm kind1 rel1 (bool_decide (protector_is_active (iprot it0) cids)) true)
+    (apply_access_perm kind2 rel2 (bool_decide (protector_is_active (iprot it0) cids)) true)
+    {| initialized:=PermLazy; perm:=initp it0 |}
+  ) as [?[Pre Post]]; eauto.
   unfold item_apply_access.
   rewrite Pre; simpl.
   eexists; split; [reflexivity|].
@@ -1631,6 +1723,20 @@ Proof.
   apply item_apply_access_read_commutes.
 Qed.
 
+Lemma memory_access_disjoint_commutes
+  {cids kind1 kind2 access_tag1 access_tag2 range1 range2}
+  (Disjoint : disjoint range1 range2)
+  : commutes
+    (memory_access kind1 ProtStrong cids access_tag1 range1)
+    (memory_access kind2 ProtStrong cids access_tag2 range2).
+Proof.
+  unfold memory_access.
+  apply tree_apply_access_commutes.
+  1,2: intros; eapply item_apply_access_preserves_tag; eassumption.
+  intros.
+  apply item_apply_access_disjoint_commutes; assumption.
+Qed.
+
 Lemma llvm_read_read_reorder
   {tr_initial cids_initial tr_final cids_final access_tag1 access_tag2 range1 range2}
   (Seq12 : bor_local_seq
@@ -1669,5 +1775,125 @@ Proof.
   - econstructor; [done|constructor; [|exact PostAlt]|constructor; done].
     erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
 Qed.
+
+Lemma disjoint_sym {range1 range2} : disjoint range1 range2 <-> disjoint range2 range1.
+Proof. unfold disjoint; split; intros P Q; apply P; destruct Q as [?[??]]; eexists; split; eauto. Qed.
+
+Lemma llvm_disjoint_reorder
+  {tr_initial cids_initial tr_final cids_final access_tag1 access_tag2 range1 range2 kind1 kind2}
+  (Disjoint : disjoint range1 range2)
+  (Seq12 : bor_local_seq
+    {|seq_inv:=fun _ _ => True|}
+    tr_initial cids_initial
+    (
+         [AccessBLEvt kind1 access_tag1 range1]
+      ++ [AccessBLEvt kind2 access_tag2 range2]
+    )
+    tr_final cids_final
+  )
+  : bor_local_seq
+    {|seq_inv:=fun _ _ => True|}
+    tr_initial cids_initial
+    (
+         [AccessBLEvt kind2 access_tag2 range2]
+      ++ [AccessBLEvt kind1 access_tag1 range1]
+    )
+    tr_final cids_final.
+Proof.
+  rewrite bor_local_seq_split.
+  rewrite bor_local_seq_split in Seq12.
+  destruct Seq12 as [tr_interm [cids_interm [Pre Post]]].
+  inversion Pre; subst.
+  inversion Post; subst.
+  inversion REST; subst.
+  inversion REST0; subst.
+  inversion HEAD; subst.
+  inversion HEAD0; subst.
+  destruct (memory_access_disjoint_commutes Disjoint tr_initial tr_interm tr_final ACC ACC0) as [tr_alt [PreAlt PostAlt]].
+
+  exists tr_alt, cids_final.
+  split.
+  - econstructor; [done|constructor; [|exact PreAlt]|constructor; done].
+    erewrite access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+  - econstructor; [done|constructor; [|exact PostAlt]|constructor; done].
+    erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+Qed.
+
+Lemma llvm_noalias_reorder_up
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque kind_x kind_y range_x range_y}
+  (Prot : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial)
+  (Seq : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt kind_y tg_y range_y]
+      ++ [AccessBLEvt kind_x tg_x range_x]
+    )
+    tr_final cids_final)
+  : bor_local_seq
+    {|seq_inv:=fun _ _ => True (* FIXME: we can get the same invariant afterwards, because it depends only on cids *)|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt kind_x tg_x range_x]
+      ++ [AccessBLEvt kind_y tg_y range_y]
+    )
+    tr_final cids_final.
+Proof.
+  destruct kind_x, kind_y.
+  2: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_writey_readx_disjoint; eassumption).
+  3: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_ready_writex_disjoint; eassumption).
+  4: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_writey_writex_disjoint; eassumption).
+  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
+  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
+  1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
+  all: apply llvm_disjoint_reorder; [assumption|].
+  all: eapply bor_local_seq_forget; eassumption.
+Qed.
+
+Lemma llvm_noalias_reorder_down
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque kind_x kind_y range_x range_y}
+  (Prot : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial)
+  (Seq : bor_local_seq
+    {|seq_inv:=fun _ cids => call_is_active cid cids|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt kind_x tg_x range_x]
+      ++ [AccessBLEvt kind_y tg_y range_y]
+    )
+    tr_final cids_final)
+  : bor_local_seq
+    {|seq_inv:=fun _ _ => True (* FIXME: we can get the same invariant afterwards, because it depends only on cids *)|}
+    tr_initial cids_initial
+    (
+         [RetagBLEvt tg_xparent tg_x new_permission cid]
+      ++ opaque
+      ++ [AccessBLEvt kind_y tg_y range_y]
+      ++ [AccessBLEvt kind_x tg_x range_x]
+    )
+    tr_final cids_final.
+Proof.
+  destruct kind_x, kind_y.
+  2: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_readx_writey_disjoint; eassumption).
+  3: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_writex_ready_disjoint; eassumption).
+  4: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_writex_writey_disjoint; eassumption).
+  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
+  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
+  all: rewrite bor_local_seq_split; eexists; eexists; split; [eapply bor_local_seq_forget; eassumption|].
+  1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
+  all: apply llvm_disjoint_reorder; [assumption|].
+  all: eapply bor_local_seq_forget; eassumption.
+Qed.
+
 
 
