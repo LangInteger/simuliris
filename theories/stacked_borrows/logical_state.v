@@ -1289,7 +1289,8 @@ End val_rel.
 
 (** Simulation / relation final setup *)
 Class sborGS (Σ: gFunctors) := SBorGS {
-  (* program assertions *)
+  (* program assertions, backs up [has_prog] assertions so we know which
+  function name has which code. *)
   sborG_gen_progG :: gen_sim_progGS string (string*expr) (string*expr) Σ;
   sborG_stateG :: bor_stateGS Σ;
 }.
