@@ -105,10 +105,10 @@ Inductive ectx_item :=
 | WriteREctx (e1 : expr)
 | WriteLEctx (r2 : result)
 | FreeEctx
-| DerefEctx (ptr:pointer)
+| DerefEctx (sz : nat)
 | RefEctx
-| RetagREctx (e1 : expr) (ptr : pointer) (kind : retag_kind)
-| RetagLEctx (r2 : result) (ptr : pointer) (kind : retag_kind)
+| RetagREctx (e1 : expr) (sz : nat) (kind : retag_kind)
+| RetagLEctx (r2 : result) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
 | CaseEctx (el : list expr)
 (* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
@@ -164,10 +164,10 @@ Inductive ctx_item :=
   | WriteLCtx (e2 : expr)
   | WriteRCtx (e1 : expr)
   | FreeCtx
-  | DerefCtx (ptr:pointer)
+  | DerefCtx (sz : nat)
   | RefCtx
-  | RetagLCtx (e2 : expr) (ptr : pointer) (kind : retag_kind)
-  | RetagRCtx (e1 : expr) (ptr : pointer) (kind : retag_kind)
+  | RetagLCtx (e2 : expr) (sz : nat) (kind : retag_kind)
+  | RetagRCtx (e1 : expr) (sz : nat) (kind : retag_kind)
   | CaseLCtx (el : list expr)
   | CaseRCtx (e : expr) (el1 el2 : list expr)
   | WhileLCtx (e1 : expr)
@@ -222,14 +222,14 @@ Inductive expr_head :=
   | ProjHead
   | ConcHead
   | BinOpHead (op : bin_op)
-  | PlaceHead (l : loc) (tg : tag) (ptr:pointer)
-  | DerefHead (ptr:pointer)
+  | PlaceHead (l : loc) (tg : tag) (sz : nat)
+  | DerefHead (sz : nat)
   | RefHead
   | ReadHead
   | WriteHead
-  | AllocHead (ptr:pointer)
+  | AllocHead (sz : nat)
   | FreeHead
-  | RetagHead (ptr : pointer) (kind : retag_kind)
+  | RetagHead (sz : nat) (kind : retag_kind)
   | CaseHead
   | ForkHead
   | WhileHead
@@ -465,7 +465,6 @@ Fixpoint mem_app l (vlp:list scalar_policy) (h:mem)
 Definition policy_read len : list scalar_policy := repeat PolRead len.
 Definition policy_write val : list scalar_policy := map PolWrite val.
 
-
 Definition fresh_block (h : mem) : block :=
   let loclst : list loc := elements (dom h) in
   let blockset : gset block := foldr (λ l, ({[l.1]} ∪.)) ∅ loclst in
@@ -529,34 +528,42 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
       pure_expr_step P h (Fork e) #[☠] [e]
   .
 
+Inductive event :=
+  | AllocEvt (l : loc) (tg : tag) (sz : nat)
+  | DeallocEvt (l : loc) (tg : tag) (sz : nat)
+  | AccessEvt (kind : access_kind) (l : loc) (tg : tag) (sz : nat) (val : value)
+  | InitCallEvt (cid : call_id)
+  | EndCallEvt (cid : call_id)
+  | RetagEvt (l : loc) (tg_parent tg : tag) (sz : nat) (rtk : retag_kind) (cid : call_id)
+  .
+
 Definition poison_of_size : nat -> value := repeat (☠%S).
 Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr → Prop :=
-  | AllocBS tg ptr :
-      let sz := sizeof ptr in
+  | AllocBS tg (sz : nat) :
       let l := (fresh_block h, 0) in
       mem_expr_step
-        h (Alloc ptr)
-        (AllocEvt l tg ptr)
-        (init_mem l sz h) (Place l tg ptr) []
-  | DeallocBS l tg ptr h'
-    (WRITE: mem_app l (policy_write (repeat ☠%S (sizeof ptr))) h = Some (poison_of_size (sizeof ptr), h')) :
+        h (Alloc sz)
+        (AllocEvt l tg sz)
+        (init_mem l sz h) (Place l tg sz) []
+  | DeallocBS l tg sz h'
+    (WRITE: mem_app l (policy_write (repeat ☠%S sz)) h = Some (poison_of_size sz, h')) :
     mem_expr_step
-      h (Free (Place l tg ptr))
-      (DeallocEvt l tg ptr)
-      (free_mem l (sizeof ptr) h) #[☠] []
-  | ReadBS l tg ptr val h'
-    (READ: mem_app l (policy_read (sizeof ptr)) h = Some (val, h')) :
+      h (Free (Place l tg sz))
+      (DeallocEvt l tg sz)
+      (free_mem l sz h) #[☠] []
+  | ReadBS l tg sz val h'
+    (READ: mem_app l (policy_read sz) h = Some (val, h')) :
     mem_expr_step
-      h (Read (Place l tg ptr))
-      (ReadEvt l tg ptr val)
+      h (Read (Place l tg sz))
+      (AccessEvt AccessRead l tg sz val)
       h' (Val val) []
-  | WriteBS l tg ptr val h'
+  | WriteBS l tg sz val h'
     (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
     (WRITE: mem_app l (policy_write val) h = Some (poison_of_size (length val), h'))
-    (SIZE_COMPAT: length val = sizeof ptr) :
+    (SIZE_COMPAT: length val = sz) :
     mem_expr_step
-      h (Write (Place l tg ptr) (Val val))
-      (WriteEvt l tg ptr val)
+      h (Write (Place l tg sz) (Val val))
+      (AccessEvt AccessWrite l tg sz val)
       h' #[☠] []
   | InitCallBS cid :
     mem_expr_step
@@ -570,7 +577,7 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
       (EndCallEvt cid)
       h #[☠] []
   | RetagBS l (oldt newt:tag) ptr rtk cid :
-  (* Right now this is atomic, do we need nonatomicity of reborrows ? Definitely yes. How do we get that ? *)
+  (* Right now this is atomic, do we need nonatomicity of reborrows ? How do we get that ? *)
     mem_expr_step
       h (Retag #[ScPtr l oldt] #[ScCallId cid] ptr rtk)
       (RetagEvt l oldt newt ptr rtk cid)

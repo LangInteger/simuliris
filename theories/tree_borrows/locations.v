@@ -12,7 +12,11 @@ Delimit Scope loc_scope with L.
 
 (** Locations *)
 Definition block : Set := positive.
-Definition loc : Set := block * Z.
+Notation loc' := Z (only parsing).
+Definition loc : Set := block * loc'.
+
+Definition range' : Set := loc' * nat.
+Definition range : Set := block * range'.
 
 Bind Scope loc_scope with loc.
 Global Open Scope loc_scope.

@@ -312,9 +312,9 @@ Proof.
   clear. move=> pre _ post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
-  destruct (decide (range_contains _ _)).
+  destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_preserves_backward_reach.
     rewrite Lkup; simpl. exact Apply.
@@ -338,9 +338,9 @@ Proof.
   clear. move=> pre _ post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
-  destruct (decide (range_contains _ _)).
+  destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_preserves_forward_unreach.
     rewrite Lkup; simpl. exact Apply.
@@ -731,11 +731,11 @@ Proof.
   clear. move=> pre _ Init post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (bool_decide _).
   all: destruct (bool_decide _).
-  all: destruct (decide (range_contains _ _)).
+  all: destruct (decide (range'_contains _ _)).
   all: try (rewrite Spec; tauto).
   all: destruct Spec as [?[Lkup Apply]].
   all: eapply apply_access_perm_preserves_perminit; [|eassumption].
@@ -761,7 +761,7 @@ Lemma memory_access_child_produces_perminit
   (ExAcc : tree_contains access_tag tr)
   (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
   (Rel : ParentChildIn affected_tag access_tag tr)
-  (WithinRange : range_contains range z)
+  (WithinRange : range'_contains range z)
   (UnqAff' : tree_unique affected_tag post tr')
   (ItemPre : item_lazy_perm_at_loc pre z = zpre)
   (ItemPost : item_lazy_perm_at_loc post z = zpost)
@@ -773,11 +773,11 @@ Proof.
   destruct (naive_rel_dec _ _ _); [|contradiction].
   option step in PostSpec as ?:Foreach.
   injection PostSpec; intros e; subst; clear PostSpec.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (bool_decide _).
   all: destruct (bool_decide _).
-  all: destruct (decide (range_contains _ _)); [|contradiction].
+  all: destruct (decide (range'_contains _ _)); [|contradiction].
   all: try (rewrite Spec; tauto).
   all: destruct Spec as [?[Lkup Apply]].
   all: eapply apply_access_perm_child_produces_perminit.
@@ -823,7 +823,7 @@ Lemma bor_local_step_child_produces_perminit
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (Rel : ParentChildIn affected_tag access_tag tr)
-  (WithinRange : range_contains range z)
+  (WithinRange : range'_contains range z)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
   : forall post,
     tree_unique affected_tag post tr' ->
@@ -895,11 +895,11 @@ Proof.
   clear. move=> pre _ Prot Init post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
   rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].
-  destruct (decide (range_contains _ _)).
+  destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_protected_initialized_preserves_active.
     + rewrite Lkup; simpl. exact Apply.
@@ -1008,11 +1008,11 @@ Proof.
   clear. move=> pre _ Prot Init post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
   rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].
-  destruct (decide (range_contains _ _)).
+  destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_protected_initialized_preserves_nondis.
     + rewrite Lkup; simpl. exact Apply.

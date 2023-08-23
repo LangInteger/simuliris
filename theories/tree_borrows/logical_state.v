@@ -17,6 +17,7 @@ Class bor_stateGS Σ := BorStateGS {
   call_name : gname;
 
   (* tag ownership *)
+  (* Last param is unit, should probably be cleaned up *)
   tag_inG :> tkmapG Σ ptr_id unit;
   tag_name : gname;
 
@@ -30,6 +31,8 @@ Class bor_stateGS Σ := BorStateGS {
   pub_call_name : gname;
 
   (* Tainted tags: a set of tag * source location *)
+  (* this might just be that the state is Disabled, because we don't remove tags from the tree and
+  thus don't need to remember the popped tags *)
   tainted_tag_collection :> ghost_mapG Σ (ptr_id * loc) unit;
   tainted_tags_name : gname;
 }.

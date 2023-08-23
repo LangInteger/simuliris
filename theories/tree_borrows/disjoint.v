@@ -7,20 +7,20 @@ From iris.prelude Require Import options.
 This is applicable to every permission in the accessed range, all that's needed
 to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
-{tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
-(Ex : tree_contains affected_tag tr)
+  {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
+  (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
-: exists post zpost, (
+  : exists post zpost, (
     let rel := if naive_rel_dec tr affected_tag access_tag then AccessChild else AccessForeign in
     let isprot := bool_decide (protector_is_active pre.(iprot) cids) in
     apply_access_perm kind rel isprot true zpre = Some zpost
     /\ tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
-).
+  ).
 Proof.
   inversion Step; subst.
   (* use apply_access_spec_per_node to get info on the post permission *)
@@ -32,7 +32,7 @@ Proof.
   option step in SpecPost as ?:tmpSpec.
   injection SpecPost; intro H; subst; clear SpecPost.
   (* now down to per-location *)
-  pose proof (range_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
+  pose proof (range'_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
   rewrite (decide_True _ _ Within) in ForeachSpec.
   destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
   assert (unwrap {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
@@ -49,7 +49,7 @@ Lemma access_effect_per_loc_outside_range
   {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
-  (Outside : ~range_contains range z)
+  (Outside : ~range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
   : exists post, (
@@ -69,7 +69,7 @@ Proof.
   assert (item_lazy_perm_at_loc post z = item_lazy_perm_at_loc pre z) as SamePerm. {
     option step in SpecPost as ?:SpecPerms.
     injection SpecPost; intros; subst; clear SpecPost.
-    pose proof (range_foreach_spec _ _ z _ _ SpecPerms) as RangeForeach.
+    pose proof (range'_foreach_spec _ _ z _ _ SpecPerms) as RangeForeach.
     rewrite (decide_False _ _ Outside) in RangeForeach.
     unfold item_lazy_perm_at_loc; simpl.
     rewrite RangeForeach; reflexivity.
@@ -112,7 +112,7 @@ Ltac auto_access_event_within_range :=
   (* First off, if we see an access step, we apply the key per-location lemma *)
   | Ex : tree_contains ?aff ?tr,
     Unq : tree_unique ?aff ?pre ?tr,
-    Within : range_contains ?range ?z,
+    Within : range'_contains ?range ?z,
     Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
     |- exists _ _, _ =>
     destruct (access_effect_per_loc_within_range Ex Unq Within eq_refl Step) as [post[zpost[?[?[??]]]]];
@@ -120,7 +120,7 @@ Ltac auto_access_event_within_range :=
     clear Step Unq Within Ex
   | Ex : tree_contains ?aff ?tr,
     Unq : tree_unique ?aff ?pre ?tr,
-    Within : range_contains ?range ?z,
+    Within : range'_contains ?range ?z,
     Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
     |- _ =>
     destruct (access_effect_per_loc_within_range Ex Unq Within eq_refl Step) as [post[zpost[?[?[??]]]]];
@@ -158,7 +158,7 @@ Lemma nonchild_write_reserved_to_disabled
   (Unq : tree_unique affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Reach : reach Reserved (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
@@ -177,7 +177,7 @@ Lemma nonchild_write_any_protected_to_disabled
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
@@ -194,7 +194,7 @@ Lemma nonchild_read_active_to_frozen
   (Unq : tree_unique affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Reach : reach Active (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
@@ -212,7 +212,7 @@ Lemma child_write_frozen_to_ub
   (Unq : tree_unique affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Reach : reach Frozen (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
@@ -225,7 +225,7 @@ Lemma child_read_disabled_to_ub
   (Unq : tree_unique affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Reach : reach Disabled (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
@@ -238,7 +238,7 @@ Lemma child_write_any_to_init_active
   (Unq : tree_unique affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
@@ -256,7 +256,7 @@ Lemma child_read_any_to_init_nondis
   (Unq : tree_unique affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
@@ -277,7 +277,7 @@ Lemma protected_nonchild_write_initialized_to_ub
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
   (Initialized : initialized (item_lazy_perm_at_loc pre z) = PermInit)
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (NonDis : ~reach Disabled (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
@@ -292,7 +292,7 @@ Lemma protected_nonchild_read_initialized_active_to_ub
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
   (Initialized : initialized (item_lazy_perm_at_loc pre z) = PermInit)
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Activated : perm zpre = Active)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
@@ -306,7 +306,7 @@ Lemma protected_nonchild_read_any_to_frozen
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
-  (Within : range_contains range z)
+  (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
@@ -501,7 +501,7 @@ Lemma fwrite_cwrite_disjoint
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg' range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   intros [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -551,7 +551,7 @@ Lemma fwrite_cread_disjoint
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
   (Read2 : bor_local_step tr2 cids2 (AccessBLEvt AccessRead tg' range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -612,7 +612,7 @@ Lemma protected_fwrite_cwrite_disjoint
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg' range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   intros [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -661,7 +661,7 @@ Lemma protected_fwrite_cread_disjoint
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
   (Read2 : bor_local_step tr2 cids2 (AccessBLEvt AccessRead tg' range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -721,7 +721,7 @@ Lemma activated_fread_cwrite_disjoint
   (Read2 : bor_local_step tr2 cids2 (AccessBLEvt AccessRead tg range2) tr2' cids2')
   (Seq23 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr2' cids2' l tr3 cids3)
   (Write3 : bor_local_step tr3 cids3 (AccessBLEvt AccessWrite tg' range3) tr3' cids3')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z /\ range_contains range3 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z /\ range'_contains range3 z.
 Proof.
   move=> [z [RContains1 [RContains2 RContains3]]].
   (* reborrow step *)
@@ -806,7 +806,7 @@ Lemma protected_cwrite_fwrite_disjoint
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -885,7 +885,7 @@ Lemma protected_cread_fwrite_disjoint
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -959,7 +959,7 @@ Lemma protected_cwrite_fread_disjoint
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Read2 : bor_local_step tr2 cids2 (AccessBLEvt AccessRead tg range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -1034,7 +1034,7 @@ Lemma protected_fread_cwrite_disjoint
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg' range2) tr2' cids2')
-  : ~exists z, range_contains range1 z /\ range_contains range2 z.
+  : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
@@ -1088,7 +1088,7 @@ Qed.
 (* rename bor_local_seq: bor_local_steps *)
 (* ghost state, ressource algebras, invariants *)
 
-Definition disjoint range range' := ~exists z, range_contains range z /\ range_contains range' z.
+Definition disjoint' range1 range2 := ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 
 Lemma llvm_retagx_opaque_writey_writex_disjoint
   {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
@@ -1104,7 +1104,7 @@ Lemma llvm_retagx_opaque_writey_writex_disjoint
       ++ [AccessBLEvt AccessWrite tg_x range_x]
     )
     tr_final cids_final)
-  : disjoint range_y range_x.
+  : disjoint' range_y range_x.
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
@@ -1139,7 +1139,7 @@ Lemma llvm_retagx_opaque_writey_readx_disjoint
       ++ [AccessBLEvt AccessRead tg_x range_x]
     )
     tr_final cids_final)
-  : disjoint range_y range_x.
+  : disjoint' range_y range_x.
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
@@ -1174,7 +1174,7 @@ Lemma llvm_retagx_opaque_readx_writey_disjoint
       ++ [AccessBLEvt AccessWrite tg_y range_y]
     )
     tr_final cids_final)
-  : disjoint range_x range_y.
+  : disjoint' range_x range_y.
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
@@ -1208,7 +1208,7 @@ Lemma llvm_retagx_opaque_writex_writey_disjoint
       ++ [AccessBLEvt AccessWrite tg_y range_y]
     )
     tr_final cids_final)
-  : disjoint range_x range_y.
+  : disjoint' range_x range_y.
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
@@ -1242,7 +1242,7 @@ Lemma llvm_retagx_opaque_writex_ready_disjoint
       ++ [AccessBLEvt AccessRead tg_y range_y]
     )
     tr_final cids_final)
-  : disjoint range_x range_y.
+  : disjoint' range_x range_y.
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
@@ -1276,7 +1276,7 @@ Lemma llvm_retagx_opaque_ready_writex_disjoint
       ++ [AccessBLEvt AccessWrite tg_x range_x]
     )
     tr_final cids_final)
-  : disjoint range_y range_x.
+  : disjoint' range_y range_x.
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
@@ -1355,20 +1355,20 @@ Proof.
   all: reflexivity.
 Qed.
 
-Lemma range_foreach_success_condition
+Lemma range'_foreach_success_condition
   {X} {fn : option X -> option X} {range mem}
-  (ALL_SOME : forall z, range_contains range z -> is_Some (fn (mem !! z)))
-  : exists mem', range_foreach fn range mem = Some mem'.
+  (ALL_SOME : forall z, range'_contains range z -> is_Some (fn (mem !! z)))
+  : exists mem', range'_foreach fn range mem = Some mem'.
 Proof.
-  unfold range_foreach.
+  unfold range'_foreach.
   destruct range as [z sz]; simpl.
   generalize dependent z.
   induction sz; move=> z ALL_SOME.
   - eexists. simpl. reflexivity.
   - destruct (IHsz (z + 1)%Z
-      ltac:(intros mem' H; apply ALL_SOME; unfold range_contains; unfold range_contains in H; simpl; simpl in H; lia))
+      ltac:(intros mem' H; apply ALL_SOME; unfold range'_contains; unfold range'_contains in H; simpl; simpl in H; lia))
       as [sub' Specsub'].
-    destruct (ALL_SOME z ltac:(unfold range_contains; simpl; lia)) as [fnz Specfnz].
+    destruct (ALL_SOME z ltac:(unfold range'_contains; simpl; lia)) as [fnz Specfnz].
     eexists (<[z:=fnz]>sub').
     unfold mem_foreach; simpl.
     unfold mem_foreach in Specsub'.
@@ -1379,18 +1379,18 @@ Qed.
 
 Lemma range_foreach_success_specification
   {X} {fn : option X -> option X} {range mem mem'}
-  (ALL_SOME : forall z, range_contains range z -> exists x', fn (mem !! z) = Some x' /\ mem' !! z = Some x')
-  (REST_SAME : forall z, ~range_contains range z -> mem !! z = mem' !! z)
-  : range_foreach fn range mem = Some mem'.
+  (ALL_SOME : forall z, range'_contains range z -> exists x', fn (mem !! z) = Some x' /\ mem' !! z = Some x')
+  (REST_SAME : forall z, ~range'_contains range z -> mem !! z = mem' !! z)
+  : range'_foreach fn range mem = Some mem'.
 Proof.
-  assert (forall z, range_contains range z -> is_Some (fn (mem !! z))) as ALL_SOME_weaker. {
+  assert (forall z, range'_contains range z -> is_Some (fn (mem !! z))) as ALL_SOME_weaker. {
     intros z R; destruct (ALL_SOME z R) as [?[??]]; auto.
   }
-  destruct (range_foreach_success_condition ALL_SOME_weaker) as [mem'' Spec''].
+  destruct (range'_foreach_success_condition ALL_SOME_weaker) as [mem'' Spec''].
   rewrite Spec''; f_equal; apply map_eq.
   intro z.
-  pose proof (range_foreach_spec _ _ z _ _ Spec'') as Spec.
-  destruct (decide (range_contains range z)) as [R|nR].
+  pose proof (range'_foreach_spec _ _ z _ _ Spec'') as Spec.
+  destruct (decide (range'_contains range z)) as [R|nR].
   - destruct Spec as [v[vSpec fnvSpec]].
     destruct (ALL_SOME z R) as [v' [fnv'Spec v'Spec]].
     rewrite v'Spec.
@@ -1408,15 +1408,15 @@ Lemma range_foreach_commutes
   (fn1 fn2 : option X -> option X)
   (FnCommutes : commutes_option fn1 fn2)
   : commutes
-    (range_foreach fn1 range1)
-    (range_foreach fn2 range2).
+    (range'_foreach fn1 range1)
+    (range'_foreach fn2 range2).
 Proof.
   intros mem0 mem1 mem2 Success01 Success12.
-  assert (forall z, range_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
+  assert (forall z, range'_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
     intros z R2.
-    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
-    destruct (decide (range_contains range1 z)).
+    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range'_contains range1 z)).
     - destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
       rewrite decide_True in Spec12; [|assumption].
       destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
@@ -1427,15 +1427,15 @@ Proof.
       destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
       exists x2; rewrite <- Spec01; assumption.
   }
-  destruct (range_foreach_success_condition fn2mem0) as [mem1' Success01'].
+  destruct (range'_foreach_success_condition fn2mem0) as [mem1' Success01'].
   exists mem1'.
   split; [assumption|].
   apply range_foreach_success_specification.
   - intros z R1.
-    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
-    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
-    destruct (decide (range_contains range2 z)).
+    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    destruct (decide (range'_contains range2 z)).
     + rewrite decide_True in Spec01; [|assumption].
       destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
       destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
@@ -1456,10 +1456,10 @@ Proof.
       rewrite Spec12.
       exists fn1z0; split; assumption.
   - intros z nR1.
-    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
-    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
-    destruct (decide (range_contains range2 z)).
+    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range'_contains range2 z)).
     + rewrite decide_False in Spec01; [|assumption].
       destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
       destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
@@ -1478,31 +1478,31 @@ Qed.
 
 Lemma range_foreach_disjoint_commutes
   {X} {fn1 fn2 : option X -> option X} {range1 range2}
-  (Disjoint : disjoint range1 range2)
+  (Disjoint : disjoint' range1 range2)
   : commutes
-    (range_foreach fn1 range1)
-    (range_foreach fn2 range2).
+    (range'_foreach fn1 range1)
+    (range'_foreach fn2 range2).
 Proof.
   intros mem0 mem1 mem2 Success01 Success12.
-  assert (forall z, range_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
+  assert (forall z, range'_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
     intros z R2.
-    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
-    destruct (decide (range_contains range1 z)).
+    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range'_contains range1 z)).
     - exfalso; apply Disjoint; eexists; eauto.
     - rewrite decide_True in Spec12; [|assumption].
       destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
       exists x2; rewrite <- Spec01; assumption.
   }
-  destruct (range_foreach_success_condition fn2mem0) as [mem1' Success01'].
+  destruct (range'_foreach_success_condition fn2mem0) as [mem1' Success01'].
   exists mem1'.
   split; [assumption|].
   apply range_foreach_success_specification.
   - intros z R1.
-    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
-    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
-    destruct (decide (range_contains range2 z)).
+    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    destruct (decide (range'_contains range2 z)).
     + exfalso; apply Disjoint; eexists; eauto.
     + rewrite decide_True in Spec01; [|assumption].
       destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
@@ -1510,10 +1510,10 @@ Proof.
       rewrite Spec12.
       exists fn1z0; split; assumption.
   - intros z nR1.
-    pose proof (range_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range_foreach_spec _ _ z _ _ Success01') as Spec01'.
-    pose proof (range_foreach_spec _ _ z _ _ Success12) as Spec12.
-    destruct (decide (range_contains range2 z)).
+    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range'_contains range2 z)).
     + rewrite decide_False in Spec01; [|assumption].
       destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
       destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
@@ -1560,7 +1560,7 @@ Lemma permissions_foreach_disjoint_commutes
   range1 range2
   (fn1 fn2 : lazy_permission -> option lazy_permission)
   default
-  (Disjoint : disjoint range1 range2)
+  (Disjoint : disjoint' range1 range2)
   : commutes
     (permissions_foreach default range1 fn1)
     (permissions_foreach default range2 fn2).
@@ -1595,7 +1595,7 @@ Qed.
 
 Lemma item_apply_access_disjoint_commutes
   {cids rel1 rel2 kind1 kind2 range1 range2}
-  (Disjoint : disjoint range1 range2)
+  (Disjoint : disjoint' range1 range2)
   : commutes
     (item_apply_access kind1 ProtStrong cids rel1 range1)
     (item_apply_access kind2 ProtStrong cids rel2 range2).
@@ -1725,7 +1725,7 @@ Qed.
 
 Lemma memory_access_disjoint_commutes
   {cids kind1 kind2 access_tag1 access_tag2 range1 range2}
-  (Disjoint : disjoint range1 range2)
+  (Disjoint : disjoint' range1 range2)
   : commutes
     (memory_access kind1 ProtStrong cids access_tag1 range1)
     (memory_access kind2 ProtStrong cids access_tag2 range2).
@@ -1776,12 +1776,12 @@ Proof.
     erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
 Qed.
 
-Lemma disjoint_sym {range1 range2} : disjoint range1 range2 <-> disjoint range2 range1.
-Proof. unfold disjoint; split; intros P Q; apply P; destruct Q as [?[??]]; eexists; split; eauto. Qed.
+Lemma disjoint'_sym {range1 range2} : disjoint' range1 range2 <-> disjoint' range2 range1.
+Proof. unfold disjoint'; split; intros P Q; apply P; destruct Q as [?[??]]; eexists; split; eauto. Qed.
 
 Lemma llvm_disjoint_reorder
   {tr_initial cids_initial tr_final cids_final access_tag1 access_tag2 range1 range2 kind1 kind2}
-  (Disjoint : disjoint range1 range2)
+  (Disjoint : disjoint' range1 range2)
   (Seq12 : bor_local_seq
     {|seq_inv:=fun _ _ => True|}
     tr_initial cids_initial
@@ -1849,82 +1849,46 @@ Proof.
       * assumption.
 Qed.
 
-Lemma llvm_noalias_reorder_up
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque kind_x kind_y range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
-  (AlreadyExists_y : tree_contains tg_y tr_initial)
-  (Seq : bor_local_seq
-    {|seq_inv:=fun _ cids => call_is_active cid cids|}
-    tr_initial cids_initial
-    (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
-      ++ opaque
-      ++ [AccessBLEvt kind_y tg_y range_y]
-      ++ [AccessBLEvt kind_x tg_x range_x]
-    )
-    tr_final cids_final)
-  : bor_local_seq
-    {|seq_inv:=fun _ cids => call_is_active cid cids|}
-    tr_initial cids_initial
-    (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
-      ++ opaque
-      ++ [AccessBLEvt kind_x tg_x range_x]
-      ++ [AccessBLEvt kind_y tg_y range_y]
-    )
-    tr_final cids_final.
+Theorem llvm_noalias_reorder
+  {tg_xparent new_permission cid}
+  {tg_x kind_x range_x}
+  {tg_y kind_y range_y}
+  {tr_initial cids_initial opaque tr_final cids_final}
+  (HasProtector_x : is_Some (new_protector new_permission))
+  (AlreadyExists_y : tree_contains tg_y tr_initial) :
+  let retag_x := RetagBLEvt tg_xparent tg_x new_permission cid in
+  let access_y := AccessBLEvt kind_y tg_y range_y in
+  let access_x := AccessBLEvt kind_x tg_x range_x in
+  let invariant := {| seq_inv := fun _ cids => call_is_active cid cids |} in
+  (bor_local_seq invariant tr_initial cids_initial ([retag_x] ++ opaque ++ [access_y] ++ [access_x]) tr_final cids_final)
+  <->
+  (bor_local_seq invariant tr_initial cids_initial ([retag_x] ++ opaque ++ [access_x] ++ [access_y]) tr_final cids_final).
 Proof.
-  destruct kind_x, kind_y.
-  2: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_writey_readx_disjoint; eassumption).
-  3: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_ready_writex_disjoint; eassumption).
-  4: assert (disjoint range_y range_x) by (eapply llvm_retagx_opaque_writey_writex_disjoint; eassumption).
-  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
-  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
-  all: eapply bor_local_seq_accesses_same_cids; [exact (seq_always_destruct_first Seq)| |simpl; auto].
-  1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
-  all: apply llvm_disjoint_reorder; [assumption|].
-  all: eapply bor_local_seq_forget; eassumption.
-Qed.
-
-Lemma llvm_noalias_reorder_down
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque kind_x kind_y range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
-  (AlreadyExists_y : tree_contains tg_y tr_initial)
-  (Seq : bor_local_seq
-    {|seq_inv:=fun _ cids => call_is_active cid cids|}
-    tr_initial cids_initial
-    (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
-      ++ opaque
-      ++ [AccessBLEvt kind_x tg_x range_x]
-      ++ [AccessBLEvt kind_y tg_y range_y]
-    )
-    tr_final cids_final)
-  : bor_local_seq
-    {|seq_inv:=fun _ cids => call_is_active cid cids|}
-    tr_initial cids_initial
-    (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
-      ++ opaque
-      ++ [AccessBLEvt kind_y tg_y range_y]
-      ++ [AccessBLEvt kind_x tg_x range_x]
-    )
-    tr_final cids_final.
-Proof.
-  destruct kind_x, kind_y.
-  2: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_readx_writey_disjoint; eassumption).
-  3: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_writex_ready_disjoint; eassumption).
-  4: assert (disjoint range_x range_y) by (eapply llvm_retagx_opaque_writex_writey_disjoint; eassumption).
-  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
-  all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
-  all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
-  all: eapply bor_local_seq_accesses_same_cids; [exact (seq_always_destruct_first Seq)| |simpl; auto].
-  1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
-  all: apply llvm_disjoint_reorder; [assumption|].
-  all: eapply bor_local_seq_forget; eassumption.
+  split; intro Seq.
+  - destruct kind_x, kind_y.
+    2: assert (disjoint' range_y range_x) by (eapply llvm_retagx_opaque_writey_readx_disjoint; eassumption).
+    3: assert (disjoint' range_y range_x) by (eapply llvm_retagx_opaque_ready_writex_disjoint; eassumption).
+    4: assert (disjoint' range_y range_x) by (eapply llvm_retagx_opaque_writey_writex_disjoint; eassumption).
+    all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
+    all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
+    all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+    all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+    all: eapply bor_local_seq_accesses_same_cids; [exact (seq_always_destruct_first Seq)| |simpl; auto].
+    1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
+    all: apply llvm_disjoint_reorder; [assumption|].
+    all: eapply bor_local_seq_forget; eassumption.
+  - destruct kind_x, kind_y.
+    2: assert (disjoint' range_x range_y) by (eapply llvm_retagx_opaque_readx_writey_disjoint; eassumption).
+    3: assert (disjoint' range_x range_y) by (eapply llvm_retagx_opaque_writex_ready_disjoint; eassumption).
+    4: assert (disjoint' range_x range_y) by (eapply llvm_retagx_opaque_writex_writey_disjoint; eassumption).
+    all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre1 Seq]]].
+    all: rewrite bor_local_seq_split in Seq; destruct Seq as [?[? [Pre2 Seq]]].
+    all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+    all: rewrite bor_local_seq_split; eexists; eexists; split; [eassumption|].
+    all: eapply bor_local_seq_accesses_same_cids; [exact (seq_always_destruct_first Seq)| |simpl; auto].
+    1: apply llvm_read_read_reorder; eapply bor_local_seq_forget; eassumption.
+    all: apply llvm_disjoint_reorder; [assumption|].
+    all: eapply bor_local_seq_forget; eassumption.
 Qed.
 
 

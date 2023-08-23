@@ -19,7 +19,6 @@ Delimit Scope expr_scope with E.
 Delimit Scope val_scope with V.
 Delimit Scope sc_scope with S.
 Delimit Scope result_scope with R.
-Delimit Scope pointer with Ptr.
 
 Local Open Scope Z_scope.
 
@@ -160,10 +159,10 @@ Inductive expr :=
 (* bin op *)
 | BinOp (op : bin_op) (e1 e2 : expr)
 (* place operation *)
-| Place (l : loc) (tg : tag) (ptr : pointer)
+| Place (l : loc) (tg : tag) (sz : nat)
                                   (* A place is a tagged pointer: every access
                                      to memory revolves around a place. *)
-| Deref (e : expr) (ptr : pointer)       (* Deference a pointer `e` into a place
+| Deref (e : expr) (sz : nat)       (* Deference a pointer `e` into a place
                                      presenting the location that `e` points to.
                                      The location has the kind and size of `ptr`. *)
 | Ref (e : expr)                   (* Turn a place `e` into a pointer value. *)
@@ -173,7 +172,7 @@ Inductive expr :=
 (* mem op *)
 | Read (e : expr)                 (* Read from the place `e` *)
 | Write (e1 e2 : expr)             (* Write the value `e2` to the place `e1` *)
-| Alloc (ptr : pointer)                 (* Allocate a place of type `T` *)
+| Alloc (sz : nat)                 (* Allocate a place of type `T` *)
 | Free (e : expr)                 (* Free the place `e` *)
 (* atomic mem op *)
 (* | CAS (e0 e1 e2 : expr) *)     (* CAS the value `e2` for `e1` to the place `e0` *)
@@ -181,7 +180,7 @@ Inductive expr :=
 (* | AtomRead (e: expr) *)
 (* retag *) (* Retag the memory pointed to by `e1` of type (Reference pk T) with
   retag kind `kind`, for call_id `e2`. *)
-| Retag (e1 : expr) (e2 : expr) (ptr : pointer) (kind : retag_kind)
+| Retag (e1 : expr) (e2 : expr) (sz : nat) (kind : retag_kind)
 (* let binding *)
 | Let (x : binder) (e1 e2: expr)
 (* case *)
@@ -202,13 +201,13 @@ Arguments Call _%E _%E.
 Arguments EndCall _%E.
 Arguments Proj _%E _%E.
 Arguments Conc _%E _%E.
-Arguments Deref _%E _%Ptr.
+Arguments Deref _%E _%nat.
 Arguments Ref _%E.
 Arguments Read _%E.
 Arguments Write _%E _%E.
-Arguments Alloc _%Ptr.
+Arguments Alloc _%nat.
 Arguments Free _%E.
-Arguments Retag _%E _%E _%Ptr _.
+Arguments Retag _%E _%E _%nat _.
 Arguments Let _%binder _%E _%E.
 Arguments Case _%E _%E.
 Arguments While _%E _%E.
@@ -239,7 +238,7 @@ Proof. rewrite /Closed. apply _. Qed.
 (** Irreducible (language values) *)
 Inductive result :=
 | ValR (v : value)
-| PlaceR (l : loc) (tg : tag) (ptrk:pointer)
+| PlaceR (l : loc) (tg : tag) (sz : nat)
 .
 Bind Scope result_scope with result.
 
@@ -325,10 +324,10 @@ Inductive bor_event :=
 *)
 
 Inductive bor_local_event :=
-| AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
-| InitCallBLEvt (cid : call_id)
-| EndCallBLEvt (cid : call_id)
-| RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)
-| SilentBLEvt.
+  | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
+  | InitCallBLEvt (cid : call_id)
+  | EndCallBLEvt (cid : call_id)
+  | RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)
+  | SilentBLEvt.
 
 

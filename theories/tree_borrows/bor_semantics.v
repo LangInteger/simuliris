@@ -22,23 +22,28 @@ Implicit Type (c:call_id) (cids:call_id_set).
 Implicit Type (blk:block) (n sz:nat) (z:Z) (range:Z * nat).
 Implicit Type (trs:trees) (t:tag).
 
-Definition range_contains range z : Prop :=
-  (range.1 ≤ z)%Z /\ (z < range.1 + range.2)%Z.
-Global Instance decision_range_contains range z : Decision (range_contains range z).
+Definition range'_contains (r:range') (l:loc') : Prop :=
+  (r.1 ≤ l)%Z /\ (l < r.1 + r.2)%Z.
+Global Instance decision_range'_contains (r:range') (l:loc') : Decision (range'_contains r l).
 Proof. solve_decision. Qed.
 
-Lemma range_contains_excludes_equal range z' :
+Definition range_contains (r:range) (l:loc) : Prop :=
+  r.1 = l.1 /\ range'_contains r.2 l.2.
+Global Instance decision_range_contains (r:range) (l:loc) : Decision (range_contains r l).
+Proof. solve_decision. Qed.
+
+Lemma range'_contains_excludes_equal range z' :
   let '(z, sz) := range in
-  range_contains (z, S sz) z' -> ~(range_contains ((z + 1)%Z, sz) z') -> z = z'.
+  range'_contains (z, S sz) z' -> ~(range'_contains ((z + 1)%Z, sz) z') -> z = z'.
 Proof.
   destruct range.
   intros Contains Excludes.
-  unfold range_contains in *; simpl in *.
+  unfold range'_contains in *; simpl in *.
   lia.
 Qed.
 
 Fixpoint mem_foreach {X} (fn:option X -> option X) z sz
-  {struct sz} : app (gmap Z X) := fun map =>
+  {struct sz} : app (gmap loc' X) := fun map =>
   match sz with
   | O => Some map
   | S sz' =>
@@ -47,28 +52,28 @@ Fixpoint mem_foreach {X} (fn:option X -> option X) z sz
       Some (<[z := new]>newmap)
   end.
 
-Definition range_foreach {X} (fn:option X -> option X) range := mem_foreach fn range.1 range.2.
+Definition range'_foreach {X} (fn:option X -> option X) (r:range') : app (gmap loc' X) := mem_foreach fn r.1 r.2.
 
-Lemma range_foreach_spec {X} fn range z' :
-  forall (map newmap: gmap Z X),
-  (range_foreach fn range map = Some newmap) ->
-  if (decide (range_contains range z'))
+Lemma range'_foreach_spec {X} fn r z' :
+  forall (map newmap: gmap loc' X),
+  (range'_foreach fn r map = Some newmap) ->
+  if (decide (range'_contains r z'))
     then exists val, newmap !! z' = Some val /\ fn (map !! z') = Some val
     else newmap !! z' = map !! z'.
 Proof.
-  unfold range_foreach.
-  destruct range as [z sz].
+  unfold range'_foreach.
+  destruct r as [z sz].
   generalize dependent z'.
   generalize dependent z.
   induction sz; intros z z' map newmap MemForeach.
   - unfold mem_foreach in MemForeach. injection MemForeach; intro; subst.
-    destruct (decide (range_contains (z, 0) z')) as [Contains | NotContains]; auto.
-    unfold range_contains in Contains; simpl in Contains. lia.
+    destruct (decide (range'_contains (z, 0) z')) as [Contains | NotContains]; auto.
+    unfold range'_contains in Contains; simpl in Contains. lia.
   (* Case 1: the item is at the beginning of the range.
      -> it will be unchanged by the aux function and written by the current one *)
   - destruct (decide (z = z')) as [Eql | Neq].
-    + subst. assert (range_contains (z', S sz) z') as ContainsS by (unfold range_contains; simpl; lia).
-      decide (decide (range_contains (z', S sz) z')) with ContainsS.
+    + subst. assert (range'_contains (z', S sz) z') as ContainsS by (unfold range'_contains; simpl; lia).
+      decide (decide (range'_contains (z', S sz) z')) with ContainsS.
       simpl in MemForeach.
       destruct (fn (map !! z')); simpl in *; [|inversion MemForeach].
       destruct (mem_foreach fn (z' + 1) sz map) eqn:Rec; [|inversion MemForeach]; simpl in *.
@@ -80,28 +85,28 @@ Proof.
       destruct (fn (map !! z)) eqn:Fn; simpl in *; [|inversion MemForeach].
       destruct (mem_foreach fn (z + 1) sz map) eqn:Rec; simpl in *; [|inversion MemForeach].
       specialize IHsz with (z + 1)%Z z' map g.
-      * destruct (decide (range_contains ((z + 1)%Z, sz) z')) as [Contains' | NotContains'].
-        all: destruct (decide (range_contains (z, S sz) z')) as [ContainsS' | NotContainsS'].
+      * destruct (decide (range'_contains ((z + 1)%Z, sz) z')) as [Contains' | NotContains'].
+        all: destruct (decide (range'_contains (z, S sz) z')) as [ContainsS' | NotContainsS'].
         (* good case *)
         1,4: injection MemForeach; intro; subst; rewrite lookup_insert_ne; auto.
         (* bad range *)
-        1: exfalso; unfold range_contains in *; simpl in *; lia.
+        1: exfalso; unfold range'_contains in *; simpl in *; lia.
         (* bad range, this time it suggests z = z' *)
-        1: exfalso; apply Neq. apply (range_contains_excludes_equal (z, sz) z' ContainsS' NotContains').
+        1: exfalso; apply Neq. apply (range'_contains_excludes_equal (z, sz) z' ContainsS' NotContains').
 Qed.
 
 Definition permissions_foreach (pdefault:lazy_permission) range (f:app lazy_permission)
   : app permissions := fun ps =>
-  range_foreach
+  range'_foreach
     (fun oldp => f (unwrap pdefault oldp))
     range ps.
 
 Lemma mem_foreach_defined_isSome {X} (map:gmap Z X) (fn:option X -> X) :
-  forall range, is_Some (range_foreach (fun x => Some (fn x)) range map).
+  forall range, is_Some (range'_foreach (fun x => Some (fn x)) range map).
 Proof.
   intros range; destruct range as [z sz].
   generalize dependent z.
-  unfold range_foreach; simpl.
+  unfold range'_foreach; simpl.
   induction sz; intro z; simpl in *.
   - exists map; auto.
   - destruct (IHsz (z+1)%Z) as [res].
@@ -122,18 +127,18 @@ Proof.
   - inversion sx; inversion H.
 Qed.
 
-Lemma mem_foreach_defined_spec {X} fn range z :
+Lemma mem_foreach_defined_spec {X} fn r z :
   forall (map newmap: gmap Z X),
-  (mem_foreach_defined fn range map = newmap) ->
-  if (decide (range_contains range z))
+  (mem_foreach_defined fn r map = newmap) ->
+  if (decide (range'_contains r z))
     then exists val, newmap !! z = Some val /\ fn (map !! z) = val
     else newmap !! z = map !! z.
 Proof.
   intros map newmap MemForeach.
   unfold mem_foreach_defined in MemForeach.
   pose proof (is_Some_proj_extract _ _ _ MemForeach) as Foreach.
-  pose proof (range_foreach_spec _ _ z _ _ Foreach) as Spec.
-  destruct (decide (range_contains _ _)).
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec.
+  destruct (decide (range'_contains _ _)).
   - destruct Spec as [x [Mapz Appfn]].
     exists x; split; auto. injection Appfn; tauto.
   - assumption.
@@ -462,34 +467,6 @@ Definition app_preserves_tag app : Prop :=
 
 (** Reborrow *)
 
-
-Definition newperm_from_ref
-  (mut:mutability)
-  (frz:freeze)
-  (pin:pinedness)
-  (rtk:retag_kind)
-  (cid:call_id)
-  : option newperm :=
-  initial ← match mut, pin, frz with
-    | Mutable, Unpin, Freeze => Some ReservedMut
-    | Mutable, Unpin, Interiormut => Some Reserved
-    | Immutable, _, Freeze => Some Frozen
-    | _, _, _ => None
-    end;
-  let newprot := match rtk with FnEntry => Some {| strong:=ProtStrong; call:=cid |} | Default => None end in
-  Some {| initial_state:=initial; new_protector:=newprot |}.
-
-Definition newperm_from_box
-  (* FIXME: mut ? *)
-  (* FIXME: pin ? *)
-  (* FIXME: frz ? *)
-  (rtk:retag_kind)
-  (cid:call_id)
-  : option newperm :=
-  let initial := Reserved (* FIXME: mut ? *) in
-  let newprot := match rtk with FnEntry => Some {| strong:=ProtWeak; call:=cid |} | Default => None end in
-  Some {| initial_state:=initial; new_protector:=newprot |}.
-
 Definition create_new_item tg perm :=
   {| itag:=tg; iprot:=perm.(new_protector); initp:=perm.(initial_state); iperm:=∅ |}.
 
@@ -498,9 +475,9 @@ Definition create_child cids (oldt:tag) (newt:tag) (newp:newperm)
   let it := create_new_item newt newp in
   Some $ insert_child_at tr it (IsTag oldt).
 
-Definition item_lazy_perm_at_loc it z
+Definition item_lazy_perm_at_loc it (l:loc')
   : lazy_permission :=
-  let op := iperm it !! z in
+  let op := iperm it !! l in
   unwrap {| initialized := PermLazy; perm := initp it |} op.
 
 Definition item_perm_at_loc it z
@@ -510,16 +487,6 @@ Definition item_perm_at_loc it z
 Definition every_tagged t (P:Tprop item) tr
   : Prop :=
   every_node (fun it => IsTag t it -> P it) tr.
-
-(* FIXME: do we need the visitor ? *)
-(* NOTE: returns None on noop reborrows do not confuse that with returning None on UB ! *)
-Definition reborrow_perm (ptrk:pointer_kind) (rtk:retag_kind) (cid:call_id)
-  : option newperm :=
-  match ptrk with
-  | RefPtr mut frz pin => newperm_from_ref mut frz pin rtk cid
-  | RawPtr => None
-  | BoxPtr => newperm_from_box rtk cid
-  end.
 
 (* FIXME: gmap::partial_alter ? *)
 Definition apply_within_trees (fn:app (tree item)) blk

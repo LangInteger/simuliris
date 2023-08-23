@@ -128,18 +128,18 @@ Qed.
 
 Lemma StrictParentChild_transitive t t' t'' (tr:tree item) :
   StrictParentChildIn t t' tr ->
-StrictParentChildIn t' t'' tr ->
+  StrictParentChildIn t' t'' tr ->
   StrictParentChildIn t t'' tr.
 Proof.
   rewrite /StrictParentChildIn /HasStrictChildTag.
   induction tr; simpl; auto.
   intros [Condtt' [Reltt'1 Reltt'2]] [Condt't'' [Relt't''1 Relt't''2]].
-split; auto.
+  split; auto.
   intro H.
   clear Relt't''1 Reltt'1 IHtr1 IHtr2.
   pose proof (Condtt' H) as Ex'.
   clear Condtt' H Condt't'' Reltt'2.
-(* End of step 1: we have found a t'. Now look for a t''. *)
+  (* End of step 1: we have found a t'. Now look for a t''. *)
   induction tr2; [destruct Ex'|].
   destruct Relt't''2 as [IfHere [IfLeft IfRight]].
   destruct Ex' as [Here | [Left | Right]].
