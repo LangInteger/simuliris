@@ -518,8 +518,8 @@ Section delay_based_fairness.
   Proof.
     split; intros Hdel j Hj; destruct (Hdel j Hj) as [d HD];
       exists d.
-    - eapply map_filter_lookup_Some_1_1, HD.
-    - eapply map_filter_lookup_Some; eauto.
+    - eapply map_lookup_filter_Some_1_1, HD.
+    - eapply map_lookup_filter_Some; eauto.
   Qed.
 
   Lemma pool_step_delays_for_update p T σ i T' σ' D:
@@ -560,10 +560,10 @@ Section delay_based_fairness.
   Proof.
     destruct 1 as [i T T' D D' σ σ' Hstep Hdecr].
     econstructor; first done.
-    intros j d Hne Hactive. eapply map_filter_lookup_Some in Hactive as [HD Hact].
+    intros j d Hne Hactive. eapply map_lookup_filter_Some in Hactive as [HD Hact].
     destruct (Hdecr j d  Hne HD) as (d' & -> & HD').
     exists d'; split; first done.
-    eapply map_filter_lookup_Some; split; first done.
+    eapply map_lookup_filter_Some; split; first done.
     eapply active_threads_step; eauto.
     set_solver.
   Qed.
