@@ -34,7 +34,9 @@ Proof. solve_decision. Defined.
 Global Instance tag_countable : Countable tag.
 Proof. refine (inj_countable (λ '(Tag t), t) (λ t, Some $ Tag t) _); by intros []. Qed.
 
-Inductive permission := Reserved | ReservedMut | Active | Frozen | Disabled.
+Inductive permission :=
+  | Reserved | ReservedConfl | ReservedMut | ReservedConflMut
+  | Active | Frozen | Disabled.
 Global Instance permission_eq_dec : EqDecision permission.
 Proof. solve_decision. Defined.
 Global Instance permission_countable : Countable permission.
@@ -43,12 +45,14 @@ Proof.
     (λ p,
       match p with
       | Reserved => 0 | ReservedMut => 1
-      | Active => 2 | Frozen => 3 | Disabled => 4
+      | ReservedConfl => 2 | ReservedConflMut => 3
+      | Active => 4 | Frozen => 5 | Disabled => 6
       end)
     (λ s,
       Some match s with
       | 0 => Reserved | 1 => ReservedMut
-      | 2 => Active | 3 => Frozen | _ => Disabled
+      | 2 => ReservedConfl | 3 => ReservedConflMut
+      | 4 => Active | 5 => Frozen | _ => Disabled
       end) _); by intros [].
 Qed.
 

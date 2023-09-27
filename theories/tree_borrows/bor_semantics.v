@@ -194,15 +194,19 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
   match kind, rel with
   | AccessRead, AccessForeign =>
       match perm with
-      | Reserved | ReservedMut => if isprot then Some Frozen else Some perm
+      | Reserved => if isprot then Some ReservedConfl else Some Reserved
+      | ReservedMut => if isprot then Some ReservedConflMut else Some ReservedMut
+      | ReservedConfl | ReservedConflMut => Some perm
       | Active => if isprot then
-        (* This is just a trick for commutativity of read operations. Protector should get triggered anyway *)
+        (* This is just a trick for commutativity of read operations.
+           Protector should get triggered anyway *)
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
   | AccessWrite, AccessForeign =>
       match perm with
       | ReservedMut => if isprot then Some Disabled else Some ReservedMut
+      | ReservedConflMut => if isprot then Some Disabled else Some ReservedConflMut
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
@@ -213,6 +217,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
       end
   | AccessWrite, AccessChild =>
       match perm with
+      | ReservedConfl => if isprot then None else Some Active
+      | ReservedConflMut => if isprot then None else Some Active
       | Reserved | ReservedMut | Active => Some Active
       | _ => None
       end
@@ -326,8 +332,10 @@ Definition memory_deallocate cids t range
 
 Definition witness_transition p p' : Prop :=
   match p, p' with
-  | ReservedMut, Active
-  | Reserved, Active
+  | Reserved, ReservedConfl
+  | ReservedMut, ReservedConflMut
+  | ReservedConfl, Active
+  | ReservedConflMut, Active
   | Active, Frozen
   | Frozen, Disabled
   => True
@@ -341,8 +349,10 @@ Inductive witness_reach p p' : Prop :=
 
 Definition reach p p' : Prop :=
   match p, p' with
-  | ReservedMut, (ReservedMut | Active | Frozen | Disabled)
-  | Reserved, (Reserved | Active | Frozen | Disabled)
+  | ReservedMut, (ReservedMut | ReservedConflMut | Active | Frozen | Disabled)
+  | Reserved, (Reserved | ReservedConfl | Active | Frozen | Disabled)
+  | ReservedConflMut, (ReservedConflMut | Active | Frozen | Disabled)
+  | ReservedConfl, (ReservedConfl | Active | Frozen | Disabled)
   | Active, (Active | Frozen | Disabled)
   | Frozen, (Frozen | Disabled)
   | Disabled, (Disabled)
@@ -364,7 +374,7 @@ Lemma reach_complete p p' :
   witness_reach p p' -> reach p p'.
 Proof.
   destruct p, p'; simpl; intro; try tauto.
-  all: repeat witness_reach_invert.
+  all: do 10 witness_reach_invert.
 Qed.
 
 Ltac witness_reach_solve :=
@@ -373,6 +383,8 @@ Ltac witness_reach_solve :=
   let p'' := fresh "p''" in
   match goal with
   | |- witness_reach ?p ?p => apply witness_reach_refl; reflexivity
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ ReservedConfl); simpl; [tauto|]
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ ReservedConflMut); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Active); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Frozen); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Disabled); simpl; [tauto|]
@@ -382,7 +394,7 @@ Lemma reach_sound p p' :
   reach p p' -> witness_reach p p'.
 Proof.
   destruct p, p'; simpl; intro; try tauto.
-  all: repeat witness_reach_solve.
+  all: do 10 witness_reach_solve.
 Qed.
 
 Lemma reach_correct p p' :
