@@ -219,6 +219,24 @@ Lemma child_write_frozen_to_ub
   : False.
 Proof. do 11 auto_access_event_within_range. Qed.
 
+Lemma child_write_protected_freeze_like_to_ub
+  {tr affected_tag access_tag pre}
+  (Ex : tree_contains affected_tag tr)
+  (Unq : tree_unique affected_tag pre tr)
+  (Child : ParentChildIn affected_tag access_tag tr)
+  {cids cids' range tr' z zpre}
+  (Within : range'_contains range z)
+  (Protected : protector_is_active (iprot pre) cids)
+  (IsPre : item_lazy_perm_at_loc pre z = zpre)
+  (FrzLike : freeze_like (perm zpre))
+  (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
+  : False.
+Proof.
+  unfold freeze_like in FrzLike.
+  destruct FrzLike as [?|[?|?]].
+  all: do 11 auto_access_event_within_range.
+Qed.
+
 Lemma child_read_disabled_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
@@ -299,7 +317,10 @@ Lemma protected_nonchild_read_initialized_active_to_ub
   : False.
 Proof. do 15 auto_access_event_within_range. Qed.
 
-Lemma protected_nonchild_read_any_to_frozen
+Definition freeze_like p : Prop :=
+  reach Frozen p \/ p = ReservedConfl \/ p = ReservedConflMut.
+
+Lemma protected_nonchild_read_any_to_conflicted
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
   (Unq : tree_unique affected_tag pre tr)
@@ -311,10 +332,11 @@ Lemma protected_nonchild_read_any_to_frozen
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
     tree_unique affected_tag post tr'
+    /\ iprot post = iprot pre
     /\ item_lazy_perm_at_loc post z = zpost
-    /\ reach Frozen (perm zpost)
+    /\ freeze_like (perm zpost)
   ).
-Proof. do 15 auto_access_event_within_range. Qed.
+Proof. unfold freeze_like. do 15 auto_access_event_within_range. Qed.
 
 (* `migrate` facilitates moving hypotheses across borrow steps.
    Usage:
@@ -1032,7 +1054,7 @@ Lemma protected_fread_cwrite_disjoint
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Call1 : call_is_active cid cids1)
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg range1) tr1' cids1')
-  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
+  (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
   (Write2 : bor_local_step tr2 cids2 (AccessBLEvt AccessWrite tg' range2) tr2' cids2')
   : ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 Proof.
@@ -1056,13 +1078,14 @@ Proof.
   (* write step 1 *)
   subst.
   rename post into pre.
-  destruct (protected_nonchild_read_any_to_frozen
+  destruct (protected_nonchild_read_any_to_conflicted
     Ex' Unq'
     Unrelated
     ltac:(eexists; split; [exact Protected|exact Call1])
     RContains1 eq_refl Read1
-  ) as [post [zpost [Unq'Post [PermPost FrzReachPost]]]].
+  ) as [post [zpost [Unq'Post [ProtPost [PermPost FrzLikePost]]]]].
   migrate Ex'.
+  rewrite <- ProtPost in Protected.
   forget tr1.
   forget pre.
 
@@ -1071,17 +1094,19 @@ Proof.
   rename Unq'Post into Unq'.
   rename post into pre.
   destruct Seq12 as [evts12 Seq12].
-  pose replace FrzReachPost with bor_local_seq_last_backward_reach Ex' Unq' @ Seq12.
-  migrate Unq'; destruct Unq' as [post [Unq' _]].
-  pose replace FrzReachPost with @ post Unq'.
+  pose replace FrzLikePost with bor_local_seq_last_protected_freeze_like Ex' Unq' Protected @ Seq12.
+  migrate Unq'; destruct Unq' as [post [Unq' Unq'Prot]].
+  pose replace FrzLikePost with @ post Unq'.
+  pose proof (seq_always_destruct_last Seq12) as Prot2; simpl in Prot2.
+  destruct FrzLikePost as [ProtPost FrzLike].
   migrate Ex'.
 
   (* read step 2 *)
-  destruct (child_write_frozen_to_ub
+  destruct (child_write_protected_freeze_like_to_ub
     Ex' Unq'
     ltac:(left; reflexivity)
-    RContains2 eq_refl
-    ltac:(solve_reachability)
+    RContains2 ltac:(exists cid; split; [exact ProtPost|exact Prot2]) eq_refl
+    FrzLike
     Write2).
 Qed.
 
@@ -1293,7 +1318,7 @@ Proof.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact INV0.
   - exact HEAD0.
-  - exists []. exact (bor_local_seq_forget REST0).
+  - exists []. exact REST0.
   - exact HEAD1.
 Qed.
 

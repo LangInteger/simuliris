@@ -360,6 +360,9 @@ Definition reach p p' : Prop :=
   | _, _ => False
   end.
 
+Definition freeze_like p : Prop :=
+  reach Frozen p \/ p = ReservedConfl \/ p = ReservedConflMut.
+
 Ltac witness_reach_invert :=
   match goal with
   | H : witness_reach _ _ |- False =>

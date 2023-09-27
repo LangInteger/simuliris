@@ -187,8 +187,6 @@ Proof.
     assumption.
 Qed.
 
-(* This lemma does not handle the complicated case of an access in the same block as blk.
-   See bor_estep_access_spec. *)
 Lemma bor_local_step_preserves_unique_easy
   {tg tr it tr' cids cids' evt}
   (Ex : tree_contains tg tr)
@@ -294,6 +292,22 @@ Proof.
   all: auto.
 Qed.
 
+Lemma apply_access_perm_preserves_protected_freeze_like
+  {pre post kind rel b'}
+  (Access : apply_access_perm kind rel true b' pre = Some post)
+  : freeze_like (perm pre) -> freeze_like (perm post).
+Proof.
+  unfold freeze_like.
+  destruct b', kind, rel.
+  all: destruct pre, initialized, perm.
+  all: inversion Access.
+  (* all cases easy *)
+  all: intros [H|[H|H]]; inversion H.
+  all: try (left; done).
+  all: try (right; left; done).
+  all: try (right; right; done).
+Qed.
+
 (* Preservation of reachability *)
 Lemma memory_access_preserves_backward_reach
   {access_tag affected_tag pre tr post tr' kind strong cids range p0 z}
@@ -347,6 +361,34 @@ Proof.
   - rewrite Spec; tauto.
 Qed.
 
+Lemma memory_access_preserves_protected_freeze_like
+  {access_tag affected_tag pre tr post tr' kind strong cids range z}
+  (ExAff : tree_contains affected_tag tr)
+  (UnqAff : tree_unique affected_tag pre tr)
+  (ExAcc : tree_contains access_tag tr)
+  (Prot : protector_is_active (iprot pre) cids)
+  (Access : memory_access kind strong cids access_tag range tr = Some tr')
+  (UnqAff' : tree_unique affected_tag post tr')
+  : freeze_like (item_perm_at_loc pre z) -> freeze_like (item_perm_at_loc post z).
+Proof.
+  destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
+  pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
+  (* now it's just bruteforce case analysis *)
+  generalize dependent post.
+  generalize dependent pre.
+  clear. move=> pre _ Prot post _ Access _.
+  option step in Access as ?:Foreach.
+  injection Access; intros e; subst; clear Access.
+  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  destruct (decide (range'_contains _ _)).
+  - destruct Spec as [?[Lkup Apply]].
+    eapply apply_access_perm_preserves_protected_freeze_like.
+    rewrite bool_decide_eq_true_2 in Apply; [|assumption].
+    rewrite Lkup; simpl. exact Apply.
+  - rewrite Spec; tauto.
+Qed.
+
 Lemma bor_local_step_preserves_backward_reach
   {tg tr tr' cids cids' pre post evt p0 z}
   (Ex : tree_contains tg tr)
@@ -374,6 +416,24 @@ Lemma bor_local_step_preserves_forward_unreach
 Proof.
   inversion Step; subst.
   - apply (memory_access_preserves_forward_unreach Ex UnqPre EXISTS_TAG ACC UnqPost).
+  - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
+  - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
+  - pose proof (bor_local_step_preserves_contains Ex Step) as ExPost'.
+    pose proof (bor_local_step_preserves_unique_easy Ex UnqPre Step) as [it' [UnqPost' Eq]]; subst; simpl in UnqPost'.
+    rewrite (tree_unique_unify ExPost' UnqPost' UnqPost); tauto.
+Qed.
+
+Lemma bor_local_step_preserves_protected_freeze_like
+  {tg tr tr' cids cids' pre post evt z}
+  (Ex : tree_contains tg tr)
+  (UnqPre : tree_unique tg pre tr)
+  (Prot : protector_is_active (iprot pre) cids)
+  (Step : bor_local_step tr cids evt tr' cids')
+  (UnqPost : tree_unique tg post tr')
+  : freeze_like (item_perm_at_loc pre z) -> freeze_like (item_perm_at_loc post z).
+Proof.
+  inversion Step; subst.
+  - apply (memory_access_preserves_protected_freeze_like Ex UnqPre EXISTS_TAG Prot ACC UnqPost).
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - pose proof (bor_local_step_preserves_contains Ex Step) as ExPost'.
@@ -626,6 +686,32 @@ Proof.
     eapply bor_local_step_preserves_backward_reach; eauto.
 Qed.
 
+Lemma bor_local_seq_always_protected_freeze_like
+  {tg tr tr' cids cids' pre evts cid z}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg pre tr)
+  (Prot : protector_is_for_call cid (iprot pre))
+  (Reach : freeze_like (item_perm_at_loc pre z))
+  (Seq : bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr cids evts tr' cids')
+  : bor_local_seq {|seq_inv:=fun tr _ => forall post (UnqPost : tree_unique tg post tr), protector_is_for_call cid (iprot post) /\ freeze_like (item_perm_at_loc post z)|}
+      tr cids evts tr' cids'.
+Proof.
+  pose proof (bor_local_seq_always_contains Ex (bor_local_seq_forget Seq)) as AllEx.
+  pose proof (seq_always_merge Seq (seq_always_merge AllEx (bor_local_seq_always_unique Ex Unq eq_refl AllEx))) as AllExUnqProt.
+  eapply seq_always_build_forward; [| |exact AllExUnqProt].
+  + move=> ? Unq'. pose proof (tree_unique_unify Ex Unq Unq'); subst. split; assumption.
+  + clear; simpl; move=> ???? evt Step [Prot [Ex [? [Unq _]]]] Reach.
+    move=> ? Unq'.
+    destruct (Reach _ Unq) as [SameProt FrzLike].
+    split.
+    * pose proof (bor_local_step_preserves_contains Ex Step) as Ex'.
+      destruct (bor_local_step_preserves_unique_easy Ex Unq Step) as [x [Unqx Protx]].
+      pose proof (tree_unique_unify Ex' Unq' Unqx); subst.
+      destruct evt; rewrite <- Protx; assumption.
+    * eapply bor_local_step_preserves_protected_freeze_like; eauto.
+      exists cid; split; assumption.
+Qed.
+
 Lemma bor_local_seq_last_backward_reach
   {tg tr tr' cids cids' pre evts p0 z}
   (Ex : tree_contains tg tr)
@@ -635,6 +721,19 @@ Lemma bor_local_seq_last_backward_reach
   : forall post (UnqPost : tree_unique tg post tr'), reach p0 (item_perm_at_loc post z).
 Proof.
   pose proof (seq_always_destruct_last (bor_local_seq_always_backward_reach Ex Unq Reach Seq)).
+  assumption.
+Qed.
+
+Lemma bor_local_seq_last_protected_freeze_like
+  {tg tr tr' cids cids' pre evts cid z}
+  (Ex : tree_contains tg tr)
+  (Unq : tree_unique tg pre tr)
+  (Prot : protector_is_for_call cid (iprot pre))
+  (FrzLike : freeze_like (item_perm_at_loc pre z))
+  (Seq : bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr cids evts tr' cids')
+  : forall post (UnqPost : tree_unique tg post tr'), protector_is_for_call cid (iprot post) /\ freeze_like (item_perm_at_loc post z).
+Proof.
+  pose proof (seq_always_destruct_last (bor_local_seq_always_protected_freeze_like Ex Unq Prot FrzLike Seq)).
   assumption.
 Qed.
 
