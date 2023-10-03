@@ -663,7 +663,7 @@ Section na_locs_wf.
       apply: safe_reach_safe_implies. move => [?[?[?[??]]]]; simplify_eq.
       apply: safe_reach_load; [done..|].
       apply: safe_reach_refl. split_and!; [|done|done|done|done].
-      efeed pose proof Heq; [|done|done|naive_solver].
+      opose proof* Heq; [|done|done|naive_solver].
       rewrite not_elem_of_list_to_set elem_of_list_fmap.
       move => [[??][?]]. rewrite elem_of_list_filter. naive_solver.
   Qed.

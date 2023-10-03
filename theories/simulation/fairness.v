@@ -181,7 +181,7 @@ Lemma active_eventually_steps p T σ (f: div_exec p T σ) i :
 Proof.
   intros Hfair Hsafe Hact.
   destruct (classic (∃ n, (f n).(id) = i)) as [|Hne]; first done.
-  exfalso. feed pose proof (Hfair i) as Hsteps; last first.
+  exfalso. opose proof (Hfair i _) as Hsteps; last first.
   { rewrite /always_eventually_steps in Hsteps.
     specialize (Hsteps 0). by naive_solver. }
   exists 0. intros n _. specialize (div_exec_steps f n) as Hsteps.
@@ -240,10 +240,10 @@ Section coinductive_inductive_fairness.
     fair f → fair (div_exec_advance f n).
   Proof.
     intros Hfair i Henabled.
-    feed pose proof (Hfair i) as Hsteps.
+    opose proof (Hfair i _) as Hsteps.
     - destruct Henabled as (m & Hen). exists (m + n).
       intros n' (n'' & ->)%Nat.le_sum.
-      feed pose proof (Hen (m + n'')) as Hen; first lia.
+      opose proof (Hen (m + n'') _) as Hen; first lia.
       simpl in Hen. by replace (m + n + n'') with (n + (m + n'')) by lia.
     - intros k. destruct (Hsteps (n + k)) as (m' & (m & ->)%Nat.le_sum & Hstep).
       exists (k + m). split; first lia. simpl.
@@ -729,7 +729,7 @@ Section delay_based_fairness.
     destruct (fair_div_delay_to_exec_advance Fair (m + n)) as (T' & D' & σ' & Fair' & Heq).
     assert (is_Some (D' !! i)) as [k HD].
     { eapply fair_div_delays_for in Fair' as Hdel. eapply Hdel.
-      eapply active_threads_spec. feed pose proof (Hen (m + n + 0)) as Hen; first lia.
+      eapply active_threads_spec. opose proof (Hen (m + n + 0) _) as Hen; first lia.
       rewrite -Heq in Hen; simpl in Hen; destruct Hen as (e & Hlook & Hred).
       exists e. split; first done. destruct Hred as (e' & σ'' & efs & ?).
       by eapply val_stuck. }

@@ -55,7 +55,7 @@ Section laws.
     iDestruct (heapbij_access with "Hbij Hrel") as (?) "[$ Hclose]".
     iIntros (cols' σ_s' T_s' ? ? Hdom HP) "Hcols He". iExists L, cols'. iFrame. repeat (iSplit; [done|]).
     iSplit.
-    { iPureIntro => ??????. efeed pose proof Hdom as Hd; [done.. | ].
+    { iPureIntro => ??????. opose proof* Hdom as Hd; [done.. | ].
       destruct Hd as [->|[?[??]]].
       - naive_solver.
       - apply: HL; naive_solver.
@@ -130,7 +130,7 @@ Section fix_heap.
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcols. rewrite lookup_map_seq_0 in Hcols.
     move: (Hcols) => /(lookup_lt_Some _ _ _) ?.
     set (cols' := <[π := (<[Loc b_s o := (Loc b_t o, NaExcl)]>col)]> cols).
-    efeed pose proof na_locs_wf_combined_state_store as Hcom; [done|done |  |done|done| |]. 2: {
+    opose proof* na_locs_wf_combined_state_store as Hcom; [done|done |  |done|done| |]. 2: {
       move => ??. apply: safe_reach_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     } { done. }
     rewrite Hcol /= in Hcom.
@@ -169,7 +169,7 @@ Section fix_heap.
     iDestruct (na_bij_access with "Hinv Hbij") as (cols ? Hwf) "(Hcols&Halloc&Hclose)".
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcols. rewrite lookup_map_seq_0 in Hcols.
     move: (Hcols) => /(lookup_lt_Some _ _ _) ?.
-    efeed pose proof na_locs_wf_combined_state_load as Hcom; [done|done | |done|done | |]. 2: {
+    opose proof* na_locs_wf_combined_state_load as Hcom; [done|done | |done|done | |]. 2: {
       move => ??. apply: safe_reach_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     } { done. }
     destruct Hcom as [q Hcom]. rewrite Hcol /= in Hcom.
@@ -280,7 +280,7 @@ Section fix_heap.
 
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcoll.
     rewrite lookup_map_seq_0 in Hcoll.
-    efeed pose proof na_locs_wf_combined_state_store as Hcom; [done|done | |done|done | |]; simplify_map_eq.
+    opose proof* na_locs_wf_combined_state_store as Hcom; [done|done | |done|done | |]; simplify_map_eq.
     2: { intros. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     { done. }
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (st' v' ? ?) "#Hv'"; [done| |]; simplify_eq.
@@ -373,7 +373,7 @@ Section fix_heap.
 
     iDestruct (ghost_map_lookup with "Hcols Hcol") as %Hcoll.
     rewrite lookup_map_seq_0 in Hcoll.
-    efeed pose proof na_locs_wf_combined_state_load as Hcom; [done|done | |done|done | |]; simplify_map_eq.
+    opose proof* na_locs_wf_combined_state_load as Hcom; [done|done | |done|done | |]; simplify_map_eq.
     2: { intros. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     { done. }
     destruct Hcom as [q Hcom].

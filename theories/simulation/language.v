@@ -673,7 +673,7 @@ Section language.
     destruct 1 as [|T T' T'' σ σ' σ'' i I Hstep Hsteps]; eauto.
     intros Hvals.
     eapply pool_step_iff in Hstep as (e & e' & efs & Hstep & Hlook & Hupd).
-    feed pose proof (Hvals e) as Irr; first by eapply elem_of_list_lookup_2.
+    opose proof* (Hvals e) as Irr; first by eapply elem_of_list_lookup_2.
     exfalso; eapply val_irreducible; eauto.
   Qed.
 
