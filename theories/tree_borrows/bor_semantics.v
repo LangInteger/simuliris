@@ -330,6 +330,7 @@ Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
   Some tr.
 
+(* FIXME: explain what's going on here *)
 Definition witness_transition p p' : Prop :=
   match p, p' with
   | Reserved, ReservedConfl
@@ -342,6 +343,7 @@ Definition witness_transition p p' : Prop :=
   | _, _ => False
   end.
 
+(* FIXME: rtc *)
 Inductive witness_reach p p' : Prop :=
   | witness_reach_refl : p = p' -> witness_reach p p'
   | witness_reach_step p'' : witness_transition p p'' ->  witness_reach p'' p' -> witness_reach p p'

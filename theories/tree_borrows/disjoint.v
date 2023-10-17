@@ -317,8 +317,10 @@ Lemma protected_nonchild_read_initialized_active_to_ub
   : False.
 Proof. do 15 auto_access_event_within_range. Qed.
 
+(*
 Definition freeze_like p : Prop :=
   reach Frozen p \/ p = ReservedConfl \/ p = ReservedConflMut.
+*)
 
 Lemma protected_nonchild_read_any_to_conflicted
   {tr affected_tag access_tag pre}
