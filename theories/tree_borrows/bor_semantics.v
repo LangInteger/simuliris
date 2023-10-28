@@ -42,14 +42,18 @@ Proof.
   lia.
 Qed.
 
+Definition mem_apply {X} (fn : option X -> option X) z
+  : app (gmap loc' X) := fun map =>
+    new ← fn (map !! z);
+    Some (<[z := new]> map).
+
 Fixpoint mem_foreach {X} (fn:option X -> option X) z sz
   {struct sz} : app (gmap loc' X) := fun map =>
   match sz with
   | O => Some map
   | S sz' =>
-      new ← fn (map !! z);
-      newmap ← mem_foreach fn (z + 1)%Z sz' map;
-      Some (<[z := new]>newmap)
+      newmap ← mem_apply fn z map;
+      mem_foreach fn (z + 1)%Z sz' newmap
   end.
 
 Definition range'_foreach {X} (fn:option X -> option X) (r:range') : app (gmap loc' X) := mem_foreach fn r.1 r.2.
@@ -75,24 +79,34 @@ Proof.
     + subst. assert (range'_contains (z', S sz) z') as ContainsS by (unfold range'_contains; simpl; lia).
       decide (decide (range'_contains (z', S sz) z')) with ContainsS.
       simpl in MemForeach.
+      unfold mem_apply in MemForeach.
       destruct (fn (map !! z')); simpl in *; [|inversion MemForeach].
-      destruct (mem_foreach fn (z' + 1) sz map) eqn:Rec; [|inversion MemForeach]; simpl in *.
+      destruct (mem_foreach fn (z' + 1) sz _) eqn:Rec; [|inversion MemForeach]; simpl in *.
       injection MemForeach; intro; subst.
-      exists x; split; auto; apply lookup_insert.
+      exists x; split; auto.
+      pose proof (IHsz _ z' _ _ Rec) as Unchanged.
+      assert (~range'_contains ((z' + 1)%Z, sz) z') by (unfold range'_contains; simpl; lia).
+      destruct (decide (range'_contains ((z'+1)%Z, sz) z')); [contradiction|].
+      rewrite Unchanged.
+      apply lookup_insert.
   (* Case 2: the item is in the middle of the range or completely outside.
      -> the map we get from the aux call is not altered on the location that matters *)
     + simpl in MemForeach.
+      unfold mem_apply in MemForeach.
       destruct (fn (map !! z)) eqn:Fn; simpl in *; [|inversion MemForeach].
-      destruct (mem_foreach fn (z + 1) sz map) eqn:Rec; simpl in *; [|inversion MemForeach].
-      specialize IHsz with (z + 1)%Z z' map g.
+      destruct (mem_foreach fn (z + 1) sz _) eqn:Rec; simpl in *; [|inversion MemForeach].
+      specialize (IHsz _ z' _ _ Rec).
       * destruct (decide (range'_contains ((z + 1)%Z, sz) z')) as [Contains' | NotContains'].
         all: destruct (decide (range'_contains (z, S sz) z')) as [ContainsS' | NotContainsS'].
-        (* good case *)
-        1,4: injection MemForeach; intro; subst; rewrite lookup_insert_ne; auto.
         (* bad range *)
-        1: exfalso; unfold range'_contains in *; simpl in *; lia.
-        (* bad range, this time it suggests z = z' *)
-        1: exfalso; apply Neq. apply (range'_contains_excludes_equal (z, sz) z' ContainsS' NotContains').
+        all: try (exfalso; unfold range'_contains in *; simpl in *; lia).
+        (* good case *)
+        -- destruct IHsz as [x0 [z'val fnval]].
+           injection MemForeach; intros; subst.
+           exists x0; split; auto.
+           rewrite lookup_insert_ne in fnval; auto.
+        -- injection MemForeach; intros; subst.
+           rewrite lookup_insert_ne in IHsz; auto.
 Qed.
 
 Definition permissions_foreach (pdefault:lazy_permission) range (f:app lazy_permission)
@@ -459,7 +473,6 @@ Definition tree_unique tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
-(*
 Definition trees_at_block prop trs blk
   : Prop :=
   match trs !! blk with
@@ -475,7 +488,6 @@ Definition trees_unique tg trs blk it :=
 
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
-*)
 
 Definition app_preserves_tag app : Prop :=
   (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it').
@@ -578,40 +590,56 @@ Inductive bor_local_seq (invariant : seq_invariant) tr cids
       (evt :: evts)
       tr'' cids''.
 
-(* FIXME: Check this much more thoroughly *)
-(*
-Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
+Definition read_all_protected_initialized (cid : nat) (trs : trees) : option trees :=
+  let all_prot := fold_tree in
+  fold all_prot.
+
+
+Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
-  | AllocIS (x:loc) ptr
+  | AllocIS (x : loc) (sz : nat)
     (FRESH : trs !! x.1 = None) :
-    (* Tagged nxtp is the first borrow of the variable x,
-       used when accessing x directly (not through another pointer) *)
-    (* FIXME: should we check that the block is absent from the trees ? *)
     bor_step
       trs cids nxtp nxtc
-      (AllocEvt x (Tag nxtp) ptr)
-      (extend_trees (Tag nxtp) x.1 (x.2, sizeof ptr) trs) cids (S nxtp) nxtc
-  | ReadIS trs' (x:loc) tg ptr val
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_read cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+      (AllocEvt x.1 (Tag nxtp) (x.2, sz))
+      (extend_trees (Tag nxtp) x.1 trs) cids (S nxtp) nxtc
+  | CopyIS trs' (alloc : block) range tg val
+    (EXISTS_TAG: trees_contain tg trs alloc)
+    (ACC: apply_within_trees (memory_access AccessRead ProtStrong cids tg range) alloc trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
-      (ReadEvt x tg ptr val)
+      (CopyEvt alloc tg range val)
       trs' cids nxtp nxtc
-  | WriteIS trs' (x:loc) tg ptr val
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_write cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+  | FailedCopyIS (alloc : block) range tg
+    (EXISTS_TAG : trees_contain tg trs alloc)
+    (ACC : apply_within_trees (memory_access AccessRead ProtStrong cids tg range) alloc trs = None) :
     bor_step
       trs cids nxtp nxtc
-      (WriteEvt x tg ptr val)
+      (FailedCopyEvt alloc tg range)
+      trs cids nxtp nxtc
+  | WriteIS trs' (alloc : block) range tg val
+    (EXISTS_TAG: trees_contain tg trs alloc)
+    (ACC: apply_within_trees (memory_access AccessWrite ProtStrong cids tg range) alloc trs = Some trs') :
+    bor_step
+      trs cids nxtp nxtc
+      (WriteEvt alloc tg range val)
       trs' cids nxtp nxtc
-  | DeallocIS trs' (x:loc) tg ptr
-    (EXISTS_TAG: trees_contain tg trs x.1)
-    (ACC: apply_within_trees (memory_deallocate cids tg (x.2, sizeof ptr)) x.1 trs = Some trs') :
+  | RetagIS trs' parentt (alloc : block) range (newp : newperm) cid
+    (EL: cid ∈ cids)
+    (EXISTS_TAG: trees_contain parentt trs alloc)
+    (FRESH_CHILD: ~trees_contain (Tag nxtp) trs alloc)
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt (Tag nxtp) newp) alloc trs = Some trs') :
+    bor_step
+      trs cids nxtp nxtc
+      (RetagEvt alloc parentt (Tag nxtp) newp cid)
+      trs' cids (S nxtp) nxtc
+  | DeallocIS trs' (alloc : block) (tg : tag) range
+    (EXISTS_TAG: trees_contain tg trs alloc)
+    (ACC: apply_within_trees (memory_deallocate cids tg range) alloc trs = Some trs') :
     (* FIXME: remove the tree ? *)
     bor_step
       trs cids nxtp nxtc
-      (DeallocEvt x tg ptr)
+      (DeallocEvt alloc tg range)
       trs' cids nxtp nxtc
   | InitCallIS :
     bor_step
@@ -619,20 +647,13 @@ Inductive bor_step trs cids (nxtp:nat) (nxtc:call_id)
       (InitCallEvt nxtc)
       trs ({[nxtc]} ∪ cids) nxtp (S nxtc)
   | EndCallIS c
-    (EL: c ∈ cids) :
+    (EL: c ∈ cids)
+    (READ_ON_UNPROT : read_all_protected_initialized c trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (EndCallEvt c)
       trs (cids ∖ {[c]}) nxtp nxtc
-  | RetagIS trs' parentt (x:loc) (ptr:pointer) (rtk:retag_kind) newp c
-    (EL: c ∈ cids)
-    (EXISTS_TAG: trees_contain parentt trs x.1)
-    (FRESH_CHILD: ~trees_contain (Tag nxtp) trs x.1)
-    (NEW_PERM: reborrow_perm (kindof ptr) rtk c = Some newp)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt (Tag nxtp) newp) x.1 trs = Some trs') :
-    bor_step
-      trs cids nxtp nxtc
-      (RetagEvt x parentt (Tag nxtp) ptr rtk c)
-      trs' cids (S nxtp) nxtc
   .
-*)
+
+
+

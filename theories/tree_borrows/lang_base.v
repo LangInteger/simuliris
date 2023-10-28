@@ -335,3 +335,16 @@ Inductive bor_local_event :=
   | SilentBLEvt.
 
 
+
+(** Internal events *)
+Inductive event :=
+| AllocEvt (alloc : block) (lbor : tag) (range : Z * nat)
+| DeallocEvt (alloc : block) (lbor: tag) (range : Z * nat)
+| CopyEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
+| FailedCopyEvt (alloc : block) (lbor : tag) (range : Z * nat)
+| WriteEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
+| InitCallEvt (c : call_id)
+| EndCallEvt (c : call_id)
+| RetagEvt (alloc : block) (otag ntag : tag) (newp : newperm) (c : call_id)
+| SilentEvt.
+
