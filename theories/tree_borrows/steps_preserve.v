@@ -326,7 +326,7 @@ Proof.
   clear. move=> pre _ post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
@@ -352,7 +352,7 @@ Proof.
   clear. move=> pre _ post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
@@ -379,7 +379,7 @@ Proof.
   clear. move=> pre _ Prot post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
@@ -830,7 +830,7 @@ Proof.
   clear. move=> pre _ Init post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (bool_decide _).
   all: destruct (bool_decide _).
@@ -872,7 +872,7 @@ Proof.
   destruct (naive_rel_dec _ _ _); [|contradiction].
   option step in PostSpec as ?:Foreach.
   injection PostSpec; intros e; subst; clear PostSpec.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (bool_decide _).
   all: destruct (bool_decide _).
@@ -994,7 +994,7 @@ Proof.
   clear. move=> pre _ Prot Init post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
   rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].
@@ -1107,7 +1107,7 @@ Proof.
   clear. move=> pre _ Prot Init post _ Access _.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
-  pose proof (range'_foreach_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
   rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].

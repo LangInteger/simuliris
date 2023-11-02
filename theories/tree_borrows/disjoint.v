@@ -32,7 +32,7 @@ Proof.
   option step in SpecPost as ?:tmpSpec.
   injection SpecPost; intro H; subst; clear SpecPost.
   (* now down to per-location *)
-  pose proof (range'_foreach_spec _ _ z _ _ tmpSpec) as ForeachSpec.
+  pose proof (mem_apply_range'_spec _ _ z _ _ tmpSpec) as ForeachSpec.
   rewrite (decide_True _ _ Within) in ForeachSpec.
   destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
   assert (unwrap {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
@@ -69,7 +69,7 @@ Proof.
   assert (item_lazy_perm_at_loc post z = item_lazy_perm_at_loc pre z) as SamePerm. {
     option step in SpecPost as ?:SpecPerms.
     injection SpecPost; intros; subst; clear SpecPost.
-    pose proof (range'_foreach_spec _ _ z _ _ SpecPerms) as RangeForeach.
+    pose proof (mem_apply_range'_spec _ _ z _ _ SpecPerms) as RangeForeach.
     rewrite (decide_False _ _ Outside) in RangeForeach.
     unfold item_lazy_perm_at_loc; simpl.
     rewrite RangeForeach; reflexivity.
@@ -1382,12 +1382,52 @@ Proof.
   all: reflexivity.
 Qed.
 
-Lemma range'_foreach_success_condition
+Lemma mem_apply_loc_insert_ne
+  {X} {fn : option X -> option X} {z mem mem' z0}
+  (NE : ~z = z0)
+  (Success : mem_apply_loc fn z mem = Some mem')
+  v0
+  : mem_apply_loc fn z (<[z0:=v0]>mem) = Some (<[z0:=v0]>mem').
+Proof.
+  unfold mem_apply_loc in Success |- *; simpl in *.
+  rewrite lookup_insert_ne; [|auto].
+  destruct (option_bind_success_step _ _ _ Success) as [v [fnv mem'_spec]].
+  injection mem'_spec; intros; subst.
+  rewrite fnv; simpl.
+  f_equal.
+  rewrite insert_commute; auto.
+Qed.
+
+Lemma mem_apply_range'_insert_outside
+  {X} {fn : option X -> option X} {z sz mem mem' z0}
+  (OUT : ~range'_contains (z, sz) z0)
+  (Success : mem_apply_locs fn z sz mem = Some mem')
+  v0
+  : mem_apply_locs fn z sz (<[z0:=v0]>mem) = Some (<[z0:=v0]>mem').
+Proof.
+  unfold mem_apply_range' in *; simpl in *.
+  generalize dependent z.
+  generalize dependent mem.
+  generalize dependent mem'.
+  induction sz; move=> mem' mem z OUT Success.
+  - injection Success; intros; subst.
+    reflexivity.
+  - destruct (proj1 (bind_Some _ _ _) Success) as [mem'' [SuccessStep SuccessRest]].
+    simpl.
+    erewrite mem_apply_loc_insert_ne; [| |eassumption].
+    2: { unfold range'_contains in OUT |- *; simpl in *; lia. }
+    simpl.
+    apply IHsz.
+    + unfold range'_contains in OUT |- *; simpl in *; lia.
+    + exact SuccessRest.
+Qed.
+
+Lemma mem_apply_range'_success_condition
   {X} {fn : option X -> option X} {range mem}
   (ALL_SOME : forall z, range'_contains range z -> is_Some (fn (mem !! z)))
-  : exists mem', range'_foreach fn range mem = Some mem'.
+  : exists mem', mem_apply_range' fn range mem = Some mem'.
 Proof.
-  unfold range'_foreach.
+  unfold mem_apply_range'.
   destruct range as [z sz]; simpl.
   generalize dependent z.
   induction sz; move=> z ALL_SOME.
@@ -1396,27 +1436,27 @@ Proof.
       ltac:(intros mem' H; apply ALL_SOME; unfold range'_contains; unfold range'_contains in H; simpl; simpl in H; lia))
       as [sub' Specsub'].
     destruct (ALL_SOME z ltac:(unfold range'_contains; simpl; lia)) as [fnz Specfnz].
-    eexists (<[z:=fnz]>sub').
-    unfold mem_foreach; simpl.
-    unfold mem_foreach in Specsub'.
+    eexists (<[z:=fnz]>sub'); simpl.
+    unfold mem_apply_loc.
     rewrite Specfnz; simpl.
-    rewrite Specsub'; simpl.
-    reflexivity.
+    Check (mem_apply_range'_spec _ (z+1, sz)%Z z _ _ Specsub').
+    erewrite mem_apply_range'_insert_outside; [reflexivity| |assumption].
+    unfold range'_contains; simpl; lia.
 Qed.
 
-Lemma range_foreach_success_specification
+Lemma mem_apply_range'_success_specification
   {X} {fn : option X -> option X} {range mem mem'}
   (ALL_SOME : forall z, range'_contains range z -> exists x', fn (mem !! z) = Some x' /\ mem' !! z = Some x')
   (REST_SAME : forall z, ~range'_contains range z -> mem !! z = mem' !! z)
-  : range'_foreach fn range mem = Some mem'.
+  : mem_apply_range' fn range mem = Some mem'.
 Proof.
   assert (forall z, range'_contains range z -> is_Some (fn (mem !! z))) as ALL_SOME_weaker. {
     intros z R; destruct (ALL_SOME z R) as [?[??]]; auto.
   }
-  destruct (range'_foreach_success_condition ALL_SOME_weaker) as [mem'' Spec''].
+  destruct (mem_apply_range'_success_condition ALL_SOME_weaker) as [mem'' Spec''].
   rewrite Spec''; f_equal; apply map_eq.
   intro z.
-  pose proof (range'_foreach_spec _ _ z _ _ Spec'') as Spec.
+  pose proof (mem_apply_range'_spec _ _ z _ _ Spec'') as Spec.
   destruct (decide (range'_contains range z)) as [R|nR].
   - destruct Spec as [v[vSpec fnvSpec]].
     destruct (ALL_SOME z R) as [v' [fnv'Spec v'Spec]].
@@ -1435,14 +1475,14 @@ Lemma range_foreach_commutes
   (fn1 fn2 : option X -> option X)
   (FnCommutes : commutes_option fn1 fn2)
   : commutes
-    (range'_foreach fn1 range1)
-    (range'_foreach fn2 range2).
+    (mem_apply_range' fn1 range1)
+    (mem_apply_range' fn2 range2).
 Proof.
   intros mem0 mem1 mem2 Success01 Success12.
   assert (forall z, range'_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
     intros z R2.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
     destruct (decide (range'_contains range1 z)).
     - destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
       rewrite decide_True in Spec12; [|assumption].
@@ -1454,14 +1494,14 @@ Proof.
       destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
       exists x2; rewrite <- Spec01; assumption.
   }
-  destruct (range'_foreach_success_condition fn2mem0) as [mem1' Success01'].
+  destruct (mem_apply_range'_success_condition fn2mem0) as [mem1' Success01'].
   exists mem1'.
   split; [assumption|].
-  apply range_foreach_success_specification.
+  apply mem_apply_range'_success_specification.
   - intros z R1.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01') as Spec01'.
     destruct (decide (range'_contains range2 z)).
     + rewrite decide_True in Spec01; [|assumption].
       destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
@@ -1483,9 +1523,9 @@ Proof.
       rewrite Spec12.
       exists fn1z0; split; assumption.
   - intros z nR1.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
-    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
     destruct (decide (range'_contains range2 z)).
     + rewrite decide_False in Spec01; [|assumption].
       destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
@@ -1507,28 +1547,28 @@ Lemma range_foreach_disjoint_commutes
   {X} {fn1 fn2 : option X -> option X} {range1 range2}
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (range'_foreach fn1 range1)
-    (range'_foreach fn2 range2).
+    (mem_apply_range' fn1 range1)
+    (mem_apply_range' fn2 range2).
 Proof.
   intros mem0 mem1 mem2 Success01 Success12.
   assert (forall z, range'_contains range2 z -> exists x1', fn2 (mem0 !! z) = Some x1') as fn2mem0. {
     intros z R2.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
     destruct (decide (range'_contains range1 z)).
     - exfalso; apply Disjoint; eexists; eauto.
     - rewrite decide_True in Spec12; [|assumption].
       destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
       exists x2; rewrite <- Spec01; assumption.
   }
-  destruct (range'_foreach_success_condition fn2mem0) as [mem1' Success01'].
+  destruct (mem_apply_range'_success_condition fn2mem0) as [mem1' Success01'].
   exists mem1'.
   split; [assumption|].
-  apply range_foreach_success_specification.
+  apply mem_apply_range'_success_specification.
   - intros z R1.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01') as Spec01'.
     destruct (decide (range'_contains range2 z)).
     + exfalso; apply Disjoint; eexists; eauto.
     + rewrite decide_True in Spec01; [|assumption].
@@ -1537,9 +1577,9 @@ Proof.
       rewrite Spec12.
       exists fn1z0; split; assumption.
   - intros z nR1.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01) as Spec01.
-    pose proof (range'_foreach_spec _ _ z _ _ Success01') as Spec01'.
-    pose proof (range'_foreach_spec _ _ z _ _ Success12) as Spec12.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01') as Spec01'.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
     destruct (decide (range'_contains range2 z)).
     + rewrite decide_False in Spec01; [|assumption].
       destruct Spec01' as [fn2z0 [z1'Spec fn2z0Spec]].
@@ -1575,8 +1615,8 @@ Lemma permissions_foreach_commutes
   default
   (FnCommutes : commutes fn1 fn2)
   : commutes
-    (permissions_foreach default range1 fn1)
-    (permissions_foreach default range2 fn2).
+    (permissions_apply_range' default range1 fn1)
+    (permissions_apply_range' default range2 fn2).
 Proof.
   apply range_foreach_commutes.
   apply commutes_option_build.
@@ -1589,8 +1629,8 @@ Lemma permissions_foreach_disjoint_commutes
   default
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (permissions_foreach default range1 fn1)
-    (permissions_foreach default range2 fn2).
+    (permissions_apply_range' default range1 fn1)
+    (permissions_apply_range' default range2 fn2).
 Proof.
   apply range_foreach_disjoint_commutes.
   assumption.
