@@ -346,6 +346,16 @@ Definition tree_apply_access
   ) in
   join_nodes (map_nodes app tr).
 
+Definition tree_apply_access_nonchildren_only
+  (fn:call_id_set -> access_rel -> (Z * nat) -> app item)
+  cids (access_tag:tag) range (tr:tree item) (dyn_rel:rel_dec tr)
+  : option (tree item) :=
+  let app : item -> option item := fun it => (
+    if dyn_rel access_tag it.(itag) then Some it
+    else fn cids (if dyn_rel it.(itag) access_tag then AccessChild else AccessForeign) range it
+  ) in
+  join_nodes (map_nodes app tr).
+
 Definition init_perms perm
   : permissions := mem_apply_range'_defined (fun _ => mkPerm PermLazy perm) (0%Z, O) ∅.
 
@@ -361,6 +371,9 @@ Definition extend_trees t blk
 Definition memory_access kind strong cids tg range
   : app (tree item) := fun tr =>
   tree_apply_access (item_apply_access kind strong) cids tg range tr (naive_rel_dec tr).
+Definition memory_access_nonchildren_only kind strong cids tg range
+  : app (tree item) := fun tr =>
+  tree_apply_access_nonchildren_only (item_apply_access kind strong) cids tg range tr (naive_rel_dec tr).
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
@@ -636,7 +649,7 @@ Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
     : app (tree item) := fun tr =>
     (* read one loc by doing a memory_access *)
     let reader_loc (tg : tag) (loc : Z) : app (tree item) := fun tr =>
-      memory_access AccessRead ProtStrong cids tg (loc, 1) tr in
+      memory_access_nonchildren_only AccessRead ProtStrong cids tg (loc, 1) tr in
     (* read several locs of the same tag, propagate failures *)
     let reader_locs (tg : tag) (locs : list Z) : app (tree item) := fun tr =>
       fold_left (fun (tr:option (tree item)) loc => tr ← tr; reader_loc tg loc tr) locs (Some tr) in
