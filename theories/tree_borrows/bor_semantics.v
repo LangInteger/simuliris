@@ -177,10 +177,6 @@ Qed.
 
 (** CORE SEMANTICS *)
 
-Inductive access_rel := AccessForeign | AccessChild.
-Global Instance access_rel_eq_dec : EqDecision access_rel.
-Proof. solve_decision. Qed.
-
 Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
 Proof. rewrite /IsTag. solve_decision. Qed.
@@ -203,27 +199,29 @@ Definition ParentChildIn t t' : Tprop (tree item)
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
 Proof. rewrite /ParentChildIn. solve_decision. Qed.
 
-Definition RelPosIn t t' (tr:tree item) : access_rel :=
-  if decide (ParentChildIn t t' tr) then AccessChild else AccessForeign.
+Definition rel_dec (tr:tree item) := fun t t' =>
+  match decide (ParentChildIn t t' tr), decide (ParentChildIn t' t tr) with
+  | left _, left _ => This
+  | left _, right _ => Parent
+  | right _, left _ => Child
+  | right _, right _ => Uncle
+  end.
 
-Definition rel_dec (tr:tree item) : Type := forall t t', {ParentChildIn t t' tr} + {~ParentChildIn t t' tr}.
-Definition naive_rel_dec (tr:tree item) : rel_dec tr := fun t t' => decide (ParentChildIn t t' tr).
-
-Implicit Type (kind:access_kind) (rel:access_rel).
+Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
 Implicit Type (prot:option protector).
 
-Definition requires_init (rel:access_rel)
+Definition requires_init (rel:rel_pos)
   : perm_init :=
   match rel with
-  | AccessChild => PermInit
-  | AccessForeign => PermLazy
+  | This | Child => PermInit
+  | Parent | Uncle => PermLazy
   end.
 
-Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:bool)
+Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
   : app permission := fun perm =>
   match kind, rel with
-  | AccessRead, AccessForeign =>
+  | AccessRead, (Parent | Uncle) =>
       match perm with
       | Reserved => if isprot then Some ReservedConfl else Some Reserved
       | ReservedMut => if isprot then Some ReservedConflMut else Some ReservedMut
@@ -234,19 +232,19 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:access_rel) (isprot:b
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
-  | AccessWrite, AccessForeign =>
+  | AccessWrite, (Parent | Uncle) =>
       match perm with
       | ReservedMut => if isprot then Some Disabled else Some ReservedMut
       | ReservedConflMut => if isprot then Some Disabled else Some ReservedConflMut
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
-  | AccessRead, AccessChild =>
+  | AccessRead, (This | Child) =>
       match perm with
       | Disabled => None
       | _ => Some perm
       end
-  | AccessWrite, AccessChild =>
+  | AccessWrite, (This | Child) =>
       match perm with
       | ReservedConfl => if isprot then None else Some Active
       | ReservedConflMut => if isprot then None else Some Active
@@ -338,21 +336,21 @@ Definition item_apply_access kind strong cids rel range
 
 (* FIXME: share code *)
 Definition tree_apply_access
-  (fn:call_id_set -> access_rel -> (Z * nat) -> app item)
-  cids (access_tag:tag) range (tr:tree item) (dyn_rel:rel_dec tr)
+  (fn:call_id_set -> rel_pos -> (Z * nat) -> app item)
+  cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
-    fn cids (if dyn_rel it.(itag) access_tag then AccessChild else AccessForeign) range it
+    fn cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
 
 Definition tree_apply_access_nonchildren_only
-  (fn:call_id_set -> access_rel -> (Z * nat) -> app item)
-  cids (access_tag:tag) range (tr:tree item) (dyn_rel:rel_dec tr)
+  (fn:call_id_set -> rel_pos -> (Z * nat) -> app item)
+  cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
-    if dyn_rel access_tag it.(itag) then Some it
-    else fn cids (if dyn_rel it.(itag) access_tag then AccessChild else AccessForeign) range it
+    (* FIXME This does not skip children *)
+    fn cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
 
@@ -370,10 +368,10 @@ Definition extend_trees t blk
  * This implements Tree::before_memory_{read,write,deallocation}. *)
 Definition memory_access kind strong cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access kind strong) cids tg range tr (naive_rel_dec tr).
+  tree_apply_access (item_apply_access kind strong) cids tg range tr.
 Definition memory_access_nonchildren_only kind strong cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access_nonchildren_only (item_apply_access kind strong) cids tg range tr (naive_rel_dec tr).
+  tree_apply_access_nonchildren_only (item_apply_access kind strong) cids tg range tr.
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>

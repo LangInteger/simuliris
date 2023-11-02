@@ -4,9 +4,9 @@ From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree
 From iris.prelude Require Import options.
 
 Lemma access_eqv_strict_rel
-  {t t' tr tr' fn cids tg range dyn_rel}
+  {t t' tr tr' fn cids tg range}
   (Preserves : app_preserves_tag fn)
-  (Access : tree_apply_access fn cids tg range tr dyn_rel = Some tr')
+  (Access : tree_apply_access fn cids tg range tr = Some tr')
   : StrictParentChildIn t t' tr <-> StrictParentChildIn t t' tr'.
 Proof.
   eapply join_map_eqv_strict_rel; [|exact Access].
@@ -15,9 +15,9 @@ Proof.
 Qed.
 
 Lemma access_eqv_rel
-  {t t' tr tr' fn cids tg range dyn_rel}
+  {t t' tr tr' fn cids tg range}
   (Preserves : app_preserves_tag fn)
-  (Access : tree_apply_access fn cids tg range tr dyn_rel = Some tr')
+  (Access : tree_apply_access fn cids tg range tr = Some tr')
   : ParentChildIn t t' tr <-> ParentChildIn t t' tr'.
 Proof.
   unfold ParentChildIn.
@@ -45,9 +45,9 @@ Proof.
 Qed.
 
 Lemma access_preserves_tags
-  {tr tg  tr' tg' app cids range dyn_rel}
+  {tr tg  tr' tg' app cids range}
   (Preserves : app_preserves_tag app)
-  (Access : tree_apply_access app cids tg' range tr dyn_rel = Some tr')
+  (Access : tree_apply_access app cids tg' range tr = Some tr')
   : tree_contains tg tr <-> tree_contains tg tr'.
 Proof.
   unfold tree_apply_access in Access.
@@ -110,14 +110,14 @@ Proof.
 Qed.
 
 Lemma apply_access_spec_per_node
-  {tr affected_tag access_tag pre fn cids range tr' dyn_rel}
+  {tr affected_tag access_tag pre fn cids range tr'}
   (ExAcc : tree_contains access_tag tr)
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (Preserves : app_preserves_tag fn)
-  (Access : tree_apply_access fn cids access_tag range tr dyn_rel = Some tr')
+  (Access : tree_apply_access fn cids access_tag range tr = Some tr')
   : exists post,
-    Some post = fn cids (if dyn_rel pre.(itag) access_tag then AccessChild else AccessForeign) range pre
+    Some post = fn cids (rel_dec tr access_tag pre.(itag)) range pre
     /\ tree_contains affected_tag tr'
     /\ tree_unique affected_tag post tr'.
 Proof.
@@ -842,11 +842,12 @@ Proof.
 Qed.
 
 Lemma apply_access_perm_child_produces_perminit
-  {pre post kind b b'}
-  (Access : apply_access_perm kind AccessChild b b' pre = Some post)
+  {pre post kind b b' rel}
+  (CHILD : child rel)
+  (Access : apply_access_perm kind rel b b' pre = Some post)
   : initialized post = PermInit.
 Proof.
-  destruct kind.
+  destruct kind, rel; try inversion CHILD.
   all: destruct pre, initialized, perm, b, b'.
   all: inversion Access.
   (* all cases easy *)
@@ -869,12 +870,14 @@ Proof.
   destruct (apply_access_spec_per_node ExAcc ExAff UnqAff (item_apply_access_preserves_tag _ _) Access) as [post' [PostSpec [ExPost UnqPost]]].
   pose proof (tree_unique_unify ExPost UnqPost UnqAff'); subst.
   rewrite (tree_unique_specifies_tag _ _ _ ExAff UnqAff) in PostSpec.
-  destruct (naive_rel_dec _ _ _); [|contradiction].
-  option step in PostSpec as ?:Foreach.
-  injection PostSpec; intros e; subst; clear PostSpec.
-  pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
-  destruct (bool_decide _).
+  unfold rel_dec in PostSpec.
+  destruct (decide (ParentChildIn affected_tag access_tag tr)); [|contradiction].
+  destruct (decide (ParentChildIn access_tag affected_tag tr)).
+  all: option step in PostSpec as ?:Foreach.
+  all: injection PostSpec; intros e; subst; clear PostSpec.
+  all: pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
+  all: rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  all: destruct (bool_decide _).
   all: destruct (bool_decide _).
   all: destruct (decide (range'_contains _ _)); [|contradiction].
   all: try (rewrite Spec; tauto).
@@ -882,6 +885,7 @@ Proof.
   all: eapply apply_access_perm_child_produces_perminit.
   all: try eassumption.
   all: try (rewrite Lkup; simpl; try exact Apply).
+  all: unfold child; auto.
 Qed.
 
 Lemma bor_local_step_preserves_perminit

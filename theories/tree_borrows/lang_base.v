@@ -60,8 +60,19 @@ Inductive prot_strong :=
   | ProtStrong
   | ProtWeak
   .
+Inductive access_strong :=
+  | AllProt
+  | OnlyStrong
+  .
+
 Global Instance prot_strong_eq_dec : EqDecision prot_strong.
 Proof. solve_decision. Defined.
+
+Definition prot_relevant (pr:prot_strong) (acc:access_strong) : bool :=
+  match pr, acc with
+  | ProtWeak, OnlyStrong => false
+  | _, _ => true
+  end.
 
 (** Tree of borrows. *)
 Record protector := mkProtector {
@@ -75,6 +86,7 @@ Inductive perm_init :=
   | PermInit
   | PermLazy
   .
+
 Global Instance perm_init_eq_dec : EqDecision perm_init.
 Proof. solve_decision. Defined.
 Definition most_init p p' :=
@@ -143,9 +155,22 @@ Definition value := list scalar.
 Bind Scope val_scope with value.
 
 Inductive access_kind := AccessRead | AccessWrite.
+Inductive access_visibility := VisibleAll | OnlyNonChildren.
+
+Inductive rel_pos := This | Parent | Child | Uncle.
+Definition foreign rel := match rel with Parent | Uncle => True | _ => False end.
+Definition child rel := match rel with This | Child => True | _ => False end.
 
 Global Instance access_kind_eq_dec : EqDecision access_kind.
 Proof. solve_decision. Qed.
+Global Instance access_visibility_eq_dec : EqDecision access_visibility.
+Proof. solve_decision. Qed.
+Global Instance rel_pos_eq_dec : EqDecision rel_pos.
+Proof. solve_decision. Qed.
+Global Instance foreign_rel_dec rel : Decision (foreign rel).
+Proof. destruct rel; solve_decision. Qed.
+Global Instance child_rel_dec rel : Decision (child rel).
+Proof. destruct rel; solve_decision. Qed.
 
 (** Expressions *)
 Inductive expr :=

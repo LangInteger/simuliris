@@ -14,7 +14,7 @@ Lemma access_effect_per_loc_within_range
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
   : exists post zpost, (
-    let rel := if naive_rel_dec tr affected_tag access_tag then AccessChild else AccessForeign in
+    let rel := rel_dec tr access_tag affected_tag in
     let isprot := bool_decide (protector_is_active pre.(iprot) cids) in
     apply_access_perm kind rel isprot true zpre = Some zpost
     /\ tree_unique affected_tag post tr'
@@ -126,12 +126,10 @@ Ltac auto_access_event_within_range :=
     destruct (access_effect_per_loc_within_range Ex Unq Within eq_refl Step) as [post[zpost[?[?[??]]]]];
     clear Step Unq Within Ex
   (* if we need to solve a naive_rel_dec, we look for a known one *)
-  | H : context[naive_rel_dec ?tr ?aff ?acc],
-    Rel : ParentChildIn ?aff ?acc ?tr
-    |- _ => destruct (naive_rel_dec _ _ _); [|contradiction]; clear Rel
-  | H : context[naive_rel_dec ?tr ?aff ?acc],
-    Rel : ~ParentChildIn ?aff ?acc ?tr
-    |- _ => destruct (naive_rel_dec _ _ _); [contradiction|]; clear Rel
+  | H : context[rel_dec ?tr ?acc ?aff]
+    |- _ => unfold rel_dec in H;
+        destruct (decide (ParentChildIn _ _ _)); try contradiction;
+        destruct (decide (ParentChildIn _ _ _)); try contradiction
   (* we might need to decide protectors *)
   | H : context[bool_decide (protector_is_active ?p ?cids)],
     P : protector_is_active ?p ?cids
@@ -1686,29 +1684,30 @@ Proof.
 Qed.
 
 Lemma apply_access_success_condition
-  {fn cids access_tag range tr} {dyn_rel : rel_dec tr}
+  {fn cids access_tag range tr}
   (ALL_SOME : every_node
-    (fun it => is_Some (fn cids (if dyn_rel (itag it) access_tag then AccessChild else AccessForeign) range it)) tr)
-  : exists tr', tree_apply_access fn cids access_tag range tr dyn_rel = Some tr'.
+    (fun it => is_Some (fn cids (rel_dec tr access_tag (itag it)) range it)) tr)
+  : exists tr', tree_apply_access fn cids access_tag range tr = Some tr'.
 Proof.
-  assert (every_node is_Some (map_nodes (fun it => fn cids (if dyn_rel (itag it) access_tag then AccessChild else AccessForeign) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
+  assert (every_node is_Some (map_nodes (fun it => fn cids (rel_dec tr access_tag (itag it)) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
   destruct (proj2 (join_success_condition _) AllSomeMap).
   eexists; eassumption.
 Qed.
 
 Lemma join_map_commutes
-  {fn1 fn2 : call_id_set -> access_rel -> Z * nat -> tree.app item} {cids access_tag1 access_tag2 range1 range2}
+  {fn1 fn2 : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag1 access_tag2 range1 range2}
   (Fn1PreservesTag : forall it it' cids rel range, fn1 cids rel range it = Some it' -> itag it = itag it')
   (Fn2PreservesTag : forall it it' cids rel range, fn2 cids rel range it = Some it' -> itag it = itag it')
   (Commutes : forall rel1 rel2, commutes
     (fn1 cids rel1 range1)
     (fn2 cids rel2 range2))
-  : forall tr (dyn_rel : rel_dec tr),
+  (* We need the two [rel_dec] to refer to the same tree otherwise the proof would be much more difficult *)
+  : forall (tr0:tree item),
     commutes
-      (fun tr => join_nodes (map_nodes (fun it => fn1 cids (if dyn_rel (itag it) access_tag1 then AccessChild else AccessForeign) range1 it) tr))
-      (fun tr => join_nodes (map_nodes (fun it => fn2 cids (if dyn_rel (itag it) access_tag2 then AccessChild else AccessForeign) range2 it) tr)).
+      (fun tr => join_nodes (map_nodes (fun it => fn1 cids (rel_dec tr0 access_tag1 it.(itag)) range1 it) tr))
+      (fun tr => join_nodes (map_nodes (fun it => fn2 cids (rel_dec tr0 access_tag2 it.(itag)) range2 it) tr)).
 Proof.
-  intros tr dyn_rel tr0.
+  intros tr tr0.
   induction tr0 as [|data0 left0 IHleft right0 IHright]; intros tr1 tr2 Step01 Step12.
   - simpl in Step01; injection Step01; intros; subst.
     simpl in Step12; injection Step12; intros; subst.
@@ -1737,21 +1736,27 @@ Proof.
     tauto.
 Qed.
 
-Lemma tree_apply_access_only_cares_about_rel_on_support
-  {tr} {fn : call_id_set -> access_rel -> Z * nat -> tree.app item} {cids access_tag range}
-  {tr1 tr2} (dyn_rel1 : rel_dec tr1) (dyn_rel2 : rel_dec tr2)
-  (Agree : forall tg tg', tree_contains tg tr -> ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
-  : join_nodes (map_nodes (fun it => fn cids (if dyn_rel1 (itag it) access_tag then AccessChild else AccessForeign) range it) tr)
-  = join_nodes (map_nodes (fun it => fn cids (if dyn_rel2 (itag it) access_tag then AccessChild else AccessForeign) range it) tr).
+Lemma tree_apply_access_only_cares_about_rel
+  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
+  {tr1 tr2}
+  (Agree : forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
+  : join_nodes (map_nodes (fun it => fn cids (rel_dec tr1 access_tag it.(itag)) range it) tr)
+  = join_nodes (map_nodes (fun it => fn cids (rel_dec tr2 access_tag it.(itag)) range it) tr).
 Proof.
   induction tr as [|data sibling IHsibling child IHchild]; [simpl; reflexivity|].
   simpl.
-  rewrite IHsibling; [|intros; apply Agree; right; left; assumption].
-  rewrite IHchild; [|intros; apply Agree; right; right; assumption].
-  destruct (dyn_rel2 _ _) as [R|R]; destruct (dyn_rel1 _ _).
-  all: rewrite <- Agree in R; [|left; simpl; done].
-  all: try contradiction.
-  all: reflexivity.
+  rewrite IHsibling; clear IHsibling.
+  rewrite IHchild; clear IHchild.
+  unfold rel_dec.
+  f_equal. f_equal.
+  destruct (decide (ParentChildIn _ _ _)) as [R1|R1].
+  all: destruct (decide (ParentChildIn _ _ _)) as [R1'|R1'].
+  all: destruct (decide (ParentChildIn _ _ _)) as [R2|R2].
+  all: destruct (decide (ParentChildIn _ _ _)) as [R2'|R2'].
+  all: try reflexivity.
+  all: rewrite <- Agree in R2'; auto; try contradiction.
+  all: rewrite <- Agree in R2; auto; try contradiction.
+  all: apply Subtree; left; simpl.
 Qed.
 
 Lemma tree_apply_access_commutes
@@ -1762,19 +1767,20 @@ Lemma tree_apply_access_commutes
     (fn1 cids rel1 range1)
     (fn2 cids rel2 range2))
   : commutes
-    (fun tr => tree_apply_access fn1 cids access_tag1 range1 tr (naive_rel_dec tr))
-    (fun tr => tree_apply_access fn2 cids access_tag2 range2 tr (naive_rel_dec tr)).
+    (fun tr => tree_apply_access fn1 cids access_tag1 range1 tr)
+    (fun tr => tree_apply_access fn2 cids access_tag2 range2 tr).
 Proof.
   unfold tree_apply_access.
   intros tr0 tr1 tr2 Step01 Step12.
-  erewrite (tree_apply_access_only_cares_about_rel_on_support _ (naive_rel_dec tr0)) in Step12.
-  2: { intros. symmetry. exact (join_map_eqv_rel (fun it it' => Fn1PreservesTag it it' _ _ _) Step01). }
-  destruct (join_map_commutes Fn1PreservesTag Fn2PreservesTag Commutes _ (naive_rel_dec tr0) tr0 tr1 tr2 Step01 Step12) as [tr1' [Step01' Step1'2]].
-  exists tr1'.
-  split; [assumption|].
-  erewrite (tree_apply_access_only_cares_about_rel_on_support _ (naive_rel_dec tr0)).
-  2: { intros. symmetry. exact (join_map_eqv_rel (fun it it' => Fn2PreservesTag it it' _ _ _) Step01'). }
-  assumption.
+  erewrite tree_apply_access_only_cares_about_rel in Step01.
+  1: erewrite tree_apply_access_only_cares_about_rel in Step12.
+  1: destruct (join_map_commutes Fn1PreservesTag Fn2PreservesTag Commutes _ tr0 tr1 tr2 Step01 Step12) as [tr1' [Step01' Step1'2]].  1: exists tr1'; split; [exact Step01'|].
+  1: erewrite tree_apply_access_only_cares_about_rel in Step1'2.
+  1: exact Step1'2.
+  all: intros tg tg'.
+  - eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn2PreservesTag. exact H.
+  - symmetry. eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - tauto.
 Qed.
 
 Lemma memory_access_read_commutes
