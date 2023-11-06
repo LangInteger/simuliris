@@ -49,18 +49,18 @@ Definition heap_block_size_rel (σ : state) (hF : gmap loc (option nat)) : Prop 
 Section definitions.
   Context `{!heapG Σ} (γ : heap_names).
 
-  Definition heap_mapsto_def (l : loc) (st : lock_state) (q : frac) (v: val) : iProp Σ :=
+  Definition heap_pointsto_def (l : loc) (st : lock_state) (q : frac) (v: val) : iProp Σ :=
     own γ.(heap_name) (◯ {[ l := (q, to_lock_stateR st, to_agree v) ]}).
-  Definition heap_mapsto_aux : seal (@heap_mapsto_def). Proof. by eexists. Qed.
-  Definition heap_mapsto := unseal heap_mapsto_aux.
-  Definition heap_mapsto_eq : @heap_mapsto = @heap_mapsto_def :=
-    seal_eq heap_mapsto_aux.
+  Definition heap_pointsto_aux : seal (@heap_pointsto_def). Proof. by eexists. Qed.
+  Definition heap_pointsto := unseal heap_pointsto_aux.
+  Definition heap_pointsto_eq : @heap_pointsto = @heap_pointsto_def :=
+    seal_eq heap_pointsto_aux.
 
-  Definition heap_mapsto_vec (l : loc) (q : frac) (vl : list val) : iProp Σ :=
-    ([∗ list] i ↦ v ∈ vl, heap_mapsto (l +ₗ i) (RSt 0) q v)%I.
+  Definition heap_pointsto_vec (l : loc) (q : frac) (vl : list val) : iProp Σ :=
+    ([∗ list] i ↦ v ∈ vl, heap_pointsto (l +ₗ i) (RSt 0) q v)%I.
 
-  Definition heap_mapsto_vec_st (l : loc) (sts : list lock_state) (q : frac) (vl : list val) : iProp Σ :=
-    ([∗ list] i ↦ st; v ∈ sts; vl, heap_mapsto (l +ₗ i) st q v)%I.
+  Definition heap_pointsto_vec_st (l : loc) (sts : list lock_state) (q : frac) (vl : list val) : iProp Σ :=
+    ([∗ list] i ↦ st; v ∈ sts; vl, heap_pointsto (l +ₗ i) st q v)%I.
 
   Definition heap_block_size_def (l : loc) (q : Qp) (n: option nat) : iProp Σ :=
     ∃ b, ⌜l = Loc b 0⌝ ∗ l ↪[ γ.(heap_block_size_name) ]{# q } n.
@@ -93,16 +93,16 @@ Section definitions.
          ∗ ⌜heap_wf σ⌝)%I.
 End definitions.
 
-Global Typeclasses Opaque heap_mapsto_vec.
-Global Instance: Params (@heap_mapsto) 4 := {}.
+Global Typeclasses Opaque heap_pointsto_vec.
+Global Instance: Params (@heap_pointsto) 4 := {}.
 Global Instance: Params (@heap_block_size) 5 := {}.
 
-(* Notation "l ↦{ q } v" := (heap_mapsto l q v) *)
+(* Notation "l ↦{ q } v" := (heap_pointsto l q v) *)
 (*   (at level 20, q at level 50, format "l  ↦{ q }  v") : bi_scope. *)
-(* Notation "l ↦ v" := (heap_mapsto l 1 v) (at level 20) : bi_scope. *)
-(* Notation "l ↦∗{ q } vl" := (heap_mapsto_vec l q vl) *)
+(* Notation "l ↦ v" := (heap_pointsto l 1 v) (at level 20) : bi_scope. *)
+(* Notation "l ↦∗{ q } vl" := (heap_pointsto_vec l q vl) *)
 (*   (at level 20, q at level 50, format "l  ↦∗{ q }  vl") : bi_scope. *)
-(* Notation "l ↦∗ vl" := (heap_mapsto_vec l 1 vl) (at level 20) : bi_scope. *)
+(* Notation "l ↦∗ vl" := (heap_pointsto_vec l 1 vl) (at level 20) : bi_scope. *)
 
 
 
@@ -181,68 +181,68 @@ Section heap.
   Implicit Types σ : state.
   Implicit Types E : coPset.
 
-  Local Notation "l ↦[ st ]{ q } v" := (heap_mapsto γ l st q v)
+  Local Notation "l ↦[ st ]{ q } v" := (heap_pointsto γ l st q v)
      (at level 20, q at level 50, format "l  ↦[ st ]{ q }  v") : bi_scope.
-  Local Notation "l ↦[ st ] v" := (heap_mapsto γ l st 1 v) (at level 20) : bi_scope.
-  Local Notation "l ↦{ q } v" := (heap_mapsto γ l (RSt 0) q v)
+  Local Notation "l ↦[ st ] v" := (heap_pointsto γ l st 1 v) (at level 20) : bi_scope.
+  Local Notation "l ↦{ q } v" := (heap_pointsto γ l (RSt 0) q v)
      (at level 20, q at level 50, format "l  ↦{ q }  v") : bi_scope.
-  Local Notation "l ↦ v" := (heap_mapsto γ l (RSt 0) 1 v) (at level 20) : bi_scope.
-  Local Notation "l ↦∗[ st ]{ q } vl" := (heap_mapsto_vec_st γ l st q vl)
+  Local Notation "l ↦ v" := (heap_pointsto γ l (RSt 0) 1 v) (at level 20) : bi_scope.
+  Local Notation "l ↦∗[ st ]{ q } vl" := (heap_pointsto_vec_st γ l st q vl)
       (at level 20, q at level 50, format "l  ↦∗[ st ]{ q }  vl") : bi_scope.
-  Local Notation "l ↦∗[ st ] vl" := (heap_mapsto_vec_st γ l st 1 vl) (at level 20) : bi_scope.
-  Local Notation "l ↦∗{ q } vl" := (heap_mapsto_vec γ l q vl)
+  Local Notation "l ↦∗[ st ] vl" := (heap_pointsto_vec_st γ l st 1 vl) (at level 20) : bi_scope.
+  Local Notation "l ↦∗{ q } vl" := (heap_pointsto_vec γ l q vl)
       (at level 20, q at level 50, format "l  ↦∗{ q }  vl") : bi_scope.
-  Local Notation "l ↦∗ vl" := (heap_mapsto_vec γ l 1 vl) (at level 20) : bi_scope.
+  Local Notation "l ↦∗ vl" := (heap_pointsto_vec γ l 1 vl) (at level 20) : bi_scope.
 
   Local Notation block_size := (heap_block_size γ).
   Local Notation "†{ q } l …? n" := (heap_freeable γ l q n)
   (at level 20, q at level 50, format "†{ q } l …? n") : bi_scope.
   Local Notation "† l …? n" := (heap_freeable γ l 1 n) (at level 20) : bi_scope.
 
-  (** General properties of mapsto and block_size *)
-  Global Instance heap_mapsto_timeless l st q v : Timeless (l↦[st]{q}v).
-  Proof. rewrite heap_mapsto_eq /heap_mapsto_def. apply _. Qed.
+  (** General properties of pointsto and block_size *)
+  Global Instance heap_pointsto_timeless l st q v : Timeless (l↦[st]{q}v).
+  Proof. rewrite heap_pointsto_eq /heap_pointsto_def. apply _. Qed.
 
-  Lemma heap_mapsto_split l n q n1 q1 n2 q2 v:
+  Lemma heap_pointsto_split l n q n1 q1 n2 q2 v:
     n = n1 + n2 → q = (q1 + q2)%Qp →
     l ↦[RSt n]{q} v ⊣⊢ l ↦[RSt n1]{q1} v ∗ l ↦[RSt n2]{q2} v.
   Proof.
     intros -> ->.
-    rewrite heap_mapsto_eq -own_op -auth_frag_op singleton_op -!pair_op agree_idemp /= //.
+    rewrite heap_pointsto_eq -own_op -auth_frag_op singleton_op -!pair_op agree_idemp /= //.
   Qed.
 
-  Lemma heap_mapsto_combine_0 l q1 q2 v st:
+  Lemma heap_pointsto_combine_0 l q1 q2 v st:
     l ↦{q1} v ⊢ l ↦[st]{q2} v -∗
     l ↦[st]{q1 + q2} v.
   Proof.
     apply: wand_intro_r.
-    rewrite heap_mapsto_eq -own_op -auth_frag_op singleton_op -!pair_op agree_idemp /= //.
+    rewrite heap_pointsto_eq -own_op -auth_frag_op singleton_op -!pair_op agree_idemp /= //.
     destruct st; [|done]. etrans; [apply: own_valid|].
     by iIntros ([[??]%pair_valid?]%auth_frag_valid_1%singleton_valid%pair_valid).
   Qed.
 
-  Global Instance heap_mapsto_fractional l v: Fractional (λ q, l ↦{q} v)%I.
-  Proof. intros p q. by apply heap_mapsto_split. Qed.
-  Global Instance heap_mapsto_as_fractional l q v:
+  Global Instance heap_pointsto_fractional l v: Fractional (λ q, l ↦{q} v)%I.
+  Proof. intros p q. by apply heap_pointsto_split. Qed.
+  Global Instance heap_pointsto_as_fractional l q v:
     AsFractional (l ↦{q} v) (λ q, l ↦{q} v)%I q.
   Proof. split; first done. apply _. Qed.
-  Global Instance frame_heap_mapsto p l v q1 q2 q :
+  Global Instance frame_heap_pointsto p l v q1 q2 q :
     FrameFractionalQp q1 q2 q →
     Frame p (l ↦{q1} v) (l ↦{q2} v) (l ↦{q} v) | 5.
   Proof. apply: frame_fractional. Qed.
 
-  Global Instance heap_mapsto_vec_timeless l st q vl : Timeless (l ↦∗[st]{q} vl).
-  Proof. rewrite /heap_mapsto_vec. apply _. Qed.
+  Global Instance heap_pointsto_vec_timeless l st q vl : Timeless (l ↦∗[st]{q} vl).
+  Proof. rewrite /heap_pointsto_vec. apply _. Qed.
 
-  Global Instance heap_mapsto_vec_fractional l vl: Fractional (λ q, l ↦∗{q} vl)%I.
+  Global Instance heap_pointsto_vec_fractional l vl: Fractional (λ q, l ↦∗{q} vl)%I.
   Proof.
-    intros p q. rewrite /heap_mapsto_vec -big_sepL_sep.
+    intros p q. rewrite /heap_pointsto_vec -big_sepL_sep.
     by setoid_rewrite (fractional (Φ := λ q, _ ↦{q} _)%I).
   Qed.
-  Global Instance heap_mapsto_vec_as_fractional l q vl:
+  Global Instance heap_pointsto_vec_as_fractional l q vl:
     AsFractional (l ↦∗{q} vl) (λ q, l ↦∗{q} vl)%I q.
   Proof. split; first done. apply _. Qed.
-  Global Instance frame_heap_mapsto_vec p l v q1 q2 q :
+  Global Instance frame_heap_pointsto_vec p l v q1 q2 q :
     FrameFractionalQp q1 q2 q →
     Frame p (l ↦∗{q1} v) (l ↦∗{q2} v) (l ↦∗{q} v)%I | 5.
   (* FIXME(https://github.com/coq/coq/issues/17688): Φ is not inferred. *)
@@ -251,89 +251,89 @@ Section heap.
   Global Instance heap_block_size_timeless q b n : Timeless (heap_block_size γ b q n).
   Proof. rewrite heap_block_size_eq /heap_block_size_def. apply _. Qed.
 
-  Lemma heap_mapsto_agree l q1 q2 v1 v2 st1 st2 : l ↦[st1]{q1} v1 ∗ l ↦[st2]{q2} v2 ⊢ ⌜v1 = v2⌝.
+  Lemma heap_pointsto_agree l q1 q2 v1 v2 st1 st2 : l ↦[st1]{q1} v1 ∗ l ↦[st2]{q2} v2 ⊢ ⌜v1 = v2⌝.
   Proof.
-    rewrite heap_mapsto_eq -own_op -auth_frag_op own_valid discrete_valid.
+    rewrite heap_pointsto_eq -own_op -auth_frag_op own_valid discrete_valid.
     eapply pure_elim; [done|]. move => /auth_frag_valid /=.
     rewrite singleton_op -pair_op singleton_valid => -[? /to_agree_op_inv_L->]; eauto.
   Qed.
 
-  Lemma heap_mapsto_valid l q v st : l ↦[st]{q} v ⊢ ⌜(q ≤ 1)%Qp⌝.
+  Lemma heap_pointsto_valid l q v st : l ↦[st]{q} v ⊢ ⌜(q ≤ 1)%Qp⌝.
   Proof.
-    rewrite heap_mapsto_eq. etrans; [apply: own_valid|]. iPureIntro.
+    rewrite heap_pointsto_eq. etrans; [apply: own_valid|]. iPureIntro.
     by rewrite auth_frag_valid singleton_valid !pair_valid => -[[??]?].
   Qed.
 
-  Lemma heap_mapsto_ne l1 l2 q v1 v2 : l1 ↦ v1 -∗ l2 ↦{q} v2 -∗ ⌜l1 ≠ l2⌝.
+  Lemma heap_pointsto_ne l1 l2 q v1 v2 : l1 ↦ v1 -∗ l2 ↦{q} v2 -∗ ⌜l1 ≠ l2⌝.
   Proof.
     destruct (decide (l1 = l2)); [subst |by eauto].
     iIntros "Hl1 Hl2".
-    iDestruct (heap_mapsto_agree with "[$Hl1 $Hl2]") as %->.
+    iDestruct (heap_pointsto_agree with "[$Hl1 $Hl2]") as %->.
     iCombine "Hl1" "Hl2" as "Hl".
-    by iDestruct (heap_mapsto_valid with "Hl") as %?%Qp.not_add_le_l.
+    by iDestruct (heap_pointsto_valid with "Hl") as %?%Qp.not_add_le_l.
   Qed.
 
-  Lemma heap_mapsto_vec_nil l q : l ↦∗{q} [] ⊣⊢ True.
-  Proof. by rewrite /heap_mapsto_vec. Qed.
+  Lemma heap_pointsto_vec_nil l q : l ↦∗{q} [] ⊣⊢ True.
+  Proof. by rewrite /heap_pointsto_vec. Qed.
 
-  Lemma heap_mapsto_vec_app l q vl1 vl2 :
+  Lemma heap_pointsto_vec_app l q vl1 vl2 :
     l ↦∗{q} (vl1 ++ vl2) ⊣⊢ l ↦∗{q} vl1 ∗ (l +ₗ length vl1) ↦∗{q} vl2.
   Proof.
-    rewrite /heap_mapsto_vec big_sepL_app.
+    rewrite /heap_pointsto_vec big_sepL_app.
     do 2 f_equiv. intros k v. by rewrite loc_add_assoc Nat2Z.inj_add.
   Qed.
 
-  Lemma heap_mapsto_vec_singleton l q v : l ↦∗{q} [v] ⊣⊢ l ↦{q} v.
-  Proof. by rewrite /heap_mapsto_vec /= loc_add_0 right_id. Qed.
+  Lemma heap_pointsto_vec_singleton l q v : l ↦∗{q} [v] ⊣⊢ l ↦{q} v.
+  Proof. by rewrite /heap_pointsto_vec /= loc_add_0 right_id. Qed.
 
-  Lemma heap_mapsto_vec_cons l q v vl:
+  Lemma heap_pointsto_vec_cons l q v vl:
     l ↦∗{q} (v :: vl) ⊣⊢ l ↦{q} v ∗ (l +ₗ 1) ↦∗{q} vl.
   Proof.
-    by rewrite (heap_mapsto_vec_app l q [v] vl) heap_mapsto_vec_singleton.
+    by rewrite (heap_pointsto_vec_app l q [v] vl) heap_pointsto_vec_singleton.
   Qed.
 
-  Lemma heap_mapsto_vec_op l q1 q2 vl1 vl2 :
+  Lemma heap_pointsto_vec_op l q1 q2 vl1 vl2 :
     length vl1 = length vl2 →
     l ↦∗{q1} vl1 ∗ l ↦∗{q2} vl2 ⊣⊢ ⌜vl1 = vl2⌝ ∧ l ↦∗{q1+q2} vl1.
   Proof.
     intros Hlen%Forall2_same_length. apply (anti_symm (⊢)).
     - revert l. induction Hlen as [|v1 v2 vl1 vl2 _ _ IH]=> l.
-      { rewrite !heap_mapsto_vec_nil. iIntros "_"; auto. }
-      rewrite !heap_mapsto_vec_cons. iIntros "[[Hv1 Hvl1] [Hv2 Hvl2]]".
+      { rewrite !heap_pointsto_vec_nil. iIntros "_"; auto. }
+      rewrite !heap_pointsto_vec_cons. iIntros "[[Hv1 Hvl1] [Hv2 Hvl2]]".
       iDestruct (IH (l +ₗ 1) with "[$Hvl1 $Hvl2]") as "[% $]"; subst.
       rewrite (inj_iff (.:: vl2)).
-      iDestruct (heap_mapsto_agree with "[$Hv1 $Hv2]") as %<-.
+      iDestruct (heap_pointsto_agree with "[$Hv1 $Hv2]") as %<-.
       iSplit; first done. iFrame.
     - by iIntros "[% [$ Hl2]]"; subst.
   Qed.
 
-  Lemma heap_mapsto_vec_st_length l q vl sts:
+  Lemma heap_pointsto_vec_st_length l q vl sts:
     l ↦∗[sts]{q} vl ⊢ ⌜length sts = length vl⌝.
   Proof. apply big_sepL2_length. Qed.
 
-  Lemma heap_mapsto_vec_to_st l q vl :
+  Lemma heap_pointsto_vec_to_st l q vl :
     l ↦∗{q} vl ⊣⊢ l ↦∗[replicate (length vl) (RSt 0)]{q} vl.
   Proof.
-    rewrite /heap_mapsto_vec /heap_mapsto_vec_st.
+    rewrite /heap_pointsto_vec /heap_pointsto_vec_st.
     by rewrite big_sepL2_replicate_l.
   Qed.
 
-  Lemma heap_mapsto_vec_combine l q vl :
+  Lemma heap_pointsto_vec_combine l q vl :
     vl ≠ [] →
     l ↦∗{q} vl ⊣⊢ own γ.(heap_name) (◯ [^op list] i ↦ v ∈ vl,
       {[l +ₗ i := (q, Cinr 0%nat, to_agree v)]}).
   Proof.
-    rewrite /heap_mapsto_vec heap_mapsto_eq /heap_mapsto_def=>?.
+    rewrite /heap_pointsto_vec heap_pointsto_eq /heap_pointsto_def=>?.
     rewrite (big_opL_commute auth_frag) big_opL_commute1 //.
   Qed.
 
-  Lemma heap_mapsto_vec_st_combine l q vl sts:
+  Lemma heap_pointsto_vec_st_combine l q vl sts:
     vl ≠ [] →
     length sts = length vl →
     l ↦∗[sts]{q} vl ⊣⊢ own γ.(heap_name) (◯ [^op list] i ↦ v ∈ zip sts vl,
       {[l +ₗ i := (q, to_lock_stateR v.1, to_agree v.2)]}).
   Proof.
-    rewrite /heap_mapsto_vec_st heap_mapsto_eq /heap_mapsto_def=>??.
+    rewrite /heap_pointsto_vec_st heap_pointsto_eq /heap_pointsto_def=>??.
     rewrite (big_opL_commute auth_frag) big_opL_commute1 //.
     2: { by destruct vl, sts; simplify_eq/=. }
     rewrite big_sepL2_alt.
@@ -510,7 +510,7 @@ Section heap.
     iMod (heap_alloc_vs _ _ (Z.to_nat n) with "[$Hvalσ]") as "[Hvalσ Hmapsto]"; first done.
     iMod (ghost_map_insert (dyn_loc b) (Some _) with "HhF") as "[? ?]".
     { apply eq_None_not_Some => -[? /Hrel]. naive_solver. }
-    rewrite heap_block_size_eq heap_mapsto_vec_combine //.
+    rewrite heap_block_size_eq heap_pointsto_vec_combine //.
     2: { by destruct (Z.to_nat n). }
     iFrame. iModIntro. iSplit; [|by eauto]. iExists _. iFrame.
     iPureIntro. split.
@@ -551,9 +551,9 @@ Section heap.
     iDestruct (ghost_map_lookup with "HhF Hf") as %Hf.
     move: (Hf) => /REL[?[?[??]]]. simplify_eq/=.
     iSplitR. { iPureIntro. lia. } iSplitR; first done.
-    iDestruct (heap_mapsto_vec_st_length with "Hmt") as %?.
+    iDestruct (heap_pointsto_vec_st_length with "Hmt") as %?.
     iMod (heap_free_vs with "[Hmt Hvalσ]") as "Hvalσ"; [done| |].
-    { rewrite heap_mapsto_vec_st_combine //; first by iFrame.
+    { rewrite heap_pointsto_vec_st_combine //; first by iFrame.
       destruct vl; simpl in * => //; lia. }
     rewrite Nat2Z.id.
     iMod (ghost_map_update None with "HhF Hf") as "[? $]".
@@ -561,7 +561,7 @@ Section heap.
     eauto using heap_block_size_rel_free_mem, heap_wf_free_mem.
   Qed.
 
-  Lemma heap_mapsto_lookup h l ls q v :
+  Lemma heap_pointsto_lookup h l ls q v :
     own γ.(heap_name) (● to_heap h) -∗
     own γ.(heap_name) (◯ {[ l := (q, to_lock_stateR ls, to_agree v) ]}) -∗
     ⌜∃ n' : nat,
@@ -581,7 +581,7 @@ Section heap.
     - exists O. by rewrite Nat.add_0_r.
   Qed.
 
-  Lemma heap_mapsto_lookup_1 h l ls v :
+  Lemma heap_pointsto_lookup_1 h l ls v :
     own γ.(heap_name) (● to_heap h) -∗
     own γ.(heap_name) (◯ {[ l := (1%Qp, to_lock_stateR ls, to_agree v) ]}) -∗
     ⌜h !! l = Some (ls, v)⌝.
@@ -598,11 +598,11 @@ Section heap.
 
   Lemma heap_read_vs h n1 n2 nf l q v:
     h !! l = Some (RSt (n1 + nf), v) →
-    own γ.(heap_name) (● to_heap h) -∗ heap_mapsto γ l (RSt n1) q v
+    own γ.(heap_name) (● to_heap h) -∗ heap_pointsto γ l (RSt n1) q v
     ==∗ own γ.(heap_name) (● to_heap (<[l:=(RSt (n2 + nf), v)]> h))
-        ∗ heap_mapsto γ l (RSt n2) q v.
+        ∗ heap_pointsto γ l (RSt n2) q v.
   Proof.
-    rewrite heap_mapsto_eq.
+    rewrite heap_pointsto_eq.
     intros Hσv. apply bi.entails_wand, wand_intro_r. rewrite -!own_op to_heap_insert.
     eapply own_update, auth_update, singleton_local_update.
     { by rewrite /to_heap lookup_fmap Hσv. }
@@ -616,32 +616,32 @@ Section heap.
         σ.(heap) !! l = Some (match st with RSt n => RSt (n+n') | WSt => WSt end, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
-    rewrite heap_mapsto_eq.
-    iDestruct (heap_mapsto_lookup with "Hσ Hmt") as %[n Hσl]; eauto.
+    rewrite heap_pointsto_eq.
+    iDestruct (heap_pointsto_lookup with "Hσ Hmt") as %[n Hσl]; eauto.
   Qed.
 
   Lemma heap_read_st_1 σ l st v :
     heap_ctx γ σ -∗ l ↦[st] v -∗ ⌜σ.(heap) !! l = Some (st, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
-    rewrite heap_mapsto_eq.
-    iDestruct (heap_mapsto_lookup_1 with "Hσ Hmt") as %?; eauto.
+    rewrite heap_pointsto_eq.
+    iDestruct (heap_pointsto_lookup_1 with "Hσ Hmt") as %?; eauto.
   Qed.
 
   Lemma heap_read σ l q v :
     heap_ctx γ σ -∗ l ↦{q} v -∗ ∃ n, ⌜σ.(heap) !! l = Some (RSt n, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
-    rewrite heap_mapsto_eq.
-    iDestruct (heap_mapsto_lookup with "Hσ Hmt") as %[n Hσl]; eauto.
+    rewrite heap_pointsto_eq.
+    iDestruct (heap_pointsto_lookup with "Hσ Hmt") as %[n Hσl]; eauto.
   Qed.
 
   Lemma heap_read_1 σ l v :
     heap_ctx γ σ -∗ l ↦ v -∗ ⌜σ.(heap) !! l = Some (RSt 0, v)⌝.
   Proof.
     iDestruct 1 as (hF) "(Hσ & HhF & REL)". iIntros "Hmt".
-    rewrite heap_mapsto_eq.
-    iDestruct (heap_mapsto_lookup_1 with "Hσ Hmt") as %?; auto.
+    rewrite heap_pointsto_eq.
+    iDestruct (heap_pointsto_lookup_1 with "Hσ Hmt") as %?; auto.
   Qed.
 
   Lemma heap_read_na_1 l q v n σ :
@@ -689,11 +689,11 @@ Section heap.
 
   Lemma heap_write_vs h st1 st2 l v v':
     h !! l = Some (st1, v) →
-    own γ.(heap_name) (● to_heap h) -∗ heap_mapsto γ l st1 1%Qp v
+    own γ.(heap_name) (● to_heap h) -∗ heap_pointsto γ l st1 1%Qp v
     ==∗ own γ.(heap_name) (● to_heap (<[l:=(st2, v')]> h))
-        ∗ heap_mapsto γ l st2 1%Qp v'.
+        ∗ heap_pointsto γ l st2 1%Qp v'.
   Proof.
-    rewrite heap_mapsto_eq.
+    rewrite heap_pointsto_eq.
     intros Hσv. apply bi.entails_wand, wand_intro_r. rewrite -!own_op to_heap_insert.
     eapply own_update, auth_update, singleton_local_update.
     { by rewrite /to_heap lookup_fmap Hσv. }
@@ -752,7 +752,7 @@ End heap.
 Lemma heap_init `{heapG Σ} gs :
   ⊢ |==> ∃ γ : heap_names, heap_ctx γ (state_init gs) ∗
     heap_globals γ (dom gs) ∗
-    [∗ map] n ↦ v ∈ gs, heap_mapsto γ (global_loc n) (RSt 0) 1 v ∗ heap_block_size γ (global_loc n) 1 (Some 1).
+    [∗ map] n ↦ v ∈ gs, heap_pointsto γ (global_loc n) (RSt 0) 1 v ∗ heap_block_size γ (global_loc n) 1 (Some 1).
 Proof.
   set σ := state_init gs.
   iMod (own_alloc (● (to_heap σ.(heap)) ⋅ ◯ (to_heap σ.(heap)))) as (γheap) "[Hheap Hfrag]".
@@ -771,7 +771,7 @@ Proof.
         apply lookup_fmap_Some. naive_solver.
       * move => [? /lookup_kmap_Some[? [[??] /lookup_fmap_Some [? [? ?]]]]]; simplify_eq.
     + apply state_init_wf.
-  - rewrite heap_mapsto_eq heap_block_size_eq /heap_mapsto_def /heap_block_size_def /=.
+  - rewrite heap_pointsto_eq heap_block_size_eq /heap_pointsto_def /heap_block_size_def /=.
     iInduction gs as [|l v gs Hk] "IH" using map_ind.
     { iApply big_sepM_empty. done. }
     rewrite big_sepM_insert; last done.

@@ -19,21 +19,21 @@ Definition readonly_wf (e : expr_head) : Prop :=
 Section refl.
   Context `{naGS Σ}.
 
-  Definition mapsto_list (ms : list (loc * loc * val * val * Qp)) : iProp Σ :=
+  Definition pointsto_list (ms : list (loc * loc * val * val * Qp)) : iProp Σ :=
     [∗ list] m∈ms, let '(l_t, l_s, v_t, v_s, q) := m in
      l_t↦t{#q}v_t ∗ l_s↦s{#q}v_s ∗ val_rel v_t v_s ∗ heapbij.loc_rel l_t l_s.
 
-  Definition na_locs_in_mapsto_list (ms : list (loc * loc * val * val * Qp)) (col : gmap loc (loc * na_locs_state)) : Prop :=
+  Definition na_locs_in_pointsto_list (ms : list (loc * loc * val * val * Qp)) (col : gmap loc (loc * na_locs_state)) : Prop :=
     ∀ l_s l_t ns, col !! l_s = Some (l_t, ns) →
       ∃ i v_t v_s, ms !! i = Some (l_t, l_s, v_t, v_s, if ns is NaRead q then q else 1%Qp).
 
    Lemma sim_bij_load_mapstolist ms π l_t l_s Φ col o :
     o ≠ Na2Ord →
-    na_locs_in_mapsto_list ms col →
+    na_locs_in_pointsto_list ms col →
     l_t ↔h l_s -∗
     na_locs π col -∗
-    mapsto_list ms -∗
-    (∀ v_t v_s, val_rel v_t v_s -∗ na_locs π col -∗ mapsto_list ms -∗ v_t ⪯{π} v_s [{ Φ }]) -∗
+    pointsto_list ms -∗
+    (∀ v_t v_s, val_rel v_t v_s -∗ na_locs π col -∗ pointsto_list ms -∗ v_t ⪯{π} v_s [{ Φ }]) -∗
     Load o (Val $ LitV (LitLoc l_t)) ⪯{π} Load o (Val $ LitV (LitLoc l_s)) [{ Φ }].
    Proof.
      iIntros (? Hin) "Hv Hc Hms HΦ".
@@ -51,7 +51,7 @@ Section refl.
    Qed.
 
   Definition readonly_thread_own ms col (π : thread_id) : iProp Σ :=
-    ⌜na_locs_in_mapsto_list ms col⌝ ∗ na_locs π col ∗ mapsto_list ms.
+    ⌜na_locs_in_pointsto_list ms col⌝ ∗ na_locs π col ∗ pointsto_list ms.
 
   Theorem readonly_log_rel_structural ms col :
     log_rel_structural heapbij.loc_rel (readonly_thread_own ms col) readonly_wf.

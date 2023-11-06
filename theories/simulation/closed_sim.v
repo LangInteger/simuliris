@@ -655,18 +655,18 @@ Section fix_lang.
     - iAssert (∃ fn_t, ⌜P_t !! f = Some fn_t⌝)%I as (fn_t) "%".
       { iDestruct ("Hloc" $! _ _ Hdef_s) as (fn_t) "[% _]"; by eauto. }
       iPureIntro. eexists _, _, _.
-      by apply fill_prim_step, head_prim_step, call_head_step_intro.
+      by apply fill_prim_step, base_prim_step, call_base_step_intro.
     - iIntros (e_t' efs_t σ_t' Hstep).
       apply prim_step_call_inv in Hstep as (fn_t & Hdef & -> & -> & ->).
       iModIntro. iRight.
       iExists (fill K_s' (of_call f v_s)), (fill K_s' (apply_func fn_s v_s)), σ_s', σ_s', [].
       iFrame. iSplit; first done. iSplit.
-      { iPureIntro. by apply fill_prim_step, head_prim_step, call_head_step_intro. }
+      { iPureIntro. by apply fill_prim_step, base_prim_step, call_base_step_intro. }
       iSplitL "Hstate".
       { rewrite app_nil_r. iPoseProof (state_interp_pure_prim_step with "Hstate") as "Hstate".
         { apply list_lookup_insert. by eapply lookup_lt_Some. }
         2: { rewrite list_insert_insert. iFrame. }
-        intros σ_s''. eapply fill_prim_step, fill_prim_step. by eapply head_prim_step, call_head_step_intro.
+        intros σ_s''. eapply fill_prim_step, fill_prim_step. by eapply base_prim_step, call_base_step_intro.
       }
       simpl; iSplit; last done.
       iApply sim_expr_bind. iDestruct ("Hloc" $! _ _ Hdef_s) as (fn_t') "[% Hectx]".

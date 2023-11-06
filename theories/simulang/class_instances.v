@@ -49,7 +49,7 @@ Section safe_implies.
     let Hhead := fresh in
     intros Hsafe; specialize (Hsafe _ _ _ (Pool_steps_refl _ _ _) _ 0 ltac:(done)) as [Hval | Hred];
     [ rewrite language_to_val_eq in Hval; simpl in Hval; destruct Hval as [? [=]] |
-      destruct Hred as (? & ? & ? & Hhead%prim_head_step);
+      destruct Hred as (? & ? & ? & Hhead%prim_base_step);
       [ (* this need not complete the proof and may generate a proof obligation *)
         inversion Hhead; subst; try by eauto
       | solve_sub_redexes_are_values] ].
@@ -235,9 +235,9 @@ End safe_implies.
 (** * Instances of the [PureExec] class *)
 Section pure_exec.
   Local Ltac solve_exec_safe := intros; subst; do 3 eexists; econstructor; eauto.
-  Local Ltac solve_exec_puredet := simpl; intros; by inv_head_step.
+  Local Ltac solve_exec_puredet := simpl; intros; by inv_base_step.
   Local Ltac solve_pure_exec :=
-    subst; intros ?; apply nsteps_once, pure_head_step_pure_step;
+    subst; intros ?; apply nsteps_once, pure_base_step_pure_step;
       constructor; [solve_exec_safe | solve_exec_puredet].
 
   Global Instance pure_pairc (v1 v2 : val) :

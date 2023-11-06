@@ -7,12 +7,12 @@ From Equations Require Import Equations.
 From iris.prelude Require Import options.
 
 (* TODO: do we need non-empty condition? ie (tsize T) > 0? *)
-Lemma alloc_head_step P σ T :
+Lemma alloc_base_step P σ T :
   let l := (fresh_block σ.(shp), 0) in
   let t := σ.(snp) in
   let σ' := mkState (init_mem l (tsize T) σ.(shp))
                     (init_stacks σ.(sst) l (tsize T) (Tagged t)) σ.(scs) (S t) σ.(snc) in
-  head_step P (Alloc T) σ (Place l (Tagged t) T) σ' [].
+  base_step P (Alloc T) σ (Place l (Tagged t) T) σ' [].
 Proof. by econstructor; econstructor. Qed.
 
 Lemma find_granting_is_Some stk kind bor
@@ -83,16 +83,16 @@ Proof.
   case protector; naive_solver.
 Qed.
 
-Lemma dealloc_head_step' P (σ: state) l bor T α (WF: state_wf σ) :
+Lemma dealloc_base_step' P (σ: state) l bor T α (WF: state_wf σ) :
   (∀ m : Z, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m ∧ m < tsize T) →
   memory_deallocated σ.(sst) σ.(scs) l bor (tsize T) = Some α →
   let σ' := mkState (free_mem l (tsize T) σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
-  head_step P (Free (Place l bor T)) σ #[☠] σ' [].
+  base_step P (Free (Place l bor T)) σ #[☠] σ' [].
 Proof.
   intros DOM MD. econstructor; econstructor; eauto.
 Qed.
 
-Lemma dealloc_head_step P (σ: state) T l bor
+Lemma dealloc_base_step P (σ: state) T l bor
   (WF: state_wf σ)
   (BLK: ∀ m : Z, l +ₗ m ∈ dom σ.(shp) ↔ 0 ≤ m ∧ m < tsize T)
   (BOR: ∀ (n: nat) stk, (n < tsize T)%nat →
@@ -101,7 +101,7 @@ Lemma dealloc_head_step P (σ: state) T l bor
       it.(perm) ≠ Disabled ∧ it.(perm) ≠ SharedReadOnly) ∧
       ∀ it, it ∈ stk → item_inactive_protector σ.(scs) it) :
   ∃ σ',
-  head_step P (Free (Place l bor T)) σ #[☠] σ' [].
+  base_step P (Free (Place l bor T)) σ #[☠] σ' [].
 Proof.
   destruct (memory_deallocated_progress σ.(sst) σ.(scs) l bor (tsize T))
     as [α' Eq']; [|done|].
@@ -375,11 +375,11 @@ Proof.
     destruct (access1_read_is_Some _ _ _ STK) as [? Eq2]. rewrite Eq2. by eexists.
 Qed.
 
-Lemma copy_head_step' P (σ: state) l bor T v α (WF: state_wf σ) :
+Lemma copy_base_step' P (σ: state) l bor T v α (WF: state_wf σ) :
   read_mem l (tsize T) σ.(shp) = Some v →
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α →
   let σ' := mkState σ.(shp) α σ.(scs) σ.(snp) σ.(snc) in
-  head_step P (Copy (Place l bor T)) σ (Val v) σ' [].
+  base_step P (Copy (Place l bor T)) σ (Val v) σ' [].
 Proof.
   intros RM. econstructor; econstructor; eauto.
   (*move => l1 [t1|//] /elem_of_list_lookup [i Eqi].*)
@@ -388,7 +388,7 @@ Proof.
   (*rewrite Eq2; [done|]. rewrite -Eq1. by eapply lookup_lt_Some.*)
 Qed.
 
-Lemma copy_head_step P (σ: state) l bor T
+Lemma copy_base_step P (σ: state) l bor T
   (WF: state_wf σ)
   (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
   (BOR: ∀ m stk, (m < tsize T)%nat → σ.(sst) !! (l +ₗ m) = Some stk →
@@ -397,18 +397,18 @@ Lemma copy_head_step P (σ: state) l bor T
   read_mem l (tsize T) σ.(shp) = Some v ∧
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α ∧
   let σ' := mkState σ.(shp) α σ.(scs) σ.(snp) σ.(snc) in
-  head_step P (Copy (Place l bor T)) σ (Val v) σ' [].
+  base_step P (Copy (Place l bor T)) σ (Val v) σ' [].
 Proof.
   destruct (read_mem_is_Some _ _ _ BLK) as [v RM].
   destruct (memory_read_is_Some σ.(sst) σ.(scs) l bor (tsize T));[|done|].
   { move => ? /BLK. by rewrite (state_wf_dom _ WF). }
   do 2 eexists. do 2 (split; [done|]). intros σ'.
-  eapply copy_head_step'; eauto.
+  eapply copy_base_step'; eauto.
 Qed.
 
-Lemma failed_copy_head_step' P (σ: state) l bor T (WF: state_wf σ) :
+Lemma failed_copy_base_step' P (σ: state) l bor T (WF: state_wf σ) :
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = None →
-  head_step P (Copy (Place l bor T)) σ (Val $ replicate (tsize T) ScPoison) σ [].
+  base_step P (Copy (Place l bor T)) σ (Val $ replicate (tsize T) ScPoison) σ [].
 Proof.
   intros RM. destruct σ; simpl in *. econstructor; [eapply FailedCopyBS | ]. econstructor; eauto.
 Qed.
@@ -436,16 +436,16 @@ Proof.
     destruct (access1_write_is_Some _ _ _ STK) as [? Eq2]. rewrite Eq2. by eexists.
 Qed.
 
-Lemma write_head_step' P (σ: state) l bor T v α
+Lemma write_base_step' P (σ: state) l bor T v α
   (LEN: length v = tsize T)
   (*(LOCVAL: v <<t σ.(snp))*)
   (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
   (BOR: memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α) :
   let σ' := mkState (write_mem l v σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
-  head_step P (Write (Place l bor T) (Val v)) σ #[☠] σ' [].
+  base_step P (Write (Place l bor T) (Val v)) σ #[☠] σ' [].
 Proof. intros. econstructor 2; econstructor; eauto; by rewrite LEN. Qed.
 
-Lemma write_head_step P (σ: state) l bor T v
+Lemma write_base_step P (σ: state) l bor T v
   (WF: state_wf σ)
   (LEN: length v = tsize T)
   (*(LOCVAL: v <<t σ.(snp))*)
@@ -455,29 +455,29 @@ Lemma write_head_step P (σ: state) l bor T v
   ∃ α,
   memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α ∧
   let σ' := mkState (write_mem l v σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
-  head_step P (Write (Place l bor T) (Val v)) σ #[☠] σ' [].
+  base_step P (Write (Place l bor T) (Val v)) σ #[☠] σ' [].
 Proof.
   destruct (memory_written_is_Some σ.(sst) σ.(scs) l bor (tsize T)); [|done|].
   { move => ? /BLK. by rewrite (state_wf_dom _ WF). }
-  eexists. split; [done|]. by eapply write_head_step'.
+  eexists. split; [done|]. by eapply write_base_step'.
 Qed.
 
-Lemma call_head_step P σ name e r fn :
+Lemma call_base_step P σ name e r fn :
   P !! name = Some fn →
   to_result e = Some r →
-  head_step P (Call #[ScFnPtr name] e) σ (apply_func fn r) σ [].
+  base_step P (Call #[ScFnPtr name] e) σ (apply_func fn r) σ [].
 Proof. by econstructor; econstructor. Qed.
 
-Lemma init_call_head_step P σ :
+Lemma init_call_base_step P σ :
   let c := σ.(snc) in
   let σ' := mkState σ.(shp) σ.(sst) ({[σ.(snc)]} ∪ σ.(scs)) σ.(snp) (S σ.(snc)) in
-  head_step P InitCall σ (#[ScCallId (σ.(snc))]) σ' [].
+  base_step P InitCall σ (#[ScCallId (σ.(snc))]) σ' [].
 Proof. by econstructor; econstructor. Qed.
 
-Lemma end_call_head_step P (σ: state) c :
+Lemma end_call_base_step P (σ: state) c :
   c ∈ σ.(scs) →
   let σ' := mkState σ.(shp) σ.(sst) (σ.(scs) ∖ {[c]}) σ.(snp) σ.(snc) in
-  head_step P (EndCall #[ScCallId c]) σ #[☠] σ' [].
+  base_step P (EndCall #[ScCallId c]) σ #[☠] σ' [].
 Proof. intros. by econstructor; econstructor. Qed.
 
 Lemma unsafe_action_is_Some_weak {A} (GI: A → nat → Prop)
@@ -802,18 +802,18 @@ Proof.
 Qed.
 
 
-Lemma retag_head_step' P σ l otg ntg pk T kind c' α' nxtp':
+Lemma retag_base_step' P σ l otg ntg pk T kind c' α' nxtp':
   c' ∈ σ.(scs) →
   retag σ.(sst) σ.(snp) σ.(scs) c' l otg kind pk T =
     Some (ntg, α', nxtp') →
   let σ' := mkState σ.(shp) α' σ.(scs) nxtp' σ.(snc) in
-  head_step P (Retag #[ScPtr l otg] #[ScCallId c'] pk T kind) σ #[ScPtr l ntg] σ' [].
+  base_step P (Retag #[ScPtr l otg] #[ScCallId c'] pk T kind) σ #[ScPtr l ntg] σ' [].
 Proof.
   econstructor. { econstructor; eauto. } simpl.
   econstructor; eauto.
 Qed.
 
-Lemma retag_head_step P σ l c otg pk T kind
+Lemma retag_base_step P σ l c otg pk T kind
   (BAR: c ∈ σ.(scs))
   (LOC: valid_block σ.(sst) σ.(scs) l otg pk T)
   (WF: state_wf σ) :
@@ -821,19 +821,19 @@ Lemma retag_head_step P σ l c otg pk T kind
   retag σ.(sst) σ.(snp) σ.(scs) c l otg kind pk T =
     Some (ntg, α', nxtp') ∧
   let σ' := mkState σ.(shp) α' σ.(scs) nxtp' σ.(snc) in
-  head_step P (Retag #[ScPtr l otg] #[ScCallId c] pk T kind) σ #[ScPtr l ntg] σ' [].
+  base_step P (Retag #[ScPtr l otg] #[ScCallId c] pk T kind) σ #[ScPtr l ntg] σ' [].
 Proof.
   destruct σ as [h α cids nxtp nxtc]; simpl in *.
   destruct (retag_is_freeze_is_Some α nxtp cids c l otg kind pk T)
     as [[[h' α'] nxtp'] Eq]; [done|].
   exists h', α' , nxtp'. split; [done|].
-  eapply retag_head_step'; eauto.
+  eapply retag_base_step'; eauto.
 Qed.
 
-(* Lemma syscall_head_step σ id :
-  head_step (SysCall id) σ [SysCallEvt id] #☠ σ [].
+(* Lemma syscall_base_step σ id :
+  base_step (SysCall id) σ [SysCallEvt id] #☠ σ [].
 Proof.
-  have EE: ∃ σ', head_step (SysCall id) σ [SysCallEvt id] #☠ σ' [] ∧ σ' = σ.
+  have EE: ∃ σ', base_step (SysCall id) σ [SysCallEvt id] #☠ σ' [] ∧ σ' = σ.
   { eexists. split. econstructor; econstructor. by destruct σ. }
   destruct EE as [? [? ?]]. by subst.
 Qed. *)

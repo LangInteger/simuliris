@@ -175,7 +175,7 @@ Section data_race.
       move => i [x y] Hl //.
     }
     { rewrite /readonly_thread_own. iFrame.
-      unfold mapsto_list, na_locs_in_mapsto_list.
+      unfold pointsto_list, na_locs_in_pointsto_list.
       iSplit; [|iSplit; [ iSplit; done | done]].
       iPureIntro. intros ???. rewrite lookup_insert_Some.
       rewrite lookup_empty. intros [[<- [= <- <-]] | [_ [=]]].
@@ -184,7 +184,7 @@ Section data_race.
 
     iIntros (??).
     rewrite /readonly_thread_own.
-    unfold mapsto_list. simpl.
+    unfold pointsto_list. simpl.
     iIntros "(_ & Hcol & (Hx_t & Hx_s & _ & _) & _) _".
     iApply lift_post_val.
 

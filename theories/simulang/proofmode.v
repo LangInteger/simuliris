@@ -940,7 +940,7 @@ Tactic Notation "source_alloc" ident(l) :=
 
 Tactic Notation "target_free" :=
   to_target;
-  let solve_mapsto _ :=
+  let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I, _) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
   let solve_mapstoN _ :=
@@ -956,7 +956,7 @@ Tactic Notation "target_free" :=
       first
         [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_free _ _ _ _ K _ _ _))
         |fail 1 "target_free: cannot find 'Free' in" e];
-      [solve_mapsto () | solve_perm () | pm_reduce; target_finish]
+      [solve_pointsto () | solve_perm () | pm_reduce; target_finish]
     in
     let process_array _ :=
       first
@@ -969,7 +969,7 @@ Tactic Notation "target_free" :=
 
 Tactic Notation "source_free" :=
   to_source;
-  let solve_mapsto _ :=
+  let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I, _) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
   let solve_mapstoN _ :=
@@ -985,7 +985,7 @@ Tactic Notation "source_free" :=
       first
         [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_free _ _ _ _ _ K Ψ _ _))
         |fail 1 "source_free: cannot find 'Free' in" e];
-      [solve_mapsto () | solve_perm () | pm_reduce; source_finish]
+      [solve_pointsto () | solve_perm () | pm_reduce; source_finish]
     in
     let process_array _ :=
       first
@@ -998,7 +998,7 @@ Tactic Notation "source_free" :=
 
 Tactic Notation "target_load" :=
   to_target;
-  let solve_mapsto _ :=
+  let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I) => l end in
     iAssumptionCore || fail "target_load: cannot find" l "↦t ?" in
   target_pures;
@@ -1008,14 +1008,14 @@ Tactic Notation "target_load" :=
       [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_loadsc _ _ K _ _ _ _ Ψ))
       |reshape_expr e ltac:(fun K e' => eapply (tac_target_red_loadna _ _ K _ _ _ Ψ _))
       |fail 1 "target_load: cannot find 'Load' in" e];
-    [ solve_mapsto ()
+    [ solve_pointsto ()
     | target_finish]
   | _ => fail "target_load: not a 'target_red'"
   end.
 
 Tactic Notation "source_load" :=
   to_source;
-  let solve_mapsto _ :=
+  let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I) => l end in
     iAssumptionCore || fail "source_load: cannot find" l "↦s ?" in
   source_pures;
@@ -1025,7 +1025,7 @@ Tactic Notation "source_load" :=
       [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_loadsc _ _ _ K _ _ _ _ Ψ))
       |reshape_expr e ltac:(fun K e' => eapply (tac_source_red_loadna _ _ _ K _ _ _ Ψ _))
       |fail 1 "source_load: cannot find 'Load' in" e];
-    [ solve_mapsto ()
+    [ solve_pointsto ()
     | source_finish]
   | _ => fail "source_load: not a 'source_red'"
   end.
@@ -1034,7 +1034,7 @@ Tactic Notation "source_load" :=
 (* FIXME: error messages seem broken (already the eapply seems to fail when the pointsto-assumption is missing)*)
 Tactic Notation "target_store" :=
   to_target;
-  let solve_mapsto _ :=
+  let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I) => l end in
     iAssumptionCore || fail "target_store: cannot find" l "↦t ?" in
   target_pures;
@@ -1044,14 +1044,14 @@ Tactic Notation "target_store" :=
       [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_store _ _ K _ _ _ _ Ψ))
       |fail 1 "target_store: cannot find 'Store' in" e];
     [first [left; reflexivity | right; reflexivity ]
-    |solve_mapsto ()
+    |solve_pointsto ()
     |pm_reduce; target_finish]
   | _ => fail "target_store: not a 'target_red'"
   end.
 
 Tactic Notation "source_store" :=
   to_source;
-  let solve_mapsto _ :=
+  let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I) => l end in
     iAssumptionCore || fail "source_store: cannot find" l "↦s ?" in
   source_pures;
@@ -1061,7 +1061,7 @@ Tactic Notation "source_store" :=
       [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_store _ _ _ K _ _ _ _ Ψ))
       |fail 1 "source_store: cannot find 'Store' in" e];
     [first [left; reflexivity | right; reflexivity]
-    |solve_mapsto ()
+    |solve_pointsto ()
     |pm_reduce; source_finish]
   | _ => fail "source_store: not a 'source_red'"
   end.

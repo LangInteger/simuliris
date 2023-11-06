@@ -20,9 +20,9 @@ Arguments gen_heap_bij_name { L_t L_s V_t V_s Σ _ _ _ _ _ _} : assert.
 Section definitions.
   Context `{gen_heap_bijGS L_t L_s V_t V_s Σ}.
 
-  Local Notation "l '↦t' v" := (mapsto (hG:=gen_heap_inG_target) l (DfracOwn 1) v)
+  Local Notation "l '↦t' v" := (pointsto (hG:=gen_heap_inG_target) l (DfracOwn 1) v)
     (at level 20, format "l  ↦t  v") : bi_scope.
-  Local Notation "l '↦s' v" := (mapsto (hG:=gen_heap_inG_source) l (DfracOwn 1) v)
+  Local Notation "l '↦s' v" := (pointsto (hG:=gen_heap_inG_source) l (DfracOwn 1) v)
     (at level 20, format "l  ↦s  v") : bi_scope.
 
   Definition gen_heap_bij_auth (L : gset (L_t * L_s)) :=
@@ -40,9 +40,9 @@ Notation "l_t '↔h' l_s" := (gen_heap_bij_elem l_t l_s) (at level 30) : bi_scop
 Section laws.
   Context `{gen_heap_bijGS L_t L_s V_t V_s Σ}.
 
-  Local Notation "l '↦t' v" := (mapsto (hG:=gen_heap_inG_target) l (DfracOwn 1) v)
+  Local Notation "l '↦t' v" := (pointsto (hG:=gen_heap_inG_target) l (DfracOwn 1) v)
     (at level 20, format "l  ↦t  v") : bi_scope.
-  Local Notation "l '↦s' v" := (mapsto (hG:=gen_heap_inG_source) l (DfracOwn 1) v)
+  Local Notation "l '↦s' v" := (pointsto (hG:=gen_heap_inG_source) l (DfracOwn 1) v)
     (at level 20, format "l  ↦s  v") : bi_scope.
 
   Global Instance gen_heap_bij_elem_persistent l_t l_s :
@@ -95,13 +95,13 @@ Section laws.
     iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_t = l_t') L⌝)%I) as "%Hext_t".
     { iIntros (([l_t' l_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(Hcon & _ & _)"; first by apply Hin.
-      iPoseProof (mapsto_valid_2  with "Ht Hcon") as "%Hcon"; exfalso.
+      iPoseProof (pointsto_valid_2  with "Ht Hcon") as "%Hcon"; exfalso.
       destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
     }
     iAssert ((¬ ⌜set_Exists (λ '(l_t', l_s'), l_s = l_s') L⌝)%I) as "%Hext_s".
     { iIntros (([l_t' l_s'] & Hin & <-)).
       iPoseProof (big_sepS_elem_of with "Hheap") as (v_t' v_s') "(_ & Hcon & _)"; first by apply Hin.
-      iPoseProof (mapsto_valid_2 with "Hs Hcon") as "%Hcon"; exfalso.
+      iPoseProof (pointsto_valid_2 with "Hs Hcon") as "%Hcon"; exfalso.
       destruct Hcon as [Hcon _]. by apply dfrac_valid_own_r in Hcon.
     }
 
