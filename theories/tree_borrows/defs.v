@@ -16,12 +16,12 @@ Definition wf_mem_tag (h: mem) (nxtp: nat) :=
 
 Definition item_wf (it:item) (nxtp:nat) (nxtc:call_id) :=
   (forall tg, IsTag (Tag tg) it -> (tg < nxtp)%nat)
-  /\ (forall cid, protector_is_for_call (iprot it) cid -> (cid < nxtc)%nat).
+  /\ (forall cid, protector_is_for_call cid (iprot it) -> (cid < nxtc)%nat).
 
 Definition tree_item_included (tr:tree item) (nxtp:nat) (nxtc: call_id) :=
   forall tg,
   tree_contains tg tr -> exists it,
-  tree_unique tg tr it /\ item_wf it nxtp nxtc.
+  tree_unique tg it tr /\ item_wf it nxtp nxtc.
 
 Definition wf_tree (tr:tree item) (nxtp:nat) (nxtc:call_id) :=
   tree_item_included tr nxtp nxtc.
@@ -35,7 +35,7 @@ Definition wf_no_dup (α: stacks) :=
 *)
 Definition wf_cid_incl (cids: call_id_set) (nxtc: call_id) :=
   ∀ c : call_id, c ∈ cids → (c < nxtc)%nat.
-Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l t' → t' <t t.
+Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l (Tag t') → t' < t.
 
 Definition same_blocks (hp:mem) (trs:trees) :=
   forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk).

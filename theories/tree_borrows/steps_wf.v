@@ -18,13 +18,22 @@ Lemma wf_tree_item_mono trs :
 Proof.
   move=> ?? Le1 ? ? Le2 WF ?? /WF Hf.
   move => ? /Hf TG1.
-  move: TG1. rewrite /item_included. case itag => [?].
-  case iprot; [|lia]; move => p; case p; move => ? ?; lia.
+  move: TG1. rewrite /item_wf.
+  intros [it [Unq [TgLe ProtLe]]].
+  exists it; repeat split.
+  - assumption.
+  - intros tg tgit. specialize (TgLe tg tgit). lia.
+  - intros cid protit. specialize (ProtLe cid protit). lia.
 Qed.
 
 Lemma wf_mem_tag_mono h :
   Proper ((≤)%nat ==> impl) (wf_mem_tag h).
-Proof. move => ??? WF ??? tag /WF /=; case tag. lia. Qed.
+Proof.
+  move => ??? WF ?? tg Access.
+  destruct tg as [tg].
+  specialize (WF _ _ (Tag tg) Access); simpl in WF.
+  lia.
+Qed.
 
 (** Alloc *)
 Definition preserve_tree_wf (fn:app (tree item)) nxtp nxtp' nxtc nxtc' :=
@@ -106,32 +115,11 @@ Proof.
   - rewrite lookup_insert_ne; [|done]; apply (WFs blk').
 Qed.
 
-Lemma wf_tree_increasing tr nxtp nxtc nxtp' nxtc' :
-  (nxtp ≤ nxtp')%nat ->
-  (nxtc ≤ nxtc')%nat ->
-  wf_tree tr nxtp nxtc -> wf_tree tr nxtp' nxtc'.
-Proof.
-  intros Incp Incc.
-  unfold wf_tree; unfold tree_item_included; unfold item_included.
-  intros Hyp si Exists. specialize Hyp with si.
-  pose (Hyp Exists).
-  destruct si; destruct itag; destruct iprot; [destruct p|]; simpl in *; lia.
-Qed.
-
-Lemma wf_trees_increasing trs nxtp nxtc nxtp' nxtc' :
-  (nxtp ≤ nxtp')%nat ->
-  (nxtc ≤ nxtc')%nat ->
-  wf_trees trs nxtp nxtc -> wf_trees trs nxtp' nxtc'.
-Proof.
-  intros Incp Incc WFs blk tr Found.
-  eapply wf_tree_increasing; [exact Incp|exact Incc|]; apply (WFs blk _ Found).
-Qed.
-
 Lemma tree_joinmap_preserve_prop tr tr' (fn:item -> option item) (P:item -> Prop) :
   (forall it it', fn it = Some it' -> P it -> P it') ->
-  tree_Forall P tr ->
-  tree_join (tree_map fn tr) = Some tr' ->
-  tree_Forall P tr'.
+  every_node P tr ->
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  every_node P tr'.
 Proof.
   intros Preserve All Join.
   pose (proj1 (join_success_condition _) (mk_is_Some _ _ Join)) as AllSome.
@@ -150,35 +138,24 @@ Proof.
   - apply (IHtr2 All2); apply Some2'.
 Qed.
 
-Lemma item_dealloc_preserves_metadata cids rel range :
-  preserve_item_metadata (item_dealloc cids rel range).
-Proof.
-  intros it it'.
-  unfold item_dealloc.
-  destruct (permissions_foreach _); simpl; [|intro H; inversion H].
-  destruct (bool_decide _); simpl; [intro H; inversion H|].
-  intro H; injection H; intro; subst; simpl.
-  tauto.
-Qed.
-
-Lemma item_apply_access_preserves_metadata kind cids rel range :
-  preserve_item_metadata (item_apply_access kind cids rel range).
+Lemma item_apply_access_preserves_metadata kind strong cids rel range :
+  preserve_item_metadata (item_apply_access kind strong cids rel range).
 Proof.
   intros it it'.
   unfold item_apply_access.
-  destruct (permissions_foreach _); simpl; [|intro H; inversion H].
+  destruct (permissions_apply_range' _); simpl; [|intro H; inversion H].
   intro H; injection H; intro; subst; simpl.
   tauto.
 Qed.
 
 Lemma joinmap_preserve_nonempty fn :
-  preserve_tree_nonempty (fun tr => tree_join (tree_map fn tr)).
+  preserve_tree_nonempty (fun tr => join_nodes (map_nodes fn tr)).
 Proof.
   intro tr; induction tr; intros tr' Nonempty JoinMap; [contradiction|].
   simpl in JoinMap.
   destruct (fn data); [|inversion JoinMap]; simpl in *.
-  destruct (tree_join _); [|inversion JoinMap]; simpl in *.
-  destruct (tree_join _); [|inversion JoinMap]; simpl in *.
+  destruct (join_nodes _); [|inversion JoinMap]; simpl in *.
+  destruct (join_nodes _); [|inversion JoinMap]; simpl in *.
   injection JoinMap; intro; subst.
   intro H; inversion H.
 Qed.
@@ -192,8 +169,8 @@ Proof.
   apply Dealloc.
 Qed.
 
-Lemma memory_read_preserve_nonempty cids tg range :
-  preserve_tree_nonempty (memory_read cids tg range).
+Lemma memory_read_preserve_nonempty kind strong cids tg range :
+  preserve_tree_nonempty (memory_access kind strong cids tg range).
 Proof.
   intros tr tr' Nonempty Read.
   eapply joinmap_preserve_nonempty.
@@ -201,37 +178,28 @@ Proof.
   apply Read.
 Qed.
 
-Lemma memory_write_preserve_nonempty cids tg range :
-  preserve_tree_nonempty (memory_write cids tg range).
-Proof.
-  intros tr tr' Nonempty Write.
-  eapply joinmap_preserve_nonempty.
-  1: exact Nonempty.
-  apply Write.
-Qed.
-
-Lemma create_child_preserve_nonempty cids oldtg range newtg newp :
-  preserve_tree_nonempty (create_child cids oldtg range newtg newp).
+Lemma create_child_preserve_nonempty cids oldtg newtg newp :
+  preserve_tree_nonempty (create_child cids oldtg newtg newp).
 Proof.
   intros tr tr' Nonempty Create.
   unfold create_child in Create.
-  destruct (memory_read _ _ _ _) eqn:MemRead; simpl in Create; [|inversion Create].
   injection Create; intros; subst; clear Create.
   (* No need to do an induction, we can prove it's nonempty with just the root *)
-  destruct t.
-  1: { exfalso. apply (memory_read_preserve_nonempty _ _ _ tr empty Nonempty MemRead); reflexivity. }
+  destruct tr.
+  1: contradiction.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
 Qed.
 
-Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc dyn_rel :
+Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
   (forall rel, preserve_item_metadata (fn cids rel range)) ->
   wf_tree tr nxtp nxtc ->
-  tree_apply_access fn cids tg range tr dyn_rel = Some tr' ->
+  tree_apply_access fn cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   unfold wf_tree; unfold tree_item_included; unfold tree_apply_access.
   repeat rewrite <- tree_Forall_forall.
   intros Preserve WF Dealloc.
+  eapply tree_joinmap_preserve_prop.
   eapply (tree_joinmap_preserve_prop tr _ _ _ _ WF Dealloc).
   Unshelve. simpl.
   intros it it' SomeDealloc.

@@ -146,7 +146,7 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
   | Retag e1 e2 ptr kind, Retag e1' e2' ptr' kind' =>
      bool_decide (ptr = ptr') && bool_decide (kind = kind')
      && expr_beq e1 e1' && expr_beq e2 e2'
-  | Read e, Read e' => expr_beq e e'
+  | Copy e, Copy e' => expr_beq e e'
   | Ref e, Ref e'  => expr_beq e e'
   | Let x e1 e2, Let x' e1' e2' =>
     bool_decide (x = x') && expr_beq e1 e1' && expr_beq e2 e2'
@@ -179,7 +179,7 @@ Qed.
 Inductive enc_expr_leaf : Type :=
   | EncString (str:string) | EncValue (val:value)
   | EncOperator (op:bin_op) | EncLoc (l:loc)
-  | EncTag (tg:tag) | EncPointer (ptr:pointer)
+  | EncTag (tg:tag) | EncPointer (ptr:nat)
   | EncRetagKind (rtk:retag_kind) | EncBinder (bind:binder)
   .
 Global Instance enc_expr_leaf_dec_eq : EqDecision enc_expr_leaf.
@@ -220,7 +220,7 @@ Proof.
       | Proj e1 e2 => GenNode 6 [go e1; go e2]
       | Conc e1 e2 => GenNode 7 [go e1; go e2]
       | Place l tag ptr => GenNode 8 [GenLeaf $ EncLoc l; GenLeaf $ EncTag tag; GenLeaf $ EncPointer ptr]
-      | Read e => GenNode 9 [go e]
+      | Copy e => GenNode 9 [go e]
       | Write e1 e2 => GenNode 10 [go e1; go e2]
       | Free e => GenNode 11 [go e]
       | Alloc ptr => GenNode 12 [GenLeaf $ EncPointer ptr]
@@ -246,7 +246,7 @@ Proof.
      | GenNode 8 [GenLeaf (EncLoc l);
                   GenLeaf (EncTag tag);
                   GenLeaf (EncPointer ptr)] => Place l tag ptr
-     | GenNode 9 [e] => Read (go e)
+     | GenNode 9 [e] => Copy (go e)
      | GenNode 10 [e1; e2] => Write (go e1) (go e2)
      | GenNode 11 [e] => Free (go e)
      | GenNode 12 [GenLeaf (EncPointer ptr)] => Alloc ptr

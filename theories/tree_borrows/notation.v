@@ -44,7 +44,7 @@ Notation "# v" := (Val v%V%R%L) (at level 8, format "# v") : expr_scope.
 
 (** Pointer operations *)
 Notation "& e" := (Ref e%E) (at level 8, format "& e") : expr_scope.
-Notation "*{ ptrk } e" := (Deref (Read e%E) ptrk)
+Notation "*{ ptrk } e" := (Deref (Copy e%E) ptrk)
   (at level 9, format "*{ ptrk }  e") : expr_scope.
 
 (** Syntax inspired by Coq/Ocaml. Constructions with higher precedence come

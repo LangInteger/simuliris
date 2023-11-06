@@ -199,7 +199,7 @@ Inductive expr :=
                                      of the place `e`. `path` defines the path
                                      through the type. *) *)
 (* mem op *)
-| Read (e : expr)                 (* Read from the place `e` *)
+| Copy (e : expr)                 (* Read from the place `e` *)
 | Write (e1 e2 : expr)             (* Write the value `e2` to the place `e1` *)
 | Alloc (sz : nat)                 (* Allocate a place of type `T` *)
 | Free (e : expr)                 (* Free the place `e` *)
@@ -232,7 +232,7 @@ Arguments Proj _%E _%E.
 Arguments Conc _%E _%E.
 Arguments Deref _%E _%nat.
 Arguments Ref _%E.
-Arguments Read _%E.
+Arguments Copy _%E.
 Arguments Write _%E _%E.
 Arguments Alloc _%nat.
 Arguments Free _%E.
@@ -251,7 +251,7 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
-  | Fork e | Read e | Deref e _ | Ref e (* | Field e _ *)
+  | Fork e | Copy e | Deref e _ | Ref e (* | Field e _ *)
       | Free e | EndCall e (* | AtomRead e | Fork e *)
       => is_closed X e
   end.
@@ -341,25 +341,12 @@ Record newperm := mkNewPerm {
 
 (** Internal events *)
 
-(*
-Inductive bor_event :=
-| AllocBEvt (blk : block) (tg : tag)
-| DeallocBEvt (blk : block)
-| AccessBEvt (kind : access_kind) (strong : prot_strong) (tg : tag) (blk : block) (range : Z * nat)
-| InitCallBEvt (cid : call_id)
-| EndCallBEvt (cid : call_id)
-| RetagBEvt (tgp tg : tag) (newp : newperm) (blk : block) (c : call_id)
-| SilentBEvt.
-*)
-
 Inductive bor_local_event :=
   | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
   | InitCallBLEvt (cid : call_id)
   | EndCallBLEvt (cid : call_id)
   | RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)
   | SilentBLEvt.
-
-
 
 (** Internal events *)
 Inductive event :=

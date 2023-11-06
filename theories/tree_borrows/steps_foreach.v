@@ -193,13 +193,13 @@ Lemma init_mem_lookup_empty l n :
   ∃ i : nat, (i < n)%nat ∧ l' = l +ₗ i.
 Proof. move => l' s' /init_mem_lookup_case [[//]|//]. Qed.
 
-Lemma extend_trees_lookup trs tg offset sz blk :
-  (extend_trees tg blk (offset, sz) trs) !! blk = Some (init_tree tg (offset, sz)).
+Lemma extend_trees_lookup trs tg blk :
+  (extend_trees tg blk trs) !! blk = Some (init_tree tg).
 Proof. apply lookup_insert. Qed.
 
-Lemma extend_trees_lookup_ne trs tg offset sz blk blk' :
+Lemma extend_trees_lookup_ne trs tg blk blk' :
   blk ≠ blk' ->
-  extend_trees tg blk (offset, sz) trs !! blk' = trs !! blk'.
+  extend_trees tg blk trs !! blk' = trs !! blk'.
 Proof. apply lookup_insert_ne. Qed.
 
 (*

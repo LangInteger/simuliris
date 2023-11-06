@@ -257,7 +257,7 @@ Definition call_is_active c cids := (c ∈ cids).
 Global Instance call_is_active_dec c cids : Decision (call_is_active c cids).
 Proof. rewrite /call_is_active. solve_decision. Qed.
 
-Definition call_of_protector prot :=
+Definition call_of_protector (prot:option protector) :=
   match prot with
   | Some (mkProtector _ c) => Some c
   | _ => None
@@ -375,7 +375,7 @@ Definition memory_access_nonchildren_only kind strong cids tg range
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
-  Some tr.
+  tree_apply_access (item_apply_access AccessWrite ProtWeak) cids t range tr.
 
 (* FIXME: explain what's going on here *)
 Definition witness_transition p p' : Prop :=

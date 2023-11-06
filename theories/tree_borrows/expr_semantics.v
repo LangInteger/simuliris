@@ -2,7 +2,6 @@
   https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
-From Coq Require Import Program.
 From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
@@ -24,19 +23,24 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | BinOp op e1 e2 => BinOp op (subst x es e1) (subst x es e2)
   | Proj e1 e2 => Proj (subst x es e1) (subst x es e2)
   | Conc e1 e2 => Conc (subst x es e1) (subst x es e2)
-  | Read e => Read (subst x es e)
+  | Copy e => Copy (subst x es e)
   | Write e1 e2 => Write (subst x es e1) (subst x es e2)
-  | Alloc ptr => Alloc ptr
+  | Alloc T => Alloc T
   | Free e => Free (subst x es e)
-  | Deref e ptr => Deref (subst x es e) ptr
+  (* | CAS e0 e1 e2 => CAS (subst x es e0) (subst x es e1) (subst x es e2) *)
+  (* | AtomWrite e1 e2 => AtomWrite (subst x es e1) (subst x es e2) *)
+  (* | AtomRead e => AtomRead (subst x es e) *)
+  | Deref e T => Deref (subst x es e) T
   | Ref e => Ref (subst x es e)
-  | Retag e1 e2 ptr kind => Retag (subst x es e1) (subst x es e2) ptr kind
+  (* | Field e path => Field (subst x: es e) path *)
+  | Retag e1 e2 sz kind => Retag (subst x es e1) (subst x es e2) sz kind
   | Let x1 e1 e2 =>
       Let x1 (subst x es e1)
                  (if bool_decide (BNamed x ≠ x1) then subst x es e2 else e2)
   | Case e el => Case (subst x es e) (fmap (subst x es) el)
   | Fork e => Fork (subst x es e) 
   | While e1 e2 => While (subst x es e1) (subst x es e2)
+  (* | SysCall id => SysCall id *)
   end.
 
 (* formal argument list substitution *)
@@ -101,12 +105,13 @@ Inductive ectx_item :=
 | ProjLEctx (r2 : result)
 | ConcREctx (e1 : expr)
 | ConcLEctx (r2 : result)
-| ReadEctx
+| CopyEctx
 | WriteREctx (e1 : expr)
 | WriteLEctx (r2 : result)
 | FreeEctx
 | DerefEctx (sz : nat)
 | RefEctx
+(* | FieldEctx (path : list nat) *)
 | RetagREctx (e1 : expr) (sz : nat) (kind : retag_kind)
 | RetagLEctx (r2 : result) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
@@ -125,14 +130,15 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | ProjLEctx r2 => Proj e (of_result r2)
   | ConcREctx e1 => Conc e1 e
   | ConcLEctx r2 => Conc e (of_result r2)
-  | ReadEctx => Read e
-  | WriteLEctx r2 => Write e (of_result r2)
+  | CopyEctx => Copy e
   | WriteREctx e1 => Write e1 e
+  | WriteLEctx r2 => Write e (of_result r2)
   | FreeEctx => Free e
-  | DerefEctx ptr => Deref e ptr
+  | DerefEctx T => Deref e T
   | RefEctx => Ref e
-  | RetagLEctx r2 pk kind => Retag e (of_result r2) pk kind
-  | RetagREctx e1 pk kind => Retag e1 e pk kind
+  (* | FieldEctx path => Field e path *)
+  | RetagLEctx r2 sz kind => Retag e (of_result r2) sz kind
+  | RetagREctx e1 sz kind => Retag e1 e sz kind
   | LetEctx x e2 => Let x e e2
   | CaseEctx el => Case e el
   end.
@@ -160,7 +166,7 @@ Inductive ctx_item :=
   | ProjRCtx (e1 : expr)
   | ConcLCtx (e2 : expr)
   | ConcRCtx (e1 : expr)
-  | ReadCtx
+  | CopyCtx
   | WriteLCtx (e2 : expr)
   | WriteRCtx (e1 : expr)
   | FreeCtx
@@ -188,14 +194,14 @@ Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   | ProjRCtx e1 => Proj e1 e
   | ConcLCtx e2 => Conc e e2
   | ConcRCtx e1 => Conc e1 e
-  | ReadCtx => Read e
+  | CopyCtx => Copy e
   | WriteLCtx e2 => Write e e2
   | WriteRCtx e1 => Write e1 e
   | FreeCtx => Free e
-  | DerefCtx ptr => Deref e ptr
+  | DerefCtx T => Deref e T
   | RefCtx => Ref e
-  | RetagLCtx e2 ptr k => Retag e e2 ptr k
-  | RetagRCtx e1 ptr k => Retag e1 e ptr k
+  | RetagLCtx e2 sz k => Retag e e2 sz k
+  | RetagRCtx e1 sz k => Retag e1 e sz k
   | CaseLCtx el => Case e el
   | CaseRCtx e0 el1 el2 => Case e0 (el1 ++ e :: el2)
   | WhileLCtx e1 => While e e1
@@ -225,7 +231,7 @@ Inductive expr_head :=
   | PlaceHead (l : loc) (tg : tag) (sz : nat)
   | DerefHead (sz : nat)
   | RefHead
-  | ReadHead
+  | CopyHead
   | WriteHead
   | AllocHead (sz : nat)
   | FreeHead
@@ -246,15 +252,15 @@ Definition expr_split_head (e : expr) : (expr_head * list expr) :=
   | EndCall e => (EndCallHead, [e])
   | Proj e1 e2 => (ProjHead, [e1; e2])
   | Conc e1 e2 => (ConcHead, [e1; e2])
-  | Place l tg ptr => (PlaceHead l tg ptr, [])
-  | Deref e ptr => (DerefHead ptr, [e])
+  | Place l tg T => (PlaceHead l tg T, [])
+  | Deref e T => (DerefHead T, [e])
   | Ref e => (RefHead, [e])
-  | Read e => (ReadHead, [e])
+  | Copy e => (CopyHead, [e])
   | Write e1 e2 => (WriteHead, [e1; e2])
   | Fork e => (ForkHead, [e])
-  | Alloc ptr => (AllocHead ptr, [])
+  | Alloc T => (AllocHead T, [])
   | Free e => (FreeHead, [e])
-  | Retag e1 e2 pk k => (RetagHead pk k, [e1; e2])
+  | Retag e1 e2 sz k => (RetagHead sz k, [e1; e2])
   | Case e el => (CaseHead, e :: el)
   | While e0 e1 => (WhileHead, [e0; e1])
   end.
@@ -274,14 +280,14 @@ Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
   | ProjLEctx r => (ProjHead, [of_result r])
   | ConcREctx e => (ConcHead, [e])
   | ConcLEctx r => (ConcHead, [of_result r])
-  | ReadEctx => (ReadHead, [])
+  | CopyEctx => (CopyHead, [])
   | WriteLEctx r => (WriteHead, [of_result r])
   | WriteREctx e => (WriteHead, [e])
   | FreeEctx => (FreeHead, [])
-  | DerefEctx ptr => (DerefHead ptr, [])
+  | DerefEctx T => (DerefHead T, [])
   | RefEctx => (RefHead, [])
-  | RetagREctx e1 ptr k => (RetagHead ptr k, [e1])
-  | RetagLEctx r2 ptr k => (RetagHead ptr k, [of_result r2])
+  | RetagREctx e1 sz k => (RetagHead sz k, [e1])
+  | RetagLEctx r2 sz k => (RetagHead sz k, [of_result r2])
   | CaseEctx el => (CaseHead, el)
   end.
 
@@ -298,14 +304,14 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   | ProjRCtx e1 => (ProjHead, [e1])
   | ConcLCtx e2 => (ConcHead, [e2])
   | ConcRCtx e1 => (ConcHead, [e1])
-  | ReadCtx => (ReadHead, [])
+  | CopyCtx => (CopyHead, [])
   | WriteLCtx e2 => (WriteHead, [e2])
   | WriteRCtx e1 => (WriteHead, [e1])
   | FreeCtx => (FreeHead, [])
-  | DerefCtx ptr => (DerefHead ptr, [])
+  | DerefCtx T => (DerefHead T, [])
   | RefCtx => (RefHead, [])
-  | RetagRCtx e1 ptr k => (RetagHead ptr k, [e1])
-  | RetagLCtx e2 ptr k => (RetagHead ptr k, [e2])
+  | RetagRCtx e1 sz k => (RetagHead sz k, [e1])
+  | RetagLCtx e2 sz k => (RetagHead sz k, [e2])
   | CaseLCtx el => (CaseHead, el)
   | CaseRCtx e el1 el2 => (CaseHead, e :: el1 ++ el2)
   | WhileLCtx e1 => (WhileHead, [e1])
@@ -405,65 +411,23 @@ Proof.
   - destruct (decide (l1 = l2)) as [<- | Hneq]; [right; intros H; inversion H; congruence | left; eauto].
 Qed.
 
-(* For the sake of code reuse, let's define very generically what to do on a range of memory
-   Actions are
-   - reading a value
-   - writing a value
-   - doing nothing
-   and they all have as side effects modifications of the associated locks:
-   - acquire for reading/writing
-   - release for reading/writing
-   - bypass
-
-   These will combine in 6 different ways, all with the same skeleton,
-   to define the atomic and nonatomic read and write operations on values.
- *)
-
-Inductive scalar_policy : Type :=
-  | PolWrite (s:scalar)
-  | PolRead
-  .
-
-(* swrite is what should be written, sread is what has been read.
-   PolicyResult is computed while the previous value at that location `old` is known.
-   - for operations that do not read (Write and Touch), return `sread=poison`
-     (prevents usage of the returned value)
-   - for operations that do not write (Read and Touch), return `swrite=old`
-     (writes the value already there, effectively performing a noop)
-*)
-Record PolicyResult := mkPolRes {
-  swrite : scalar;
-  sread  : scalar;
-}.
-
-Definition apply_policy sclp (old:scalar) : PolicyResult :=
-  match sclp with
-  | PolRead => {| swrite:=old; sread:=old |}
-  | PolWrite s => {| swrite:=s; sread:=(☠%S) |}
+Fixpoint write_mem l (v: value) h: mem :=
+  match v with
+  | [] => h
+  | s :: v => write_mem (l +ₗ 1) v (<[l := s]> h)
   end.
 
-(* Apply an action to the memory:
-   - h and l are the memory and the starting location
-   - lkp defines what to do with the locks
-       lkp: lock_policy := lock -> option lock
-       where lkp old_lk is
-         Some new_lk => replace the old lock with lk
-         None => failure to obtain the lock
-   - vlp defines what to do with the values
-*)
-Fixpoint mem_app l (vlp:list scalar_policy) (h:mem)
-  : option (value * mem) :=
-  match vlp with
-  | [] => Some ([], h)
-  | sclp :: vlp' =>
-    olds ← h !! l; (* fail if no value present *)
-    let '{| swrite:=news; sread:=rets |} := apply_policy sclp olds in
-    '(recval, h') ← mem_app (l +ₗ 1) vlp' (<[l := news]> h);
-    Some (rets :: recval, h')
-  end.
-
-Definition policy_read len : list scalar_policy := repeat PolRead len.
-Definition policy_write val : list scalar_policy := map PolWrite val.
+Section no_mangle.
+Local Unset Mangle Names. (* work around https://github.com/mattam82/Coq-Equations/issues/407 *)
+Equations read_mem (l: loc) (n: nat) h: option value :=
+  read_mem l n h := go l n (Some [])
+  where go : loc → nat → option value → option value :=
+        go l' O      oacc := oacc;
+        go l' (S n')  oacc :=
+          acc ← oacc ;
+          v ← h !! l';
+          go (l' +ₗ 1) n' (Some (acc ++ [v])).
+End no_mangle.
 
 Definition fresh_block (h : mem) : block :=
   let loclst : list loc := elements (dom h) in
@@ -525,63 +489,50 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
     (* unfold by one step *)
     pure_expr_step P h (While e1 e2) (if: e1 then (e2;; while: e1 do e2 od) else #[☠]) []
 | ForkPS (e : expr) :
-      pure_expr_step P h (Fork e) #[☠] [e]
+    pure_expr_step P h (Fork e) #[☠] [e]
   .
 
-Inductive event :=
-  | AllocEvt (l : loc) (tg : tag) (sz : nat)
-  | DeallocEvt (l : loc) (tg : tag) (sz : nat)
-  | AccessEvt (kind : access_kind) (l : loc) (tg : tag) (sz : nat) (val : value)
-  | InitCallEvt (cid : call_id)
-  | EndCallEvt (cid : call_id)
-  | RetagEvt (l : loc) (tg_parent tg : tag) (sz : nat) (rtk : retag_kind) (cid : call_id)
-  .
-
-Definition poison_of_size : nat -> value := repeat (☠%S).
 Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr → Prop :=
-  | AllocBS tg (sz : nat) :
-      let l := (fresh_block h, 0) in
-      mem_expr_step
-        h (Alloc sz)
-        (AllocEvt l tg sz)
-        (init_mem l sz h) (Place l tg sz) []
-  | DeallocBS l tg sz h'
-    (WRITE: mem_app l (policy_write (repeat ☠%S sz)) h = Some (poison_of_size sz, h')) :
+| InitCallBS (c: call_id):
     mem_expr_step
-      h (Free (Place l tg sz))
-      (DeallocEvt l tg sz)
-      (free_mem l sz h) #[☠] []
-  | ReadBS l tg sz val h'
-    (READ: mem_app l (policy_read sz) h = Some (val, h')) :
+              h InitCall
+              (InitCallEvt c)
+              h (Val $ [ScCallId c]) []
+| EndCallBS (call: call_id) e :
+    to_value e = Some [ScCallId call] →
+    mem_expr_step h (EndCall e) (EndCallEvt call) h #[☠] []
+| CopyBS blk l lbor sz (v: value)
+    (READ: read_mem (blk, l) sz h = Some v) :
+    mem_expr_step h (Copy (Place (blk, l) lbor sz)) (CopyEvt blk lbor (l, sz) v) h (Val v) []
+| FailedCopyBS blk l lbor sz :
+    (* failed copies lead to poison, but still of the appropriate length *)
+    mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []
+| WriteBS blk l lbor sz v
+    (DEFINED: ∀ (i: nat), (i < length v)%nat → (blk,l) +ₗ i ∈ dom h) :
     mem_expr_step
-      h (Read (Place l tg sz))
-      (AccessEvt AccessRead l tg sz val)
-      h' (Val val) []
-  | WriteBS l tg sz val h'
-    (DEFINED: ∀ (i: nat), (i < length val)%nat → l +ₗ i ∈ dom h)
-    (WRITE: mem_app l (policy_write val) h = Some (poison_of_size (length val), h'))
-    (SIZE_COMPAT: length val = sz) :
+              h (Place (blk, l) lbor sz <- Val v)
+              (WriteEvt blk lbor (l, sz) v)
+              (write_mem (blk, l) v h) #[☠] []
+| AllocBS lbor sz :
+    let blk := fresh_block h in
     mem_expr_step
-      h (Write (Place l tg sz) (Val val))
-      (AccessEvt AccessWrite l tg sz val)
-      h' #[☠] []
-  | InitCallBS cid :
+              h (Alloc sz)
+              (AllocEvt blk lbor (0, sz))
+              (init_mem (blk, 0) sz h) (Place (blk, 0) lbor sz) []
+| DeallocBS blk l (sz:nat) lbor :
+    (∀ m, is_Some (h !! ((blk,l) +ₗ m)) ↔ 0 ≤ m < sz) →
     mem_expr_step
-      h InitCall
-      (InitCallEvt cid)
-      h (Val $ [ScCallId cid]) []
-  | EndCallBS cid e :
-    to_value e = Some [ScCallId cid] →
+              h (Free (Place (blk,l) lbor sz))
+              (DeallocEvt blk lbor (l, sz))
+              (free_mem (blk,l) sz h) #[☠] []
+| RetagBS blk l otag ntag sz kind c newp
+    (NEW_PERM : newp.(new_protector) = match kind with FnEntry => Some c | Default => None end) :
     mem_expr_step
-      h (EndCall e)
-      (EndCallEvt cid)
-      h #[☠] []
-  | RetagBS l (oldt newt:tag) ptr rtk cid :
-  (* Right now this is atomic, do we need nonatomicity of reborrows ? How do we get that ? *)
-    mem_expr_step
-      h (Retag #[ScPtr l oldt] #[ScCallId cid] ptr rtk)
-      (RetagEvt l oldt newt ptr rtk cid)
-      h #[ScPtr l newt] []
-  .
+              h (Retag #[ScPtr l otag] #[ScCallId (call c)] sz kind)
+              (RetagEvt blk otag ntag newp sz)
+              h #[ScPtr l ntag] []
 
-
+(* observable behavior *)
+(* | SysCallBS id h:
+    expr_step (SysCall id) h (SysCallEvt id) (Lit LitPoison) h [] *)
+.

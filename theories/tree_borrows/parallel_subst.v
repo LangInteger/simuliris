@@ -19,7 +19,7 @@ Lemma expr_ind (P : expr → Prop):
   (∀ e1 e2, P e1 → P e2 → P (Conc e1 e2)) →
   (∀ e ty, P e → P (Deref e ty)) →
   (∀ e, P e → P (Ref e)) →
-  (∀ e, P e → P (Read e)) →
+  (∀ e, P e → P (Copy e)) →
   (∀ e1 e2, P e1 → P e2 → P (Write e1 e2)) →
   (∀ ty, P (Alloc ty)) →
   (∀ e, P e → P (Free e)) →
@@ -66,7 +66,7 @@ Fixpoint subst_map (xs : gmap string result) (e : expr) : expr :=
   | BinOp op e1 e2 => BinOp op (subst_map xs e1) (subst_map xs e2)
   | Proj e1 e2 => Proj (subst_map xs e1) (subst_map xs e2)
   | Conc e1 e2 => Conc (subst_map xs e1) (subst_map xs e2)
-  | Read e => Read (subst_map xs e)
+  | Copy e => Copy (subst_map xs e)
   | Write e1 e2 => Write (subst_map xs e1) (subst_map xs e2)
   | Alloc T => Alloc T
   | Free e => Free (subst_map xs e)
@@ -165,7 +165,7 @@ Fixpoint free_vars (e : expr) : gset string :=
   | Var x => {[x]}
   | Let x e1 e2 => free_vars e1 ∪ (free_vars e2 ∖ binder_to_ctx x)
   | InitCall | Place _ _ _ | Alloc _ => ∅
-  | Fork e | Read e | Free e | Deref e _ | Ref e | EndCall e =>
+  | Fork e | Copy e | Free e | Deref e _ | Ref e | EndCall e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Proj e1 e2 | Conc e1 e2
     | Write e1 e2 | Retag e1 e2 _ _ =>
