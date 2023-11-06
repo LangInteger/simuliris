@@ -27,7 +27,7 @@ Section refl.
     ∀ l_s l_t ns, col !! l_s = Some (l_t, ns) →
       ∃ i v_t v_s, ms !! i = Some (l_t, l_s, v_t, v_s, if ns is NaRead q then q else 1%Qp).
 
-   Lemma sim_bij_load_mapstolist ms π l_t l_s Φ col o :
+   Lemma sim_bij_load_pointstolist ms π l_t l_s Φ col o :
     o ≠ Na2Ord →
     na_locs_in_pointsto_list ms col →
     l_t ↔h l_s -∗
@@ -77,7 +77,7 @@ Section refl.
     - (* Load *)
       simpl in Hwf. iApply (log_rel_load with "IH").
       iIntros (????) "(%Hin & Hc & Hms) Hv Hcont".
-      iApply (sim_bij_load_mapstolist with "Hv Hc Hms"); [done..|].
+      iApply (sim_bij_load_pointstolist with "Hv Hc Hms"); [done..|].
       iIntros (??) "Hv Hc Hms". by iApply ("Hcont" with "[$Hc $Hms] Hv").
   Qed.
 

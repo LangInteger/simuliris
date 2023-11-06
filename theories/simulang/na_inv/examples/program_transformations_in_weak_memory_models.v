@@ -212,7 +212,7 @@ Section reorderings.
       { intros. safe_reach_fill (! _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_load. sim_pures. sim_bind (Load _ _) (Load _ _).
-      iApply (sim_bij_load_mapstolist [(global_loc x, global_loc x, v_t, v_s, q)] with "Hy Hc [-]"); [done| | |].
+      iApply (sim_bij_load_pointstolist [(global_loc x, global_loc x, v_t, v_s, q)] with "Hy Hc [-]"); [done| | |].
       { move => ??? /lookup_insert_Some[[??]|[??]]; simplify_eq. by eexists 0, _, _. }
       { by iFrame "∗ Hv Hx". }
       iIntros (v_t' v_s') "#? Hc". rewrite /pointsto_list /=.
@@ -229,7 +229,7 @@ Section reorderings.
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       target_load. sim_pures. sim_bind (Load _ _) (Load _ _).
-      iApply (sim_bij_load_mapstolist [(global_loc y, global_loc y, v_t, v_s, q)] with "Hx Hc [-]"); [done| | |].
+      iApply (sim_bij_load_pointstolist [(global_loc y, global_loc y, v_t, v_s, q)] with "Hx Hc [-]"); [done| | |].
       { move => ??? /lookup_insert_Some[[??]|[??]]; simplify_eq. by eexists 0, _, _. }
       { by iFrame "∗ Hv Hy". }
       iIntros (v_t' v_s') "#? Hc". rewrite /pointsto_list /=.

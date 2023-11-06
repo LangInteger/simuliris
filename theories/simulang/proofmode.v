@@ -943,7 +943,7 @@ Tactic Notation "target_free" :=
   let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t{#_} _)%I, _) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t ?" in
-  let solve_mapstoN _ :=
+  let solve_pointstoN _ :=
     let l := match goal with |- _ = Some (_, (?l ↦t∗{#_} _)%I, _) => l end in
     iAssumptionCore || fail "target_free: cannot find" l "↦t∗ ?" in
   let solve_perm _ :=
@@ -962,7 +962,7 @@ Tactic Notation "target_free" :=
       first
         [reshape_expr e ltac:(fun K e' => eapply (tac_target_red_freeN _ _ _ _ _ K _ _ _))
         |fail 1 "target_free: cannot find 'FreeN' in" e];
-      [ | solve_mapstoN () | solve_perm () | pm_reduce; target_finish]
+      [ | solve_pointstoN () | solve_perm () | pm_reduce; target_finish]
     in (process_single ()) || (process_array ())
   | _ => fail "target_free: not a 'target_red'"
   end.
@@ -972,7 +972,7 @@ Tactic Notation "source_free" :=
   let solve_pointsto _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s{#_} _)%I, _) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s ?" in
-  let solve_mapstoN _ :=
+  let solve_pointstoN _ :=
     let l := match goal with |- _ = Some (_, (?l ↦s∗{#_} _)%I, _) => l end in
     iAssumptionCore || fail "source_free: cannot find" l "↦s∗ ?" in
   let solve_perm _ :=
@@ -991,7 +991,7 @@ Tactic Notation "source_free" :=
       first
         [reshape_expr e ltac:(fun K e' => eapply (tac_source_red_freeN _ _ _ _ _ _ K Ψ _ _))
         |fail 1 "source_free: cannot find 'FreeN' in" e];
-      [idtac| solve_mapstoN () | solve_perm () | pm_reduce; source_finish]
+      [idtac| solve_pointstoN () | solve_perm () | pm_reduce; source_finish]
     in (process_single ()) || (process_array ())
   | _ => fail "source_free: not a 'source_red'"
   end.

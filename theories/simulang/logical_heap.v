@@ -507,7 +507,7 @@ Section heap.
   Proof.
     intros ???; iDestruct 1 as (hF) "(Hvalσ & HhF & Hg & %Hrel & %Hwf)".
     assert (Z.to_nat n ≠ O). { rewrite -(Nat2Z.id 0)=>/Z2Nat.inj. lia. }
-    iMod (heap_alloc_vs _ _ (Z.to_nat n) with "[$Hvalσ]") as "[Hvalσ Hmapsto]"; first done.
+    iMod (heap_alloc_vs _ _ (Z.to_nat n) with "[$Hvalσ]") as "[Hvalσ Hpointsto]"; first done.
     iMod (ghost_map_insert (dyn_loc b) (Some _) with "HhF") as "[? ?]".
     { apply eq_None_not_Some => -[? /Hrel]. naive_solver. }
     rewrite heap_block_size_eq heap_pointsto_vec_combine //.
