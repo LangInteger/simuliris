@@ -218,6 +218,7 @@ Definition requires_init (rel:rel_pos)
   | Parent | Uncle => PermLazy
   end.
 
+(* State machine without protector UB *)
 Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
   : app permission := fun perm =>
   match kind, rel with
@@ -314,6 +315,7 @@ Definition protector_is_strong prot :=
 Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
 Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
 
+(* State machine including protector UB *)
 Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
   : app lazy_permission := fun operm =>
   let old := operm.(perm) in
@@ -377,7 +379,8 @@ Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
   tree_apply_access (item_apply_access AccessWrite ProtWeak) cids t range tr.
 
-(* FIXME: explain what's going on here *)
+(* Normal reachability definition is not easily destructable, so we're defining it
+   manually and proving it's equivalent to the reflexive transitive closuse of one step *)
 Definition witness_transition p p' : Prop :=
   match p, p' with
   | Reserved, ReservedConfl

@@ -35,6 +35,22 @@ Inductive tree X :=
   | empty
   | branch (data:X) (sibling child:tree X)
   .
+(* x
+   |- y1
+   |- y2
+   |- y3
+   |- y4
+
+   branch x
+    (branch y1
+      (branch y2
+        (branch y3
+          (branch y4)
+          empty
+        empty
+      empty
+    empty
+ *)
 
 Arguments empty {X}.
 Arguments branch {X} data sibling child.
