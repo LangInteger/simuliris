@@ -5,7 +5,7 @@
 From simuliris.tree_borrows Require Export defs steps_foreach steps_list.
 From iris.prelude Require Import options.
 
-(*
+(* Kept for now as an easy reference of the lemmas that SB needed
 Lemma access1_in_stack stk kind t cids n stk' :
    access1 stk kind t cids = Some (n, stk') →
    ∃ it, it ∈ stk ∧ it.(tg) = t ∧ it.(perm) ≠ Disabled.

@@ -142,7 +142,7 @@ theories/tree_borrows/disjoint.v # Goes in a different direction, don't hesitate
 
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
-theories/tree_borrows/steps_list.v
+theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
 theories/tree_borrows/steps_access.v
 theories/tree_borrows/steps_wf.v # Preservation of WF, unfinished
 # theories/tree_borrows/steps_progress.v # unfinished, barely modified from SB
