@@ -7,12 +7,12 @@ From Equations Require Import Equations.
 From iris.prelude Require Import options.
 
 (* TODO: do we need non-empty condition? ie (sizeof ptr) > 0? *)
-Lemma alloc_head_step P σ ptr :
+Lemma alloc_head_step P σ sz :
   let l := (fresh_block σ.(shp), 0) in
   let t := σ.(snp) in
-  let σ' := mkState (init_mem l (sizeof ptr) σ.(shp))
-                    (extend_trees (Tag t) l.1 (l.2, sizeof ptr) σ.(strs)) σ.(scs) (S t) σ.(snc) in
-  head_step P (Alloc ptr) σ (Place l (Tag t) ptr) σ' [].
+  let σ' := mkState (init_mem l sz σ.(shp))
+                    (extend_trees (Tag t) l.1 σ.(strs)) σ.(scs) (S t) σ.(snc) in
+  head_step P (Alloc sz) σ (Place l (Tag t) sz) σ' [].
 Proof. by econstructor; econstructor. Qed.
 
 

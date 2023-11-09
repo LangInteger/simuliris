@@ -200,6 +200,7 @@ Section safe_reach.
     eauto using of_result_value.
   Qed.
 
+  (* Doesn't build because `retag` has been renamed and changed
   Global Instance safe_implies_retag P σ v v' pk T rk :
     SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag v v' pk T rk) σ.
@@ -217,13 +218,16 @@ Section safe_reach.
   Global Instance safe_implies_retag_place_r2 P σ l t T T' l' t' T'' pk rk :
     SafeImplies False P (Retag (Place l' t' T'') (Place l t T) pk T' rk) σ.
   Proof. prove_safe_implies. Qed.
+   *)
 
+  (* doesn't build because we don't have types anymore
   Global Instance safe_implies_copy_val P σ r :
     SafeImplies (∃ l t T, r = PlaceR l t T) P (Copy r) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_copy_place P σ l t T :
     SafeImplies ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T))) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
+   *)
 
   Global Instance safe_implies_write_val_left1 P σ v v' :
     SafeImplies False P (Write (Val v) (Val v')) σ.
@@ -234,16 +238,19 @@ Section safe_reach.
   Global Instance safe_implies_write_place_right P σ l' t' T' l t T :
     SafeImplies False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
+  (* Doesn't build because memory_written has been changed
   Global Instance safe_implies_write P σ l t T v :
     SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_write_result P σ r r' :
     SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
   Proof. prove_safe_implies. Qed.
+   *)
 
   Global Instance safe_implies_free_val P σ r :
     SafeImplies (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
   Proof. prove_safe_implies. Qed.
+  (* Doesn't build because we don't have typees anymore
   Global Instance safe_implies_free P σ l t T :
     SafeImplies ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
@@ -265,4 +272,5 @@ Section safe_reach.
     eapply safe_implies_weaken; last apply safe_implies_retag_result.
     intros (c & ot & l & -> & -> & _). eauto.
   Qed.
+   *)
 End safe_reach.

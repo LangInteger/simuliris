@@ -7,7 +7,7 @@ From iris.prelude Require Import prelude options.
 From iris.prelude Require Import options.
 
 (*Global Open Scope general_if_scope.*)
-From simuliris.tree_borrows Require Export type locations tree.
+From simuliris.tree_borrows Require Export locations tree.
 
 Declare Scope expr_scope.
 Declare Scope val_scope.

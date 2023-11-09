@@ -123,43 +123,46 @@ theories/stacked_borrows/examples/coinductive.v
 
 
 
-
+# Basic definitions, mostly unchanged from SB
 theories/tree_borrows/helpers.v
-theories/tree_borrows/type.v
 theories/tree_borrows/locations.v
 theories/tree_borrows/lang_base.v
 theories/tree_borrows/notation.v
 theories/tree_borrows/expr_semantics.v
+# Definitions specific to Tree Borrows
 theories/tree_borrows/tree.v
 theories/tree_borrows/tree_lemmas.v
 theories/tree_borrows/bor_semantics.v
 theories/tree_borrows/bor_lemmas.v
 theories/tree_borrows/lang.v
-theories/tree_borrows/steps_preserve.v
-theories/tree_borrows/disjoint.v
+
+theories/tree_borrows/steps_preserve.v # Goes in a different direction, but might contain useful lemmas
+theories/tree_borrows/disjoint.v # Goes in a different direction, don't hesitate to comment it out
+                                 # if keeping it to build slows down dev too much.
+
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
 theories/tree_borrows/steps_list.v
 theories/tree_borrows/steps_access.v
-theories/tree_borrows/steps_wf.v
-theories/tree_borrows/steps_progress.v
-theories/tree_borrows/steps_retag.v
-theories/tree_borrows/steps_inv.v
+theories/tree_borrows/steps_wf.v # Preservation of WF, unfinished
+# theories/tree_borrows/steps_progress.v # unfinished, barely modified from SB
+# theories/tree_borrows/steps_retag.v # unfinished, barely modified from SB
+# theories/tree_borrows/steps_inv.v # unfinished, barely modified from SB
 
 theories/tree_borrows/tactics.v
-theories/tree_borrows/class_instances.v
-theories/tree_borrows/tkmap_view.v
-theories/tree_borrows/logical_state.v
-theories/tree_borrows/inv_accessors.v
-theories/tree_borrows/steps_refl.v
-theories/tree_borrows/steps_opt.v
-theories/tree_borrows/primitive_laws.v
-theories/tree_borrows/proofmode.v
+theories/tree_borrows/class_instances.v # builds but is missing some lemmas
+# theories/tree_borrows/tkmap_view.v # unfinished, barely modified from SB
+# theories/tree_borrows/logical_state.v # unfinished, needs tkmap_view
+# theories/tree_borrows/inv_accessors.v # unfinished, needs tkmap_view
+# theories/tree_borrows/steps_refl.v # unfinished, needs tkmap_view
+# theories/tree_borrows/steps_opt.v # unfinished, needs tkmap_view
+# theories/tree_borrows/primitive_laws.v # unfinished, needs logical_state
+# theories/tree_borrows/proofmode.v # unfinished, needs primitive_laws
 
-theories/tree_borrows/wf.v
+theories/tree_borrows/wf.v # builds almost as-is
 theories/tree_borrows/parallel_subst.v
-theories/tree_borrows/log_rel_structural.v
-theories/tree_borrows/refl.v
-theories/tree_borrows/behavior.v
-theories/tree_borrows/adequacy.v
+# theories/tree_borrows/log_rel_structural.v # unfinished, needs proofmode
+# theories/tree_borrows/refl.v # unfinished, needs proofmode
+theories/tree_borrows/behavior.v # builds almost as-is
+# theories/tree_borrows/adequacy.v # unfinished, needs proofmode
 

@@ -196,19 +196,10 @@ Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
   tree_apply_access fn cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
-  unfold wf_tree; unfold tree_item_included; unfold tree_apply_access.
-  repeat rewrite <- tree_Forall_forall.
-  intros Preserve WF Dealloc.
-  eapply tree_joinmap_preserve_prop.
-  eapply (tree_joinmap_preserve_prop tr _ _ _ _ WF Dealloc).
-  Unshelve. simpl.
-  intros it it' SomeDealloc.
-  unfold item_included.
-  destruct (Preserve _ it it' SomeDealloc) as [EqProt [EqInit EqTag]].
-  rewrite EqProt; rewrite EqTag.
-  tauto.
-Qed.
 
+Abort.
+
+(*
 Lemma deallocate_trees_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
   memory_deallocate cids tg range tr = Some tr' ->
@@ -670,3 +661,5 @@ Proof.
   - eapply retag_step_wf; eauto.
   - rename select (mem_expr_step _ _ _ _ _ _) into Hstep. inversion Hstep.
 Qed.
+
+*)

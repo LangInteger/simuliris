@@ -40,7 +40,7 @@ Section expr_wf.
     | Free e => gen_expr_wf e
     | Deref e T => gen_expr_wf e
     | Ref e => gen_expr_wf e
-    | Retag e1 e2 pk T k => gen_expr_wf e1 ∧ gen_expr_wf e2
+    | Retag e1 e2 pk sz => gen_expr_wf e1 ∧ gen_expr_wf e2
     | Case e branches => gen_expr_wf e ∧ Forall id (fmap gen_expr_wf branches)
     | While e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
     | Fork e => gen_expr_wf e

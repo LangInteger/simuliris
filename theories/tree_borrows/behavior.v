@@ -32,7 +32,7 @@ Definition obs_result (r_t r_s : val bor_lang) : Prop :=
 (** The Stacked Borrows instance of [prog_ref]. *)
 Definition prog_ref := prog_ref init_state "main" (ValR [ScPoison]) obs_result.
 
-(** Default well-formedness for Stacked Borrows *)
+(** Default well-formedness for Tree Borrows *)
 Definition treeborrows_wf (e : expr_head) : Prop :=
   match e with
   | ValHead v => value_wf v
