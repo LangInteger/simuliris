@@ -843,82 +843,82 @@ Definition prog := gmap fname func.
 Notation "e1 ;; e2" := (Let BAnon e1%E e2%E)
   (at level 100, e2 at level 200,
    format "'[' '[hv' '[' e1 ']' ;;  ']' '/' e2 ']'") : expr_scope.
-Inductive head_step (P : prog) : expr → state → expr → state → list expr → Prop :=
+Inductive base_step (P : prog) : expr → state → expr → state → list expr → Prop :=
   | GlobalVarS n σ :
      n ∈ σ.(globals) →
-     head_step P (GlobalVar n) σ (Val $ LitV $ LitLoc $ global_loc n) σ []
+     base_step P (GlobalVar n) σ (Val $ LitV $ LitLoc $ global_loc n) σ []
   | PairS v1 v2 σ :
-     head_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ []
+     base_step P (Pair (Val v1) (Val v2)) σ (Val $ PairV v1 v2) σ []
   | InjLS v σ :
-     head_step P (InjL $ Val v) σ (Val $ InjLV v) σ []
+     base_step P (InjL $ Val v) σ (Val $ InjLV v) σ []
   | InjRS v σ :
-     head_step P (InjR $ Val v) σ (Val $ InjRV v) σ []
+     base_step P (InjR $ Val v) σ (Val $ InjRV v) σ []
   | LetS x v1 e2 e' σ :
      e' = subst' x v1 e2 →
-     head_step P (Let x (Val $ v1) e2) σ e' σ []
+     base_step P (Let x (Val $ v1) e2) σ e' σ []
   | UnOpS op v v' σ :
      un_op_eval op v = Some v' →
-     head_step P (UnOp op (Val v)) σ (Val v') σ []
+     base_step P (UnOp op (Val v)) σ (Val v') σ []
   | BinOpS op v1 v2 v' σ :
      bin_op_eval op v1 v2 = Some v' →
-     head_step P (BinOp op (Val v1) (Val v2)) σ (Val v') σ []
+     base_step P (BinOp op (Val v1) (Val v2)) σ (Val v') σ []
   | IfTrueS e1 e2 σ :
-     head_step P (If (Val $ LitV $ LitBool true) e1 e2) σ e1 σ []
+     base_step P (If (Val $ LitV $ LitBool true) e1 e2) σ e1 σ []
   | IfFalseS e1 e2 σ :
-     head_step P (If (Val $ LitV $ LitBool false) e1 e2) σ e2 σ []
+     base_step P (If (Val $ LitV $ LitBool false) e1 e2) σ e2 σ []
   | WhileS e0 e1 σ :
-      head_step P (While e0 e1) σ (If e0 (e1 ;; While e0 e1) (Val $ LitV $ LitUnit)) σ []
+      base_step P (While e0 e1) σ (If e0 (e1 ;; While e0 e1) (Val $ LitV $ LitUnit)) σ []
   | FstS v1 v2 σ :
-     head_step P (Fst (Val $ PairV v1 v2)) σ (Val v1) σ []
+     base_step P (Fst (Val $ PairV v1 v2)) σ (Val v1) σ []
   | SndS v1 v2 σ :
-     head_step P (Snd (Val $ PairV v1 v2)) σ (Val v2) σ []
+     base_step P (Snd (Val $ PairV v1 v2)) σ (Val v2) σ []
   | MatchLS v x1 e1 x2 e2 e' σ :
       e' = subst' x1 v e1 →
-     head_step P (Match (Val $ InjLV v) x1 e1 x2 e2) σ e' σ []
+     base_step P (Match (Val $ InjLV v) x1 e1 x2 e2) σ e' σ []
   | MatchRS v x1 e1 x2 e2 e' σ :
       e' = subst' x2 v e2 →
-     head_step P (Match (Val $ InjRV v) x1 e1 x2 e2) σ e' σ []
+     base_step P (Match (Val $ InjRV v) x1 e1 x2 e2) σ e' σ []
   | ForkS e σ:
-     head_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
+     base_step P (Fork e) σ (Val $ LitV LitUnit) σ [e]
   | AllocNS n v σ b :
      (0 < n)%Z →
      b ∉ σ.(used_dyn_blocks) →
      (∀ i, σ.(heap) !! (dyn_loc b +ₗ i) = None) →
-     head_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
+     base_step P (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
                (Val $ LitV $ LitLoc (dyn_loc b)) (state_upd_used_dyn_blocks ({[b]} ∪.) (state_init_heap (dyn_loc b) n v σ)) []
   | FreeNS l σ n :
      (0 < n)%Z →
      block_is_dyn l.(loc_block) →
      (* always need to deallocate the full block *)
      (∀ m, is_Some (σ.(heap) !! (l +ₗ m)) ↔ 0 ≤ m < n)%Z →
-     head_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
+     base_step P (FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l)) σ
                (Val $ LitV LitUnit) (state_upd_heap (free_mem l (Z.to_nat n)) σ) []
   | LoadScS l v σ n :
      σ.(heap) !! l = Some (RSt n, v) →
-     head_step P (Load ScOrd (Val $ LitV $ LitLoc l)) σ (of_val v) σ []
+     base_step P (Load ScOrd (Val $ LitV $ LitLoc l)) σ (of_val v) σ []
   | StoreScS l v v' σ :
      σ.(heap) !! l = Some (RSt 0, v) →
-     head_step P (Store ScOrd (Val $ LitV $ LitLoc l) (Val v')) σ
+     base_step P (Store ScOrd (Val $ LitV $ LitLoc l) (Val v')) σ
                (Val $ LitV LitUnit) (state_upd_heap <[l:=(RSt 0, v')]> σ) []
   | LoadNa1S l v σ n :
       σ.(heap) !! l = Some (RSt n, v) →
-      head_step P (Load Na1Ord (Val $ LitV $ LitLoc l)) σ
+      base_step P (Load Na1Ord (Val $ LitV $ LitLoc l)) σ
         (Load Na2Ord (Val $ LitV $ LitLoc l)) (state_upd_heap <[l := (RSt (S n), v)]> σ) []
   | LoadNa2S l v σ n :
       σ.(heap) !! l = Some (RSt (S n), v) →
-      head_step P (Load Na2Ord (Val $ LitV $ LitLoc l)) σ
+      base_step P (Load Na2Ord (Val $ LitV $ LitLoc l)) σ
                 (of_val v) (state_upd_heap <[l := (RSt n, v)]> σ) []
   | StoreNa1S l v v' σ :
       σ.(heap) !! l = Some (RSt 0, v) →
-      head_step P (Store Na1Ord (Val $ LitV $ LitLoc l) (Val v')) σ
+      base_step P (Store Na1Ord (Val $ LitV $ LitLoc l) (Val v')) σ
                 (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) (state_upd_heap <[l:=(WSt, v)]> σ) []
   | StoreNa2S l v v' σ :
       σ.(heap) !! l = Some (WSt, v) →
-      head_step P (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) σ
+      base_step P (Store Na2Ord (Val $ LitV $ LitLoc l) (Val v')) σ
                 (Val $ LitV LitUnit) (state_upd_heap <[l:=(RSt 0, v')]> σ) []
   | CallS f v fn σ :
      P !! f = Some fn →
-     head_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (apply_func fn v) σ [].
+     base_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (apply_func fn v) σ [].
 
 
 Definition of_class (m : mixin_expr_class val) : expr :=
@@ -1006,28 +1006,28 @@ Proof.
   - done.
 Qed.
 
-Lemma val_head_stuck P e1 σ1 e2 σ2 efs : head_step P e1 σ1 e2 σ2 efs → to_val e1 = None.
+Lemma val_base_stuck P e1 σ1 e2 σ2 efs : base_step P e1 σ1 e2 σ2 efs → to_val e1 = None.
 Proof. destruct 1; naive_solver. Qed.
 
-Lemma head_ctx_step_val P Ki e σ1 e2 σ2 efs :
-  head_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_val e).
+Lemma base_ctx_step_val P Ki e σ1 e2 σ2 efs :
+  base_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_val e).
 Proof. revert e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
 
-Lemma head_step_fill_val P Ki K e σ1 e2 σ2 efs:
-  head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 efs → is_Some (to_val e).
+Lemma base_step_fill_val P Ki K e σ1 e2 σ2 efs:
+  base_step P (fill K (fill_item Ki e)) σ1 e2 σ2 efs → is_Some (to_val e).
 Proof.
   revert e Ki.
   induction K as [ | Ki' K IH]; simpl; intros e Ki.
-  - by intros ?%head_ctx_step_val.
+  - by intros ?%base_ctx_step_val.
   - intros H. eapply IH in H. by eapply fill_item_val.
 Qed.
 
 Lemma head_ectx_step_no_val P K e σ1 e2 σ2 efs:
-  to_val e = None → head_step P (fill K e) σ1 e2 σ2 efs → K = empty_ectx.
+  to_val e = None → base_step P (fill K e) σ1 e2 σ2 efs → K = empty_ectx.
 Proof.
   intros Hnoval H.
   destruct K as [ | Ki K]; first reflexivity.
-  exfalso. apply head_step_fill_val in H.
+  exfalso. apply base_step_fill_val in H.
   eapply is_Some_None; by rewrite <-Hnoval.
 Qed.
 
@@ -1042,7 +1042,7 @@ Lemma alloc_fresh P v n σ :
   let l := dyn_loc (fresh σ.(used_dyn_blocks)) in
   (0 < n)%Z →
   heap_wf σ →
-  head_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
+  base_step P (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ
             (Val $ LitV $ LitLoc l)
             (state_upd_used_dyn_blocks ({[(fresh σ.(used_dyn_blocks))]} ∪.) (state_init_heap l n v σ)) [].
 Proof.
@@ -1053,19 +1053,19 @@ Qed.
 
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:
   to_val e1 = None →
-  head_step P e1' σ1 e2 σ2 efs →
+  base_step P e1' σ1 e2 σ2 efs →
   fill K e1 = fill K' e1' →
   ∃ K'', K' = ectx_compose K K''.
 Proof.
   intros Hval Hstep; revert K'.
   induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
   destruct K' as [|Ki' K' _] using @rev_ind; simplify_eq/=.
-  { rewrite fill_app in Hstep. apply head_ctx_step_val in Hstep.
+  { rewrite fill_app in Hstep. apply base_ctx_step_val in Hstep.
     apply fill_val in Hstep. by apply not_eq_None_Some in Hstep. }
   rewrite !fill_app /= in Hfill.
   assert (Ki = Ki') as ->.
   { eapply fill_item_no_val_inj, Hfill; first by apply fill_val_none.
-    apply fill_val_none. eauto using val_head_stuck. }
+    apply fill_val_none. eauto using val_base_stuck. }
   simplify_eq. destruct (IH K') as [K'' ->]; auto.
   exists K''. unfold ectx_compose. cbn. by rewrite assoc.
 Qed.
@@ -1255,12 +1255,12 @@ Qed.
 
 Lemma simp_lang_mixin :
   LanguageMixin of_class to_class empty_ectx ectx_compose fill
-    subst_map free_vars apply_func head_step.
+    subst_map free_vars apply_func base_step.
 Proof.
   constructor.
   - apply to_of_class.
   - apply of_to_class.
-  - intros p v ???? H%val_head_stuck. cbn in H. congruence.
+  - intros p v ???? H%val_base_stuck. cbn in H. congruence.
   - intros p f v ????. split.
     + cbn. inversion 1; subst. eexists _. eauto.
     + intros (fn & ? & -> & -> & ->). cbn. by constructor.

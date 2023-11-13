@@ -42,15 +42,15 @@ Section fix_heap.
     (Load ScOrd (Val $ LitV $ LitLoc l_t)) ⪯{π} (Load ScOrd (Val $ LitV $ LitLoc l_s)) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&Hgs)) [% %Hsafe]]".
     have [l[v[m[[<-] Hsome]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#?"; [done| naive_solver |]; simplify_eq.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim".
     - iExists L. iFrame. by iApply "Hclose".
@@ -63,16 +63,16 @@ Section fix_heap.
     (Load Na2Ord (Val $ LitV $ LitLoc l_t)) ⪯{π} (Load Na2Ord (Val $ LitV $ LitLoc l_s)) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[m[[<-] Hsome]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)".
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done| naive_solver |]; simplify_eq.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hv") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim".
     - iExists L. iFrame "Hgs". by iApply "Hclose".
@@ -85,16 +85,16 @@ Section fix_heap.
     (Load Na1Ord (Val $ LitV $ LitLoc l_t)) ⪯{π} (Load Na1Ord (Val $ LitV $ LitLoc l_s)) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[m[[<-] Hsome]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hv") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim".
     - iExists _. iFrame "Hgs". by iApply "Hclose".
@@ -114,16 +114,16 @@ Section fix_heap.
     Store ScOrd (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯{π} Store ScOrd (Val $ LitV (LitLoc l_s)) (Val v_s) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[[<-] Hsome]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)".
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hval") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame => /=. rewrite right_id. iExists _. iFrame "Hgs". by iApply "Hclose".
   Qed.
 
@@ -134,16 +134,16 @@ Section fix_heap.
     Store Na2Ord (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯{π} Store Na2Ord (Val $ LitV (LitLoc l_s)) (Val v_s) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[[<-] Hsome]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hval") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame => /=. rewrite right_id. iExists L. iFrame "Hgs". by iApply "Hclose".
   Qed.
 
@@ -154,16 +154,16 @@ Section fix_heap.
     Store Na1Ord (Val $ LitV (LitLoc l_t)) (Val v_t) ⪯{π} Store Na1Ord (Val $ LitV (LitLoc l_s)) (Val v_s) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hval Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
     have [l[v[[<-] Hsome]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iDestruct (alloc_rel_read true with "Halloc Hσ_s Hσ_t") as (????) "#Hv"; [done|naive_solver|]; simplify_eq.
-    iModIntro; iSplit; first by eauto with head_step.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iMod (alloc_rel_write with "Halloc Hσ_s Hσ_t Hv") as "[Halloc [Hσ_s Hσ_t]]"; [done|naive_solver|].
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame => /=. rewrite right_id.
     iSplitR "Hsim Hval".
     - iExists _. iFrame "Hgs". by iApply "Hclose".
@@ -183,15 +183,15 @@ Section fix_heap.
     FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l_t) ⪯{π} FreeN (Val $ LitV $ LitInt n) (Val $ LitV $ LitLoc l_s) [{ Φ }].
   Proof.
     iIntros "#[Hbij %Hidx] Hsim". destruct l_s as [b_s o], l_t as [b_t o']; simplify_eq/=.
-    iApply sim_lift_head_step_both.
+    iApply sim_lift_base_step_both.
     iIntros (??????) "[(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs)) [% %Hsafe]]".
     have [m[?[[<-][[<-][?[??]]]]]]:= pool_safe_implies Hsafe ltac:(done).
     iPoseProof (heapbij_access with "Hinv Hbij") as "(% & Halloc & Hclose)"; first last.
     iMod (alloc_rel_free with "Halloc Hσ_s Hσ_t") as (??) "(Halloc & Hσ_s & Hσ_t)"; [done..|].
-    iModIntro; iSplit; first by eauto with head_step lia.
-    iIntros (e_t' efs σ_t') "%"; inv_head_step.
+    iModIntro; iSplit; first by eauto with base_step lia.
+    iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iModIntro. iExists _, _, _.
-    iSplitR; first by eauto with head_step.
+    iSplitR; first by eauto with base_step.
     iFrame. iSplit; [|done]. iExists L. iFrame "Hgs". by iApply "Hclose".
   Qed.
 
@@ -224,8 +224,8 @@ Section fix_heap.
   Proof.
     iIntros "Hs_t Hs_s Hl_t Hl_s Hv".
     iApply (sim_bij_insertN _ _ _ [v_t] [v_s] with "Hs_t Hs_s [Hl_t] [Hl_s] [Hv]"); [lia | done | done |  | | ].
-    - by rewrite heap_mapsto_vec_singleton.
-    - by rewrite heap_mapsto_vec_singleton.
+    - by rewrite heap_pointsto_vec_singleton.
+    - by rewrite heap_pointsto_vec_singleton.
     - by iApply big_sepL2_singleton.
   Qed.
 End fix_heap.

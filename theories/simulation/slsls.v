@@ -740,17 +740,17 @@ Section fix_lang.
     iModIntro. iRight. iLeft.
     rewrite /progs_are; iDestruct ("Prog" with "SI") as "[% %]"; subst P_t' P_s'; iClear "Prog".
     iSplit.
-    - iPureIntro. eapply head_prim_reducible. eexists _, _, _.
-      by eapply call_head_step_intro.
+    - iPureIntro. eapply base_prim_reducible. eexists _, _, _.
+      by eapply call_base_step_intro.
     - iIntros (e_t' efs σ_t' Hstep). iModIntro.
       pose proof (prim_step_call_inv P_t empty_ectx f v_t e_t' σ_t σ_t' efs) as (fn_t' & Heq & -> & -> & ->);
         first by rewrite fill_empty.
       rewrite fill_empty in Hstep. iRight.
       iExists _, _, _, _, _. iSplit; last iSplit; last iSplitL "SI".
       + iPureIntro. eapply no_forks_refl.
-      + iPureIntro. eapply head_prim_step, call_head_step_intro, Hsrc.
+      + iPureIntro. eapply base_prim_step, call_base_step_intro, Hsrc.
       + rewrite app_nil_r. iApply (state_interp_pure_prim_step with "SI"); [done|]. intros ?.
-        eapply fill_prim_step. eapply head_prim_step, call_head_step_intro, Hsrc.
+        eapply fill_prim_step. eapply base_prim_step, call_base_step_intro, Hsrc.
       + rewrite fill_empty. assert (fn_t' = fn_t) as -> by naive_solver.
         iSpecialize ("Sim" with "Val"). simpl. iFrame.
   Qed.

@@ -21,9 +21,9 @@ Proof.
   apply: safe_reach_safe_implies.
   move => [?[?[[<-]?]]]; simplify_eq.
   destruct o => //.
-  - by apply: safe_reach_head_step; [by econstructor|].
-  - apply: safe_reach_head_step; [by econstructor|].
-    apply: safe_reach_head_step; [econstructor; by rewrite lookup_insert|].
+  - by apply: safe_reach_base_step; [by econstructor|].
+  - apply: safe_reach_base_step; [by econstructor|].
+    apply: safe_reach_base_step; [econstructor; by rewrite lookup_insert|].
     destruct σ => /=. by rewrite insert_insert.
 Qed.
 
@@ -35,9 +35,9 @@ Lemma safe_reach_load P_s (l_s : loc) (v' : val) σ o Φ n:
 Proof.
   move => ???.
   destruct o => //.
-  - by apply: safe_reach_head_step; [by econstructor|].
-  - apply: safe_reach_head_step; [by econstructor|].
-    apply: safe_reach_head_step; [econstructor; by rewrite lookup_insert|].
+  - by apply: safe_reach_base_step; [by econstructor|].
+  - apply: safe_reach_base_step; [by econstructor|].
+    apply: safe_reach_base_step; [econstructor; by rewrite lookup_insert|].
     destruct σ => /=. by rewrite insert_insert insert_id.
 Qed.
 
@@ -276,12 +276,12 @@ Section na_alt_exec.
     apply: (pool_reach_stuck_no_forks π').
     { rewrite list_lookup_insert_ne //. by apply list_lookup_insert. }
     { apply: fill_no_forks. apply: no_forks_step; [|by apply: no_forks_refl].
-        apply: head_prim_step. by constructor. }
+        apply: base_prim_step. by constructor. }
     apply: pool_reach_stuck_reach_stuck.
     2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert.
          rewrite insert_length. by apply: lookup_lt_Some. }
     apply: stuck_reach_stuck. apply: fill_stuck.
-    apply: head_stuck_stuck; [|solve_sub_redexes_are_values].
+    apply: base_stuck_stuck; [|solve_sub_redexes_are_values].
     split; [done|] => ??? Hstep. inversion Hstep; simplify_map_eq/=.
   Qed.
 
@@ -312,12 +312,12 @@ Section na_alt_exec.
       apply: (pool_reach_stuck_no_forks π').
       { rewrite list_lookup_insert_ne //. by apply list_lookup_insert. }
       { apply: fill_no_forks. apply: no_forks_step; [|by apply: no_forks_refl].
-        apply: head_prim_step. by constructor. }
+        apply: base_prim_step. by constructor. }
       apply: pool_reach_stuck_reach_stuck.
       2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert.
            rewrite insert_length. by apply: lookup_lt_Some. }
       apply: stuck_reach_stuck. apply: fill_stuck.
-      apply: head_stuck_stuck; [|solve_sub_redexes_are_values].
+      apply: base_stuck_stuck; [|solve_sub_redexes_are_values].
       split; [done|] => ??? Hstep. inversion Hstep; simplify_map_eq/=.
     - eapply (pool_safe_implies_app); [ | | apply Hsafe'' | ].
       2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
@@ -326,12 +326,12 @@ Section na_alt_exec.
       apply: (pool_reach_stuck_no_forks π').
       { rewrite list_lookup_insert_ne //. by apply list_lookup_insert. }
       { apply: fill_no_forks. apply: no_forks_step; [|by apply: no_forks_refl].
-        apply: head_prim_step. by constructor. }
+        apply: base_prim_step. by constructor. }
       apply: pool_reach_stuck_reach_stuck.
       2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert.
            rewrite insert_length. by apply: lookup_lt_Some. }
       apply: stuck_reach_stuck. apply: fill_stuck.
-      apply: head_stuck_stuck; [|solve_sub_redexes_are_values].
+      apply: base_stuck_stuck; [|solve_sub_redexes_are_values].
       split; [done|] => ??? Hstep. inversion Hstep; simplify_map_eq/=.
   Qed.
 
@@ -360,7 +360,7 @@ Section na_alt_exec.
     apply: pool_reach_stuck_no_forks.
     { apply: list_lookup_insert. rewrite insert_length. by apply: lookup_lt_Some. }
     { apply: no_forks_step; [|apply no_forks_refl]. apply: fill_no_fork.
-      apply: head_prim_step. by econstructor. }
+      apply: base_prim_step. by econstructor. }
     rewrite list_insert_insert list_insert_commute //.
     apply: pool_reach_stuck_reach_stuck.
     2: { apply: list_lookup_insert. by rewrite insert_length. }
@@ -368,7 +368,7 @@ Section na_alt_exec.
     eapply pool_safe_no_forks in Hsafe''.
     2: { apply: list_lookup_insert. rewrite insert_length. by apply: lookup_lt_Some. }
     2: { apply: no_forks_step; [|apply no_forks_refl]. apply: fill_no_fork.
-      apply: head_prim_step. by econstructor. }
+      apply: base_prim_step. by econstructor. }
     rewrite list_insert_insert list_insert_commute // in Hsafe''.
     destruct ns; (eapply (pool_safe_implies_app _ _ π'); [ | | apply Hsafe'' | ];
       [ | apply list_lookup_insert; by rewrite insert_length | ]; first apply _).
@@ -624,7 +624,7 @@ Section na_locs_wf.
         * done.
         * done.
         * erewrite fill_empty. rewrite list_insert_insert. apply: pool_safe_no_forks; [done|done|].
-          apply: fill_no_forks. apply: no_forks_step. { apply: head_prim_step. by econstructor. }
+          apply: fill_no_forks. apply: no_forks_step. { apply: base_prim_step. by econstructor. }
           apply: no_forks_refl.
         * naive_solver.
     - have [lcol [Hlcol {}Hwf]]:= Hwf _ _ Hcol'.
@@ -693,7 +693,7 @@ Section na_locs_wf.
       + by apply: Ha.
     - apply: na_alt_exec_step; [naive_solver |done |done |].
       move => σ' Hhwf Hsub Hg Heq.
-      apply: safe_reach_head_step.
+      apply: safe_reach_base_step.
       2: apply: safe_reach_refl; split; [done|].
       { econstructor; [done| |].
         - move => /Hsub /(is_fresh _)[].
@@ -726,7 +726,7 @@ Section na_locs_wf.
       move => σ' Hhwf Hsub Hg Heq.
       eapply safe_reach_safe_implies; [apply _|].
       move => [?[?[?[?[?[??]]]]]]; simplify_eq.
-      apply: safe_reach_head_step; [by econstructor|].
+      apply: safe_reach_base_step; [by econstructor|].
       apply: safe_reach_refl; split_and!; [done| | by apply: heap_wf_free_mem |done |done].
       move => ???? /lookup_free_mem_Some[??] /lookup_free_mem_Some[??]. by apply: Heq.
   Qed.
@@ -746,7 +746,7 @@ Section na_locs_wf.
     eexists lcol. split; [done|] => p_s ws Hp; simplify_eq/=.
     apply: na_alt_exec_fork; [naive_solver|done.. | |].
     { rewrite Hlen. by apply: lookup_lt_Some. }
-    move => ?. apply: fill_prim_step. apply: head_prim_step. econstructor.
+    move => ?. apply: fill_prim_step. apply: base_prim_step. econstructor.
   Qed.
 End na_locs_wf.
 
