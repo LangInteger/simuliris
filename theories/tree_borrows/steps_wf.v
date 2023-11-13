@@ -3,7 +3,7 @@ https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
 From simuliris.tree_borrows Require Import helpers.
-From simuliris.tree_borrows Require Export defs steps_foreach steps_list steps_access.
+From simuliris.tree_borrows Require Export defs steps_foreach steps_access.
 From iris.prelude Require Import options.
 
 Lemma wf_init_state : state_wf init_state.

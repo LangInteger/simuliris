@@ -142,27 +142,27 @@ theories/tree_borrows/disjoint.v # Goes in a different direction, don't hesitate
 
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
-theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
+# theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
 theories/tree_borrows/steps_access.v
-theories/tree_borrows/steps_wf.v # Preservation of WF, unfinished
-# theories/tree_borrows/steps_progress.v # unfinished, barely modified from SB
-# theories/tree_borrows/steps_retag.v # unfinished, barely modified from SB
-# theories/tree_borrows/steps_inv.v # unfinished, barely modified from SB
+theories/tree_borrows/steps_wf.v # Preservation of WF, work in progress
+# theories/tree_borrows/steps_progress.v # barely modified from SB
+# theories/tree_borrows/steps_retag.v # barely modified from SB
+# theories/tree_borrows/steps_inv.v # barely modified from SB
 
 theories/tree_borrows/tactics.v
 theories/tree_borrows/class_instances.v # builds but is missing some lemmas
-# theories/tree_borrows/tkmap_view.v # unfinished, barely modified from SB
-# theories/tree_borrows/logical_state.v # unfinished, needs tkmap_view
-# theories/tree_borrows/inv_accessors.v # unfinished, needs tkmap_view
-# theories/tree_borrows/steps_refl.v # unfinished, needs tkmap_view
-# theories/tree_borrows/steps_opt.v # unfinished, needs tkmap_view
-# theories/tree_borrows/primitive_laws.v # unfinished, needs logical_state
-# theories/tree_borrows/proofmode.v # unfinished, needs primitive_laws
+# theories/tree_borrows/tkmap_view.v # barely modified from SB
+# theories/tree_borrows/logical_state.v # needs tkmap_view
+# theories/tree_borrows/inv_accessors.v # needs tkmap_view
+# theories/tree_borrows/steps_refl.v # needs tkmap_view
+# theories/tree_borrows/steps_opt.v # needs tkmap_view
+# theories/tree_borrows/primitive_laws.v # needs logical_state
+# theories/tree_borrows/proofmode.v # needs primitive_laws
 
 theories/tree_borrows/wf.v # builds almost as-is
 theories/tree_borrows/parallel_subst.v
-# theories/tree_borrows/log_rel_structural.v # unfinished, needs proofmode
-# theories/tree_borrows/refl.v # unfinished, needs proofmode
+# theories/tree_borrows/log_rel_structural.v # needs proofmode
+# theories/tree_borrows/refl.v # needs proofmode
 theories/tree_borrows/behavior.v # builds almost as-is
-# theories/tree_borrows/adequacy.v # unfinished, needs proofmode
+# theories/tree_borrows/adequacy.v # needs proofmode
 
