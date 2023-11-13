@@ -322,14 +322,14 @@ Section data_race.
     iApply (sim_bij_exploit_load with "Hbij Hc"); [|done|]. {
       intros.
       safe_reach_fill (While _ _)%E => /=.
-      apply: safe_reach_head_step; [ by econstructor|].
+      apply: safe_reach_base_step; [ by econstructor|].
       safe_reach_fill (! _)%E => /=.
       apply: safe_reach_safe_implies => ?.
       apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
     }
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
-    iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne1.
-    iDestruct (heap_mapsto_ne with "Hli_s Hl_s") as %Hne2.
+    iDestruct (heap_pointsto_ne with "Hlr_s Hl_s") as %Hne1.
+    iDestruct (heap_pointsto_ne with "Hli_s Hl_s") as %Hne2.
 
     (* hint for the [sim_pure] automation to reduce the comparison *)
     specialize int_is_unboxed as Hunb.
@@ -438,7 +438,7 @@ Section data_race.
         rewrite map_lookup_zip_with.
         destruct (decide (x = "n")); [| destruct (decide (x = "i")); [|exfalso; set_solver]]; by simplify_map_eq.
     }
-    { iFrame. unfold mapsto_list, na_locs_in_mapsto_list. iSplit; [|done]. iPureIntro. set_solver. }
+    { iFrame. unfold pointsto_list, na_locs_in_pointsto_list. iSplit; [|done]. iPureIntro. set_solver. }
     iIntros (v_t v_s) "(_ & Hc & _) Hv". iApply lift_post_val.
     source_bind (If _ _ _). discr_source. val_discr_source "Hv".
     revert select (bool) => -[]; sim_pures; sim_pures; last first.
@@ -454,7 +454,7 @@ Section data_race.
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
       }
       iIntros (q v_t v_s) "{Hv} Hl_t Hl_s #Hv Hc".
-      iDestruct (heap_mapsto_ne with "Hlr_s Hl_s") as %Hne2.
+      iDestruct (heap_pointsto_ne with "Hlr_s Hl_s") as %Hne2.
       source_load. sim_pures. source_load. sim_pures.
       source_bind (_ + _)%E. iApply source_red_safe_implies.
       iIntros ([[??] [m ?]]); simplify_eq.
@@ -485,7 +485,7 @@ Section data_race.
         iFrame "∗ Hrel1". iSplit; [| by eauto ]. iPureIntro.
         move => ??? /lookup_insert_Some[[??]|[??]]; simplify_eq. by eexists 0, _, _.
       }
-      iIntros (??) "(_ & Hc & Hm) Hb". rewrite /mapsto_list /=. iApply lift_post_val.
+      iIntros (??) "(_ & Hc & Hm) Hb". rewrite /pointsto_list /=. iApply lift_post_val.
       iDestruct "Hm" as "[(Hl_t & Hl_s & _ & _) _]".
       discr_source. val_discr_source "Hb".
       revert select (bool) => -[]; sim_pures.

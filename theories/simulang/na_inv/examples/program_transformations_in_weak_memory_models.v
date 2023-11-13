@@ -98,7 +98,7 @@ Section eliminations.
       eapply safe_reach_safe_implies; first apply _.
       intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
       eapply safe_reach_refl.
-      eapply safe_reach_head_step; [by econstructor|]. simpl. simpl_subst.
+      eapply safe_reach_base_step; [by econstructor|]. simpl. simpl_subst.
       safe_reach_fill (_ <- _)%E.
       apply: safe_reach_safe_implies => ?.
       apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
@@ -212,10 +212,10 @@ Section reorderings.
       { intros. safe_reach_fill (! _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       source_load. sim_pures. sim_bind (Load _ _) (Load _ _).
-      iApply (sim_bij_load_mapstolist [(global_loc x, global_loc x, v_t, v_s, q)] with "Hy Hc [-]"); [done| | |].
+      iApply (sim_bij_load_pointstolist [(global_loc x, global_loc x, v_t, v_s, q)] with "Hy Hc [-]"); [done| | |].
       { move => ??? /lookup_insert_Some[[??]|[??]]; simplify_eq. by eexists 0, _, _. }
       { by iFrame "∗ Hv Hx". }
-      iIntros (v_t' v_s') "#? Hc". rewrite /mapsto_list /=.
+      iIntros (v_t' v_s') "#? Hc". rewrite /pointsto_list /=.
       iIntros "[(?&?&_&_) _]". sim_val. target_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hx Hc [$] [$] Hv"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. iFrame. by iSplit.
@@ -224,15 +224,15 @@ Section reorderings.
         eapply safe_reach_safe_implies; first apply _.
         intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
         apply: safe_reach_refl.
-        apply: safe_reach_head_step; [ by econstructor|] => /=. simpl_subst.
+        apply: safe_reach_base_step; [ by econstructor|] => /=. simpl_subst.
         safe_reach_fill (! _)%E. apply: safe_reach_safe_implies => ?.
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
       target_load. sim_pures. sim_bind (Load _ _) (Load _ _).
-      iApply (sim_bij_load_mapstolist [(global_loc y, global_loc y, v_t, v_s, q)] with "Hx Hc [-]"); [done| | |].
+      iApply (sim_bij_load_pointstolist [(global_loc y, global_loc y, v_t, v_s, q)] with "Hx Hc [-]"); [done| | |].
       { move => ??? /lookup_insert_Some[[??]|[??]]; simplify_eq. by eexists 0, _, _. }
       { by iFrame "∗ Hv Hy". }
-      iIntros (v_t' v_s') "#? Hc". rewrite /mapsto_list /=.
+      iIntros (v_t' v_s') "#? Hc". rewrite /pointsto_list /=.
       iIntros "[(?&?&_&_) _]". sim_val. source_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hy Hc [$] [$] Hv"); [by simplify_map_eq| ].
       iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. iFrame. by iSplit.
@@ -264,7 +264,7 @@ Section reorderings.
         safe_reach_bind (Store _ _ _)%E.
         apply: safe_reach_store; [done|].
         apply: safe_reach_refl.
-        apply: safe_reach_head_step; [by econstructor|] => /=.
+        apply: safe_reach_base_step; [by econstructor|] => /=.
         apply: safe_reach_safe_implies => -[?[?[[<-] /=/lookup_insert_Some[?|?]]]].
         { naive_solver. }
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
@@ -273,7 +273,7 @@ Section reorderings.
       iApply (sim_bij_store_sc [] [SeqEctx _] with "Hx Hc Hr1").
       { rewrite lookup_insert_ne //. naive_solver. }
       { move => ????? /lookup_insert_Some[[??]|[??//]]; simplify_eq/=.
-        apply: safe_reach_head_step; [by econstructor|] => /=.
+        apply: safe_reach_base_step; [by econstructor|] => /=.
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros "Hc /=". source_store.
       iApply (sim_bij_release NaExcl with "Hy Hc [$] [$] Hr2"); [by simplify_map_eq| ].
@@ -315,7 +315,7 @@ Section reorderings.
         safe_reach_bind (Store _ _ _)%E.
         apply: safe_reach_store; [done|].
         apply: safe_reach_refl.
-        apply: safe_reach_head_step; [by econstructor|] => /=.
+        apply: safe_reach_base_step; [by econstructor|] => /=.
         safe_reach_fill (! _)%E.
         apply: safe_reach_safe_implies => -[?[?[?[[<-] /=/lookup_insert_Some[?|?]]]]].
         { naive_solver. }
@@ -325,7 +325,7 @@ Section reorderings.
       iApply (sim_bij_store_sc [SeqEctx _] [SeqEctx _] with "Hx Hc Hr2").
       { rewrite lookup_insert_ne //. naive_solver. }
       { move => ????? /lookup_insert_Some[[??]|[??//]]; simplify_eq/=.
-        apply: safe_reach_head_step; [by econstructor|] => /=.
+        apply: safe_reach_base_step; [by econstructor|] => /=.
         safe_reach_fill (! _)%E. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros "Hc /=". source_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hy Hc [$] [$] Hv"); [by simplify_map_eq| ].
@@ -366,7 +366,7 @@ Section reorderings.
       eapply safe_reach_safe_implies; first apply _.
       intros (l & v & n & [= <-] & Hs_mem). eapply safe_reach_load; [done.. | ].
       apply: safe_reach_refl.
-      apply: safe_reach_head_step; [ by econstructor|] => /=. simpl_subst.
+      apply: safe_reach_base_step; [ by econstructor|] => /=. simpl_subst.
       safe_reach_fill (_ <- _)%E. apply: safe_reach_safe_implies => ?.
       apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".

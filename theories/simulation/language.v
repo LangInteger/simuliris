@@ -28,7 +28,7 @@ Section language_mixin.
   Local Notation mixin_prog := (gmap string func).
 
   Context (apply_func : func → val → expr).
-  Context (head_step : mixin_prog → expr → state → expr → state → list expr → Prop).
+  Context (base_step : mixin_prog → expr → state → expr → state → list expr → Prop).
 
   Record LanguageMixin := {
     (** Expression classification *)
@@ -36,11 +36,11 @@ Section language_mixin.
     mixin_of_to_class e c : to_class e = Some c → of_class c = e;
 
     (** Reduction behavior of the special classes of expressions *)
-    (** mixin_val_head_step is not an iff because the backward direction is trivial *)
-    mixin_val_head_step p v σ1 e2 σ2 efs :
-      head_step p (of_class (ExprVal v)) σ1 e2 σ2 efs → False;
-    mixin_call_head_step p f v σ1 e2 σ2 efs :
-      head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
+    (** mixin_val_base_step is not an iff because the backward direction is trivial *)
+    mixin_val_base_step p v σ1 e2 σ2 efs :
+      base_step p (of_class (ExprVal v)) σ1 e2 σ2 efs → False;
+    mixin_call_base_step p f v σ1 e2 σ2 efs :
+      base_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
       ∃ (fn : func),
         p !! f = Some fn ∧ e2 = apply_func fn v ∧ σ2 = σ1 ∧ efs = [];
 
@@ -70,11 +70,11 @@ Section language_mixin.
         e1_redex] by [fill_inj], i.e., [e1]' contains the head redex.)
 
         This implies there can be only one head redex, see
-        [head_redex_unique]. *)
+        [base_redex_unique]. *)
     mixin_step_by_val p K' K_redex e1' e1_redex σ1 e2 σ2 efs :
       fill K' e1' = fill K_redex e1_redex →
       match to_class e1' with Some (ExprVal _) => False | _ => True end →
-      head_step p e1_redex σ1 e2 σ2 efs →
+      base_step p e1_redex σ1 e2 σ2 efs →
       ∃ K'', K_redex = comp_ectx K' K'';
 
     (** If [fill K e] takes a head step, then either [e] is a value or [K] is
@@ -82,8 +82,8 @@ Section language_mixin.
         wrapping it in a context does not add new head redex positions. *)
     (* FIXME: This is the exact same conclusion as [mixin_fill_class]... is
        there some pattern or reduncancy here? *)
-    mixin_head_ctx_step_val p K e σ1 e2 σ2 efs :
-      head_step p (fill K e) σ1 e2 σ2 efs → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v);
+    mixin_base_ctx_step_val p K e σ1 e2 σ2 efs :
+      base_step p (fill K e) σ1 e2 σ2 efs → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v);
   }.
 End language_mixin.
 
@@ -105,11 +105,11 @@ Structure language := Language {
   subst_map : gmap string val → expr → expr;
   free_vars : expr → gset string;
   apply_func : func → val → expr;
-  head_step : mixin_prog func → expr → state → expr → state → list expr → Prop;
+  base_step : mixin_prog func → expr → state → expr → state → list expr → Prop;
 
   language_mixin :
     LanguageMixin (val:=val) of_class to_class empty_ectx comp_ectx fill
-      subst_map free_vars apply_func head_step
+      subst_map free_vars apply_func base_step
 }.
 
 Declare Scope expr_scope.
@@ -118,7 +118,7 @@ Bind Scope expr_scope with expr.
 Declare Scope val_scope.
 Bind Scope val_scope with val.
 
-Arguments Language {expr _ _ _ _ _ _ _ _ _ _ free_vars apply_func head_step}.
+Arguments Language {expr _ _ _ _ _ _ _ _ _ _ free_vars apply_func base_step}.
 Arguments of_class {_} _.
 Arguments to_class {_} _.
 Arguments empty_ectx {_}.
@@ -127,7 +127,7 @@ Arguments fill {_} _ _.
 Arguments subst_map {_}.
 Arguments free_vars {_}.
 Arguments apply_func {_}.
-Arguments head_step {_} _ _ _ _ _ _.
+Arguments base_step {_} _ _ _ _ _ _.
 
 Definition expr_class (Λ : language) := mixin_expr_class Λ.(val).
 (* A [Definition] throws off Coq's "old" ("tactic") unification engine *)
@@ -171,11 +171,11 @@ Section language.
   Lemma is_call_is_class e : is_Some (to_call e) → is_Some (to_class e).
   Proof. rewrite /to_call /is_Some. destruct (to_class e) as [[|]|]; naive_solver. Qed.
 
-  Lemma val_head_step p v σ1 e2 σ2 efs :
-    head_step p (of_class (ExprVal v)) σ1 e2 σ2 efs → False.
+  Lemma val_base_step p v σ1 e2 σ2 efs :
+    base_step p (of_class (ExprVal v)) σ1 e2 σ2 efs → False.
   Proof. apply language_mixin. Qed.
-  Lemma call_head_step p f v σ1 e2 σ2 efs :
-    head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
+  Lemma call_base_step p f v σ1 e2 σ2 efs :
+    base_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs ↔
     ∃ fn, p !! f = Some fn ∧ e2 = apply_func fn v ∧ σ2 = σ1 ∧ efs = nil.
   Proof. apply language_mixin. Qed.
 
@@ -205,11 +205,11 @@ Section language.
   Lemma step_by_val' p K' K_redex e1' e1_redex σ1 e2 σ2 efs :
       fill K' e1' = fill K_redex e1_redex →
       match to_class e1' with Some (ExprVal _) => False | _ => True end →
-      head_step p e1_redex σ1 e2 σ2 efs →
+      base_step p e1_redex σ1 e2 σ2 efs →
       ∃ K'', K_redex = comp_ectx K' K''.
   Proof. apply language_mixin. Qed.
-  Lemma head_ctx_step_val' p K e σ1 e2 σ2 efs :
-    head_step p (fill K e) σ1 e2 σ2 efs → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v).
+  Lemma base_ctx_step_val' p K e σ1 e2 σ2 efs :
+    base_step p (fill K e) σ1 e2 σ2 efs → K = empty_ectx ∨ ∃ v, to_class e = Some (ExprVal v).
   Proof. apply language_mixin. Qed.
 
   Lemma fill_class K e :
@@ -221,33 +221,33 @@ Section language.
   Lemma step_by_val p K' K_redex e1' e1_redex σ1 e2 σ2 efs :
       fill K' e1' = fill K_redex e1_redex →
       to_val e1' = None →
-      head_step p e1_redex σ1 e2 σ2 efs →
+      base_step p e1_redex σ1 e2 σ2 efs →
       ∃ K'', K_redex = comp_ectx K' K''.
   Proof.
     rewrite /to_val => ? He1'. eapply step_by_val'; first done.
     destruct (to_class e1') as [[]|]; done.
   Qed.
-  Lemma head_ctx_step_val p K e σ1 e2 σ2 efs :
-    head_step p (fill K e) σ1 e2 σ2 efs → K = empty_ectx ∨ is_Some (to_val e).
+  Lemma base_ctx_step_val p K e σ1 e2 σ2 efs :
+    base_step p (fill K e) σ1 e2 σ2 efs → K = empty_ectx ∨ is_Some (to_val e).
   Proof.
-    intros [?|[v Hv]]%head_ctx_step_val'; first by left. right.
+    intros [?|[v Hv]]%base_ctx_step_val'; first by left. right.
     rewrite /to_val Hv. eauto.
   Qed.
-  Lemma call_head_step_inv p f v σ1 e2 σ2 efs :
-    head_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs →
+  Lemma call_base_step_inv p f v σ1 e2 σ2 efs :
+    base_step p (of_class (ExprCall f v)) σ1 e2 σ2 efs →
     ∃ fn, p !! f = Some fn ∧ e2 = apply_func fn v ∧ σ2 = σ1 ∧ efs = nil.
-  Proof. eapply call_head_step. Qed.
-  Lemma call_head_step_intro p f v fn σ1 :
+  Proof. eapply call_base_step. Qed.
+  Lemma call_base_step_intro p f v fn σ1 :
     p !! f = Some fn →
-    head_step p (of_call f v) σ1 (apply_func fn v) σ1 [].
-  Proof. intros ?. eapply call_head_step; eexists; eauto. Qed.
+    base_step p (of_call f v) σ1 (apply_func fn v) σ1 [].
+  Proof. intros ?. eapply call_base_step; eexists; eauto. Qed.
 
-  Definition head_reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    ∃ e' σ' efs, head_step p e σ e' σ' efs.
-  Definition head_irreducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    ∀ e' σ' efs, ¬head_step p e σ e' σ' efs.
-  Definition head_stuck (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
-    to_val e = None ∧ head_irreducible p e σ.
+  Definition base_reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
+    ∃ e' σ' efs, base_step p e σ e' σ' efs.
+  Definition base_irreducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
+    ∀ e' σ' efs, ¬base_step p e σ e' σ' efs.
+  Definition base_stuck (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
+    to_val e = None ∧ base_irreducible p e σ.
 
   (* All non-value redexes are at the root.  In other words, all sub-redexes are
      values. *)
@@ -257,10 +257,10 @@ Section language.
   Inductive prim_step (p : prog Λ) : expr Λ → state Λ → expr Λ → state Λ → list (expr Λ) → Prop :=
     Prim_step K e1 e2 σ1 σ2 e1' e2' efs:
       e1 = fill K e1' → e2 = fill K e2' →
-      head_step p e1' σ1 e2' σ2 efs → prim_step p e1 σ1 e2 σ2 efs.
+      base_step p e1' σ1 e2' σ2 efs → prim_step p e1 σ1 e2 σ2 efs.
 
   Lemma Prim_step' p K e1 σ1 e2 σ2 efs :
-    head_step p e1 σ1 e2 σ2 efs → prim_step p (fill K e1) σ1 (fill K e2) σ2 efs.
+    base_step p e1 σ1 e2 σ2 efs → prim_step p (fill K e1) σ1 (fill K e2) σ2 efs.
   Proof. econstructor; eauto. Qed.
 
   Definition reducible (p : prog Λ) (e : expr Λ) (σ : state Λ) :=
@@ -275,7 +275,7 @@ Section language.
   (** * Some lemmas about this language *)
   Lemma prim_step_inv p e1 e2 σ1 σ2 efs:
     prim_step p e1 σ1 e2 σ2 efs →
-    ∃ K e1' e2', e1 = fill K e1' ∧ e2 = fill K e2' ∧ head_step p e1' σ1 e2' σ2 efs.
+    ∃ K e1' e2', e1 = fill K e1' ∧ e2 = fill K e2' ∧ base_step p e1' σ1 e2' σ2 efs.
   Proof. inversion 1; subst; do 3 eexists; eauto. Qed.
   Lemma to_of_val v : to_val (of_val v) = Some v.
   Proof. rewrite /to_val /of_val to_of_class //. Qed.
@@ -286,10 +286,10 @@ Section language.
   Qed.
   Lemma of_to_val_flip v e : of_val v = e → to_val e = Some v.
   Proof. intros <-. by rewrite to_of_val. Qed.
-  Lemma val_head_stuck p e σ e' σ' efs: head_step p e σ e' σ' efs → to_val e = None.
+  Lemma val_base_stuck p e σ e' σ' efs: base_step p e σ e' σ' efs → to_val e = None.
   Proof.
     destruct (to_val e) as [v|] eqn:Hval; last done.
-    rewrite -(of_to_val e v) //. intros []%val_head_step.
+    rewrite -(of_to_val e v) //. intros []%val_base_step.
   Qed.
   Lemma fill_val K e : is_Some (to_val (fill K e)) → is_Some (to_val e).
   Proof.
@@ -300,7 +300,7 @@ Section language.
   Qed.
   Lemma val_stuck p e σ e' σ' efs: prim_step p e σ e' σ' efs → to_val e = None.
   Proof.
-    intros (?&?&? & -> & -> & ?%val_head_stuck)%prim_step_inv.
+    intros (?&?&? & -> & -> & ?%val_base_stuck)%prim_step_inv.
     apply eq_None_not_Some. by intros ?%fill_val%eq_None_not_Some.
   Qed.
 
@@ -331,8 +331,8 @@ Section language.
   Lemma fill_not_val K e : to_val e = None → to_val (fill K e) = None.
   Proof. rewrite !eq_None_not_Some. eauto using fill_val. Qed.
 
-  Lemma not_head_reducible p e σ : ¬head_reducible p e σ ↔ head_irreducible p e σ.
-  Proof. unfold head_reducible, head_irreducible. naive_solver. Qed.
+  Lemma not_base_reducible p e σ : ¬base_reducible p e σ ↔ base_irreducible p e σ.
+  Proof. unfold base_reducible, base_irreducible. naive_solver. Qed.
 
   Lemma subst_map_closed xs e :
     free_vars e = ∅ →
@@ -349,28 +349,28 @@ Section language.
       In all sensible instances, [comp_ectx K' empty_ectx] will be the same as
       [K'], so the conclusion is [K = K' ∧ e = e'], but we do not require a law
       to actually prove that so we cannot use that fact here. *)
-  Lemma head_redex_unique p K K' e e' σ :
+  Lemma base_redex_unique p K K' e e' σ :
     fill K e = fill K' e' →
-    head_reducible p e σ →
-    head_reducible p e' σ →
+    base_reducible p e σ →
+    base_reducible p e' σ →
     K = comp_ectx K' empty_ectx ∧ e = e'.
   Proof.
     intros Heq (e2 & σ2 & efs & Hred) (e2' & σ2' & efs' & Hred').
     edestruct (step_by_val p K' K e' e) as [K'' HK];
-      [by eauto using val_head_stuck..|].
+      [by eauto using val_base_stuck..|].
     subst K. move: Heq. rewrite -fill_comp. intros <-%(inj (fill _)).
-    destruct (head_ctx_step_val _ _ _ _ _ _ _ Hred') as [HK''|[]%not_eq_None_Some].
+    destruct (base_ctx_step_val _ _ _ _ _ _ _ Hred') as [HK''|[]%not_eq_None_Some].
     - subst K''. rewrite fill_empty. done.
-    - by eapply val_head_stuck.
+    - by eapply val_base_stuck.
   Qed.
 
-  Lemma head_prim_step p e1 σ1 e2 σ2 efs :
-    head_step p e1 σ1 e2 σ2 efs → prim_step p e1 σ1 e2 σ2 efs.
+  Lemma base_prim_step p e1 σ1 e2 σ2 efs :
+    base_step p e1 σ1 e2 σ2 efs → prim_step p e1 σ1 e2 σ2 efs.
   Proof. apply Prim_step with empty_ectx; by rewrite ?fill_empty. Qed.
 
-  Lemma head_step_not_stuck p e σ e' σ' efs:
-    head_step p e σ e' σ' efs → not_stuck p e σ.
-  Proof. rewrite /not_stuck /reducible /=. eauto 10 using head_prim_step. Qed.
+  Lemma base_step_not_stuck p e σ e' σ' efs:
+    base_step p e σ e' σ' efs → not_stuck p e σ.
+  Proof. rewrite /not_stuck /reducible /=. eauto 10 using base_prim_step. Qed.
 
   Lemma fill_prim_step p K e1 σ1 e2 σ2 efs :
     prim_step p e1 σ1 e2 σ2 efs → prim_step p (fill K e1) σ1 (fill K e2) σ2 efs.
@@ -382,60 +382,60 @@ Section language.
   Proof.
     intros (e'&σ'&efs&?). exists (fill K e'), σ', efs. by apply fill_prim_step.
   Qed.
-  Lemma head_prim_reducible p e σ : head_reducible p e σ → reducible p e σ.
-  Proof. intros (e'&σ'&efs&?). eexists e', σ', efs. by apply head_prim_step. Qed.
-  Lemma head_prim_fill_reducible p e K σ :
-    head_reducible p e σ → reducible p (fill K e) σ.
-  Proof. intro. by apply fill_reducible, head_prim_reducible. Qed.
-  Lemma head_prim_irreducible p e σ : irreducible p e σ → head_irreducible p e σ.
+  Lemma base_prim_reducible p e σ : base_reducible p e σ → reducible p e σ.
+  Proof. intros (e'&σ'&efs&?). eexists e', σ', efs. by apply base_prim_step. Qed.
+  Lemma base_prim_fill_reducible p e K σ :
+    base_reducible p e σ → reducible p (fill K e) σ.
+  Proof. intro. by apply fill_reducible, base_prim_reducible. Qed.
+  Lemma base_prim_irreducible p e σ : irreducible p e σ → base_irreducible p e σ.
   Proof.
-    rewrite -not_reducible -not_head_reducible. eauto using head_prim_reducible.
+    rewrite -not_reducible -not_base_reducible. eauto using base_prim_reducible.
   Qed.
 
-  Lemma prim_head_step p e σ e' σ' efs:
-    prim_step p e σ e' σ' efs → sub_redexes_are_values e → head_step p e σ e' σ' efs.
+  Lemma prim_base_step p e σ e' σ' efs:
+    prim_step p e σ e' σ' efs → sub_redexes_are_values e → base_step p e σ e' σ' efs.
   Proof.
     intros Hprim ?. destruct (prim_step_inv _ _ _ _ _ _ Hprim) as (K & e1' & e2' & -> & -> & Hstep).
-    assert (K = empty_ectx) as -> by eauto 10 using val_head_stuck.
-    rewrite !fill_empty /head_reducible; eauto.
+    assert (K = empty_ectx) as -> by eauto 10 using val_base_stuck.
+    rewrite !fill_empty /base_reducible; eauto.
   Qed.
-  Lemma prim_head_reducible p e σ :
-    reducible p e σ → sub_redexes_are_values e → head_reducible p e σ.
-  Proof. intros (e'&σ'&efs&Hprim) ?. do 3 eexists; by eapply prim_head_step. Qed.
-  Lemma prim_head_irreducible p e σ :
-    head_irreducible p e σ → sub_redexes_are_values e → irreducible p e σ.
+  Lemma prim_base_reducible p e σ :
+    reducible p e σ → sub_redexes_are_values e → base_reducible p e σ.
+  Proof. intros (e'&σ'&efs&Hprim) ?. do 3 eexists; by eapply prim_base_step. Qed.
+  Lemma prim_base_irreducible p e σ :
+    base_irreducible p e σ → sub_redexes_are_values e → irreducible p e σ.
   Proof.
-    rewrite -not_reducible -not_head_reducible. eauto using prim_head_reducible.
+    rewrite -not_reducible -not_base_reducible. eauto using prim_base_reducible.
   Qed.
 
-  Lemma head_stuck_stuck p e σ :
-    head_stuck p e σ → sub_redexes_are_values e → stuck p e σ.
+  Lemma base_stuck_stuck p e σ :
+    base_stuck p e σ → sub_redexes_are_values e → stuck p e σ.
   Proof.
-    intros [] ?. split; first done. by apply prim_head_irreducible.
+    intros [] ?. split; first done. by apply prim_base_irreducible.
   Qed.
 
-  Lemma head_reducible_prim_step_ctx p K e1 σ1 e2 σ2 efs :
-    head_reducible p e1 σ1 →
+  Lemma base_reducible_prim_step_ctx p K e1 σ1 e2 σ2 efs :
+    base_reducible p e1 σ1 →
     prim_step p (fill K e1) σ1 e2 σ2 efs →
-    ∃ e2', e2 = fill K e2' ∧ head_step p e1 σ1 e2' σ2 efs.
+    ∃ e2', e2 = fill K e2' ∧ base_step p e1 σ1 e2' σ2 efs.
   Proof.
     intros (e2''&σ2''&efs'&HhstepK) (K' & e1' & e2' & HKe1 & -> & Hstep) % prim_step_inv.
     edestruct (step_by_val p K) as [K'' ?];
-      eauto using val_head_stuck; simplify_eq/=.
+      eauto using val_base_stuck; simplify_eq/=.
     rewrite -fill_comp in HKe1; simplify_eq.
     exists (fill K'' e2'). rewrite fill_comp; split; first done.
-    apply head_ctx_step_val in HhstepK as [?|[v ?]]; simplify_eq.
+    apply base_ctx_step_val in HhstepK as [?|[v ?]]; simplify_eq.
     - by rewrite !fill_empty.
-    - apply val_head_stuck in Hstep; simplify_eq.
+    - apply val_base_stuck in Hstep; simplify_eq.
   Qed.
 
-  Lemma head_reducible_prim_step p e1 σ1 e2 σ2 efs :
-    head_reducible p e1 σ1 →
+  Lemma base_reducible_prim_step p e1 σ1 e2 σ2 efs :
+    base_reducible p e1 σ1 →
     prim_step p e1 σ1 e2 σ2 efs →
-    head_step p e1 σ1 e2 σ2 efs.
+    base_step p e1 σ1 e2 σ2 efs.
   Proof.
     intros.
-    edestruct (head_reducible_prim_step_ctx p empty_ectx) as (?&?&?);
+    edestruct (base_reducible_prim_step_ctx p empty_ectx) as (?&?&?);
       rewrite ?fill_empty; eauto.
     by simplify_eq; rewrite fill_empty.
   Qed.
@@ -473,9 +473,9 @@ Section language.
     destruct (fill_class K'' e1) as [->|Hval].
     - apply is_call_is_class. erewrite of_to_call_flip; eauto.
     - rewrite fill_empty in Hctx. subst e1.
-      apply call_head_step_inv in Hstep as (fn & ? & -> & -> & ->).
+      apply call_base_step_inv in Hstep as (fn & ? & -> & -> & ->).
       exists fn. rewrite -fill_comp fill_empty. naive_solver.
-    - unfold is_Some in Hval. erewrite val_head_stuck in Hval; naive_solver.
+    - unfold is_Some in Hval. erewrite val_base_stuck in Hval; naive_solver.
   Qed.
 
   Lemma val_prim_step p v σ e' σ' efs :
@@ -484,7 +484,7 @@ Section language.
     intros (K & e1' & e2' & Heq & -> & Hstep') % prim_step_inv.
     edestruct (fill_val K e1') as (v1''& ?).
     { rewrite -Heq. rewrite to_of_val. by exists v. }
-    eapply val_head_step.
+    eapply val_base_step.
     erewrite <-(of_to_val e1') in Hstep'; eauto.
   Qed.
 
@@ -493,7 +493,7 @@ Section language.
   Proof.
     intros (e1 & σ1 & efs' & (K'' & e1'' & e2'' & ->  & -> & Hhead) % prim_step_inv) Hprim.
     rewrite fill_comp in Hprim.
-    eapply head_reducible_prim_step_ctx in Hprim as (e1' & -> & Hhead'); last by rewrite /head_reducible; eauto.
+    eapply base_reducible_prim_step_ctx in Hprim as (e1' & -> & Hhead'); last by rewrite /base_reducible; eauto.
     eexists. rewrite -fill_comp; by eauto using Prim_step'.
   Qed.
 
@@ -1079,9 +1079,9 @@ Section safe_reach.
     apply: no_forks_step; [done|]. apply: no_forks_refl.
   Qed.
 
-  Lemma safe_reach_head_step p e σ e' σ' (Φ : _ → _ → Prop):
-    head_step p e σ e' σ' [] → safe_reach p e' σ' Φ → safe_reach p e σ Φ.
-  Proof. move => ??. apply: safe_reach_step; [|done]. by apply: head_prim_step. Qed.
+  Lemma safe_reach_base_step p e σ e' σ' (Φ : _ → _ → Prop):
+    base_step p e σ e' σ' [] → safe_reach p e' σ' Φ → safe_reach p e σ Φ.
+  Proof. move => ??. apply: safe_reach_step; [|done]. by apply: base_prim_step. Qed.
 
   Lemma fill_safe_reach p e σ Φ Ks:
     safe_reach p e σ (post_in_ectx Φ) → safe_reach p (fill Ks e) σ (post_in_ectx Φ).

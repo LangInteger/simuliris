@@ -201,7 +201,7 @@ Lemma sim_retag_default mut T l_t l_s c ot π Φ :
   Retag #[ScPtr l_t ot] #[ScCallId c] pk T Default ⪯{π} Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default [{ Φ }].
 Proof.
   intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hsim".
-  iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
   specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
   iPoseProof "Hscrel" as "(-> & _)".
@@ -211,22 +211,22 @@ Proof.
   iModIntro. iSplitR.
   { iPureIntro.
     destruct Hretag_some_t as ([[] ] & Hretag_some_t).
-    do 3 eexists. eapply retag_head_step'; last done.
+    do 3 eexists. eapply retag_base_step'; last done.
     destruct Hp as (_ & _ & _ & <- & _). done.
   }
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
   specialize (head_retag_inv _ _ _ _ _ _ _ _ _ _ _ Hhead_t) as (nt & α' & nxtp' & Hretag_t & -> & -> & -> & Hc).
   have Hretag_s : retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l_s ot Default pk T = Some (nt, α', nxtp').
   { destruct Hp as (-> & -> & _ & -> & _). done. }
-  assert (Hhead_s : head_step P_s (Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default) σ_s #[ScPtr l_s nt]%E (mkState (shp σ_s) α' (scs σ_s) nxtp' (snc σ_s)) []).
-  { eapply retag_head_step'; done. }
+  assert (Hhead_s : base_step P_s (Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default) σ_s #[ScPtr l_s nt]%E (mkState (shp σ_s) α' (scs σ_s) nxtp' (snc σ_s)) []).
+  { eapply retag_base_step'; done. }
   specialize (retag_change_ref_NZST _ _ _ _ _ _ _ _ _ _ _ _ Hsize Hretag_s) as [-> ->].
 
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %Hwf_s]".
   iMod (bor_interp_retag_default _ _ _ _ _ _ _ _ Hretag_s ltac:(done) with "Hscrel Hbor") as
     (v_t v_s) "(%Hlen_t & %Hlen_s & Hval & Htag & Ht & Hs & Hpub & Hbor)"; first done.
-  { destruct Hp as (_ & <- & _). eapply head_step_wf; eauto. }
-  { eapply head_step_wf; eauto. }
+  { destruct Hp as (_ & <- & _). eapply base_step_wf; eauto. }
+  { eapply base_step_wf; eauto. }
   iModIntro.
 
   iExists #[ScPtr l_s (Tagged σ_s.(snp))]%E, [], (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
@@ -461,7 +461,7 @@ Lemma sim_retag_fnentry mut T l_t l_s c M ot π Φ :
   Retag #[ScPtr l_t ot] #[ScCallId c] pk T FnEntry ⪯{π} Retag #[ScPtr l_s ot] #[ScCallId c] pk T FnEntry [{ Φ }].
 Proof.
   intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hcid Hsim".
-  iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
   specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
   iPoseProof "Hscrel" as "(-> & _)".
@@ -471,22 +471,22 @@ Proof.
   iModIntro. iSplitR.
   { iPureIntro.
     destruct Hretag_some_t as ([[] ] & Hretag_some_t).
-    do 3 eexists. eapply retag_head_step'; last done.
+    do 3 eexists. eapply retag_base_step'; last done.
     destruct Hp as (_ & _ & _ & <- & _). done.
   }
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
   specialize (head_retag_inv _ _ _ _ _ _ _ _ _ _ _ Hhead_t) as (nt & α' & nxtp' & Hretag_t & -> & -> & -> & Hc).
   have Hretag_s : retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l_s ot FnEntry pk T = Some (nt, α', nxtp').
   { destruct Hp as (-> & -> & _ & -> & _). done. }
-  assert (Hhead_s : head_step P_s (Retag #[ScPtr l_s ot] #[ScCallId c] pk T FnEntry) σ_s #[ScPtr l_s nt]%E (mkState (shp σ_s) α' (scs σ_s) nxtp' (snc σ_s)) []).
-  { eapply retag_head_step'; done. }
+  assert (Hhead_s : base_step P_s (Retag #[ScPtr l_s ot] #[ScCallId c] pk T FnEntry) σ_s #[ScPtr l_s nt]%E (mkState (shp σ_s) α' (scs σ_s) nxtp' (snc σ_s)) []).
+  { eapply retag_base_step'; done. }
   specialize (retag_change_ref_NZST _ _ _ _ _ _ _ _ _ _ _ _ Hsize Hretag_s) as [-> ->].
 
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %Hwf_s]".
   iMod (bor_interp_retag_fnentry _ _ _ _ _ _ _ _ _ Hretag_s with "Hscrel Hcid Hbor") as
     (v_t v_s) "(%Hlen_t & %Hlen_s & Hval & Hcid & Htag & Ht & Hs & Hpub & Hbor)"; first done.
-  { destruct Hp as (_ & <- & _). eapply head_step_wf; eauto. }
-  { eapply head_step_wf; eauto. }
+  { destruct Hp as (_ & <- & _). eapply base_step_wf; eauto. }
+  { eapply base_step_wf; eauto. }
   iModIntro.
 
   iExists #[ScPtr l_s (Tagged σ_s.(snp))]%E, [], (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
@@ -678,7 +678,7 @@ Lemma sim_write_unique_unprotected π l t T v_t v_s v_t' v_s' Φ :
 Proof.
   (* get the loc controlled things. exploit source UB. update the ghost state. *)
   iIntros (Hlen_t Hlen_s) "Htag Ht Hs #Hvrel Hsim".
-  iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iPoseProof (bor_interp_readN_target with "Hbor Ht Htag") as "%Hcontrol_t".
   iPoseProof (bor_interp_readN_source with "Hbor Hs Htag") as "%Hcontrol_s".
 
@@ -714,7 +714,7 @@ Proof.
   }
 
   iSplitR.
-  { iPureIntro. do 3 eexists. eapply write_head_step'; [lia | |].
+  { iPureIntro. do 3 eexists. eapply write_base_step'; [lia | |].
     - rewrite -Hdom_eq. intros n Hn. apply Hread_s. lia.
     - instantiate (1 := σ_s.(sst)). rewrite -Hsst_eq -Hscs_eq. done.
   }
@@ -732,14 +732,14 @@ Proof.
 
   iModIntro.
   pose (σ_s' := (mkState (write_mem l v_s' σ_s.(shp)) σ_s.(sst) σ_s.(scs) σ_s.(snp) σ_s.(snc))).
-  assert (Hhead_s : head_step P_s (Write (Place l (Tagged t) T) v_s') σ_s (ValR [☠]%S) σ_s' []).
-  { eapply write_head_step'; eauto. intros. rewrite Hdom_eq. apply Hin_dom. lia. }
+  assert (Hhead_s : base_step P_s (Write (Place l (Tagged t) T) v_s') σ_s (ValR [☠]%S) σ_s' []).
+  { eapply write_base_step'; eauto. intros. rewrite Hdom_eq. apply Hin_dom. lia. }
   iExists (#[☠])%E, [], σ_s'. iSplitR; first done.
   iFrame "HP_t HP_s".
   iSplitR "Hsim Hs Ht Htag"; first last.
   { iSplitL; last done. iApply ("Hsim" with "Htag Ht Hs"). }
 
-  (* we keep the head_step hypotheses to use the [head_step_wf] lemma below *)
+  (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
   (* re-establish the invariants *)
   (* TODO: large parts of this, except for the tag interpretation, are similar to
     the write_public lemma *)
@@ -807,9 +807,9 @@ Proof.
       intros [[-> _]%array_tag_map_lookup1 | ?]; by eauto.
     }
   - (* source state wf *)
-    iPureIntro. eapply head_step_wf; done.
+    iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
-    iPureIntro. eapply head_step_wf; done.
+    iPureIntro. eapply base_step_wf; done.
 Qed.
 
 Lemma target_write_local v_t v_t' T l t Ψ :
@@ -821,7 +821,7 @@ Lemma target_write_local v_t v_t' T l t Ψ :
   target_red (Write (Place l (Tagged t) T) #v_t') Ψ.
 Proof.
   iIntros (Hlen Hlen') "Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %Hstack)".
   iMod (bor_interp_writeN_target_local _ _ _ _ _ v_t' with "Hbor Ht Htag []") as "(Hbor & Ht & Htag)";
     first (iPureIntro; lia).
@@ -833,7 +833,7 @@ Proof.
     specialize (Hstack i Hi). eexists; split; first done.
     eapply bor_state_own_access1_write; [ by left | done..]. }
   iSplitR.
-  { iPureIntro. do 3 eexists; eapply write_head_step'; [done | | eauto ].
+  { iPureIntro. do 3 eexists; eapply write_base_step'; [done | | eauto ].
     intros i Hi. apply elem_of_dom. rewrite Hd; last done. apply lookup_lt_is_Some_2. lia.
   }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -854,7 +854,7 @@ Lemma source_write_local v_s v_s' T l t Ψ π :
   source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
   iIntros (Hlen Hlen') "Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
   iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %Hstack)".
   iMod (bor_interp_writeN_source_local _ _ _ _ _ v_s' with "Hbor Hs Htag []") as "(Hbor & Hs & Htag)";
     first (iPureIntro; lia).
@@ -866,7 +866,7 @@ Proof.
     specialize (Hstack i Hi). eexists; split; first done.
     eapply bor_state_own_access1_write; [ by left | done..]. }
   iExists _, _. iSplitR.
-  { iPureIntro. eapply write_head_step'; [done | | eauto ].
+  { iPureIntro. eapply write_base_step'; [done | | eauto ].
     intros i Hi. apply elem_of_dom. rewrite Hd; last done. apply lookup_lt_is_Some_2. lia.
   }
   iModIntro. iFrame "HP_t HP_s".
@@ -885,7 +885,7 @@ Lemma target_write_protected v_t v_t' T l t c M Ψ :
   target_red (Write (Place l (Tagged t) T) #v_t') Ψ.
 Proof.
   iIntros (Hlen Hlen' Hin_call) "Hc Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iPoseProof (bor_interp_readN_target_protected with "Hbor Ht Htag Hc") as "(%Hd & %Hstack)".
   { rewrite Hlen. done. }
   iMod (bor_interp_writeN_target_protected _ _ _ _ _ v_t' with "Hbor Ht Htag Hc []") as "(Hbor & Ht & Hc & Htag)".
@@ -900,7 +900,7 @@ Proof.
     destruct (bor_state_own_some_stack _ _ _ _ Hstack) as (stk & Hs_stk).
     exists stk. split; first done. eapply bor_state_own_access1_write; [by right | done..]. }
   iSplitR.
-  { iPureIntro. do 3 eexists; eapply write_head_step'; [done | | eauto ].
+  { iPureIntro. do 3 eexists; eapply write_base_step'; [done | | eauto ].
     intros i Hi. apply elem_of_dom. rewrite Hd; last done. apply lookup_lt_is_Some_2. lia.
   }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -928,7 +928,7 @@ Lemma source_write_protected v_s v_s' T l t Ψ c M π :
   source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
 Proof.
   iIntros (Hlen Hlen' Hin_call) "Hc Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
   iPoseProof (bor_interp_readN_source_protected with "Hbor Hs Htag Hc") as "(%Hd & %Hstack)".
   { rewrite Hlen. done. }
   iMod (bor_interp_writeN_source_protected _ _ _ _ _ v_s' with "Hbor Hs Htag Hc []") as "(Hbor & Hs & Hc & Htag)".
@@ -943,7 +943,7 @@ Proof.
     destruct (bor_state_own_some_stack _ _ _ _ Hstack) as (stk & Hs_stk).
     exists stk. split; first done. eapply bor_state_own_access1_write; [by right | done..]. }
   iExists _, _. iSplitR.
-  { iPureIntro. eapply write_head_step'; [done | | eauto ].
+  { iPureIntro. eapply write_base_step'; [done | | eauto ].
     intros i Hi. apply elem_of_dom. rewrite Hd; last done. apply lookup_lt_is_Some_2. lia.
   }
   iModIntro. iFrame "HP_t HP_s".
@@ -960,7 +960,7 @@ Lemma target_copy_local v_t T l t Ψ :
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iModIntro.
   iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %Hstack)".
   rewrite Hlen in Hd Hstack.
@@ -971,7 +971,7 @@ Proof.
   { apply memory_read_access1. intros i Hi.
     specialize (Hstack i Hi). eexists; split; first done. eapply bor_state_own_access1_read; done. }
   iSplitR.
-  { iPureIntro. do 3 eexists; eapply copy_head_step'; [done | done | eauto ]. }
+  { iPureIntro. do 3 eexists; eapply copy_base_step'; [done | done | eauto ]. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
   specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
   rewrite READ in READ_t. simplify_eq.
@@ -989,7 +989,7 @@ Lemma source_copy_local v_s T l t Ψ π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %Hstack)".
@@ -999,8 +999,8 @@ Proof.
   have Eq_stk : memory_read σ_s.(sst) σ_s.(scs) l (Tagged t) (tsize T) = Some σ_s.(sst).
   { apply memory_read_access1. intros i Hi.
     specialize (Hstack i Hi). eexists; split; first done. eapply bor_state_own_access1_read; done. }
-  assert (head_reducible P_s (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hhead).
-  { do 3 eexists; eapply copy_head_step'; [done | done | eauto ]. }
+  assert (base_reducible P_s (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hhead).
+  { do 3 eexists; eapply copy_base_step'; [done | done | eauto ]. }
   iExists e_s', σ_s'.
   specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
   rewrite READ in READ_s. simplify_eq.
@@ -1020,7 +1020,7 @@ Lemma target_copy_protected v_t T l t tk Ψ c M  :
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen Hprotected) "Hcall Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iModIntro.
   iPoseProof (bor_interp_readN_target_protected with "Hbor Ht Htag Hcall") as "(%Hd & %Hown)".
   { by rewrite Hlen. }
@@ -1035,7 +1035,7 @@ Proof.
     exists stk. split; first done. eapply bor_state_own_access1_read; done.
   }
   iSplitR.
-  { iPureIntro. do 3 eexists; eapply copy_head_step'; [done | eapply read_mem_values'; eauto | eauto]. }
+  { iPureIntro. do 3 eexists; eapply copy_base_step'; [done | eapply read_mem_values'; eauto | eauto]. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
   specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
   rewrite READ in READ_t. simplify_eq.
@@ -1057,7 +1057,7 @@ Lemma source_copy_protected v_s T l t tk Ψ c M π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen Hprotected) "Hcall Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iPoseProof (bor_interp_readN_source_protected with "Hbor Hs Htag Hcall") as "(%Hd & %Hown)".
   { by rewrite Hlen. }
@@ -1073,7 +1073,7 @@ Proof.
   }
   iExists (#v_s)%E, _.
   iSplitR.
-  { iPureIntro. eapply copy_head_step'; [done | eapply read_mem_values'; eauto | eauto]. }
+  { iPureIntro. eapply copy_base_step'; [done | eapply read_mem_values'; eauto | eauto]. }
   iModIntro. iFrame "HP_t HP_s".
   iSplitL "Hbor"; last iApply ("Hsim" with "Hs Hcall Htag").
   destruct σ_s; done.
@@ -1089,13 +1089,13 @@ Lemma source_copy_any v_s T l t tk Ψ π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hsim".
-  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   destruct Hsafe as [Hpool Hsafe].
   specialize (pool_safe_implies Hsafe Hpool) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
   { (* unsuccessful read, so we are in the poison case *)
-    iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_head_step'; done. }
+    iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_base_step'; done. }
     iModIntro. iFrame. iApply ("Hsim" with "[] Hs Htag").
     iPureIntro. right. rewrite Hlen. done.
   }
@@ -1127,7 +1127,7 @@ Proof.
     eexists; split; first done.
     eapply bor_state_own_access1_read; done.
   }
-  iExists _, _. iSplitR. { iPureIntro. eapply copy_head_step'; done. }
+  iExists _, _. iSplitR. { iPureIntro. eapply copy_base_step'; done. }
   iModIntro.
   iFrame "HP_t HP_s".
   iSplitL "Hbor"; first by destruct σ_s.
@@ -1143,7 +1143,7 @@ Lemma target_copy_deferred v_t T l t tk Ψ :
   target_red (Copy (Place l (Tagged t) T)) Ψ.
 Proof.
   iIntros (Hlen) "Htag Ht Hsim".
-  iApply target_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iModIntro.
   iPoseProof (bor_interp_readN_target with "Hbor Ht Htag") as "%Hcontrolled".
 
@@ -1217,7 +1217,7 @@ Proof.
       exists stk. split; first done. eapply bor_state_own_access1_read; done.
     }
     iSplitR.
-    { iPureIntro. do 3 eexists; eapply copy_head_step'; [done | eapply read_mem_values'; [ eauto | apply Hsuccess] | done ]. }
+    { iPureIntro. do 3 eexists; eapply copy_base_step'; [done | eapply read_mem_values'; [ eauto | apply Hsuccess] | done ]. }
     iIntros (e_t' efs_t σ_t') "%Hhead".
     specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
     rewrite READ in READ_t. simplify_eq.
@@ -1240,7 +1240,7 @@ Proof.
     }
     iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & _)".
     iSplitR.
-    { iPureIntro. do 3 eexists. eapply failed_copy_head_step'; done. }
+    { iPureIntro. do 3 eexists. eapply failed_copy_base_step'; done. }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
     specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as [-> [(? & ? & _ & ? & _) | (-> & ? & ->)]]; first congruence.
 
@@ -1272,13 +1272,13 @@ Lemma source_copy_resolve_deferred v_s v_t v_t' T l t Ψ tk π :
   source_red (Copy (Place l (Tagged t) T)) π Ψ.
 Proof.
   iIntros (Hlen) "Htag Hs Hdef #Hv Hsim".
-  iApply source_red_lift_head_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
   destruct Hsafe as [Hpool Hsafe].
   specialize (pool_safe_implies Hsafe Hpool) as [(v_s' & Hread_s & (α' & Hstack_s)) | Hfail]; first last.
   { (* unsuccessful read, but poison is refined by anything *)
-    iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_head_step'; done. }
+    iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_base_step'; done. }
     iModIntro. iFrame. iApply ("Hsim" with "[Hdef] Hs Htag").
     iApply big_sepL2_forall. rewrite replicate_length. iSplit.
     - iPoseProof (value_rel_length with "Hv") as "%".
@@ -1314,7 +1314,7 @@ Proof.
     eexists; split; first done.
     eapply bor_state_own_access1_read; done.
   }
-  iExists _, _. iSplitR. { iPureIntro. eapply copy_head_step'; done. }
+  iExists _, _. iSplitR. { iPureIntro. eapply copy_base_step'; done. }
   iModIntro.
   iFrame.
   iDestruct "Hdef" as "[(%i & %Hi & Htainted) | ->]"; first last.
@@ -1341,7 +1341,7 @@ Lemma sim_alloc_local T Φ π :
   Alloc T ⪯{π} Alloc T [{ Φ }].
 Proof.
   iIntros "Hsim".
-  iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "%Hwf".
   iModIntro. iSplitR.
@@ -1350,11 +1350,11 @@ Proof.
   specialize (head_alloc_inv _ _ _ _ _ _ Hhead_t) as (-> & -> & ->).
   set (l_s := (fresh_block σ_s.(shp), 0)).
   set (σ_s' := (mkState (init_mem l_s (tsize T) σ_s.(shp)) (init_stacks σ_s.(sst) l_s (tsize T) (Tagged σ_t.(snp))) σ_s.(scs) (S σ_s.(snp)) σ_s.(snc))).
-  assert (Hhead_s : language.head_step P_s (Alloc T) σ_s (Place l_s (Tagged σ_t.(snp)) T) σ_s' []).
+  assert (Hhead_s : language.base_step P_s (Alloc T) σ_s (Place l_s (Tagged σ_t.(snp)) T) σ_s' []).
   { subst σ_s'. destruct Hp as (_ & <- & _). econstructor 2; econstructor. }
   iMod (bor_interp_alloc_local _ _ T with "Hbor") as "(Hbor & Htag & Htarget & Hsource)".
-  { eapply head_step_wf; [ apply Hhead_t | apply Hwf]. }
-  { eapply head_step_wf; last apply (proj2 Hwf). apply Hhead_s. }
+  { eapply base_step_wf; [ apply Hhead_t | apply Hwf]. }
+  { eapply base_step_wf; last apply (proj2 Hwf). apply Hhead_s. }
   iModIntro.
   iExists (Place l_s (Tagged (σ_t.(snp))) T), [], σ_s'.
   iFrame. iSplitR; first done.
@@ -1479,7 +1479,7 @@ Lemma sim_free_local l t T v_t v_s Φ π :
   Free (Place l (Tagged t) T) ⪯{π} Free (Place l (Tagged t) T) [{ Φ }].
 Proof.
   iIntros (Hlen_t Hlen_s) "Htag Ht Hs Hsim".
-  iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   destruct Hsafe as [Hthread Hsafe].
   specialize (pool_safe_implies Hsafe Hthread) as (Hmem_s & (α' & Hstack_s)).
 
@@ -1487,7 +1487,7 @@ Proof.
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iModIntro.
   iSplitR.
-  { iPureIntro. eexists _, _, _. eapply dealloc_head_step'; first apply Hwf_t.
+  { iPureIntro. eexists _, _, _. eapply dealloc_base_step'; first apply Hwf_t.
     - intros i. rewrite -Hmem_s. rewrite -!elem_of_dom Hdom_eq. done.
     - erewrite <-Hstack_s. rewrite Hsst_eq Hscs_eq. done.
   }
@@ -1496,10 +1496,10 @@ Proof.
   assert (α'_t = α') as ->.
   { move : Hstack_t Hstack_s. rewrite Hsst_eq Hscs_eq => -> [= ->] //. }
   iMod (bor_interp_free_local with "Htag Ht Hs Hbor") as "[Htag Hbor]"; [done | done | done | done | ..].
-  { eapply head_step_wf; done. }
-  { eapply head_step_wf; [eapply (dealloc_head_step' P_s); done | done ]. }
+  { eapply base_step_wf; done. }
+  { eapply base_step_wf; [eapply (dealloc_base_step' P_s); done | done ]. }
   iModIntro. iExists _, _, _.
-  iSplitR. { iPureIntro. eapply dealloc_head_step'; done. }
+  iSplitR. { iPureIntro. eapply dealloc_base_step'; done. }
   iFrame. iSplitL; last done. by iApply "Hsim".
 Qed.
 
@@ -1510,11 +1510,11 @@ Lemma target_red_call f arg body v Ψ :
   target_red (subst arg #v body) Ψ -∗
   target_red (Call #[ScFnPtr f] #v) Ψ.
 Proof.
-  iIntros "Hf Hred". iApply target_red_lift_head_step.
+  iIntros "Hf Hred". iApply target_red_lift_base_step.
   iIntros (?????) "(HP_t & HP_s & ?) !>".
   iDestruct (has_prog_has_fun_agree with "HP_t Hf") as %?.
   iSplitR. { iPureIntro. eexists _, _, _. econstructor. econstructor; first done. eauto. }
-  iIntros (e_t' efs σ_t') "%"; inv_head_step.
+  iIntros (e_t' efs σ_t') "%"; inv_base_step.
   iModIntro. by iFrame.
 Qed.
 
@@ -1523,7 +1523,7 @@ Lemma source_red_call π f arg body v Ψ :
   source_red (subst arg #v body) π Ψ -∗
   source_red (Call #[ScFnPtr f] #v) π Ψ.
 Proof.
-  iIntros "Hf Hred". iApply source_red_lift_head_step.
+  iIntros "Hf Hred". iApply source_red_lift_base_step.
   iIntros (??????) "[(HP_t & HP_s & ?) [% %]] !>".
   iDestruct (has_prog_has_fun_agree with "HP_s Hf") as %?.
   iExists _, _. iSplit. { iPureIntro. econstructor. econstructor; first done. eauto. }

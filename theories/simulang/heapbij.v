@@ -214,7 +214,7 @@ Section definitions.
 
     iAssert (∃ sts, Loc b_t 0 ↦t∗[sts] vs_t ∗ Loc b_s 0 ↦s∗[sts] vs_s)%I with "[Hvs]" as (?) "[Hl_t Hl_s]". {
       iDestruct (big_sepL2_exist with "Hvs") as (sts ?) "Hvs". iExists sts.
-      rewrite /heap_mapsto_vec_st !(big_sepL2_to_sepL_r sts) -?big_sepL2_sepL; [|congruence..].
+      rewrite /heap_pointsto_vec_st !(big_sepL2_to_sepL_r sts) -?big_sepL2_sepL; [|congruence..].
       iApply (big_sepL2_impl with "Hvs").
       iIntros "!>" (k x1 x2 Ht Hs) "(%st & % & %q & %Hrel & Hv & Hl)".
       change (Loc b_s k) with (Loc b_s 0 +ₗ k) in Hrel.
@@ -284,8 +284,8 @@ Section definitions.
     iDestruct (heap_read_st with "Hσ_s Hl_s") as %[??]; destruct st' as [|n'']; simplify_eq/=.
 
     destruct q2; subst.
-    - iDestruct (heap_mapsto_split _ _ _ _ 0 with "Hl_t") as "[Hl_t1 Hl_t2]"; [done..|].
-      iDestruct (heap_mapsto_split _ _ _ _ 0 with "Hl_s") as "[Hl_s1 Hl_s2]"; [done..|].
+    - iDestruct (heap_pointsto_split _ _ _ _ 0 with "Hl_t") as "[Hl_t1 Hl_t2]"; [done..|].
+      iDestruct (heap_pointsto_split _ _ _ _ 0 with "Hl_s") as "[Hl_s1 Hl_s2]"; [done..|].
       iModIntro.
       iExists _. iFrame "∗Hv".
       iExists _, vs_t, vs_s. iFrame. iSplit; [done|]. iSplit; [done|].
@@ -361,10 +361,10 @@ Section definitions.
       iSplit; first by eauto.
       destruct q'; iFrame.
       iDestruct "Hp" as "[Hp1 Hp2]".
-      iDestruct (heap_mapsto_agree with "[$Hp1 $Hl_t]") as %->.
-      iDestruct (heap_mapsto_agree with "[$Hp2 $Hl_s]") as %->.
-      iDestruct (heap_mapsto_combine_0 with "Hl_t Hp1") as "$".
-      iDestruct (heap_mapsto_combine_0 with "Hl_s Hp2") as "$".
+      iDestruct (heap_pointsto_agree with "[$Hp1 $Hl_t]") as %->.
+      iDestruct (heap_pointsto_agree with "[$Hp2 $Hl_s]") as %->.
+      iDestruct (heap_pointsto_combine_0 with "Hl_t Hp1") as "$".
+      iDestruct (heap_pointsto_combine_0 with "Hl_s Hp2") as "$".
     - iApply (big_sepL2_impl with "Hvs_2").
       iIntros "!>" (??? ??) "[%s [%q'' [% Hp]]]".
       iExists s, q''. iFrame. iPureIntro.
@@ -481,7 +481,7 @@ Section laws.
     rewrite !big_sepM_insert //.
     iDestruct "Hmt" as "[(?&?&?&?) Hmt]". iDestruct "Hvs" as "[Hv Hvs]".
     iMod ("IH" with "Hbij Hmt Hvs") as (L') "[Hbij Hs]".
-    rewrite -!heap_mapsto_vec_singleton.
+    rewrite -!heap_pointsto_vec_singleton.
     iMod (heapbij_insertN with "Hbij [$] [$] [$Hv] [$] [$]") as "[Hbij Hl]"; [lia | done.. | naive_solver | naive_solver |done |].
     iModIntro. iExists _. iFrame. rewrite dom_insert_L big_sepS_insert ?not_elem_of_dom //.
     iFrame.

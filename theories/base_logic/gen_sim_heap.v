@@ -54,11 +54,11 @@ Section definitions.
     own gen_heap_name (gmap_view_auth (DfracOwn 1) (σ : gmap L (leibnizO V))) ∗
     own gen_meta_name (gmap_view_auth (DfracOwn 1) (m : gmap L gnameO)).
 
-  Definition mapsto_def (l : L) (dq : dfrac) (v: V) : iProp Σ :=
+  Definition pointsto_def (l : L) (dq : dfrac) (v: V) : iProp Σ :=
     own gen_heap_name (gmap_view_frag l dq (v : leibnizO V)).
-  Definition mapsto_aux : seal (@mapsto_def). Proof. by eexists. Qed.
-  Definition mapsto := mapsto_aux.(unseal).
-  Definition mapsto_eq : @mapsto = @mapsto_def := mapsto_aux.(seal_eq).
+  Definition pointsto_aux : seal (@pointsto_def). Proof. by eexists. Qed.
+  Definition pointsto := pointsto_aux.(unseal).
+  Definition pointsto_eq : @pointsto = @pointsto_def := pointsto_aux.(seal_eq).
 
   Definition meta_token_def (l : L) (E : coPset) : iProp Σ :=
     ∃ γm, own gen_meta_name (gmap_view_frag l DfracDiscarded γm) ∗
@@ -78,13 +78,13 @@ Global Arguments meta {L _ _ _ _ V Σ _ A _ _} l N x.
 
 (** FIXME: Refactor these notations using custom entries once Coq bug #13654
 has been fixed. *)
-Local Notation "l ↦{ dq } v" := (mapsto l dq v)
+Local Notation "l ↦{ dq } v" := (pointsto l dq v)
   (at level 20, format "l  ↦{ dq }  v") : bi_scope.
-Local Notation "l ↦□ v" := (mapsto l DfracDiscarded v)
+Local Notation "l ↦□ v" := (pointsto l DfracDiscarded v)
   (at level 20, format "l  ↦□  v") : bi_scope.
-Local Notation "l ↦{# q } v" := (mapsto l (DfracOwn q) v)
+Local Notation "l ↦{# q } v" := (pointsto l (DfracOwn q) v)
   (at level 20, format "l  ↦{# q }  v") : bi_scope.
-Local Notation "l ↦ v" := (mapsto l (DfracOwn 1) v)
+Local Notation "l ↦ v" := (pointsto l (DfracOwn 1) v)
   (at level 20, format "l  ↦  v") : bi_scope.
 
 Section gen_heap.
@@ -96,58 +96,58 @@ Section gen_heap.
   Implicit Types l : L.
   Implicit Types v : V.
 
-  (** General properties of mapsto *)
-  Global Instance mapsto_timeless l dq v : Timeless (l ↦{dq} v).
-  Proof. rewrite mapsto_eq. apply _. Qed.
-  Global Instance mapsto_fractional l v : Fractional (λ q, l ↦{#q} v)%I.
+  (** General properties of pointsto *)
+  Global Instance pointsto_timeless l dq v : Timeless (l ↦{dq} v).
+  Proof. rewrite pointsto_eq. apply _. Qed.
+  Global Instance pointsto_fractional l v : Fractional (λ q, l ↦{#q} v)%I.
   Proof.
-    intros p q. rewrite mapsto_eq /mapsto_def -own_op gmap_view_frag_add //.
+    intros p q. rewrite pointsto_eq /pointsto_def -own_op gmap_view_frag_add //.
   Qed.
-  Global Instance mapsto_as_fractional l q v :
+  Global Instance pointsto_as_fractional l q v :
     AsFractional (l ↦{#q} v) (λ q, l ↦{#q} v)%I q.
   Proof. split; [done|]. apply _. Qed.
-  Global Instance mapsto_persistent l v : Persistent (l ↦□ v).
-  Proof. rewrite mapsto_eq. apply _. Qed.
-  Global Instance mapsto_combine_sep_gives l dq1 dq2 v1 v2 :
+  Global Instance pointsto_persistent l v : Persistent (l ↦□ v).
+  Proof. rewrite pointsto_eq. apply _. Qed.
+  Global Instance pointsto_combine_sep_gives l dq1 dq2 v1 v2 :
     CombineSepGives (l ↦{dq1} v1) (l ↦{dq2} v2) ⌜✓ (dq1 ⋅ dq2) ∧ v1 = v2⌝ | 20.
   Proof.
-    rewrite /CombineSepGives mapsto_eq. iIntros "[H1 H2]".
+    rewrite /CombineSepGives pointsto_eq. iIntros "[H1 H2]".
     iCombine "H1 H2" gives %[??]%gmap_view_frag_op_valid_L; auto.
   Qed.
 
-  Lemma mapsto_valid l dq v : l ↦{dq} v -∗ ⌜✓ dq⌝%Qp.
+  Lemma pointsto_valid l dq v : l ↦{dq} v -∗ ⌜✓ dq⌝%Qp.
   Proof.
-    rewrite mapsto_eq. iIntros "Hl".
+    rewrite pointsto_eq. iIntros "Hl".
     iDestruct (own_valid with "Hl") as %?%gmap_view_frag_valid. done.
   Qed.
-  Lemma mapsto_valid_2 l dq1 dq2 v1 v2 : l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ ⌜✓ (dq1 ⋅ dq2) ∧ v1 = v2⌝.
+  Lemma pointsto_valid_2 l dq1 dq2 v1 v2 : l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ ⌜✓ (dq1 ⋅ dq2) ∧ v1 = v2⌝.
   Proof. iIntros "H1 H2". by iCombine "H1 H2" gives %[]. Qed.
   (** Almost all the time, this is all you really need. *)
-  Lemma mapsto_agree l dq1 dq2 v1 v2 : l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ ⌜v1 = v2⌝.
+  Lemma pointsto_agree l dq1 dq2 v1 v2 : l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ ⌜v1 = v2⌝.
   Proof. iIntros "H1 H2". by iCombine "H1 H2" gives %[]. Qed.
 
-  Lemma mapsto_combine l dq1 dq2 v1 v2 :
+  Lemma pointsto_combine l dq1 dq2 v1 v2 :
     l ↦{dq1} v1 -∗ l ↦{dq2} v2 -∗ l ↦{dq1 ⋅ dq2} v1 ∗ ⌜v1 = v2⌝.
   Proof.
-    iIntros "Hl1 Hl2". iDestruct (mapsto_agree with "Hl1 Hl2") as %->.
+    iIntros "Hl1 Hl2". iDestruct (pointsto_agree with "Hl1 Hl2") as %->.
     iCombine "Hl1 Hl2" as "Hl".
-    rewrite mapsto_eq /mapsto_def -own_op gmap_view_frag_op.
+    rewrite pointsto_eq /pointsto_def -own_op gmap_view_frag_op.
     auto.
   Qed.
 
-  Lemma mapsto_frac_ne l1 l2 dq1 dq2 v1 v2 :
+  Lemma pointsto_frac_ne l1 l2 dq1 dq2 v1 v2 :
     ¬ ✓(dq1 ⋅ dq2) → l1 ↦{dq1} v1 -∗ l2 ↦{dq2} v2 -∗ ⌜l1 ≠ l2⌝.
   Proof.
     iIntros (?) "Hl1 Hl2"; iIntros (->).
     by iCombine "Hl1 Hl2" gives %[??].
   Qed.
-  Lemma mapsto_ne l1 l2 dq2 v1 v2 : l1 ↦ v1 -∗ l2 ↦{dq2} v2 -∗ ⌜l1 ≠ l2⌝.
-  Proof. apply mapsto_frac_ne. intros ?%exclusive_l; [done|apply _]. Qed.
+  Lemma pointsto_ne l1 l2 dq2 v1 v2 : l1 ↦ v1 -∗ l2 ↦{dq2} v2 -∗ ⌜l1 ≠ l2⌝.
+  Proof. apply pointsto_frac_ne. intros ?%exclusive_l; [done|apply _]. Qed.
 
   (** Permanently turn any points-to predicate into a persistent
       points-to predicate. *)
-  Lemma mapsto_persist l dq v : l ↦{dq} v ==∗ l ↦□ v.
-  Proof. rewrite mapsto_eq. apply bi.entails_wand, own_update, gmap_view_frag_persist. Qed.
+  Lemma pointsto_persist l dq v : l ↦{dq} v ==∗ l ↦□ v.
+  Proof. rewrite pointsto_eq. apply bi.entails_wand, own_update, gmap_view_frag_persist. Qed.
 
   (** General properties of [meta] and [meta_token] *)
   Global Instance meta_token_timeless l N : Timeless (meta_token l N).
@@ -214,7 +214,7 @@ Section gen_heap.
     σ !! l = None →
     gen_heap_interp σ ==∗ gen_heap_interp (<[l:=v]>σ) ∗ l ↦ v ∗ meta_token l ⊤.
   Proof.
-    iIntros (Hσl). rewrite /gen_heap_interp mapsto_eq /mapsto_def meta_token_eq /meta_token_def /=.
+    iIntros (Hσl). rewrite /gen_heap_interp pointsto_eq /pointsto_def meta_token_eq /meta_token_def /=.
     iDestruct 1 as (m Hσm) "[Hσ Hm]".
     iMod (own_update with "Hσ") as "[Hσ Hl]".
     { eapply (gmap_view_alloc _ l (DfracOwn 1)); done. }
@@ -245,7 +245,7 @@ Section gen_heap.
   Lemma gen_heap_valid σ l dq v : gen_heap_interp σ -∗ l ↦{dq} v -∗ ⌜σ !! l = Some v⌝.
   Proof.
     iDestruct 1 as (m Hσm) "[Hσ _]". iIntros "Hl".
-    rewrite /gen_heap_interp mapsto_eq.
+    rewrite /gen_heap_interp pointsto_eq.
     by iCombine "Hσ Hl" gives %[??]%gmap_view_both_valid_L.
   Qed.
 
@@ -253,7 +253,7 @@ Section gen_heap.
     gen_heap_interp σ -∗ l ↦ v1 ==∗ gen_heap_interp (<[l:=v2]>σ) ∗ l ↦ v2.
   Proof.
     iDestruct 1 as (m Hσm) "[Hσ Hm]".
-    iIntros "Hl". rewrite /gen_heap_interp mapsto_eq /mapsto_def.
+    iIntros "Hl". rewrite /gen_heap_interp pointsto_eq /pointsto_def.
     iCombine "Hσ Hl" gives %[_ Hl]%gmap_view_both_valid_L.
     iMod (own_update_2 with "Hσ Hl") as "[Hσ Hl]".
     { eapply gmap_view_update. }
@@ -289,10 +289,10 @@ Qed.
 Lemma gen_sim_heap_init `{Countable L_t, Countable L_s, !gen_heapGpreS L_t V_t Σ, !gen_heapGpreS L_s V_s Σ} (σ_t : gmap L_t V_t) (σ_s : gmap L_s V_s) :
   ⊢ |==> ∃ _ : gen_sim_heapGS L_t L_s V_t V_s Σ,
       (gen_heap_interp (hG := gen_heap_inG_target) σ_t ∗
-      ([∗ map] l ↦ v ∈ σ_t, mapsto (hG := gen_heap_inG_target) l (DfracOwn 1) v) ∗
+      ([∗ map] l ↦ v ∈ σ_t, pointsto (hG := gen_heap_inG_target) l (DfracOwn 1) v) ∗
       ([∗ map] l ↦ _ ∈ σ_t, meta_token (hG := gen_heap_inG_target) l ⊤)) ∗
       (gen_heap_interp (hG := gen_heap_inG_source) σ_s ∗
-      ([∗ map] l ↦ v ∈ σ_s, mapsto (hG := gen_heap_inG_source) l (DfracOwn 1) v) ∗
+      ([∗ map] l ↦ v ∈ σ_s, pointsto (hG := gen_heap_inG_source) l (DfracOwn 1) v) ∗
       ([∗ map] l ↦ _ ∈ σ_s, meta_token (hG := gen_heap_inG_source) l ⊤)).
 Proof.
   iMod (gen_heap_init_names σ_t) as (γh_t γm_t) "Hinit_target".
