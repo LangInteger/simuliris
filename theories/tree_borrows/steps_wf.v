@@ -9,7 +9,7 @@ From iris.prelude Require Import options.
 Lemma wf_init_state : state_wf init_state.
 Proof.
   constructor; simpl; try (intros ?; set_solver).
-  intros blk l Absurd; inversion Absurd; inversion H.
+  intros blk l Absurd; inversion Absurd as [? H]; inversion H.
 Qed.
 
 (** Steps preserve wellformedness *)
@@ -52,10 +52,10 @@ Lemma apply_within_trees_wf trs trs' nxtp nxtp' nxtc nxtc' blk fn:
   wf_trees trs nxtp nxtc -> wf_trees trs' nxtp' nxtc'.
 Proof.
   intros App WFtrans WFfn WF.
-  unfold apply_within_trees in App; destruct (trs !! blk) eqn:Lookup; inversion App; clear App.
-  destruct (fn t) eqn:Map; inversion H0; clear H0.
+  unfold apply_within_trees in App; destruct (trs !! blk) as [t|] eqn:Lookup; inversion App as [App0]; clear App.
+  destruct (fn t) eqn:Map; inversion App0 as [E]; clear App0.
   intro blk'; destruct (decide (blk = blk')); intros tr Lookup'.
-  all: inversion H1; simplify_eq.
+  all: inversion E; simplify_eq.
   (* Handle the insertion/deletion *)
   1: rewrite lookup_insert in Lookup'.
   2: rewrite lookup_insert_ne in Lookup'; [|done].
@@ -91,11 +91,11 @@ Lemma apply_within_trees_same_dom trs trs' blk fn :
   forall blk', is_Some (trs !! blk') <-> is_Some (trs' !! blk').
 Proof.
   unfold apply_within_trees.
-  destruct (trs !! blk) eqn:Lookup; simpl; [|intro H; inversion H].
+  destruct (trs !! blk) as [t|] eqn:Lookup; simpl; [|intro H; inversion H].
   destruct (fn t); simpl; [|intro H; inversion H].
   intro H; injection H; intro; subst.
   intro blk'.
-  destruct (decide (blk = blk')).
+  destruct (decide (blk = blk')) as [e|].
   - rewrite e. rewrite lookup_insert.
     split.
     * intro. econstructor; reflexivity.
@@ -124,7 +124,7 @@ Proof.
   intros Preserve All Join.
   pose (proj1 (join_success_condition _) (mk_is_Some _ _ Join)) as AllSome.
   generalize dependent tr'.
-  induction tr; intros tr' JoinSome AllSome; simpl in *; [injection JoinSome; intros; simplify_eq; auto|].
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' JoinSome AllSome; simpl in *; [injection JoinSome; intros; simplify_eq; auto|].
   destruct AllSome as [[data' Some0] [Some1 Some2]].
   rewrite Some0 in JoinSome; simpl in JoinSome.
   destruct (proj2 (join_success_condition _) Some1) as [tr1' Some1'].
@@ -151,7 +151,7 @@ Qed.
 Lemma joinmap_preserve_nonempty fn :
   preserve_tree_nonempty (fun tr => join_nodes (map_nodes fn tr)).
 Proof.
-  intro tr; induction tr; intros tr' Nonempty JoinMap; [contradiction|].
+  intro tr; induction tr as [|data ????]; intros tr' Nonempty JoinMap; [contradiction|].
   simpl in JoinMap.
   destruct (fn data); [|inversion JoinMap]; simpl in *.
   destruct (join_nodes _); [|inversion JoinMap]; simpl in *.
@@ -185,7 +185,7 @@ Proof.
   unfold create_child in Create.
   injection Create; intros; subst; clear Create.
   (* No need to do an induction, we can prove it's nonempty with just the root *)
-  destruct tr.
+  destruct tr as [|data].
   1: contradiction.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
 Qed.
