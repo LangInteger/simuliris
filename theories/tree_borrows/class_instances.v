@@ -8,9 +8,9 @@ Local Open Scope Z_scope.
 (** * Instances of the [PureExec] class *)
 Section pure_exec.
   Local Ltac solve_exec_safe := intros; subst; do 3 eexists; do 2 econstructor; eauto.
-  Local Ltac solve_exec_puredet := simpl; intros; inv_head_step; try done.
+  Local Ltac solve_exec_puredet := simpl; intros; inv_base_step; try done.
   Local Ltac solve_pure_exec :=
-    subst; intros ?; apply nsteps_once, pure_head_step_pure_step;
+    subst; intros ?; apply nsteps_once, pure_base_step_pure_step;
       constructor; [solve_exec_safe | solve_exec_puredet].
 
 
@@ -121,9 +121,9 @@ Section safe_reach.
     let Hhead := fresh in
     intros Hsafe; specialize (Hsafe _ _ _ (Pool_steps_refl _ _ _) _ 0%nat ltac:(done)) as [Hval | Hred];
     [ rewrite language_to_val_eq in Hval; simpl in Hval; destruct Hval as [? [=]] |
-      destruct Hred as (? & ? & ? & Hhead%prim_head_step);
+      destruct Hred as (? & ? & ? & Hhead%prim_base_step);
       [ (* this need not complete the proof and may generate a proof obligation *)
-        inv_head_step; subst; try by eauto 10 using of_result_value, of_result_place
+        inv_base_step; subst; try by eauto 10 using of_result_value, of_result_place
       | solve [solve_sub_redexes_are_values]] ].
 
 

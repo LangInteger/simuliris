@@ -33,7 +33,7 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Deref e T => Deref (subst x es e) T
   | Ref e => Ref (subst x es e)
   (* | Field e path => Field (subst x: es e) path *)
-  | Retag e1 e2 sz kind => Retag (subst x es e1) (subst x es e2) sz kind
+  | Retag e1 e2 newp sz kind => Retag (subst x es e1) (subst x es e2) newp sz kind
   | Let x1 e1 e2 =>
       Let x1 (subst x es e1)
                  (if bool_decide (BNamed x ≠ x1) then subst x es e2 else e2)
@@ -112,8 +112,8 @@ Inductive ectx_item :=
 | DerefEctx (sz : nat)
 | RefEctx
 (* | FieldEctx (path : list nat) *)
-| RetagREctx (e1 : expr) (sz : nat) (kind : retag_kind)
-| RetagLEctx (r2 : result) (sz : nat) (kind : retag_kind)
+| RetagREctx (e1 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
+| RetagLEctx (r2 : result) (newp : newperm) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
 | CaseEctx (el : list expr)
 (* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
@@ -137,8 +137,8 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | DerefEctx T => Deref e T
   | RefEctx => Ref e
   (* | FieldEctx path => Field e path *)
-  | RetagLEctx r2 sz kind => Retag e (of_result r2) sz kind
-  | RetagREctx e1 sz kind => Retag e1 e sz kind
+  | RetagLEctx r2 newp sz kind => Retag e (of_result r2) newp sz kind
+  | RetagREctx e1 newp sz kind => Retag e1 e newp sz kind
   | LetEctx x e2 => Let x e e2
   | CaseEctx el => Case e el
   end.
@@ -172,8 +172,8 @@ Inductive ctx_item :=
   | FreeCtx
   | DerefCtx (sz : nat)
   | RefCtx
-  | RetagLCtx (e2 : expr) (sz : nat) (kind : retag_kind)
-  | RetagRCtx (e1 : expr) (sz : nat) (kind : retag_kind)
+  | RetagLCtx (e2 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
+  | RetagRCtx (e1 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
   | CaseLCtx (el : list expr)
   | CaseRCtx (e : expr) (el1 el2 : list expr)
   | WhileLCtx (e1 : expr)
@@ -200,8 +200,8 @@ Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   | FreeCtx => Free e
   | DerefCtx T => Deref e T
   | RefCtx => Ref e
-  | RetagLCtx e2 sz k => Retag e e2 sz k
-  | RetagRCtx e1 sz k => Retag e1 e sz k
+  | RetagLCtx e2 newp sz k => Retag e e2 newp sz k
+  | RetagRCtx e1 newp sz k => Retag e1 e newp sz k
   | CaseLCtx el => Case e el
   | CaseRCtx e0 el1 el2 => Case e0 (el1 ++ e :: el2)
   | WhileLCtx e1 => While e e1
@@ -235,7 +235,7 @@ Inductive expr_head :=
   | WriteHead
   | AllocHead (sz : nat)
   | FreeHead
-  | RetagHead (sz : nat) (kind : retag_kind)
+  | RetagHead (newp : newperm) (sz : nat) (kind : retag_kind)
   | CaseHead
   | ForkHead
   | WhileHead
@@ -260,7 +260,7 @@ Definition expr_split_head (e : expr) : (expr_head * list expr) :=
   | Fork e => (ForkHead, [e])
   | Alloc T => (AllocHead T, [])
   | Free e => (FreeHead, [e])
-  | Retag e1 e2 sz k => (RetagHead sz k, [e1; e2])
+  | Retag e1 e2 newp sz k => (RetagHead newp sz k, [e1; e2])
   | Case e el => (CaseHead, e :: el)
   | While e0 e1 => (WhileHead, [e0; e1])
   end.
@@ -286,8 +286,8 @@ Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
   | FreeEctx => (FreeHead, [])
   | DerefEctx T => (DerefHead T, [])
   | RefEctx => (RefHead, [])
-  | RetagREctx e1 sz k => (RetagHead sz k, [e1])
-  | RetagLEctx r2 sz k => (RetagHead sz k, [of_result r2])
+  | RetagREctx e1 newp sz k => (RetagHead newp sz k, [e1])
+  | RetagLEctx r2 newp sz k => (RetagHead newp sz k, [of_result r2])
   | CaseEctx el => (CaseHead, el)
   end.
 
@@ -310,8 +310,8 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   | FreeCtx => (FreeHead, [])
   | DerefCtx T => (DerefHead T, [])
   | RefCtx => (RefHead, [])
-  | RetagRCtx e1 sz k => (RetagHead sz k, [e1])
-  | RetagLCtx e2 sz k => (RetagHead sz k, [e2])
+  | RetagRCtx e1 newp sz k => (RetagHead newp sz k, [e1])
+  | RetagLCtx e2 newp sz k => (RetagHead newp sz k, [e2])
   | CaseLCtx el => (CaseHead, el)
   | CaseRCtx e el1 el2 => (CaseHead, e :: el1 ++ el2)
   | WhileLCtx e1 => (WhileHead, [e1])
@@ -528,7 +528,7 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
 | RetagBS blk l otag ntag sz kind c newp
     (NEW_PERM : newp.(new_protector) = match kind with FnEntry => Some c | Default => None end) :
     mem_expr_step
-              h (Retag #[ScPtr l otag] #[ScCallId (call c)] sz kind)
+              h (Retag #[ScPtr l otag] #[ScCallId (call c)] newp sz kind)
               (RetagEvt blk otag ntag newp sz)
               h #[ScPtr l ntag] []
 

@@ -209,7 +209,7 @@ Section log_rel.
     (r1_t = r2_t)%E ⪯{π} (r1_s = r2_s)%E [{ Φ }].
   Proof.
     iIntros "#Hr1 #Hr2 Hsim".
-    iApply sim_lift_head_step_both. iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
+    iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
     specialize (pool_safe_implies Hsafe Hpool) as (sc1_s & sc2_s & -> & -> & Heq).
     val_discr_source "Hr1". val_discr_source "Hr2".
     assert (sc1_s ≠ ScPoison ∧ sc2_s ≠ ScPoison) as [Hsc1_npoison Hsc2_npoison].
@@ -220,7 +220,7 @@ Section log_rel.
     - iModIntro.
       iPoseProof (bor_interp_scalar_eq_source _ _ _ _ _ _ Heq_s with "Hsc1 Hsc2 Hbor") as "%Heq_t".
       iSplitR. { iPureIntro. do 3 eexists. econstructor. econstructor. eapply BinOpEqTrue. done. }
-      iIntros (? ? ? ?). inv_head_step.
+      iIntros (? ? ? ?). inv_base_step.
       (* note: evaluation is non-deterministic here; we have to mirror the behavior in the source *)
       + iModIntro. iExists _, _, _.
         iSplitR. { iPureIntro. econstructor; econstructor; eapply BinOpEqTrue. done. }
@@ -232,7 +232,7 @@ Section log_rel.
     - iModIntro.
       iPoseProof (scalar_neq_source with "Hsc1 Hsc2") as "%Hneq_t"; first done.
       iSplitR. { iPureIntro. do 3 eexists. econstructor. econstructor. eapply BinOpEqFalse. done. }
-      iIntros (? ? ? ?). inv_head_step.
+      iIntros (? ? ? ?). inv_base_step.
       (* note: evaluation is non-deterministic here; we have to mirror the behavior in the source *)
       + iModIntro. iExists _, _, _.
         iPoseProof (bor_interp_scalar_eq_target with "Hsc1 Hsc2 Hbor") as "%"; [done..|].

@@ -67,6 +67,12 @@ Inductive access_strong :=
 
 Global Instance prot_strong_eq_dec : EqDecision prot_strong.
 Proof. solve_decision. Defined.
+Global Instance prot_strong_countable : Countable prot_strong.
+Proof.
+  refine (inj_countable'
+    (λ p:prot_strong, if p then true else false)
+    (λ b:bool, if b then ProtStrong else ProtWeak) _); by intros [].
+Qed.
 
 Definition prot_relevant (pr:prot_strong) (acc:access_strong) : bool :=
   match pr, acc with
@@ -81,6 +87,13 @@ Record protector := mkProtector {
 }.
 Global Instance protector_eq_dec : EqDecision protector.
 Proof. solve_decision. Defined.
+Global Instance protector_countable : Countable protector.
+Proof.
+  refine (inj_countable'
+    (λ p:protector, (p.(strong), p.(call)))
+    (λ t, {| strong:=t.1; call:=t.2 |}) _); by intros [].
+Qed.
+
 
 Inductive perm_init :=
   | PermInit
@@ -172,6 +185,20 @@ Proof. destruct rel; solve_decision. Qed.
 Global Instance child_rel_dec rel : Decision (child rel).
 Proof. destruct rel; solve_decision. Qed.
 
+Record newperm := mkNewPerm {
+  initial_state : permission;
+  new_protector : option protector;
+}.
+Global Instance newperm_eq_dec : EqDecision newperm.
+Proof. solve_decision. Qed.
+Global Instance newperm_countable : Countable newperm.
+Proof.
+  refine (inj_countable'
+    (λ newp, (newp.(initial_state), newp.(new_protector)))
+    (λ t, {| initial_state:=t.1; new_protector:=t.2 |}) _); by intros [].
+Qed.
+
+
 (** Expressions *)
 Inductive expr :=
 (* base values *)
@@ -209,7 +236,7 @@ Inductive expr :=
 (* | AtomRead (e: expr) *)
 (* retag *) (* Retag the memory pointed to by `e1` of type (Reference pk T) with
   retag kind `kind`, for call_id `e2`. *)
-| Retag (e1 : expr) (e2 : expr) (sz : nat) (kind : retag_kind)
+| Retag (e1 : expr) (e2 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
 (* let binding *)
 | Let (x : binder) (e1 e2: expr)
 (* case *)
@@ -247,7 +274,7 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
   | BinOp _ e1 e2 | Write e1 e2 | While e1 e2 
-      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ => is_closed X e1 && is_closed X e2
+      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
@@ -333,11 +360,6 @@ Qed.
 
 (** Main state: a heap of scalars, each with an associated lock to detect data races. *)
 Definition mem := gmap loc scalar.
-
-Record newperm := mkNewPerm {
-  initial_state : permission;
-  new_protector : option protector;
-}.
 
 (** Internal events *)
 

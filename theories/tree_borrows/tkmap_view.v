@@ -554,7 +554,7 @@ End lemmas.
   (*oFunctorContractive F → rFunctorContractive (gmap_viewRF K F).*)
 (*Proof. apply gmap_viewURF_contractive. Qed.*)
 
-Typeclasses Opaque tkmap_view_auth tkmap_view_frag.
+Global Typeclasses Opaque tkmap_view_auth tkmap_view_frag.
 
 
 
@@ -567,7 +567,7 @@ From iris.bi.lib Require Import fractional.
 FIXME: This is intentionally discrete-only, but
 should we support setoids via [Equiv]? *)
 Class tkmapG Σ (K V : Type) `{Countable K} := TkMapG {
-  tkmap_inG :> inG Σ (tkmap_viewR K (leibnizO V));
+  tkmap_inG :: inG Σ (tkmap_viewR K (leibnizO V));
 }.
 Definition tkmapΣ (K V : Type) `{Countable K} : gFunctors :=
   #[ GFunctor (tkmap_viewR K (leibnizO V)) ].
@@ -618,26 +618,25 @@ Section lemmas.
     - rewrite big_opM_own //. iIntros "?". done.
   Qed.
 
+  Global Instance tkmap_elem_combine_sep_gives k γ tk1 tk2 v1 v2 :
+    CombineSepGives (k ↪[γ]{tk1} v1) (k ↪[γ]{tk2} v2)
+      ⌜✓ (to_tgkR tk1 ⋅ to_tgkR tk2) ∧ v1 = v2⌝.
+  Proof.
+    rewrite /CombineSepGives. unseal. iIntros "[H1 H2]".
+    iCombine "H1 H2" gives %[??]%tkmap_view_frag_op_valid_L; auto.
+  Qed.
   Lemma tkmap_elem_valid_2 k γ tk1 tk2 v1 v2 :
     k ↪[γ]{tk1} v1 -∗ k ↪[γ]{tk2} v2 -∗ ⌜✓ (to_tgkR tk1 ⋅ to_tgkR tk2) ∧ v1 = v2⌝.
-  Proof.
-    unseal. iIntros "H1 H2".
-    iDestruct (own_valid_2 with "H1 H2") as %?%tkmap_view_frag_op_valid_L.
-    done.
-  Qed.
+  Proof. iIntros "Helem1 Helem2". by iCombine "Helem1 Helem2" gives %[]. Qed.
   Lemma tkmap_elem_agree k γ tk1 tk2 v1 v2 :
     k ↪[γ]{tk1} v1 -∗ k ↪[γ]{tk2} v2 -∗ ⌜v1 = v2⌝.
-  Proof.
-    iIntros "Helem1 Helem2".
-    iDestruct (tkmap_elem_valid_2 with "Helem1 Helem2") as %[_ ?].
-    done.
-  Qed.
+  Proof. iIntros "Helem1 Helem2". by iCombine "Helem1 Helem2" gives %[_ ?]. Qed.
 
   Lemma tkmap_elem_tk_ne γ k1 k2 tk1 tk2 v1 v2 :
     ¬ ✓ (to_tgkR tk1 ⋅ to_tgkR tk2) → k1 ↪[γ]{tk1} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
   Proof.
     iIntros (?) "H1 H2"; iIntros (->).
-    by iDestruct (tkmap_elem_valid_2 with "H1 H2") as %[??].
+    by iCombine "H1 H2" gives %[??].
   Qed.
   Lemma tkmap_elem_ne γ k1 k2 tk2 v1 v2 :
     k1 ↪[γ]{tk_unq} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
@@ -699,27 +698,26 @@ Section lemmas.
     iDestruct (own_valid with "Hauth") as %?%tkmap_view_auth_frac_valid.
     done.
   Qed.
+  Global Instance tkmap_auth_combine_sep_gives γ q1 q2 m1 m2 :
+    CombineSepGives (tkmap_auth γ q1 m1) (tkmap_auth γ q2 m2)
+      ⌜(q1 + q2 ≤ 1)%Qp ∧ m1 = m2⌝.
+  Proof.
+    rewrite /CombineSepGives. unseal. iIntros "[H1 H2]".
+    iCombine "H1 H2" gives %[??]%tkmap_view_auth_frac_op_valid_L; auto.
+  Qed.
   Lemma tkmap_auth_valid_2 γ q1 q2 m1 m2 :
     tkmap_auth γ q1 m1 -∗ tkmap_auth γ q2 m2 -∗ ⌜(q1 + q2 ≤ 1)%Qp ∧ m1 = m2⌝.
-  Proof.
-    unseal. iIntros "H1 H2".
-    iDestruct (own_valid_2 with "H1 H2") as %[??]%tkmap_view_auth_frac_op_valid_L.
-    done.
-  Qed.
+  Proof. iIntros "H1 H2". by iCombine "H1 H2" gives %[??]. Qed.
   Lemma tkmap_auth_agree γ q1 q2 m1 m2 :
     tkmap_auth γ q1 m1 -∗ tkmap_auth γ q2 m2 -∗ ⌜m1 = m2⌝.
-  Proof.
-    iIntros "H1 H2".
-    iDestruct (tkmap_auth_valid_2 with "H1 H2") as %[_ ?].
-    done.
-  Qed.
+  Proof. iIntros "H1 H2". by iCombine "H1 H2" gives %[??]. Qed.
 
   (** * Lemmas about the interaction of [tkmap_auth] with the elements *)
   Lemma tkmap_lookup {γ q m k tk v} :
     tkmap_auth γ q m -∗ k ↪[γ]{tk} v -∗ ⌜m !! k = Some (tk, v)⌝.
   Proof.
     unseal. iIntros "Hauth Hel".
-    iDestruct (own_valid_2 with "Hauth Hel") as %[??]%tkmap_view_both_frac_valid_L.
+    iCombine "Hauth Hel" gives %[??]%tkmap_view_both_frac_valid_L.
     eauto.
   Qed.
 
@@ -749,7 +747,7 @@ Section lemmas.
     tk = tk_local ∨ tk = tk_unq →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (delete k m).
   Proof.
-    unseal => Htk. apply bi.wand_intro_r. rewrite -own_op.
+    unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -own_op.
     iApply own_update. by apply: tkmap_view_delete.
   Qed.
 
@@ -757,7 +755,7 @@ Section lemmas.
     tk = tk_local ∨ tk = tk_unq →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk, w)]> m) ∗ k ↪[γ]{tk} w.
   Proof.
-    unseal => Htk. apply bi.wand_intro_r. rewrite -!own_op.
+    unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -!own_op.
     apply own_update. by apply: tkmap_view_update.
   Qed.
 
@@ -779,7 +777,7 @@ Section lemmas.
     tkmap_auth γ 1 (m' ∪ m) ∗ ([∗ map] k ↦ (v':_*_) ∈ m', k ↪[γ]{v'.1} v'.2).
   Proof.
     unseal. intros ?. rewrite -big_opM_own_1 -own_op.
-    apply own_update. apply: tkmap_view_alloc_big; done.
+    apply bi.entails_wand, own_update. apply: tkmap_view_alloc_big; done.
   Qed.
 
   (*Lemma tkmap_delete_big {γ m} m0 :*)
