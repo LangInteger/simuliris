@@ -56,10 +56,10 @@ Lemma apply_within_trees_lookup trs trs' blk fn :
   forall blk', blk ≠ blk' -> trs !! blk' = trs' !! blk'.
 Proof.
   unfold apply_within_trees; intro Applied.
-  destruct (trs !! blk) eqn:Lookup; inversion Applied.
-  destruct (fn t) eqn:Result; inversion H0.
+  destruct (trs !! blk) as [t|] eqn:Lookup; inversion Applied as [H0].
+  destruct (fn t) as [t'|] eqn:Result; inversion H0 as [t0].
   split.
-  - exists t; exists t0. try repeat split; [apply lookup_insert|apply Result].
+  - exists t; exists t'. try repeat split; [apply lookup_insert|apply Result].
   - intros blk' Diff. symmetry. apply lookup_insert_ne. apply Diff.
 Qed.
 (* NOTE: stack analogue was:
