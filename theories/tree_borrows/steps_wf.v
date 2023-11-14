@@ -647,8 +647,8 @@ Proof.
   - apply WF.
 Qed.
 
-Lemma head_step_wf P σ σ' e e' efs :
-  head_step P e σ e' σ' efs → state_wf σ → state_wf σ'.
+Lemma base_step P σ σ' e e' efs :
+  base_step P e σ e' σ' efs → state_wf σ → state_wf σ'.
 Proof.
   intros HS WF. inversion HS; [by subst|]. simplify_eq.
   rename select event into ev. destruct ev.

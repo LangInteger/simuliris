@@ -50,8 +50,8 @@ Lemma new_place_safe_reach P σ T r :
 Proof.
   rewrite /new_place.
   safe_reach_bind (Alloc _).
-  eapply safe_reach_head_step.
-  { eapply alloc_head_step. }
+  eapply safe_reach_base_step.
+  { eapply alloc_base_step. }
   eapply safe_reach_refl.
   safe_reach_bind (Let _ _ _).
   eapply safe_reach_pure; [ apply _ | done | ].

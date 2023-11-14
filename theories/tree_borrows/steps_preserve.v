@@ -510,9 +510,7 @@ Proof.
   generalize dependent cids1.
   generalize dependent tr2.
   generalize dependent cids2.
-  Local Unset Mangle Names. (* FIXME: This looks like a bug ? *)
-  induction evts; move=> ?????? Seq1 Seq2; inversion Seq1 as [|????????HEAD1]; inversion Seq2 as [|????????HEAD2].
-  Local Set Mangle Names.
+  induction evts as [|?? IHevts]; move=> ?????? Seq1 Seq2; inversion Seq1 as [|??????? HEAD1]; inversion Seq2 as [|??????? HEAD2].
   - subst. tauto.
   - pose proof (bor_local_step_deterministic HEAD1 HEAD2) as [??]; subst.
     eapply IHevts; eauto.
@@ -525,9 +523,7 @@ Lemma bor_local_seq_forget
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  Local Unset Mangle Names. (* FIXME: This looks like a bug ? *)
-  induction evts as [|?? IHevts]; move=> ?? Seq; inversion Seq as [|????????HEAD1]; subst.
-  Local Set Mangle Names.
+  induction evts as [|?? IHevts]; move=> ?? Seq; inversion Seq as [|??????? HEAD1]; subst.
   - constructor; done.
   - econstructor; [done|exact HEAD1|].
     eapply IHevts; assumption.
@@ -567,9 +563,7 @@ Lemma seq_always_merge
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  Local Unset Mangle Names. (* FIXME: This looks like a bug ? *)
-  induction evts; move=> ?? Seq1 Seq2; inversion Seq1 as [|????????HEAD1 REST1]; inversion Seq2 as [|????????HEAD2 REST2].
-  Local Set Mangle Names.
+  induction evts; move=> ?? Seq1 Seq2; inversion Seq1 as [|????????HEAD1 REST1]; inversion Seq2 as [|??????? HEAD2 REST2].
   - constructor; split; assumption.
   - pose proof (bor_local_step_deterministic HEAD1 HEAD2) as [??]; subst.
     pose proof (bor_local_seq_deterministic (bor_local_seq_forget REST1) (bor_local_seq_forget REST2)) as [??]; subst.

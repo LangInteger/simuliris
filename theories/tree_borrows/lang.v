@@ -357,29 +357,29 @@ Proof.
   - done.
 Qed.
 
-Section head_step.
+Section base_step.
 
-Inductive head_step (P : prog) :
+Inductive base_step (P : prog) :
   expr → state → expr → state → list expr → Prop :=
   | HeadPureS σ e e' efs
       (ExprStep: pure_expr_step P σ.(shp) e e' efs)
-    : head_step P e σ e' σ efs 
+    : base_step P e σ e' σ efs 
   | HeadImpureS σ e e' ev h' α' cids' nxtp' nxtc' efs
       (ExprStep : mem_expr_step σ.(shp) e ev h' e' efs)
       (InstrStep: bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
                            ev α' cids' nxtp' nxtc')
-    : head_step P e σ e' (mkState h' α' cids' nxtp' nxtc') efs.
+    : base_step P e σ e' (mkState h' α' cids' nxtp' nxtc') efs.
 
-Lemma result_head_stuck P e1 σ1 e2 σ2 efs :
-  head_step P e1 σ1 e2 σ2 efs → to_result e1 = None.
+Lemma result_base_stuck P e1 σ1 e2 σ2 efs :
+  base_step P e1 σ1 e2 σ2 efs → to_result e1 = None.
 Proof.
   destruct 1.
   - rename select (pure_expr_step _ _ _ _ _) into Hstep; inversion Hstep; naive_solver.
   - rename select (mem_expr_step _ _ _ _ _ _) into Hstep; inversion Hstep; naive_solver.
 Qed.
 
-Lemma head_ctx_step_result P Ki e σ1 e2 σ2 efs :
-  head_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_result e).
+Lemma base_ctx_step_result P Ki e σ1 e2 σ2 efs :
+  base_step P (fill_item Ki e) σ1 e2 σ2 efs → is_Some (to_result e).
 Proof.
   destruct Ki; inversion_clear 1;
     (rename select (pure_expr_step _ _ _ _ _) into Hstep ||
@@ -388,21 +388,21 @@ Proof.
     simplify_option_eq; eauto using is_Some_to_value_result.
 Qed.
 
-Lemma head_step_fill_result P Ki K e σ1 e2 σ2 efs:
-  head_step P (fill K (fill_item Ki e)) σ1 e2 σ2 efs → is_Some (to_result e).
+Lemma base_step_fill_result P Ki K e σ1 e2 σ2 efs:
+  base_step P (fill K (fill_item Ki e)) σ1 e2 σ2 efs → is_Some (to_result e).
 Proof.
   revert e Ki.
   induction K as [ | Ki' K IH]; simpl; intros e Ki.
-  - by intros ?%head_ctx_step_result.
+  - by intros ?%base_ctx_step_result.
   - intros H. eapply IH in H. by eapply fill_item_result.
 Qed.
 
 Lemma head_ectx_step_no_result P K e σ1 e2 σ2 efs:
-  to_result e = None → head_step P (fill K e) σ1 e2 σ2 efs → K = empty_ectx.
+  to_result e = None → base_step P (fill K e) σ1 e2 σ2 efs → K = empty_ectx.
 Proof.
   intros Hnores H.
   destruct K as [ | Ki K]; first reflexivity.
-  exfalso. apply head_step_fill_result in H.
+  exfalso. apply base_step_fill_result in H.
   eapply is_Some_None; by rewrite <-Hnores.
 Qed.
 
@@ -470,31 +470,31 @@ Qed.
 
 Lemma fill_eq P σ1 σ2 e1 e1' e2 K K' efs:
   to_result e1 = None →
-  head_step P e1' σ1 e2 σ2 efs →
+  base_step P e1' σ1 e2 σ2 efs →
   fill K e1 = fill K' e1' →
   ∃ K'', K' = ectx_compose K K''.
 Proof.
   intros Hres Hstep; revert K'.
   induction K as [|Ki K IH] using rev_ind=> /= K' Hfill; eauto using app_nil_r.
   destruct K' as [|Ki' K' _] using @rev_ind; simplify_eq/=.
-  { rewrite fill_app in Hstep. apply head_ctx_step_result in Hstep.
+  { rewrite fill_app in Hstep. apply base_ctx_step_result in Hstep.
     apply fill_result in Hstep as [Hstep%not_eq_None_Some _]; done. }
   rewrite !fill_app /= in Hfill.
   assert (Ki = Ki') as ->.
   { eapply fill_item_no_result_inj, Hfill; first by apply fill_no_result.
-    apply fill_no_result. eauto using result_head_stuck. }
+    apply fill_no_result. eauto using result_base_stuck. }
   simplify_eq. destruct (IH K') as [K'' ->]; auto.
   exists K''. unfold ectx_compose. cbn. by rewrite assoc.
 Qed.
 
 Lemma bor_lang_mixin :
   LanguageMixin of_class to_class empty_ectx ectx_compose fill
-    subst_map free_vars apply_func head_step.
+    subst_map free_vars apply_func base_step.
 Proof.
   constructor.
   - apply to_of_class.
   - apply of_to_class.
-  - intros p v ???? H%result_head_stuck. rewrite to_of_result in H. congruence.
+  - intros p v ???? H%result_base_stuck. rewrite to_of_result in H. congruence.
   - intros p f v ????. split.
     + cbn. inversion 1; subst;
       (rename select (pure_expr_step _ _ _ _ _) into Hstep ||
@@ -545,7 +545,7 @@ Proof.
     { right. eexists. by apply to_result_class. }
     left. by eapply head_ectx_step_no_result.
 Qed.
-End head_step.
+End base_step.
 
 End bor_lang.
 
