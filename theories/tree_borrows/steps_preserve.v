@@ -563,7 +563,7 @@ Lemma seq_always_merge
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  induction evts; move=> ?? Seq1 Seq2; inversion Seq1 as [|????????HEAD1 REST1]; inversion Seq2 as [|??????? HEAD2 REST2].
+  induction evts; move=> ?? Seq1 Seq2; inversion Seq1 as [|??????? HEAD1 REST1]; inversion Seq2 as [|??????? HEAD2 REST2].
   - constructor; split; assumption.
   - pose proof (bor_local_step_deterministic HEAD1 HEAD2) as [??]; subst.
     pose proof (bor_local_seq_deterministic (bor_local_seq_forget REST1) (bor_local_seq_forget REST2)) as [??]; subst.
