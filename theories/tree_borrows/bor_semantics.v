@@ -85,7 +85,7 @@ Proof.
   destruct r as [z sz].
   generalize dependent z'.
   generalize dependent z.
-  induction sz; intros z z' map newmap MemForeach.
+  induction sz as [|sz IHsz]; intros z z' map newmap MemForeach.
   - unfold mem_apply_locs in MemForeach. injection MemForeach; intro; subst.
     destruct (decide (range'_contains (z, 0) z')) as [Contains | NotContains]; auto.
     unfold range'_contains in Contains; simpl in Contains. lia.
@@ -96,7 +96,7 @@ Proof.
       decide (decide (range'_contains (z', S sz) z')) with ContainsS.
       simpl in MemForeach.
       unfold mem_apply_loc in MemForeach.
-      destruct (fn (map !! z')); simpl in *; [|inversion MemForeach].
+      destruct (fn (map !! z')) as [x|]; simpl in *; [|inversion MemForeach].
       destruct (mem_apply_locs fn (z' + 1) sz _) eqn:Rec; [|inversion MemForeach]; simpl in *.
       injection MemForeach; intro; subst.
       exists x; split; auto.
@@ -138,9 +138,9 @@ Proof.
   generalize dependent z.
   generalize dependent map.
   unfold mem_apply_range'; simpl.
-  induction sz; intros map z; simpl in *.
+  induction sz as [|sz IHsz]; intros map z; simpl in *.
   - exists map; auto.
-  - destruct (IHsz (<[z := fn (map !! z)]> map) (z+1)%Z) as [res].
+  - destruct (IHsz (<[z := fn (map !! z)]> map) (z+1)%Z) as [res H].
     rewrite H; simpl.
     exists res.
     reflexivity.
@@ -155,7 +155,7 @@ Lemma is_Some_proj_extract {X} (ox:option X) (sx:is_Some ox) y :
 Proof.
   destruct ox; simpl in *.
   - intro; subst; reflexivity.
-  - inversion sx; inversion H.
+  - inversion sx as [? H]; inversion H.
 Qed.
 
 Lemma mem_apply_range'_defined_spec {X} fn r z :
@@ -291,11 +291,11 @@ Lemma protector_is_active_matches_witness prot cids :
 Proof.
   rewrite /protector_is_active /witness_protector_is_active /protector_is_for_call /call_of_protector.
   split; intro Hyp.
-  - destruct prot; [destruct p|].
+  - destruct prot as [p|]; [destruct p as [prot call]|].
     * exists call; auto.
     * inversion Hyp.
   - destruct Hyp as [c [IsProt IsActive]].
-    destruct prot; [destruct p|].
+    destruct prot as [p|]; [destruct p as [prot call]|].
     * injection IsProt; intros; subst; assumption.
     * inversion IsProt.
 Qed.

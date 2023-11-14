@@ -8,8 +8,6 @@ From iris.prelude Require Import options.
 
 From simuliris.tree_borrows Require Export expr_semantics bor_semantics parallel_subst.
 
-
-
 Module bor_lang.
 
 (** COMBINED SEMANTICS -------------------------------------------------------*)

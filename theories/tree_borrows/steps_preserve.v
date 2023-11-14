@@ -56,7 +56,7 @@ Proof.
   2: exact Access.
   rewrite exists_node_map.
   unfold compose.
-  pose proof (proj1 (join_success_condition (map_nodes _ tr)) (mk_is_Some _ _ Access)).
+  pose proof (proj1 (join_success_condition (map_nodes _ tr)) (mk_is_Some _ _ Access)) as H.
   rewrite every_node_map in H.
   split; intro Contains.
   * eapply exists_node_increasing.
@@ -77,7 +77,7 @@ Proof.
     - rewrite every_node_eqv_universal.
       intros x Exists xspec.
       destruct xspec as [v App].
-      destruct App.
+      destruct App as [H0].
       unfold IsTag in *; subst.
       apply (Preserves _ _ _ _ _ H0).
 Qed.
@@ -160,7 +160,7 @@ Lemma bor_local_step_preserves_contains
     tr' cids')
   : tree_contains tg tr'.
 Proof.
-  inversion Step; subst.
+  inversion Step as [????? ACC| | |]; subst.
   - (* Access *)
     erewrite <- access_preserves_tags; [eassumption| |exact ACC].
     eapply item_apply_access_preserves_tag.
@@ -179,7 +179,7 @@ Lemma bor_local_step_retag_produces_contains_unique
   : tree_contains tg tr'
   /\ tree_unique tg (create_new_item tg newp) tr'.
 Proof.
-  inversion Step; subst.
+  inversion Step as [| | |????????? RETAG_EFFECT]; subst.
   split.
   - eapply insertion_contains; eauto.
   - injection RETAG_EFFECT; intros; subst.
@@ -202,7 +202,7 @@ Lemma bor_local_step_preserves_unique_easy
   | SilentBLEvt => it = it'
   end.
 Proof.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |??????? FRESH_CHILD ? RETAG_EFFECT]; subst.
   - (* Access *)
     destruct (apply_access_spec_per_node EXISTS_TAG Ex Unq (item_apply_access_preserves_tag _ _) ACC) as [?[Spec[_?]]].
     eexists; split; eauto.
@@ -222,11 +222,12 @@ Lemma bor_local_step_eqv_rel
   (Step : bor_local_step tr cids evt tr' cids')
   : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
 Proof.
-  inversion Step; subst.
-  all: try tauto.
+  inversion Step as [????? ACC| | |??????? FRESH_CHILD ? RETAG_EFFECT]; subst.
   - (* Access *)
     rewrite access_eqv_rel; [|apply item_apply_access_preserves_tag|apply ACC].
     tauto.
+  - tauto.
+  - tauto.
   - (* Retag *)
     injection RETAG_EFFECT; intros; subst.
     rewrite <- insert_eqv_rel.
@@ -243,7 +244,7 @@ Lemma bor_local_step_retag_produces_rel
     tr' cids')
   : ParentChildIn tgp tg tr'.
 Proof.
-  inversion Step; subst.
+  inversion Step as [????? ACC| | |?????? EXISTS_PARENT FRESH_CHILD ? RETAG_EFFECT]; subst.
   injection RETAG_EFFECT; intros; subst.
   eapply insert_produces_ParentChild.
   * eapply new_item_has_tag.
@@ -259,7 +260,7 @@ Lemma bor_local_step_retag_order_nonparent
     tr' cids')
   : ~ParentChildIn tg tg' tr'.
 Proof.
-  inversion Step; subst.
+  inversion Step as [????? ACC| | |?????? EXISTS_PARENT FRESH_CHILD ? RETAG_EFFECT]; subst.
   injection RETAG_EFFECT; intros; subst.
   eapply insertion_order_nonparent; eassumption.
 Qed.
@@ -270,7 +271,7 @@ Lemma apply_access_perm_preserves_backward_reach
   : reach p0 (perm pre) -> reach p0 (perm post).
 Proof.
   destruct b, b', kind, rel.
-  all: destruct pre, initialized, perm.
+  all: destruct pre as [[][]].
   all: destruct p0.
   all: inversion Access.
   (* all cases easy *)
@@ -284,7 +285,7 @@ Lemma apply_access_perm_preserves_forward_unreach
   : ~reach (perm pre) p0 -> ~reach (perm post) p0.
 Proof.
   destruct b, b', kind, rel.
-  all: destruct pre, initialized, perm.
+  all: destruct pre as [[][]].
   all: destruct p0.
   all: inversion Access.
   (* all cases easy *)
@@ -299,7 +300,7 @@ Lemma apply_access_perm_preserves_protected_freeze_like
 Proof.
   unfold freeze_like.
   destruct b', kind, rel.
-  all: destruct pre, initialized, perm.
+  all: destruct pre as [[][]].
   all: inversion Access.
   (* all cases easy *)
   all: intros [H|[H|H]]; inversion H.
@@ -397,7 +398,7 @@ Lemma bor_local_step_preserves_backward_reach
   (UnqPost : tree_unique tg post tr')
   : reach p0 (item_perm_at_loc pre z) -> reach p0 (item_perm_at_loc post z).
 Proof.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |]; subst.
   - apply (memory_access_preserves_backward_reach Ex UnqPre EXISTS_TAG ACC UnqPost).
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
@@ -414,7 +415,7 @@ Lemma bor_local_step_preserves_forward_unreach
   (UnqPost : tree_unique tg post tr')
   : ~reach (item_perm_at_loc pre z) p0 -> ~reach (item_perm_at_loc post z) p0.
 Proof.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |]; subst.
   - apply (memory_access_preserves_forward_unreach Ex UnqPre EXISTS_TAG ACC UnqPost).
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
@@ -432,7 +433,7 @@ Lemma bor_local_step_preserves_protected_freeze_like
   (UnqPost : tree_unique tg post tr')
   : freeze_like (item_perm_at_loc pre z) -> freeze_like (item_perm_at_loc post z).
 Proof.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |]; subst.
   - apply (memory_access_preserves_protected_freeze_like Ex UnqPre EXISTS_TAG Prot ACC UnqPost).
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
   - rewrite (tree_unique_unify Ex UnqPre UnqPost); tauto.
@@ -478,7 +479,7 @@ Lemma seq_always_destruct_last
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  induction evts; move=> ?? Seq; inversion Seq; subst.
+  induction evts as [|?? IHevts]; move=> ?? Seq; inversion Seq; subst.
   - assumption.
   - eapply IHevts; eauto.
 Qed.
@@ -489,11 +490,12 @@ Lemma bor_local_step_deterministic
   (Step2 : bor_local_step tr cids evt tr2 cids2)
   : tr1 = tr2 /\ cids1 = cids2.
 Proof.
-  destruct evt; inversion Step1; inversion Step2; subst.
-  - rewrite ACC in ACC0; injection ACC0; tauto.
+  destruct evt; inversion Step1 as [????? ACC1| | |????????? RETAG_EFFECT1];
+      inversion Step2 as [????? ACC2| | |????????? RETAG_EFFECT2]; subst.
+  - rewrite ACC1 in ACC2; injection ACC2; tauto.
   - tauto.
   - tauto.
-  - rewrite RETAG_EFFECT in RETAG_EFFECT0; injection RETAG_EFFECT0; tauto.
+  - rewrite RETAG_EFFECT1 in RETAG_EFFECT2; injection RETAG_EFFECT2; tauto.
 Qed.
 
 Lemma bor_local_seq_deterministic
@@ -508,9 +510,11 @@ Proof.
   generalize dependent cids1.
   generalize dependent tr2.
   generalize dependent cids2.
-  induction evts; move=> ?????? Seq1 Seq2; inversion Seq1; inversion Seq2; subst.
-  - tauto.
-  - pose proof (bor_local_step_deterministic HEAD HEAD0) as [??]; subst.
+  Local Unset Mangle Names. (* FIXME: This looks like a bug ? *)
+  induction evts; move=> ?????? Seq1 Seq2; inversion Seq1 as [|????????HEAD1]; inversion Seq2 as [|????????HEAD2].
+  Local Set Mangle Names.
+  - subst. tauto.
+  - pose proof (bor_local_step_deterministic HEAD1 HEAD2) as [??]; subst.
     eapply IHevts; eauto.
 Qed.
 
@@ -521,9 +525,11 @@ Lemma bor_local_seq_forget
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  induction evts; move=> ?? Seq; inversion Seq; subst.
+  Local Unset Mangle Names. (* FIXME: This looks like a bug ? *)
+  induction evts as [|?? IHevts]; move=> ?? Seq; inversion Seq as [|????????HEAD1]; subst.
+  Local Set Mangle Names.
   - constructor; done.
-  - econstructor; [done|exact HEAD|].
+  - econstructor; [done|exact HEAD1|].
     eapply IHevts; assumption.
 Qed.
 
@@ -561,10 +567,12 @@ Lemma seq_always_merge
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  induction evts; move=> ?? Seq1 Seq2; inversion Seq1; inversion Seq2; subst.
+  Local Unset Mangle Names. (* FIXME: This looks like a bug ? *)
+  induction evts; move=> ?? Seq1 Seq2; inversion Seq1 as [|????????HEAD1 REST1]; inversion Seq2 as [|????????HEAD2 REST2].
+  Local Set Mangle Names.
   - constructor; split; assumption.
-  - pose proof (bor_local_step_deterministic HEAD HEAD0) as [??]; subst.
-    pose proof (bor_local_seq_deterministic (bor_local_seq_forget REST) (bor_local_seq_forget REST0)) as [??]; subst.
+  - pose proof (bor_local_step_deterministic HEAD1 HEAD2) as [??]; subst.
+    pose proof (bor_local_seq_deterministic (bor_local_seq_forget REST1) (bor_local_seq_forget REST2)) as [??]; subst.
     econstructor; simpl; eauto.
 Qed.
 
@@ -774,7 +782,7 @@ Lemma bor_local_seq_split
 Proof.
   generalize dependent tr.
   generalize dependent cids.
-  induction l; move=> ??.
+  induction l as [|?? IHl]; move=> ??.
   - simpl; split; intro Hyp.
     + eexists. eexists. split; [constructor|assumption].
       all: inversion Hyp; subst; auto.
@@ -782,7 +790,7 @@ Proof.
       inversion S; subst.
       exact S'.
   - simpl; split; intro Hyp.
-    + inversion Hyp; subst.
+    + inversion Hyp as [|??????? HEAD REST]; subst.
       rewrite IHl in REST.
       destruct REST as [?[?[S' S'']]].
       eexists. eexists.
@@ -790,7 +798,7 @@ Proof.
       * econstructor; [assumption|exact HEAD|exact S'].
       * assumption.
     + destruct Hyp as [?[?[S S']]].
-      inversion S; subst.
+      inversion S as [|??????? HEAD REST]; subst.
       econstructor; [assumption|exact HEAD|].
       rewrite IHl.
       eexists. eexists.
@@ -803,7 +811,7 @@ Lemma apply_access_perm_preserves_perminit
   : (initialized pre) = PermInit -> initialized post = PermInit.
 Proof.
   destruct kind, rel.
-  all: destruct pre, initialized, perm, b, b'.
+  all: destruct pre as [[][]], b, b'.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -848,7 +856,7 @@ Lemma apply_access_perm_child_produces_perminit
   : initialized post = PermInit.
 Proof.
   destruct kind, rel; try inversion CHILD.
-  all: destruct pre, initialized, perm, b, b'.
+  all: destruct pre as [[][]], b, b'.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -900,7 +908,7 @@ Lemma bor_local_step_preserves_perminit
     initialized (item_lazy_perm_at_loc post z) = PermInit.
 Proof.
   move=> post Unq'.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |?? tg???? FRESH_CHILD ? RETAG_EFFECT]; subst.
   - eapply memory_access_preserves_perminit.
     + exact Ex.
     + exact Unq.
@@ -970,7 +978,7 @@ Lemma apply_access_perm_protected_initialized_preserves_active
   : (initialized pre) = PermInit -> (perm pre) = Active -> (perm post) = Active.
 Proof.
   destruct kind, rel.
-  all: destruct pre, initialized, perm.
+  all: destruct pre as [[][]].
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -1022,7 +1030,7 @@ Lemma protected_during_step_stays_active
   : forall post, tree_unique affected_tag post tr' -> item_perm_at_loc post z = Active.
 Proof.
   move=> ? Unq'.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |?? tg???? FRESH_CHILD ? RETAG_EFFECT]; subst.
   - apply (memory_access_protected_initialized_preserves_active Ex Unq EXISTS_TAG ACC Unq' Prot eq_refl eq_refl Init ActPre).
   - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
   - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
@@ -1083,7 +1091,7 @@ Lemma apply_access_perm_protected_initialized_preserves_nondis
   : (initialized pre) = PermInit -> ~reach Disabled (perm pre) -> ~reach Disabled (perm post).
 Proof.
   destruct kind, rel.
-  all: destruct pre, initialized, perm.
+  all: destruct pre as [[][]].
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -1135,7 +1143,7 @@ Lemma protected_during_step_stays_nondis
   : forall post, tree_unique affected_tag post tr' -> ~reach Disabled (item_perm_at_loc post z).
 Proof.
   move=> ? Unq'.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |?? tg???? FRESH_CHILD ? RETAG_EFFECT]; subst.
   - apply (memory_access_protected_initialized_preserves_nondis Ex Unq EXISTS_TAG ACC Unq' Prot eq_refl eq_refl Init NonDisPre).
   - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.
   - rewrite <- (tree_unique_unify Ex Unq Unq'); tauto.

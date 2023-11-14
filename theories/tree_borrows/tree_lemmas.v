@@ -49,20 +49,20 @@ Lemma join_join_nodes {X} :
   forall (tr:tree (option (option X))),
   option_bind join_nodes (join_nodes tr) = join_nodes (map_nodes option_join tr).
 Proof.
-  induction tr; simpl; auto.
+  intro tr. induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   rewrite <- IHtr1; rewrite <- IHtr2.
+  destruct data as [data|]; simpl; auto.
   destruct data; simpl; auto.
-  destruct o; simpl; auto.
-  all: destruct (join_nodes tr1); simpl; auto.
-  all: destruct (join_nodes tr2); simpl; auto.
-  destruct (join_nodes t); simpl; auto.
+  all: destruct (join_nodes tr1) as [res1|]; simpl; auto.
+  all: destruct (join_nodes tr2) as [res2|]; simpl; auto.
+  destruct (join_nodes res1); simpl; auto.
 Qed.
 
 Lemma join_nodes_omap_comm {X Y} (fn:X -> Y) :
   forall (tr:tree (option X)),
   join_nodes (map_nodes (option_map fn) tr) = option_map (map_nodes fn) (join_nodes tr).
 Proof.
-  induction tr; simpl; auto.
+  intro tr. induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   rewrite IHtr1; rewrite IHtr2; simpl.
   destruct data; simpl; auto.
   destruct (join_nodes tr1); simpl; auto.
@@ -73,7 +73,7 @@ Lemma map_nodes_compose {W X Y} (fn:W -> X) (fn':X -> Y) :
   forall (tr:tree W),
   map_nodes fn' (map_nodes fn tr) = map_nodes (compose fn' fn) tr.
 Proof.
-  induction tr; simpl; auto.
+  intro tr. induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   rewrite IHtr1. rewrite IHtr2; reflexivity.
 Qed.
 
@@ -96,7 +96,7 @@ Qed.
 Lemma join_success_condition {X} (tr:tree (option X)) :
   is_Some (join_nodes tr) <-> every_node is_Some tr.
 Proof.
-  induction tr; simpl; split; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; split; auto.
   - intro Computation.
     option step in Computation as ?:?.
     option step in Computation as ?:?.
@@ -107,16 +107,16 @@ Proof.
     done.
   - intro AllSuccess.
     destruct AllSuccess as [DataSome [Success1 Success2]].
-    destruct DataSome; rewrite H; clear H; simpl.
-    destruct (proj2 IHtr1 Success1); rewrite H; clear H; simpl.
-    destruct (proj2 IHtr2 Success2); rewrite H; clear H; simpl.
+    destruct DataSome as [? H]; rewrite H; clear H; simpl.
+    destruct (proj2 IHtr1 Success1) as [? H]; rewrite H; clear H; simpl.
+    destruct (proj2 IHtr2 Success2) as [? H]; rewrite H; clear H; simpl.
     auto.
 Qed.
 
 Lemma every_subtree_eqv_universal {X} prop tr :
   every_subtree prop tr <-> (forall (br:tbranch X), exists_subtree ((=) br) tr -> prop br).
 Proof.
-  induction tr; simpl; [split; [intros; contradiction|tauto]|].
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; [split; [intros; contradiction|tauto]|].
   rewrite IHtr1. rewrite IHtr2.
   split; intro Hyp; try repeat split.
   - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
@@ -130,7 +130,7 @@ Qed.
 Lemma exists_subtree_eqv_existential {X} prop tr :
   exists_subtree prop tr <-> (exists (br:tbranch X), exists_subtree ((=) br) tr /\ prop br).
 Proof.
-  induction tr; simpl; [split; [tauto|intro Hyp; destruct Hyp as [_ [Contra _]]; tauto]|].
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; [split; [tauto|intro Hyp; destruct Hyp as [_ [Contra _]]; tauto]|].
   rewrite IHtr1. rewrite IHtr2.
   split; intro Hyp.
   - destruct Hyp as [Hyp0 | [Hyp1 | Hyp2]].
@@ -159,7 +159,7 @@ Proof. induction tr; simpl; auto. Qed.
 Lemma every_node_eqv_universal {X} prop tr :
   every_node prop tr <-> (forall (n:X), exists_node ((=) n) tr -> prop n).
 Proof.
-  induction tr; simpl; [split; [intros; contradiction|tauto]|].
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; [split; [intros; contradiction|tauto]|].
   rewrite IHtr1. rewrite IHtr2.
   split; intro Hyp; try repeat split.
   - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
@@ -173,7 +173,7 @@ Qed.
 Lemma exists_node_eqv_existential {X} prop tr :
   exists_node prop tr <-> (exists (n:X), exists_node ((=) n) tr /\ prop n).
 Proof.
-  induction tr; simpl; [split; [tauto|intro Hyp; destruct Hyp as [_ [Contra _]]; tauto]|].
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; [split; [tauto|intro Hyp; destruct Hyp as [_ [Contra _]]; tauto]|].
   rewrite IHtr1. rewrite IHtr2.
   split; intro Hyp.
   - destruct Hyp as [Hyp0 | [Hyp1 | Hyp2]].
@@ -191,7 +191,7 @@ Qed.
 Lemma tree_permute_fold_map {X Y Z} (tr:tree X) (unit:Z) (combine:Y -> Z -> Z -> Z) (fn:X -> Y) :
   fold_nodes unit combine (map_nodes fn tr) = fold_nodes unit (fun data lt rt => combine (fn data) lt rt) tr.
 Proof.
-  induction tr; simpl; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   rewrite IHtr1. rewrite IHtr2.
   reflexivity.
 Qed.
@@ -223,7 +223,7 @@ Proof.
     inversion Exists as [Ex0 | [Ex1 | Ex2]]; simpl.
     all: inversion All as [All0 [All1 All2]]; auto.
   - intros nExists.
-    induction tr; simpl; auto.
+    induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
     try repeat split.
     (* Now swap the goal and the hypothesis that are all negated *)
     all: try apply IHtr1.
@@ -274,7 +274,7 @@ Lemma insert_true_preserves_every {X} (tr:tree X) (ins:X) (search prop:Tprop X)
   every_node prop tr <-> every_node prop (insert_child_at tr ins search).
 Proof.
   intro PropIns.
-  induction tr; simpl; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   destruct (decide (search data)) eqn:Found.
   (* For most cases, this is straightforward: destruct all and apply inductive hypotheses *)
   all: split; intro H.
@@ -292,7 +292,7 @@ Lemma insert_never_unchanged {X} (tr:tree X) (ins:X) (search prop:Tprop X)
   every_node (compose not search) tr ->
   insert_child_at tr ins search = tr.
 Proof.
-  induction tr; simpl; auto; intro H.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto; intro H.
   destruct H as [H0 [H1 H2]].
   destruct (decide (search data)); [contradiction|].
   rewrite (IHtr1 H1).
@@ -305,7 +305,7 @@ Lemma insert_preserves_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
   exists_node prop tr -> exists_node prop (insert_child_at tr ins search).
 Proof.
   intros Exists.
-  induction tr; simpl; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   destruct (decide (search data)).
   all: simpl.
   all: inversion Exists as [Ex0 | [Ex1 | Ex2]].
@@ -320,7 +320,7 @@ Lemma insert_false_infer_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
   exists_node prop tr.
 Proof.
   intros nIns Exists.
-  induction tr; simpl; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   simpl in Exists.
   destruct (decide (search data)).
   all: inversion Exists as [Ex0 | [Ex1 | Ex2]].
@@ -338,7 +338,7 @@ Lemma insert_true_produces_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
   exists_node prop (insert_child_at tr ins search).
 Proof.
   intros Ins Exists.
-  induction tr; simpl; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   destruct (decide (search data)).
   - right; right; left; done.
   - destruct Exists as [Ex0 | [Ex1 | Ex2]].
@@ -369,7 +369,8 @@ Lemma exists_insert_requires_parent {X} (ins:X) (search prop:Tprop X)
   exists_node prop (insert_child_at tr ins search) ->
   exists_node search tr.
 Proof.
-  induction tr; simpl; auto.
+  intro tr.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   intros Hyp Ex.
   destruct Hyp as [Nprop [Absent1 Absent2]].
   destruct (decide (search data)) eqn:Found; auto.
@@ -384,7 +385,7 @@ Lemma remove_false_preserves_exists {X} (ins:X) (search prop:Tprop X)
   exists_node prop (insert_child_at tr ins search) ->
   exists_node prop tr.
 Proof.
-  intros Nprop tr Hyp; induction tr; simpl in *; auto.
+  intros Nprop tr Hyp; induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl in *; auto.
   destruct (decide (search data)) eqn:Found; auto.
   all: destruct Hyp as [Here | [Hyp1 | Hyp2]]; auto.
   right; right. destruct Hyp2 as [Contra | [Hyp2Sub | Hyp2Empty]]; auto; contradiction.
@@ -395,7 +396,7 @@ Lemma exists_subtree_transitive br prop (tr:tree item) :
   exists_subtree prop (of_branch br) ->
   exists_subtree prop tr.
 Proof.
-  induction tr; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   intros Sub1 Sub2.
   destruct Sub1 as [Sub10 | [Sub11 | Sub12]].
   - destruct br as [[iroot ileft] iright]; simpl in *.
@@ -409,7 +410,7 @@ Lemma every_subtree_transitive br prop (tr:tree item) :
   every_subtree prop (of_branch br) ->
   every_subtree prop tr.
 Proof.
-  induction tr; auto.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
   intros Sub1 Sub2.
   destruct Sub1 as [Sub10 [Sub11 Sub12]].
   destruct br as [[iroot ileft] iright].
@@ -439,7 +440,7 @@ Lemma join_project_exists {X} tr prop :
   join_nodes tr = Some tr' ->
   exists_node prop tr' <-> exists_node (fun x => exists (v:X), x = Some v /\ prop v) tr.
 Proof.
-  induction tr; intros tr' JoinSome.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; intros tr' JoinSome.
   - simpl in JoinSome; injection JoinSome; intros; subst; tauto.
   - option step in JoinSome as ?:?.
     option step in JoinSome as ?:?.
@@ -460,19 +461,19 @@ Lemma join_project_every {X} tr prop :
   join_nodes tr = Some tr' ->
   every_node prop tr' <-> every_node (fun x => exists (v:X), x = Some v /\ prop v) tr.
 Proof.
-  induction tr; intros tr' JoinSome.
+  induction tr as [|? ? IHtr1 ? IHtr2]; intros tr' JoinSome.
   - injection JoinSome; intros; subst; tauto.
   - option step in JoinSome as ?:?.
     option step in JoinSome as ?:?.
     option step in JoinSome as ?:?.
     injection JoinSome; intros; subst.
     simpl.
-    try repeat split.
-    all: destruct H as [?[??]].
+    split; intro H; try repeat split.
+    all: destruct H as [H[??]].
     * eexists; easy.
     * rewrite <- IHtr1; [|eauto]; done.
     * rewrite <- IHtr2; [|eauto]; done.
-    * destruct H as [?[??]]; injection H; intros; subst; auto.
+    * destruct H as [?[H?]]; injection H; intros; subst; auto.
     * rewrite IHtr1; done.
     * rewrite IHtr2; done.
 Qed.
@@ -500,7 +501,7 @@ Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
   every_node (fun x => prop x -> prop' x) tr ->
   exists_node prop' tr.
 Proof.
-  induction tr; simpl; [tauto|].
+  induction tr as [|?? IHtr1 ? IHtr2]; simpl; [tauto|].
   intros H Impl; destruct Impl as [Impl0 [Impl1 Impl2]]; destruct H as [H0 | [H1 | H2]].
   - left; apply Impl0; auto.
   - right; left; apply IHtr1; auto.
@@ -527,7 +528,7 @@ Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:Tprop X) :
 Proof.
   move=> ? Preserves JoinMap.
   generalize dependent tr'.
-  induction tr; [simpl; move=> ? H; injection H; intros; subst; tauto|].
+  induction tr as [|?? IHtr1 ? IHtr2]; [simpl; move=> ? H; injection H; intros; subst; tauto|].
   intros tr' JoinMap.
   destruct (destruct_joined _ _ _ _ JoinMap) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]]; subst.
   simpl.

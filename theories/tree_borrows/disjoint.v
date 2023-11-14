@@ -3,6 +3,7 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve.
 From iris.prelude Require Import options.
 
+
 (* Key lemma: converts the entire traversal to a per-node level.
 This is applicable to every permission in the accessed range, all that's needed
 to complement it should be preservation of permissions outside of said range. *)
@@ -22,7 +23,7 @@ Lemma access_effect_per_loc_within_range
     /\ iprot post = iprot pre
   ).
 Proof.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | | ]; subst.
   (* use apply_access_spec_per_node to get info on the post permission *)
   destruct (apply_access_spec_per_node
     EXISTS_TAG Ex Unq
@@ -58,7 +59,7 @@ Lemma access_effect_per_loc_outside_range
     /\ iprot post = iprot pre
   ).
 Proof.
-  inversion Step; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | | ]; subst.
   destruct (apply_access_spec_per_node
     EXISTS_TAG Ex Unq
     (item_apply_access_preserves_tag _ _)
@@ -1134,20 +1135,22 @@ Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
   destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqWritex]]]; clear Seq''.
-  inversion SeqRetag; subst.
-  inversion SeqWritey; subst.
-  inversion SeqWritex; subst.
-  inversion REST; subst.
-  inversion HEAD; subst.
+  Local Unset Mangle Names. (* FIXME: is this a bug ? *)
+  inversion SeqRetag as [|???????INV1 HEAD1 REST1]. subst.
+  inversion SeqWritey as [|???????INV2 HEAD2 REST2]; subst.
+  inversion SeqWritex as [|???????INV3 HEAD3 REST3]; subst.
+  inversion REST1; subst.
+  inversion HEAD1 as [| | |?????????COMPAT_CID1].
+  Local Set Mangle Names.
   eapply protected_fwrite_cwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID. exact Prot.
-  - exact HEAD.
-  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
-  - exact INV0.
-  - exact HEAD0.
-  - exists []. exact (bor_local_seq_forget REST0).
+  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact INV2.
+  - exact HEAD2.
+  - exists []. exact (bor_local_seq_forget REST2).
+  - exact HEAD3.
 Qed.
 
 Lemma llvm_retagx_opaque_writey_readx_disjoint
@@ -1169,20 +1172,22 @@ Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
   destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqReadx]]]; clear Seq''.
-  inversion SeqRetag; subst.
-  inversion SeqWritey; subst.
-  inversion SeqReadx; subst.
-  inversion REST; subst.
-  inversion HEAD; subst.
+  Local Unset Mangle Names.
+  inversion SeqRetag as [|???????INV1 HEAD1 REST1]. subst.
+  inversion SeqWritey as [|???????INV2 HEAD2 REST2]; subst.
+  inversion SeqReadx as [|???????INV3 HEAD3 REST3]; subst.
+  inversion REST1; subst.
+  inversion HEAD1 as [| | |?????????COMPAT_CID1].
+  Local Set Mangle Names.
   eapply protected_fwrite_cread_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID. exact Prot.
-  - exact HEAD.
-  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
-  - exact INV0.
-  - exact HEAD0.
-  - exists []. exact (bor_local_seq_forget REST0).
+  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact INV2.
+  - exact HEAD2.
+  - exists []. exact (bor_local_seq_forget REST2).
+  - exact HEAD3.
 Qed.
 
 Lemma llvm_retagx_opaque_readx_writey_disjoint
@@ -1204,19 +1209,21 @@ Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
   destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqReadx]]]; clear Seq''.
-  inversion SeqRetag; subst.
-  inversion SeqReadx; subst.
-  inversion SeqWritey; subst.
-  inversion REST; subst.
-  inversion HEAD; subst.
+  Local Unset Mangle Names.
+  inversion SeqRetag as [|???????INV1 HEAD1 REST1]. subst.
+  inversion SeqReadx as [|???????INV2 HEAD2 REST2]; subst.
+  inversion SeqWritey as [|???????INV3 HEAD3 REST3]; subst.
+  inversion REST1; subst.
+  inversion HEAD1 as [| | |?????????COMPAT_CID1].
+  Local Set Mangle Names.
   eapply protected_cread_fwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID. exact Prot.
-  - exact HEAD.
-  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
-  - exists []. exact REST1.
-  - exact HEAD0.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact HEAD3.
+  - exists []. exact REST3.
+  - exact HEAD2.
 Qed.
 
 Lemma llvm_retagx_opaque_writex_writey_disjoint
@@ -1238,19 +1245,21 @@ Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
   destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritex SeqWritey]]]; clear Seq''.
-  inversion SeqRetag; subst.
-  inversion SeqWritey; subst.
-  inversion SeqWritex; subst.
-  inversion REST; subst.
-  inversion HEAD; subst.
+  Local Unset Mangle Names.
+  inversion SeqRetag as [|???????INV1 HEAD1 REST1]. subst.
+  inversion SeqWritey as [|???????INV3 HEAD2 REST2]; subst.
+  inversion SeqWritex as [|???????INV2 HEAD3 REST3]; subst.
+  inversion REST1; subst.
+  inversion HEAD1 as [| | |?????????COMPAT_CID1].
+  Local Set Mangle Names.
   eapply protected_cwrite_fwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID. exact Prot.
-  - exact HEAD.
-  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
-  - exists []. exact REST1.
-  - exact HEAD0.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact HEAD3.
+  - exists []. exact REST3.
+  - exact HEAD2.
 Qed.
 
 Lemma llvm_retagx_opaque_writex_ready_disjoint
@@ -1271,20 +1280,22 @@ Lemma llvm_retagx_opaque_writex_ready_disjoint
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
-  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritex SeqWritey]]]; clear Seq''.
-  inversion SeqRetag; subst.
-  inversion SeqWritey; subst.
-  inversion SeqWritex; subst.
-  inversion REST; subst.
-  inversion HEAD; subst.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritex SeqReady]]]; clear Seq''.
+  Local Unset Mangle Names.
+  inversion SeqRetag as [|???????INV1 HEAD1 REST1]. subst.
+  inversion SeqWritex as [|???????INV3 HEAD2 REST2]; subst.
+  inversion SeqReady as [|???????INV2 HEAD3 REST3]; subst.
+  inversion REST1; subst.
+  inversion HEAD1 as [| | |?????????COMPAT_CID1].
+  Local Set Mangle Names.
   eapply protected_cwrite_fread_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID. exact Prot.
-  - exact HEAD.
-  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
-  - exists []. exact REST1.
-  - exact HEAD0.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact HEAD2.
+  - exists []. exact REST2.
+  - exact HEAD3.
 Qed.
 
 Lemma llvm_retagx_opaque_ready_writex_disjoint
@@ -1305,21 +1316,23 @@ Lemma llvm_retagx_opaque_ready_writex_disjoint
 Proof.
   destruct (proj1 bor_local_seq_split Seq) as [?[?[SeqRetag Seq']]]; clear Seq.
   destruct (proj1 bor_local_seq_split Seq') as [?[?[SeqOpaque Seq'']]]; clear Seq'.
-  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqWritey SeqWritex]]]; clear Seq''.
-  inversion SeqRetag; subst.
-  inversion SeqWritey; subst.
-  inversion SeqWritex; subst.
-  inversion REST; subst.
-  inversion HEAD; subst.
+  destruct (proj1 bor_local_seq_split Seq'') as [?[?[SeqReady SeqWritex]]]; clear Seq''.
+  Local Unset Mangle Names.
+  inversion SeqRetag as [|???????INV1 HEAD1 REST1]. subst.
+  inversion SeqReady as [|???????INV3 HEAD2 REST2]; subst.
+  inversion SeqWritex as [|???????INV2 HEAD3 REST3]; subst.
+  inversion REST1; subst.
+  inversion HEAD1 as [| | |?????????COMPAT_CID1].
+  Local Set Mangle Names.
   eapply protected_fread_cwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID. exact Prot.
-  - exact HEAD.
-  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
-  - exact INV0.
-  - exact HEAD0.
-  - exists []. exact REST0.
+  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
+  - exists opaque. exact (bor_local_seq_forget SeqOpaque).
+  - exact INV3.
+  - exact HEAD2.
+  - exists []. exact REST2.
+  - exact HEAD3.
 Qed.
 
 
@@ -1407,7 +1420,7 @@ Proof.
   generalize dependent z.
   generalize dependent mem.
   generalize dependent mem'.
-  induction sz; move=> mem' mem z OUT Success.
+  induction sz as [|sz IHsz]; move=> mem' mem z OUT Success.
   - injection Success; intros; subst.
     reflexivity.
   - destruct (proj1 (bind_Some _ _ _) Success) as [mem'' [SuccessStep SuccessRest]].
@@ -1428,7 +1441,7 @@ Proof.
   unfold mem_apply_range'.
   destruct range as [z sz]; simpl.
   generalize dependent z.
-  induction sz; move=> z ALL_SOME.
+  induction sz as [|sz IHsz]; move=> z ALL_SOME.
   - eexists. simpl. reflexivity.
   - destruct (IHsz (z + 1)%Z
       ltac:(intros mem' H; apply ALL_SOME; unfold range'_contains; unfold range'_contains in H; simpl; simpl in H; lia))
@@ -1643,14 +1656,14 @@ Proof.
   intros it0 it1 it2 Step01 Step12.
   option step in Step01 as ?:S1.
   option step in Step12 as ?:S2.
-  injection Step01; destruct it1; intro H; injection H; intros; subst; simpl in *; clear Step01; clear H.
-  injection Step12; destruct it2; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
+  injection Step01; destruct it1 as [??? iperm1]; intro H; injection H; intros; subst; simpl in *; clear Step01; clear H.
+  injection Step12; destruct it2 as [??? iperm2]; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
   destruct (permissions_foreach_commutes
     range1 range2
     _ _
     {| initialized:=PermLazy; perm:=initp it0 |}
     (apply_access_perm_read_commutes (rel1:=rel1) (rel2:=rel2) (prot:=bool_decide (protector_is_active (iprot it0) cids)))
-    (lang_base.iperm it0) iperm iperm0) as [perms' [Pre Post]]; [exact S1|exact S2|].
+    (iperm it0) iperm1 iperm2) as [perms' [Pre Post]]; [exact S1|exact S2|].
   unfold item_apply_access.
   rewrite Pre; simpl.
   eexists; split; [reflexivity|].
@@ -1833,14 +1846,15 @@ Proof.
   rewrite bor_local_seq_split.
   rewrite bor_local_seq_split in Seq12.
   destruct Seq12 as [tr_interm [cids_interm [Pre Post]]].
-  inversion Pre; subst.
-  inversion Post; subst.
-  inversion REST; subst.
-  inversion REST0; subst.
-  inversion HEAD; subst.
-  inversion HEAD0; subst.
-  destruct (memory_access_read_commutes tr_initial tr_interm tr_final ACC ACC0) as [tr_alt [PreAlt PostAlt]].
-
+  Local Unset Mangle Names.
+  inversion Pre as [|????????HEAD1 REST1]; subst.
+  inversion Post as [|????????HEAD2 REST2]; subst.
+  inversion REST1 as [INV1|]; subst.
+  inversion REST2 as [INV2|]; subst.
+  inversion HEAD1 as [????? ACC1| | |]; subst.
+  inversion HEAD2 as [????? ACC2| | |]; subst.
+  Local Set Mangle Names.
+  destruct (memory_access_read_commutes tr_initial tr_interm tr_final ACC1 ACC2) as [tr_alt [PreAlt PostAlt]].
   exists tr_alt, cids_final.
   split.
   - econstructor; [done|constructor; [|exact PreAlt]|constructor; done].
@@ -1876,13 +1890,15 @@ Proof.
   rewrite bor_local_seq_split.
   rewrite bor_local_seq_split in Seq12.
   destruct Seq12 as [tr_interm [cids_interm [Pre Post]]].
-  inversion Pre; subst.
-  inversion Post; subst.
-  inversion REST; subst.
-  inversion REST0; subst.
-  inversion HEAD; subst.
-  inversion HEAD0; subst.
-  destruct (memory_access_disjoint_commutes Disjoint tr_initial tr_interm tr_final ACC ACC0) as [tr_alt [PreAlt PostAlt]].
+  Local Unset Mangle Names.
+  inversion Pre as [|????????HEAD1 REST1]; subst.
+  inversion Post as [|????????HEAD2 REST2]; subst.
+  inversion REST1 as [INV1|]; subst.
+  inversion REST2 as [INV2|]; subst.
+  inversion HEAD1 as [????? ACC1| | |]; subst.
+  inversion HEAD2 as [????? ACC2| | |]; subst.
+  Local Set Mangle Names.
+  destruct (memory_access_disjoint_commutes Disjoint tr_initial tr_interm tr_final ACC1 ACC2) as [tr_alt [PreAlt PostAlt]].
 
   exists tr_alt, cids_final.
   split.
@@ -1901,20 +1917,21 @@ Lemma bor_local_seq_accesses_same_cids
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr cids evts tr' cids'.
 Proof.
+  Unset Mangle Names.
   generalize dependent tr.
   generalize dependent cids.
-  induction evts; move=> ??? Seq; inversion Seq; subst.
+  induction evts as [|?? IHevts]; move=> ??? Seq; inversion Seq as [|??????? HEAD]; subst.
   - constructor; assumption.
   - econstructor.
     + assumption.
     + eassumption.
     + eapply IHevts.
       * inversion NoEndCall; subst; assumption.
-      * inversion HEAD; subst.
+      * inversion HEAD as [| |cid0|]; subst.
         -- eassumption.
         -- unfold call_is_active. rewrite elem_of_union. right.
            assumption.
-        -- assert (cid ≠ cid0) as OtherCid by (intro; inversion NoEndCall; apply H2; subst; reflexivity).
+        -- assert (cid ≠ cid0) as OtherCid by (intro; inversion NoEndCall as [|???NE]; apply NE; subst; reflexivity).
            unfold call_is_active. rewrite elem_of_difference.
            split; [assumption|].
            rewrite not_elem_of_singleton; assumption.

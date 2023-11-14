@@ -25,7 +25,7 @@ Lemma insert_eqv_strict_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
   StrictParentChildIn t t' tr <-> StrictParentChildIn t t' (insert_child_at tr ins search).
 Proof.
   intros Nott Nott'; unfold ParentChildIn.
-  induction tr; simpl; auto.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; auto.
   destruct (decide (search data)).
   + rewrite IHtr1; clear IHtr1. rewrite IHtr2; clear IHtr2.
     simpl.
@@ -72,13 +72,13 @@ Proof.
   intros fn FnPreservesTag Success.
   generalize dependent tr'.
   unfold StrictParentChildIn.
-  induction tr; intros tr' Success; simpl in *.
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Success; simpl in *.
   - inversion Success; auto.
   - destruct (destruct_joined _ _ _ _ Success) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]].
     rewrite IHtr1; [|eapply EqTr1'].
     rewrite IHtr2; [|eapply EqTr2'].
     subst; simpl.
-    split; intro H; destruct H as [?[??]]; try repeat split; try assumption.
+    split; intro H; destruct H as [H[??]]; try repeat split; try assumption.
     all: intro Hyp.
     + rewrite <- join_map_preserves_exists; unfold IsTag in *.
       * apply H. erewrite FnPreservesTag; eassumption.
@@ -106,7 +106,7 @@ Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
 Proof.
   intro Nott.
   unfold StrictParentChildIn.
-  induction tr; simpl; auto.
+  induction tr as [|data ????]; simpl; auto.
 destruct (decide (IsTag t data)) eqn:Found; simpl.
   - try repeat split; auto.
     intro H; left; easy.
@@ -132,7 +132,7 @@ Lemma StrictParentChild_transitive t t' t'' (tr:tree item) :
   StrictParentChildIn t t'' tr.
 Proof.
   rewrite /StrictParentChildIn /HasStrictChildTag.
-  induction tr; simpl; auto.
+  induction tr as [|?? IHtr1 tr2 IHtr2]; simpl; auto.
   intros [Condtt' [Reltt'1 Reltt'2]] [Condt't'' [Relt't''1 Relt't''2]].
   split; auto.
   intro H.
@@ -187,7 +187,7 @@ Proof.
   intros Nott Nott' Diff Absent Pins.
   unfold tree_contains in Absent.
   rewrite <- every_not_eqv_not_exists in Absent.
-  induction tr; simpl; auto.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; auto.
   simpl in Pins; destruct (decide (IsTag t' data)) as [Tg'|].
   all: destruct Absent as [Absent0 [Absent1 Absent2]].
   all: destruct Pins as [Pins0 [Pins1 Pins2]].
@@ -211,7 +211,7 @@ Proof.
   move=> Fresh.
   unfold tree_contains in Fresh.
   rewrite <- every_not_eqv_not_exists in Fresh.
-  induction tr; simpl; auto.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; auto.
   destruct (decide (IsTag t data)); simpl in *.
   all: destruct Fresh as [Fresh0 [Fresh1 Fresh2]].
   + try repeat split.
@@ -232,7 +232,7 @@ Proof.
   intros Tg Fresh.
   unfold tree_unique.
   unfold tree_contains in Fresh; rewrite <- every_not_eqv_not_exists in Fresh.
-  induction tr; simpl in *; auto.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; auto.
   destruct Fresh as [?[??]].
   destruct (decide (IsTag tgp data)).
   - try repeat split; [|apply IHtr1; assumption|apply IHtr2; assumption].
@@ -255,7 +255,7 @@ Proof.
   pose proof (inserted_empty_children t ins tr Fresh) as Contra.
   clear Fresh.
   clear ContainsOther.
-  induction tr; simpl in *; try contradiction.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; try contradiction.
   destruct (decide (IsTag t data)).
   all: destruct ContainsParent as [Parent0 | [Parent1 | Parent2]].
   - simpl in Rel.
