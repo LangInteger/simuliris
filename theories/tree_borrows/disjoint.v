@@ -1437,7 +1437,6 @@ Proof.
     eexists (<[z:=fnz]>sub'); simpl.
     unfold mem_apply_loc.
     rewrite Specfnz; simpl.
-    Check (mem_apply_range'_spec _ (z+1, sz)%Z z _ _ Specsub').
     erewrite mem_apply_range'_insert_outside; [reflexivity| |assumption].
     unfold range'_contains; simpl; lia.
 Qed.
