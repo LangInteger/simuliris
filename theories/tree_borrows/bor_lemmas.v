@@ -1,5 +1,4 @@
 From iris.prelude Require Import prelude options.
-From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas.
 From iris.prelude Require Import options.
 

@@ -24,9 +24,8 @@ Lemma access_effect_per_loc_within_range
 Proof.
   inversion Step as [???? EXISTS_TAG ACC| | | ]; subst.
   (* use apply_access_spec_per_node to get info on the post permission *)
-  destruct (apply_access_spec_per_node
-    EXISTS_TAG Ex Unq
-    (item_apply_access_preserves_tag _ _) ACC) as [post [SpecPost [ContainsPost UniquePost]]].
+  destruct (apply_access_spec_per_node Ex Unq
+    (item_apply_access_preserves_metadata _ _) ACC) as [post [SpecPost [ContainsPost UniquePost]]].
   (* and then it's per-tag work *)
   rewrite (tree_unique_specifies_tag _ _ _ Ex Unq) in SpecPost.
   option step in SpecPost as ?:tmpSpec.
@@ -59,9 +58,8 @@ Lemma access_effect_per_loc_outside_range
   ).
 Proof.
   inversion Step as [???? EXISTS_TAG ACC| | | ]; subst.
-  destruct (apply_access_spec_per_node
-    EXISTS_TAG Ex Unq
-    (item_apply_access_preserves_tag _ _)
+  destruct (apply_access_spec_per_node Ex Unq
+    (item_apply_access_preserves_metadata _ _)
     ACC) as [post [SpecPost [ContainsPost UniquePost]]].
   (* We now show that
      (1) post has zpre at loc z
@@ -1790,7 +1788,7 @@ Lemma memory_access_read_commutes
 Proof.
   unfold memory_access.
   apply tree_apply_access_commutes.
-  1,2: intros; eapply item_apply_access_preserves_tag; eassumption.
+  1,2: intros; eapply item_apply_access_preserves_metadata; eassumption.
   intros.
   apply item_apply_access_read_commutes.
 Qed.
@@ -1804,7 +1802,7 @@ Lemma memory_access_disjoint_commutes
 Proof.
   unfold memory_access.
   apply tree_apply_access_commutes.
-  1,2: intros; eapply item_apply_access_preserves_tag; eassumption.
+  1,2: intros; eapply item_apply_access_preserves_metadata; eassumption.
   intros.
   apply item_apply_access_disjoint_commutes; assumption.
 Qed.
@@ -1842,9 +1840,9 @@ Proof.
   exists tr_alt, cids_final.
   split.
   - econstructor; [done|constructor; [|exact PreAlt]|constructor; done].
-    erewrite access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+    erewrite access_preserves_tags; eauto; apply item_apply_access_preserves_metadata.
   - econstructor; [done|constructor; [|exact PostAlt]|constructor; done].
-    erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+    erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_metadata.
 Qed.
 
 Lemma disjoint'_sym {range1 range2} : disjoint' range1 range2 <-> disjoint' range2 range1.
@@ -1885,9 +1883,9 @@ Proof.
   exists tr_alt, cids_final.
   split.
   - econstructor; [done|constructor; [|exact PreAlt]|constructor; done].
-    erewrite access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+    erewrite access_preserves_tags; eauto; apply item_apply_access_preserves_metadata.
   - econstructor; [done|constructor; [|exact PostAlt]|constructor; done].
-    erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_tag.
+    erewrite <- access_preserves_tags; eauto; apply item_apply_access_preserves_metadata.
 Qed.
 
 Lemma bor_local_seq_accesses_same_cids

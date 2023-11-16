@@ -3,7 +3,7 @@ https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
 From simuliris.tree_borrows Require Import helpers.
-From simuliris.tree_borrows Require Export defs steps_foreach steps_access.
+From simuliris.tree_borrows Require Export defs steps_foreach steps_access steps_preserve bor_lemmas.
 From iris.prelude Require Import options.
 
 Lemma wf_init_state : state_wf init_state.
@@ -35,15 +35,22 @@ Proof.
   lia.
 Qed.
 
-(** Alloc *)
 Definition preserve_tree_wf (fn:app (tree item)) nxtp nxtp' nxtc nxtc' :=
   forall tr tr', wf_tree tr nxtp nxtc -> fn tr = Some tr' -> wf_tree tr' nxtp' nxtc'.
 
 Definition preserve_tree_nonempty (fn:app (tree item)) :=
   forall tr tr', ~tr = empty -> fn tr = Some tr' -> ~tr' = empty.
 
+(* Any function that operates only on permissions (which is all transitions steps)
+   leaves the tag and protector unchanged which means that most of the preservation lemmas
+   are trivial once we get to the level of items *)
 Definition preserve_item_metadata (fn:app item) :=
   forall it it', fn it = Some it' -> it.(iprot) = it'.(iprot) /\ it.(initp) = it'.(initp) /\ it.(itag) = it'.(itag).
+
+(* Since there are a lot of layers to the model (trees -> tree -> item -> perms)
+   that we mostly don't really need to reason about (e.g. tree_item_included is per-item
+   and we don't need tree-wide reasoning) we start with some lemmas to turn the per-trees
+   wf preservation to per-item wf preservation *)
 
 Lemma apply_within_trees_wf trs trs' nxtp nxtp' nxtc nxtc' blk fn:
   apply_within_trees fn blk trs = Some trs' ->
@@ -115,6 +122,7 @@ Proof.
   - rewrite lookup_insert_ne; [|done]; apply (WFs blk').
 Qed.
 
+(* Now we get from per-tree to per-item *)
 Lemma tree_joinmap_preserve_prop tr tr' (fn:item -> option item) (P:item -> Prop) :
   (forall it it', fn it = Some it' -> P it -> P it') ->
   every_node P tr ->
@@ -138,10 +146,10 @@ Proof.
   - apply (IHtr2 All2); apply Some2'.
 Qed.
 
-Lemma item_apply_access_preserves_metadata kind strong cids rel range :
-  preserve_item_metadata (item_apply_access kind strong cids rel range).
+Lemma item_apply_access_preserves_metadata kind strong :
+  app_preserves_metadata (item_apply_access kind strong).
 Proof.
-  intros it it'.
+  intros it cids rel range it'.
   unfold item_apply_access.
   destruct (permissions_apply_range' _); simpl; [|intro H; inversion H].
   intro H; injection H; intro; subst; simpl.
@@ -191,42 +199,53 @@ Proof.
 Qed.
 
 Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
-  (forall rel, preserve_item_metadata (fn cids rel range)) ->
+  app_preserves_metadata fn ->
   wf_tree tr nxtp nxtc ->
   tree_apply_access fn cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
+  rewrite /wf_tree /tree_item_included.
+  intros Preserve WF Access.
+  intros tg' Ex'.
+  pose proof (proj2 (access_preserves_tags Preserve Access) Ex') as Ex.
+  destruct (WF tg' Ex) as  [it [Unqit Wfit]].
+  destruct (apply_access_spec_per_node Ex Unqit Preserve Access) as [post [PostSpec [_ Unqpost]]].
+  exists post; split; [assumption|].
+  rewrite /item_wf in Wfit |- *.
+  symmetry in PostSpec.
+  destruct (Preserve _ _ _ _ _ PostSpec) as [Same1 [Same2 Same3]].
+  simpl. rewrite /IsTag /protector_is_for_call. rewrite <- Same1, <- Same2.
+  auto.
+Qed.
 
-Abort.
-
-(*
 Lemma deallocate_trees_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
   memory_deallocate cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ (fun rel => item_dealloc_preserves_metadata _ _ _) WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
 Qed.
 
 Lemma memory_read_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
-  memory_read cids tg range tr = Some tr' ->
+  memory_access AccessRead ProtStrong cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ (fun rel => item_apply_access_preserves_metadata _ _ _ _) WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
 Qed.
 
 Lemma memory_write_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
-  memory_write cids tg range tr = Some tr' ->
+  memory_access AccessWrite ProtStrong cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ (fun rel => item_apply_access_preserves_metadata _ _ _ _) WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
 Qed.
 
+(*
 Lemma alloc_step_wf (σ σ': state) e e' l bor ptr efs:
   mem_expr_step σ.(shp) e (AllocEvt l bor ptr) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -661,5 +680,4 @@ Proof.
   - eapply retag_step_wf; eauto.
   - rename select (mem_expr_step _ _ _ _ _ _) into Hstep. inversion Hstep.
 Qed.
-
 *)

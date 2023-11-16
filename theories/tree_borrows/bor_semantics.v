@@ -527,8 +527,9 @@ Definition trees_unique tg trs blk it :=
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
 
-Definition app_preserves_tag app : Prop :=
-  (forall it cids rel range it', app cids rel range it = Some it' -> itag it = itag it').
+Definition app_preserves_metadata app : Prop :=
+  (forall it cids rel range it', app cids rel range it = Some it' ->
+    itag it = itag it' /\ iprot it = iprot it' /\ initp it = initp it').
 
 (* FIXME: order of args *)
 
