@@ -245,7 +245,16 @@ Proof.
   apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
 Qed.
 
-(*
+Lemma init_mem_singleton_dom blk blk' n n' sz :
+  (blk, n) ∈ dom (init_mem (blk', n') sz ∅) -> blk = blk'.
+Proof.
+  rewrite elem_of_dom.
+  intro Dom.
+  destruct (init_mem_lookup_case _ _ _ _ _ (is_Some_proj_extract _ Dom _ ltac:(reflexivity))) as [[Contra ?]|[i [? E]]].
+  + inversion Contra.
+  + inversion E. reflexivity.
+Qed.
+
 Lemma alloc_step_wf (σ σ': state) e e' l bor ptr efs:
   mem_expr_step σ.(shp) e (AllocEvt l bor ptr) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -256,30 +265,46 @@ Proof.
   destruct σ as [h trs cids nxtp nxtc].
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
-  inversion IS; clear IS. simplify_eq. constructor; simpl.
+  inversion IS as [x| | | | | | |]; clear IS. destruct x; simpl in *; simplify_eq. constructor; simpl.
   - intros blk l Found.
     apply elem_of_dom; apply elem_of_dom in Found.
     rewrite init_mem_dom in Found; rewrite dom_insert.
     rewrite elem_of_union in Found; rewrite elem_of_union.
-    destruct Found.
-    * right. rewrite elem_of_dom; rewrite elem_of_dom in H. apply (WF.(state_wf_dom _) blk l); simpl; done.
+    destruct Found as [FoundL|FoundR].
+    * right. rewrite elem_of_dom; rewrite elem_of_dom in FoundL. apply (WF.(state_wf_dom _) blk l); simpl; done.
     * left.
-      rewrite elem_of_dom in H; destruct H.
-      destruct (init_mem_lookup_empty (fresh_block h, 0) sz (blk, l) x H).
-      destruct H0; injection H1; intros; apply elem_of_singleton; done.
+      rewrite (init_mem_singleton_dom _ _ _ _ _ FoundR).
+      apply elem_of_singleton. reflexivity.
   - apply extend_trees_wf.
-    * apply (wf_trees_increasing _ nxtp nxtc'); [lia|lia|].
-      apply WF.(state_wf_tree_item _).
+    * pose proof (wf_tree_item_mono _ nxtp (S nxtp) ltac:(simpl; eauto) _ _ ltac:(simpl; eauto) (WF.(state_wf_tree_item _))) as WF'.
+      simpl in WF'. assumption.
     * unfold wf_tree; unfold tree_item_included.
-      rewrite <- tree_Forall_forall.
-      simpl; try repeat split; auto; simpl; lia.
+      intros tg Ex. inversion Ex as [isTag|[Contra|Contra]].
+      -- simpl in isTag; inversion isTag as [isRootTag]. simpl in isRootTag. eexists; simpl.
+         rewrite /IsTag in isTag |- *; simpl in *. split.
+         ** tauto.
+         ** rewrite /item_wf. simpl. split.
+            ++ intros tg' Tag. inversion Tag. subst. lia.
+            ++ intros cid' Prot. inversion Prot.
+      -- inversion Contra.
+      -- inversion Contra.
   - intros blk.
     destruct (decide (blk = fresh_block h)).
-    * simplify_eq; rewrite lookup_insert; intros tr IsSome; injection IsSome; intro; subst; intro; inversion H.
-    * rewrite lookup_insert_ne; [|auto]; apply (WF.(state_wf_non_empty _)).
+    * simplify_eq.
+      intros tr IsSome.
+      rewrite /extend_trees in IsSome.
+      rewrite lookup_insert in IsSome.
+      injection IsSome.
+      rewrite /init_tree. intro isbranch. rewrite <- isbranch. auto.
+    * intros tr.
+      rewrite /extend_trees.
+      rewrite lookup_insert_ne.
+      + apply WF.(state_wf_non_empty _).
+      + congruence.
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
 
+(*
 (** Dealloc *)
 Lemma dealloc_step_wf σ σ' e e' l bor ptr efs :
   mem_expr_step σ.(shp) e (DeallocEvt l bor ptr) σ'.(shp) e' efs →
