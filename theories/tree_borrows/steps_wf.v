@@ -304,7 +304,15 @@ Proof.
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
 
-(*
+Lemma trees_deallocate_isSome trs cids tg blk m sz :
+  is_Some (apply_within_trees (memory_deallocate cids tg (m, sz)) blk trs) ->
+  exists tr, trs !! blk = Some tr /\ is_Some (memory_deallocate cids tg (m, sz) tr).
+Proof.
+  unfold apply_within_trees. destruct (trs !! blk) as [t|]; simpl; [|intro H; inversion H as [? H0]; inversion H0].
+  intro isSome. exists t. destruct (memory_deallocate cids tg (m, sz) t) as [t'|]; simpl; [|inversion isSome as [? H0]; inversion H0].
+  auto.
+Qed.
+
 (** Dealloc *)
 Lemma dealloc_step_wf σ σ' e e' l bor ptr efs :
   mem_expr_step σ.(shp) e (DeallocEvt l bor ptr) σ'.(shp) e' efs →
@@ -317,8 +325,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS; clear IS; simplify_eq.
-  Check (mk_is_Some _ _ ACC).
+  inversion IS as [ | | | | |????? ACC | | ]; clear IS; simplify_eq.
   destruct (trees_deallocate_isSome _ _ _ _ _ _ (mk_is_Some _ _ ACC)) as [x [Lookup Update]].
   constructor; simpl.
   - intros blk' l'. rewrite <- (elem_of_dom (free_mem _ _ _) _).
@@ -338,148 +345,10 @@ Proof.
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
 
-Lemma mem_app_lookup l lkp vlp h h' val :
-  mem_app l lkp vlp h = Some (val, h') ->
-  (∀ (i: nat), (i < length vlp)%nat → exists sclp scal pol oldlk newlk,
-    vlp !! i = Some sclp
-    /\ h !! (l +ₗ i) = Some (oldlk, scal)
-    /\ apply_policy sclp scal = pol
-    /\ lkp oldlk = Some newlk
-    /\ val !! i = Some pol.(sread)
-    /\ h' !! (l +ₗ i) = Some (newlk, pol.(swrite)))
-  ∧
-  (∀ (l': loc), (∀ (i: nat), (i < length vlp)%nat → l' ≠ l +ₗ i) →
-    h' !! l' = h !! l').
-Proof.
-  revert l h h' val. induction vlp as [|sclp vlp IH]; move => l h h' val Success; simpl in *.
-  - injection Success; intros; subst.
-    split; intros i Hyp.
-    * exfalso; destruct i; lia.
-    * reflexivity.
-  - destruct (h !! l) eqn:Lookup; simpl in Success; [|inversion Success].
-    destruct p.
-    destruct (lkp l0) eqn:EqLkp; simpl in Success; [|inversion Success].
-    destruct (apply_policy _ _) eqn:EqAppLkp.
-    destruct (mem_app _ _ _ _) eqn:EqMemApp; simpl in Success; [|inversion Success].
-    destruct p.
-    injection Success; intros; subst.
-    pose (h'' := <[l:=(l1, swrite)]> h).
-    specialize IH with (l := l +ₗ 1) (h := h'') (h' := h') (val := v).
-    destruct (IH EqMemApp) as [IH' IH'']; clear IH; clear EqMemApp.
-    split.
-    * intros i Bound.
-      destruct i.
-      + exists sclp; exists s; exists (apply_policy sclp s); exists l0; exists l1.
-        try repeat split; subst; try rewrite EqAppLkp; try rewrite shift_loc_0; simpl; auto.
-        rewrite IH''. ++ rewrite lookup_insert; reflexivity. ++ intros i Bound'. rewrite shift_loc_assoc.
-        intro Absurd; destruct l; unfold shift_loc in Absurd; simpl in Absurd; injection Absurd; lia.
-      + assert ((i < length vlp)%nat) by lia.
-        specialize IH' with i.
-        destruct IH' as [sclp' [scal [pol [oldlk [newlk [H1 [H2 [H3 [H4 [H5 H6]]]]]]]]]]; [done|].
-        exists sclp'; exists scal; exists (apply_policy sclp' scal); exists oldlk; exists newlk.
-        replace (l +ₗ S i) with (l +ₗ 1 +ₗ i).
-        1: try repeat split; subst; simpl; auto.
-        1: erewrite <- (lookup_insert_ne h l _ (l1, swrite)); [exact H2|].
-        all: destruct l; unfold shift_loc; simpl. ++ intro Loc; injection Loc; lia. ++ f_equal; lia.
-    * intros l' Range.
-      rewrite IH''.
-      1: rewrite (lookup_insert_ne _ _ _ _); [reflexivity|].
-      + replace l with (l +ₗ 0); [|unfold shift_loc; destruct l; simpl; f_equal; lia].
-        intro H; symmetry in H; move: H. apply (Range (Z.to_nat 0)); lia.
-      + intros i Bound'. rewrite shift_loc_assoc.
-        replace (l +ₗ (1 + i)) with (l +ₗ (S i)).
-        ++ apply Range; lia.
-        ++ unfold shift_loc; f_equal; lia.
-Qed.
-
-Lemma mem_app_local l lkp vlp h1 h2 val h1' :
-  mem_app l lkp vlp h1 = Some (val, h1') ->
-  (forall i:nat, (i < length vlp) -> h1 !! (l +ₗ i) = h2 !! (l +ₗ i)) ->
-  exists h2', (
-    mem_app l lkp vlp h2 = Some (val, h2')
-    /\ forall i:nat, (i < length vlp) -> h1' !!  (l +ₗ i) = h2' !! (l +ₗ i)
-  ).
-Proof.
-  revert l h1 h1' h2 val. induction vlp as [|sclp vlp IH]; move => l h1 h1' h2 val Success Coincide.
-  - simpl in Success; injection Success; intros; subst.
-    exists h2. simpl. split; auto.
-  - simpl in *; destruct (h1 !! l) eqn:Lookup; [|inversion Success]; simpl in *.
-    rewrite <- (shift_loc_0_nat l); rewrite <- (Coincide O); [|lia]; rewrite (shift_loc_0_nat); rewrite Lookup; simpl.
-    destruct p as [lk scal].
-    destruct (lkp lk) as [lk'|]; [|inversion Success]; simpl in *.
-    destruct (apply_policy _ _).
-    destruct (mem_app _ _ _ _) as [[val'' h1'']|] eqn:EqApplied; [|inversion Success]; simpl in *.
-    injection Success; intros; subst.
-    destruct (IH (l +ₗ 1%nat) (<[l:=(lk',swrite)]> h1) h1' (<[l:=(lk',swrite)]> h2) val'' EqApplied) as [h2' [Success2 Range2]]. {
-      intros i Bound. repeat rewrite lookup_insert_ne. {
-        rewrite shift_loc_assoc_nat. apply Coincide. lia.
-      }
-      all: unfold shift_loc; destruct l; simpl; intro H; injection H; lia.
-    }
-    rewrite Success2; simpl.
-    exists h2'.
-    split.
-    * reflexivity.
-    * intros i Bound. destruct i.
-      + rewrite shift_loc_0_nat.
-        rewrite (proj2 (mem_app_lookup _ _ _ _ _ _ Success2) l); [|intros i _; unfold shift_loc; destruct l; simpl; intro H; injection H; lia].
-        rewrite (proj2 (mem_app_lookup _ _ _ _ _ _ EqApplied) l); [|intros i _; unfold shift_loc; destruct l; simpl; intro H; injection H; lia].
-        repeat rewrite lookup_insert; reflexivity.
-      + specialize Range2 with i. rewrite shift_loc_assoc_nat in Range2. apply Range2; lia.
-Qed.
-
-(* mem_app preserves the domain
-   The key argument is an extraction of the assignment from (mem_app (l+1) _ (<[l:=v]> h)) to (<[l:=v]> (mem_app (l+1) _ h))
-   obtained by noninterference of <[l:=v]> with (mem_app (l+1))
-*)
-Lemma mem_app_dom l vl lkp vlp h h'
-  (DEFINED: ∀ i : nat, (i < strings.length vlp)%nat → (l +ₗ i) ∈ dom h)
-  (LOCKS: mem_app l lkp vlp h = Some (vl, h')) :
-  dom h' ≡ dom h.
-Proof.
-  revert l h h' vl DEFINED LOCKS. induction vlp as [|sclp vlp IH]; intros l h h' vl DEFINED LOCKS; [inversion LOCKS; auto|].
-  simpl in LOCKS; destruct (h !! l); simpl in LOCKS; [|inversion LOCKS].
-  destruct p; destruct (lkp l0) eqn:EqLkp; simpl in LOCKS; [|inversion LOCKS].
-  destruct (apply_policy _ _) eqn:EqAppLkp.
-  destruct (mem_app _ _ _ _) eqn:EqMemApp; simpl in LOCKS; [|inversion LOCKS].
-  destruct p; injection LOCKS; intros; subst.
-  rewrite <- (dom_map_insert_is_Some h l (l1, swrite)).
-  2: { apply elem_of_dom. rewrite <- (shift_loc_0_nat l). apply DEFINED; simpl; lia. }
-  rewrite <- (IH (l +ₗ 1%nat) (<[l:=(l1, swrite)]>h) h' v); simpl in LOCKS.
-  - reflexivity.
-  - intros i Bound; rewrite (dom_map_insert_is_Some _ _ _).
-    * rewrite shift_loc_assoc_nat. apply DEFINED. simpl; lia.
-    * rewrite <- elem_of_dom; rewrite <- (shift_loc_0_nat l).
-      apply DEFINED; simpl; lia.
-  - exact EqMemApp.
-Qed.
-
-Lemma read_success_implies_defined h h' l vl lkp vlp :
-  mem_app l lkp vlp h = Some (vl, h') ->
-  (forall i:nat, (i < length vlp)%nat -> (l +ₗ i) ∈ dom h).
-Proof.
-  revert h h' l vl.
-  induction vlp; simpl; intros h h' l vl.
-  - intros _ i Absurd; lia.
-  - destruct (h !! l) eqn:EqLookup; simpl; [|intro H; inversion H].
-    destruct p.
-    destruct (lkp l0) eqn:EqLkPol; simpl; [|intro H; inversion H].
-    destruct (apply_policy _ _) eqn:EqAppPol.
-    destruct (mem_app (l +ₗ 1) _ _ _) eqn:EqMemApp; simpl; [|intro H; inversion H].
-    destruct p.
-    intro H; injection H; intros; subst.
-    destruct i.
-    * rewrite elem_of_dom. apply (mk_is_Some _ (l0, s)). rewrite shift_loc_0_nat. exact EqLookup.
-    * rewrite <- (dom_map_insert_is_Some h).
-      2: { apply (mk_is_Some _ (l0, s)). exact EqLookup. }
-      rewrite <- Nat.add_1_l. rewrite <- shift_loc_assoc_nat.
-      apply (IHvlp _ _ _ _ EqMemApp i); lia.
-Qed.
-
-Lemma read_step_wf σ σ' e e' atm l bor ptr vl efs :
-  mem_expr_step σ.(shp) e (ReadEvt atm l bor ptr vl) σ'.(shp) e' efs →
+Lemma read_step_wf σ σ' e e' l bor ptr vl efs :
+  mem_expr_step σ.(shp) e (CopyEvt l bor ptr vl) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (ReadEvt atm l bor ptr vl)
+           (CopyEvt l bor ptr vl)
            σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
   state_wf σ → state_wf σ'.
 Proof.
@@ -487,56 +356,40 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  all: inversion IS; clear IS; simplify_eq.
-  all: constructor; simpl.
-  - (* Atomic, dom *)
-    intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    rewrite <- (elem_of_dom h').
-    rewrite (mem_app_dom _ _ _ _ h h' _ READ).
-    1: { rewrite elem_of_dom. apply (WF.(state_wf_dom _) blk' l'). }
-    unfold policy_read. rewrite repeat_length; intros i Bound.
-    apply (read_success_implies_defined _ _ _ _ _ _ READ). unfold policy_read. rewrite repeat_length; done.
-  - (* Atomic, wf *)
+  inversion IS as [ |?????? ACC| | | | | | ]; clear IS; simplify_eq.
+  constructor; simpl.
+  - intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
+    apply WF.(state_wf_dom _).
+  - (* wf *)
     apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
     * tauto.
     * intros tr tr'. apply memory_read_wf.
     * apply (WF.(state_wf_tree_item _)).
-  - (* Atomic, nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_read_preserve_nonempty _ _ _) ACC).
-  - (* Atomic, cids *) apply (WF.(state_wf_cid_agree _)).
-  - (* NaStart, dom *)
-    intros blk' l'. rewrite <- (elem_of_dom h'). rewrite (mem_app_dom _ _ _ _ h h' _ READ).
-    * rewrite elem_of_dom. apply (WF.(state_wf_dom _)).
-    * rewrite repeat_length; intros i Bound. apply (read_success_implies_defined _ _ _ _ _ _ READ).
-      rewrite repeat_length; done.
-  - (* NaStart, wf *) apply WF.(state_wf_tree_item _).
-  - (* NaStart, nonempty *) apply WF.(state_wf_non_empty _).
-  - (* NaStart, cids *) apply WF.(state_wf_cid_agree _).
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* NaEnd, dom *)
-    intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    rewrite <- (elem_of_dom h').
-    rewrite (mem_app_dom _ _ _ _ h h' _ READ).
-    1: { rewrite elem_of_dom. apply (WF.(state_wf_dom _) blk' l'). }
-    unfold policy_read. rewrite repeat_length; intros i Bound.
-    apply (read_success_implies_defined _ _ _ _ _ _ READ). unfold policy_read. rewrite repeat_length; done.
-  - (* NaEnd, wf *)
-    apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
-    * tauto.
-    * intros tr tr'. apply memory_read_wf.
-    * apply WF.(state_wf_tree_item _).
-  - (* NaEnd, nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_read_preserve_nonempty _ _ _) ACC).
-  - (* NaEnd, cids *) apply (WF.(state_wf_cid_agree _)).
+  - (* nonempty *)
+    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_read_preserve_nonempty _ _ _ _ _) ACC).
+  - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
-Lemma write_step_wf σ σ' e e' atm l bor ptr vl efs :
-  mem_expr_step σ.(shp) e (WriteEvt atm l bor ptr vl) σ'.(shp) e' efs →
+Lemma failed_copy_step_wf σ σ' e e' l bor T efs :
+  mem_expr_step σ.(shp) e (FailedCopyEvt l bor T) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (WriteEvt atm l bor ptr vl)
+           (FailedCopyEvt l bor T)
+           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
+  state_wf σ → state_wf σ'.
+Proof.
+  destruct σ as [h α cids nxtp nxtc].
+  destruct σ' as [h' α' cids' nxtp' nxtc']. simpl.
+  intros BS IS WF.
+  inversion BS. clear BS. simplify_eq.
+  inversion IS; clear IS; simplify_eq.
+  done.
+Qed.
+
+(*
+Lemma write_step_wf σ σ' e e' l bor ptr vl efs :
+  mem_expr_step σ.(shp) e (WriteEvt l bor ptr vl) σ'.(shp) e' efs →
+  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
+           (WriteEvt l bor ptr vl)
            σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
   state_wf σ → state_wf σ'.
 Proof.
@@ -548,7 +401,7 @@ Proof.
   all: constructor; simpl.
   - (* Atomic, dom *)
     intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    rewrite <- (elem_of_dom h').
+    rewrite <- (elem_of_dom _).
     rewrite (mem_app_dom _ _ _ _ h h' _ WRITE).
     1: { rewrite elem_of_dom. apply (WF.(state_wf_dom _) blk' l'). }
     unfold policy_read. rewrite map_length; intros i Bound.
