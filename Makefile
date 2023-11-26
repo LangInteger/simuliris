@@ -1,10 +1,6 @@
-# Enable name mangling when we build.
-# We can't add this flag to _CoqProject because it gets passed to CoqIDE.
-MANGLE_MAKE = COQEXTRAFLAGS="-mangle-names _" $(MAKE)
-
 # Default target
 all: Makefile.coq
-	+@$(MANGLE_MAKE) -f Makefile.coq all
+	+@$(MAKE) -f Makefile.coq all
 .PHONY: all
 
 # Permit local customization
@@ -13,7 +9,7 @@ all: Makefile.coq
 # Forward most targets to Coq makefile (with some trick to make this phony)
 %: Makefile.coq phony
 	@#echo "Forwarding $@"
-	+@$(MANGLE_MAKE) -f Makefile.coq $@
+	+@$(MAKE) -f Makefile.coq $@
 phony: ;
 .PHONY: phony
 

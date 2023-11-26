@@ -4,8 +4,6 @@
 # Cannot use non-canonical projections as it causes massive unification failures
 # (https://github.com/coq/coq/issues/6294).
 -arg -w -arg -redundant-canonical-projection
-# Fixing this requires Coq 8.15.
--arg -w -arg -deprecated-typeclasses-transparency-without-locality
 
 theories/logic/satisfiable.v
 theories/simulation/language.v
@@ -165,4 +163,17 @@ theories/tree_borrows/parallel_subst.v
 # theories/tree_borrows/refl.v # needs proofmode
 theories/tree_borrows/behavior.v # builds almost as-is
 # theories/tree_borrows/adequacy.v # needs proofmode
+
+# These are SB examples that were copied directly.
+# Some of them we still want, but other are known to be no longer
+# provable or even valid.
+#theories/tree_borrows/examples/lib.v
+#theories/tree_borrows/examples/pure.v
+#theories/tree_borrows/examples/opt1.v
+#theories/tree_borrows/examples/opt1_down.v
+#theories/tree_borrows/examples/opt2.v
+#theories/tree_borrows/examples/opt2_down.v
+#theories/tree_borrows/examples/opt3.v
+#theories/tree_borrows/examples/opt3_down.v
+#theories/tree_borrows/examples/coinductive.v
 
