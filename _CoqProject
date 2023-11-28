@@ -117,3 +117,70 @@ theories/stacked_borrows/examples/opt2_down.v
 theories/stacked_borrows/examples/opt3.v
 theories/stacked_borrows/examples/opt3_down.v
 theories/stacked_borrows/examples/coinductive.v
+
+
+
+
+## Tree Borrows
+# Basic definitions, mostly unchanged from SB
+theories/tree_borrows/helpers.v
+theories/tree_borrows/locations.v
+theories/tree_borrows/lang_base.v
+theories/tree_borrows/notation.v
+theories/tree_borrows/expr_semantics.v
+# Definitions specific to Tree Borrows
+theories/tree_borrows/tree.v
+theories/tree_borrows/tree_lemmas.v
+theories/tree_borrows/bor_semantics.v
+theories/tree_borrows/bor_lemmas.v
+theories/tree_borrows/lang.v
+
+# Proofs directly against the operational semantics.
+# Ultimately goes in a different direction but there are useful
+# intermediate lemmas.
+# Both of these files can be removed (after extracting some lemmas)
+# if keeping them building slows down development too much.
+theories/tree_borrows/steps_preserve.v
+theories/tree_borrows/disjoint.v
+
+# Well-formedness and other low level lemmas.
+theories/tree_borrows/defs.v
+theories/tree_borrows/steps_foreach.v
+#theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
+theories/tree_borrows/steps_access.v
+theories/tree_borrows/steps_wf.v # Preservation of WF, work in progress
+#theories/tree_borrows/steps_progress.v # barely modified from SB
+#theories/tree_borrows/steps_retag.v # barely modified from SB
+#theories/tree_borrows/steps_inv.v # barely modified from SB
+
+theories/tree_borrows/tactics.v
+theories/tree_borrows/class_instances.v
+#theories/tree_borrows/tkmap_view.v # barely modified from SB
+#theories/tree_borrows/logical_state.v # needs tkmap_view
+#theories/tree_borrows/inv_accessors.v # needs tkmap_view
+#theories/tree_borrows/steps_refl.v # needs tkmap_view
+#theories/tree_borrows/steps_opt.v # needs tkmap_view
+#theories/tree_borrows/primitive_laws.v # needs logical_state
+#theories/tree_borrows/proofmode.v # needs primitive_laws
+
+theories/tree_borrows/wf.v # builds almost as-is
+theories/tree_borrows/parallel_subst.v
+#theories/tree_borrows/log_rel_structural.v # needs proofmode
+#theories/tree_borrows/refl.v # needs proofmode
+theories/tree_borrows/behavior.v # builds almost as-is
+#theories/tree_borrows/adequacy.v # needs proofmode
+
+# Examples
+# These were copied directly from SB.
+# Some of them we still want, but other are known to be no longer
+# provable or even valid.
+#theories/tree_borrows/examples/lib.v
+#theories/tree_borrows/examples/pure.v
+#theories/tree_borrows/examples/opt1.v
+#theories/tree_borrows/examples/opt1_down.v
+#theories/tree_borrows/examples/opt2.v
+#theories/tree_borrows/examples/opt2_down.v
+#theories/tree_borrows/examples/opt3.v
+#theories/tree_borrows/examples/opt3_down.v
+#theories/tree_borrows/examples/coinductive.v
+
