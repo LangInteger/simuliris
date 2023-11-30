@@ -177,7 +177,7 @@ Proof.
   apply Dealloc.
 Qed.
 
-Lemma memory_read_preserve_nonempty kind strong cids tg range :
+Lemma memory_access_preserve_nonempty kind strong cids tg range :
   preserve_tree_nonempty (memory_access kind strong cids tg range).
 Proof.
   intros tr tr' Nonempty Read.
@@ -366,7 +366,7 @@ Proof.
     * intros tr tr'. apply memory_read_wf.
     * apply (WF.(state_wf_tree_item _)).
   - (* nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_read_preserve_nonempty _ _ _ _ _) ACC).
+    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _ _) ACC).
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -385,7 +385,30 @@ Proof.
   done.
 Qed.
 
-(*
+Lemma write_mem_dom l (vl : value) h h'
+  (DEFINED: ∀ i : nat, (i < length vl)%nat → (l +ₗ i) ∈ dom h)
+  (SUCCESS: write_mem l vl h = h') :
+  dom h' ≡ dom h.
+Proof.
+  revert l h h' DEFINED SUCCESS. induction vl as [|sc vl IH]; intros l h h' DEFINED SUCCESS.
+  - simpl in *. subst. reflexivity.
+  - simpl in *. rewrite <- SUCCESS.
+    rewrite IH; [| |reflexivity].
+    + apply dom_map_insert_is_Some.
+      pose proof (DEFINED 0%nat) as Overwrite.
+      rewrite shift_loc_0 in Overwrite.
+      apply elem_of_dom.
+      apply Overwrite.
+      lia.
+    + intros i Length.
+      rewrite dom_insert.
+      apply elem_of_union_r.
+      rewrite shift_loc_assoc.
+      replace (l +ₗ (1 + i)) with (l +ₗ (1 + i)%nat) by (unfold shift_loc; simpl; f_equal; lia).
+      apply DEFINED.
+      lia.
+Qed.
+
 Lemma write_step_wf σ σ' e e' l bor ptr vl efs :
   mem_expr_step σ.(shp) e (WriteEvt l bor ptr vl) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -397,52 +420,26 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  all: inversion IS; clear IS; simplify_eq.
-  all: constructor; simpl.
-  - (* Atomic, dom *)
-    intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    rewrite <- (elem_of_dom _).
-    rewrite (mem_app_dom _ _ _ _ h h' _ WRITE).
-    1: { rewrite elem_of_dom. apply (WF.(state_wf_dom _) blk' l'). }
-    unfold policy_read. rewrite map_length; intros i Bound.
-    apply (read_success_implies_defined _ _ _ _ _ _ WRITE). unfold policy_write. rewrite map_length; done.
-  - (* Atomic, wf *)
+  inversion IS as [ | | |?????? ACC | | | | ]; clear IS; simplify_eq.
+  constructor; simpl.
+  - intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
+    intro Elem.
+    pose proof (proj2 (elem_of_dom _ _) Elem) as dom_write_mem.
+    rewrite write_mem_dom in dom_write_mem; [|eassumption|reflexivity].
+    rewrite elem_of_dom in dom_write_mem.
+    apply (WF.(state_wf_dom _) _ _ dom_write_mem).
+  - (* wf *)
     apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
     * tauto.
     * intros tr tr'. apply memory_write_wf.
     * apply (WF.(state_wf_tree_item _)).
-  - (* Atomic, nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_write_preserve_nonempty _ _ _) ACC).
-  - (* Atomic, cids *) apply (WF.(state_wf_cid_agree _)).
-  - (* NaStart, dom *)
-    intros blk' l'. rewrite <- (elem_of_dom h'). rewrite (mem_app_dom _ _ _ _ h h' _ WRITE).
-    * rewrite elem_of_dom. apply (WF.(state_wf_dom _)).
-    * rewrite repeat_length; intros i Bound. apply (read_success_implies_defined _ _ _ _ _ _ WRITE).
-      rewrite repeat_length; done.
-  - (* NaStart, wf *) apply WF.(state_wf_tree_item _).
-  - (* NaStart, nonempty *) apply WF.(state_wf_non_empty _).
-  - (* NaStart, cids *) apply WF.(state_wf_cid_agree _).
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* Atomicity mismatch *) destruct ATOMICITY as [H|H]; inversion H.
-  - (* NaEnd, dom *)
-    intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    rewrite <- (elem_of_dom h').
-    rewrite (mem_app_dom _ _ _ _ h h' _ WRITE).
-    1: { rewrite elem_of_dom. apply (WF.(state_wf_dom _) blk' l'). }
-    unfold policy_read. rewrite map_length; intros i Bound.
-    apply (read_success_implies_defined _ _ _ _ _ _ WRITE). unfold policy_write. rewrite map_length; done.
-  - (* NaEnd, wf *)
-    apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
-    * tauto.
-    * intros tr tr'. apply memory_write_wf.
-    * apply WF.(state_wf_tree_item _).
-  - (* NaEnd, nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_write_preserve_nonempty _ _ _) ACC).
-  - (* NaEnd, cids *) apply (WF.(state_wf_cid_agree _)).
+  - (* nonempty *)
+    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _ _) ACC).
+  - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
+
+(*
 Lemma initcall_step_wf σ σ' e e' n efs :
   mem_expr_step σ.(shp) e (InitCallEvt n) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -460,6 +457,7 @@ Proof.
   - intros c. rewrite elem_of_union.
     move => [|/(state_wf_cid_agree _ WF)]; [intros ->%elem_of_singleton_1; by left|by right].
 Qed.
+ *)
 
 (** EndCall *)
 Lemma endcall_step_wf σ σ' e e' n efs :
@@ -479,6 +477,7 @@ Proof.
     apply elem_of_difference in IN. apply IN.
 Qed.
 
+(*
 (** Retag *)
 Lemma insert_Exists_split {X} (tr:tree X) (ins:X) prop search
   {search_dec:forall x, Decision (search x)} :
@@ -496,7 +495,9 @@ Proof.
     * destruct (IHtr1 Ex1) as [Ex0' | [Ex1' Ex2']]; auto.
     * destruct (IHtr2 Ex2) as [Ex0' | [Ex1' Ex2']]; auto.
 Qed.
+ *)
 
+(*
 Lemma insert_child_wf cids ot range nxtp newp nxtc :
   (match newp.(new_protector) with None => True | Some {| call:=c |} => (c < nxtc)%nat end) ->
   preserve_tree_wf (create_child cids ot range (Tag nxtp) newp) nxtp (S nxtp) nxtc nxtc.

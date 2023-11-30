@@ -1,3 +1,35 @@
+(** This file proves some simple reorderings directly against the operational semantics
+    in sequential code.
+
+    For example we prove here the fact that in any context, two adjacent read
+    accesses can be swapped and the resulting state is identical to the initial state.
+    Because these proofs use a different definition of bor_step and do not involve
+    parallelism, the lemmas established here are *definitely not useful* for the rest
+    of the project.
+
+    Results proven here:
+    (1) any combination of two consecutive accesses of which
+        - exactly one is through a foreign pointer,
+        - at least one is a write,
+        - (sometimes with the extra restriction that one is protected)
+        that does not result in UB means that the two accesses must be on disjoint
+        ranges of memory.
+    (2) any pair of adjacent reads can be swapped to obtain an identical final state.
+
+    These two combine into (1) + (2) : any two accesses of which exactly one
+    is foreign can be swapped (with the appropriate protector restrictions).
+
+    I.e. this file culminates with the theorem `llvm_noalias_reorder`
+    that states that if `x` is
+    - retagged by the current function, and
+    - protected during the entire process, and
+    - not an ancestor of `y`
+    then for an arbitrary access `Ax` through `x` on range `Rx` and an arbitrary
+    access `Ay` through `y` on range `Ry`, for any initial state S,
+       S --[Ax(x, Rx)]-> _ --[Ay(y, Ry)]-> S'
+       if and only if
+       S --[Ay(y, Ry)]-> _ --[Ax(x, Rx)]-> S'
+ *)
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve.
@@ -1323,19 +1355,6 @@ Qed.
 
 
 (* --- Reordering read-read --- *)
-
-Lemma item_eq
-  {it0 it1}
-  (EQ_IPROT : iprot it0 = iprot it1)
-  (EQ_INITP : initp it0 = initp it1)
-  (EQ_ITAG : itag it0 = itag it1)
-  (EQ_EVERY_IPERM : forall z, iperm it0 !! z = iperm it1 !! z)
-  : it0 = it1.
-Proof.
-  destruct it0; destruct it1; simpl in *.
-  f_equal; [assumption|assumption|assumption|].
-  apply map_eq; assumption.
-Qed.
 
 Definition commutes {X}
   (fn1 fn2 : X -> option X)
