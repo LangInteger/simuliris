@@ -172,7 +172,7 @@ Ltac auto_access_event_within_range :=
     |- _ => rewrite E in H
   (* and then big case analysis *)
   | x : lazy_permission |- _ => destruct x; simpl in *
-  | p : permission |- _ => destruct p; simpl in *
+  | p : permission |- _ => destruct p as [[][]| | |]; simpl in *
   | i : perm_init |- _ => destruct i; simpl in *
   | H : apply_access_perm _ _ _ _ _ = Some _ |- _ => try (inversion H; done); clear H
   (* when all the rest is done, you can split and auto *)
@@ -188,7 +188,7 @@ Lemma nonchild_write_reserved_to_disabled
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
-  (Reach : reach Reserved (perm zpre))
+  (Reach : reach (Reserved TyFrz ResActivable) (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
     tree_unique affected_tag post tr'
@@ -547,7 +547,7 @@ Tactic Notation "pose" "replace" constr(target) "with" uconstr(a) uconstr(b) uco
 Lemma fwrite_cwrite_disjoint
   {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (ResReach : reach Reserved (initial_state newp))
+  (ResReach : reach (Reserved TyFrz ResActivable) (initial_state newp))
   (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
@@ -564,7 +564,7 @@ Proof.
 
   (* opaque seq *)
   destruct Seq01 as [evts01 Seq01].
-  assert (reach Reserved (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
+  assert (reach (Reserved TyFrz ResActivable) (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
   migrate Unrelated.
   pose replace ResReach1 with bor_local_seq_last_backward_reach Ex' Unq' @ Seq01.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
@@ -597,7 +597,7 @@ Qed.
 Lemma fwrite_cread_disjoint
   {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (ResReach : reach Reserved (initial_state newp))
+  (ResReach : reach (Reserved TyFrz ResActivable) (initial_state newp))
   (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
@@ -614,7 +614,7 @@ Proof.
 
   (* opaque seq *)
   destruct Seq01 as [evts01 Seq01].
-  assert (reach Reserved (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
+  assert (reach (Reserved TyFrz ResActivable) (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
   migrate Unrelated.
   pose replace ResReach1 with bor_local_seq_last_backward_reach Ex' Unq' @ Seq01.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
@@ -1384,7 +1384,7 @@ Lemma apply_access_perm_read_commutes
 Proof.
   move=> p0 p1 p2 Step01 Step12.
   unfold apply_access_perm in *.
-  all: destruct p0 as [[][]].
+  all: destruct p0 as [[][[][]| | |]].
   all: destruct prot; simpl in *.
   all: destruct rel1; simpl in *.
   all: try (inversion Step01; done).

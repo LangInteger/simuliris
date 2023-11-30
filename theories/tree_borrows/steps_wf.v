@@ -477,12 +477,12 @@ Proof.
     apply elem_of_difference in IN. apply IN.
 Qed.
 
-(*
 (** Retag *)
+(*
 Lemma insert_Exists_split {X} (tr:tree X) (ins:X) prop search
   {search_dec:forall x, Decision (search x)} :
-  tree_Exists prop (insert_child_at tr ins search) ->
-  tree_Exists prop tr \/ (tree_Exists search tr /\ prop ins).
+  exists_node prop (insert_child_at tr ins search) ->
+  exists_node prop tr \/ (exists_node search tr /\ prop ins).
 Proof.
   induction tr; simpl; auto; intro Ex.
   destruct (decide (search data)).
@@ -495,30 +495,30 @@ Proof.
     * destruct (IHtr1 Ex1) as [Ex0' | [Ex1' Ex2']]; auto.
     * destruct (IHtr2 Ex2) as [Ex0' | [Ex1' Ex2']]; auto.
 Qed.
- *)
+*)
 
 (*
 Lemma insert_child_wf cids ot range nxtp newp nxtc :
   (match newp.(new_protector) with None => True | Some {| call:=c |} => (c < nxtc)%nat end) ->
-  preserve_tree_wf (create_child cids ot range (Tag nxtp) newp) nxtp (S nxtp) nxtc nxtc.
+  preserve_tree_wf (create_child cids ot range newp) nxtp (S nxtp) nxtc nxtc.
 Proof.
   intros NewpBound tr tr' WF CREATE.
   unfold create_child in CREATE.
-  destruct (memory_read _ _ _ _) eqn:MemRead; simpl in CREATE; [injection CREATE; intros; subst; clear CREATE|inversion CREATE].
-  unfold wf_tree; unfold tree_item_included. rewrite <- tree_Forall_forall.
-  apply insert_True_preserves_Forall.
-  - unfold item_included. destruct newp; simpl in *.
+  unfold wf_tree; unfold tree_item_included.
+  - destruct newp; simpl in *.
     destruct new_protector as [p|]; simpl in *.
     * destruct p; split; lia.
     * lia.
   - rewrite tree_Forall_forall. apply (wf_tree_increasing _ nxtp nxtc (S nxtp) nxtc); [lia|lia|].
     eapply memory_read_wf; [exact WF|exact MemRead].
 Qed.
+ *)
 
-Lemma retag_step_wf σ σ' e e' l ot nt ptr kind c efs :
-  mem_expr_step σ.(shp) e (RetagEvt l ot nt ptr kind c) σ'.(shp) e' efs →
+(*
+Lemma retag_step_wf σ σ' e e' l ot nt ptr kind efs :
+  mem_expr_step σ.(shp) e (RetagEvt l ot nt ptr kind) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (RetagEvt l ot nt ptr kind c)
+           (RetagEvt l ot nt ptr kind)
            σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
   state_wf σ → state_wf σ'.
 Proof.
@@ -528,8 +528,11 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
   constructor; simpl.
-  - intros blk' l'. rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT). apply WF.
-  - apply (apply_within_trees_wf _ _ nxtp (S nxtp) nxtc' nxtc' _ _ RETAG_EFFECT).
+  - intros blk' l'.
+    rewrite <- (apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR).
+    rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
+    apply WF.
+  - apply (apply_within_trees_wf _ _ nxtp (S nxtp) nxtc' nxtc' _ _ READ_ON_REBOR).
     * intro tr. apply wf_tree_increasing; lia.
     * intros tr tr'.
       apply insert_child_wf.

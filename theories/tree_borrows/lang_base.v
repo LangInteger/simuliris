@@ -34,8 +34,44 @@ Proof. solve_decision. Defined.
 Global Instance tag_countable : Countable tag.
 Proof. refine (inj_countable (λ '(Tag t), t) (λ t, Some $ Tag t) _); by intros []. Qed.
 
+Inductive interior_mut := InteriorMut | TyFrz.
+Global Instance interior_mut_eq_dec : EqDecision interior_mut.
+Proof. solve_decision. Defined.
+Global Instance interior_mut_countable : Countable interior_mut.
+Proof.
+  refine (inj_countable
+    (λ m, match m with
+           | InteriorMut => true
+           | TyFrz => false
+           end)
+    (λ b, Some match b with
+           | true => InteriorMut
+           | false => TyFrz
+           end)
+    _); by intros [].
+Qed.
+
+
+Inductive res_conflicted := ResConflicted | ResActivable.
+Global Instance res_conflicted_eq_dec : EqDecision res_conflicted.
+Proof. solve_decision. Defined.
+Global Instance res_conflicted_countable : Countable res_conflicted.
+Proof.
+  refine (inj_countable
+    (λ m, match m with
+           | ResConflicted => true
+           | ResActivable => false
+           end)
+    (λ b, Some match b with
+           | true => ResConflicted
+           | false => ResActivable
+           end)
+    _); by intros [].
+Qed.
+
+
 Inductive permission :=
-  | Reserved | ReservedConfl | ReservedMut | ReservedConflMut
+  | Reserved (mut:interior_mut) (confl:res_conflicted)
   | Active | Frozen | Disabled.
 Global Instance permission_eq_dec : EqDecision permission.
 Proof. solve_decision. Defined.
@@ -44,15 +80,13 @@ Proof.
   refine (inj_countable
     (λ p,
       match p with
-      | Reserved => 0 | ReservedMut => 1
-      | ReservedConfl => 2 | ReservedConflMut => 3
-      | Active => 4 | Frozen => 5 | Disabled => 6
+      | Reserved m c => inr (m, c)
+      | Active => inl 0 | Frozen => inl 1 | Disabled => inl 2
       end)
     (λ s,
       Some match s with
-      | 0 => Reserved | 1 => ReservedMut
-      | 2 => ReservedConfl | 3 => ReservedConflMut
-      | 4 => Active | 5 => Frozen | _ => Disabled
+      | inr (m, c) => Reserved m c
+      | inl 0 => Active | inl 1 => Frozen | inl _ => Disabled
       end) _); by intros [].
 Qed.
 
