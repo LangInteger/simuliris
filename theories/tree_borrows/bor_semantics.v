@@ -211,6 +211,7 @@ Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
 Implicit Type (prot:option protector).
 
+(* Tells if an access requires you to initialize the permission afterwards (child accesses) *)
 Definition requires_init (rel:rel_pos)
   : perm_init :=
   match rel with
@@ -224,9 +225,9 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   match kind, rel with
   | AccessRead, (Parent | Uncle) =>
       match perm with
-      | Reserved => if isprot then Some ReservedConfl else Some Reserved
-      | ReservedMut => if isprot then Some ReservedConflMut else Some ReservedMut
-      | ReservedConfl | ReservedConflMut => Some perm
+      | Reserved TyFrz ResActivable => if isprot then Some $ Reserved TyFrz ResConflicted else Some $ Reserved TyFrz ResActivable
+      | Reserved InteriorMut ResActivable => if isprot then Some $ Reserved InteriorMut ResConflicted else Some $ Reserved InteriorMut ResActivable
+      | Reserved TyFrz ResConflicted | Reserved InteriorMut ResConflicted => Some perm
       | Active => if isprot then
         (* This is just a trick for commutativity of read operations.
            Protector should get triggered anyway *)
@@ -235,8 +236,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       end
   | AccessWrite, (Parent | Uncle) =>
       match perm with
-      | ReservedMut => if isprot then Some Disabled else Some ReservedMut
-      | ReservedConflMut => if isprot then Some Disabled else Some ReservedConflMut
+      | Reserved InteriorMut ResActivable => if isprot then Some Disabled else Some $ Reserved InteriorMut ResActivable
+      | Reserved InteriorMut ResConflicted => if isprot then Some Disabled else Some $ Reserved InteriorMut ResConflicted
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
@@ -247,9 +248,9 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       end
   | AccessWrite, (This | Child) =>
       match perm with
-      | ReservedConfl => if isprot then None else Some Active
-      | ReservedConflMut => if isprot then None else Some Active
-      | Reserved | ReservedMut | Active => Some Active
+      | Reserved TyFrz ResConflicted => if isprot then None else Some Active
+      | Reserved InteriorMut ResConflicted => if isprot then None else Some Active
+      | Reserved TyFrz ResActivable | Reserved InteriorMut ResActivable | Active => Some Active
       | _ => None
       end
   end.
@@ -321,11 +322,14 @@ Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
   let old := operm.(perm) in
   new ← apply_access_perm_inner kind rel isprot old;
   validated ← if operm.(initialized) then (
+    (* only if the permission is initialized do we possibly trigger protector UB *)
     if isprot && protector_relevant && bool_decide (new = Disabled) then (
         None
     ) else Some new
   ) else Some new;
-  Some $ mkPerm (most_init operm.(initialized) (requires_init rel)) validated.
+  Some $ mkPerm
+    (most_init operm.(initialized) (requires_init rel)) (* can only become more initialized *)
+    validated.
 
 Definition item_apply_access kind strong cids rel range
   : app item := fun it =>
@@ -380,20 +384,22 @@ Definition memory_deallocate cids t range
   tree_apply_access (item_apply_access AccessWrite ProtWeak) cids t range tr.
 
 (* Normal reachability definition is not easily destructable, so we're defining it
-   manually and proving it's equivalent to the reflexive transitive closuse of one step *)
+   manually and proving it's equivalent to the reflexive transitive closuse of one step.
+   The witness step needs to be strict otherwise the proof of equivalence will be stuck.
+*)
+
 Definition witness_transition p p' : Prop :=
   match p, p' with
-  | Reserved, ReservedConfl
-  | ReservedMut, ReservedConflMut
-  | ReservedConfl, Active
-  | ReservedConflMut, Active
+  | Reserved m ResActivable, Reserved m' ResConflicted
+  => m = m'
+  | Reserved _ _, Active
   | Active, Frozen
   | Frozen, Disabled
   => True
   | _, _ => False
   end.
 
-(* FIXME: rtc *)
+(* FIXME: use builtin rtc *)
 Inductive witness_reach p p' : Prop :=
   | witness_reach_refl : p = p' -> witness_reach p p'
   | witness_reach_step p'' : witness_transition p p'' ->  witness_reach p'' p' -> witness_reach p p'
@@ -401,10 +407,10 @@ Inductive witness_reach p p' : Prop :=
 
 Definition reach p p' : Prop :=
   match p, p' with
-  | ReservedMut, (ReservedMut | ReservedConflMut | Active | Frozen | Disabled)
-  | Reserved, (Reserved | ReservedConfl | Active | Frozen | Disabled)
-  | ReservedConflMut, (ReservedConflMut | Active | Frozen | Disabled)
-  | ReservedConfl, (ReservedConfl | Active | Frozen | Disabled)
+  | Reserved InteriorMut ResActivable, (Reserved InteriorMut ResActivable | Reserved InteriorMut ResConflicted | Active | Frozen | Disabled)
+  | Reserved TyFrz ResActivable, (Reserved TyFrz ResActivable | Reserved TyFrz ResConflicted | Active | Frozen | Disabled)
+  | Reserved InteriorMut ResConflicted, (Reserved InteriorMut ResConflicted | Active | Frozen | Disabled)
+  | Reserved TyFrz ResConflicted, (Reserved TyFrz ResConflicted | Active | Frozen | Disabled)
   | Active, (Active | Frozen | Disabled)
   | Frozen, (Frozen | Disabled)
   | Disabled, (Disabled)
@@ -413,23 +419,43 @@ Definition reach p p' : Prop :=
   end.
 
 Definition freeze_like p : Prop :=
-  reach Frozen p \/ p = ReservedConfl \/ p = ReservedConflMut.
+  reach Frozen p \/ p = Reserved TyFrz ResConflicted \/ p = Reserved InteriorMut ResConflicted.
 
-Ltac witness_reach_invert :=
+(* Now we check that the two definitions are equivalent, so that the clean definition
+   acts as a witness for the easy-to-do-case-analysis definition *)
+
+Ltac destruct_permission :=
   match goal with
-  | H : witness_reach _ _ |- False =>
-    let perm := fresh "perm" in
+  | p : permission |- _ => destruct p as [[][]| | |]
+  end.
+
+Ltac invert_reach :=
+  match goal with
+  | H : witness_reach _ _ |- _ =>
     let eql := fresh "Eql" in
-    let trans := fresh "Trans" in
-    let reach := fresh "Reach" in
-    inversion H as [eql|perm trans reach]; [inversion eql|destruct perm; try inversion trans]
+    inversion H as [eql|]; clear H;
+    try (inversion eql; clear eql)
+  end.
+
+Ltac invert_transition :=
+  match goal with
+  | H : witness_transition _ _ |- _ =>
+    let eql := fresh "Eql" in
+    inversion H; clear H
+  end.
+
+Ltac reach_inversion_strategy :=
+  multimatch goal with
+  | _ => destruct_permission
+  | _ => invert_transition
+  | _ => invert_reach
   end.
 
 Lemma reach_complete p p' :
   witness_reach p p' -> reach p p'.
 Proof.
-  destruct p, p'; simpl; intro; try tauto.
-  all: do 10 witness_reach_invert.
+  repeat destruct_permission; simpl; intro WReach; try tauto.
+  all: do 15 reach_inversion_strategy.
 Qed.
 
 Ltac witness_reach_solve :=
@@ -438,8 +464,8 @@ Ltac witness_reach_solve :=
   let p'' := fresh "p''" in
   match goal with
   | |- witness_reach ?p ?p => apply witness_reach_refl; reflexivity
-  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ ReservedConfl); simpl; [tauto|]
-  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ ReservedConflMut); simpl; [tauto|]
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ (Reserved TyFrz ResConflicted)); simpl; [tauto|]
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ (Reserved InteriorMut ResConflicted)); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Active); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Frozen); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Disabled); simpl; [tauto|]
@@ -448,7 +474,7 @@ Ltac witness_reach_solve :=
 Lemma reach_sound p p' :
   reach p p' -> witness_reach p p'.
 Proof.
-  destruct p, p'; simpl; intro; try tauto.
+  destruct p as [[][]| | |], p' as [[][]| | |]; simpl; intro; try tauto.
   all: do 10 witness_reach_solve.
 Qed.
 
@@ -497,7 +523,7 @@ Proof.
      upwards of 2000 cases *)
   destruct kind, rel.
   all: destruct isprot, isstrong.
-  all: destruct init, perm; simpl in *; inversion Acc1; subst.
+  all: destruct init, perm as [[][]| | |]; simpl in *; inversion Acc1; subst.
   all: simpl; try auto.
   all: destruct isprot'; simpl; try auto.
   all: destruct isstrong'; simpl; try auto.
