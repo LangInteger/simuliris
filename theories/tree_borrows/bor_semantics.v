@@ -737,6 +737,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
                We want to do the read *after* the insertion so that it properly initializes the locations of the range *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
+    (SAME_CID : is_Some newp.(new_protector) -> protector_is_for_call cid newp.(new_protector))
     (FRESH_CHILD: ~trees_contain (Tag nxtp) trs alloc)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt (Tag nxtp) newp) alloc trs = Some trs')
     (READ_ON_REBOR: apply_within_trees (memory_access AccessRead ProtStrong cids (Tag nxtp) range) alloc trs' = Some trs'') :

@@ -525,10 +525,10 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               h (Free (Place (blk,l) lbor sz))
               (DeallocEvt blk lbor (l, sz))
               (free_mem (blk,l) sz h) #[☠] []
-| RetagBS blk l otag ntag sz kind c newp
-    (NEW_PERM : newp.(new_protector) = match kind with FnEntry => Some c | Default => None end) :
+| RetagBS blk l otag ntag sz kind cid newp
+    (NEW_PERM : newp.(new_protector) = match kind with FnEntry => Some cid | Default => None end) :
     mem_expr_step
-              h (Retag #[ScPtr l otag] #[ScCallId (call c)] newp sz kind)
+              h (Retag #[ScPtr l otag] #[ScCallId (call cid)] newp sz kind)
               (RetagEvt blk otag ntag newp sz)
               h #[ScPtr l ntag] []
 
