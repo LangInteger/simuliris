@@ -7,58 +7,119 @@ From simuliris.simulation Require Export slsls gen_log_rel.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs.
-From simuliris.tree_borrows Require Import steps_progress steps_retag.
+(* From simuliris.stacked_borrows Require Import steps_progress steps_retag. *)
 From iris.prelude Require Import options.
 
 (** * BorLang ghost state *)
 Class bor_stateGS Σ := BorStateGS {
   (* Maintaining the locations protected by each call id *)
-  call_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
+  call_inG :: ghost_mapG Σ call_id (gmap nat (gset loc));
   call_name : gname;
 
   (* tag ownership *)
   (* Last param is unit, should probably be cleaned up *)
-  tag_inG :> tkmapG Σ ptr_id unit;
+  tag_inG :: tkmapG Σ nat unit;
   tag_name : gname;
 
-  (* A view of parts of the heap, conditional on the ptr_id *)
-  heap_view_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
+  (* A view of parts of the heap, conditional on the nat *)
+  heap_view_inG :: ghost_mapG Σ (nat * loc) scalar;
   heap_view_source_name : gname;
   heap_view_target_name : gname;
 
   (* Public call IDs *)
-  pub_call_inG :> ghost_mapG Σ call_id unit;
+  pub_call_inG :: ghost_mapG Σ call_id unit;
   pub_call_name : gname;
 
   (* Tainted tags: a set of tag * source location *)
   (* this might just be that the state is Disabled, because we don't remove tags from the tree and
   thus don't need to remember the popped tags *)
-  tainted_tag_collection :> ghost_mapG Σ (ptr_id * loc) unit;
+  tainted_tag_collection :: ghost_mapG Σ (nat * loc) unit;
   tainted_tags_name : gname;
 }.
 
 Class bor_stateGpreS Σ := {
   (* Maintaining the locations protected by each call id *)
-  call_pre_inG :> ghost_mapG Σ call_id (gmap ptr_id (gset loc));
+  call_pre_inG :: ghost_mapG Σ call_id (gmap nat (gset loc));
 
   (* tag ownership *)
-  tag_pre_inG :> tkmapG Σ ptr_id unit;
+  tag_pre_inG :: tkmapG Σ nat unit;
 
-  (* A view of parts of the heap, conditional on the ptr_id *)
-  heap_view_pre_inG :> ghost_mapG Σ (ptr_id * loc) scalar;
+  (* A view of parts of the heap, conditional on the nat *)
+  heap_view_pre_inG :: ghost_mapG Σ (nat * loc) scalar;
 
   (* Public call IDs *)
-  pub_call_pre_inG :> ghost_mapG Σ call_id unit;
+  pub_call_pre_inG :: ghost_mapG Σ call_id unit;
 
   (* Tainted tags: a set of tag * source location *)
-  tainted_tag_pre_collection :> ghost_mapG Σ (ptr_id * loc) unit;
+  tainted_tag_pre_collection :: ghost_mapG Σ (nat * loc) unit;
 }.
 
-Definition bor_stateΣ : gFunctors := (#[ghost_mapΣ call_id (gmap ptr_id (gset loc)); ghost_mapΣ (ptr_id * loc) scalar; ghost_mapΣ call_id unit; ghost_mapΣ (ptr_id * loc) unit; tkmapΣ ptr_id unit]).
+Definition bor_stateΣ : gFunctors := (#[ghost_mapΣ call_id (gmap nat (gset loc)); ghost_mapΣ (nat * loc) scalar; ghost_mapΣ call_id unit; ghost_mapΣ (nat * loc) unit; tkmapΣ nat unit]).
 
 Global Instance subG_bor_stateΣ Σ :
   subG bor_stateΣ Σ → bor_stateGpreS Σ.
 Proof. solve_inG. Qed.
+
+Section utils.
+
+  Record item_for_loc : Type := {
+    lperm : lazy_permission;
+    tg : tag;
+    cid : option protector;
+  }.
+
+  Inductive item_for_loc_in_tree (i : item_for_loc) (tree : tree item) (l' : Z) : Prop :=
+    is_in_tree item :
+        exists_node (IsTag i.(tg)) tree →
+        every_node (λ i', i.(tg) = i'.(itag) → i' = item) tree →
+        i.(cid) = item.(iprot) →
+        i.(lperm) = default {| initialized := PermLazy; perm := item.(initp) |}
+                           (item.(iperm) !! l') →
+        item_for_loc_in_tree i tree l'.
+
+  Inductive item_for_loc_in_trees (i : item_for_loc) (t : trees) (l : loc) : Prop :=
+    is_in_trees tree :
+        t !! (fst l) = Some tree → item_for_loc_in_tree i tree (snd l) → item_for_loc_in_trees i t l.
+
+  Context (C : gset call_id).
+
+  Inductive protected_by: option protector → Prop := 
+    is_protected_by p :
+        p.(call) ∈ C → protected_by (Some p).
+
+  Inductive pseudo_conflicted (tr : tree item) (l : Z) (tg1 : tag) : res_conflicted → option protector → Prop :=
+    pseudo_conflicted_conflicted c :
+        protected_by c →
+        pseudo_conflicted tr l tg1 ResConflicted c
+  | pseudo_conflicted_cousin_init conf c it :
+        protected_by c →
+        item_for_loc_in_tree it tr l →
+        rel_dec tr it.(tg) tg1 = Uncle →
+        protected_by it.(cid) →
+        it.(lperm).(perm) ≠ Disabled →
+        it.(lperm).(initialized) = PermInit →
+        pseudo_conflicted tr l tg1 conf c.
+
+  Lemma pseudo_conflicted_protected tr l tg1 conf c:
+    pseudo_conflicted tr l tg1 conf c → protected_by c.
+  Proof. by inversion 1. Qed.
+
+  Inductive eq_up_to_C (tr1 tr2 : tree item) (l : Z) : item_for_loc → item_for_loc → Prop :=
+    eq_up_to_C_refl i : eq_up_to_C tr1 tr2 l i i
+  | eq_up_to_C_pseudo t cid im ini cl1 cl2 :
+        (pseudo_conflicted tr1 l t cl1 cid ↔ pseudo_conflicted tr2 l t cl2 cid) →
+        eq_up_to_C tr1 tr2 l
+                   {| lperm := {| initialized := ini; perm := Reserved im cl1 |}; tg := t; cid:= cid |}
+                   {| lperm := {| initialized := ini; perm := Reserved im cl2 |}; tg := t; cid:= cid |}.
+
+
+  Definition tree_equal (t1 t2: tree item) :=
+    ∀ l, ∃ it1 it2, item_for_loc_in_tree it1 t1 l ∧ item_for_loc_in_tree it2 t2 l ∧ eq_up_to_C t1 t2 l it1 it2.
+
+  Definition trees_equal (t1 t2 : trees) :=
+    ∀ blk, option_Forall2 tree_equal (t1 !! blk) (t2 !! blk).
+
+End utils.
 
 Section state_bijection.
   Context `{bor_stateGS Σ}.
@@ -68,12 +129,12 @@ Section state_bijection.
   Section defs.
     (* We need all the maps from the tag interpretation here....
      TODO: can we make that more beautiful? all the different invariants are interleaved in subtle ways, which makes modular reasoning really hard... *)
-    Context (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) (Mcall_t : gmap call_id (gmap ptr_id (gset loc))).
+    Context (M_tag : gmap nat (tag_kind * unit)) (M_t M_s : gmap (nat * loc) scalar) (Mcall_t : gmap call_id (gmap nat (gset loc))).
 
 
-    Definition call_set_in (M : gmap ptr_id (gset loc)) t l :=
+    Definition call_set_in (M : gmap nat (gset loc)) t l :=
       ∃ L, M !! t = Some L ∧ l ∈ L.
-    Definition call_set_in' (M : gmap call_id (gmap ptr_id (gset loc))) c t l :=
+    Definition call_set_in' (M : gmap call_id (gmap nat (gset loc))) c t l :=
       ∃ M', M !! c = Some M' ∧ call_set_in M' t l.
     Definition pub_loc σ_t σ_s (l : loc) : iProp Σ :=
       ∀ sc_t, ⌜σ_t.(shp) !! l = Some sc_t⌝ → ∃ sc_s, ⌜σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
@@ -92,11 +153,12 @@ Section state_bijection.
       - the set of ongoing calls is the same
       - there's a relation on the scalars stored at locations ([pub_loc]), except when the location is currently controlled by a tag ([priv_loc]).
 
-      Note that, while the definition may appear asymmetric in source and target, due to the well-formedness on states [state_wf] and the relation of the tag maps enforced below, it really is symmetric in practice.
+      Note that, while the definition may appear asymmetric in source and target, due to the well-formedness on 
+      states [state_wf] and the relation of the tag maps enforced below, it really is symmetric in practice.
     *)
     Definition state_rel σ_t σ_s : iProp Σ :=
         ⌜dom σ_s.(shp) = dom σ_t.(shp)⌝ ∗
-        ⌜σ_s.(sst) = σ_t.(sst)⌝ ∗
+        ⌜σ_s.(strs) = σ_t.(strs)⌝ ∗
         ⌜σ_s.(snp) = σ_t.(snp)⌝ ∗
         ⌜σ_s.(snc) = σ_t.(snc)⌝ ∗
         ⌜σ_s.(scs) = σ_t.(scs)⌝ ∗
@@ -221,6 +283,7 @@ Section bijection_lemmas.
     state_rel M_tag M_t Mcall σ_t σ_s -∗
     pub_loc sc_rel σ_t σ_s l ∨ ⌜∃ t, priv_loc M_tag M_t Mcall t l⌝.
   Proof.
+From simuliris.stacked_borrows Require Import steps_progress steps_retag.
     iIntros "Hsome Hstate". iDestruct "Hstate" as "(_ & _ & _ & _ & _ & Hl)".
     by iApply "Hl".
   Qed.
@@ -239,18 +302,18 @@ End bijection_lemmas.
 
 (** Interpretation for call ids *)
 Section call_defs.
-  Context {Σ} (call_gname : gname) {call_inG : ghost_mapG Σ (call_id) (gmap ptr_id (gset loc))}.
+  Context {Σ} (call_gname : gname) {call_inG : ghost_mapG Σ (call_id) (gmap nat (gset loc))}.
 
-  Implicit Types (c : call_id) (pid : ptr_id) (pm : permission).
+  Implicit Types (c : call_id) (pid : nat) (pm : permission).
 
-  Definition call_set_is (c : call_id) (M : gmap ptr_id (gset loc)) :=
+  Definition call_set_is (c : call_id) (M : gmap nat (gset loc)) :=
     ghost_map_elem call_gname c (DfracOwn 1) M.
 
   (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below. *)
-  Definition call_set_interp (M : gmap call_id (gmap ptr_id (gset loc))) (σ : state) : Prop :=
-    ∀ c (M' : gmap ptr_id (gset loc)), M !! c = Some M' →
+  Definition call_set_interp (M : gmap call_id (gmap nat (gset loc))) (σ : state) : Prop :=
+    ∀ c (M' : gmap nat (gset loc)), M !! c = Some M' →
       c ∈ σ.(scs) ∧
-      (* for every ptr_id *)
+      (* for every nat *)
       ∀ t (L : gset loc), M' !! t = Some L →
         (t < σ.(snp))%nat ∧
         (* for every protected location [l], there needs to be a protector in the stack *)
@@ -311,7 +374,7 @@ Section heap_defs.
     Otherwise, we will not be able to prove reflexivity for deallocation:
       that needs to be able to remove stacks from the state without updating all the ghost state that may still make assumptions about it.
   *)
-  Definition bor_state_pre (l : loc) (t : ptr_id) (tk : tag_kind) (σ : state) :=
+  Definition bor_state_pre (l : loc) (t : nat) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
     | _ => ∃ st pm pro, σ.(sst) !! l = Some st ∧
@@ -324,7 +387,7 @@ Section heap_defs.
     intros (_ & _ & (stk & pm & ?)). destruct tk; [| | done]; rewrite /bor_state_pre; eauto.
   Qed.
 
-  Definition bor_state_own (l : loc) (t : ptr_id) (tk : tag_kind) (σ : state) :=
+  Definition bor_state_own (l : loc) (t : nat) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => σ.(sst) !! l = Some ([mkItem Unique (Tagged t) None])
     | tk_unq => ∃ st, σ.(sst) !! l = Some st ∧ ∃ opro st',
@@ -337,7 +400,7 @@ Section heap_defs.
   Proof. rewrite /bor_state_own. destruct tk; naive_solver. Qed.
 
   (** Location [l] is controlled by tag [t] at kind [tk] with scalar [sc]. *)
-  Definition loc_controlled (l : loc) (t : ptr_id) (tk : tag_kind) (sc : scalar) (σ : state) :=
+  Definition loc_controlled (l : loc) (t : nat) (tk : tag_kind) (sc : scalar) (σ : state) :=
     (bor_state_pre l t tk σ → bor_state_own l t tk σ ∧ σ.(shp) !! l = Some sc).
 
   Lemma loc_controlled_local l t sc σ :
@@ -444,6 +507,7 @@ Section heap_defs.
   Lemma loc_controlled_local_authoritative l t t' tk' sc sc' σ f :
     loc_controlled l t tk_local sc (state_upd_mem f σ) →
     loc_controlled l t' tk' sc' σ →
+From simuliris.stacked_borrows Require Import steps_progress steps_retag.
     t ≠ t' →
     loc_controlled l t' tk' sc' (state_upd_mem f σ).
   Proof.
@@ -466,7 +530,7 @@ Section heap_defs.
   End local.
 
   (** Domain agreement for the two heap views for source and target *)
-  Definition dom_agree_on_tag (M_t M_s : gmap (ptr_id * loc) scalar) (t : ptr_id) :=
+  Definition dom_agree_on_tag (M_t M_s : gmap (nat * loc) scalar) (t : nat) :=
     (∀ l, is_Some (M_t !! (t, l)) → is_Some (M_s !! (t, l))) ∧
     (∀ l, is_Some (M_s !! (t, l)) → is_Some (M_t !! (t, l))).
 
@@ -535,16 +599,16 @@ Section heap_defs.
 
 
   (** The main interpretation for tags *)
-  Definition tag_interp (M : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) σ_t σ_s : Prop :=
-    (∀ (t : ptr_id) tk, M !! t = Some (tk, ()) →
+  Definition tag_interp (M : gmap nat (tag_kind * unit)) (M_t M_s : gmap (nat * loc) scalar) σ_t σ_s : Prop :=
+    (∀ (t : nat) tk, M !! t = Some (tk, ()) →
       (* tags are valid *)
       (t < σ_t.(snp))%nat ∧ (t < σ_s.(snp))%nat ∧
       (* at all locations, the values agree, and match the physical state assuming the tag currently has control over the location *)
       (∀ l sc_t, M_t !! (t, l) = Some sc_t → loc_controlled l t tk sc_t σ_t) ∧
       (∀ l sc_s, M_s !! (t, l) = Some sc_s → loc_controlled l t tk sc_s σ_s) ∧
       dom_agree_on_tag M_t M_s t) ∧
-    (∀ (t : ptr_id) (l : loc), is_Some (M_t !! (t, l)) → is_Some (M !! t)) ∧
-    (∀ (t : ptr_id) (l : loc), is_Some (M_s !! (t, l)) → is_Some (M !! t)).
+    (∀ (t : nat) (l : loc), is_Some (M_t !! (t, l)) → is_Some (M !! t)) ∧
+    (∀ (t : nat) (l : loc), is_Some (M_s !! (t, l)) → is_Some (M !! t)).
 End heap_defs.
 
 
@@ -608,7 +672,8 @@ Section public_call_ids.
     pub_cid_interp σ_t σ_s -∗
     pub_cid_interp σ_t' σ_s'.
   Proof.
-    iIntros (Hpres_t Hpres_s ? ?) "(%M & Hauth & Hpub)". iExists M. iFrame "Hauth".
+    iIntros (Hpres_t Hpres_s ? ?) "(%M & Hauth & Hpub)". iExists M
+From simuliris.stacked_borrows Require Import steps_progress steps_retag.. iFrame "Hauth".
     iApply (big_sepM_mono with "Hpub"). iIntros (c [] Hlookup) "[Hpub $]".
     iApply call_id_is_public_mono; [ | | done..].
     - intros (Hn_t & ?). destruct (decide (c ∈ σ_t'.(scs))) as [Hin_t' | Hnotin_t'].
@@ -664,7 +729,8 @@ Section public_call_ids.
   Proof.
     iIntros (Hc_in Hlts Hltt) "#Hpublic (%M & Hauth & Hpub)".
     iPoseProof (ghost_map_lookup with "Hauth Hpublic") as "%Hlookup".
-    rewrite (big_sepM_delete _ _ _ _ Hlookup). iDestruct "Hpub" as "[[Hc _] Hpubr]".
+    rewrite (big_sepM_delete _ _ _ _ Hlookup). iDestruct "Hpub" as
+From simuliris.stacked_borrows Require Import steps_progress steps_retag. "[[Hc _] Hpubr]".
     iDestruct "Hc" as "[ %Hdead | Halive]".
     { (* contradictory *) exfalso. naive_solver. }
     iFrame "Halive". iExists M. iFrame "Hauth".
@@ -706,16 +772,17 @@ Section tainted_tags.
     A tag [t] is tainted for a location [l] when invariantly, the stack for [l] can never contain
      an item tagged with [t] again. *)
 
-  Definition tag_tainted_for (t : ptr_id) (l : loc) :=
+  Definition tag_tainted_for (t : nat) (l : loc) :=
     ghost_map_elem tainted_tags_name (t, l) DfracDiscarded tt.
   (* tag [t] is not in [l]'s stack, and can never be in that stack again *)
   Definition tag_tainted_interp (σ_s : state) : iProp Σ :=
-    ∃ (M : gmap (ptr_id * loc) unit), ghost_map_auth tainted_tags_name 1 M ∗
-      ∀ (t : ptr_id) (l : loc), ⌜is_Some (M !! (t, l))⌝ -∗
+    ∃ (M : gmap (nat * loc) unit), ghost_map_auth tainted_tags_name 1 M ∗
+      ∀ (t : nat) (l : loc), ⌜is_Some (M !! (t, l))⌝ -∗
         ⌜(t < σ_s.(snp))%nat⌝ ∗
         (* we have a persistent element here to remove sideconditions from the insert lemma *)
         tag_tainted_for t l ∗
-        ⌜∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk →
+        ⌜∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → 
+From simuliris.stacked_borrows Require Import steps_progress steps_retag.it ∈ stk →
           tg it ≠ Tagged t ∨ perm it = Disabled⌝.
 
   (* the result of a read in the target: either the tag was invalid, and it now must be invalid for the source, too,
@@ -776,6 +843,10 @@ Section tainted_tags.
     - eapply Hsst; done.
   Qed.
 
+(*
+  FIXME: Needs this import (commented out above):
+  From simuliris.stacked_borrows Require Import steps_progress steps_retag.
+
   Lemma tag_tainted_interp_tagged_sublist σ_s σ_s' :
     σ_s'.(snp) ≥ σ_s.(snp) →
     (∀ l stk', σ_s'.(sst) !! l = Some stk' →
@@ -791,6 +862,7 @@ Section tainted_tags.
     right; right. exists stk. split; first done.
     destruct it, it'; simpl in *; simplify_eq. done.
   Qed.
+
 
   Lemma tag_tainted_interp_retag σ_s c l old rk pk T new α' nxtp' :
     retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l old rk pk T = Some (new, α', nxtp') →
@@ -820,6 +892,7 @@ Section tainted_tags.
     + left. simpl. move : Hstk'. rewrite (proj1 (init_stacks_lookup _ _ _ _)); last done.
       intros [= <-]. move : Hit. rewrite elem_of_list_singleton => -> /=. lia.
   Qed.
+*)
 End tainted_tags.
 
 
@@ -828,7 +901,7 @@ Section state_interp.
   (** The main combined interpretation for the borrow semantics *)
 
   (* Ownership of the authoritative parts. *)
-  Definition bor_auth (M_call : gmap call_id (gmap ptr_id (gset loc))) (M_tag : gmap ptr_id (tag_kind * unit)) (M_t M_s : gmap (ptr_id * loc) scalar) : iProp Σ :=
+  Definition bor_auth (M_call : gmap call_id (gmap nat (gset loc))) (M_tag : gmap nat (tag_kind * unit)) (M_t M_s : gmap (nat * loc) scalar) : iProp Σ :=
     ghost_map_auth call_name 1 M_call ∗
     tkmap_auth tag_name 1 M_tag ∗
     ghost_map_auth heap_view_target_name 1 M_t ∗
@@ -837,9 +910,9 @@ Section state_interp.
   Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
   (* since multiple parts of the interpretation need access to these maps,
     we own the authoritative parts here and not in the interpretations below *)
-   ∃ (M_call : gmap call_id (gmap ptr_id (gset loc)))
-     (M_tag : gmap ptr_id (tag_kind * unit))
-     (M_t M_s : gmap (ptr_id * loc) scalar),
+   ∃ (M_call : gmap call_id (gmap nat (gset loc)))
+     (M_tag : gmap nat (tag_kind * unit))
+     (M_t M_s : gmap (nat * loc) scalar),
     bor_auth M_call M_tag M_t M_s ∗
 
     tag_tainted_interp σ_s ∗
@@ -873,7 +946,7 @@ End state_interp.
 
 
 (** Array generalizes pointsto connectives to lists of scalars *)
-Definition array_tag `{!bor_stateGS Σ} γh (t : ptr_id) (l : loc) (dq : dfrac) (scs : list scalar) : iProp Σ :=
+Definition array_tag `{!bor_stateGS Σ} γh (t : nat) (l : loc) (dq : dfrac) (scs : list scalar) : iProp Σ :=
   ([∗ list] i ↦ sc ∈ scs, ghost_map_elem γh (t, l +ₗ i) dq sc)%I.
 Notation "l '↦t∗[' tk ']{' t } scs" := (array_tag heap_view_target_name t l (tk_to_frac tk) scs)
   (at level 20, format "l  ↦t∗[ tk ]{ t }  scs") : bi_scope.
@@ -883,7 +956,7 @@ Notation "l '↦s∗[' tk ']{' t } scs" := (array_tag heap_view_source_name t l 
 
 (** [array_tag_map] is the main way we interface with [array_tag] by having a representation of
   the stored memory fragment. *)
-Fixpoint array_tag_map (l : loc) (t : ptr_id) (v : list scalar) : gmap (ptr_id * loc) scalar :=
+Fixpoint array_tag_map (l : loc) (t : nat) (v : list scalar) : gmap (nat * loc) scalar :=
   match v with
   | [] => ∅
   | sc :: v' => <[(t, l) := sc]> (array_tag_map (l +ₗ 1) t v')
@@ -964,7 +1037,7 @@ Proof.
 Qed.
 
 (** Array update lemmas for the heap views *)
-Lemma ghost_map_array_tag_lookup `{!bor_stateGS Σ} (γh : gname) (q : Qp) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) dq :
+Lemma ghost_map_array_tag_lookup `{!bor_stateGS Σ} (γh : gname) (q : Qp) (M : gmap (nat * loc) scalar) (v : list scalar) (t : nat) (l : loc) dq :
   ghost_map_auth γh q M -∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) dq sc) -∗
   ⌜∀ i : nat, (i < length v)%nat → M !! (t, l +ₗ i) = v !! i⌝.
@@ -981,7 +1054,7 @@ Proof.
     by rewrite shift_loc_assoc.
 Qed.
 
-Lemma array_tag_map_union_commute (l : loc) (sc : scalar) (t : ptr_id) (v : list scalar) (M : gmap (ptr_id * loc) scalar) (i : Z) :
+Lemma array_tag_map_union_commute (l : loc) (sc : scalar) (t : nat) (v : list scalar) (M : gmap (nat * loc) scalar) (i : Z) :
   i > 0 →
   <[(t, l) := sc]> (array_tag_map (l +ₗ i) t v) ∪ M = array_tag_map (l +ₗ i) t v ∪ (<[(t, l) := sc]> M).
 Proof.
@@ -993,7 +1066,7 @@ Proof.
     rewrite -insert_union_l. done.
 Qed.
 
-Lemma ghost_map_array_tag_update `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v v' : list scalar) (t : ptr_id) (l : loc) :
+Lemma ghost_map_array_tag_update `{!bor_stateGS Σ} (γh : gname) (M : gmap (nat * loc) scalar) (v v' : list scalar) (t : nat) (l : loc) :
   length v = length v' →
   ghost_map_auth γh 1 M -∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
@@ -1019,7 +1092,7 @@ Proof.
     rewrite array_tag_map_union_commute; last done. rewrite shift_loc_0_nat. done.
 Qed.
 
-Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) :
+Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (nat * loc) scalar) (v : list scalar) (t : nat) (l : loc) :
   (∀ i : nat, (i < length v)%nat → M !! (t, l +ₗ i) = None) →
   ghost_map_auth γh 1 M  ==∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ∗
@@ -1042,7 +1115,7 @@ Proof.
     replace (Z.of_nat $ S i) with (1 + i)%Z by lia. done.
 Qed.
 
-Lemma ghost_map_array_tag_delete `{!bor_stateGS Σ} (γh : gname) (M : gmap (ptr_id * loc) scalar) (v : list scalar) (t : ptr_id) (l : loc) :
+Lemma ghost_map_array_tag_delete `{!bor_stateGS Σ} (γh : gname) (M : gmap (nat * loc) scalar) (v : list scalar) (t : nat) (l : loc) :
   ghost_map_auth γh 1 M -∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
   ghost_map_auth γh 1 (M ∖ array_tag_map l t v).
@@ -1061,7 +1134,7 @@ Proof.
   rewrite shift_loc_assoc. replace (Z.of_nat (S i)) with (1 + i) by lia; done.
 Qed.
 
-Lemma ghost_map_array_tag_tk `{!bor_stateGS Σ} (γh : gname) (v : list scalar) (t : ptr_id) (l : loc) tk :
+Lemma ghost_map_array_tag_tk `{!bor_stateGS Σ} (γh : gname) (v : list scalar) (t : nat) (l : loc) tk :
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (tk_to_frac tk) sc).
 Proof.
@@ -1341,12 +1414,12 @@ Lemma sbor_init `{!sborGpreS Σ} P_t P_s T_s :
     progs_are P_t P_s.
 Proof.
   set σ := init_state.
-  iMod (ghost_map_alloc (∅ : gmap call_id (gmap ptr_id (gset loc)))) as (γcall) "[Hcall_auth _]".
-  iMod (tkmap_alloc (∅ : gmap ptr_id (tag_kind * unit))) as (γtag) "[Htag_auth _]".
-  iMod (ghost_map_alloc (∅ : gmap (ptr_id * loc) scalar)) as (γtgt) "[Hheap_tgt_auth _]".
-  iMod (ghost_map_alloc (∅ : gmap (ptr_id * loc) scalar)) as (γsrc) "[Hheap_src_auth _]".
-  iMod (ghost_map_alloc (∅ : gmap ptr_id unit)) as (γpub_call) "[Hpub_call_auth _]".
-  iMod (ghost_map_alloc (∅ : gmap (ptr_id * loc) unit)) as (γtainted) "[Htainted_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap call_id (gmap nat (gset loc)))) as (γcall) "[Hcall_auth _]".
+  iMod (tkmap_alloc (∅ : gmap nat (tag_kind * unit))) as (γtag) "[Htag_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap (nat * loc) scalar)) as (γtgt) "[Hheap_tgt_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap (nat * loc) scalar)) as (γsrc) "[Hheap_src_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap nat unit)) as (γpub_call) "[Hpub_call_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap (nat * loc) unit)) as (γtainted) "[Htainted_auth _]".
   iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_t #Hprog_s]".
   iModIntro.
   set (bor := BorStateGS _ _ γcall _ γtag _ γtgt γsrc _ γpub_call _ γtainted).
