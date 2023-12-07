@@ -9,24 +9,24 @@ From iris.prelude Require Import options.
 (* Henceforth also in the files importing us we want to use Z_scope. *)
 Global Open Scope Z_scope.
 
-Definition wf_mem_tag (h: mem) (nxtp: nat) :=
+Definition wf_mem_tag (h: mem) (nxtp: ptr_id) :=
   ∀ (l l':loc) pid, h !! l = Some (ScPtr l' pid) →
     let '(Tag pid) := pid in
     (pid < nxtp)%nat.
 
-Definition item_wf (it:item) (nxtp:nat) (nxtc:call_id) :=
+Definition item_wf (it:item) (nxtp:ptr_id) (nxtc:call_id) :=
   (forall tg, IsTag (Tag tg) it -> (tg < nxtp)%nat)
   /\ (forall cid, protector_is_for_call cid (iprot it) -> (cid < nxtc)%nat).
 
-Definition tree_item_included (tr:tree item) (nxtp:nat) (nxtc: call_id) :=
+Definition tree_item_included (tr:tree item) (nxtp:ptr_id) (nxtc: call_id) :=
   forall tg,
   tree_contains tg tr -> exists it,
   tree_unique tg it tr /\ item_wf it nxtp nxtc.
 
 (* FIXME: consistent naming *)
-Definition wf_tree (tr:tree item) (nxtp:nat) (nxtc:call_id) :=
+Definition wf_tree (tr:tree item) (nxtp:ptr_id) (nxtc:call_id) :=
   tree_item_included tr nxtp nxtc.
-Definition wf_trees (trs:trees) (nxtp:nat) (nxtc: call_id) :=
+Definition wf_trees (trs:trees) (nxtp:ptr_id) (nxtc: call_id) :=
   ∀ blk tr, trs !! blk = Some tr → wf_tree tr nxtp nxtc.
 Definition wf_non_empty (trs:trees) :=
   ∀ blk tr, trs !! blk = Some tr → tr ≠ empty.

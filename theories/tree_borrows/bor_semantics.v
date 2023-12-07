@@ -271,6 +271,9 @@ Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_matc
 
 Definition protector_compatible_call c prot := is_Some prot -> protector_is_for_call c prot.
 
+(* This definition overlaps with logical_state.v:protected_by
+   We should pick one of them. If we pick this one it should be simplified
+   to match prot with Some (mkProtector _ c) => c in cids | None => False end. *)
 Definition protector_is_active prot cids :=
   exists c, protector_is_for_call c prot /\ call_is_active c cids.
 

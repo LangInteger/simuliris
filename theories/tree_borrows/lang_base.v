@@ -28,7 +28,8 @@ Notation call_id := nat (only parsing).
 Definition call_id_set := gset call_id.
 
 (** Tags for pointers *)
-Inductive tag := Tag (t:nat).
+Notation ptr_id := nat (only parsing).
+Inductive tag := Tag (t:ptr_id).
 Global Instance tag_eq_dec : EqDecision tag.
 Proof. solve_decision. Defined.
 Global Instance tag_countable : Countable tag.
