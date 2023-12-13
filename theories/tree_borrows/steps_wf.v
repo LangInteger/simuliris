@@ -597,7 +597,7 @@ Proof.
   - apply WF.
 Qed.
 
-Lemma base_step P σ σ' e e' efs :
+Lemma base_step_wf P σ σ' e e' efs :
   base_step P e σ e' σ' efs → state_wf σ → state_wf σ'.
 Proof.
   intros HS WF. inversion HS; [by subst|]. simplify_eq.
