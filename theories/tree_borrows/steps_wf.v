@@ -269,6 +269,47 @@ Proof.
   + inversion E. reflexivity.
 Qed.
 
+Lemma same_blocks_init_extend h sz trs nxtp :
+  same_blocks h trs ->
+  same_blocks (init_mem (fresh_block h, 0) sz h)
+    (extend_trees (Tag nxtp) (fresh_block h) trs).
+Proof.
+  intros Same.
+  intros blk l Found.
+  apply elem_of_dom; apply elem_of_dom in Found.
+  rewrite init_mem_dom in Found; rewrite dom_insert.
+  rewrite elem_of_union in Found; rewrite elem_of_union.
+  destruct Found as [FoundL|FoundR].
+  * right. rewrite elem_of_dom; rewrite elem_of_dom in FoundL. apply (Same blk l); simpl; done.
+  * left.
+    rewrite (init_mem_singleton_dom _ _ _ _ _ FoundR).
+    apply elem_of_singleton. reflexivity.
+Qed.
+
+Lemma wf_init_tree c t t' :
+  (t' < t)%nat ->
+  wf_tree (init_tree (Tag t')) t c.
+Proof.
+  intro Le.
+  unfold wf_tree; unfold tree_item_included.
+  intros tg Ex. inversion Ex as [isTag|[Contra|Contra]].
+  -- simpl in isTag; inversion isTag as [isRootTag]. simpl in isRootTag. eexists; simpl.
+     rewrite /IsTag in isTag |- *; simpl in *. split.
+     ** tauto.
+     ** rewrite /item_wf. simpl. split.
+        ++ intros tg' Tag. inversion Tag. subst. lia.
+        ++ intros cid' Prot. inversion Prot.
+  -- inversion Contra.
+  -- inversion Contra.
+Qed.
+
+Lemma init_tree_nonempty t :
+  forall tr, tr = (init_tree t) -> tr ≠ empty.
+Proof.
+  intros. subst.
+  rewrite /init_tree //.
+Qed.
+
 Lemma alloc_step_wf (σ σ': state) e e' l bor ptr efs:
   mem_expr_step σ.(shp) e (AllocEvt l bor ptr) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -280,42 +321,28 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
   inversion IS as [x| | | | | | |]; clear IS. destruct x; simpl in *; simplify_eq. constructor; simpl.
-  - intros blk l Found.
-    apply elem_of_dom; apply elem_of_dom in Found.
-    rewrite init_mem_dom in Found; rewrite dom_insert.
-    rewrite elem_of_union in Found; rewrite elem_of_union.
-    destruct Found as [FoundL|FoundR].
-    * right. rewrite elem_of_dom; rewrite elem_of_dom in FoundL. apply (WF.(state_wf_dom _) blk l); simpl; done.
-    * left.
-      rewrite (init_mem_singleton_dom _ _ _ _ _ FoundR).
-      apply elem_of_singleton. reflexivity.
+  - apply same_blocks_init_extend.
+    apply WF.
   - apply extend_trees_wf.
     * pose proof (wf_trees_mono _ nxtp (S nxtp) ltac:(simpl; eauto) _ _ ltac:(simpl; eauto) (WF.(state_wf_tree_item _))) as WF'.
       simpl in WF'. assumption.
-    * unfold wf_tree; unfold tree_item_included.
-      intros tg Ex. inversion Ex as [isTag|[Contra|Contra]].
-      -- simpl in isTag; inversion isTag as [isRootTag]. simpl in isRootTag. eexists; simpl.
-         rewrite /IsTag in isTag |- *; simpl in *. split.
-         ** tauto.
-         ** rewrite /item_wf. simpl. split.
-            ++ intros tg' Tag. inversion Tag. subst. lia.
-            ++ intros cid' Prot. inversion Prot.
-      -- inversion Contra.
-      -- inversion Contra.
+    * apply wf_init_tree.
+      lia.
   - intros blk.
     destruct (decide (blk = fresh_block h)).
     * simplify_eq.
       intros tr IsSome.
+      eapply init_tree_nonempty.
       rewrite /extend_trees in IsSome.
       rewrite lookup_insert in IsSome.
       injection IsSome.
-      rewrite /init_tree. intro isbranch. rewrite <- isbranch. auto.
+      eauto.
     * intros tr.
       rewrite /extend_trees.
       rewrite lookup_insert_ne.
       + apply WF.(state_wf_non_empty _).
       + congruence.
-  - apply (WF.(state_wf_cid_agree _)).
+  - apply WF.
 Qed.
 
 Lemma trees_deallocate_isSome trs cids tg blk m sz :
@@ -490,24 +517,6 @@ Proof.
 Qed.
 
 (** Retag *)
-(*
-Lemma insert_Exists_split {X} (tr:tree X) (ins:X) prop search
-  {search_dec:forall x, Decision (search x)} :
-  exists_node prop (insert_child_at tr ins search) ->
-  exists_node prop tr \/ (exists_node search tr /\ prop ins).
-Proof.
-  induction tr; simpl; auto; intro Ex.
-  destruct (decide (search data)).
-  - destruct Ex as [Ex0 | [Ex1 | Ex2]]; auto.
-    * destruct (IHtr1 Ex1) as [Ex0' | [Ex1' Ex2']]; auto.
-    * destruct Ex2 as [Ex0' | [Ex1' | Ex2']]; auto.
-      + destruct (IHtr2 Ex1') as [Ex0'' | [Ex1'' Ex2'']]; auto.
-      + inversion Ex2'.
-  - destruct Ex as [Ex0 | [Ex1 | Ex2]]; auto.
-    * destruct (IHtr1 Ex1) as [Ex0' | [Ex1' Ex2']]; auto.
-    * destruct (IHtr2 Ex2) as [Ex0' | [Ex1' Ex2']]; auto.
-Qed.
-*)
 
 Lemma insert_child_wf cids oldt nxtp newp nxtc
   (IT_WF : item_wf (create_new_item (Tag nxtp) newp) (S nxtp) nxtc)
