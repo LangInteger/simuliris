@@ -104,17 +104,19 @@ Section utils.
     pseudo_conflicted tr l tg1 conf c → protected_by c.
   Proof. by inversion 1. Qed.
 
-  Inductive eq_up_to_C (tr1 tr2 : tree item) (l : Z) : item_for_loc → item_for_loc → Prop :=
-    eq_up_to_C_refl i : eq_up_to_C tr1 tr2 l i i
-  | eq_up_to_C_pseudo t cid im ini cl1 cl2 :
+  Inductive eq_up_to_C (tr1 tr2 : tree item) (t : tag) (l : Z) : item_for_loc → item_for_loc → Prop :=
+    eq_up_to_C_refl i :
+      t = i.(tg) ->
+      eq_up_to_C tr1 tr2 t l i i
+  | eq_up_to_C_pseudo cid im ini cl1 cl2 :
         (pseudo_conflicted tr1 l t cl1 cid ↔ pseudo_conflicted tr2 l t cl2 cid) →
-        eq_up_to_C tr1 tr2 l
+        eq_up_to_C tr1 tr2 t l
                    {| lperm := {| initialized := ini; perm := Reserved im cl1 |}; tg := t; cid:= cid |}
                    {| lperm := {| initialized := ini; perm := Reserved im cl2 |}; tg := t; cid:= cid |}.
 
 
-  Definition tree_equal (t1 t2: tree item) :=
-    ∀ l, ∃ it1 it2, item_for_loc_in_tree it1 t1 l ∧ item_for_loc_in_tree it2 t2 l ∧ eq_up_to_C t1 t2 l it1 it2.
+  Definition tree_equal (tr1 tr2: tree item) :=
+    ∀ t l, ∃ it1 it2, item_for_loc_in_tree it1 tr1 l ∧ item_for_loc_in_tree it2 tr2 l ∧ eq_up_to_C tr1 tr2 t l it1 it2.
 
   Definition trees_equal (t1 t2 : trees) :=
     ∀ blk, option_Forall2 tree_equal (t1 !! blk) (t2 !! blk).
