@@ -9,7 +9,6 @@ From iris.prelude Require Import options.
 Lemma wf_init_state : state_wf init_state.
 Proof.
   constructor; simpl; try (intros ?; set_solver).
-  intros blk l Absurd; inversion Absurd as [? H]; inversion H.
 Qed.
 
 (** Steps preserve wellformedness *)
@@ -107,21 +106,28 @@ Proof.
     rewrite LookupNeq; [auto|lia].
 Qed.
 
+Lemma delete_trees_preserve_nonempty trs blk :
+  wf_non_empty trs ->
+  wf_non_empty (delete blk trs).
+Proof.
+  intros WF blk' tr Delete.
+  eapply WF.
+  apply (proj1 (lookup_delete_Some _ _ _ _) Delete).
+Qed.
+
 Lemma apply_within_trees_same_dom trs trs' blk fn :
   apply_within_trees fn blk trs = Some trs' ->
-  forall blk', is_Some (trs !! blk') <-> is_Some (trs' !! blk').
+  dom trs ≡ dom trs'.
 Proof.
   unfold apply_within_trees.
   destruct (trs !! blk) as [t|] eqn:Lookup; simpl; [|intro H; inversion H].
   destruct (fn t); simpl; [|intro H; inversion H].
-  intro H; injection H; intro; subst.
-  intro blk'.
-  destruct (decide (blk = blk')) as [e|].
-  - rewrite e. rewrite lookup_insert.
-    split.
-    * intro. econstructor; reflexivity.
-    * intro. rewrite <- e; rewrite Lookup; econstructor; reflexivity.
-  - rewrite lookup_insert_ne; [|done]. tauto.
+  intro H; injection H; clear H; intro; subst.
+  rewrite dom_insert.
+  rewrite subseteq_union_1; [set_solver|].
+  rewrite singleton_subseteq_l.
+  apply elem_of_dom.
+  auto.
 Qed.
 
 Lemma extend_trees_wf trs tr blk nxtp nxtc :
@@ -135,6 +141,18 @@ Proof.
   - simplify_eq; rewrite lookup_insert; intro H; injection H; intro; subst; done.
   - rewrite lookup_insert_ne; [|done]; apply (WFs blk').
 Qed.
+
+Lemma delete_trees_wf trs blk nxtp nxtc :
+  wf_trees trs nxtp nxtc ->
+  wf_trees (delete blk trs) nxtp nxtc.
+Proof.
+  intros WFs blk'.
+  intros tr' Delete.
+  intros.
+  eapply WFs.
+  apply (proj1 (lookup_delete_Some _ _ _ _) Delete).
+Qed.
+
 
 (* Now we get from per-tree to per-item *)
 Lemma tree_joinmap_preserve_prop tr tr' (fn:item -> option item) (P:item -> Prop) :
@@ -232,7 +250,7 @@ Proof.
   auto.
 Qed.
 
-Lemma deallocate_trees_wf tr tr' cids tg range nxtp nxtc :
+Lemma memory_deallocate_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
   memory_deallocate cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
@@ -259,31 +277,33 @@ Proof.
   apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
 Qed.
 
-Lemma init_mem_singleton_dom blk blk' n n' sz :
-  (blk, n) ∈ dom (init_mem (blk', n') sz ∅) -> blk = blk'.
+
+Lemma init_mem_singleton_dom (blk:block) n sz :
+  (sz > 0)%nat ->
+  ({[blk]}:gset block) ≡ set_map fst (dom (init_mem (blk, n) sz ∅)).
 Proof.
-  rewrite elem_of_dom.
-  intro Dom.
-  destruct (init_mem_lookup_case _ _ _ _ _ (is_Some_proj_extract _ Dom _ ltac:(reflexivity))) as [[Contra ?]|[i [? E]]].
-  + inversion Contra.
-  + inversion E. reflexivity.
+  revert n.
+  induction sz as [|sz IHsz]; simpl; intros.
+  - inversion H.
+  - rewrite dom_insert set_map_union set_map_singleton //=.
+    destruct sz as [|sz].
+    + rewrite dom_empty set_map_empty union_empty_r //.
+    + rewrite /shift_loc. rewrite <- IHsz; [|lia].
+      set_solver.
 Qed.
 
 Lemma same_blocks_init_extend h sz trs nxtp :
+  (sz > 0)%nat ->
   same_blocks h trs ->
   same_blocks (init_mem (fresh_block h, 0) sz h)
     (extend_trees (Tag nxtp) (fresh_block h) trs).
 Proof.
-  intros Same.
-  intros blk l Found.
-  apply elem_of_dom; apply elem_of_dom in Found.
-  rewrite init_mem_dom in Found; rewrite dom_insert.
-  rewrite elem_of_union in Found; rewrite elem_of_union.
-  destruct Found as [FoundL|FoundR].
-  * right. rewrite elem_of_dom; rewrite elem_of_dom in FoundL. apply (Same blk l); simpl; done.
-  * left.
-    rewrite (init_mem_singleton_dom _ _ _ _ _ FoundR).
-    apply elem_of_singleton. reflexivity.
+  intros Nonzero Same.
+  rewrite /same_blocks init_mem_dom dom_insert set_map_union.
+  rewrite union_comm.
+  rewrite /same_blocks in Same; rewrite Same; clear Same.
+  rewrite init_mem_singleton_dom; [|eauto].
+  set_solver.
 Qed.
 
 Lemma wf_init_tree c t t' :
@@ -321,11 +341,12 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
   inversion IS as [x| | | | | | |]; clear IS. destruct x; simpl in *; simplify_eq. constructor; simpl.
-  - apply same_blocks_init_extend.
+  - apply same_blocks_init_extend; [lia|].
     apply WF.
   - apply extend_trees_wf.
-    * pose proof (wf_trees_mono _ nxtp (S nxtp) ltac:(simpl; eauto) _ _ ltac:(simpl; eauto) (WF.(state_wf_tree_item _))) as WF'.
-      simpl in WF'. assumption.
+    * eapply wf_trees_mono.
+      3: apply WF.
+      all: simpl; lia.
     * apply wf_init_tree.
       lia.
   - intros blk.
@@ -354,6 +375,90 @@ Proof.
   auto.
 Qed.
 
+
+Lemma free_mem_subset h blk n (sz:nat) :
+  dom (free_mem (blk, n) sz h) ⊆ dom h.
+Proof.
+  revert n.
+  induction sz; intros n; rewrite //=.
+  rewrite /shift_loc //= dom_delete.
+  set_solver.
+Qed.
+
+Lemma free_mem_remove_loc h blk n (sz:nat) m :
+  (0 ≤ m < sz) ->
+  dom (free_mem (blk, n) sz h) ## {[(blk, n + m)]}.
+Proof.
+  revert n m h.
+  induction sz as [|? IHsz]; intros n m h [??].
+  - lia.
+  - rewrite //= dom_delete.
+    destruct (decide (m = 0)).
+    + subst. rewrite Z.add_0_r.
+      set_solver.
+    + eapply disjoint_difference_l2.
+      rewrite /shift_loc //=.
+      replace (n + m) with (n + 1 + (m - 1)) by lia.
+      apply IHsz.
+      lia.
+Qed.
+
+(*
+Lemma free_mem_remove_block h blk n (sz:nat)
+  (Exact : ∀ m : Z, is_Some (h !! ((blk, n) +ₗ m)) ↔ 0 ≤ m < sz) :
+  set_map fst (dom (free_mem (blk, n) sz h)) ## ({[blk]}:gset block).
+Proof.
+  revert n h Exact.
+  induction sz as [|? IHsz]; intros n h Exact.
+  - rewrite //=.
+    rewrite disjoint_singleton_r.
+    intro Elem. destruct (elem_of_map_1 _ _ _ Elem) as [[blk0 n0] [Image Elem']].
+    simpl in Image; subst.
+    enough (0 ≤ n0 - n < 0%nat) as [??] by lia.
+    apply (proj1 (Exact _)).
+    rewrite elem_of_dom in Elem'.
+    rewrite /shift_loc //=.
+    rewrite Zplus_minus.
+    assumption.
+  - rewrite //=.
+    rewrite dom_delete.
+    rewrite /shift_loc //=.
+*)
+
+(*
+Fixpoint locs_between blk (n:Z) (sz:nat) : gset loc :=
+  match sz with
+  | O => ∅
+  | S sz' => {[(blk, n)]} ∪ (locs_between blk (n + 1)%Z sz')
+  end.
+
+Lemma free_mem_dom h blk n (sz:nat)
+  (Exact : ∀ m : Z, is_Some (h !! ((blk, n) +ₗ m)) ↔ 0 ≤ m < sz) :
+  dom (free_mem (blk, n) sz h) ≡ (dom h) ∖ (locs_between blk n sz).
+Proof.
+  generalize dependent n.
+  generalize dependent h.
+  induction sz as [|? IHsz]; intros h n Exact.
+  - simpl.
+    rewrite difference_disjoint; [set_solver|].
+    apply disjoint_empty_r.
+  - rewrite //=.
+    rewrite dom_delete /shift_loc //=.
+    rewrite IHsz //=.
+    + set_solver.
+    + intro m.
+      specialize (Exact (m+1)).
+      rewrite /shift_loc //= in Exact |- *.
+      replace (n + 1 + m) with (n + (m + 1)) by lia.
+      rewrite Exact. lia.
+Admitted.
+*)
+Lemma free_mem_block_dom (blk:block) n (sz:nat) h :
+  (forall m : Z, is_Some (h !! (blk, n + m)) <-> 0 ≤ m < sz) ->
+  set_map fst (dom (free_mem (blk, n) sz h)) ≡ set_map fst (dom h) ∖ ({[blk]}:gset block).
+Proof.
+Admitted.
+
 (** Dealloc *)
 Lemma dealloc_step_wf σ σ' e e' l bor ptr efs :
   mem_expr_step σ.(shp) e (DeallocEvt l bor ptr) σ'.(shp) e' efs →
@@ -369,20 +474,20 @@ Proof.
   inversion IS as [ | | | | |????? ACC | | ]; clear IS; simplify_eq.
   destruct (trees_deallocate_isSome _ _ _ _ _ _ (mk_is_Some _ _ ACC)) as [x [Lookup Update]].
   constructor; simpl.
-  - intros blk' l'. rewrite <- (elem_of_dom (free_mem _ _ _) _).
-    intro OldDom.
-    pose (free_mem_dom _ _ _ _ OldDom) as DomCase. destruct DomCase as [DomH [NeqFi FreeLookup]].
-    unfold apply_within_trees in ACC; rewrite Lookup in ACC; simpl in ACC.
-    destruct Update as [tr' Lookup']. rewrite Lookup' in ACC; simpl in ACC.
-    injection ACC; intros; simplify_eq.
-    rewrite <- (elem_of_dom (<[_:=_]>trs) _). rewrite dom_insert; rewrite elem_of_union; right.
-    rewrite elem_of_dom.
-    eapply (WF.(state_wf_dom _) _); simpl; erewrite <- (elem_of_dom h _); exact DomH.
-  - apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
+  - rewrite /same_blocks dom_delete.
+    rewrite free_mem_block_dom; [|auto].
+    rewrite <- apply_within_trees_same_dom; [|eassumption].
+    pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
+    rewrite /same_blocks in Same.
+    rewrite <- Same.
+    set_solver.
+  - apply delete_trees_wf.
+    apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
     * tauto.
-    * intros tr tr'. apply deallocate_trees_wf.
+    * intros tr tr'. apply memory_deallocate_wf.
     * apply (WF.(state_wf_tree_item _)).
-  - apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (deallocate_preserve_nonempty _ _ _) ACC).
+  - apply delete_trees_preserve_nonempty.
+    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (deallocate_preserve_nonempty _ _ _) ACC).
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -399,8 +504,11 @@ Proof.
   inversion BS; clear BS; simplify_eq.
   inversion IS as [ |?????? ACC| | | | | | ]; clear IS; simplify_eq.
   constructor; simpl.
-  - intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    apply WF.(state_wf_dom _).
+  - rewrite /same_blocks.
+    pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
+    rewrite /same_blocks in Same. rewrite <- Same.
+    rewrite (apply_within_trees_same_dom trs _ _ _ ACC).
+    set_solver.
   - (* wf *)
     apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
     * tauto.
@@ -463,12 +571,13 @@ Proof.
   inversion BS; clear BS; simplify_eq.
   inversion IS as [ | | |?????? ACC | | | | ]; clear IS; simplify_eq.
   constructor; simpl.
-  - intros blk' l'; rewrite <- (apply_within_trees_same_dom trs _ _ _ ACC).
-    intro Elem.
-    pose proof (proj2 (elem_of_dom _ _) Elem) as dom_write_mem.
-    rewrite write_mem_dom in dom_write_mem; [|eassumption|reflexivity].
-    rewrite elem_of_dom in dom_write_mem.
-    apply (WF.(state_wf_dom _) _ _ dom_write_mem).
+  - rewrite /same_blocks.
+    pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
+    rewrite /same_blocks in Same.
+    rewrite write_mem_dom; [|eassumption|reflexivity].
+    rewrite <- Same.
+    rewrite (apply_within_trees_same_dom trs _ _ _ ACC).
+    set_solver.
   - (* wf *)
     apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
     * tauto.
@@ -566,7 +675,7 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS as [| | | |????????? SAME_CID ? RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
   constructor; simpl.
-  - intros blk' l'.
+  - rewrite /same_blocks.
     rewrite <- (apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR).
     rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
     apply WF.
