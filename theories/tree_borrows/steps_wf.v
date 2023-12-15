@@ -8,9 +8,7 @@ From iris.prelude Require Import options.
 
 Lemma wf_init_state : state_wf init_state.
 Proof.
-  constructor; simpl.
-  1: rewrite dom_empty_L; set_solver.
-  all: intros ?; set_solver.
+  constructor; simpl; try intros ?; set_solver.
 Qed.
 
 (** Steps preserve wellformedness *)

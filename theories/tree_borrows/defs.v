@@ -41,10 +41,8 @@ Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l (Tag t') → t' < t.
 (* mem ~ gmap loc scalar
 *)
 
-Definition blocks_in_heap (hp : mem) : gset positive := set_map fst (dom hp).
-Arguments blocks_in_heap / _.
 Definition same_blocks (hp:mem) (trs:trees) :=
-  dom trs = (set_map fst (dom hp) : gset _).
+  dom trs =@{gset _} set_map fst (dom hp).
 Arguments same_blocks / _ _.
 (* OLD: forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk). *)
 (* FIXME: map fst (dom hp) === dom trs *)
