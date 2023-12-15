@@ -199,13 +199,33 @@ Definition ParentChildIn t t' : Tprop (tree item)
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
 Proof. rewrite /ParentChildIn. solve_decision. Qed.
 
+(* Decide the relative position (parent/child/other) of two tags.
+   Read this as "t1 is a `rel_dec tr t1 t2` of t2", i.e.
+   `rel_dec tr t1 t2 = Child` means `t1` is a child of `t2` in `tr`,
+   `rel_dec tr t1 t2 = Cousin` means `t1` is a cousino of `t2` in `tr`.
+
+   Naturally `This` and `Cousin` are symmetric, while `Parent` and `Child`,
+   because they are strict, are inverses of each other.
+ *)
 Definition rel_dec (tr:tree item) := fun t t' =>
   match decide (ParentChildIn t t' tr), decide (ParentChildIn t' t tr) with
   | left _, left _ => This
   | left _, right _ => Parent
   | right _, left _ => Child
-  | right _, right _ => Uncle
+  | right _, right _ => Cousin
   end.
+
+Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Cousin -> rel_dec tr t' t = Cousin.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+
+Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = This -> rel_dec tr t' t = This.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+
+Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Parent -> rel_dec tr t' t = Child.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+
+Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child -> rel_dec tr t' t = Parent.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
@@ -216,14 +236,14 @@ Definition requires_init (rel:rel_pos)
   : perm_init :=
   match rel with
   | This | Child => PermInit
-  | Parent | Uncle => PermLazy
+  | Parent | Cousin => PermLazy
   end.
 
 (* State machine without protector UB *)
 Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
   : app permission := fun perm =>
   match kind, rel with
-  | AccessRead, (Parent | Uncle) =>
+  | AccessRead, (Parent | Cousin) =>
       match perm with
       | Reserved TyFrz ResActivable => if isprot then Some $ Reserved TyFrz ResConflicted else Some $ Reserved TyFrz ResActivable
       | Reserved InteriorMut ResActivable => if isprot then Some $ Reserved InteriorMut ResConflicted else Some $ Reserved InteriorMut ResActivable
@@ -234,7 +254,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
-  | AccessWrite, (Parent | Uncle) =>
+  | AccessWrite, (Parent | Cousin) =>
       match perm with
       | Reserved InteriorMut ResActivable => if isprot then Some Disabled else Some $ Reserved InteriorMut ResActivable
       | Reserved InteriorMut ResConflicted => if isprot then Some Disabled else Some $ Reserved InteriorMut ResConflicted

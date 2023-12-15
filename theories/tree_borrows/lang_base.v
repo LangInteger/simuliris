@@ -205,8 +205,8 @@ Bind Scope val_scope with value.
 Inductive access_kind := AccessRead | AccessWrite.
 Inductive access_visibility := VisibleAll | OnlyNonChildren.
 
-Inductive rel_pos := This | Parent | Child | Uncle.
-Definition foreign rel := match rel with Parent | Uncle => True | _ => False end.
+Inductive rel_pos := This | Parent | Child | Cousin.
+Definition foreign rel := match rel with Parent | Cousin => True | _ => False end.
 Definition child rel := match rel with This | Child => True | _ => False end.
 
 Global Instance access_kind_eq_dec : EqDecision access_kind.

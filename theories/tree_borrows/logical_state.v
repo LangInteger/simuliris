@@ -99,7 +99,7 @@ Section utils.
   | pseudo_conflicted_cousin_init conf c it :
         protected_by c →
         item_for_loc_in_tree it tr l →
-        rel_dec tr it.(tg) tg1 = Uncle →
+        rel_dec tr it.(tg) tg1 = Cousin →
         protected_by it.(cid) →
         it.(lperm).(perm) ≠ Disabled →
         it.(lperm).(initialized) = PermInit →
@@ -449,7 +449,7 @@ Section heap_defs.
                (* itb is a child of it *)
             | Child => itb.(lperm).(perm) = Disabled
             | Parent => itb.(lperm).(perm) ≠ Disabled
-            | Uncle => itb.(lperm).(perm) ≠ Active end
+            | Cousin => itb.(lperm).(perm) ≠ Active end
     | tk_unq (* actually "Unique Active" but that does not exist *)
        => (match it.(lperm).(perm) with
            | Active  => True
@@ -459,7 +459,7 @@ Section heap_defs.
                (* itb is a child of it *)
             | Child => itb.(lperm).(perm) = Disabled
             | Parent => itb.(lperm).(perm) = Active
-            | Uncle => match itb.(lperm).(perm) with
+            | Cousin => match itb.(lperm).(perm) with
                        Disabled | Reserved InteriorMut _ => True | _ => False end end
     | tk_pub
        => (match it.(lperm).(perm) with
@@ -470,7 +470,7 @@ Section heap_defs.
                (* itb is a child of it *)
             | Child => itb.(lperm).(perm) ≠ Active
             | Parent => itb.(lperm).(perm) ≠ Disabled
-            | Uncle => itb.(lperm).(perm) ≠ Active end
+            | Cousin => itb.(lperm).(perm) ≠ Active end
     end.
 
   Lemma bor_state_own_some_tree l t tk σ :
