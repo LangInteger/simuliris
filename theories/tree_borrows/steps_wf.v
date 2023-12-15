@@ -411,33 +411,6 @@ Proof.
   - done.
   - rewrite /= delete_commute. f_equiv. apply IH.
 Qed.
-(*
-Lemma free_mem_remove_block h blk n (sz:nat)
-  (Exact : ∀ m : Z, is_Some (h !! ((blk, n) +ₗ m)) ↔ 0 ≤ m < sz) :
-  blk ∉ (set_map fst (dom (free_mem (blk, n) sz h)) : gset _).
-Proof.
-  induction sz as [|? IHsz] in n,h,Exact|-*.
-  - intros ((blk' & l) & -> & Hin%elem_of_dom)%elem_of_map.
-    specialize (Exact (l - n)).
-    rewrite //= /shift_loc Zplus_minus in Exact.
-    apply Exact in Hin. lia.
-  - rewrite //= dom_delete_L.
-    intros ((blk' & l) & -> & (Hin%elem_of_dom & Hne%not_elem_of_singleton)%elem_of_difference)%elem_of_map.
-    eapply (IHsz (delete (blk',n) h) (n+1)); last first.
-    { eapply elem_of_map; eexists; split; first done. 
-      eapply elem_of_dom. rewrite free_mem_delete lookup_delete_ne //. }
-    intros m. destruct (Exact (1 + m)) as (HL & HR).
-    rewrite //= /shift_loc //= in HL,HR,Exact|-*. split.
-    + intros H. assert (m ≠ -1) as Hnneg.
-      * intros ->. rewrite -Z.add_assoc Z.add_opp_diag_r Z.add_0_r lookup_delete in H.
-        by apply is_Some_None in H.
-      * rewrite Z.add_assoc in HL.
-        rewrite lookup_delete_ne in H; first by apply HL in H; lia.
-        intros [= HH]; lia.
-    + intros H. rewrite lookup_delete_ne; last (intros [= HH]; lia).
-      rewrite -Z.add_assoc. apply HR. lia.
-Qed.
-*)
 
 Lemma free_mem_block_dom (blk:block) n (sz:nat) h :
   (forall m : Z, is_Some (h !! (blk, n + m)) <-> 0 ≤ m < sz) ->
