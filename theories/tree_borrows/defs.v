@@ -61,7 +61,15 @@ Record state_wf (s: state) := {
 
 Definition init_state := (mkState ∅ ∅ {[O]} O 1).
 
-Inductive tag_kind := tk_pub  | tk_unq | tk_local.
+(** Tag kinds:
+    - `tk_pub`: this tag is public
+    - `tk_unq_res` and `tk_unq_act`: split from the `tk_unq` in Stacked Borrows.
+      We need two of them to support the two stages of 2-phase borrows.
+      The intent is that whatever mutable reference is reborrowed gets a
+      `tk_unq_res` initially and on the first child write we can change it to a
+      `tk_unq_act`.
+    - `tk_local`: locally owned tag without any references (not even local reborrows). *)
+Inductive tag_kind := tk_pub | tk_unq_res | tk_unq_act | tk_local.
 
 Definition state_upd_mem (f : mem → mem) σ :=
   mkState (f σ.(shp)) σ.(strs) σ.(scs) σ.(snp) σ.(snc).

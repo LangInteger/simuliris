@@ -17,8 +17,9 @@ From simuliris.tree_borrows Require Export defs.
   - tk_unq: the tag is unique (cannot be shared, assertion is not persistent).
   - tk_loc: the tag is local
  *)
+(*
 (* TODO: allow a local update from tk_unq to tk_pub *)
-Definition tagKindR := csumR (exclR unitO) (csumR (exclR unitO) unitR).
+Definition tagKindR := csumR (exclR unitO) (csumR (csumR (exclR unitO) (exclR unitO)) unitR).
 
 
 Canonical Structure tag_kindO := leibnizO tag_kind.
@@ -28,9 +29,10 @@ Proof. apply _. Qed.
 
 Definition to_tgkR (tk: tag_kind) : tagKindR :=
   match tk with
-  | tk_unq => Cinr $ Cinl $ Excl ()
-  | tk_pub => Cinr $ Cinr ()
   | tk_local => Cinl $ Excl ()
+  | tk_unq_res => Cinr $ Cinl $ Cinl $ Excl ()
+  | tk_unq_act => Cinr $ Cinl $ Cinr $ Excl ()
+  | tk_pub => Cinr $ Cinr ()
   end.
 
 Lemma to_tgkR_valid tk : ✓ (to_tgkR tk).
@@ -41,21 +43,28 @@ Proof. destruct tk; done. Qed.
 Global Instance to_tgkR_inj n : Inj (=) (dist n) to_tgkR.
 Proof.
   intros [] []; simpl; first [done | inversion 1];
-  match goal with
+  do 2 match goal with
+  (* Base cases *)
   | H : Cinl _ ≡{_}≡ Cinr _ |- _ => inversion H
   | H : Cinr _ ≡{_}≡ Cinl _ |- _ => inversion H
+  (* We need to go deeper *)
+  | H : Cinl _ ≡{_}≡ Cinl _ |- _ => inversion H; clear H
+  | H : Cinr _ ≡{_}≡ Cinr _ |- _ => inversion H; clear H
   end.
 Qed.
 
 Lemma tgkR_validN_inv tkr n : ✓{n} tkr → ∃ tk, tkr ≡ to_tgkR tk.
 Proof.
-  rewrite -cmra_discrete_valid_iff. destruct tkr as [c | [c|c|] | ]; simpl; try by move => [].
+  rewrite -cmra_discrete_valid_iff. destruct tkr as [c | [[c|c|]|c|] | ]; simpl; try by move => [].
   - destruct c as [u|]; last move => []. destruct u; intros. exists tk_local. done.
-  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq. done.
+  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq_res. done.
+  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq_act. done.
   - destruct c. intros. exists tk_pub; done.
 Qed.
 
-Global Instance to_tgkR_unq_excl : Exclusive (to_tgkR tk_unq).
+Global Instance to_tgkR_unq_res_excl : Exclusive (to_tgkR tk_unq_res).
+Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
+Global Instance to_tgkR_unq_act_excl : Exclusive (to_tgkR tk_unq_act).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
 Global Instance to_tgkR_local_excl : Exclusive (to_tgkR tk_local).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
@@ -805,4 +814,4 @@ Section lemmas.
   (*Qed.*)
 
 End lemmas.
-
+*)
