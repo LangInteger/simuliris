@@ -157,7 +157,7 @@ Section state_bijection.
         (* local *)
         (tk = tk_local ∨
         (* unique with protector *)
-        (tk = tk_unq ∧ ∃ c, call_set_in' Mcall_t c t l)).
+        ((tk = tk_unq_res ∨ tk = tk_unq_act) ∧ ∃ c, call_set_in' Mcall_t c t l)).
     (* This definition enforces quite strict requirements on the state:
       - the domains of the heaps shp are the same: dom σ_s.(shp) = dom σ_t.(shp)
       - the trees are the same, up to conflicted: trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs)
@@ -418,7 +418,7 @@ Section heap_defs.
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
-    | tk_unq => ∃ i, item_for_loc_in_trees i σ.(strs) l
+    | tk_unq_act | tk_unq_res => ∃ i, item_for_loc_in_trees i σ.(strs) l
                    ∧ i.(lperm).(perm) ≠ Disabled
                    ∧ (i.(lperm).(perm) = Frozen → protected_by σ.(scs) i.(cid))
     | tk_pub => ∃ i, item_for_loc_in_trees i σ.(strs) l
@@ -439,7 +439,10 @@ Section heap_defs.
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     ∃ it tr, item_for_loc_in_trees it σ.(strs) l ∧ it.(tg) = t ∧ σ.(strs) !! l.1 = Some tr ∧
     match tk with
-    | tk_local (* actually "Unique Reserved" but that does not exist *)
+    | tk_local => it.(lperm).(perm) = Active ∧
+            (* in other words, the item is unique *)
+            ∀ itb, item_for_loc_in_trees it σ.(strs) l → rel_dec tr it.(tg) itb.(tg) = This
+    | tk_unq_res
        => (match it.(lperm).(perm) with
            | Active | Reserved InteriorMut _ => True
            | Reserved TyFrz _ => ¬ protected_by σ.(scs) it.(cid)
@@ -450,10 +453,8 @@ Section heap_defs.
             | Child => itb.(lperm).(perm) = Disabled
             | Parent => itb.(lperm).(perm) ≠ Disabled
             | Cousin => itb.(lperm).(perm) ≠ Active end
-    | tk_unq (* actually "Unique Active" but that does not exist *)
-       => (match it.(lperm).(perm) with
-           | Active  => True
-           | _ => False end) ∧
+    | tk_unq_act
+       => it.(lperm).(perm) = Active ∧
           ∀ itb, item_for_loc_in_trees it σ.(strs) l → match rel_dec tr it.(tg) itb.(tg) with 
             | This => True
                (* itb is a child of it *)
@@ -462,9 +463,7 @@ Section heap_defs.
             | Cousin => match itb.(lperm).(perm) with
                        Disabled | Reserved InteriorMut _ => True | _ => False end end
     | tk_pub
-       => (match it.(lperm).(perm) with
-           | Frozen => True
-           | _ => False end) ∧
+       => it.(lperm).(perm) = Frozen ∧
           ∀ itb, item_for_loc_in_trees it σ.(strs) l → match rel_dec tr it.(tg) itb.(tg) with 
             | This => True
                (* itb is a child of it *)
@@ -1213,7 +1212,7 @@ Lemma ghost_map_array_tag_tk `{!bor_stateGS Σ} (γh : gname) (v : list scalar) 
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (DfracOwn 1) sc) ==∗
   ([∗ list] i ↦ sc ∈ v, ghost_map_elem γh (t, l +ₗ i) (tk_to_frac tk) sc).
 Proof.
-  destruct tk; cbn; [ | by eauto | by eauto].
+  destruct tk; cbn; [ | by eauto ..].
   iInduction v as [| sc v] "IH" forall (l); first by eauto.
   rewrite !big_sepL_cons. iIntros "[Hh Hr]".
   iMod (ghost_map_elem_persist with "Hh") as "$".

@@ -17,7 +17,7 @@ From simuliris.tree_borrows Require Export defs.
   - tk_unq: the tag is unique (cannot be shared, assertion is not persistent).
   - tk_loc: the tag is local
  *)
-(*
+
 (* TODO: allow a local update from tk_unq to tk_pub *)
 Definition tagKindR := csumR (exclR unitO) (csumR (csumR (exclR unitO) (exclR unitO)) unitR).
 
@@ -68,6 +68,9 @@ Global Instance to_tgkR_unq_act_excl : Exclusive (to_tgkR tk_unq_act).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
 Global Instance to_tgkR_local_excl : Exclusive (to_tgkR tk_local).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
+Lemma to_tgkR_not_pub_excl tk : tk ≠ tk_pub → Exclusive (to_tgkR tk).
+Proof. move : tk => [] H //; apply _. Qed.
+
 Lemma to_tgkR_op_validN n tk tk' : ✓{n} (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
 Proof. destruct tk, tk'; simpl; by intros []. Qed.
 Lemma to_tgkR_op_valid tk tk' : ✓ (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
@@ -78,10 +81,14 @@ Lemma tagKindR_incl_eq (k1 k2: tagKindR):
 Proof.
   move => VAL /csum_included
     [?|[[? [? [? [? INCL]]]]|[x1 [x2 [? [? INCL]]]]]]; subst; [done|..].
-  - exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
-  - move : INCL => /csum_included
-      [? |[[? [? [? [? INCL]]]]|[[] [[] [? [? LE]]]]]]; subst; [done|..|done].
-    exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
+  { exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _. }
+  f_equiv.
+  move : INCL => /csum_included
+    [?|[[? [? [? [? INCL]]]]|[x3 [x4 [? [? INCL]]]]]]; subst; [done|..].
+  2: { f_equiv. destruct x3, x4. done. }
+  move : INCL => /csum_included
+    [?|[[? [? [? [? INCL]]]]|[x3 [x4 [? [? INCL]]]]]]; subst; [done|..].
+  all: exfalso; eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
 Qed.
 
 
@@ -398,7 +405,7 @@ Section lemmas.
   Qed.
 
   Lemma tkmap_view_delete m k v tk :
-    tk = tk_local ∨ tk = tk_unq →
+    tk ≠ tk_pub →
     tkmap_view_auth 1 m ⋅ tkmap_view_frag k tk v ~~>
     tkmap_view_auth 1 (delete k m).
   Proof.
@@ -407,10 +414,7 @@ Section lemmas.
     destruct (decide (j = k)) as [->|Hne].
     - edestruct (Hrel k) as (v' & tk' & _ & Htk & _).
       { rewrite lookup_op Hbf lookup_singleton -Some_op. done. }
-      exfalso.
-      assert (Exclusive (to_tgkR tk)) as Hexcl.
-      { destruct Htk_eq as [-> | ->]; [apply to_tgkR_local_excl | apply to_tgkR_unq_excl]. }
-      apply: Hexcl.
+      exfalso. eapply to_tgkR_not_pub_excl; first done.
       apply discrete_iff in Htk; last apply _. apply cmra_discrete_valid_iff.
       setoid_rewrite Htk. apply to_tgkR_valid.
     - edestruct (Hrel j) as (v' & tk' & ? & ? & Hm).
@@ -420,7 +424,7 @@ Section lemmas.
   Qed.
 
   Lemma tkmap_view_update m k tk v v' :
-    tk = tk_local ∨ tk = tk_unq →
+    tk ≠ tk_pub →
     tkmap_view_auth 1 m ⋅ tkmap_view_frag k tk v ~~>
       tkmap_view_auth 1 (<[k := (tk, v')]> m) ⋅ tkmap_view_frag k tk v'.
   Proof.
@@ -432,9 +436,7 @@ Section lemmas.
         destruct (bf !! k) as [[tkr' va']|] eqn:Hbf; last done.
         rewrite Hbf. clear Hbf.
         rewrite -Some_op -pair_op.
-        assert (Exclusive (to_tgkR tk)) as Hexcl.
-        { destruct Htk_eq as [-> | ->]; [apply to_tgkR_local_excl | apply to_tgkR_unq_excl]. }
-        move=>[/= /Hexcl Hdf _]. done. }
+        move=>[/= /to_tgkR_not_pub_excl] //. }
       rewrite Hbf right_id lookup_singleton. clear Hbf.
       intros [= <- <-].
       eexists; exists tk. split_and!; [done | done | ].
@@ -446,13 +448,13 @@ Section lemmas.
       simpl in *. eexists; exists tk''. do 2 (split; first done).
       rewrite lookup_insert_ne //.
   Qed.
-
+(*
   Lemma tkmap_view_make_public m k v :
     tkmap_view_auth 1 m ⋅ tkmap_view_frag k tk_unq v ~~>
       tkmap_view_auth 1 (<[k := (tk_pub, v)]> m) ⋅ tkmap_view_frag k tk_pub v.
   Proof.
     (* TODO: change def of tgkR to enable local update tk_unq ~~> tk_pub *)
-  Abort.
+  Abort. *)
   (*Proof.*)
     (*apply view_update_frag=>m n bf Hrel j [df va] /=.*)
     (*rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].*)
@@ -647,8 +649,11 @@ Section lemmas.
     iIntros (?) "H1 H2"; iIntros (->).
     by iCombine "H1 H2" gives %[??].
   Qed.
-  Lemma tkmap_elem_ne γ k1 k2 tk2 v1 v2 :
-    k1 ↪[γ]{tk_unq} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
+  Lemma tkmap_elem_ne_res γ k1 k2 tk2 v1 v2 :
+    k1 ↪[γ]{tk_unq_res} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
+  Proof. apply tkmap_elem_tk_ne. apply: exclusive_l. Qed.
+  Lemma tkmap_elem_ne_act γ k1 k2 tk2 v1 v2 :
+    k1 ↪[γ]{tk_unq_act} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
   Proof. apply tkmap_elem_tk_ne. apply: exclusive_l. Qed.
 
   Global Instance tkmap_elem_pub_pers γ k v : Persistent (k ↪[γ]{tk_pub} v).
@@ -737,9 +742,16 @@ Section lemmas.
     unseal. intros ?. rewrite -own_op.
     iApply own_update. apply: tkmap_view_alloc; done.
   Qed.
-  Lemma tkmap_insert_unq {γ m} k v :
+  Lemma tkmap_insert_unq_res {γ m} k v :
     m !! k = None →
-    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq, v)]> m) ∗ k ↪[γ]{tk_unq} v.
+    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq_res, v)]> m) ∗ k ↪[γ]{tk_unq_res} v.
+  Proof.
+    iIntros (?) "Hauth".
+    iMod (tkmap_insert _ k with "Hauth") as "[$ Helem]"; done.
+  Qed.
+  Lemma tkmap_insert_unq_act {γ m} k v :
+    m !! k = None →
+    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq_act, v)]> m) ∗ k ↪[γ]{tk_unq_act} v.
   Proof.
     iIntros (?) "Hauth".
     iMod (tkmap_insert _ k with "Hauth") as "[$ Helem]"; done.
@@ -753,7 +765,7 @@ Section lemmas.
   Qed.
 
   Lemma tkmap_delete {γ m tk k v} :
-    tk = tk_local ∨ tk = tk_unq →
+    tk ≠ tk_pub →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (delete k m).
   Proof.
     unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -own_op.
@@ -761,7 +773,7 @@ Section lemmas.
   Qed.
 
   Lemma tkmap_update {γ m tk k v} w :
-    tk = tk_local ∨ tk = tk_unq →
+    tk ≠ tk_pub →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk, w)]> m) ∗ k ↪[γ]{tk} w.
   Proof.
     unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -!own_op.
@@ -814,4 +826,3 @@ Section lemmas.
   (*Qed.*)
 
 End lemmas.
-*)
