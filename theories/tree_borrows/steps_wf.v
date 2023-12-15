@@ -8,7 +8,9 @@ From iris.prelude Require Import options.
 
 Lemma wf_init_state : state_wf init_state.
 Proof.
-  constructor; simpl; try (intros ?; set_solver).
+  constructor; simpl.
+  1: rewrite dom_empty_L; set_solver.
+  all: intros ?; set_solver.
 Qed.
 
 (** Steps preserve wellformedness *)
@@ -115,16 +117,16 @@ Proof.
   apply (proj1 (lookup_delete_Some _ _ _ _) Delete).
 Qed.
 
-Lemma apply_within_trees_same_dom trs trs' blk fn :
+Lemma apply_within_trees_same_dom (trs trs' : gmap positive (tree item)) blk fn :
   apply_within_trees fn blk trs = Some trs' ->
-  dom trs ≡ dom trs'.
+  dom trs = dom trs'.
 Proof.
   unfold apply_within_trees.
-  destruct (trs !! blk) as [t|] eqn:Lookup; simpl; [|intro H; inversion H].
+  destruct (trs !! blk) as [t|] eqn:Lookup; rewrite !Lookup; simpl; [|intro H; inversion H].
   destruct (fn t); simpl; [|intro H; inversion H].
   intro H; injection H; clear H; intro; subst.
-  rewrite dom_insert.
-  rewrite subseteq_union_1; [set_solver|].
+  rewrite dom_insert_L.
+  rewrite subseteq_union_1_L; [set_solver|].
   rewrite singleton_subseteq_l.
   apply elem_of_dom.
   auto.
@@ -280,14 +282,14 @@ Qed.
 
 Lemma init_mem_singleton_dom (blk:block) n sz :
   (sz > 0)%nat ->
-  ({[blk]}:gset block) ≡ set_map fst (dom (init_mem (blk, n) sz ∅)).
+  ({[blk]}:gset block) = set_map fst (dom (init_mem (blk, n) sz ∅)).
 Proof.
   revert n.
   induction sz as [|sz IHsz]; simpl; intros.
   - inversion H.
-  - rewrite dom_insert set_map_union set_map_singleton //=.
+  - rewrite dom_insert_L set_map_union_L set_map_singleton_L //=.
     destruct sz as [|sz].
-    + rewrite dom_empty set_map_empty union_empty_r //.
+    + rewrite dom_empty_L set_map_empty union_empty_r_L //.
     + rewrite /shift_loc. rewrite <- IHsz; [|lia].
       set_solver.
 Qed.
@@ -299,10 +301,10 @@ Lemma same_blocks_init_extend h sz trs nxtp :
     (extend_trees (Tag nxtp) (fresh_block h) trs).
 Proof.
   intros Nonzero Same.
-  rewrite /same_blocks init_mem_dom dom_insert set_map_union.
-  rewrite union_comm.
+  rewrite /same_blocks init_mem_dom dom_insert_L set_map_union_L.
+  rewrite union_comm_L.
   rewrite /same_blocks in Same; rewrite Same; clear Same.
-  rewrite init_mem_singleton_dom; [|eauto].
+  erewrite init_mem_singleton_dom; [|eauto].
   set_solver.
 Qed.
 
@@ -403,61 +405,75 @@ Proof.
       lia.
 Qed.
 
+Lemma free_mem_delete h k1 k2 sz : free_mem k1 sz (delete k2 h) = delete k2 (free_mem k1 sz h).
+Proof.
+  induction sz as [|n IH] in h,k1|-*.
+  - done.
+  - rewrite /= delete_commute. f_equiv. apply IH.
+Qed.
 (*
 Lemma free_mem_remove_block h blk n (sz:nat)
   (Exact : ∀ m : Z, is_Some (h !! ((blk, n) +ₗ m)) ↔ 0 ≤ m < sz) :
-  set_map fst (dom (free_mem (blk, n) sz h)) ## ({[blk]}:gset block).
+  blk ∉ (set_map fst (dom (free_mem (blk, n) sz h)) : gset _).
 Proof.
-  revert n h Exact.
-  induction sz as [|? IHsz]; intros n h Exact.
-  - rewrite //=.
-    rewrite disjoint_singleton_r.
-    intro Elem. destruct (elem_of_map_1 _ _ _ Elem) as [[blk0 n0] [Image Elem']].
-    simpl in Image; subst.
-    enough (0 ≤ n0 - n < 0%nat) as [??] by lia.
-    apply (proj1 (Exact _)).
-    rewrite elem_of_dom in Elem'.
-    rewrite /shift_loc //=.
-    rewrite Zplus_minus.
-    assumption.
-  - rewrite //=.
-    rewrite dom_delete.
-    rewrite /shift_loc //=.
+  induction sz as [|? IHsz] in n,h,Exact|-*.
+  - intros ((blk' & l) & -> & Hin%elem_of_dom)%elem_of_map.
+    specialize (Exact (l - n)).
+    rewrite //= /shift_loc Zplus_minus in Exact.
+    apply Exact in Hin. lia.
+  - rewrite //= dom_delete_L.
+    intros ((blk' & l) & -> & (Hin%elem_of_dom & Hne%not_elem_of_singleton)%elem_of_difference)%elem_of_map.
+    eapply (IHsz (delete (blk',n) h) (n+1)); last first.
+    { eapply elem_of_map; eexists; split; first done. 
+      eapply elem_of_dom. rewrite free_mem_delete lookup_delete_ne //. }
+    intros m. destruct (Exact (1 + m)) as (HL & HR).
+    rewrite //= /shift_loc //= in HL,HR,Exact|-*. split.
+    + intros H. assert (m ≠ -1) as Hnneg.
+      * intros ->. rewrite -Z.add_assoc Z.add_opp_diag_r Z.add_0_r lookup_delete in H.
+        by apply is_Some_None in H.
+      * rewrite Z.add_assoc in HL.
+        rewrite lookup_delete_ne in H; first by apply HL in H; lia.
+        intros [= HH]; lia.
+    + intros H. rewrite lookup_delete_ne; last (intros [= HH]; lia).
+      rewrite -Z.add_assoc. apply HR. lia.
+Qed.
 *)
 
-(*
-Fixpoint locs_between blk (n:Z) (sz:nat) : gset loc :=
-  match sz with
-  | O => ∅
-  | S sz' => {[(blk, n)]} ∪ (locs_between blk (n + 1)%Z sz')
-  end.
-
-Lemma free_mem_dom h blk n (sz:nat)
-  (Exact : ∀ m : Z, is_Some (h !! ((blk, n) +ₗ m)) ↔ 0 ≤ m < sz) :
-  dom (free_mem (blk, n) sz h) ≡ (dom h) ∖ (locs_between blk n sz).
-Proof.
-  generalize dependent n.
-  generalize dependent h.
-  induction sz as [|? IHsz]; intros h n Exact.
-  - simpl.
-    rewrite difference_disjoint; [set_solver|].
-    apply disjoint_empty_r.
-  - rewrite //=.
-    rewrite dom_delete /shift_loc //=.
-    rewrite IHsz //=.
-    + set_solver.
-    + intro m.
-      specialize (Exact (m+1)).
-      rewrite /shift_loc //= in Exact |- *.
-      replace (n + 1 + m) with (n + (m + 1)) by lia.
-      rewrite Exact. lia.
-Admitted.
-*)
 Lemma free_mem_block_dom (blk:block) n (sz:nat) h :
   (forall m : Z, is_Some (h !! (blk, n + m)) <-> 0 ≤ m < sz) ->
-  set_map fst (dom (free_mem (blk, n) sz h)) ≡ set_map fst (dom h) ∖ ({[blk]}:gset block).
+  set_map fst (dom (free_mem (blk, n) sz h)) = (set_map fst (dom h) ∖ {[blk]}:gset _).
 Proof.
-Admitted.
+  intros Exact.
+  induction sz as [|? IHsz] in n,h,Exact|-*.
+  - rewrite difference_disjoint_L //.
+    apply disjoint_singleton_r.
+    intros ((blk' & l) & -> & Hin%elem_of_dom)%elem_of_map.
+    specialize (Exact (l - n)).
+    rewrite //= /shift_loc Zplus_minus in Exact.
+    apply Exact in Hin. lia.
+  - rewrite //= -free_mem_delete.
+    rewrite IHsz.
+    { rewrite dom_delete_L. apply gset_leibniz.
+      intros k. split.
+      - intros (((blk'&l) & -> & (Hin & Hnin2)%elem_of_difference)%elem_of_map & Hnin)%elem_of_difference.
+        eapply elem_of_difference; split; last done.
+        eapply elem_of_map. by eexists.
+      - intros (((blk'&l) & -> & Hin)%elem_of_map & Hnin)%elem_of_difference.
+        eapply elem_of_difference; split; last done.
+        eapply elem_of_map. eexists; split; first done.
+        eapply elem_of_difference. split; first done.
+        intros [= -> ->]%elem_of_singleton. cbn in Hnin. set_solver. }
+    intros m. destruct (Exact (1 + m)) as (HL & HR).
+    rewrite //= /shift_loc //= in HL,HR,Exact|-*. split.
+    + intros H. assert (m ≠ -1) as Hnneg.
+      * intros ->. rewrite -Z.add_assoc Z.add_opp_diag_r Z.add_0_r lookup_delete in H.
+        by apply is_Some_None in H.
+      * rewrite Z.add_assoc in HL.
+        rewrite lookup_delete_ne in H; first by apply HL in H; lia.
+        intros [= HH]; lia.
+    + intros H. rewrite lookup_delete_ne; last (intros [= HH]; lia).
+      rewrite -Z.add_assoc. apply HR. lia.
+Qed.
 
 (** Dealloc *)
 Lemma dealloc_step_wf σ σ' e e' l bor ptr efs :
@@ -474,13 +490,12 @@ Proof.
   inversion IS as [ | | | | |????? ACC | | ]; clear IS; simplify_eq.
   destruct (trees_deallocate_isSome _ _ _ _ _ _ (mk_is_Some _ _ ACC)) as [x [Lookup Update]].
   constructor; simpl.
-  - rewrite /same_blocks dom_delete.
+  - rewrite /same_blocks dom_delete_L.
     rewrite free_mem_block_dom; [|auto].
-    rewrite <- apply_within_trees_same_dom; [|eassumption].
+    erewrite <- apply_within_trees_same_dom; [|eassumption].
     pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
     rewrite /same_blocks in Same.
-    rewrite <- Same.
-    set_solver.
+    rewrite Same. done.
   - apply delete_trees_wf.
     apply (apply_within_trees_wf _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
     * tauto.
@@ -537,13 +552,13 @@ Qed.
 Lemma write_mem_dom l (vl : value) h h'
   (DEFINED: ∀ i : nat, (i < length vl)%nat → (l +ₗ i) ∈ dom h)
   (SUCCESS: write_mem l vl h = h') :
-  dom h' ≡ dom h.
+  dom h' = dom h.
 Proof.
   revert l h h' DEFINED SUCCESS. induction vl as [|sc vl IH]; intros l h h' DEFINED SUCCESS.
   - simpl in *. subst. reflexivity.
   - simpl in *. rewrite <- SUCCESS.
-    rewrite IH; [| |reflexivity].
-    + apply dom_map_insert_is_Some.
+    erewrite IH; [| |reflexivity].
+    + rewrite dom_insert_lookup_L; first done.
       pose proof (DEFINED 0%nat) as Overwrite.
       rewrite shift_loc_0 in Overwrite.
       apply elem_of_dom.
@@ -574,7 +589,7 @@ Proof.
   - rewrite /same_blocks.
     pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
     rewrite /same_blocks in Same.
-    rewrite write_mem_dom; [|eassumption|reflexivity].
+    erewrite write_mem_dom; [|eassumption|reflexivity].
     rewrite <- Same.
     rewrite (apply_within_trees_same_dom trs _ _ _ ACC).
     set_solver.
@@ -675,9 +690,10 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS as [| | | |????????? SAME_CID ? RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
   constructor; simpl.
-  - rewrite /same_blocks.
-    rewrite <- (apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR).
-    rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
+  - rewrite /same_blocks /=.
+    (* Something is bodged here *)
+    setoid_rewrite <- (apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR).
+    setoid_rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
     apply WF.
   - apply (apply_within_trees_wf _ _ (S nxtp) (S nxtp) nxtc' nxtc' _ _ READ_ON_REBOR).
     * intros tr WFtr. eapply wf_tree_mono; [| |eassumption]; auto.
