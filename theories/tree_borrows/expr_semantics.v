@@ -520,6 +520,12 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               (AllocEvt blk lbor (0, sz))
               (init_mem (blk, 0) sz h) (Place (blk, 0) lbor sz) []
 | DeallocBS blk l (sz:nat) lbor :
+    (* FIXME: This is wrong because it allows double-free of zero-sized allocations
+              Possible solutions:
+              - Change the heap from `gmap loc scalar` to `gmap blk (gmap Z scalar)`
+              - Require `sz > 0`      <- probably this
+              - special case for TB where if the size is zero we don't add a new tree
+    *)
     (∀ m, is_Some (h !! ((blk,l) +ₗ m)) ↔ 0 ≤ m < sz) →
     mem_expr_step
               h (Free (Place (blk,l) lbor sz))

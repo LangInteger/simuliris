@@ -38,8 +38,14 @@ Definition wf_cid_incl (cids: call_id_set) (nxtc: call_id) :=
   ∀ c : call_id, c ∈ cids → (c < nxtc)%nat.
 Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l (Tag t') → t' < t.
 
+(* mem ~ gmap loc scalar
+*)
 Definition same_blocks (hp:mem) (trs:trees) :=
-  forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk).
+  dom trs ≡ set_map (fun l:loc => l.1) (dom hp).
+
+(* OLD: forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk). *)
+(* FIXME: map fst (dom hp) === dom trs *)
+(* FIXME: forall blk, (exists l, is_Some (hp !! (blk, l))) <-> is_Some (trs !! blk). *)
 
 Record state_wf (s: state) := {
   (*state_wf_dom : dom s.(shp) ≡ dom s.(strs); Do we care ? After all TB is very permissive about the range, so out-of-bounds UB is *always* triggered at the level of the heap, not the trees *)

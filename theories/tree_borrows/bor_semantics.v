@@ -725,7 +725,8 @@ Definition trees_read_all_protected_initialized (cids : call_id_set) (cid : nat)
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (x : loc) (sz : nat)
-    (FRESH : trs !! x.1 = None) :
+    (FRESH : trs !! x.1 = None)
+    (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
     bor_step
       trs cids nxtp nxtc
       (AllocEvt x.1 (Tag nxtp) (x.2, sz))
@@ -771,19 +772,19 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | DeallocIS trs' (alloc : block) (tg : tag) range
     (EXISTS_TAG: trees_contain tg trs alloc)
     (ACC: apply_within_trees (memory_deallocate cids tg range) alloc trs = Some trs') :
-    (* FIXME: should we actually remove the tree ? *)
+    (* We are deleting the entire allocation to make sure that the tree has the same blocks as the heap *)
     bor_step
       trs cids nxtp nxtc
       (DeallocEvt alloc tg range)
-      trs' cids nxtp nxtc
+      (delete alloc trs') cids nxtp nxtc
   | InitCallIS :
     bor_step
       trs cids nxtp nxtc
       (InitCallEvt nxtc)
       trs ({[nxtc]} ∪ cids) nxtp (S nxtc)
   | EndCallIS c trs'
-      (* Don't forget the implicit read on function exit through all initialized locations *)
     (EL: c ∈ cids)
+    (* Don't forget the implicit read on function exit through all initialized locations *)
     (READ_ON_UNPROT : trees_read_all_protected_initialized cids c trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
