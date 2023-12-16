@@ -282,8 +282,7 @@ Lemma init_mem_singleton_dom (blk:block) n sz :
   (sz > 0)%nat ->
   ({[blk]}:gset block) = set_map fst (dom (init_mem (blk, n) sz ∅)).
 Proof.
-  revert n.
-  induction sz as [|sz IHsz]; simpl; intros.
+  induction sz as [|sz IHsz] in n|-*; simpl; intros H.
   - inversion H.
   - rewrite dom_insert_L set_map_union_L set_map_singleton_L //=.
     destruct sz as [|sz].
