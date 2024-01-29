@@ -8,14 +8,28 @@ From iris.prelude Require Import options.
 
 (* TODO: do we need non-empty condition? ie (sizeof ptr) > 0? *)
 Lemma alloc_base_step P σ sz :
+  state_wf σ ->
+  (sz > 0)%nat ->
   let l := (fresh_block σ.(shp), 0) in
   let t := σ.(snp) in
   let σ' := mkState (init_mem l sz σ.(shp))
                     (extend_trees (Tag t) l.1 σ.(strs)) σ.(scs) (S t) σ.(snc) in
   base_step P (Alloc sz) σ (Place l (Tag t) sz) σ' [].
-Proof. by econstructor; econstructor. Qed.
-
-
+Proof.
+  simpl. econstructor.
+  - econstructor.
+  - apply (AllocIS (strs σ) (scs σ) (snp σ) (snc σ) (fresh_block (shp σ), 0)).
+    2: assumption.
+    assert (forall i, (fresh_block (shp σ), i) ∉ dom (shp σ)) as FreshHp by apply is_fresh_block.
+    apply not_elem_of_dom.
+    inversion H.
+    rewrite state_wf_dom.
+    intro FreshMap.
+    destruct (elem_of_map_1 fst (dom (shp σ)) (fresh_block (shp σ)) FreshMap) as [[blk z] [Fresh Dom]].
+    apply (FreshHp z).
+    rewrite Fresh; simpl.
+    exact Dom.
+Qed.
 
 
 (*
@@ -58,14 +72,17 @@ Qed.
 
 (* For a protector to allow deallocation it must be weak or inactive *)
 Definition item_deallocateable_protector cids (it: item) :=
-  match it.(iprot) with Some {| weak:=w; call:=c |} => ¬ is_active_call cids c \/ Is_true w| _ => True end.
+  match it.(iprot) with
+  | Some {| strong:=strong; call:=c |} => ¬ call_is_active c cids \/ strong = ProtWeak
+  | _ => True
+  end.
 
 (* Deallocation progress is going to be a bit more tricky because we need the success of the write *)
 (*
 Lemma memory_deallocated_progress α cids l bor (n: nat) :
   (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom α) →
   (∀ (m: nat) stk, (m < n)%nat → α !! (l +ₗ m) = Some stk →
-      (∃ it, it ∈ stk ∧ it.(tg) = bor ∧
+      (∃ it, it ∈ stk ∧ it.(itag) = bor ∧
         it.(perm) ≠ Disabled ∧ it.(perm) ≠ SharedReadOnly) ∧
       ∀ it, it ∈ stk → item_inactive_protector cids it) →
   is_Some (memory_deallocated α cids l bor n).
@@ -107,8 +124,7 @@ Proof.
 Qed.
 *)
 
-(* Need atomicity and locks, this lemma is false as-is *)
-(*
+(* Success of `read_mem` on the heap is unchanged. *)
 Lemma read_mem_is_Some' l n h :
   (∀ m, (m < n)%nat → l +ₗ m ∈ dom h) ↔
   is_Some (read_mem l n h).
@@ -205,7 +221,6 @@ Proof.
   intros i sc sc' Hi.
   rewrite -Hs; last lia. rewrite -Hv'; last lia. intros -> [= ->]. done.
 Qed.
-*)
 
 (*
 Lemma replace_check'_is_Some cids acc stk :
@@ -225,45 +240,10 @@ Lemma replace_check_is_Some cids stk :
   is_Some (replace_check cids stk).
 Proof. move => /replace_check'_is_Some IS. by apply IS. Qed.
 
-Lemma find_first_write_incompatible_is_Some stk pm:
-  pm ≠ Disabled → pm ≠ SharedReadOnly →
-  is_Some (find_first_write_incompatible stk pm).
-Proof.
-  intros. rewrite /find_first_write_incompatible.
-  destruct pm; [by eexists| |done..].
-  case list_find as [[]|]; by eexists.
-Qed.
 *)
 
-Lemma find_first_write_incompatible_length stk pm idx :
-  find_first_write_incompatible stk pm = Some idx → (idx ≤ length stk)%nat.
-Proof.
-  rewrite /find_first_write_incompatible.
-  destruct pm; [by intros; simplify_eq/=| |done..].
-  case list_find as [[]|]; intros; simplify_eq/=; lia.
-Qed.
 
-Lemma remove_check_is_Some cids stk idx :
-  (idx ≤ length stk)%nat →
-  (∀ i it, (i < idx)%nat → stk !! i = Some it → item_inactive_protector cids it) →
-  is_Some (remove_check cids stk idx).
-Proof.
-  revert idx. induction stk as [|si stk IH]; simpl; intros idx Le PR.
-  { apply le_n_0_eq in Le. subst idx. by eexists. }
-  destruct idx as [|idx]; [by eexists|].
-  have IA: item_inactive_protector cids si by (apply (PR O); [lia|done]).
-  rewrite (Is_true_eq_true (check_protector cids si)).
-  - apply IH; [lia|]. intros i ??. apply (PR (S i)). lia.
-  - move : IA. rewrite /check_protector /item_inactive_protector.
-    case si.(protector) => [? /negb_prop_intro|//]. by case is_active.
-Qed.
-
-Lemma grants_read_all pm: pm ≠ Disabled → grants pm AccessRead.
-Proof. by case pm. Qed.
-Lemma grants_write_all pm:
-  pm ≠ Disabled → pm ≠ SharedReadOnly → grants pm AccessWrite.
-Proof. by case pm. Qed.
-
+(*
 Definition access1_read_pre cids (stk: stack) (bor: tag) :=
   ∃ (i: nat) it, stk !! i = Some it ∧ it.(tg) = bor ∧ it.(perm) ≠ Disabled ∧
   ∀ (j: nat) jt, (j < i)%nat → stk !! j = Some jt →
@@ -288,9 +268,11 @@ Definition access1_write_pre cids (stk: stack) (bor: tag) :=
         else True
     | _ => True
     end.
+ *)
 
 Definition is_write (access: access_kind) : bool :=
   match access with AccessWrite => true | _ => false end.
+(*
 Definition access1_pre
   cids (stk: stack) (access: access_kind) (bor: tag) :=
   ∃ (i: nat) it, stk !! i = Some it ∧ it.(perm) ≠ Disabled ∧
@@ -315,7 +297,9 @@ Definition access1_pre
       | Unique => item_inactive_protector cids jt
       | _ => True
       end.
+ *)
 
+(*
 Lemma access1_is_Some cids stk kind bor
   (BOR: access1_pre cids stk kind bor) :
   is_Some (access1 stk kind bor cids).
@@ -362,7 +346,9 @@ Proof.
   apply access1_is_Some. exists i, it. do 4 (split; [done|]).
   intros j jt Lt Eq. by destruct (Lti _ _ Lt Eq).
 Qed.
+ *)
 
+(*
 Lemma memory_read_is_Some α cids l bor (n: nat) :
   (∀ m, (m < n)%nat → l +ₗ m ∈ dom α) →
   (∀ (m: nat) stk, (m < n)%nat →
@@ -376,7 +362,9 @@ Proof.
     specialize (STK _ _ Lt Eq).
     destruct (access1_read_is_Some _ _ _ STK) as [? Eq2]. rewrite Eq2. by eexists.
 Qed.
+ *)
 
+(*
 Lemma copy_base_step' P (σ: state) l bor T v α (WF: state_wf σ) :
   read_mem l (tsize T) σ.(shp) = Some v →
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α →
@@ -463,6 +451,7 @@ Proof.
   { move => ? /BLK. by rewrite (state_wf_dom _ WF). }
   eexists. split; [done|]. by eapply write_base_step'.
 Qed.
+ *)
 
 Lemma call_base_step P σ name e r fn :
   P !! name = Some fn →
@@ -470,6 +459,7 @@ Lemma call_base_step P σ name e r fn :
   base_step P (Call #[ScFnPtr name] e) σ (apply_func fn r) σ [].
 Proof. by econstructor; econstructor. Qed.
 
+(*
 Lemma init_call_base_step P σ :
   let c := σ.(snc) in
   let σ' := mkState σ.(shp) σ.(sst) ({[σ.(snc)]} ∪ σ.(scs)) σ.(snp) (S σ.(snc)) in
@@ -831,6 +821,7 @@ Proof.
   exists h', α' , nxtp'. split; [done|].
   eapply retag_base_step'; eauto.
 Qed.
+ *)
 
 (* Lemma syscall_base_step σ id :
   base_step (SysCall id) σ [SysCallEvt id] #☠ σ [].

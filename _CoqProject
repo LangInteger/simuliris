@@ -149,7 +149,7 @@ theories/tree_borrows/steps_foreach.v
 #theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
 theories/tree_borrows/steps_access.v
 theories/tree_borrows/steps_wf.v # Preservation of WF, work in progress
-#theories/tree_borrows/steps_progress.v # barely modified from SB
+theories/tree_borrows/steps_progress.v # In progress
 #theories/tree_borrows/steps_retag.v # barely modified from SB
 #theories/tree_borrows/steps_inv.v # barely modified from SB
 
