@@ -22,8 +22,7 @@ Proof.
     2: assumption.
     assert (forall i, (fresh_block (shp σ), i) ∉ dom (shp σ)) as FreshHp by apply is_fresh_block.
     apply not_elem_of_dom.
-    inversion H.
-    rewrite state_wf_dom.
+    rewrite state_wf_dom; [|assumption].
     intro FreshMap.
     destruct (elem_of_map_1 fst (dom (shp σ)) (fresh_block (shp σ)) FreshMap) as [[blk z] [Fresh Dom]].
     apply (FreshHp z).
