@@ -313,9 +313,9 @@ Section lemmas.
   Lemma tkmap_view_frag_valid k tk v : ✓ tkmap_view_frag k tk v.
   Proof. rewrite cmra_valid_validN => n. apply tkmap_view_frag_validN. Qed.
 
-  (*Lemma tkmap_view_frag_op l tkr1 tkr2 v :*)
-    (*tkmap_view_frag l (tkr1 ⋅ tkr2) v ≡ tkmap_view_frag l tkr1 v ⋅ tkmap_view_frag l tkr2 v.*)
-  (*Proof. rewrite -view_frag_op singleton_op -pair_op agree_idemp //. Qed.*)
+  (*Lemma tkmap_view_frag_op l tkr1 tkr2 v :
+    tkmap_view_frag l (tkr1 ⋅ tkr2) v ≡ tkmap_view_frag l tkr1 v ⋅ tkmap_view_frag l tkr2 v.
+  Proof. rewrite -view_frag_op singleton_op -pair_op agree_idemp //. Qed.*)
 
   Lemma tkmap_view_frag_op_validN n k tk1 tk2 v1 v2 :
     ✓{n} (tkmap_view_frag k tk1 v1 ⋅ tkmap_view_frag k tk2 v2) ↔
@@ -453,30 +453,30 @@ Section lemmas.
     tkmap_view_auth 1 m ⋅ tkmap_view_frag k tk_unq v ~~>
       tkmap_view_auth 1 (<[k := (tk_pub, v)]> m) ⋅ tkmap_view_frag k tk_pub v.
   Proof.
-    (* TODO: change def of tgkR to enable local update tk_unq ~~> tk_pub *)
-  Abort. *)
-  (*Proof.*)
-    (*apply view_update_frag=>m n bf Hrel j [df va] /=.*)
-    (*rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].*)
-    (*- rewrite lookup_singleton.*)
-      (*edestruct (Hrel k ((dq, to_agree v) ⋅? bf !! k)) as (v' & Hdf & Hva & Hm).*)
-      (*{ rewrite lookup_op lookup_singleton.*)
-        (*destruct (bf !! k) eqn:Hbf; by rewrite Hbf. }*)
-      (*rewrite Some_op_opM. intros [= Hbf].*)
-      (*exists v'. rewrite assoc; split; last done.*)
-      (*destruct (bf !! k) as [[df' va']|] eqn:Hbfk; rewrite Hbfk in Hbf; clear Hbfk.*)
-      (*+ simpl in *. rewrite -pair_op in Hbf.*)
-        (*move:Hbf=>[= <- <-]. split; first done.*)
-        (*eapply cmra_discrete_valid.*)
-        (*eapply (dfrac_discard_update _ _ (Some df')).*)
-        (*apply cmra_discrete_valid_iff. done.*)
-      (*+ simpl in *. move:Hbf=>[= <- <-]. split; done.*)
-    (*- rewrite lookup_singleton_ne //.*)
-      (*rewrite left_id=>Hbf.*)
-      (*edestruct (Hrel j) as (v'' & ? & ? & Hm).*)
-      (*{ rewrite lookup_op lookup_singleton_ne // left_id. done. }*)
-      (*simpl in *. eexists. do 2 (split; first done). done.*)
-  (*Qed.*)
+     TODO: change def of tgkR to enable local update tk_unq ~~> tk_pub 
+  Abort. 
+  Proof.
+    apply view_update_frag=>m n bf Hrel j [df va] /=.
+    rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].
+    - rewrite lookup_singleton.
+      edestruct (Hrel k ((dq, to_agree v) ⋅? bf !! k)) as (v' & Hdf & Hva & Hm).
+      { rewrite lookup_op lookup_singleton.
+        destruct (bf !! k) eqn:Hbf; by rewrite Hbf. }
+      rewrite Some_op_opM. intros [= Hbf].
+      exists v'. rewrite assoc; split; last done.
+      destruct (bf !! k) as [[df' va']|] eqn:Hbfk; rewrite Hbfk in Hbf; clear Hbfk.
+      + simpl in *. rewrite -pair_op in Hbf.
+        move:Hbf=>[= <- <-]. split; first done.
+        eapply cmra_discrete_valid.
+        eapply (dfrac_discard_update _ _ (Some df')).
+        apply cmra_discrete_valid_iff. done.
+      + simpl in *. move:Hbf=>[= <- <-]. split; done.
+    - rewrite lookup_singleton_ne //.
+      rewrite left_id=>Hbf.
+      edestruct (Hrel j) as (v'' & ? & ? & Hm).
+      { rewrite lookup_op lookup_singleton_ne // left_id. done. }
+      simpl in *. eexists. do 2 (split; first done). done.
+  Qed.*)
 
   (** Typeclass instances *)
   Global Instance tkmap_view_frag_core_id k v : CoreId (tkmap_view_frag k tk_pub v).
@@ -486,84 +486,84 @@ Section lemmas.
 End lemmas.
 
 (** Functor *)
-(*Program Definition tkmap_viewURF (K : Type) `{Countable K} (F : oFunctor) : urFunctor := {|*)
-  (*urFunctor_car A _ B _ := tkmap_viewUR K (oFunctor_car F A B);*)
-  (*urFunctor_map A1 _ A2 _ B1 _ B2 _ fg :=*)
-    (*viewO_map (rel:=tkmap_view_rel K (oFunctor_car F A1 B1))*)
-              (*(rel':=tkmap_view_rel K (oFunctor_car F A2 B2))*)
-              (*(gmapO_map (K:=K) (oFunctor_map F fg))*)
-              (*(gmapO_map (K:=K) (prodO_map cid (agreeO_map (oFunctor_map F fg))))*)
-(*|}.*)
-(*Next Obligation.*)
-  (*intros K ?? F A1 ? A2 ? B1 ? B2 ? n f g Hfg.*)
-  (*apply viewO_map_ne.*)
-  (*- apply gmapO_map_ne, oFunctor_map_ne. done.*)
-  (*- apply gmapO_map_ne. apply prodO_map_ne; first done.*)
-    (*apply agreeO_map_ne, oFunctor_map_ne. done.*)
-(*Qed.*)
-(*Next Obligation.*)
-  (*intros K ?? F A ? B ? x; simpl in *. rewrite -{2}(view_map_id x).*)
-  (*apply (view_map_ext _ _ _ _)=> y.*)
-  (*- rewrite /= -{2}(map_fmap_id y).*)
-    (*apply map_fmap_equiv_ext=>k ??.*)
-    (*apply oFunctor_map_id.*)
-  (*- rewrite /= -{2}(map_fmap_id y).*)
-    (*apply map_fmap_equiv_ext=>k [df va] ?.*)
-    (*split; first done. simpl.*)
-    (*rewrite -{2}(agree_map_id va).*)
-    (*eapply agree_map_ext; first by apply _.*)
-    (*apply oFunctor_map_id.*)
-(*Qed.*)
-(*Next Obligation.*)
-  (*intros K ?? F A1 ? A2 ? A3 ? B1 ? B2 ? B3 ? f g f' g' x; simpl in *.*)
-  (*rewrite -view_map_compose.*)
-  (*apply (view_map_ext _ _ _ _)=> y.*)
-  (*- rewrite /= -map_fmap_compose.*)
-    (*apply map_fmap_equiv_ext=>k ??.*)
-    (*apply oFunctor_map_compose.*)
-  (*- rewrite /= -map_fmap_compose.*)
-    (*apply map_fmap_equiv_ext=>k [df va] ?.*)
-    (*split; first done. simpl.*)
-    (*rewrite -agree_map_compose.*)
-    (*eapply agree_map_ext; first by apply _.*)
-    (*apply oFunctor_map_compose.*)
-(*Qed.*)
-(*Next Obligation.*)
-  (*intros K ?? F A1 ? A2 ? B1 ? B2 ? fg; simpl.*)
-  (*apply: view_map_cmra_morphism; [apply _..|]=> n m f.*)
-  (*intros Hrel k [df va] Hf. move: Hf.*)
-  (*rewrite !lookup_fmap.*)
-  (*destruct (f !! k) as [[df' va']|] eqn:Hfk; rewrite Hfk; last done.*)
-  (*simpl=>[= <- <-].*)
-  (*specialize (Hrel _ _ Hfk). simpl in Hrel. destruct Hrel as (v & Hagree & Hdval & Hm).*)
-  (*exists (oFunctor_map F fg v).*)
-  (*rewrite Hm. split; last by auto.*)
-  (*rewrite Hagree. rewrite agree_map_to_agree. done.*)
-(*Qed.*)
+(*Program Definition tkmap_viewURF (K : Type) `{Countable K} (F : oFunctor) : urFunctor := {|
+  urFunctor_car A _ B _ := tkmap_viewUR K (oFunctor_car F A B);
+  urFunctor_map A1 _ A2 _ B1 _ B2 _ fg :=
+    viewO_map (rel:=tkmap_view_rel K (oFunctor_car F A1 B1))
+              (rel':=tkmap_view_rel K (oFunctor_car F A2 B2))
+              (gmapO_map (K:=K) (oFunctor_map F fg))
+              (gmapO_map (K:=K) (prodO_map cid (agreeO_map (oFunctor_map F fg))))
+|}.
+Next Obligation.
+  intros K ?? F A1 ? A2 ? B1 ? B2 ? n f g Hfg.
+  apply viewO_map_ne.
+  - apply gmapO_map_ne, oFunctor_map_ne. done.
+  - apply gmapO_map_ne. apply prodO_map_ne; first done.
+    apply agreeO_map_ne, oFunctor_map_ne. done.
+Qed.
+Next Obligation.
+  intros K ?? F A ? B ? x; simpl in *. rewrite -{2}(view_map_id x).
+  apply (view_map_ext _ _ _ _)=> y.
+  - rewrite /= -{2}(map_fmap_id y).
+    apply map_fmap_equiv_ext=>k ??.
+    apply oFunctor_map_id.
+  - rewrite /= -{2}(map_fmap_id y).
+    apply map_fmap_equiv_ext=>k [df va] ?.
+    split; first done. simpl.
+    rewrite -{2}(agree_map_id va).
+    eapply agree_map_ext; first by apply _.
+    apply oFunctor_map_id.
+Qed.
+Next Obligation.
+  intros K ?? F A1 ? A2 ? A3 ? B1 ? B2 ? B3 ? f g f' g' x; simpl in *.
+  rewrite -view_map_compose.
+  apply (view_map_ext _ _ _ _)=> y.
+  - rewrite /= -map_fmap_compose.
+    apply map_fmap_equiv_ext=>k ??.
+    apply oFunctor_map_compose.
+  - rewrite /= -map_fmap_compose.
+    apply map_fmap_equiv_ext=>k [df va] ?.
+    split; first done. simpl.
+    rewrite -agree_map_compose.
+    eapply agree_map_ext; first by apply _.
+    apply oFunctor_map_compose.
+Qed.
+Next Obligation.
+  intros K ?? F A1 ? A2 ? B1 ? B2 ? fg; simpl.
+  apply: view_map_cmra_morphism; [apply _..|]=> n m f.
+  intros Hrel k [df va] Hf. move: Hf.
+  rewrite !lookup_fmap.
+  destruct (f !! k) as [[df' va']|] eqn:Hfk; rewrite Hfk; last done.
+  simpl=>[= <- <-].
+  specialize (Hrel _ _ Hfk). simpl in Hrel. destruct Hrel as (v & Hagree & Hdval & Hm).
+  exists (oFunctor_map F fg v).
+  rewrite Hm. split; last by auto.
+  rewrite Hagree. rewrite agree_map_to_agree. done.
+Qed.*)
 
-(*Global Instance gmap_viewURF_contractive (K : Type) `{Countable K} F :*)
-  (*oFunctorContractive F → urFunctorContractive (gmap_viewURF K F).*)
-(*Proof.*)
-  (*intros ? A1 ? A2 ? B1 ? B2 ? n f g Hfg.*)
-  (*apply viewO_map_ne.*)
-  (*- apply gmapO_map_ne. apply oFunctor_map_contractive. done.*)
-  (*- apply gmapO_map_ne. apply prodO_map_ne; first done.*)
-    (*apply agreeO_map_ne, oFunctor_map_contractive. done.*)
-(*Qed.*)
+(*Global Instance gmap_viewURF_contractive (K : Type) `{Countable K} F :
+  oFunctorContractive F → urFunctorContractive (gmap_viewURF K F).
+Proof.
+  intros ? A1 ? A2 ? B1 ? B2 ? n f g Hfg.
+  apply viewO_map_ne.
+  - apply gmapO_map_ne. apply oFunctor_map_contractive. done.
+  - apply gmapO_map_ne. apply prodO_map_ne; first done.
+    apply agreeO_map_ne, oFunctor_map_contractive. done.
+Qed.*)
 
-(*Program Definition gmap_viewRF (K : Type) `{Countable K} (F : oFunctor) : rFunctor := {|*)
-  (*rFunctor_car A _ B _ := gmap_viewR K (oFunctor_car F A B);*)
-  (*rFunctor_map A1 _ A2 _ B1 _ B2 _ fg :=*)
-    (*viewO_map (rel:=gmap_view_rel K (oFunctor_car F A1 B1))*)
-              (*(rel':=gmap_view_rel K (oFunctor_car F A2 B2))*)
-              (*(gmapO_map (K:=K) (oFunctor_map F fg))*)
-              (*(gmapO_map (K:=K) (prodO_map cid (agreeO_map (oFunctor_map F fg))))*)
-(*|}.*)
+(*Program Definition gmap_viewRF (K : Type) `{Countable K} (F : oFunctor) : rFunctor := {|
+  rFunctor_car A _ B _ := gmap_viewR K (oFunctor_car F A B);
+  rFunctor_map A1 _ A2 _ B1 _ B2 _ fg :=
+    viewO_map (rel:=gmap_view_rel K (oFunctor_car F A1 B1))
+              (rel':=gmap_view_rel K (oFunctor_car F A2 B2))
+              (gmapO_map (K:=K) (oFunctor_map F fg))
+              (gmapO_map (K:=K) (prodO_map cid (agreeO_map (oFunctor_map F fg))))
+|}.*)
 (*Solve Obligations with apply gmap_viewURF.*)
 
-(*Global Instance gmap_viewRF_contractive (K : Type) `{Countable K} F :*)
-  (*oFunctorContractive F → rFunctorContractive (gmap_viewRF K F).*)
-(*Proof. apply gmap_viewURF_contractive. Qed.*)
+(*Global Instance gmap_viewRF_contractive (K : Type) `{Countable K} F :
+  oFunctorContractive F → rFunctorContractive (gmap_viewRF K F).
+Proof. apply gmap_viewURF_contractive. Qed.*)
 
 Global Typeclasses Opaque tkmap_view_auth tkmap_view_frag.
 
@@ -660,9 +660,9 @@ Section lemmas.
   Proof. unseal. apply _. Qed.
 
   (** Make an element read-only. *)
-  (*Lemma tkmap_elem_persist k γ dq v :*)
-    (*k ↪[γ]{dq} v ==∗ k ↪[γ]□ v.*)
-  (*Proof. unseal. iApply own_update. apply gmap_view_persist. Qed.*)
+  (*Lemma tkmap_elem_persist k γ dq v :
+    k ↪[γ]{dq} v ==∗ k ↪[γ]□ v.
+  Proof. unseal. iApply own_update. apply gmap_view_persist. Qed.*)
 
   (** * Lemmas about [tkmap_auth] *)
   Lemma tkmap_alloc_strong P m :
@@ -801,28 +801,28 @@ Section lemmas.
     apply bi.entails_wand, own_update. apply: tkmap_view_alloc_big; done.
   Qed.
 
-  (*Lemma tkmap_delete_big {γ m} m0 :*)
-    (*tkmap_auth γ 1 m -∗*)
-    (*([∗ map] k↦v' ∈ m0, k ↪[γ]{v'.1} v'.2) -∗*)
-    (*([∗ map] k↦v' ∈ m0, ⌜v'.1 = tk_unq⌝) ==∗*)
-    (*tkmap_auth γ 1 (m ∖ m0).*)
-  (*Proof.*)
-    (*iIntros "Hauth Hfrag Hunq". iMod (tkmap_elems_unseal with "Hfrag") as "Hfrag".*)
-    (*unseal. iApply (own_update_2 with "Hauth Hfrag").*)
-    (*apply: tkmap_view_delete_big.*)
-  (*Qed.*)
+  (*Lemma tkmap_delete_big {γ m} m0 :
+    tkmap_auth γ 1 m -∗
+    ([∗ map] k↦v' ∈ m0, k ↪[γ]{v'.1} v'.2) -∗
+    ([∗ map] k↦v' ∈ m0, ⌜v'.1 = tk_unq⌝) ==∗
+    tkmap_auth γ 1 (m ∖ m0).
+  Proof.
+    iIntros "Hauth Hfrag Hunq". iMod (tkmap_elems_unseal with "Hfrag") as "Hfrag".
+    unseal. iApply (own_update_2 with "Hauth Hfrag").
+    apply: tkmap_view_delete_big.
+  Qed.*)
 
-  (*Theorem tkmap_update_big {γ m} m0 m1 :*)
-    (*dom m0 = dom m1 →*)
-    (*tkmap_auth γ 1 m -∗*)
-    (*([∗ map] k↦v ∈ m0, k ↪[γ] v) ==∗*)
-    (*tkmap_auth γ 1 (m1 ∪ m) ∗*)
-        (*[∗ map] k↦v ∈ m1, k ↪[γ] v.*)
-  (*Proof.*)
-    (*iIntros (?) "Hauth Hfrag". iMod (tkmap_elems_unseal with "Hfrag") as "Hfrag".*)
-    (*unseal. rewrite -big_opM_own_1 -own_op.*)
-    (*iApply (own_update_2 with "Hauth Hfrag").*)
-    (*apply: tkmap_view_update_big. done.*)
-  (*Qed.*)
+  (*Theorem tkmap_update_big {γ m} m0 m1 :
+    dom m0 = dom m1 →
+    tkmap_auth γ 1 m -∗
+    ([∗ map] k↦v ∈ m0, k ↪[γ] v) ==∗
+    tkmap_auth γ 1 (m1 ∪ m) ∗
+        [∗ map] k↦v ∈ m1, k ↪[γ] v.
+  Proof.
+    iIntros (?) "Hauth Hfrag". iMod (tkmap_elems_unseal with "Hfrag") as "Hfrag".
+    unseal. rewrite -big_opM_own_1 -own_op.
+    iApply (own_update_2 with "Hauth Hfrag").
+    apply: tkmap_view_update_big. done.
+  Qed.*)
 
 End lemmas.
