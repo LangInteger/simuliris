@@ -31,6 +31,16 @@ Proof.
 Qed.
 
 
+Lemma apply_access_success_condition tr cids access_tag range fn :
+  every_node (fun it => is_Some (fn cids (rel_dec tr access_tag (itag it)) range it)) tr ->
+  is_Some (tree_apply_access fn cids access_tag range tr).
+Proof.
+  rewrite /tree_apply_access.
+  rewrite join_success_condition.
+  rewrite every_node_map /compose.
+  tauto.
+Qed.
+
 (*
 Lemma dealloc1_progress stk bor cids
   (PR: Forall (λ it, ¬ is_active_protector cids it) stk)
