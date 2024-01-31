@@ -43,8 +43,7 @@ Lemma wf_mem_tag_mono h :
   Proper ((≤)%nat ==> impl) (wf_mem_tag h).
 Proof.
   move => ??? WF ?? tg Access.
-  destruct tg as [tg].
-  specialize (WF _ _ (Tag tg) Access); simpl in WF.
+  specialize (WF _ _ tg Access); simpl in WF.
   lia.
 Qed.
 
@@ -295,7 +294,7 @@ Lemma same_blocks_init_extend h sz trs nxtp :
   (sz > 0)%nat ->
   same_blocks h trs ->
   same_blocks (init_mem (fresh_block h, 0) sz h)
-    (extend_trees (Tag nxtp) (fresh_block h) trs).
+    (extend_trees nxtp (fresh_block h) trs).
 Proof.
   intros Nonzero Same.
   rewrite /same_blocks init_mem_dom dom_insert_L set_map_union_L.
@@ -307,7 +306,7 @@ Qed.
 
 Lemma wf_init_tree c t t' :
   (t' < t)%nat ->
-  wf_tree (init_tree (Tag t')) t c.
+  wf_tree (init_tree t') t c.
 Proof.
   intro Le.
   unfold wf_tree; unfold tree_item_included.
@@ -316,7 +315,7 @@ Proof.
      rewrite /IsTag in isTag |- *; simpl in *. split.
      ** tauto.
      ** rewrite /item_wf. simpl. split.
-        ++ intros tg' Tag. inversion Tag. subst. lia.
+        ++ intros tg' Tag. inversion Tag. subst. simpl. lia.
         ++ intros cid' Prot. inversion Prot.
   -- inversion Contra.
   -- inversion Contra.
@@ -613,26 +612,26 @@ Qed.
 (** Retag *)
 
 Lemma insert_child_wf cids oldt nxtp newp nxtc
-  (IT_WF : item_wf (create_new_item (Tag nxtp) newp) (S nxtp) nxtc)
-  : preserve_tree_wf (create_child cids oldt (Tag nxtp) newp) nxtp (S nxtp) nxtc nxtc.
+  (IT_WF : item_wf (create_new_item nxtp newp) (S nxtp) nxtc)
+  : preserve_tree_wf (create_child cids oldt nxtp newp) nxtp (S nxtp) nxtc nxtc.
 Proof.
   intros tr tr' WF CREATE tg Ex'.
-  destruct (decide (tg = Tag nxtp)).
+  destruct (decide (tg = nxtp)).
   - unfold create_child in CREATE.
-    exists (create_new_item (Tag nxtp) newp).
+    exists (create_new_item nxtp newp).
     split.
     + injection CREATE; intros; subst; clear CREATE.
       apply insert_true_preserves_every.
       * tauto.
       * unfold wf_tree in WF; unfold tree_item_included in WF.
         rewrite every_node_eqv_universal. intros it Ex'' MalformedIsTag.
-        assert (tree_contains (Tag nxtp) tr) as MalformedContains. {
+        assert (tree_contains nxtp tr) as MalformedContains. {
           eapply exists_node_increasing; [exact Ex''|].
           rewrite every_node_eqv_universal; intros.
           simpl; subst.
           assumption.
         }
-        destruct (WF (Tag nxtp) MalformedContains) as [it' [Uniqueit' [Wfit' _]]].
+        destruct (WF nxtp MalformedContains) as [it' [Uniqueit' [Wfit' _]]].
         specialize (Wfit' nxtp). unfold IsTag in Wfit'.
         rewrite (tree_unique_specifies_tag tr _ _ MalformedContains Uniqueit') in Wfit'.
         specialize (Wfit' ltac:(auto)).
@@ -665,17 +664,17 @@ Proof.
     setoid_rewrite <- (apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR).
     setoid_rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
     apply WF.
-  - apply (apply_within_trees_wf _ _ (S nxtp) (S nxtp) nxtc' nxtc' _ _ READ_ON_REBOR).
+  - apply (apply_within_trees_wf _ _ (S nt) (S nt) nxtc' nxtc' _ _ READ_ON_REBOR).
     * intros tr WFtr. eapply wf_tree_mono; [| |eassumption]; auto.
     * intros tr tr'.
       intros WFold Access. eapply memory_read_wf; [|eassumption].
       eapply wf_tree_mono; [| |eassumption]; auto.
-    * apply (apply_within_trees_wf _ _ nxtp (S nxtp) nxtc' nxtc' _ _ RETAG_EFFECT).
+    * apply (apply_within_trees_wf _ _ nt (S nt) nxtc' nxtc' _ _ RETAG_EFFECT).
       + intros tr WFtr. eapply wf_tree_mono; [| |eassumption]; auto.
       + intros tr tr'.
         intros WFold Access. eapply insert_child_wf; [|eassumption|eassumption].
         unfold item_wf. split.
-        -- intros tg Eqtg. unfold IsTag, create_new_item in Eqtg. simpl in Eqtg. injection Eqtg. lia.
+        -- intros tg Eqtg. unfold IsTag, create_new_item in Eqtg. simpl in Eqtg. lia.
         -- intros cid' prot.
            apply WF; simpl.
            enough (cid = cid') by (subst; auto).

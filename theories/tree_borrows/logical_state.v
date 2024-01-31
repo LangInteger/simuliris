@@ -73,7 +73,7 @@ Section utils.
   }.
 
   Inductive tag_valid (upper : nat) : tag → Prop :=
-    tag_valid_lt (n:nat) : (n < upper)%nat → tag_valid upper (Tag n).
+    tag_valid_lt (n:nat) : (n < upper)%nat → tag_valid upper n.
 
   Inductive item_for_loc_in_tree (i : item_for_loc) (tree : tree item) (l' : Z) : Prop :=
     is_in_tree item :

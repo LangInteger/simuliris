@@ -28,12 +28,7 @@ Notation call_id := nat (only parsing).
 Definition call_id_set := gset call_id.
 
 (** Tags for pointers *)
-Notation ptr_id := nat (only parsing).
-Inductive tag := Tag (t:ptr_id).
-Global Instance tag_eq_dec : EqDecision tag.
-Proof. solve_decision. Defined.
-Global Instance tag_countable : Countable tag.
-Proof. refine (inj_countable (λ '(Tag t), t) (λ t, Some $ Tag t) _); by intros []. Qed.
+Notation tag := nat (only parsing).
 
 Inductive interior_mut := InteriorMut | TyFrz.
 Global Instance interior_mut_eq_dec : EqDecision interior_mut.

@@ -729,8 +729,8 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
     bor_step
       trs cids nxtp nxtc
-      (AllocEvt x.1 (Tag nxtp) (x.2, sz))
-      (extend_trees (Tag nxtp) x.1 trs) cids (S nxtp) nxtc
+      (AllocEvt x.1 nxtp (x.2, sz))
+      (extend_trees nxtp x.1 trs) cids (S nxtp) nxtc
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
@@ -762,12 +762,12 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
     (SAME_CID : is_Some newp.(new_protector) -> protector_is_for_call cid newp.(new_protector))
-    (FRESH_CHILD: ~trees_contain (Tag nxtp) trs alloc)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt (Tag nxtp) newp) alloc trs = Some trs')
-    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead ProtStrong cids (Tag nxtp) range) alloc trs' = Some trs'') :
+    (FRESH_CHILD: ~trees_contain nxtp trs alloc)
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp newp) alloc trs = Some trs')
+    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead ProtStrong cids nxtp range) alloc trs' = Some trs'') :
     bor_step
       trs cids nxtp nxtc
-      (RetagEvt alloc parentt (Tag nxtp) newp cid)
+      (RetagEvt alloc parentt nxtp newp cid)
       trs'' cids (S nxtp) nxtc
   | DeallocIS trs' (alloc : block) (tg : tag) range
     (EXISTS_TAG: trees_contain tg trs alloc)

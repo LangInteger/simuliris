@@ -13,8 +13,8 @@ Lemma alloc_base_step P σ sz :
   let l := (fresh_block σ.(shp), 0) in
   let t := σ.(snp) in
   let σ' := mkState (init_mem l sz σ.(shp))
-                    (extend_trees (Tag t) l.1 σ.(strs)) σ.(scs) (S t) σ.(snc) in
-  base_step P (Alloc sz) σ (Place l (Tag t) sz) σ' [].
+                    (extend_trees t l.1 σ.(strs)) σ.(scs) (S t) σ.(snc) in
+  base_step P (Alloc sz) σ (Place l t sz) σ' [].
 Proof.
   simpl. econstructor.
   - econstructor.
