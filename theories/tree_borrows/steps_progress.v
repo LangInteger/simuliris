@@ -18,7 +18,7 @@ Lemma alloc_base_step P σ sz :
 Proof.
   simpl. econstructor.
   - econstructor.
-  - apply (AllocIS (strs σ) (scs σ) (snp σ) (snc σ) (fresh_block (shp σ), 0)).
+  - apply (AllocIS (strs σ) (scs σ) (snp σ) (snc σ) (fresh_block (shp σ)) 0).
     2: assumption.
     assert (forall i, (fresh_block (shp σ), i) ∉ dom (shp σ)) as FreshHp by apply is_fresh_block.
     apply not_elem_of_dom.

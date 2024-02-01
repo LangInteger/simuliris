@@ -35,6 +35,7 @@ Section lemmas.
     intros Hdom. induction n as [ | n IH] in l |-*; first done.
     simpl. rewrite !dom_delete_L IH. done.
   Qed.
+(*
 
   Lemma init_stack_preserve σ n :
     let l := (fresh_block σ.(shp), 0) in
@@ -93,7 +94,9 @@ Section lemmas.
       + destruct Hown as (stk & Hstk & ?). exists stk. split; last done. apply init_stack_preserve; done.
       + apply init_stack_preserve; done.
     - apply init_mem_preserve. done.
-  Qed.
+  Qed. *)
+
+(*
 
   Lemma state_rel_alloc_update σ_t σ_s M_tag M_t M_t' M_call l n tk :
     let nt := σ_t.(snp) in
@@ -123,8 +126,8 @@ Section lemmas.
     + (* new location *)
       iLeft. rewrite /pub_loc /=. rewrite !(proj1 (init_mem_lookup _ _ _)); [ | done | done].
       iIntros (? [= <-]). iExists ☠%S. iSplit; done.
-  Qed.
-
+  Qed. *) 
+(*
   Lemma call_set_interp_alloc_update σ n M_call :
     state_wf σ →
     let nt := σ.(snp) in
@@ -979,10 +982,11 @@ Section lemmas.
       have NEq: ot ≠ Tagged t.
       { intros ->. specialize (Hneq eq_refl). congruence. }
       move : NEq. by eapply retag_Some_local.
-  Qed.
+  Qed. *)
 
 End lemmas.
 
+(*
 (* accessing a local location is only possible with the same tag, retaining the same stack for the access *)
 Lemma local_access_eq l t t' stk n stk' kind σ_s σ_t M_tag M_t M_s :
   σ_t.(sst) !! l = Some stk →
@@ -1152,3 +1156,5 @@ Proof.
     eapply tag_unique_head_access. eexists; eauto.
 Qed.
 End lemmas.
+
+*)

@@ -338,7 +338,7 @@ Proof.
   destruct σ as [h trs cids nxtp nxtc].
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
-  inversion IS as [x| | | | | | |]; clear IS. destruct x; simpl in *; simplify_eq. constructor; simpl.
+  inversion IS as [x| | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
   - apply same_blocks_init_extend; [lia|].
     apply WF.
   - apply extend_trees_wf.

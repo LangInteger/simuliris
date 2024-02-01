@@ -146,18 +146,18 @@ theories/tree_borrows/disjoint.v
 # Well-formedness and other low level lemmas.
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
-#theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
+theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
 theories/tree_borrows/steps_access.v
 theories/tree_borrows/steps_wf.v # Preservation of WF, work in progress
 theories/tree_borrows/steps_progress.v # In progress
-#theories/tree_borrows/steps_retag.v # barely modified from SB
-#theories/tree_borrows/steps_inv.v # barely modified from SB
+theories/tree_borrows/steps_retag.v # barely modified from SB
+theories/tree_borrows/steps_inv.v # barely modified from SB
 
 theories/tree_borrows/tactics.v
 theories/tree_borrows/class_instances.v
 theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
-#theories/tree_borrows/inv_accessors.v # needs tkmap_view
+theories/tree_borrows/inv_accessors.v # needs stuff
 #theories/tree_borrows/steps_refl.v # needs tkmap_view
 #theories/tree_borrows/steps_opt.v # needs tkmap_view
 #theories/tree_borrows/primitive_laws.v # needs logical_state

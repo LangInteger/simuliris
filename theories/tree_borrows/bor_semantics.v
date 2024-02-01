@@ -721,16 +721,15 @@ Definition trees_read_all_protected_initialized (cids : call_id_set) (cid : nat)
     apply_within_trees (tree_read_all_protected_initialized cids cid) k trs
   ) (Some trs) gmap_empty.
 
-
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
-  | AllocIS (x : loc) (sz : nat)
-    (FRESH : trs !! x.1 = None)
+  | AllocIS (blk : block) (off : Z) (sz : nat)
+    (FRESH : trs !! blk = None)
     (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
     bor_step
       trs cids nxtp nxtc
-      (AllocEvt x.1 nxtp (x.2, sz))
-      (extend_trees nxtp x.1 trs) cids (S nxtp) nxtc
+      (AllocEvt blk (Tag nxtp) (off, sz))
+      (extend_trees (Tag nxtp) blk trs) cids (S nxtp) nxtc
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)

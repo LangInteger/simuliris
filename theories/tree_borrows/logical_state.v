@@ -122,7 +122,7 @@ Section utils.
 
   Definition tree_equal (tr1 tr2: tree item) :=
     ∀ t, ((tree_contains t tr1 <-> tree_contains t tr2) /\
-      tree_contains t tr1 -> ∀ l, ∃ it1 it2, item_for_loc_in_tree it1 tr1 l ∧ item_for_loc_in_tree it2 tr2 l ∧ eq_up_to_C tr1 tr2 t l it1 it2
+      (tree_contains t tr1 -> ∀ l, ∃ it1 it2, item_for_loc_in_tree it1 tr1 l ∧ item_for_loc_in_tree it2 tr2 l ∧ eq_up_to_C tr1 tr2 t l it1 it2)
     ).
 
   Definition trees_equal (t1 t2 : trees) :=
