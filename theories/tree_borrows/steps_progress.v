@@ -41,6 +41,85 @@ Proof.
   tauto.
 Qed.
 
+Lemma mem_apply_range'_success_condition {X} (map : gmap Z X) fn range :
+  (forall l, range'_contains range l -> is_Some (fn (map !! l))) ->
+  is_Some (mem_apply_range' fn range map).
+Proof.
+  destruct range as [z sz].
+  generalize dependent z.
+  generalize dependent map.
+  induction sz as [|? IHsz]; intros map z.
+  - rewrite /mem_apply_range' //=.
+  - intro PerLoc.
+    rewrite /mem_apply_range' //= /mem_apply_loc.
+    destruct (PerLoc z) as [? H]. { rewrite /range'_contains //=; lia. }
+    rewrite H //=.
+    rewrite /mem_apply_range' //= in IHsz.
+    eapply IHsz.
+    intros l Contains.
+    rewrite lookup_insert_ne.
+    + apply PerLoc. rewrite /range'_contains //= in Contains |- *. lia.
+    + rewrite /range'_contains //= in Contains. lia.
+Qed.
+
+
+
+Definition is_access_compatible (tr : tree item) (cids : call_id_set) (tg : tag) (range : range') (kind : access_kind) (it : item ) :=
+  forall l, range'_contains range l ->
+    let initial := unwrap {| initialized := PermLazy; perm := initp it |}
+           (iperm it !! l) in
+    let protected := bool_decide (protector_is_active (iprot it) cids) in
+    exists post,
+      apply_access_perm_inner kind (rel_dec tr tg (itag it)) protected (perm initial) = Some post
+      /\ (post = Disabled -> (initialized initial = PermLazy \/ protected = false)).
+
+Lemma option_bind_always_some {X Y} (o : option X) (fn : X -> option Y) :
+  is_Some o ->
+  (forall i, is_Some (fn i)) ->
+  is_Some (o ≫= fn).
+Proof.
+  intros oSome fnSome.
+  destruct o; [|inversion oSome; discriminate].
+  simpl.
+  apply fnSome.
+Qed.
+
+Lemma option_bind_assoc {X Y Z} (o : option X) (f : X -> option Y) (g : Y -> option Z) :
+  ((o ≫= fun i => f i) ≫= fun i => g i)
+  = o ≫= (fun i => f i ≫= fun i => g i).
+Proof.
+  destruct o; simpl; done.
+Qed.
+
+Lemma all_access_compatible_implies_access_success kind tr cids tg range :
+  every_node (is_access_compatible tr cids tg range kind) tr ->
+  is_Some (memory_access kind ProtStrong cids tg range tr).
+Proof.
+  intro Compat. apply apply_access_success_condition.
+  eapply every_node_increasing; [exact Compat|simpl].
+  rewrite every_node_eqv_universal.
+  intros it Ex CompatIt.
+  rewrite /item_apply_access.
+  apply option_bind_always_some; auto.
+  simpl.
+  rewrite /permissions_apply_range'.
+  apply mem_apply_range'_success_condition.
+  rewrite /apply_access_perm.
+  intros l Range. specialize (CompatIt l Range).
+  rewrite <- option_bind_assoc.
+  apply option_bind_always_some; auto.
+  destruct CompatIt as [post [PostSpec ProtVulnerable]].
+  rewrite PostSpec //=. clear PostSpec.
+  destruct (initialized _); [|done].
+  destruct (bool_decide (protector_is_active _ _)); [|done].
+  destruct (decide (post = Disabled)).
+  - rewrite bool_decide_eq_true_2; auto.
+    destruct (ProtVulnerable ltac:(assumption)); discriminate.
+  - rewrite bool_decide_eq_false_2; auto.
+Qed.
+
+
+
 (*
 Lemma dealloc1_progress stk bor cids
   (PR: Forall (λ it, ¬ is_active_protector cids it) stk)
