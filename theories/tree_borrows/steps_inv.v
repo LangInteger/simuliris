@@ -69,6 +69,6 @@ Lemma head_alloc_inv (P : prog) sz σ σ' e' efs :
   let blk := fresh_block σ.(shp) in
   (sz > 0)%nat ∧
   efs = [] ∧
-  e' = Place (blk, 0) (Tag (σ.(snp))) sz ∧
-  σ' = mkState (init_mem (blk, 0) sz σ.(shp)) (extend_trees (Tag (snp σ)) blk (strs σ)) σ.(scs) (S σ.(snp)) σ.(snc).
+  e' = Place (blk, 0) σ.(snp) sz ∧
+  σ' = mkState (init_mem (blk, 0) sz σ.(shp)) (extend_trees σ.(snp) blk σ.(strs)) σ.(scs) (S σ.(snp)) σ.(snc).
 Proof. intros Hhead. inv_base_step. eauto. Qed.

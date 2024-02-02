@@ -59,10 +59,10 @@ Proof.
 Qed.
 
 Lemma init_mem_lookup_fresh_poison blk off (n:nat) h :
-  0 ≤ off → off < n →
+  0 ≤ off ∧ off < n →
   init_mem (blk, 0) n h !! (blk, off) = Some ScPoison.
 Proof.
-  intros Hpos Hlt.
+  intros (Hpos & Hlt).
   pose proof (init_mem_lookup (blk, 0) n h) as (Hinit1&_).
   ospecialize (Hinit1 (Z.to_nat off) _); first lia.
   rewrite /= /shift_loc /= Z.add_0_l Z2Nat.id // in Hinit1.
@@ -110,7 +110,7 @@ Proof.
   { right. right. split; last done. subst k. by apply init_mem_lookup_fresh_old. }
 Qed.
 
-(*
+
 Lemma sim_alloc_public T Φ π :
   (∀ t l, t $$ tk_pub -∗
     rrel (PlaceR l (t) T) (PlaceR l (t) T) -∗
@@ -229,7 +229,8 @@ Proof.
       - (* old tag *)
         specialize (Htag_interp _ _ Hsome) as (Hv1 & Hv2 & Hcontrol_t & Hcontrol_s & Hag).
         split_and!; [inversion Hv1; simplify_eq; econstructor; lia | inversion Hv1; simplify_eq; econstructor; lia | .. | done].
-        + intros l' sc_t Hcontrol%Hcontrol_t. eapply loc_controlled_alloc_update; done.
+(*
+        + intros l' sc_t Hcontrol%Hcontrol_t. clear nt2 Hhead_s. eapply loc_controlled_alloc_update; done.
         + intros l' sc_s Hcontrol%Hcontrol_s. subst α' nt σ_s' l.
           rewrite -Hsnp_eq -Hsst_eq -(fresh_block_det _ _ Hdom_eq).
           eapply loc_controlled_alloc_update; [ done | lia | done].
@@ -238,8 +239,9 @@ Proof.
     { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
-Qed. *)
+Qed. *) Abort.
 
+(*
 Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
@@ -1049,3 +1051,5 @@ Proof.
 Qed.
 
 End lifting.
+
+

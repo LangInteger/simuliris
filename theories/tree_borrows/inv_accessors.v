@@ -35,31 +35,88 @@ Section lemmas.
     intros Hdom. induction n as [ | n IH] in l |-*; first done.
     simpl. rewrite !dom_delete_L IH. done.
   Qed.
-(*
 
-  Lemma init_stack_preserve σ n :
-    let l := (fresh_block σ.(shp), 0) in
+  Lemma extend_trees_preserve σ :
+    let blk := fresh_block σ.(shp) in
+    let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := init_stacks σ.(sst) l n (Tagged nt) in
+    let α' := extend_trees σ.(snp) blk σ.(strs) in
     state_wf σ →
-    ∀ l' stk, σ.(sst) !! l' = Some stk → α' !! l' = Some stk.
+    ∀ l' tree, σ.(strs) !! l'.1 = Some tree → α' !! l'.1 = Some tree.
   Proof.
-    intros l nt α' Hwf l' stk Hl'.
-    rewrite (proj2 (init_stacks_lookup _ _ _ _) l'); first done.
-    intros i Hi ->.
-    specialize (elem_of_dom σ.(sst) ((fresh_block (shp σ), 0) +ₗ i)).
-    rewrite Hl'. intros (_ &Ha). specialize (Ha ltac:(eauto)).
-    move : Ha. rewrite -state_wf_dom; last done.
-    apply is_fresh_block.
+    intros blk l nt α' Hwf (blk' & off') stk. cbn. intros Hl'.
+    rewrite /α' /extend_trees lookup_insert_ne //.
+    intros <-. eapply elem_of_dom_2 in Hl'.
+    rewrite state_wf_dom // in Hl'.
+    eapply elem_of_map in Hl' as ((blk'&off)&Heq&Heq2).
+    cbn in Heq. subst blk'.
+    by eapply is_fresh_block in Heq2.
+  Qed.
+
+  Lemma extend_trees_find_item σ it loc :
+    let blk := fresh_block σ.(shp) in
+    let l := (blk, 0) in
+    let nt := σ.(snp) in
+    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    state_wf σ →
+    item_for_loc_in_trees it σ.(strs) loc →
+    item_for_loc_in_trees it α' loc.
+  Proof.
+    intros blk l nt α' Hwf Hinv.
+    inversion Hinv as [tree H1 Hinv1]; clear Hinv.
+    eapply (is_in_trees _ _ _ tree); last done.
+    by apply extend_trees_preserve.
+  Qed.
+
+  (* TODO refactor the tree lemmas *)
+
+  Lemma exists_node_init_tree tg P :
+    exists_node P (init_tree tg) ↔
+    P (mkItem tg None Active ∅).
+  Proof.
+    cbv. tauto.
+  Qed.
+
+  Lemma every_node_init_tree tg P :
+    every_node P (init_tree tg) ↔
+    P (mkItem tg None Active ∅).
+  Proof.
+    cbv. tauto.
+  Qed.
+
+  Lemma extend_trees_find_item_rev σ it loc :
+    let blk := fresh_block σ.(shp) in
+    let l := (blk, 0) in
+    let nt := σ.(snp) in
+    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    state_wf σ →
+    item_for_loc_in_trees it α' loc →
+    item_for_loc_in_trees it σ.(strs) loc ∨ (it = mkItemForLoc (mkPerm PermLazy Active) nt None).
+  Proof.
+    intros blk l nt α' Hwf Hinv.
+    inversion Hinv as [tree H1 Hinv1]; clear Hinv.
+    destruct loc as (blk'&off'). cbn in *.
+    rewrite /α' /extend_trees in H1.
+    eapply lookup_insert_Some in H1 as [(<-&Heq)|(H1&H2)].
+    2: left; by eapply (is_in_trees _ _ _ tree).
+    right. subst tree.
+    inversion Hinv1 as [itm H1%exists_node_init_tree H2%every_node_init_tree H3 H4]; simplify_eq.
+    destruct it as [lperm tg cid].
+    rewrite /= /IsTag in H1. subst tg.
+    rewrite /= in H2. specialize (H2 (ltac:(done))). subst itm.
+    rewrite /= in H3. subst cid.
+    rewrite /= lookup_empty /= in H4. subst lperm.
+    done.
   Qed.
 
   Lemma init_mem_preserve σ n :
-    let l := (fresh_block σ.(shp), 0) in
+    let blk := fresh_block σ.(shp) in
+    let l := (blk, 0) in
     let nt := σ.(snp) in
     let h' := init_mem l n σ.(shp) in
     ∀ l' sc, σ.(shp) !! l' = Some sc → h' !! l' = Some sc.
   Proof.
-    intros l nt h' l' sc Hsc.
+    intros blk l nt h' l' sc Hsc.
     rewrite (proj2 (init_mem_lookup _ _ _) l'); first done.
     intros i Hi ->.
     specialize (elem_of_dom σ.(shp) ((fresh_block (shp σ), 0) +ₗ i)).
@@ -67,24 +124,26 @@ Section lemmas.
     move : Ha. apply is_fresh_block.
   Qed.
 
-  Lemma loc_controlled_alloc_update σ l' n (t : ptr_id) (tk : tag_kind) sc :
-    let l := (fresh_block σ.(shp), 0) in
+  Lemma loc_controlled_alloc_update σ l' n t (tk : tag_kind) sc :
+    let blk := fresh_block σ.(shp) in
+    let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := init_stacks σ.(sst) l n (Tagged nt) in
+    let h' := init_mem l n σ.(shp) in
+    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let σ' := mkState h' α' σ.(scs) (S σ.(snp)) σ.(snc) in
     state_wf σ →
-    nt ≠ t →
     loc_controlled l' t tk sc σ →
-    loc_controlled l' t tk sc (mkState (init_mem l n σ.(shp)) α' σ.(scs) (S σ.(snp)) σ.(snc)).
+    loc_controlled l' t tk sc σ'.
   Proof.
-    intros l nt α' Hwf Hne Hcontrolled Hpre.
-    assert (∀ l' stk, α' !! l' = Some stk → stk = init_stack (Tagged nt) ∨ σ.(sst) !! l' = Some stk) as Hα'.
-    { intros l'' stk Hl'.
-      specialize (init_stacks_lookup_case _ _ _ _ _ _ Hl') as [(Hstk & _) | (i & Hi & ->)]; first by eauto.
-      left. rewrite (proj1 (init_stacks_lookup _ _ _ _) i Hi) in Hl'.
-      injection Hl' as [= <-]. done.
-    }
+    intros blk l nt h' α' σ' Hwf Hcontrolled Hpre. (*
+    assert (∀ l' tree, α' !! l'.1 = Some tree → tree = init_tree nt ∨ σ.(strs) !! l'.1 = Some tree) as Hα'.
+    { unfold α', extend_trees. intros l'' stk [(_&HH)|(_&HH)]%lookup_insert_Some; [left|right]; done. }
+    destruct (
     assert (bor_state_pre l' t tk σ) as [Hown Hmem]%Hcontrolled.
-    { destruct tk; last done.
+    { unfold bor_state_pre in *|-*; destruct tk.
+      - destruct Hpre as (it & Hin & Htg & Hperm).
+        inversion Hin as [tree Hin1 Hin2]. apply Hα' in Hin1.
+      - admit.
       all: destruct Hpre as (stk & pm & opro & [-> | Hstk]%Hα' & Hit & ?); simpl in *; last by eauto 8.
       all: exfalso; move : Hit; rewrite elem_of_list_singleton; injection 1; congruence.
     }
@@ -94,7 +153,7 @@ Section lemmas.
       + destruct Hown as (stk & Hstk & ?). exists stk. split; last done. apply init_stack_preserve; done.
       + apply init_stack_preserve; done.
     - apply init_mem_preserve. done.
-  Qed. *)
+  Qed. *) Abort.
 
 (*
 

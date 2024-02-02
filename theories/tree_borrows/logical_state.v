@@ -66,14 +66,13 @@ Proof. solve_inG. Qed.
 (* TODO cleanup *)
 Section utils.
 
-  Record item_for_loc : Type := {
+  Record item_for_loc : Type := mkItemForLoc {
     lperm : lazy_permission;
     tg : tag;
     cid : option protector;
   }.
 
-  Inductive tag_valid (upper : nat) : tag → Prop :=
-    tag_valid_lt (n:nat) : (n < upper)%nat → tag_valid upper n.
+  Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
 
   Inductive item_for_loc_in_tree (i : item_for_loc) (tree : tree item) (l' : Z) : Prop :=
     is_in_tree item :
@@ -418,10 +417,10 @@ Section heap_defs.
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
-    | tk_unq_act | tk_unq_res => ∃ i, item_for_loc_in_trees i σ.(strs) l
+    | tk_unq_act | tk_unq_res => ∃ i, item_for_loc_in_trees i σ.(strs) l ∧ i.(tg) = t 
                    ∧ i.(lperm).(perm) ≠ Disabled
                    ∧ (i.(lperm).(perm) = Frozen → protected_by σ.(scs) i.(cid))
-    | tk_pub => ∃ i, item_for_loc_in_trees i σ.(strs) l
+    | tk_pub => ∃ i, item_for_loc_in_trees i σ.(strs) l ∧ i.(tg) = t 
                    ∧ i.(lperm).(perm) ≠ Disabled
     end.
 

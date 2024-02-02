@@ -728,8 +728,8 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
     bor_step
       trs cids nxtp nxtc
-      (AllocEvt blk (Tag nxtp) (off, sz))
-      (extend_trees (Tag nxtp) blk trs) cids (S nxtp) nxtc
+      (AllocEvt blk nxtp (off, sz))
+      (extend_trees nxtp blk trs) cids (S nxtp) nxtc
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
