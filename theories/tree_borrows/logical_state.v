@@ -189,6 +189,44 @@ Section utils.
     inversion LookupEmp.
   Qed.
 
+
+  Lemma eq_up_to_C_sym :
+    forall blk tg tr1 tr2 it1 it2,
+      eq_up_to_C tr1 tr2 blk tg it1 it2 ->
+      eq_up_to_C tr2 tr1 blk tg it2 it1.
+  Proof.
+    intros blk tg tr1 tr2 it1 it2 EqC.
+    inversion EqC.
+    + constructor. assumption.
+    + econstructor. tauto.
+  Qed.
+
+  Lemma tree_equal_sym : Symmetric tree_equal.
+  Proof.
+    rewrite /tree_equal.
+    intros tr1 tr2 Equal tg.
+    destruct (Equal tg) as [iffEx Inner]; clear Equal.
+    split; [tauto|].
+    intros Ex2 l.
+    pose proof (proj2 iffEx Ex2) as Ex1.
+    specialize (Inner Ex1 l).
+    destruct Inner as [it1 [it2 [Loc1 [Loc2 EqC]]]].
+    exists it2, it1.
+    try repeat split.
+    - assumption.
+    - assumption.
+    - apply eq_up_to_C_sym.
+      assumption.
+  Qed.
+
+  Lemma trees_equal_sym : Symmetric trees_equal.
+  Proof.
+    rewrite /trees_equal.
+    intros trs1 trs2 Equals blk.
+    eapply (option_Forall2_sym tree_equal); [|auto].
+    apply tree_equal_sym.
+  Qed.
+
 End utils.
 
 Section state_bijection.
