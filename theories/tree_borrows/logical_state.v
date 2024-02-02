@@ -76,8 +76,8 @@ Section utils.
 
   Inductive item_for_loc_in_tree (i : item_for_loc) (tree : tree item) (l' : Z) : Prop :=
     is_in_tree item :
-        exists_node (IsTag i.(tg)) tree →
-        every_node (λ i', i.(tg) = i'.(itag) → i' = item) tree →
+        tree_contains i.(tg) tree →
+        tree_unique i.(tg) item tree →
         i.(cid) = item.(iprot) →
         i.(lperm) = default {| initialized := PermLazy; perm := item.(initp) |}
                            (item.(iperm) !! l') →
@@ -121,15 +121,72 @@ Section utils.
 
   Definition tree_equal (tr1 tr2: tree item) :=
     ∀ t, ((tree_contains t tr1 <-> tree_contains t tr2) /\
-      (tree_contains t tr1 -> ∀ l, ∃ it1 it2, item_for_loc_in_tree it1 tr1 l ∧ item_for_loc_in_tree it2 tr2 l ∧ eq_up_to_C tr1 tr2 t l it1 it2)
+      (tree_contains t tr1 -> ∀ l, ∃ it1 it2,
+        item_for_loc_in_tree it1 tr1 l
+        ∧ item_for_loc_in_tree it2 tr2 l
+        ∧ eq_up_to_C tr1 tr2 t l it1 it2)
     ).
 
   Definition trees_equal (t1 t2 : trees) :=
     ∀ blk, option_Forall2 tree_equal (t1 !! blk) (t2 !! blk).
 
+  Lemma trees_equal_reflexive trs
+    (AllUnique : forall blk tr tg,
+      trs !! blk = Some tr ->
+      tree_contains tg tr ->
+      exists it, tree_unique tg it tr)
+    : trees_equal trs trs.
+  Proof.
+    intros blk.
+    specialize (AllUnique blk); rewrite /trees_at_block in AllUnique.
+    remember (trs !! blk) as at_blk.
+    destruct at_blk.
+    - apply Some_Forall2.
+      intro tg. split; [tauto|].
+      intros Ex l.
+      destruct (AllUnique _ tg ltac:(reflexivity) Ex) as [it Unq].
+      pose (it_loc := mkItemForLoc
+        (default {| initialized:=PermLazy; perm:=it.(initp) |} (it.(iperm) !! l))
+        it.(itag)
+        it.(iprot)).
+      exists it_loc, it_loc.
+      try repeat split.
+      + econstructor; simpl.
+        * erewrite tree_unique_specifies_tag; eassumption.
+        * erewrite tree_unique_specifies_tag; eassumption.
+        * auto.
+        * reflexivity.
+      + econstructor; simpl.
+        * erewrite tree_unique_specifies_tag; eassumption.
+        * erewrite tree_unique_specifies_tag; eassumption.
+        * auto.
+        * reflexivity.
+      + econstructor. simpl. erewrite tree_unique_specifies_tag; eauto.
+    - apply None_Forall2.
+  Qed.
+
+  Lemma trees_equal_same_tags (trs1 trs2 : trees) (tg : tag) (blk : block) :
+    trees_equal trs1 trs2 ->
+    trees_contain tg trs1 blk <-> trees_contain tg trs2 blk.
+  Proof.
+    intro Equals.
+    rewrite /trees_equal in Equals.
+    specialize (Equals blk).
+    rewrite /trees_contain /trees_at_block.
+    destruct (trs1 !! blk) as [tr1|];
+      destruct (trs2 !! blk) as [tr2|];
+      inversion Equals as [?? Equal|].
+    2: tauto.
+    subst.
+    destruct (Equal tg) as [SameTags _].
+    assumption.
+  Qed.
+
   Lemma trees_equal_empty : trees_equal ∅ ∅.
   Proof.
-    intros blk. rewrite lookup_empty. econstructor.
+    apply trees_equal_reflexive.
+    intros blk tr tg LookupEmp.
+    inversion LookupEmp.
   Qed.
 
 End utils.

@@ -128,7 +128,7 @@ Qed.
 Definition permissions_apply_range' (pdefault:lazy_permission) (range:range') (f:app lazy_permission)
   : app permissions := fun ps =>
   mem_apply_range'
-    (fun oldp => f (unwrap pdefault oldp))
+    (fun oldp => f (default pdefault oldp))
     range ps.
 
 Lemma mem_apply_range'_defined_isSome {X} (map:gmap Z X) (fn:option X -> X) :
@@ -595,7 +595,7 @@ Definition create_child cids (oldt:tag) (newt:tag) (newp:newperm)
 Definition item_lazy_perm_at_loc it (l:loc')
   : lazy_permission :=
   let op := iperm it !! l in
-  unwrap {| initialized := PermLazy; perm := initp it |} op.
+  default {| initialized := PermLazy; perm := initp it |} op.
 
 Definition item_perm_at_loc it z
   : permission :=

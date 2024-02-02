@@ -66,7 +66,7 @@ Qed.
 
 Definition is_access_compatible (tr : tree item) (cids : call_id_set) (tg : tag) (range : range') (kind : access_kind) (it : item ) :=
   forall l, range'_contains range l ->
-    let initial := unwrap {| initialized := PermLazy; perm := initp it |}
+    let initial := default {| initialized := PermLazy; perm := initp it |}
            (iperm it !! l) in
     let protected := bool_decide (protector_is_active (iprot it) cids) in
     exists post,
