@@ -158,7 +158,7 @@ theories/tree_borrows/class_instances.v
 theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
 theories/tree_borrows/inv_accessors.v # needs stuff
-#theories/tree_borrows/steps_refl.v # needs tkmap_view
+theories/tree_borrows/steps_refl.v # needs tkmap_view
 #theories/tree_borrows/steps_opt.v # needs tkmap_view
 #theories/tree_borrows/primitive_laws.v # needs logical_state
 #theories/tree_borrows/proofmode.v # needs primitive_laws

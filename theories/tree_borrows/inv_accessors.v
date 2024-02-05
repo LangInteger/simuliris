@@ -91,7 +91,7 @@ Section lemmas.
     let α' := extend_trees σ.(snp) blk σ.(strs) in
     state_wf σ →
     item_for_loc_in_trees it α' loc →
-    item_for_loc_in_trees it σ.(strs) loc ∨ (it = mkItemForLoc (mkPerm PermLazy Active) nt None).
+    item_for_loc_in_trees it σ.(strs) loc ∨ (it = mkItemForLoc (mkPerm PermLazy Active) nt None ∧ loc.1 = blk).
   Proof.
     intros blk l nt α' Hwf Hinv.
     inversion Hinv as [tree H1 Hinv1]; clear Hinv.
@@ -131,29 +131,22 @@ Section lemmas.
     let h' := init_mem l n σ.(shp) in
     let α' := extend_trees σ.(snp) blk σ.(strs) in
     let σ' := mkState h' α' σ.(scs) (S σ.(snp)) σ.(snc) in
+    t ≠ nt →
     state_wf σ →
     loc_controlled l' t tk sc σ →
     loc_controlled l' t tk sc σ'.
   Proof.
-    intros blk l nt h' α' σ' Hwf Hcontrolled Hpre. (*
-    assert (∀ l' tree, α' !! l'.1 = Some tree → tree = init_tree nt ∨ σ.(strs) !! l'.1 = Some tree) as Hα'.
-    { unfold α', extend_trees. intros l'' stk [(_&HH)|(_&HH)]%lookup_insert_Some; [left|right]; done. }
-    destruct (
+    intros blk l nt h' α' σ' Hnt Hwf Hcontrolled Hpre.
     assert (bor_state_pre l' t tk σ) as [Hown Hmem]%Hcontrolled.
-    { unfold bor_state_pre in *|-*; destruct tk.
-      - destruct Hpre as (it & Hin & Htg & Hperm).
-        inversion Hin as [tree Hin1 Hin2]. apply Hα' in Hin1.
-      - admit.
-      all: destruct Hpre as (stk & pm & opro & [-> | Hstk]%Hα' & Hit & ?); simpl in *; last by eauto 8.
-      all: exfalso; move : Hit; rewrite elem_of_list_singleton; injection 1; congruence.
-    }
-    simpl. split.
-    - destruct tk.
-      + destruct Hown as (stk & Hstk & ?). exists stk. split; last done. apply init_stack_preserve; done.
-      + destruct Hown as (stk & Hstk & ?). exists stk. split; last done. apply init_stack_preserve; done.
-      + apply init_stack_preserve; done.
-    - apply init_mem_preserve. done.
-  Qed. *) Abort.
+    { destruct tk; unfold bor_state_pre in Hpre|-*.
+      1-3: destruct Hpre as (it & [Hin|(Heq&_)]%extend_trees_find_item_rev & H1 & H2); [
+             by exists it | by subst it t | done ].
+      done. }
+    split; last by eapply init_mem_preserve.
+    destruct Hown as (it & tr & Hin & Ht & Htrs & Htk).
+    exists it, tr; split_and!; try done.
+    by apply extend_trees_preserve.
+  Qed.
 
 (*
 
