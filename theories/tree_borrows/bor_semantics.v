@@ -128,7 +128,7 @@ Qed.
 Definition permissions_apply_range' (pdefault:lazy_permission) (range:range') (f:app lazy_permission)
   : app permissions := fun ps =>
   mem_apply_range'
-    (fun oldp => f (unwrap pdefault oldp))
+    (fun oldp => f (default pdefault oldp))
     range ps.
 
 Lemma mem_apply_range'_defined_isSome {X} (map:gmap Z X) (fn:option X -> X) :
@@ -199,13 +199,33 @@ Definition ParentChildIn t t' : Tprop (tree item)
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
 Proof. rewrite /ParentChildIn. solve_decision. Qed.
 
+(* Decide the relative position (parent/child/other) of two tags.
+   Read this as "t1 is a `rel_dec tr t1 t2` of t2", i.e.
+   `rel_dec tr t1 t2 = Child` means `t1` is a child of `t2` in `tr`,
+   `rel_dec tr t1 t2 = Cousin` means `t1` is a cousino of `t2` in `tr`.
+
+   Naturally `This` and `Cousin` are symmetric, while `Parent` and `Child`,
+   because they are strict, are inverses of each other.
+ *)
 Definition rel_dec (tr:tree item) := fun t t' =>
   match decide (ParentChildIn t t' tr), decide (ParentChildIn t' t tr) with
   | left _, left _ => This
   | left _, right _ => Parent
   | right _, left _ => Child
-  | right _, right _ => Uncle
+  | right _, right _ => Cousin
   end.
+
+Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Cousin -> rel_dec tr t' t = Cousin.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+
+Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = This -> rel_dec tr t' t = This.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+
+Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Parent -> rel_dec tr t' t = Child.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+
+Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child -> rel_dec tr t' t = Parent.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
@@ -216,14 +236,14 @@ Definition requires_init (rel:rel_pos)
   : perm_init :=
   match rel with
   | This | Child => PermInit
-  | Parent | Uncle => PermLazy
+  | Parent | Cousin => PermLazy
   end.
 
 (* State machine without protector UB *)
 Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
   : app permission := fun perm =>
   match kind, rel with
-  | AccessRead, (Parent | Uncle) =>
+  | AccessRead, (Parent | Cousin) =>
       match perm with
       | Reserved TyFrz ResActivable => if isprot then Some $ Reserved TyFrz ResConflicted else Some $ Reserved TyFrz ResActivable
       | Reserved InteriorMut ResActivable => if isprot then Some $ Reserved InteriorMut ResConflicted else Some $ Reserved InteriorMut ResActivable
@@ -234,7 +254,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
-  | AccessWrite, (Parent | Uncle) =>
+  | AccessWrite, (Parent | Cousin) =>
       match perm with
       | Reserved InteriorMut ResActivable => if isprot then Some Disabled else Some $ Reserved InteriorMut ResActivable
       | Reserved InteriorMut ResConflicted => if isprot then Some Disabled else Some $ Reserved InteriorMut ResConflicted
@@ -271,6 +291,9 @@ Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_matc
 
 Definition protector_compatible_call c prot := is_Some prot -> protector_is_for_call c prot.
 
+(* This definition overlaps with logical_state.v:protected_by
+   We should pick one of them. If we pick this one it should be simplified
+   to match prot with Some (mkProtector _ c) => c in cids | None => False end. *)
 Definition protector_is_active prot cids :=
   exists c, protector_is_for_call c prot /\ call_is_active c cids.
 
@@ -572,7 +595,7 @@ Definition create_child cids (oldt:tag) (newt:tag) (newp:newperm)
 Definition item_lazy_perm_at_loc it (l:loc')
   : lazy_permission :=
   let op := iperm it !! l in
-  unwrap {| initialized := PermLazy; perm := initp it |} op.
+  default {| initialized := PermLazy; perm := initp it |} op.
 
 Definition item_perm_at_loc it z
   : permission :=
@@ -698,15 +721,15 @@ Definition trees_read_all_protected_initialized (cids : call_id_set) (cid : nat)
     apply_within_trees (tree_read_all_protected_initialized cids cid) k trs
   ) (Some trs) gmap_empty.
 
-
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
-  | AllocIS (x : loc) (sz : nat)
-    (FRESH : trs !! x.1 = None) :
+  | AllocIS (blk : block) (off : Z) (sz : nat)
+    (FRESH : trs !! blk = None)
+    (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
     bor_step
       trs cids nxtp nxtc
-      (AllocEvt x.1 (Tag nxtp) (x.2, sz))
-      (extend_trees (Tag nxtp) x.1 trs) cids (S nxtp) nxtc
+      (AllocEvt blk nxtp (off, sz))
+      (extend_trees nxtp blk trs) cids (S nxtp) nxtc
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
@@ -737,29 +760,30 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
                We want to do the read *after* the insertion so that it properly initializes the locations of the range *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
-    (FRESH_CHILD: ~trees_contain (Tag nxtp) trs alloc)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt (Tag nxtp) newp) alloc trs = Some trs')
-    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead ProtStrong cids (Tag nxtp) range) alloc trs' = Some trs'') :
+    (SAME_CID : is_Some newp.(new_protector) -> protector_is_for_call cid newp.(new_protector))
+    (FRESH_CHILD: ~trees_contain nxtp trs alloc)
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp newp) alloc trs = Some trs')
+    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead ProtStrong cids nxtp range) alloc trs' = Some trs'') :
     bor_step
       trs cids nxtp nxtc
-      (RetagEvt alloc parentt (Tag nxtp) newp cid)
+      (RetagEvt alloc parentt nxtp newp cid)
       trs'' cids (S nxtp) nxtc
   | DeallocIS trs' (alloc : block) (tg : tag) range
     (EXISTS_TAG: trees_contain tg trs alloc)
     (ACC: apply_within_trees (memory_deallocate cids tg range) alloc trs = Some trs') :
-    (* FIXME: should we actually remove the tree ? *)
+    (* We are deleting the entire allocation to make sure that the tree has the same blocks as the heap *)
     bor_step
       trs cids nxtp nxtc
       (DeallocEvt alloc tg range)
-      trs' cids nxtp nxtc
+      (delete alloc trs') cids nxtp nxtc
   | InitCallIS :
     bor_step
       trs cids nxtp nxtc
       (InitCallEvt nxtc)
       trs ({[nxtc]} ∪ cids) nxtp (S nxtc)
   | EndCallIS c trs'
-      (* Don't forget the implicit read on function exit through all initialized locations *)
     (EL: c ∈ cids)
+    (* Don't forget the implicit read on function exit through all initialized locations *)
     (READ_ON_UNPROT : trees_read_all_protected_initialized cids c trs = Some trs') :
     bor_step
       trs cids nxtp nxtc

@@ -5,6 +5,8 @@
 From simuliris.tree_borrows Require Export defs steps_foreach steps_list steps_wf steps_progress.
 From iris.prelude Require Import options.
 
+(*
+
 Definition tag_on_top (stks: stacks) l t pm : Prop :=
   ∃ prot, (stks !! l) ≫= head = Some (mkItem pm (Tagged t) prot).
 
@@ -1794,3 +1796,5 @@ Proof.
     split; last split; [done| |by destruct b].
     move : GR. by apply grant_elem_of.
 Qed.
+
+*)

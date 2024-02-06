@@ -66,7 +66,7 @@ Proof.
   pose proof (mem_apply_range'_spec _ _ z _ _ tmpSpec) as ForeachSpec.
   rewrite (decide_True _ _ Within) in ForeachSpec.
   destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
-  assert (unwrap {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
+  assert (default {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
     unfold item_lazy_perm_at_loc. destruct (iperm pre !! z); simpl; reflexivity.
   } rewrite InitPerm in ForeachSpec.
   eexists. eexists.
@@ -1612,25 +1612,25 @@ Proof.
 Qed.
 
 Lemma commutes_option_build
-  {X} {default : X} {fn1 fn2}
+  {X} {dflt : X} {fn1 fn2}
   (Commutes : commutes fn1 fn2)
   : commutes_option
-    (fun ox => fn1 (unwrap default ox))
-    (fun ox => fn2 (unwrap default ox)).
+    (fun ox => fn1 (default dflt ox))
+    (fun ox => fn2 (default dflt ox)).
 Proof.
   intros x0 x1 x2 Step01 Step12.
-  destruct (Commutes (unwrap default x0) _ _ Step01 Step12) as [?[??]].
+  destruct (Commutes (default dflt x0) _ _ Step01 Step12) as [?[??]].
   eexists; eauto.
 Qed.
 
 Lemma permissions_foreach_commutes
   range1 range2
   (fn1 fn2 : lazy_permission -> option lazy_permission)
-  default
+  dflt
   (FnCommutes : commutes fn1 fn2)
   : commutes
-    (permissions_apply_range' default range1 fn1)
-    (permissions_apply_range' default range2 fn2).
+    (permissions_apply_range' dflt range1 fn1)
+    (permissions_apply_range' dflt range2 fn2).
 Proof.
   apply range_foreach_commutes.
   apply commutes_option_build.
@@ -1640,11 +1640,11 @@ Qed.
 Lemma permissions_foreach_disjoint_commutes
   range1 range2
   (fn1 fn2 : lazy_permission -> option lazy_permission)
-  default
+  dflt
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (permissions_apply_range' default range1 fn1)
-    (permissions_apply_range' default range2 fn2).
+    (permissions_apply_range' dflt range1 fn1)
+    (permissions_apply_range' dflt range2 fn2).
 Proof.
   apply range_foreach_disjoint_commutes.
   assumption.

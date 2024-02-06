@@ -30,19 +30,19 @@ Lemma free_mem_foldr l n h:
 Proof. by rewrite -free_mem_foldr' shift_loc_0. Qed.
 
 Lemma init_mem_dom' l n h (m: nat):
-  dom (init_mem (l +ₗ m) n h) ≡
+  dom (init_mem (l +ₗ m) n h) =
   dom h ∪ dom (init_mem (l +ₗ m) n ∅) .
 Proof.
   revert h m. induction n as [|n IHn]; intros h m.
-  - by rewrite /= dom_empty right_id.
-  - rewrite /= 2!dom_insert.
+  - rewrite /= dom_empty_L right_id_L //.
+  - rewrite /= 2!dom_insert_L.
     rewrite (_ : (l +ₗ m +ₗ 1) = (l +ₗ S m)).
     + rewrite IHn. set_solver.
     + rewrite shift_loc_assoc -(Nat2Z.inj_add _ 1). f_equal. lia.
 Qed.
 
 Lemma init_mem_dom l n h:
-  dom (init_mem l n h) ≡
+  dom (init_mem l n h) =
   dom h ∪ dom (init_mem l n ∅) .
 Proof. by rewrite -(shift_loc_0_nat l) init_mem_dom'. Qed.
 

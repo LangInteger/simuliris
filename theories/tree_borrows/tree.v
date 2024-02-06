@@ -8,13 +8,6 @@ Definition Tprop X : Type := X -> Prop.
 
 (** General Preliminaries *)
 
-Definition unwrap {X} (default:X)
-  : option X -> X :=
-  fun o => match o with
-  | Some t => t
-  | None => default
-  end.
-
 Definition option_bind {X Y} (fn:X -> option Y)
   : option X -> option Y :=
   fun ox => x ← ox; fn x.

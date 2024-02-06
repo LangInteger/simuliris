@@ -287,7 +287,6 @@ Proof.
 Qed.
 
 Global Instance scalar_inhabited : Inhabited scalar := populate ScPoison.
-Global Instance tag_inhabited : Inhabited tag := populate (Tag 0).
 Global Instance expr_inhabited : Inhabited expr := populate (#[☠])%E.
 Global Instance result_inhabited : Inhabited result := populate (ValR [☠]%S).
 Global Instance state_Inhabited : Inhabited state.

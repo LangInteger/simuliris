@@ -28,11 +28,7 @@ Notation call_id := nat (only parsing).
 Definition call_id_set := gset call_id.
 
 (** Tags for pointers *)
-Inductive tag := Tag (t:nat).
-Global Instance tag_eq_dec : EqDecision tag.
-Proof. solve_decision. Defined.
-Global Instance tag_countable : Countable tag.
-Proof. refine (inj_countable (λ '(Tag t), t) (λ t, Some $ Tag t) _); by intros []. Qed.
+Notation tag := nat (only parsing).
 
 Inductive interior_mut := InteriorMut | TyFrz.
 Global Instance interior_mut_eq_dec : EqDecision interior_mut.
@@ -204,8 +200,8 @@ Bind Scope val_scope with value.
 Inductive access_kind := AccessRead | AccessWrite.
 Inductive access_visibility := VisibleAll | OnlyNonChildren.
 
-Inductive rel_pos := This | Parent | Child | Uncle.
-Definition foreign rel := match rel with Parent | Uncle => True | _ => False end.
+Inductive rel_pos := This | Parent | Child | Cousin.
+Definition foreign rel := match rel with Parent | Cousin => True | _ => False end.
 Definition child rel := match rel with This | Child => True | _ => False end.
 
 Global Instance access_kind_eq_dec : EqDecision access_kind.

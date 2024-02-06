@@ -9,24 +9,23 @@ From iris.prelude Require Import options.
 (* Henceforth also in the files importing us we want to use Z_scope. *)
 Global Open Scope Z_scope.
 
-Definition wf_mem_tag (h: mem) (nxtp: nat) :=
+Definition wf_mem_tag (h: mem) (nxtp: tag) :=
   ∀ (l l':loc) pid, h !! l = Some (ScPtr l' pid) →
-    let '(Tag pid) := pid in
     (pid < nxtp)%nat.
 
-Definition item_wf (it:item) (nxtp:nat) (nxtc:call_id) :=
-  (forall tg, IsTag (Tag tg) it -> (tg < nxtp)%nat)
+Definition item_wf (it:item) (nxtp:tag) (nxtc:call_id) :=
+  (forall tg, IsTag tg it -> (tg < nxtp)%nat)
   /\ (forall cid, protector_is_for_call cid (iprot it) -> (cid < nxtc)%nat).
 
-Definition tree_item_included (tr:tree item) (nxtp:nat) (nxtc: call_id) :=
+Definition tree_item_included (tr:tree item) (nxtp:tag) (nxtc: call_id) :=
   forall tg,
   tree_contains tg tr -> exists it,
   tree_unique tg it tr /\ item_wf it nxtp nxtc.
 
 (* FIXME: consistent naming *)
-Definition wf_tree (tr:tree item) (nxtp:nat) (nxtc:call_id) :=
+Definition wf_tree (tr:tree item) (nxtp:tag) (nxtc:call_id) :=
   tree_item_included tr nxtp nxtc.
-Definition wf_trees (trs:trees) (nxtp:nat) (nxtc: call_id) :=
+Definition wf_trees (trs:trees) (nxtp:tag) (nxtc: call_id) :=
   ∀ blk tr, trs !! blk = Some tr → wf_tree tr nxtp nxtc.
 Definition wf_non_empty (trs:trees) :=
   ∀ blk tr, trs !! blk = Some tr → tr ≠ empty.
@@ -36,10 +35,17 @@ Definition wf_no_dup (α: stacks) :=
 *)
 Definition wf_cid_incl (cids: call_id_set) (nxtc: call_id) :=
   ∀ c : call_id, c ∈ cids → (c < nxtc)%nat.
-Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l (Tag t') → t' < t.
+Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l t' → t' < t.
+
+(* mem ~ gmap loc scalar
+*)
 
 Definition same_blocks (hp:mem) (trs:trees) :=
-  forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk).
+  dom trs =@{gset _} set_map fst (dom hp).
+Arguments same_blocks / _ _.
+(* OLD: forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk). *)
+(* FIXME: map fst (dom hp) === dom trs *)
+(* FIXME: forall blk, (exists l, is_Some (hp !! (blk, l))) <-> is_Some (trs !! blk). *)
 
 Record state_wf (s: state) := {
   (*state_wf_dom : dom s.(shp) ≡ dom s.(strs); Do we care ? After all TB is very permissive about the range, so out-of-bounds UB is *always* triggered at the level of the heap, not the trees *)
@@ -55,7 +61,15 @@ Record state_wf (s: state) := {
 
 Definition init_state := (mkState ∅ ∅ {[O]} O 1).
 
-Inductive tag_kind := tk_pub  | tk_unq | tk_local.
+(** Tag kinds:
+    - `tk_pub`: this tag is public
+    - `tk_unq_res` and `tk_unq_act`: split from the `tk_unq` in Stacked Borrows.
+      We need two of them to support the two stages of 2-phase borrows.
+      The intent is that whatever mutable reference is reborrowed gets a
+      `tk_unq_res` initially and on the first child write we can change it to a
+      `tk_unq_act`.
+    - `tk_local`: locally owned tag without any references (not even local reborrows). *)
+Inductive tag_kind := tk_pub | tk_unq_res | tk_unq_act | tk_local.
 
 Definition state_upd_mem (f : mem → mem) σ :=
   mkState (f σ.(shp)) σ.(strs) σ.(scs) σ.(snp) σ.(snc).

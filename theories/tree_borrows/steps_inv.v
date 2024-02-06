@@ -2,6 +2,7 @@ From simuliris.tree_borrows Require Export notation defs.
 From simuliris.tree_borrows Require Import steps_progress steps_retag.
 From iris.prelude Require Import options.
 
+(*
 Lemma head_free_inv (P : prog) l bor T σ σ' e' efs :
   base_step P (Free (PlaceR l bor T)) σ e' σ' efs →
   ∃ α',
@@ -60,11 +61,14 @@ Lemma head_end_call_inv (P : prog) e' σ σ' efs c :
   e' = (#[☠])%E ∧
   σ' = state_upd_calls (.∖ {[ c ]}) σ.
 Proof. intros Hhead. inv_base_step. eauto. Qed.
+*)
 
-Lemma head_alloc_inv (P : prog) T σ σ' e' efs :
-  base_step P (Alloc T) σ e' σ' efs →
-  let l := (fresh_block σ.(shp), 0) in
+
+Lemma head_alloc_inv (P : prog) sz σ σ' e' efs :
+  base_step P (Alloc sz) σ e' σ' efs →
+  let blk := fresh_block σ.(shp) in
+  (sz > 0)%nat ∧
   efs = [] ∧
-  e' = Place l (Tagged σ.(snp)) T ∧
-  σ' = mkState (init_mem l (tsize T) σ.(shp)) (init_stacks σ.(sst) l (tsize T) (Tagged σ.(snp))) σ.(scs) (S σ.(snp)) σ.(snc).
+  e' = Place (blk, 0) σ.(snp) sz ∧
+  σ' = mkState (init_mem (blk, 0) sz σ.(shp)) (extend_trees σ.(snp) blk σ.(strs)) σ.(scs) (S σ.(snp)) σ.(snc).
 Proof. intros Hhead. inv_base_step. eauto. Qed.
