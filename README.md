@@ -1,25 +1,28 @@
 # Simuliris Coq development
+
 This repository contains the Coq development of Simuliris (paper presented at POPL22: https://iris-project.org/pdfs/2022-popl-simuliris.pdf).
 
-## Setup 
-This project is known to build with [Coq](https://coq.inria.fr/) 8.18.0.
-It depends on recent development versions of [std++](https://gitlab.mpi-sws.org/iris/stdpp) and [Iris](https://gitlab.mpi-sws.org/iris/iris), as well as [coq-equations](https://github.com/mattam82/Coq-Equations).
+## Prerequisites
 
+This version is known to compile with:
 
-We recommend using [opam](https://opam.ocaml.org/) (version >= 2.0, tested on 2.0.8) for the installation.
+ - Coq 8.18.0
+ - A development version of [Iris](https://gitlab.mpi-sws.org/iris/iris)
+ - A recent version of [Coq-Equations](https://github.com/mattam82/Coq-Equations)
 
-Please execute the following instructions in the folder containing this README, replacing `N` with the number of jobs you'd like to use for compilation.
-```
-opam switch create simuliris 4.11.1
-opam switch link simuliris .
-opam repo add coq-released https://coq.inria.fr/opam/released
-opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-make -jN builddep
-make -jN
+## Building from source
 
-```
+When building from source, we recommend to use opam (2.0.0 or newer) for
+installing the dependencies.  This requires the following two repositories:
+
+    opam repo add coq-released https://coq.inria.fr/opam/released
+    opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
+
+Once you got opam set up, run `make build-dep` to install the right versions
+of the dependencies.
 
 ## Structure
+
 The project follows the following structure below the `theories` folder:
 - `logic` and `base_logic` contain libraries for defining fixpoints as well as general ghost state constructions.
 - `simulation` contains the language-generic parts of the framework, in particular the definition of the simulation relation and the general adequacy proof.
@@ -64,9 +67,11 @@ The project follows the following structure below the `theories` folder:
 
 
 ## Theorems, definitions, and examples referenced in the paper
+
 We list the relevant theorems and definitions mentioned in the paper by section.
 
 ### Section 2
+
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
 | SimuLang grammar (Figure 2) | `theories/simulang/lang.v` | `expr`, `val`, `prog`, `ectx_item`, `ectx` |
@@ -85,6 +90,7 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Rule `while-paco` (2.4) | `theories/simulang/simple_inv/examples/derived.v` | `sim_while` |
 
 ### Section 3
+
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
 | Rule `exploit-store` (Figure 7) | `theories/simulang/na_inv/examples/derived.v` | `sim_exploit_store` |
@@ -97,6 +103,7 @@ We list the relevant theorems and definitions mentioned in the paper by section.
 | Rules in Figure 8| `theories/simulang/na_inv/examples/derived.v` | `sim_load_sc_public`, `sim_load_na_public`, `sim_store_sc_public`, `sim_call` |
 
 ### Section 4
+
 The definition of contextual refinement is language-specific as the contexts are language-specific.
 Similarly, the specific logical relation is specific to the different program logics
 (although we have factored out a common structure and other common components that can be re-used in a language-generic way,
@@ -114,6 +121,7 @@ They are instantiated for the fundamental theorems.
 | Theorem 4.3 (for SimuLang, non-atomic logic) | `theories/simulang/na_inv/adequacy.v` | `log_rel_adequacy` |
 
 ### Section 5
+
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
 | Simulation relation (Figure 11) (full version) | `theories/simulation/slsls.v` | `greatest_def`, `sim_expr_inner` |
@@ -127,6 +135,7 @@ They are instantiated for the fundamental theorems.
 | Theorem 5.2 (for SimuLang, simple logic) | `theories/simulang/simple_inv/adequacy.v` | `log_rel_adequacy` |
 
 ### Section 6
+
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
 | heapbij (simplified) | `theories/simulang/heapbij.v` | `heapbij_interp` |
@@ -138,6 +147,7 @@ They are instantiated for the fundamental theorems.
 | preservation for sim-store-sc (Maintaining the state interpretation) | `theories/simulang/na_inv/na_locs.v` | `na_locs_wf_store` |
 
 ### Section 7
+
 | Paper | Coq file | Coq name |
 | ------ | ------ | ------ |
 | Adequacy (Theorem 5.2 for Stacked Borrows) | `theories/stacked_borrows/adequacy.v` | `log_rel_adequacy` |
@@ -153,5 +163,6 @@ The optimizations ported and extended to concurrency from the original Stacked B
 * `theories/stacked_borrows/examples/opt3_down.v`
 
 ### Section 8
+
 As mentioned in the related work section, we have verified the reorderings and eliminations by [Ševčík, 2011]. They can be found in file `theories/simulang/na_inv/examples/program_transformations_in_weak_memory_models.v`.
 For further information on this, we refer to Section 5 of the technical appendix.
