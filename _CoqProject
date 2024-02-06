@@ -162,13 +162,13 @@ theories/tree_borrows/logical_state.v
 theories/tree_borrows/inv_accessors.v # needs stuff
 theories/tree_borrows/steps_refl.v # needs tkmap_view
 #theories/tree_borrows/steps_opt.v # needs tkmap_view
-#theories/tree_borrows/primitive_laws.v # needs logical_state
-#theories/tree_borrows/proofmode.v # needs primitive_laws
+theories/tree_borrows/primitive_laws.v # needs logical_state
+theories/tree_borrows/proofmode.v # needs primitive_laws
 
 theories/tree_borrows/wf.v # builds almost as-is
 theories/tree_borrows/parallel_subst.v
-#theories/tree_borrows/log_rel_structural.v # needs proofmode
-#theories/tree_borrows/refl.v # needs proofmode
+theories/tree_borrows/log_rel_structural.v
+theories/tree_borrows/refl.v
 theories/tree_borrows/behavior.v # builds almost as-is
 #theories/tree_borrows/adequacy.v # needs proofmode
 

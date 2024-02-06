@@ -98,7 +98,7 @@ Section log_rel.
       iPoseProof (rrel_value_source with H) as (? ->) H'
     ];
     try iClear H; try iRename H' into H.
-
+(*
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
@@ -136,7 +136,7 @@ Section log_rel.
     iApply (sim_endcall with "Hv").
     sim_finish. sim_val. iModIntro. iSplit; first done. iApply value_rel_poison.
   Qed.
-
+*)
 
   (** a bit of work for eqop *)
   Lemma bor_interp_scalar_eq_source σ_t σ_s sc1_t sc1_s sc2_t sc2_s :
@@ -319,7 +319,7 @@ Section log_rel.
     discr_source. val_discr_source "Hv".
     sim_pures. solve_rrel_refl.
   Qed.
-
+(*
   Lemma log_rel_copy e_t e_s :
     log_rel e_t e_s -∗ log_rel (Copy e_t) (Copy e_s).
   Proof.
@@ -367,7 +367,7 @@ Section log_rel.
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
     iApply (sim_retag_public with "[-]"). { by iApply value_rel_ptr. }
     iIntros (t) "Hv". sim_val. eauto.
-  Qed.
+  Qed. *)
 
   (* TODO: this can be useful elsewhere. It's here because I'm relying on the
     several useful tactics defined here. *)
@@ -408,7 +408,7 @@ Section log_rel.
     apply (free_vars_case_2 e_s) in Hls. apply (free_vars_case_2 e_t) in Hlt.
     set_solver+Hls Hlt.
   Qed.
-
+(*
   Lemma log_rel_while e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -437,6 +437,7 @@ Section log_rel.
     iApply (sim_fork with "[]"). { solve_rrel_refl. }
     iIntros (?). setoid_rewrite (left_id True%I (∗)%I). by iApply "IH".
   Qed.
+*)
 
   Lemma log_rel_alloc T :
     ⊢ log_rel (Alloc T) (Alloc T).
@@ -445,7 +446,7 @@ Section log_rel.
     iIntros (? xs) "!# #Hs _"; simpl. iApply sim_alloc_public.
     iIntros (t l) "Hp Hr". sim_val. by iFrame.
   Qed.
-
+(*
   Lemma log_rel_free e_t e_s :
     log_rel e_t e_s ⊢ log_rel (Free e_t) (Free e_s).
   Proof.
@@ -458,7 +459,7 @@ Section log_rel.
     iApply (sim_free_public with "[Hv]"). { by iApply rrel_place. }
     solve_rrel_refl.
   Qed.
-
+*)
   Lemma log_rel_result v_t v_s :
     rrel v_t v_s ⊢ log_rel (of_result v_t) (of_result v_s).
   Proof.
@@ -482,11 +483,11 @@ Section refl.
     - (* Var *)
       by iApply log_rel_var.
     - (* Call *)
-      by iApply (log_rel_call with "IH IH1").
+      admit; by iApply (log_rel_call with "IH IH1").
     - (* InitCall *)
-      by iApply log_rel_initcall.
+      admit; by iApply log_rel_initcall.
     - (* EndCall *)
-      by iApply (log_rel_endcall with "IH").
+      admit; by iApply (log_rel_endcall with "IH").
     - (* Proj *)
       by iApply (log_rel_proj with "IH IH1").
     - (* Conc *)
@@ -498,24 +499,24 @@ Section refl.
     - (* Ref *)
       by iApply (log_rel_ref with "IH").
     - (* Copy *)
-      by iApply (log_rel_copy with "IH").
+      admit; by iApply (log_rel_copy with "IH").
     - (* Write *)
-      by iApply (log_rel_write with "IH IH1").
+      admit; by iApply (log_rel_write with "IH IH1").
     - (* Alloc *)
       by iApply log_rel_alloc.
     - (* Free *)
-      by iApply log_rel_free.
+      admit; by iApply log_rel_free.
     - (* Retag *)
-      by iApply (log_rel_retag with "IH IH1").
+      admit; by iApply (log_rel_retag with "IH IH1").
     - (* Let *)
       by iApply (log_rel_let with "IH IH1").
     - (* Case *)
       by iApply (log_rel_case with "IH IH1").
     - (* Fork *)
-      by iApply (log_rel_fork with "IH").
+      admit; by iApply (log_rel_fork with "IH").
     - (* While *)
-      by iApply (log_rel_while with "IH IH1").
-  Qed.
+      admit; by iApply (log_rel_while with "IH IH1").
+  Admitted.
 
   Corollary log_rel_refl e :
     expr_wf e →
