@@ -596,17 +596,17 @@ Section heap_defs.
 
 (* TODO check that rel_dec is used the right way around *)
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
-    ∃ it tr, item_for_loc_in_trees it σ.(strs) l ∧ it.(tg) = t ∧ σ.(strs) !! l.1 = Some tr ∧
+    ∃ it tr, item_for_loc_in_tree it tr l.2 ∧ it.(tg) = t ∧ σ.(strs) !! l.1 = Some tr ∧
     match tk with
     | tk_local => it.(lperm).(perm) = Active ∧
             (* in other words, the item is unique *)
-            ∀ itb, item_for_loc_in_trees it σ.(strs) l → rel_dec tr it.(tg) itb.(tg) = This
+            ∀ itb, item_for_loc_in_tree it tr l.2 → rel_dec tr it.(tg) itb.(tg) = This
     | tk_unq_res
        => (match it.(lperm).(perm) with
            | Active | Reserved InteriorMut _ => True
            | Reserved TyFrz _ => ¬ protected_by σ.(scs) it.(cid)
            | _ => False end) ∧
-          ∀ itb, item_for_loc_in_trees it σ.(strs) l → match rel_dec tr it.(tg) itb.(tg) with 
+          ∀ itb, item_for_loc_in_tree it tr l.2 → match rel_dec tr it.(tg) itb.(tg) with 
             | This => True
                (* itb is a child of it *)
             | Child => itb.(lperm).(perm) = Disabled
@@ -614,7 +614,7 @@ Section heap_defs.
             | Cousin => itb.(lperm).(perm) ≠ Active end
     | tk_unq_act
        => it.(lperm).(perm) = Active ∧
-          ∀ itb, item_for_loc_in_trees it σ.(strs) l → match rel_dec tr it.(tg) itb.(tg) with 
+          ∀ itb, item_for_loc_in_tree it tr l.2 → match rel_dec tr it.(tg) itb.(tg) with 
             | This => True
                (* itb is a child of it *)
             | Child => itb.(lperm).(perm) = Disabled
@@ -623,7 +623,7 @@ Section heap_defs.
                        Disabled | Reserved InteriorMut _ => True | _ => False end end
     | tk_pub
        => it.(lperm).(perm) = Frozen ∧
-          ∀ itb, item_for_loc_in_trees it σ.(strs) l → match rel_dec tr it.(tg) itb.(tg) with 
+          ∀ itb, item_for_loc_in_tree it tr l.2 → match rel_dec tr it.(tg) itb.(tg) with 
             | This => True
                (* itb is a child of it *)
             | Child => itb.(lperm).(perm) ≠ Active

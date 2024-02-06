@@ -9,7 +9,8 @@ From iris.algebra Require Import csum excl.
 From iris.prelude Require Import options.
 From simuliris.stacked_borrows Require Export defs.
 
-(** An adaption of gmap_view to use tag_kind to control permissions of fragments and to reflect that into the authoritative fragment. *)
+(** An adaption of gmap_view to use tag_kind to control permissions of fragments and to reflect that into the authoritative fragment.
+(gmap_view has since been updated so we could now use it directly, but this code predates the generalized gmap_view for arbitrary CRMA.) *)
 
 (* Currently, we place a strong restriction on the shape of a location's stack:
   A tag can be of one of two kinds:
