@@ -177,16 +177,6 @@ Proof.
   - apply (IHtr2 All2); apply Some2'.
 Qed.
 
-Lemma item_apply_access_preserves_metadata kind strong :
-  app_preserves_metadata (item_apply_access kind strong).
-Proof.
-  intros it cids rel range it'.
-  unfold item_apply_access.
-  destruct (permissions_apply_range' _); simpl; [|intro H; inversion H].
-  intro H; injection H; intro; subst; simpl.
-  tauto.
-Qed.
-
 Lemma joinmap_preserve_nonempty fn :
   preserve_tree_nonempty (fun tr => join_nodes (map_nodes fn tr)).
 Proof.
@@ -229,22 +219,21 @@ Proof.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
 Qed.
 
-Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
-  app_preserves_metadata fn ->
+Lemma tree_apply_access_wf fn tr tr' cids strong tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
-  tree_apply_access fn cids tg range tr = Some tr' ->
+  tree_apply_access fn strong cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   rewrite /wf_tree /tree_item_included.
-  intros Preserve WF Access.
+  intros WF Access.
   intros tg' Ex'.
-  pose proof (proj2 (access_preserves_tags Preserve Access) Ex') as Ex.
+  pose proof (proj2 (access_preserves_tags Access) Ex') as Ex.
   destruct (WF tg' Ex) as  [it [Unqit Wfit]].
-  destruct (apply_access_spec_per_node Ex Unqit Preserve Access) as [post [PostSpec [_ Unqpost]]].
+  destruct (apply_access_spec_per_node Ex Unqit Access) as [post [PostSpec [_ Unqpost]]].
   exists post; split; [assumption|].
   rewrite /item_wf in Wfit |- *.
   symmetry in PostSpec.
-  destruct (Preserve _ _ _ _ _ PostSpec) as [Same1 [Same2 Same3]].
+  destruct (item_apply_access_preserves_metadata PostSpec) as [Same1 Same2].
   simpl. rewrite /IsTag /protector_is_for_call. rewrite <- Same1, <- Same2.
   auto.
 Qed.
@@ -255,7 +244,7 @@ Lemma memory_deallocate_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ WF Dealloc).
 Qed.
 
 Lemma memory_read_wf tr tr' cids tg range nxtp nxtc :
@@ -264,7 +253,7 @@ Lemma memory_read_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ WF Dealloc).
 Qed.
 
 Lemma memory_write_wf tr tr' cids tg range nxtp nxtc :
@@ -273,7 +262,7 @@ Lemma memory_write_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ (item_apply_access_preserves_metadata _ _) WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ WF Dealloc).
 Qed.
 
 
