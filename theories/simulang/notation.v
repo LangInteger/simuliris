@@ -90,7 +90,7 @@ Notation "'if:' e1 'then' e2 'else' e3" := (If e1%E e2%E e3%E)
 (* Notation for "functions". *)
 (* The breaking point '/  ' makes sure that the body of the λ: is indented
 by two spaces in case the whole λ: does not fit on a single line. *)
-Notation "λ: x , e" := ((x, e%E) : func)
+Notation "λ: x , e" := (pair x e%E : func)
   (at level 200, x at level 1, e at level 200,
    format "'[' 'λ:'  x ,  '/  ' e ']'") : expr_scope.
 
