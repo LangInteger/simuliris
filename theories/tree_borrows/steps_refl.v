@@ -124,7 +124,7 @@ Proof.
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   assert (M_tag !! (σ_t.(snp)) = None) as HNone.
   { destruct (M_tag !! (σ_t.(snp))) as [[tk' []] | ] eqn:Hs; last done. exfalso.
-    apply Htag_interp in Hs as (_ & ? & _). unfold tag_valid in H. lia.
+    apply Htag_interp in Hs as (_ & H & _). unfold tag_valid in H. lia.
   }
   iMod (tkmap_insert tk_pub (σ_t.(snp)) () ltac:(done) with "Htag_auth") as "[Htag_auth #Ht]".
   iModIntro.
@@ -186,7 +186,7 @@ Proof.
     { inversion Hc3; subst; econstructor; lia. }
     intros l' Hl'. specialize (Hc4 l' Hl') as (it & Hit & Hperm).
     exists it; split; last done.
-    inversion Hit; simplify_eq.
+    inversion Hit as [tree H H1]; simplify_eq.
     eapply (is_in_trees _ _ _ tree); last done.
     rewrite /extend_trees lookup_insert_ne //.
     intros Heq. rewrite -Heq in H.
