@@ -247,14 +247,18 @@ Section safe_reach.
   Proof. prove_safe_implies. Qed.
    *)
 
+  Global Instance safe_implies_alloc P σ sz :
+    SafeImplies (sz > 0)%nat P (Alloc sz) σ.
+  Proof. prove_safe_implies. Qed.
+
   Global Instance safe_implies_free_val P σ r :
     SafeImplies (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
   Proof. prove_safe_implies. Qed.
-  (* Doesn't build because we don't have typees anymore
-  Global Instance safe_implies_free P σ l t T :
-    SafeImplies ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧ is_Some (memory_deallocated σ.(sst) σ.(scs) l t (tsize T))) P (Free (Place l t T)) σ.
+  Global Instance safe_implies_free P σ l t (sz:nat) :
+    SafeImplies ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < sz) ∧ True) P (Free (Place l t sz)) σ.
   Proof. prove_safe_implies. Qed.
 
+  (* Doesn't build because we don't have typees anymore
   Global Instance safe_implies_write_weak P σ l t T v :
     SafeImplies (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
   Proof.

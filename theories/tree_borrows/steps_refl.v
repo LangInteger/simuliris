@@ -30,14 +30,6 @@ Lemma sim_result r_t r_s (Φ : result → result → iProp Σ) π :
   Φ r_t r_s -∗ of_result r_t ⪯{π} of_result r_s {{ Φ }}.
 Proof. iIntros "H". iApply sim_expr_base. by iApply lift_post_val. Qed.
 
-Lemma list_case_snoc {A:Type} (l:list A) : l = nil ∨ ∃ xh xt, l = xh ++ [xt].
-Proof.
-  induction l as [|x xr [->|(xh&xt&->)]].
-  - by left.
-  - right. by exists [], x.
-  - right. by exists (x::xh), xt.
-Qed.
-
 Lemma trees_equal_init_trees C ts tt tg bl :
   trees_equal C ts tt →
   trees_equal C (extend_trees tg bl ts) (extend_trees tg bl tt).
@@ -121,18 +113,9 @@ Proof.
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
+  specialize (pool_safe_implies Hsafe Hpool) as Hnonzero.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  (* TODO: refactor this to somewhere else *)
-  assert (T > 0)%nat as Hnonzero.
-  { ospecialize (Hsafe _ _ _ (Pool_steps_refl _ _ _)  _ _ Hpool).
-    apply fill_not_stuck in Hsafe as [[??]|Hsafe]; first done.
-    apply prim_base_reducible in Hsafe; last first.
-    { intros K e'. destruct (list_case_snoc K) as [->|(K'&k&->)]; simpl.
-      1: by intros <-.
-      rewrite fill_app. destruct k; simpl; discriminate 1. }
-    destruct Hsafe as (e'&σ'&ets&Hsafe).
-    apply head_alloc_inv in Hsafe as (H1&_). apply H1. }
   iSplitR. { iPureIntro. do 3 eexists. eapply alloc_base_step; assumption. }
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
   specialize (head_alloc_inv _ _ _ _ _ _ Hhead_t) as (_ & -> & -> & ->).
@@ -145,7 +128,7 @@ Proof.
   }
   iMod (tkmap_insert tk_pub (σ_t.(snp)) () ltac:(done) with "Htag_auth") as "[Htag_auth #Ht]".
   iModIntro.
-  pose (blk := (fresh_block σ_t.(shp))). (* same either way *)
+  pose (blk := (fresh_block σ_t.(shp))). (* can be σ_s and σ_t, it does not matter. *)
   pose (l := (blk, 0)). pose (nt := σ_t.(snp)).
   pose (α_t' := extend_trees ((snp σ_t)) blk (strs σ_t)).
   pose (α_s' := extend_trees ((snp σ_s)) blk (strs σ_s)).
@@ -240,7 +223,6 @@ Proof.
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
 Qed. 
-
 (*
 Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
@@ -252,12 +234,11 @@ Proof.
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_implies Hsafe Hpool) as (Hdealloc_s & (α' & Hstack_s)).
-
+  specialize (pool_safe_implies Hsafe Hpool) as (Hdealloc_s & []).
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iSplitR.
-  { iPureIntro. do 3 eexists. eapply dealloc_base_step'; [done | |].
+  { iPureIntro. do 3 eexists. econstructor. eapply dealloc_base_step'; [done | |].
     - intros m. rewrite -Hdealloc_s. rewrite -!elem_of_dom Hdom_eq. done.
     - instantiate (1 := α'). rewrite -Hsst_eq -Hscs_eq. done.
   }
