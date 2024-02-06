@@ -1000,7 +1000,7 @@ Lemma sim_call fn (r_t r_s : result) π Φ :
 Proof.
   iIntros "Hval Hsim". iApply (sim_lift_call _ fn r_t r_s with "[Hval]"); first done. by iApply "Hsim".
 Qed.
-
+*)
 (** Coinduction on while loops *)
 Lemma sim_while_while inv c_t c_s b_t b_s π Ψ :
   inv -∗
@@ -1030,7 +1030,6 @@ Proof.
   simpl. iFrame. iSplitL; last done.
   iApply "Hsim".
 Qed.
-*)
 
 End lifting.
 

@@ -408,7 +408,7 @@ Section log_rel.
     apply (free_vars_case_2 e_s) in Hls. apply (free_vars_case_2 e_t) in Hlt.
     set_solver+Hls Hlt.
   Qed.
-(*
+
   Lemma log_rel_while e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -437,7 +437,6 @@ Section log_rel.
     iApply (sim_fork with "[]"). { solve_rrel_refl. }
     iIntros (?). setoid_rewrite (left_id True%I (∗)%I). by iApply "IH".
   Qed.
-*)
 
   Lemma log_rel_alloc T :
     ⊢ log_rel (Alloc T) (Alloc T).
@@ -513,9 +512,9 @@ Section refl.
     - (* Case *)
       by iApply (log_rel_case with "IH IH1").
     - (* Fork *)
-      admit; by iApply (log_rel_fork with "IH").
+      by iApply (log_rel_fork with "IH").
     - (* While *)
-      admit; by iApply (log_rel_while with "IH IH1").
+      by iApply (log_rel_while with "IH IH1").
   Admitted.
 
   Corollary log_rel_refl e :
