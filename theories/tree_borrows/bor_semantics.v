@@ -560,12 +560,25 @@ Definition tree_unique tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
+
+(* TODO change to thing below *)
 Definition trees_at_block prop trs blk
   : Prop :=
   match trs !! blk with
   | None => False
   | Some tr => prop tr
   end.
+
+Lemma trees_at_block_char prop trs blk :
+  trees_at_block prop trs blk ↔ ∃ tr, trs !! blk = Some tr ∧ prop tr.
+Proof.
+  rewrite /trees_at_block. 
+  destruct (trs !! blk) as [tr|]; split; intros H.
+  - by eexists.
+  - by destruct H as (? & [= ->] & H).
+  - done.
+  - by destruct H as (? & [=] & _).
+Qed.
 
 Definition trees_contain tg trs blk :=
   trees_at_block (tree_contains tg) trs blk.

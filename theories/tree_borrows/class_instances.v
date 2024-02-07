@@ -254,8 +254,9 @@ Section safe_reach.
   Global Instance safe_implies_free_val P σ r :
     SafeImplies (∃ l tg T, r = PlaceR l tg T) P (Free r) σ.
   Proof. prove_safe_implies. Qed.
+
   Global Instance safe_implies_free P σ l t (sz:nat) :
-    SafeImplies ((∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < sz) ∧ True) P (Free (Place l t sz)) σ.
+    SafeImplies (∃ trs', (∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < sz) ∧ (sz > 0)%nat ∧ trees_contain t σ.(strs) l.1 ∧ apply_within_trees (memory_deallocate σ.(scs) t (l.2, sz)) l.1 σ.(strs) = Some trs') P (Free (Place l t sz)) σ.
   Proof. prove_safe_implies. Qed.
 
   (* Doesn't build because we don't have typees anymore

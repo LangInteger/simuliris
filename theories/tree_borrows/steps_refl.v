@@ -223,22 +223,27 @@ Proof.
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
 Qed. 
-(*
-Lemma sim_free_public T_t T_s l_t l_s bor_t bor_s Φ π :
-  rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
+
+Lemma sim_free_public sz sz' l_t l_s bor_t bor_s Φ π :
+  rrel (PlaceR l_t bor_t sz') (PlaceR l_s bor_s sz) -∗
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
-  Free (Place l_t bor_t T_t) ⪯{π} Free (Place l_s bor_s T_s) [{ Φ }].
+  Free (Place l_t bor_t sz') ⪯{π} Free (Place l_s bor_s sz) [{ Φ }].
 Proof.
   iIntros "[#Hscrel ->] Hsim".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> ->].
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
   destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_implies Hsafe Hpool) as (Hdealloc_s & []).
+  specialize (pool_safe_implies Hsafe Hpool) as (trs & Hdealloc_s & Hpos & Hcontain & Hdealloc).
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  iSplitR.
-  { iPureIntro. do 3 eexists. econstructor. eapply dealloc_base_step'; [done | |].
+  iSplitR. (*
+  { iPureIntro. do 3 eexists. eapply dealloc_base_step'; try done.
+    - setoid_rewrite <- elem_of_dom. setoid_rewrite <- elem_of_dom in Hdealloc_s. rewrite -Hdom_eq //.
+    - rewrite - trees_equal_same_tags //.
+    - 
+    - Print memory_deallocate. Search trees_equal trees_contain. Print trees_contain. , trees_at_block. Search is_Some lookup dom. intros m; destruct (Hdealloc_s m) as (H1&H2); split; intros H.
+      + apply H1. destruct H as [x Hx]. exists x. rewrite -Hx. f_equal. exact H.
     - intros m. rewrite -Hdealloc_s. rewrite -!elem_of_dom Hdom_eq. done.
     - instantiate (1 := α'). rewrite -Hsst_eq -Hscs_eq. done.
   }
@@ -323,8 +328,9 @@ Proof.
       intros [-> _]. rewrite Hpub in Ht. congruence.
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
-Qed.
+Qed. *) Admitted.
 
+(*
 (** TODO: generalize, move, and use it for the opt lemmas too *)
 Lemma sim_copy_public_controlled_update σ l l' (bor : tag) (T : type) (α' : stacks) (t : ptr_id) (tk : tag_kind) sc :
   memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α' →
@@ -1000,7 +1006,7 @@ Lemma sim_call fn (r_t r_s : result) π Φ :
 Proof.
   iIntros "Hval Hsim". iApply (sim_lift_call _ fn r_t r_s with "[Hval]"); first done. by iApply "Hsim".
 Qed.
-
+*)
 (** Coinduction on while loops *)
 Lemma sim_while_while inv c_t c_s b_t b_s π Ψ :
   inv -∗
@@ -1030,7 +1036,6 @@ Proof.
   simpl. iFrame. iSplitL; last done.
   iApply "Hsim".
 Qed.
-*)
 
 End lifting.
 
