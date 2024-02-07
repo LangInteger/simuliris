@@ -227,6 +227,71 @@ Section utils.
     apply tree_equal_sym.
   Qed.
 
+  Definition item_for_loc_apply_access i fn (rel_dec : tag -> rel_pos) strong cids range l :=
+    let isprot := bool_decide (protector_is_active i.(cid) cids) in
+    let protrelevant := bool_decide (strong = ProtStrong \/ protector_is_strong i.(cid)) in
+    let rel := rel_dec i.(tg) in
+    (if decide (range'_contains range l) then fn rel isprot protrelevant i.(lperm) else Some i.(lperm))
+    ≫= fun lperm => Some {| lperm := lperm; tg := i.(tg); cid := i.(cid) |}.
+
+  (* Closes the diagram:
+                       item_for_loc_in_tree
+     item_for_loc ----------------------------> tree
+          |                                       |
+          | item_for_loc_apply_access             | tree_apply_access
+          v                                       v
+     item_for_loc' ---------------------------> tree'
+                      item_for_loc_in_tree
+
+    i.e. this will be essential in proving that item_for_loc is transformed by
+    accesses in a predictable way, and then one level above that trees_equal is
+    preserved by accesses.
+  *)
+  Lemma item_for_loc_in_tree_post_access tr tr' it it' l fn strong cids t range :
+    item_for_loc_in_tree it tr l ->
+    item_for_loc_apply_access it fn (rel_dec tr t) strong cids range l = Some it' ->
+    tree_apply_access fn strong cids t range tr = Some tr' ->
+    item_for_loc_in_tree it' tr' l.
+  Proof.
+    intros Item ItemApp App.
+    inversion Item as [it0 Ex Unq Prot Perm].
+    rewrite /item_for_loc_apply_access in ItemApp.
+    destruct (apply_access_spec_per_node Ex Unq App) as [it0' [Spec' [Ex' Unq']]].
+    rewrite /item_apply_access in Spec'.
+    remember (permissions_apply_range' _ _ _ _) as App'.
+    destruct App'; [|discriminate].
+    simpl in Spec'; injection Spec'; intros; subst; clear Spec'.
+    pose proof (mem_apply_range'_spec _ _ l _ _ ltac:(symmetry; eassumption)) as MemSpec.
+    remember (fn _ _ _ _) as Fn eqn:HeqFn.
+    pose proof (tree_unique_specifies_tag _ _ _ Ex Unq) as SameTg.
+
+    destruct (decide (range'_contains _ _)); simpl in *.
+    - destruct Fn; simpl in *; [|discriminate].
+      injection ItemApp; intros; subst.
+      econstructor.
+      + erewrite <- access_preserves_tags; [|eassumption].
+        eassumption.
+      + eassumption.
+      + rewrite Prot.
+        destruct permissions_apply_range'; [|discriminate].
+        simpl; reflexivity.
+      + simpl.
+        destruct MemSpec as [perm' [Lookup' perm'Spec]].
+        rewrite Lookup'. rewrite -perm'Spec.
+        subst.
+        rewrite SameTg.
+        rewrite -Prot.
+        rewrite -Perm.
+        rewrite -HeqFn.
+        reflexivity.
+    - injection ItemApp; intros; subst.
+      econstructor.
+      + eassumption.
+      + eassumption.
+      + eassumption.
+      + rewrite MemSpec. simpl. assumption.
+  Qed.
+
 End utils.
 
 Section state_bijection.
