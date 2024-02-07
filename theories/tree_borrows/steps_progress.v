@@ -31,9 +31,9 @@ Proof.
 Qed.
 
 
-Lemma apply_access_success_condition tr cids access_tag range fn :
-  every_node (fun it => is_Some (fn cids (rel_dec tr access_tag (itag it)) range it)) tr ->
-  is_Some (tree_apply_access fn cids access_tag range tr).
+Lemma apply_access_success_condition tr strong cids access_tag range fn :
+  every_node (fun it => is_Some (item_apply_access fn strong cids (rel_dec tr access_tag (itag it)) range it)) tr ->
+  is_Some (tree_apply_access fn strong cids access_tag range tr).
 Proof.
   rewrite /tree_apply_access.
   rewrite join_success_condition.

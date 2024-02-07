@@ -354,32 +354,32 @@ Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
     (most_init operm.(initialized) (requires_init rel)) (* can only become more initialized *)
     validated.
 
-Definition item_apply_access kind strong cids rel range
+Definition item_apply_access (fn : rel_pos -> bool -> bool -> app lazy_permission) strong cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
   let protected := bool_decide (protector_is_active it.(iprot) cids) in
   let protector_relevant := bool_decide (strong = ProtStrong \/ protector_is_strong it.(iprot)) in
   newps ← permissions_apply_range' (mkPerm PermLazy it.(initp)) range
-    (apply_access_perm kind rel protected protector_relevant) oldps;
+    (fn rel protected protector_relevant) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
 (* FIXME: share code *)
 Definition tree_apply_access
-  (fn:call_id_set -> rel_pos -> (Z * nat) -> app item)
-  cids (access_tag:tag) range (tr:tree item)
+  (fn:rel_pos -> bool -> bool -> app lazy_permission)
+  strong cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
-    fn cids (rel_dec tr access_tag it.(itag)) range it
+    item_apply_access fn strong cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
 
 Definition tree_apply_access_nonchildren_only
-  (fn:call_id_set -> rel_pos -> (Z * nat) -> app item)
-  cids (access_tag:tag) range (tr:tree item)
+  (fn:rel_pos -> bool -> bool -> app lazy_permission)
+  strong cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
     (* FIXME This does not skip children *)
-    fn cids (rel_dec tr access_tag it.(itag)) range it
+    item_apply_access fn strong cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
 
@@ -397,14 +397,14 @@ Definition extend_trees t blk
  * This implements Tree::before_memory_{read,write,deallocation}. *)
 Definition memory_access kind strong cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access kind strong) cids tg range tr.
+  tree_apply_access (apply_access_perm kind) strong cids tg range tr.
 Definition memory_access_nonchildren_only kind strong cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access_nonchildren_only (item_apply_access kind strong) cids tg range tr.
+  tree_apply_access_nonchildren_only (apply_access_perm kind) strong cids tg range tr.
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
-  tree_apply_access (item_apply_access AccessWrite ProtWeak) cids t range tr.
+  tree_apply_access (apply_access_perm AccessWrite) ProtWeak cids t range tr.
 
 (* Normal reachability definition is not easily destructable, so we're defining it
    manually and proving it's equivalent to the reflexive transitive closuse of one step.
@@ -588,10 +588,6 @@ Definition trees_unique tg trs blk it :=
 
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
-
-Definition app_preserves_metadata app : Prop :=
-  (forall it cids rel range it', app cids rel range it = Some it' ->
-    itag it = itag it' /\ iprot it = iprot it' /\ initp it = initp it').
 
 (* FIXME: order of args *)
 
