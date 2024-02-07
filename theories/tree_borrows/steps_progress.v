@@ -183,16 +183,41 @@ Proof.
   rewrite /item_inactive_protector /is_active_protector /is_active.
   case protector; naive_solver.
 Qed.
-
-Lemma dealloc_base_step' P (σ: state) l bor T α (WF: state_wf σ) :
-  (∀ m : Z, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m ∧ m < tsize T) →
-  memory_deallocated σ.(sst) σ.(scs) l bor (tsize T) = Some α →
-  let σ' := mkState (free_mem l (tsize T) σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
-  base_step P (Free (Place l bor T)) σ #[☠] σ' [].
+*)
+(*
+Lemma memory_deallocate_progress (σ: state) l tg (sz:nat) (WF: state_wf σ) :
+  (∀ m : Z, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m ∧ m < sz) →
+  (sz > 0)%nat →
+  trees_contain tg (strs σ) l.1 →
+  is_Some (apply_within_trees (memory_deallocate σ.(scs) tg (l.2, sz)) l.1 σ.(strs)).
 Proof.
-  intros DOM MD. econstructor; econstructor; eauto.
+  intros Hfoo Hbar Hcont.
+  eexists. Locate trees_contain. unfold trees_contain in Hcont. unfold trees_at_block in Hcont.
+  destruct (strs σ !! l.1) as [tr|] eqn:Heqtr; last done.
+  rewrite /apply_within_trees /memory_deallocate Heqtr /=.
+  unfold tree_apply_access.
+  Print join_nodes.
+  Print map_nodes.
+  Search join_nodes.
+   simpl.
+  Print apply_within_trees.
+  Print memory_deallocate.
+  Print tree_apply_access.
+  Print item_apply_access.
+  Print memory_deallocate.
+*)
+Lemma dealloc_base_step' P (σ: state) l tg (sz:nat) α' (WF: state_wf σ) :
+  (∀ m : Z, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m ∧ m < sz) →
+  (sz > 0)%nat →
+  trees_contain tg (strs σ) l.1 →
+  apply_within_trees (memory_deallocate σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = Some α' →
+  let σ' := mkState (free_mem l sz σ.(shp)) (delete l.1 α') σ.(scs) σ.(snp) σ.(snc) in
+  base_step P (Free (Place l tg sz)) σ #[☠] σ' [].
+Proof.
+  intros Hdom Hpos Hcont Happly. destruct l as [blk off].
+  econstructor; econstructor; auto.
 Qed.
-
+(*
 Lemma dealloc_base_step P (σ: state) T l bor
   (WF: state_wf σ)
   (BLK: ∀ m : Z, l +ₗ m ∈ dom σ.(shp) ↔ 0 ≤ m ∧ m < tsize T)

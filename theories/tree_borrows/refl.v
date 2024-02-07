@@ -445,7 +445,7 @@ Section log_rel.
     iIntros (? xs) "!# #Hs _"; simpl. iApply sim_alloc_public.
     iIntros (t l) "Hp Hr". sim_val. by iFrame.
   Qed.
-(*
+
   Lemma log_rel_free e_t e_s :
     log_rel e_t e_s ⊢ log_rel (Free e_t) (Free e_s).
   Proof.
@@ -458,7 +458,7 @@ Section log_rel.
     iApply (sim_free_public with "[Hv]"). { by iApply rrel_place. }
     solve_rrel_refl.
   Qed.
-*)
+
   Lemma log_rel_result v_t v_s :
     rrel v_t v_s ⊢ log_rel (of_result v_t) (of_result v_s).
   Proof.
