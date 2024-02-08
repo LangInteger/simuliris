@@ -176,7 +176,6 @@ Proof.
 Qed.
 
 (** CORE SEMANTICS *)
-
 Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
 Proof. rewrite /IsTag. solve_decision. Qed.
@@ -402,9 +401,7 @@ Definition memory_access_nonchildren_only kind strong cids tg range
   : app (tree item) := fun tr =>
   tree_apply_access_nonchildren_only (apply_access_perm kind) strong cids tg range tr.
 
-Definition memory_deallocate cids t range
-  : app (tree item) := fun tr =>
-  tree_apply_access (apply_access_perm AccessWrite) ProtWeak cids t range tr.
+Definition memory_deallocate := memory_access AccessWrite ProtWeak.
 
 (* Normal reachability definition is not easily destructable, so we're defining it
    manually and proving it's equivalent to the reflexive transitive closuse of one step.

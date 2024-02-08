@@ -492,13 +492,15 @@ Section call_defs.
       ∀ t (L : gset loc), M' !! t = Some L →
         tag_valid σ.(snp) t ∧
         ∀ (l : loc), l ∈ L → ∃ it,
-          item_for_loc_in_trees it σ.(strs) l
-          ∧ (it.(lperm).(initialized) = PermInit → it.(lperm).(perm) ≠ Disabled).
+          item_for_loc_in_trees it σ.(strs) l ∧
+          it.(tg) = t ∧ protector_is_for_call c it.(cid) ∧
+          ((it.(lperm).(initialized) = PermInit → it.(lperm).(perm) ≠ Disabled)).
 
   Definition loc_protected_by σ t l c :=
     c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ ∃ it, 
-      item_for_loc_in_trees it σ.(strs) l
-      ∧ (it.(lperm).(initialized) = PermInit → it.(lperm).(perm) ≠ Disabled).
+      item_for_loc_in_trees it σ.(strs) l ∧
+      it.(tg) = t ∧ protector_is_for_call c it.(cid) ∧
+      (it.(lperm).(initialized) = PermInit → it.(lperm).(perm) ≠ Disabled).
 
   Lemma call_set_interp_access M σ c t l :
     call_set_interp M σ →

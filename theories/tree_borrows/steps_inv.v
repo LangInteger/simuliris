@@ -2,17 +2,19 @@ From simuliris.tree_borrows Require Export notation defs.
 From simuliris.tree_borrows Require Import steps_progress steps_retag.
 From iris.prelude Require Import options.
 
-(*
-Lemma head_free_inv (P : prog) l bor T σ σ' e' efs :
-  base_step P (Free (PlaceR l bor T)) σ e' σ' efs →
-  ∃ α',
-    memory_deallocated σ.(sst) σ.(scs) l bor (tsize T) = Some α' ∧
-    (∀ m : Z, is_Some (shp σ !! (l +ₗ m)) ↔ 0 ≤ m < tsize T) ∧
+Lemma head_free_inv (P : prog) l t sz σ σ' e' efs :
+  base_step P (Free (PlaceR l t sz)) σ e' σ' efs →
+  ∃ trs', 
+    (∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < sz) ∧
+    (sz > 0)%nat ∧
+    trees_contain t σ.(strs) l.1 ∧
+    apply_within_trees (memory_deallocate σ.(scs) t (l.2, sz)) l.1 σ.(strs) = Some trs' ∧
     e' = #[☠]%E ∧
-    σ' = mkState (free_mem l (tsize T) σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc) ∧
+    σ' = mkState (free_mem l sz σ.(shp)) (delete l.1 trs') σ.(scs) σ.(snp) σ.(snc) ∧
     efs = [].
 Proof. intros Hhead. inv_base_step. eauto 8. Qed.
 
+(*
 Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
   base_step P (Copy (PlaceR l t T)) σ e σ' efs →
   efs = [] ∧

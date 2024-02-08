@@ -523,9 +523,13 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
     (* FIXME: This is wrong because it allows double-free of zero-sized allocations
               Possible solutions:
               - Change the heap from `gmap loc scalar` to `gmap blk (gmap Z scalar)`
-              - Require `sz > 0`      <- probably this (implementing it)
+              - Require `sz > 0`      <- probably this
               - special case for TB where if the size is zero we don't add a new tree
     *)
+    (* Actual solution: We forbid zero-sized allocations (see AllocIS in bor_semantics).
+       If we track that in state_wf, we should be able to prove that sz > 0 here,
+       instead of making it UB.
+       TODO actually add it to state_wf, until then it is UB *)
     (sz > 0)%nat →
     (∀ m, is_Some (h !! ((blk,l) +ₗ m)) ↔ 0 ≤ m < sz) →
     mem_expr_step

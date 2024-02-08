@@ -504,7 +504,7 @@ Section refl.
     - (* Alloc *)
       by iApply log_rel_alloc.
     - (* Free *)
-      admit; by iApply log_rel_free.
+      by iApply log_rel_free.
     - (* Retag *)
       admit; by iApply (log_rel_retag with "IH IH1").
     - (* Let *)
