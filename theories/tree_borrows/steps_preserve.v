@@ -3,8 +3,8 @@ From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree
 From iris.prelude Require Import options.
 
 Lemma item_apply_access_preserves_metadata
-  {kind strong cids rel range it it'} :
-  item_apply_access kind strong cids rel range it = Some it' ->
+  {kind cids rel range it it'} :
+  item_apply_access kind cids rel range it = Some it' ->
   it.(itag) = it'.(itag)
   /\ it.(iprot) = it'.(iprot).
 Proof.
@@ -15,8 +15,8 @@ Proof.
 Qed.
 
 Lemma access_eqv_strict_rel
-  {t t' tr tr' fn strong cids tg range}
-  (Access : tree_apply_access fn strong cids tg range tr = Some tr')
+  {t t' tr tr' fn cids tg range}
+  (Access : tree_apply_access fn cids tg range tr = Some tr')
   : StrictParentChildIn t t' tr <-> StrictParentChildIn t t' tr'.
 Proof.
   eapply join_map_eqv_strict_rel; [|exact Access].
@@ -27,8 +27,8 @@ Proof.
 Qed.
 
 Lemma access_eqv_rel
-  {t t' tr tr' fn strong cids tg range}
-  (Access : tree_apply_access fn strong cids tg range tr = Some tr')
+  {t t' tr tr' fn cids tg range}
+  (Access : tree_apply_access fn cids tg range tr = Some tr')
   : ParentChildIn t t' tr <-> ParentChildIn t t' tr'.
 Proof.
   unfold ParentChildIn.
@@ -37,8 +37,8 @@ Proof.
 Qed.
 
 Lemma access_preserves_tags
-  {tr tg  tr' tg' app strong cids range}
-  (Access : tree_apply_access app strong cids tg' range tr = Some tr')
+  {tr tg  tr' tg' app cids range}
+  (Access : tree_apply_access app cids tg' range tr = Some tr')
   : tree_contains tg tr <-> tree_contains tg tr'.
 Proof.
   unfold tree_apply_access in Access.
@@ -103,13 +103,13 @@ Proof.
 Qed.
 
 Lemma apply_access_spec_per_node
-  {tr affected_tag access_tag pre fn strong cids range tr'}
+  {tr affected_tag access_tag pre fn cids range tr'}
   (*(ExAcc : tree_contains access_tag tr)*)
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
-  (Access : tree_apply_access fn strong cids access_tag range tr = Some tr')
+  (Access : tree_apply_access fn cids access_tag range tr = Some tr')
   : exists post,
-    Some post = item_apply_access fn strong cids (rel_dec tr access_tag pre.(itag)) range pre
+    Some post = item_apply_access fn cids (rel_dec tr access_tag pre.(itag)) range pre
     /\ tree_contains affected_tag tr'
     /\ tree_unique affected_tag post tr'.
 Proof.
@@ -259,11 +259,11 @@ Proof.
 Qed.
 
 Lemma apply_access_perm_preserves_backward_reach
-  {pre post kind rel b b' p0}
-  (Access : apply_access_perm kind rel b b' pre = Some post)
+  {pre post kind rel b p0}
+  (Access : apply_access_perm kind rel b pre = Some post)
   : reach p0 (perm pre) -> reach p0 (perm post).
 Proof.
-  destruct b, b', kind, rel.
+  destruct b, kind, rel.
   (* We have to destructure the permission a bit deep because of the Reserved parameters *)
   all: destruct pre as [[] [[][]| | |]]; try (inversion Access; done).
   all: destruct post as [[] [[][]| | |]]; try (inversion Access; done).
@@ -271,23 +271,23 @@ Proof.
 Qed.
 
 Lemma apply_access_perm_preserves_forward_unreach
-  {pre post kind rel b b' p0}
-  (Access : apply_access_perm kind rel b b' pre = Some post)
+  {pre post kind rel b p0}
+  (Access : apply_access_perm kind rel b pre = Some post)
   : ~reach (perm pre) p0 -> ~reach (perm post) p0.
 Proof.
-  destruct b, b', kind, rel.
+  destruct b, kind, rel.
   all: destruct pre as [[][[][]| | |]]; try (inversion Access; done).
   all: destruct post as [[][[][]| | |]]; try (inversion Access; done).
   all: destruct p0 as [[][]| | |]; try (inversion Access; done).
 Qed.
 
 Lemma apply_access_perm_preserves_protected_freeze_like
-  {pre post kind rel b'}
-  (Access : apply_access_perm kind rel true b' pre = Some post)
+  {pre post kind rel}
+  (Access : apply_access_perm kind rel true pre = Some post)
   : freeze_like (perm pre) -> freeze_like (perm post).
 Proof.
   unfold freeze_like.
-  destruct b', kind, rel.
+  destruct kind, rel.
   all: destruct pre as [[][[][]| | |]].
   all: inversion Access.
   (* all cases easy *)
@@ -299,11 +299,11 @@ Qed.
 
 (* Preservation of reachability *)
 Lemma memory_access_preserves_backward_reach
-  {access_tag affected_tag pre tr post tr' kind strong cids range p0 z}
+  {access_tag affected_tag pre tr post tr' kind cids range p0 z}
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
-  (Access : memory_access kind strong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (UnqAff' : tree_unique affected_tag post tr')
   : reach p0 (item_perm_at_loc pre z) -> reach p0 (item_perm_at_loc post z).
 Proof.
@@ -325,11 +325,11 @@ Proof.
 Qed.
 
 Lemma memory_access_preserves_forward_unreach
-  {access_tag affected_tag pre tr post tr' kind strong cids range p0 z}
+  {access_tag affected_tag pre tr post tr' kind cids range p0 z}
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
-  (Access : memory_access kind strong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (UnqAff' : tree_unique affected_tag post tr')
   : ~reach (item_perm_at_loc pre z) p0 -> ~reach (item_perm_at_loc post z) p0.
 Proof.
@@ -351,12 +351,12 @@ Proof.
 Qed.
 
 Lemma memory_access_preserves_protected_freeze_like
-  {access_tag affected_tag pre tr post tr' kind strong cids range z}
+  {access_tag affected_tag pre tr post tr' kind cids range z}
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
   (Prot : protector_is_active (iprot pre) cids)
-  (Access : memory_access kind strong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (UnqAff' : tree_unique affected_tag post tr')
   : freeze_like (item_perm_at_loc pre z) -> freeze_like (item_perm_at_loc post z).
 Proof.
@@ -788,12 +788,12 @@ Proof.
 Qed.
 
 Lemma apply_access_perm_preserves_perminit
-  {pre post kind rel b b'}
-  (Access : apply_access_perm kind rel b b' pre = Some post)
+  {pre post kind rel b}
+  (Access : apply_access_perm kind rel b pre = Some post)
   : (initialized pre) = PermInit -> initialized post = PermInit.
 Proof.
   destruct kind, rel.
-  all: destruct pre as [[][[][]| | |]], b, b'.
+  all: destruct pre as [[][[][]| | |]], b.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -806,7 +806,7 @@ Lemma memory_access_preserves_perminit
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
-  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (UnqAff' : tree_unique affected_tag post tr')
   (ItemPre : item_lazy_perm_at_loc pre z = zpre)
   (ItemPost : item_lazy_perm_at_loc post z = zpost)
@@ -823,7 +823,6 @@ Proof.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   destruct (bool_decide _).
-  all: destruct (bool_decide _).
   all: destruct (decide (range'_contains _ _)).
   all: try (rewrite Spec; tauto).
   all: destruct Spec as [?[Lkup Apply]].
@@ -832,13 +831,13 @@ Proof.
 Qed.
 
 Lemma apply_access_perm_child_produces_perminit
-  {pre post kind b b' rel}
+  {pre post kind b rel}
   (CHILD : child rel)
-  (Access : apply_access_perm kind rel b b' pre = Some post)
+  (Access : apply_access_perm kind rel b pre = Some post)
   : initialized post = PermInit.
 Proof.
   destruct kind, rel; try inversion CHILD.
-  all: destruct pre as [[][[][]| | |]], b, b'.
+  all: destruct pre as [[][[][]| | |]], b.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -849,7 +848,7 @@ Lemma memory_access_child_produces_perminit
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
-  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (Rel : ParentChildIn affected_tag access_tag tr)
   (WithinRange : range'_contains range z)
   (UnqAff' : tree_unique affected_tag post tr')
@@ -867,7 +866,6 @@ Proof.
   all: injection PostSpec; intros e; subst; clear PostSpec.
   all: pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   all: rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
-  all: destruct (bool_decide _).
   all: destruct (bool_decide _).
   all: destruct (decide (range'_contains _ _)); [|contradiction].
   all: try (rewrite Spec; tauto).
@@ -956,7 +954,7 @@ Qed.
 
 Lemma apply_access_perm_protected_initialized_preserves_active
   {pre post kind rel}
-  (Access : apply_access_perm kind rel true true pre = Some post)
+  (Access : apply_access_perm kind rel true pre = Some post)
   : (initialized pre) = PermInit -> (perm pre) = Active -> (perm post) = Active.
 Proof.
   destruct kind, rel.
@@ -972,7 +970,7 @@ Lemma memory_access_protected_initialized_preserves_active
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
-  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (UnqAff' : tree_unique affected_tag post tr')
   (Prot : protector_is_active (iprot pre) cids)
   (ItemPre : item_lazy_perm_at_loc pre z = zpre)
@@ -991,7 +989,6 @@ Proof.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
-  rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_protected_initialized_preserves_active.
@@ -1069,7 +1066,7 @@ Qed.
 
 Lemma apply_access_perm_protected_initialized_preserves_nondis
   {pre post kind rel}
-  (Access : apply_access_perm kind rel true true pre = Some post)
+  (Access : apply_access_perm kind rel true pre = Some post)
   : (initialized pre) = PermInit -> ~reach Disabled (perm pre) -> ~reach Disabled (perm post).
 Proof.
   destruct kind, rel.
@@ -1085,7 +1082,7 @@ Lemma memory_access_protected_initialized_preserves_nondis
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_unique affected_tag pre tr)
   (ExAcc : tree_contains access_tag tr)
-  (Access : memory_access kind ProtStrong cids access_tag range tr = Some tr')
+  (Access : memory_access kind cids access_tag range tr = Some tr')
   (UnqAff' : tree_unique affected_tag post tr')
   (Prot : protector_is_active (iprot pre) cids)
   (ItemPre : item_lazy_perm_at_loc pre z = zpre)
@@ -1104,7 +1101,6 @@ Proof.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
   rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
-  rewrite bool_decide_eq_true_2 in Spec; [|left; reflexivity].
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_protected_initialized_preserves_nondis.

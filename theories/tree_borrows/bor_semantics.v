@@ -5,6 +5,7 @@ https://gitlab.mpi-sws.org/FP/stacked-borrows
 From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
+
 From simuliris.tree_borrows Require Export lang_base notation tree tree_lemmas.
 From iris.prelude Require Import options.
 
@@ -176,6 +177,7 @@ Proof.
 Qed.
 
 (** CORE SEMANTICS *)
+
 Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
 Proof. rewrite /IsTag. solve_decision. Qed.
@@ -339,13 +341,13 @@ Global Instance protector_is_strong_dec prot : Decision (protector_is_strong pro
 Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
 
 (* State machine including protector UB *)
-Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
+Definition apply_access_perm kind rel (isprot:bool)
   : app lazy_permission := fun operm =>
   let old := operm.(perm) in
   new ← apply_access_perm_inner kind rel isprot old;
   validated ← if operm.(initialized) then (
     (* only if the permission is initialized do we possibly trigger protector UB *)
-    if isprot && protector_relevant && bool_decide (new = Disabled) then (
+    if isprot && bool_decide (new = Disabled) then (
         None
     ) else Some new
   ) else Some new;
@@ -353,32 +355,31 @@ Definition apply_access_perm kind rel (isprot:bool) (protector_relevant:bool)
     (most_init operm.(initialized) (requires_init rel)) (* can only become more initialized *)
     validated.
 
-Definition item_apply_access (fn : rel_pos -> bool -> bool -> app lazy_permission) strong cids rel range
+Definition item_apply_access (fn : rel_pos -> bool -> app lazy_permission) cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
   let protected := bool_decide (protector_is_active it.(iprot) cids) in
-  let protector_relevant := bool_decide (strong = ProtStrong \/ protector_is_strong it.(iprot)) in
   newps ← permissions_apply_range' (mkPerm PermLazy it.(initp)) range
-    (fn rel protected protector_relevant) oldps;
+    (fn rel protected) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
 (* FIXME: share code *)
 Definition tree_apply_access
-  (fn:rel_pos -> bool -> bool -> app lazy_permission)
-  strong cids (access_tag:tag) range (tr:tree item)
+  (fn:rel_pos -> bool -> app lazy_permission)
+  cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
-    item_apply_access fn strong cids (rel_dec tr access_tag it.(itag)) range it
+    item_apply_access fn cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
 
 Definition tree_apply_access_nonchildren_only
-  (fn:rel_pos -> bool -> bool -> app lazy_permission)
-  strong cids (access_tag:tag) range (tr:tree item)
+  (fn:rel_pos -> bool -> app lazy_permission)
+  cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
     (* FIXME This does not skip children *)
-    item_apply_access fn strong cids (rel_dec tr access_tag it.(itag)) range it
+    item_apply_access fn cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
 
@@ -394,14 +395,24 @@ Definition extend_trees t blk
 
 (* Perform the access check on a block of continuous memory.
  * This implements Tree::before_memory_{read,write,deallocation}. *)
-Definition memory_access kind strong cids tg range
+Definition memory_access kind cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access (apply_access_perm kind) strong cids tg range tr.
-Definition memory_access_nonchildren_only kind strong cids tg range
+  tree_apply_access (apply_access_perm kind) cids tg range tr.
+Definition memory_access_nonchildren_only kind cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access_nonchildren_only (apply_access_perm kind) strong cids tg range tr.
+  tree_apply_access_nonchildren_only (apply_access_perm kind) cids tg range tr.
 
-Definition memory_deallocate := memory_access AccessWrite ProtWeak.
+Definition memory_deallocate cids t range
+  : app (tree item) := fun tr =>
+  let post_write := (tree_apply_access (apply_access_perm AccessWrite) cids t range tr) in
+  let find_strong_prot : item -> option item := fun it => (
+    if bool_decide (protector_is_strong it.(iprot)) && bool_decide (protector_is_active it.(iprot) cids)
+    then None
+    else Some it
+  ) in
+  option_bind
+    (fun tr' => join_nodes (map_nodes find_strong_prot tr'))
+    post_write.
 
 (* Normal reachability definition is not easily destructable, so we're defining it
    manually and proving it's equivalent to the reflexive transitive closuse of one step.
@@ -529,12 +540,11 @@ Lemma IsTag_reverse it it' :
 Proof. unfold IsTag. auto. Qed.
 
 Lemma apply_access_idempotent
-  {kind rel} (isprot isstrong isprot' isstrong':bool) {perm perm'}
+  {kind rel} (isprot isprot' : bool) {perm perm'}
   (ProtIncr : if isprot then True else isprot' = false)
-  (StongIncr : if isstrong then True else isstrong' = false)
-  (Acc1 : apply_access_perm kind rel isprot isstrong perm = Some perm')
-  (Witness : exists x, x = (kind, rel, perm, perm', isprot, isstrong, isprot', isstrong'))
-  : apply_access_perm kind rel isprot' isstrong' perm' = Some perm'.
+  (Acc1 : apply_access_perm kind rel isprot perm = Some perm')
+  (Witness : exists x, x = (kind, rel, perm, perm', isprot, isprot'))
+  : apply_access_perm kind rel isprot' perm' = Some perm'.
 Proof.
   destruct perm as [init perm]; destruct perm' as [init' perm'].
   unfold apply_access_perm in *.
@@ -542,11 +552,10 @@ Proof.
      everything. Still, let's try to do it in a smart order otherwise it'll generate
      upwards of 2000 cases *)
   destruct kind, rel.
-  all: destruct isprot, isstrong.
+  all: destruct isprot.
   all: destruct init, perm as [[][]| | |]; simpl in *; inversion Acc1; subst.
   all: simpl; try auto.
   all: destruct isprot'; simpl; try auto.
-  all: destruct isstrong'; simpl; try auto.
 Qed.
 
 Definition tree_contains tg tr
@@ -634,7 +643,7 @@ Inductive bor_local_step tr cids
   : bor_local_event -> tree item -> call_id_set -> Prop :=
   | AccessLIS kind tr' range tg
     (EXISTS_TAG: tree_contains tg tr)
-    (ACC: memory_access kind ProtStrong cids tg range tr = Some tr') :
+    (ACC: memory_access kind cids tg range tr = Some tr') :
     bor_local_step
       tr cids
       (AccessBLEvt kind tg range)
@@ -706,7 +715,7 @@ Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
     : app (tree item) := fun tr =>
     (* read one loc by doing a memory_access *)
     let reader_loc (tg : tag) (loc : Z) : app (tree item) := fun tr =>
-      memory_access_nonchildren_only AccessRead ProtStrong cids tg (loc, 1) tr in
+      memory_access_nonchildren_only AccessRead cids tg (loc, 1) tr in
     (* read several locs of the same tag, propagate failures *)
     let reader_locs (tg : tag) (locs : list Z) : app (tree item) := fun tr =>
       fold_left (fun (tr:option (tree item)) loc => tr ← tr; reader_loc tg loc tr) locs (Some tr) in
@@ -739,7 +748,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
-    (ACC: apply_within_trees (memory_access AccessRead ProtStrong cids tg range) alloc trs = Some trs') :
+    (ACC: apply_within_trees (memory_access AccessRead cids tg range) alloc trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (CopyEvt alloc tg range val)
@@ -747,7 +756,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | FailedCopyIS (alloc : block) range tg
     (* Unsuccessful read access just returns poison instead of causing UB *)
     (EXISTS_TAG : trees_contain tg trs alloc)
-    (ACC : apply_within_trees (memory_access AccessRead ProtStrong cids tg range) alloc trs = None) :
+    (ACC : apply_within_trees (memory_access AccessRead cids tg range) alloc trs = None) :
     bor_step
       trs cids nxtp nxtc
       (FailedCopyEvt alloc tg range)
@@ -755,7 +764,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | WriteIS trs' (alloc : block) range tg val
     (* Successful write access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
-    (ACC: apply_within_trees (memory_access AccessWrite ProtStrong cids tg range) alloc trs = Some trs') :
+    (ACC: apply_within_trees (memory_access AccessWrite cids tg range) alloc trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (WriteEvt alloc tg range val)
@@ -769,7 +778,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     (SAME_CID : is_Some newp.(new_protector) -> protector_is_for_call cid newp.(new_protector))
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp newp) alloc trs = Some trs')
-    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead ProtStrong cids nxtp range) alloc trs' = Some trs'') :
+    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :
     bor_step
       trs cids nxtp nxtc
       (RetagEvt alloc parentt nxtp newp cid)

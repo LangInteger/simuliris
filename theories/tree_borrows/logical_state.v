@@ -227,11 +227,10 @@ Section utils.
     apply tree_equal_sym.
   Qed.
 
-  Definition item_for_loc_apply_access i fn (rel_dec : tag -> rel_pos) strong cids range l :=
+  Definition item_for_loc_apply_access i fn (rel_dec : tag -> rel_pos) cids range l :=
     let isprot := bool_decide (protector_is_active i.(cid) cids) in
-    let protrelevant := bool_decide (strong = ProtStrong \/ protector_is_strong i.(cid)) in
     let rel := rel_dec i.(tg) in
-    (if decide (range'_contains range l) then fn rel isprot protrelevant i.(lperm) else Some i.(lperm))
+    (if decide (range'_contains range l) then fn rel isprot i.(lperm) else Some i.(lperm))
     ≫= fun lperm => Some {| lperm := lperm; tg := i.(tg); cid := i.(cid) |}.
 
   (* Closes the diagram:
@@ -247,10 +246,10 @@ Section utils.
     accesses in a predictable way, and then one level above that trees_equal is
     preserved by accesses.
   *)
-  Lemma item_for_loc_in_tree_post_access tr tr' it it' l fn strong cids t range :
+  Lemma item_for_loc_in_tree_post_access tr tr' it it' l fn cids t range :
     item_for_loc_in_tree it tr l ->
-    item_for_loc_apply_access it fn (rel_dec tr t) strong cids range l = Some it' ->
-    tree_apply_access fn strong cids t range tr = Some tr' ->
+    item_for_loc_apply_access it fn (rel_dec tr t) cids range l = Some it' ->
+    tree_apply_access fn cids t range tr = Some tr' ->
     item_for_loc_in_tree it' tr' l.
   Proof.
     intros Item ItemApp App.
@@ -262,7 +261,7 @@ Section utils.
     destruct App'; [|discriminate].
     simpl in Spec'; injection Spec'; intros; subst; clear Spec'.
     pose proof (mem_apply_range'_spec _ _ l _ _ ltac:(symmetry; eassumption)) as MemSpec.
-    remember (fn _ _ _ _) as Fn eqn:HeqFn.
+    remember (fn _ _ _) as Fn eqn:HeqFn.
     pose proof (tree_unique_specifies_tag _ _ _ Ex Unq) as SameTg.
 
     destruct (decide (range'_contains _ _)); simpl in *.

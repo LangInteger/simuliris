@@ -48,7 +48,7 @@ Lemma access_effect_per_loc_within_range
   : exists post zpost, (
     let rel := rel_dec tr access_tag affected_tag in
     let isprot := bool_decide (protector_is_active pre.(iprot) cids) in
-    apply_access_perm kind rel isprot true zpre = Some zpost
+    apply_access_perm kind rel isprot zpre = Some zpost
     /\ tree_unique affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
@@ -171,7 +171,7 @@ Ltac auto_access_event_within_range :=
   | x : lazy_permission |- _ => destruct x; simpl in *
   | p : permission |- _ => destruct p as [[][]| | |]; simpl in *
   | i : perm_init |- _ => destruct i; simpl in *
-  | H : apply_access_perm _ _ _ _ _ = Some _ |- _ => try (inversion H; done); clear H
+  | H : apply_access_perm _ _ _ _ = Some _ |- _ => try (inversion H; done); clear H
   (* when all the rest is done, you can split and auto *)
   | |- _ => subst; try repeat split; eauto
   end
@@ -1376,8 +1376,8 @@ Definition commutes_option {X}
 Lemma apply_access_perm_read_commutes
   {rel1 rel2 prot}
   : commutes
-    (apply_access_perm AccessRead rel1 prot true)
-    (apply_access_perm AccessRead rel2 prot true).
+    (apply_access_perm AccessRead rel1 prot)
+    (apply_access_perm AccessRead rel2 prot).
 Proof.
   move=> p0 p1 p2 Step01 Step12.
   unfold apply_access_perm in *.
@@ -1651,11 +1651,11 @@ Lemma item_apply_access_read_commutes
   {cids rel1 rel2 range1 fn1 fn2 range2}
   (FnCommutes : forall isprot,
     commutes
-      (fn1 rel1 isprot true)
-      (fn2 rel2 isprot true))
+      (fn1 rel1 isprot)
+      (fn2 rel2 isprot))
   : commutes
-    (item_apply_access fn1 ProtStrong cids rel1 range1)
-    (item_apply_access fn2 ProtStrong cids rel2 range2).
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2).
 Proof.
   intros it0 it1 it2 Step01 Step12.
   option step in Step01 as ?:S1.
@@ -1664,7 +1664,7 @@ Proof.
   injection Step12; destruct it2 as [??? iperm2]; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
   destruct (permissions_foreach_commutes
     range1 range2
-    (fn1 _ _ _) (fn2 _ _ _)
+    (fn1 _ _) (fn2 _ _)
     {| initialized:=PermLazy; perm:=initp it0 |}
     (FnCommutes _) 
     (*(apply_access_perm_read_commutes (rel1:=rel1) (rel2:=rel2) (prot:=bool_decide (protector_is_active (iprot it0) cids)))*)
@@ -1681,8 +1681,8 @@ Lemma item_apply_access_disjoint_commutes
   {cids rel1 rel2 fn1 fn2 range1 range2}
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (item_apply_access fn1 ProtStrong cids rel1 range1)
-    (item_apply_access fn2 ProtStrong cids rel2 range2).
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2).
 Proof.
   intros it0 it1 it2 Step01 Step12.
   option step in Step01 as ?:S1.
@@ -1691,8 +1691,8 @@ Proof.
   injection Step12; destruct it2; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
   edestruct (permissions_foreach_disjoint_commutes
     range1 range2
-    (fn1 rel1 (bool_decide (protector_is_active (iprot it0) cids)) true)
-    (fn2 rel2 (bool_decide (protector_is_active (iprot it0) cids)) true)
+    (fn1 rel1 (bool_decide (protector_is_active (iprot it0) cids)))
+    (fn2 rel2 (bool_decide (protector_is_active (iprot it0) cids)))
     {| initialized:=PermLazy; perm:=initp it0 |}
   ) as [?[Pre Post]]; eauto.
   unfold item_apply_access.
@@ -1703,12 +1703,12 @@ Proof.
 Qed.
 
 Lemma apply_access_success_condition
-  {fn strong cids access_tag range tr}
+  {fn cids access_tag range tr}
   (ALL_SOME : every_node
-    (fun it => is_Some (item_apply_access fn strong cids (rel_dec tr access_tag (itag it)) range it)) tr)
-  : exists tr', tree_apply_access fn strong cids access_tag range tr = Some tr'.
+    (fun it => is_Some (item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it)) tr)
+  : exists tr', tree_apply_access fn cids access_tag range tr = Some tr'.
 Proof.
-  assert (every_node is_Some (map_nodes (fun it => item_apply_access fn strong cids (rel_dec tr access_tag (itag it)) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
+  assert (every_node is_Some (map_nodes (fun it => item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
   destruct (proj2 (join_success_condition _) AllSomeMap).
   eexists; eassumption.
 Qed.
@@ -1779,23 +1779,23 @@ Proof.
 Qed.
 
 Lemma tree_apply_access_commutes
-  {fn1 fn2 cids access_tag1 access_tag2 strong1 strong2 range1 range2}
+  {fn1 fn2 cids access_tag1 access_tag2 range1 range2}
   (Commutes : forall rel1 rel2, commutes
-    (item_apply_access fn1 strong1 cids rel1 range1)
-    (item_apply_access fn2 strong2 cids rel2 range2))
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2))
   : commutes
-    (fun tr => tree_apply_access fn1 strong1 cids access_tag1 range1 tr)
-    (fun tr => tree_apply_access fn2 strong2 cids access_tag2 range2 tr).
+    (fun tr => tree_apply_access fn1 cids access_tag1 range1 tr)
+    (fun tr => tree_apply_access fn2 cids access_tag2 range2 tr).
 Proof.
   unfold tree_apply_access.
   intros tr0 tr1 tr2 Step01 Step12.
   assert (forall (it it' : item) (cids : call_id_set) (rel : rel_pos) (range : Z * nat),
-     item_apply_access fn1 strong1 cids rel range it = Some it'
+     item_apply_access fn1 cids rel range it = Some it'
      → itag it = itag it') as Fn1PreservesTag. {
       intros. eapply item_apply_access_preserves_metadata. eassumption.
   }
   assert (forall (it it' : item) (cids : call_id_set) (rel : rel_pos) (range : Z * nat),
-     item_apply_access fn2 strong2 cids rel range it = Some it'
+     item_apply_access fn2 cids rel range it = Some it'
      → itag it = itag it') as Fn2PreservesTag. {
       intros. eapply item_apply_access_preserves_metadata. eassumption.
   }
@@ -1817,8 +1817,8 @@ Qed.
 Lemma memory_access_read_commutes
   {cids access_tag1 access_tag2 range1 range2}
   : commutes
-    (memory_access AccessRead ProtStrong cids access_tag1 range1)
-    (memory_access AccessRead ProtStrong cids access_tag2 range2).
+    (memory_access AccessRead cids access_tag1 range1)
+    (memory_access AccessRead cids access_tag2 range2).
 Proof.
   unfold memory_access.
   apply tree_apply_access_commutes; intros.
@@ -1830,8 +1830,8 @@ Lemma memory_access_disjoint_commutes
   {cids kind1 kind2 access_tag1 access_tag2 range1 range2}
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (memory_access kind1 ProtStrong cids access_tag1 range1)
-    (memory_access kind2 ProtStrong cids access_tag2 range2).
+    (memory_access kind1 cids access_tag1 range1)
+    (memory_access kind2 cids access_tag2 range2).
 Proof.
   unfold memory_access.
   apply tree_apply_access_commutes; intros.

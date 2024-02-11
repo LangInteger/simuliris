@@ -245,13 +245,27 @@ Qed.
 
 (* If two trees are `tree_equal` then an access in one succeeds in the other
    and the resulting trees are still `tree_equal` *)
-Axiom tree_equal_memory_access : 
+Lemma tree_equal_memory_access :
 ∀ cids tr1 tr2, tree_equal cids tr1 tr2 →
-∀ kind strong access_tg access_range tr1',
-memory_access kind strong cids access_tg access_range tr1 = Some tr1' →
+∀ kind access_tg access_range tr1',
+memory_access kind cids access_tg access_range tr1 = Some tr1' →
 ∃ tr2',
-  memory_access kind strong cids access_tg access_range tr2 = Some tr2' ∧
+  memory_access kind cids access_tg access_range tr2 = Some tr2' ∧
   tree_equal cids tr1' tr2'.
+Proof.
+Admitted.
+
+(* If two trees are `tree_equal` then a deallocation in one succeeds in the other
+   and the resulting trees are still `tree_equal` *)
+Lemma tree_equal_memory_deallocate :
+∀ cids tr1 tr2, tree_equal cids tr1 tr2 →
+∀ access_tg access_range tr1',
+memory_deallocate cids access_tg access_range tr1 = Some tr1' →
+∃ tr2',
+  memory_deallocate cids access_tg access_range tr2 = Some tr2' ∧
+  tree_equal cids tr1' tr2'.
+Proof.
+Admitted.
 
 Lemma apply_within_trees_equal C fn blk tr1 tr1' tr2 :
   (∀ ttr1 ttr1' ttr2, fn ttr1 = Some ttr1' → tree_equal C ttr1 ttr2 →
@@ -288,7 +302,7 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   odestruct (apply_within_trees_equal _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
-  { intros ttr1 ttr1' ttr2 H1 H2. by eapply tree_equal_memory_access. }
+  { intros ttr1 ttr1' ttr2 H1 H2. by eapply tree_equal_memory_deallocate. }
   iSplitR.
   { iPureIntro. do 3 eexists. eapply dealloc_base_step'; try done.
     - setoid_rewrite <- elem_of_dom. setoid_rewrite <- elem_of_dom in Hdealloc_s. rewrite -Hdom_eq //.

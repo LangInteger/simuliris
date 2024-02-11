@@ -193,13 +193,18 @@ Lemma deallocate_preserve_nonempty cids tg range :
   preserve_tree_nonempty (memory_deallocate cids tg range).
 Proof.
   intros tr tr' Nonempty Dealloc.
+  rewrite /memory_deallocate in Dealloc.
+  remember (tree_apply_access _ _ _ _ _) as tr''.
+  destruct tr''; simpl in Dealloc; [|discriminate].
+  eapply joinmap_preserve_nonempty.
+  2: exact Dealloc.
   eapply joinmap_preserve_nonempty.
   1: exact Nonempty.
-  apply Dealloc.
+  symmetry; eassumption.
 Qed.
 
-Lemma memory_access_preserve_nonempty kind strong cids tg range :
-  preserve_tree_nonempty (memory_access kind strong cids tg range).
+Lemma memory_access_preserve_nonempty kind cids tg range :
+  preserve_tree_nonempty (memory_access kind cids tg range).
 Proof.
   intros tr tr' Nonempty Read.
   eapply joinmap_preserve_nonempty.
@@ -219,9 +224,9 @@ Proof.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
 Qed.
 
-Lemma tree_apply_access_wf fn tr tr' cids strong tg range nxtp nxtc :
+Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
-  tree_apply_access fn strong cids tg range tr = Some tr' ->
+  tree_apply_access fn cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   rewrite /wf_tree /tree_item_included.
@@ -238,31 +243,55 @@ Proof.
   auto.
 Qed.
 
+Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
+  join_nodes (map_nodes (fun it => if P it then None else Some it) tr) = Some tr' ->
+  tr = tr'.
+Proof.
+  revert tr'.
+  induction tr as [|?? IHtr1 ? IHtr2]; intros tr' Success; simpl in *.
+  - injection Success; tauto.
+  - destruct (P data); simpl in *; [discriminate|].
+    destruct (join_nodes _) as [tr1'|]; simpl in *; [|discriminate].
+    destruct (join_nodes _) as [tr2'|]; simpl in *; [|discriminate].
+    injection Success.
+    erewrite IHtr1; [|reflexivity].
+    erewrite IHtr2; [|reflexivity].
+    tauto.
+Qed.
+
 Lemma memory_deallocate_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
   memory_deallocate cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ WF Dealloc).
+  rewrite /memory_deallocate in Dealloc.
+  remember (tree_apply_access _ _ _ _ _) as tr''.
+  destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
+  assert (wf_tree tr'' nxtp nxtc) as WF''. {
+    apply (tree_apply_access_wf _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
+  }
+  erewrite <- (join_map_id_is_Some_identical _ tr'' tr').
+  - assumption.
+  - exact Dealloc.
 Qed.
 
 Lemma memory_read_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
-  memory_access AccessRead ProtStrong cids tg range tr = Some tr' ->
+  memory_access AccessRead cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ WF Dealloc).
 Qed.
 
 Lemma memory_write_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
-  memory_access AccessWrite ProtStrong cids tg range tr = Some tr' ->
+  memory_access AccessWrite cids tg range tr = Some tr' ->
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ _ WF Dealloc).
+  apply (tree_apply_access_wf _ _ _ _ _ _ _ _ WF Dealloc).
 Qed.
 
 
@@ -488,7 +517,7 @@ Proof.
     * intros tr tr'. apply memory_read_wf.
     * apply (WF.(state_wf_tree_item _)).
   - (* nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _ _) ACC).
+    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _) ACC).
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -557,7 +586,7 @@ Proof.
     * intros tr tr'. apply memory_write_wf.
     * apply (WF.(state_wf_tree_item _)).
   - (* nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _ _) ACC).
+    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _) ACC).
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -674,7 +703,7 @@ Proof.
            destruct (new_protector ptr); auto.
            inversion prot.
       + apply WF.
-  - unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (memory_access_preserve_nonempty _ _ _ _ _) READ_ON_REBOR).
+  - unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (memory_access_preserve_nonempty _ _ _ _) READ_ON_REBOR).
     unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (create_child_preserve_nonempty _ _ _ _) RETAG_EFFECT).
     apply WF.
   - apply WF.

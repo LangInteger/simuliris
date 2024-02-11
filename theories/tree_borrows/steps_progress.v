@@ -31,9 +31,9 @@ Proof.
 Qed.
 
 
-Lemma apply_access_success_condition tr strong cids access_tag range fn :
-  every_node (fun it => is_Some (item_apply_access fn strong cids (rel_dec tr access_tag (itag it)) range it)) tr ->
-  is_Some (tree_apply_access fn strong cids access_tag range tr).
+Lemma apply_access_success_condition tr cids access_tag range fn :
+  every_node (fun it => is_Some (item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it)) tr ->
+  is_Some (tree_apply_access fn cids access_tag range tr).
 Proof.
   rewrite /tree_apply_access.
   rewrite join_success_condition.
@@ -93,7 +93,7 @@ Qed.
 
 Lemma all_access_compatible_implies_access_success kind tr cids tg range :
   every_node (is_access_compatible tr cids tg range kind) tr ->
-  is_Some (memory_access kind ProtStrong cids tg range tr).
+  is_Some (memory_access kind cids tg range tr).
 Proof.
   intro Compat. apply apply_access_success_condition.
   eapply every_node_increasing; [exact Compat|simpl].
