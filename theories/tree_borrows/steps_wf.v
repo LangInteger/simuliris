@@ -248,7 +248,7 @@ Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
   tr = tr'.
 Proof.
   revert tr'.
-  induction tr as [|?? IHtr1 ? IHtr2]; intros tr' Success; simpl in *.
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Success; simpl in *.
   - injection Success; tauto.
   - destruct (P data); simpl in *; [discriminate|].
     destruct (join_nodes _) as [tr1'|]; simpl in *; [|discriminate].
