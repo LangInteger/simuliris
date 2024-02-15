@@ -246,15 +246,16 @@ Section utils.
     accesses in a predictable way, and then one level above that trees_equal is
     preserved by accesses.
   *)
-  Lemma item_for_loc_in_tree_post_access tr tr' it it' l fn cids t range :
+  Lemma item_for_loc_in_tree_post_access tr tr' it l fn cids t range :
     item_for_loc_in_tree it tr l ->
-    item_for_loc_apply_access it fn (rel_dec tr t) cids range l = Some it' ->
     tree_apply_access fn cids t range tr = Some tr' ->
-    item_for_loc_in_tree it' tr' l.
+    exists it',
+      item_for_loc_apply_access it fn (rel_dec tr t) cids range l = Some it'
+      /\ item_for_loc_in_tree it' tr' l.
   Proof.
-    intros Item ItemApp App.
+    intros Item App.
     inversion Item as [it0 Ex Unq Prot Perm].
-    rewrite /item_for_loc_apply_access in ItemApp.
+    rewrite /item_for_loc_apply_access.
     destruct (apply_access_spec_per_node Ex Unq App) as [it0' [Spec' [Ex' Unq']]].
     rewrite /item_apply_access in Spec'.
     remember (permissions_apply_range' _ _ _ _) as App'.
@@ -265,30 +266,32 @@ Section utils.
     pose proof (tree_unique_specifies_tag _ _ _ Ex Unq) as SameTg.
 
     destruct (decide (range'_contains _ _)); simpl in *.
-    - destruct Fn; simpl in *; [|discriminate].
-      injection ItemApp; intros; subst.
+    - destruct MemSpec as [perm' [Lookup' perm'Spec]].
+      rewrite Prot in HeqFn |- *.
+      rewrite -Perm SameTg in perm'Spec.
+      rewrite perm'Spec in HeqFn.
+      rewrite HeqFn; simpl.
+      eexists; split; [reflexivity|].
       econstructor.
       + erewrite <- access_preserves_tags; [|eassumption].
-        eassumption.
+        eassumption. 
       + eassumption.
-      + rewrite Prot.
-        destruct permissions_apply_range'; [|discriminate].
-        simpl; reflexivity.
+      + simpl. reflexivity.
       + simpl.
-        destruct MemSpec as [perm' [Lookup' perm'Spec]].
         rewrite Lookup'. rewrite -perm'Spec.
-        subst.
-        rewrite SameTg.
-        rewrite -Prot.
-        rewrite -Perm.
-        rewrite -HeqFn.
-        reflexivity.
-    - injection ItemApp; intros; subst.
+        rewrite perm'Spec.
+        simpl. reflexivity.
+    - eexists.
       econstructor.
-      + eassumption.
-      + eassumption.
-      + eassumption.
-      + rewrite MemSpec. simpl. assumption.
+      + reflexivity.
+      + econstructor.
+        * erewrite <- access_preserves_tags; [|eassumption].
+          eassumption.
+        * eassumption.
+        * simpl. assumption.
+        * simpl.
+          rewrite MemSpec.
+          assumption.
   Qed.
 
 End utils.
