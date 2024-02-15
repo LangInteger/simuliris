@@ -57,7 +57,9 @@ Lemma trees_equal_init_trees C ts tt tg bl :
 Proof.
   intros Htrs. apply trees_equal_insert; first done.
   intros t.
-  split; first done. intros Hcont l.
+  split; first done.
+  split; first done.
+  intros Hcont l.
   assert (tg = t) as Heq.
   1: by destruct Hcont as [?|[[]|[]]]. subst t.
   pose (it := mkItemForLoc (mkPerm PermLazy Active) tg None).

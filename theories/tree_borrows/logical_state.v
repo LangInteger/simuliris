@@ -66,6 +66,9 @@ Proof. solve_inG. Qed.
 (* TODO cleanup *)
 Section utils.
 
+  (* FIXME: Define the total function that given an item and a  *)
+  (* Maybe this should just be perm_for_loc ?
+     Actually we should have a function on item that reads the permission. *)
   Record item_for_loc : Type := mkItemForLoc {
     lperm : lazy_permission;
     tg : tag;
@@ -94,6 +97,9 @@ Section utils.
   Inductive pseudo_conflicted (tr : tree item) (l : Z) (tg1 : tag) : res_conflicted → option protector → Prop :=
     pseudo_conflicted_conflicted c :
         protected_by c →
+        (* FIXME: Isn't there a bug here ? We need the protector to be actually relevant for the tag,
+                  which isn't enforced. Make sure that this problem goes away during the factoring
+                  out of item_for_loc. *)
         pseudo_conflicted tr l tg1 ResConflicted c
   | pseudo_conflicted_cousin_init conf c it :
         protected_by c →
@@ -119,9 +125,13 @@ Section utils.
                    {| lperm := {| initialized := ini; perm := Reserved im cl2 |}; tg := t; cid:= cid |}.
 
 
+  (* Change this ?
+     We should define tree_equal inductively on trees by lifting an arbitrary per-node relationship.
+     The relationship lifted would be the per-item lifting of eq_up_to_C *)
   Definition tree_equal (tr1 tr2: tree item) :=
-    ∀ t, ((tree_contains t tr1 <-> tree_contains t tr2) /\
-      (tree_contains t tr1 -> ∀ l, ∃ it1 it2,
+    ∀ t, ((tree_contains t tr1 <-> tree_contains t tr2)
+      /\ (forall t t', ParentChildIn t t' tr1 <-> ParentChildIn t t' tr2)
+      /\ (tree_contains t tr1 -> ∀ l, ∃ it1 it2,
         item_for_loc_in_tree it1 tr1 l
         ∧ item_for_loc_in_tree it2 tr2 l
         ∧ eq_up_to_C tr1 tr2 t l it1 it2)
@@ -142,7 +152,7 @@ Section utils.
     remember (trs !! blk) as at_blk.
     destruct at_blk.
     - apply Some_Forall2.
-      intro tg. split; [tauto|].
+      intro tg. split; [tauto|split]; [tauto|].
       intros Ex l.
       destruct (AllUnique _ tg ltac:(reflexivity) Ex) as [it Unq].
       pose (it_loc := mkItemForLoc
@@ -205,8 +215,9 @@ Section utils.
   Proof.
     rewrite /tree_equal.
     intros tr1 tr2 Equal tg.
-    destruct (Equal tg) as [iffEx Inner]; clear Equal.
-    split; [tauto|].
+    destruct (Equal tg) as [iffEx [iffRel Inner]]; clear Equal.
+    split; [tauto|split].
+    1: { intros. by rewrite iffRel. }
     intros Ex2 l.
     pose proof (proj2 iffEx Ex2) as Ex1.
     specialize (Inner Ex1 l).
@@ -246,11 +257,11 @@ Section utils.
     accesses in a predictable way, and then one level above that trees_equal is
     preserved by accesses.
   *)
-  Lemma item_for_loc_in_tree_post_access tr tr' it l fn cids t range :
+  Lemma item_for_loc_in_tree_post_access tr tr' it l fn cids acc_tg range :
     item_for_loc_in_tree it tr l ->
-    tree_apply_access fn cids t range tr = Some tr' ->
+    tree_apply_access fn cids acc_tg range tr = Some tr' ->
     exists it',
-      item_for_loc_apply_access it fn (rel_dec tr t) cids range l = Some it'
+      item_for_loc_apply_access it fn (rel_dec tr acc_tg) cids range l = Some it'
       /\ item_for_loc_in_tree it' tr' l.
   Proof.
     intros Item App.
@@ -293,6 +304,90 @@ Section utils.
           rewrite MemSpec.
           assumption.
   Qed.
+
+
+  Lemma decide_ParentChild_same {X} tr tr' t t' (y n : X) :
+    (forall t t', ParentChildIn t t' tr <-> ParentChildIn t t' tr') ->
+    (if decide (ParentChildIn t t' tr) then y else n)
+    = (if decide (ParentChildIn t t' tr') then y else n).
+  Proof.
+    intros SameRel.
+    destruct (decide _) as [p|p]; destruct (decide _).
+    all: try reflexivity.
+    all: rewrite SameRel in p; contradiction.
+  Qed.
+
+  Lemma item_for_loc_apply_access_only_cares_about_rel tr tr' it fn acc_tg cids range l :
+    (forall t t', ParentChildIn t t' tr <-> ParentChildIn t t' tr') ->
+    item_for_loc_apply_access it fn (rel_dec tr acc_tg) cids range l
+    = item_for_loc_apply_access it fn (rel_dec tr' acc_tg) cids range l.
+  Proof.
+    intros SameRel.
+    rewrite /item_for_loc_apply_access.
+    rewrite /rel_dec.
+    f_equal.
+    repeat rewrite (decide_ParentChild_same tr tr').
+    - reflexivity.
+    - assumption.
+    - assumption.
+    - assumption.
+  Qed.
+
+  (* The key facts about pseudo_conflicted is that it doesn't appear out of nowhere.
+     On a retag we need to prove that it hasn't become pseudo_conflicted.
+     On a dealloc we need to prove that it stayed pseudo_conflicted (just in a different way),
+     but most accesses *if they succeed* preserve pseudo_conflicted as-is. *)
+  Lemma pseudo_conflicted_is_permanent tr l tg cl cid kind acc_tg range tr' :
+    pseudo_conflicted tr l tg cl cid ->
+    memory_access kind C acc_tg range tr = Some tr' ->
+    exists cl', pseudo_conflicted tr' l tg cl' cid.
+  Proof.
+    (* I need to fix the definition of pseudo_conflicted first *)
+  Admitted.
+
+  Lemma pseudo_conflicted_not_from_access tr l tg cl' cid kind acc_tg range tr' :
+    memory_access kind C acc_tg range tr = Some tr' ->
+    pseudo_conflicted tr l tg cl' cid ->
+    exists cl, pseudo_conflicted tr l tg cl cid.
+  Proof.
+    (* I need to fix the definition of pseudo_conflicted first *)
+  Admitted.
+
+(*
+  (* FIXME: needs refactoring out item_for_loc first *)
+  Lemma eq_up_to_C_preserved_by_access l tr1 tr2 tr1' tr2' blk tg it1 it2 cids kind acc_tg range:
+    item_for_loc_in_tree it1 tr1 l ->
+    item_for_loc_in_tree it2 tr2 l ->
+    eq_up_to_C tr1 tr2 blk tg it1 it2 ->
+    (forall t t', ParentChildIn t t' tr1 <-> ParentChildIn t t' tr2) ->
+    memory_access kind cids acc_tg range tr1 = Some tr1' ->
+    memory_access kind cids acc_tg range tr2 = Some tr2' ->
+    exists it1' it2',
+      item_for_loc_memory_access it1 fn (rel_dec tr1' acc_tg) cids range l = Some it1'
+      /\ item_for_loc_apply_access it2 fn (rel_dec tr2' acc_tg) cids range l = Some it2'
+      /\ eq_up_to_C tr1' tr2' blk tg it1 it2.
+  Proof.
+    intros It1 It2 eqC SameRel App1 App2.
+    destruct (item_for_loc_in_tree_post_access tr1 tr1' it1 l fn cids acc_tg range It1 App1)
+      as [it1' [ItApp1 It1']].
+    destruct (item_for_loc_in_tree_post_access tr2 tr2' it2 l fn cids acc_tg range It2 App2)
+      as [it2' [ItApp It2']].
+    exists it1', it2'.
+    split; [|split].
+    - erewrite item_for_loc_apply_access_only_cares_about_rel; [eassumption|].
+      intros.
+      erewrite <- access_eqv_rel; [reflexivity|].
+      eassumption.
+    - erewrite item_for_loc_apply_access_only_cares_about_rel; [eassumption|].
+      intros.
+      erewrite <- access_eqv_rel; [reflexivity|].
+      eassumption.
+    - inversion eqC; subst.
+      + econstructor; reflexivity.
+      + econstructor.
+  Abort.
+  *)
+
 
 End utils.
 

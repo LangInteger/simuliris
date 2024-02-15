@@ -193,8 +193,8 @@ Lemma deallocate_preserve_nonempty cids tg range :
   preserve_tree_nonempty (memory_deallocate cids tg range).
 Proof.
   intros tr tr' Nonempty Dealloc.
-  rewrite /memory_deallocate in Dealloc.
-  remember (tree_apply_access _ _ _ _ _) as tr''.
+  rewrite /memory_deallocate /memory_access_nonchildren_only in Dealloc.
+  remember (tree_apply_access (nonchildren_only _) _ _ _ _) as tr''.
   destruct tr''; simpl in Dealloc; [|discriminate].
   eapply joinmap_preserve_nonempty.
   2: exact Dealloc.
@@ -265,7 +265,7 @@ Lemma memory_deallocate_wf tr tr' cids tg range nxtp nxtc :
   wf_tree tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  rewrite /memory_deallocate in Dealloc.
+  rewrite /memory_deallocate /memory_access_nonchildren_only in Dealloc.
   remember (tree_apply_access _ _ _ _ _) as tr''.
   destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
   assert (wf_tree tr'' nxtp nxtc) as WF''. {

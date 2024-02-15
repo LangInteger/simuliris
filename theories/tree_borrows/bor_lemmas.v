@@ -442,3 +442,27 @@ Proof.
   subst; reflexivity.
 Qed.
 
+Lemma tree_apply_access_only_cares_about_rel
+  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
+  {tr1 tr2}
+  (Agree : forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
+  : join_nodes (map_nodes (fun it => fn cids (rel_dec tr1 access_tag it.(itag)) range it) tr)
+  = join_nodes (map_nodes (fun it => fn cids (rel_dec tr2 access_tag it.(itag)) range it) tr).
+Proof.
+  induction tr as [|data sibling IHsibling child IHchild]; [simpl; reflexivity|].
+  simpl.
+  rewrite IHsibling; clear IHsibling.
+  rewrite IHchild; clear IHchild.
+  unfold rel_dec.
+  f_equal. f_equal.
+  destruct (decide (ParentChildIn _ _ _)) as [R1|R1].
+  all: destruct (decide (ParentChildIn _ _ _)) as [R1'|R1'].
+  all: destruct (decide (ParentChildIn _ _ _)) as [R2|R2].
+  all: destruct (decide (ParentChildIn _ _ _)) as [R2'|R2'].
+  all: try reflexivity.
+  all: rewrite <- Agree in R2'; auto; try contradiction.
+  all: rewrite <- Agree in R2; auto; try contradiction.
+  all: apply Subtree; left; simpl.
+Qed.
+
+

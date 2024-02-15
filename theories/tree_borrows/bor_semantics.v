@@ -363,22 +363,20 @@ Definition item_apply_access (fn : rel_pos -> bool -> app lazy_permission) cids 
     (fn rel protected) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
+Definition nonchildren_only
+  (fn : rel_pos -> bool -> app lazy_permission)
+  : rel_pos -> bool -> app lazy_permission := fun rel isprot perm =>
+  match rel with
+  | This | Parent | Cousin => fn rel isprot perm
+  | Child => Some perm
+  end.
+
 (* FIXME: share code *)
 Definition tree_apply_access
   (fn:rel_pos -> bool -> app lazy_permission)
   cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
-    item_apply_access fn cids (rel_dec tr access_tag it.(itag)) range it
-  ) in
-  join_nodes (map_nodes app tr).
-
-Definition tree_apply_access_nonchildren_only
-  (fn:rel_pos -> bool -> app lazy_permission)
-  cids (access_tag:tag) range (tr:tree item)
-  : option (tree item) :=
-  let app : item -> option item := fun it => (
-    (* FIXME This does not skip children *)
     item_apply_access fn cids (rel_dec tr access_tag it.(itag)) range it
   ) in
   join_nodes (map_nodes app tr).
@@ -400,11 +398,11 @@ Definition memory_access kind cids tg range
   tree_apply_access (apply_access_perm kind) cids tg range tr.
 Definition memory_access_nonchildren_only kind cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access_nonchildren_only (apply_access_perm kind) cids tg range tr.
+  tree_apply_access (nonchildren_only (apply_access_perm kind)) cids tg range tr.
 
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
-  let post_write := (tree_apply_access (apply_access_perm AccessWrite) cids t range tr) in
+  let post_write := memory_access_nonchildren_only AccessRead cids t range tr in
   let find_strong_prot : item -> option item := fun it => (
     if bool_decide (protector_is_strong it.(iprot)) && bool_decide (protector_is_active it.(iprot) cids)
     then None
