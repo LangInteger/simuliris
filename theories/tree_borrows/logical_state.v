@@ -66,79 +66,120 @@ Proof. solve_inG. Qed.
 (* TODO cleanup *)
 Section utils.
 
-  (* FIXME: Define the total function that given an item and a  *)
-  (* Maybe this should just be perm_for_loc ?
-     Actually we should have a function on item that reads the permission. *)
-  Record item_for_loc : Type := mkItemForLoc {
-    lperm : lazy_permission;
-    tg : tag;
-    cid : option protector;
-  }.
+  Definition tree_lookup (tr : tree item) (tg : tag) (it : item) :=
+    tree_contains tg tr
+    /\ tree_unique tg it tr.
+
+  Definition trees_lookup (trs : trees) blk tg it :=
+    exists tr,
+      trs !! blk = Some tr
+      /\ tree_lookup tr tg it.
+
+  Lemma tree_lookup_correct_tag {tr tg it} :
+    tree_lookup tr tg it ->
+    it.(itag) = tg.
+  Proof. intros [? ?]. eapply tree_unique_specifies_tag; eassumption. Qed.
+
+  Definition item_lookup (it : item) (l : Z) :=
+    default {| initialized := PermLazy; perm := it.(initp) |} (it.(iperm) !! l).
 
   Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
 
-  Inductive item_for_loc_in_tree (i : item_for_loc) (tree : tree item) (l' : Z) : Prop :=
-    is_in_tree item :
-        tree_contains i.(tg) tree →
-        tree_unique i.(tg) item tree →
-        i.(cid) = item.(iprot) →
-        i.(lperm) = default {| initialized := PermLazy; perm := item.(initp) |}
-                           (item.(iperm) !! l') →
-        item_for_loc_in_tree i tree l'.
-
-  Inductive item_for_loc_in_trees (i : item_for_loc) (t : trees) (l : loc) : Prop :=
-    is_in_trees tree :
-        t !! (fst l) = Some tree → item_for_loc_in_tree i tree (snd l) → item_for_loc_in_trees i t l.
-
   Context (C : gset call_id).
 
-  Definition protected_by : option protector → Prop := from_option (λ p, p.(call) ∈ C) False.
+  Inductive pseudo_conflicted (tr : tree item) (tg : tag) (l : Z)
+    : res_conflicted → Prop :=
+    | pseudo_conflicted_conflicted :
+        (* a Conflicted marker makes the permission literally conflicted *)
+        pseudo_conflicted tr tg l ResConflicted
+    | pseudo_conflicted_cousin_init tg_cous it_cous :
+        (* If it's not actually conflicted, it can be pseudo conflicted if there is *)
+        (* A cousin that is protected *)
+        rel_dec tr tg tg_cous = Cousin ->
+        tree_lookup tr tg_cous it_cous ->
+        protector_is_active it_cous.(iprot) C ->
+        (* and who on this location is initalized not disabled *)
+        (item_lookup it_cous l).(perm) ≠ Disabled ->
+        (item_lookup it_cous l).(initialized) = PermInit ->
+        pseudo_conflicted tr tg l ResActivable
+    .
 
-  Inductive pseudo_conflicted (tr : tree item) (l : Z) (tg1 : tag) : res_conflicted → option protector → Prop :=
-    pseudo_conflicted_conflicted c :
-        protected_by c →
-        (* FIXME: Isn't there a bug here ? We need the protector to be actually relevant for the tag,
-                  which isn't enforced. Make sure that this problem goes away during the factoring
-                  out of item_for_loc. *)
-        pseudo_conflicted tr l tg1 ResConflicted c
-  | pseudo_conflicted_cousin_init conf c it :
-        protected_by c →
-        item_for_loc_in_tree it tr l →
-        rel_dec tr it.(tg) tg1 = Cousin →
-        protected_by it.(cid) →
-        it.(lperm).(perm) ≠ Disabled →
-        it.(lperm).(initialized) = PermInit →
-        pseudo_conflicted tr l tg1 conf c.
+  Inductive perm_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (l : Z) cid
+    : lazy_permission -> lazy_permission -> Prop :=
+    | perm_eq_up_to_C_refl p :
+        (* Usually the permissions will be equal *)
+        perm_eq_up_to_C tr1 tr2 tg l cid p p
+    | perm_eq_up_to_C_pseudo ini im confl1 confl2 :
+        (* But if they are protected *)
+        protector_is_active cid C ->
+        (* And both pseudo-conflicted *)
+        pseudo_conflicted tr1 tg l confl1 ->
+        pseudo_conflicted tr2 tg l confl2 ->
+        (* then we can allow a small difference *)
+        perm_eq_up_to_C tr1 tr2 tg l cid
+          {| initialized := ini; perm := Reserved im confl1 |}
+          {| initialized := ini; perm := Reserved im confl2 |}
+    .
 
-  Lemma pseudo_conflicted_protected tr l tg1 conf c:
-    pseudo_conflicted tr l tg1 conf c → protected_by c.
-  Proof. by inversion 1. Qed.
+  Definition loc_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (it1 it2 : item) (l : Z) :=
+    it1.(iprot) = it2.(iprot)
+    /\ perm_eq_up_to_C tr1 tr2 tg l it1.(iprot) (item_lookup it1 l) (item_lookup it2 l).
 
-  Inductive eq_up_to_C (tr1 tr2 : tree item) (t : tag) (l : Z) : item_for_loc → item_for_loc → Prop :=
-    eq_up_to_C_refl i :
-      t = i.(tg) ->
-      eq_up_to_C tr1 tr2 t l i i
-  | eq_up_to_C_pseudo cid im ini cl1 cl2 :
-        (pseudo_conflicted tr1 l t cl1 cid ↔ pseudo_conflicted tr2 l t cl2 cid) →
-        eq_up_to_C tr1 tr2 t l
-                   {| lperm := {| initialized := ini; perm := Reserved im cl1 |}; tg := t; cid:= cid |}
-                   {| lperm := {| initialized := ini; perm := Reserved im cl2 |}; tg := t; cid:= cid |}.
+  Definition item_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (it1 it2 : item) :=
+    forall l, loc_eq_up_to_C tr1 tr2 tg it1 it2 l.
 
-
-  (* Change this ?
-     We should define tree_equal inductively on trees by lifting an arbitrary per-node relationship.
-     The relationship lifted would be the per-item lifting of eq_up_to_C *)
-  Definition tree_equal (tr1 tr2: tree item) :=
-    ∀ t, ((tree_contains t tr1 <-> tree_contains t tr2)
-      /\ (forall t t', ParentChildIn t t' tr1 <-> ParentChildIn t t' tr2)
-      /\ (tree_contains t tr1 -> ∀ l, ∃ it1 it2,
-        item_for_loc_in_tree it1 tr1 l
-        ∧ item_for_loc_in_tree it2 tr2 l
-        ∧ eq_up_to_C tr1 tr2 t l it1 it2)
-    ).
+  Definition tree_equal (tr1 tr2 : tree item) :=
+    (* To be equal trees must have exactly the same tags *)
+    (forall tg, tree_contains tg tr1 <-> tree_contains tg tr2)
+    (* and define all the same relationships between those tags *)
+    /\ (forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
+    (* and have their permissions be equal up to C on all locations *)
+    /\ (forall tg, tree_contains tg tr1 ->
+          exists it1 it2,
+            tree_lookup tr1 tg it1
+            /\ tree_lookup tr2 tg it2
+            /\ item_eq_up_to_C tr1 tr2 tg it1 it2
+       ).
 
   Definition trees_equal (t1 t2 : trees) :=
     ∀ blk, option_Forall2 tree_equal (t1 !! blk) (t2 !! blk).
+
+
+  Lemma loc_eq_up_to_C_reflexive
+    {tr1 tr2 tg it l}
+    : loc_eq_up_to_C tr1 tr2 tg it it l.
+  Proof.
+    split.
+    + reflexivity.
+    + apply perm_eq_up_to_C_refl.
+  Qed.
+
+  Lemma item_eq_up_to_C_reflexive
+    {tr1 tr2 tg it}
+    : item_eq_up_to_C tr1 tr2 tg it it.
+  Proof.
+    intro l.
+    apply loc_eq_up_to_C_reflexive.
+  Qed.
+
+  Lemma tree_equal_reflexive tr
+    (AllUnique : forall tg, tree_contains tg tr -> exists it, tree_unique tg it tr)
+    : tree_equal tr tr.
+  Proof.
+    try repeat split.
+    - tauto.
+    - tauto.
+    - intros tg Ex.
+      destruct (AllUnique tg Ex).
+      eexists. eexists.
+      try repeat split.
+      + assumption.
+      + eassumption.
+      + assumption.
+      + eassumption.
+      + apply item_eq_up_to_C_reflexive.
+  Qed.
+
 
   Lemma trees_equal_reflexive trs
     (AllUnique : forall blk tr tg,
@@ -148,32 +189,17 @@ Section utils.
     : trees_equal trs trs.
   Proof.
     intros blk.
-    specialize (AllUnique blk); rewrite /trees_at_block in AllUnique.
+    specialize (AllUnique blk).
     remember (trs !! blk) as at_blk.
     destruct at_blk.
     - apply Some_Forall2.
-      intro tg. split; [tauto|split]; [tauto|].
-      intros Ex l.
-      destruct (AllUnique _ tg ltac:(reflexivity) Ex) as [it Unq].
-      pose (it_loc := mkItemForLoc
-        (default {| initialized:=PermLazy; perm:=it.(initp) |} (it.(iperm) !! l))
-        it.(itag)
-        it.(iprot)).
-      exists it_loc, it_loc.
-      try repeat split.
-      + econstructor; simpl.
-        * erewrite tree_unique_specifies_tag; eassumption.
-        * erewrite tree_unique_specifies_tag; eassumption.
-        * auto.
-        * reflexivity.
-      + econstructor; simpl.
-        * erewrite tree_unique_specifies_tag; eassumption.
-        * erewrite tree_unique_specifies_tag; eassumption.
-        * auto.
-        * reflexivity.
-      + econstructor. simpl. erewrite tree_unique_specifies_tag; eauto.
+      apply tree_equal_reflexive.
+      intro tg.
+      eapply AllUnique.
+      reflexivity.
     - apply None_Forall2.
   Qed.
+
 
   Lemma trees_equal_same_tags (trs1 trs2 : trees) (tg : tag) (blk : block) :
     trees_equal trs1 trs2 ->
@@ -188,8 +214,8 @@ Section utils.
       inversion Equals as [?? Equal|].
     2: tauto.
     subst.
-    destruct (Equal tg) as [SameTags _].
-    assumption.
+    destruct Equal as [SameTags _].
+    apply SameTags.
   Qed.
 
   Lemma trees_equal_empty : trees_equal ∅ ∅.
@@ -200,34 +226,56 @@ Section utils.
   Qed.
 
 
-  Lemma eq_up_to_C_sym :
-    forall blk tg tr1 tr2 it1 it2,
-      eq_up_to_C tr1 tr2 blk tg it1 it2 ->
-      eq_up_to_C tr2 tr1 blk tg it2 it1.
+  Lemma perm_eq_up_to_C_sym
+    {tr1 tr2 tg l cid perm1 perm2}
+    : perm_eq_up_to_C tr1 tr2 tg l cid perm1 perm2
+      -> perm_eq_up_to_C tr2 tr1 tg l cid perm2 perm1.
   Proof.
-    intros blk tg tr1 tr2 it1 it2 EqC.
+    intro EqC.
     inversion EqC.
-    + constructor. assumption.
-    + econstructor. tauto.
+    + econstructor.
+    + econstructor; eassumption.
+  Qed.
+
+  Lemma loc_eq_up_to_C_sym
+    {tr1 tr2 tg it1 it2 l}
+    : loc_eq_up_to_C tr1 tr2 tg it1 it2 l
+      -> loc_eq_up_to_C tr2 tr1 tg it2 it1 l.
+  Proof.
+    intros [SameProt EqC].
+    split.
+    + auto.
+    + apply perm_eq_up_to_C_sym.
+      rewrite <- SameProt.
+      assumption.
+  Qed.
+
+  Lemma item_eq_up_to_C_sym
+    {tr1 tr2 tg it1 it2}
+    : item_eq_up_to_C tr1 tr2 tg it1 it2
+      -> item_eq_up_to_C tr2 tr1 tg it2 it1.
+  Proof.
+    intros EqC l.
+    apply loc_eq_up_to_C_sym.
+    auto.
   Qed.
 
   Lemma tree_equal_sym : Symmetric tree_equal.
   Proof.
     rewrite /tree_equal.
-    intros tr1 tr2 Equal tg.
-    destruct (Equal tg) as [iffEx [iffRel Inner]]; clear Equal.
-    split; [tauto|split].
-    1: { intros. by rewrite iffRel. }
-    intros Ex2 l.
-    pose proof (proj2 iffEx Ex2) as Ex1.
-    specialize (Inner Ex1 l).
-    destruct Inner as [it1 [it2 [Loc1 [Loc2 EqC]]]].
-    exists it2, it1.
-    try repeat split.
-    - assumption.
-    - assumption.
-    - apply eq_up_to_C_sym.
-      assumption.
+    intros tr1 tr2 [SameTg [SameRel EqC]].
+    split; [|split].
+    + intro tg. rewrite SameTg. tauto.
+    + intros tg tg'. rewrite SameRel. tauto.
+    + intros tg Ex.
+      rewrite <- SameTg in Ex.
+      destruct (EqC tg Ex) as [it1 [it2 [Lookup1 [Lookup2 EqCsub]]]].
+      exists it2, it1.
+      split; [|split].
+      * assumption.
+      * assumption.
+      * apply item_eq_up_to_C_sym.
+        assumption.
   Qed.
 
   Lemma trees_equal_sym : Symmetric trees_equal.
@@ -238,74 +286,7 @@ Section utils.
     apply tree_equal_sym.
   Qed.
 
-  Definition item_for_loc_apply_access i fn (rel_dec : tag -> rel_pos) cids range l :=
-    let isprot := bool_decide (protector_is_active i.(cid) cids) in
-    let rel := rel_dec i.(tg) in
-    (if decide (range'_contains range l) then fn rel isprot i.(lperm) else Some i.(lperm))
-    ≫= fun lperm => Some {| lperm := lperm; tg := i.(tg); cid := i.(cid) |}.
-
-  (* Closes the diagram:
-                       item_for_loc_in_tree
-     item_for_loc ----------------------------> tree
-          |                                       |
-          | item_for_loc_apply_access             | tree_apply_access
-          v                                       v
-     item_for_loc' ---------------------------> tree'
-                      item_for_loc_in_tree
-
-    i.e. this will be essential in proving that item_for_loc is transformed by
-    accesses in a predictable way, and then one level above that trees_equal is
-    preserved by accesses.
-  *)
-  Lemma item_for_loc_in_tree_post_access tr tr' it l fn cids acc_tg range :
-    item_for_loc_in_tree it tr l ->
-    tree_apply_access fn cids acc_tg range tr = Some tr' ->
-    exists it',
-      item_for_loc_apply_access it fn (rel_dec tr acc_tg) cids range l = Some it'
-      /\ item_for_loc_in_tree it' tr' l.
-  Proof.
-    intros Item App.
-    inversion Item as [it0 Ex Unq Prot Perm].
-    rewrite /item_for_loc_apply_access.
-    destruct (apply_access_spec_per_node Ex Unq App) as [it0' [Spec' [Ex' Unq']]].
-    rewrite /item_apply_access in Spec'.
-    remember (permissions_apply_range' _ _ _ _) as App'.
-    destruct App'; [|discriminate].
-    simpl in Spec'; injection Spec'; intros; subst; clear Spec'.
-    pose proof (mem_apply_range'_spec _ _ l _ _ ltac:(symmetry; eassumption)) as MemSpec.
-    remember (fn _ _ _) as Fn eqn:HeqFn.
-    pose proof (tree_unique_specifies_tag _ _ _ Ex Unq) as SameTg.
-
-    destruct (decide (range'_contains _ _)); simpl in *.
-    - destruct MemSpec as [perm' [Lookup' perm'Spec]].
-      rewrite Prot in HeqFn |- *.
-      rewrite -Perm SameTg in perm'Spec.
-      rewrite perm'Spec in HeqFn.
-      rewrite HeqFn; simpl.
-      eexists; split; [reflexivity|].
-      econstructor.
-      + erewrite <- access_preserves_tags; [|eassumption].
-        eassumption. 
-      + eassumption.
-      + simpl. reflexivity.
-      + simpl.
-        rewrite Lookup'. rewrite -perm'Spec.
-        rewrite perm'Spec.
-        simpl. reflexivity.
-    - eexists.
-      econstructor.
-      + reflexivity.
-      + econstructor.
-        * erewrite <- access_preserves_tags; [|eassumption].
-          eassumption.
-        * eassumption.
-        * simpl. assumption.
-        * simpl.
-          rewrite MemSpec.
-          assumption.
-  Qed.
-
-
+(*
   Lemma decide_ParentChild_same {X} tr tr' t t' (y n : X) :
     (forall t t', ParentChildIn t t' tr <-> ParentChildIn t t' tr') ->
     (if decide (ParentChildIn t t' tr) then y else n)
@@ -332,7 +313,9 @@ Section utils.
     - assumption.
     - assumption.
   Qed.
+  *)
 
+(*
   (* The key facts about pseudo_conflicted is that it doesn't appear out of nowhere.
      On a retag we need to prove that it hasn't become pseudo_conflicted.
      On a dealloc we need to prove that it stayed pseudo_conflicted (just in a different way),
@@ -352,6 +335,7 @@ Section utils.
   Proof.
     (* I need to fix the definition of pseudo_conflicted first *)
   Admitted.
+  *)
 
 (*
   (* FIXME: needs refactoring out item_for_loc first *)
@@ -589,15 +573,15 @@ Section call_defs.
       ∀ t (L : gset loc), M' !! t = Some L →
         tag_valid σ.(snp) t ∧
         ∀ (l : loc), l ∈ L → ∃ it,
-          item_for_loc_in_trees it σ.(strs) l ∧
-          it.(tg) = t ∧ protector_is_for_call c it.(cid) ∧
-          ((it.(lperm).(initialized) = PermInit → it.(lperm).(perm) ≠ Disabled)).
+          trees_lookup σ.(strs) l.1 t it
+          /\ protector_is_for_call c it.(iprot) ∧
+          (((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled)).
 
   Definition loc_protected_by σ t l c :=
     c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ ∃ it, 
-      item_for_loc_in_trees it σ.(strs) l ∧
-      it.(tg) = t ∧ protector_is_for_call c it.(cid) ∧
-      (it.(lperm).(initialized) = PermInit → it.(lperm).(perm) ≠ Disabled).
+      trees_lookup σ.(strs) l.1 t it
+      ∧ protector_is_for_call c it.(iprot)
+      ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled).
 
   Lemma call_set_interp_access M σ c t l :
     call_set_interp M σ →
@@ -676,11 +660,11 @@ Section heap_defs.
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
-    | tk_unq_act | tk_unq_res => ∃ i, item_for_loc_in_trees i σ.(strs) l ∧ i.(tg) = t 
-                   ∧ i.(lperm).(perm) ≠ Disabled
-                   ∧ (i.(lperm).(perm) = Frozen → protected_by σ.(scs) i.(cid))
-    | tk_pub => ∃ i, item_for_loc_in_trees i σ.(strs) l ∧ i.(tg) = t 
-                   ∧ i.(lperm).(perm) ≠ Disabled
+    | tk_unq_act | tk_unq_res => ∃ it, trees_lookup σ.(strs) l.1 t it
+                   ∧ (item_lookup it l.2).(perm) ≠ Disabled
+                   ∧ ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs))
+    | tk_pub => ∃ it, trees_lookup σ.(strs) l.1 t it
+                   ∧ (item_lookup it l.2).(perm) ≠ Disabled
     end.
 
 (*
