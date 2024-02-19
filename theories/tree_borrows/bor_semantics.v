@@ -531,7 +531,7 @@ Qed.
 
 Lemma not_is_negb (b:bool) :
   b = false <-> ~b = true.
-Proof. split; intro. 1: subst; auto. apply not_true_is_false; auto. Qed.
+Proof. by destruct b. Qed.
 
 Lemma IsTag_reverse it it' :
   IsTag it.(itag) it' -> IsTag it'.(itag) it.

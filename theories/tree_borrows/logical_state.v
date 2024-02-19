@@ -94,6 +94,16 @@ Section utils.
 
   Definition protected_by : option protector → Prop := from_option (λ p, p.(call) ∈ C) False.
 
+  (* TODO pick one *)
+  Lemma protected_by_protector_active p : protected_by p ↔ protector_is_active p C.
+  Proof.
+    destruct p as [[c ?]|]; split.
+    - intros H; eexists; done.
+    - intros (? & [= <-] & H). apply H.
+    - done.
+    - intros (? & [=] & _).
+  Qed. 
+
   Inductive pseudo_conflicted (tr : tree item) (l : Z) (tg1 : tag) : res_conflicted → option protector → Prop :=
     pseudo_conflicted_conflicted c :
         protected_by c →
