@@ -2096,7 +2096,7 @@ Proof.
     iSplitL "Hpub_call_auth".
     { iExists ∅. iFrame. iApply big_sepM_empty. done. }
     iSplitL.
-    { do 5 (iSplit; first (done + (iPureIntro; apply trees_equal_empty))). iIntros (l Hl). exfalso.
+    { do 5 (iSplit; first (done || (iPureIntro; apply trees_equal_empty))). iIntros (l Hl). exfalso.
       move : Hl. rewrite lookup_empty. intros [? [=]]. }
     iSplitL.
     { iPureIntro. intros c M'. rewrite lookup_empty. congruence. }
