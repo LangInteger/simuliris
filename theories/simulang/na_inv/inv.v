@@ -51,7 +51,7 @@ Section laws.
         ghost_map_auth naGS_col_name 1 (map_seq 0 cols') -∗ alloc_rel b_t b_s (λ _, alloc_rel_pred cols') -∗ na_bij_interp P_s σ_s' T_s').
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as (L cols ? ? HL) "(Hcols & Hbij & Hgs)".
-    iExists _. do 2 (iSplit; [done|]). iFrame.
+    iExists _. do 2 (iSplit; [done|]). iFrame "Hcols".
     iDestruct (heapbij_access with "Hbij Hrel") as (?) "[$ Hclose]".
     iIntros (cols' σ_s' T_s' ? ? Hdom HP) "Hcols He". iExists L, cols'. iFrame. repeat (iSplit; [done|]).
     iSplit.
@@ -134,7 +134,7 @@ Section fix_heap.
       move => ??. apply: safe_reach_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     } { done. }
     rewrite Hcol /= in Hcom.
-    iMod (alloc_rel_remove_frac (λ _, alloc_rel_pred cols') with "Halloc Hσ_s") as (v_t) "(?&?&?&?&?)".
+    iMod (alloc_rel_remove_frac (λ _, alloc_rel_pred cols') with "Halloc Hσ_s") as (v_t) "(?&?&?&?&Hheap)".
     { done. }
     { rewrite /alloc_rel_pred => q. by erewrite Hcom. }
     { by rewrite /alloc_rel_pred combine_na_locs_list_insert //= Hcom. }
@@ -142,7 +142,7 @@ Section fix_heap.
     { done. }
     { done. }
     iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
-    iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.
+    iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame "Hheap".
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
     - apply: na_locs_wf_insert_store; [done..| by rewrite list_insert_id | ].
@@ -177,7 +177,7 @@ Section fix_heap.
     set (cols' := <[π := (<[Loc b_s o := (Loc b_t o, NaRead (q1 / 2)%Qp)]>col)]> cols).
     iDestruct (alloc_rel_P_holds with "Halloc Hσ_s" ) as %[q'' Hcom']; [done|].
     rewrite /alloc_rel_pred Hcom in Hcom'.
-    iMod (alloc_rel_remove_frac (λ _, alloc_rel_pred cols') _ q1 (Some (q1 / 2)%Qp) ((q1 / 2))%Qp with "Halloc Hσ_s") as (v_t) "(?&?&?&?&?)".
+    iMod (alloc_rel_remove_frac (λ _, alloc_rel_pred cols') _ q1 (Some (q1 / 2)%Qp) ((q1 / 2))%Qp with "Halloc Hσ_s") as (v_t) "(?&?&?&?&Hheap)".
     { done. }
     { rewrite /alloc_rel_pred => q'. rewrite Hcom /q1. destruct q, q' => //= Hx. symmetry in Hx.
       by move: Hx => /Qp.sub_Some ->. }
@@ -191,7 +191,7 @@ Section fix_heap.
     { by rewrite Qp.div_2. }
     { done. }
     iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
-    iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame.
+    iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame "Hheap".
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
     - by rewrite insert_length.
     - apply: na_locs_wf_insert_load; [done..| by rewrite list_insert_id | ].
@@ -295,7 +295,7 @@ Section fix_heap.
     iSplitR.
     { iPureIntro. apply: fill_prim_step. apply: base_prim_step. by econstructor. }
     iDestruct ("Hsim" with "Hcol") as "$".
-    iFrame => /=. rewrite !right_id.
+    iFrame "HP_t HP_s Hσ_t Hσ_s" => /=. rewrite !right_id.
     iApply ("Hclose" with "[%] [%] [%] [%] Hcols Halloc").
     - by rewrite insert_length.
     - rewrite fill_comp. apply: (na_locs_wf_store σ_s); [done |done | | done | done | done | done | done ].
@@ -386,7 +386,7 @@ Section fix_heap.
     iModIntro. iExists _, _, _.
     iSplitR; first by eauto with base_step.
     iDestruct ("Hsim" with "Hv' Hcol") as "$".
-    iFrame => /=. rewrite !right_id.
+    iFrame "HP_t HP_s Hσ_t Hσ_s" => /=. rewrite !right_id.
     iApply ("Hclose" with "[%] [%] [%] [%] Hcols Halloc").
     - by rewrite insert_length.
     - apply: (na_locs_wf_load σ_s); [done |done | done | done | done | done ].
@@ -432,7 +432,7 @@ Section fix_heap.
     iIntros (e_t' efs σ_t') "%"; inv_base_step.
     iModIntro. iExists _, _, _.
     iSplitR; first by eauto with base_step.
-    iDestruct ("Hsim" with "Hcol") as "$". iFrame. iSplit; [|done].
+    iDestruct ("Hsim" with "Hcol") as "$". iFrame "HP_t HP_s Hσ_t Hσ_s". iSplit; [|done].
     iApply ("Hclose" with "[%] [%] [%] [%] [$] [$]").
     - rewrite app_length insert_length /=. lia.
     - rewrite app_nil_r. by apply: na_locs_wf_free.
@@ -493,7 +493,7 @@ Section fix_heap.
       move => π' cols' Hcols.
       destruct (cols' !! (l_s +ₗ o)) eqn: Hk => //.
       exfalso. have /=[??]:= HL _ _ _ _ Hcols Hk. by apply: HLs.
-    - iModIntro. iDestruct ("Hsim" with "[//]") as "$". iFrame.
+    - iModIntro. iDestruct ("Hsim" with "[//]") as "$". iFrame "HP_t HP_s Hσ_t Hσ_s".
       iExists _, _. iFrame. iPureIntro. split_and!; [done..|].
       by apply: na_locs_in_L_extend.
   Qed.

@@ -1654,12 +1654,14 @@ Proof.
   iExists (SBorGS _ _ _).
   iSplitL; last iSplit; last iSplit.
   - simpl. iFrame "Hprog_t Hprog_s".
-    iExists ∅, ∅, ∅, ∅. iFrame. (* iSplitL "Htainted_auth". 
+    iExists ∅, ∅, ∅, ∅.
+    iFrame "Hcall_auth Htag_auth Hheap_tgt_auth Hheap_src_auth".
+    (* iSplitL "Htainted_auth".
     { iExists ∅. iFrame. iIntros (? ?). rewrite lookup_empty. iIntros ([? [=]]). } *)
     iSplitL "Hpub_call_auth".
-    { iExists ∅. iFrame. iApply big_sepM_empty. done. }
+    { iFrame. iApply big_sepM_empty. done. }
     iSplitL.
-    { do 5 (iSplit; first (done + (iPureIntro; apply trees_equal_empty))). iIntros (l Hl). exfalso.
+    { do 5 (iSplit; first (done || (iPureIntro; apply trees_equal_empty))). iIntros (l Hl). exfalso.
       move : Hl. rewrite lookup_empty. intros [? [=]]. }
     iSplitL.
     { iPureIntro. intros c M'. rewrite lookup_empty. congruence. }
