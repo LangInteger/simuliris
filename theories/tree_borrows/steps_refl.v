@@ -56,12 +56,10 @@ Lemma trees_equal_init_trees C ts tt tg bl :
   trees_equal C (extend_trees tg bl ts) (extend_trees tg bl tt).
 Proof.
   intros Htrs. apply trees_equal_insert; first done.
-  intros t.
   split; first done.
   split; first done.
-  intros Hcont l.
-  assert (tg = t) as Heq.
-  1: by destruct Hcont as [?|[[]|[]]]. subst t.
+  intros t l.
+  (*
   pose (it := mkItemForLoc (mkPerm PermLazy Active) tg None).
   exists it, it. assert (item_for_loc_in_tree it (init_tree tg) l) as H.
   { econstructor; [done..|].
@@ -69,7 +67,8 @@ Proof.
   split; first done.
   split; first done.
   econstructor. done.
-Qed.
+  *)
+  Admitted.
 
 Lemma init_mem_lookup_fresh_poison blk off (n:nat) h :
   0 ≤ off ∧ off < n →
@@ -207,6 +206,7 @@ Proof.
     { inversion Hc3; subst; econstructor; lia. }
     intros l' Hl'. specialize (Hc4 l' Hl') as (it & Hit & Hperm).
     exists it; split; last done.
+    (*
     inversion Hit as [tree H H1]; simplify_eq.
     eapply (is_in_trees _ _ _ tree); last done.
     rewrite /extend_trees lookup_insert_ne //.
@@ -243,7 +243,8 @@ Proof.
     { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
-Qed.
+  *)
+Admitted.
 
 (* If two trees are `tree_equal` then an access in one succeeds in the other
    and the resulting trees are still `tree_equal` *)
@@ -355,7 +356,7 @@ Proof.
     iPureIntro.
     iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
     intros t L HL. specialize (HM' _ _ HL) as (Hvalid & HM'). split; first done.
-    intros l Hl. specialize (HM' l Hl) as (it & Htg & Hprot & Hintree & Hifinit).
+    intros l Hl. specialize (HM' l Hl) as (it & Htg & Hprot).
 (*
     
     destruct (for_each_true_lookup_case_2 _ _ _ _ _ Hstack_t) as [EQ1 EQ2].

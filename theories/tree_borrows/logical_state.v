@@ -139,6 +139,7 @@ Section utils.
     (* and define all the same relationships between those tags *)
     /\ (forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
     (* and have their permissions be equal up to C on all locations *)
+    (* FIXME: maybe think about reformulating ∧ (∀ t it1 it2, tree_lookup t it1 tr1 -> tree_lookup t it2 tr2 -> it_rel it1 it2) *)
     /\ (forall tg, tree_contains tg tr1 ->
           exists it1 it2,
             tree_lookup tr1 tg it1
@@ -264,6 +265,8 @@ Section utils.
     apply loc_eq_up_to_C_sym.
     auto.
   Qed.
+  
+  (* FIXME: add lookup lemma tree_equals tr1 tr2 → tree_lookup t it1 tr1 → ∃ it2, tree_lookup t it2 tr2 ∧ it_rel it1 it2 *)
 
   Lemma tree_equal_sym : Symmetric tree_equal.
   Proof.
