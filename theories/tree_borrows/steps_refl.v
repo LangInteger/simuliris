@@ -248,9 +248,8 @@ Admitted.
 
 (* If two trees are `tree_equal` then an access in one succeeds in the other
    and the resulting trees are still `tree_equal` *)
-Lemma tree_equal_memory_access :
-∀ cids tr1 tr2, tree_equal cids tr1 tr2 →
-∀ kind access_tg access_range tr1',
+Lemma tree_equal_memory_access cids tr1 tr2 kind access_tg access_range tr1' :
+tree_equal cids tr1 tr2 →
 memory_access kind cids access_tg access_range tr1 = Some tr1' →
 ∃ tr2',
   memory_access kind cids access_tg access_range tr2 = Some tr2' ∧
@@ -260,9 +259,8 @@ Admitted.
 
 (* If two trees are `tree_equal` then a deallocation in one succeeds in the other
    and the resulting trees are still `tree_equal` *)
-Lemma tree_equal_memory_deallocate :
-∀ cids tr1 tr2, tree_equal cids tr1 tr2 →
-∀ access_tg access_range tr1',
+Lemma tree_equal_memory_deallocate cids tr1 tr2 access_tg access_range tr1' :
+tree_equal cids tr1 tr2 →
 memory_deallocate cids access_tg access_range tr1 = Some tr1' →
 ∃ tr2',
   memory_deallocate cids access_tg access_range tr2 = Some tr2' ∧

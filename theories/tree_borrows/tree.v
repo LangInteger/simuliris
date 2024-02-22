@@ -8,13 +8,19 @@ Definition Tprop X : Type := X -> Prop.
 
 (** General Preliminaries *)
 
-Definition option_bind {X Y} (fn:X -> option Y)
-  : option X -> option Y :=
-  fun ox => x ← ox; fn x.
+#[global]
+Arguments option_bind {_} {_} _ _.
+#[global]
+Arguments option_join {_} _.
 
-Definition option_join {X}
-  : option (option X) -> option X :=
-  fun oox => ox ← oox; ox.
+Lemma option_bind_inv {A B} (f : A → option B) x y :
+  option_bind f x = Some y →
+  ∃ k, x = Some k ∧ f k = Some y.
+Proof.
+  destruct x as [x|]; last done.
+  by exists x.
+Qed.
+
 
 (* Generic tree
    Note: we are using the "tilted" representation of n-ary trees
