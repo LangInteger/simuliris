@@ -80,6 +80,11 @@ Section utils.
     it.(itag) = tg.
   Proof. intros [? ?]. eapply tree_unique_specifies_tag; eassumption. Qed.
 
+  Lemma trees_lookup_correct_tag {trs blk tg it} :
+    trees_lookup trs blk tg it ->
+    it.(itag) = tg.
+  Proof. intros [?[??]]. eapply tree_lookup_correct_tag; eassumption. Qed.
+
   Definition item_lookup (it : item) (l : Z) :=
     default {| initialized := PermLazy; perm := it.(initp) |} (it.(iperm) !! l).
 
@@ -679,39 +684,39 @@ Section heap_defs.
 
 (* TODO check that rel_dec is used the right way around *)
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
-    ∃ it tr, item_for_loc_in_tree it tr l.2 ∧ it.(tg) = t ∧ σ.(strs) !! l.1 = Some tr ∧
+    ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧
     match tk with
-    | tk_local => it.(lperm).(perm) = Active ∧
-            (* in other words, the item is unique *)
-            ∀ itb, item_for_loc_in_tree it tr l.2 → rel_dec tr it.(tg) itb.(tg) = This
+    | tk_local => (item_lookup it l.2).(perm) = Active ∧
+            (* The item is the only one in the tree *)
+            ∀ it' t', tree_lookup tr t' it' -> t = t'
     | tk_unq_res
-       => (match it.(lperm).(perm) with
+       => (match (item_lookup it l.2).(perm) with
            | Active | Reserved InteriorMut _ => True
-           | Reserved TyFrz _ => ¬ protected_by σ.(scs) it.(cid)
+           | Reserved TyFrz _ => ¬ protector_is_active it.(iprot) σ.(scs)
            | _ => False end) ∧
-          ∀ itb, item_for_loc_in_tree it tr l.2 → match rel_dec tr it.(tg) itb.(tg) with 
+          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
             | This => True
-               (* itb is a child of it *)
-            | Child => itb.(lperm).(perm) = Disabled
-            | Parent => itb.(lperm).(perm) ≠ Disabled
-            | Cousin => itb.(lperm).(perm) ≠ Active end
+               (* it' is a child of it *)
+            | Child => (item_lookup it' l.2).(perm) = Disabled
+            | Parent => (item_lookup it' l.2).(perm) ≠ Disabled
+            | Cousin => (item_lookup it' l.2).(perm) ≠ Active end
     | tk_unq_act
-       => it.(lperm).(perm) = Active ∧
-          ∀ itb, item_for_loc_in_tree it tr l.2 → match rel_dec tr it.(tg) itb.(tg) with 
+       => (item_lookup it l.2).(perm) = Active ∧
+          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
             | This => True
-               (* itb is a child of it *)
-            | Child => itb.(lperm).(perm) = Disabled
-            | Parent => itb.(lperm).(perm) = Active
-            | Cousin => match itb.(lperm).(perm) with
+               (* it' is a child of it *)
+            | Child => (item_lookup it' l.2).(perm) = Disabled
+            | Parent => (item_lookup it' l.2).(perm) = Active
+            | Cousin => match (item_lookup it' l.2).(perm) with
                        Disabled | Reserved InteriorMut _ => True | _ => False end end
     | tk_pub
-       => it.(lperm).(perm) = Frozen ∧
-          ∀ itb, item_for_loc_in_tree it tr l.2 → match rel_dec tr it.(tg) itb.(tg) with 
+       => (item_lookup it l.2).(perm) = Frozen ∧
+          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
             | This => True
-               (* itb is a child of it *)
-            | Child => itb.(lperm).(perm) ≠ Active
-            | Parent => itb.(lperm).(perm) ≠ Disabled
-            | Cousin => itb.(lperm).(perm) ≠ Active end
+               (* it' is a child of it *)
+            | Child => (item_lookup it' l.2).(perm) ≠ Active
+            | Parent => (item_lookup it' l.2).(perm) ≠ Disabled
+            | Cousin => (item_lookup it' l.2).(perm) ≠ Active end
     end.
 
   Lemma bor_state_own_some_tree l t tk σ :

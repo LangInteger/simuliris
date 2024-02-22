@@ -53,18 +53,18 @@ Section lemmas.
     by eapply is_fresh_block in Heq2.
   Qed.
 
-  Lemma extend_trees_find_item σ it loc :
+  Lemma extend_trees_find_item σ t it (loc : loc) :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
     let α' := extend_trees σ.(snp) blk σ.(strs) in
     state_wf σ →
-    item_for_loc_in_trees it σ.(strs) loc →
-    item_for_loc_in_trees it α' loc.
+    trees_lookup σ.(strs) loc.1 t it ->
+    trees_lookup  α' loc.1 t it.
   Proof.
     intros blk l nt α' Hwf Hinv.
-    inversion Hinv as [tree H1 Hinv1]; clear Hinv.
-    eapply (is_in_trees _ _ _ tree); last done.
+    inversion Hinv as [tree [H1 Lookup]]; clear Hinv.
+    econstructor; split; last eassumption.
     by apply extend_trees_preserve.
   Qed.
 
@@ -84,29 +84,27 @@ Section lemmas.
     cbv. tauto.
   Qed.
 
-  Lemma extend_trees_find_item_rev σ it loc :
+  Lemma extend_trees_find_item_rev σ t it (loc : loc) :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
     let α' := extend_trees σ.(snp) blk σ.(strs) in
     state_wf σ →
-    item_for_loc_in_trees it α' loc →
-    item_for_loc_in_trees it σ.(strs) loc ∨ (it = mkItemForLoc (mkPerm PermLazy Active) nt None ∧ loc.1 = blk).
+    trees_lookup α' loc.1 t it ->
+    trees_lookup σ.(strs) loc.1 t it ∨ (it = mkItem nt None Active ∅ ∧ loc.1 = blk).
   Proof.
     intros blk l nt α' Hwf Hinv.
-    inversion Hinv as [tree H1 Hinv1]; clear Hinv.
+    inversion Hinv as [tree [H1 Hinv1]]; clear Hinv.
     destruct loc as (blk'&off'). cbn in *.
     rewrite /α' /extend_trees in H1.
     eapply lookup_insert_Some in H1 as [(<-&Heq)|(H1&H2)].
-    2: left; by eapply (is_in_trees _ _ _ tree).
+    2: left; econstructor; split; last eassumption; done.
     right. subst tree.
-    inversion Hinv1 as [itm H1%exists_node_init_tree H2%every_node_init_tree H3 H4]; simplify_eq.
-    destruct it as [lperm tg cid].
-    rewrite /= /IsTag in H1. subst tg.
-    rewrite /= in H2. specialize (H2 (ltac:(done))). subst itm.
-    rewrite /= in H3. subst cid.
-    rewrite /= lookup_empty /= in H4. subst lperm.
-    done.
+    inversion Hinv1 as [Ex Unq]; simplify_eq.
+    split; last reflexivity.
+    inversion Ex as [Root|Else].
+    - inversion Unq as [Eq]. rewrite <- Eq; last done. simpl. f_equal.
+    - inversion Else; contradiction.
   Qed.
 
   Lemma init_mem_preserve σ n :
@@ -138,12 +136,16 @@ Section lemmas.
   Proof.
     intros blk l nt h' α' σ' Hnt Hwf Hcontrolled Hpre.
     assert (bor_state_pre l' t tk σ) as [Hown Hmem]%Hcontrolled.
+    (* FIXME: very ugly *)
     { destruct tk; unfold bor_state_pre in Hpre|-*.
-      1-3: destruct Hpre as (it & [Hin|(Heq&_)]%extend_trees_find_item_rev & H1 & H2); [
-             by exists it | by subst it t | done ].
-      done. }
+      4: done.
+      all: destruct Hpre as (it & [Ha Hb]); exists it.
+      all: split; auto; destruct (extend_trees_find_item_rev _ _ _ _ Hwf Ha) as [|[]]; [assumption|].
+      all: subst it nt; pose proof (trees_lookup_correct_tag Ha) as SameTg.
+      all: by rewrite /= in SameTg.
+    }
     split; last by eapply init_mem_preserve.
-    destruct Hown as (it & tr & Hin & Ht & Htrs & Htk).
+    destruct Hown as (it & tr & Hin & Ht & Htrs).
     exists it, tr; split_and!; try done.
     by apply extend_trees_preserve.
   Qed.
