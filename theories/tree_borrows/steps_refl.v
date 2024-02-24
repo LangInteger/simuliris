@@ -51,24 +51,20 @@ Proof.
   - rewrite !lookup_delete_ne //.
 Qed.
 
-Lemma trees_equal_init_trees C ts tt tg bl :
-  trees_equal C ts tt →
-  trees_equal C (extend_trees tg bl ts) (extend_trees tg bl tt).
+Lemma trees_equal_init_trees C trs1 trs2 tg bl :
+  trees_equal C trs1 trs2 →
+  trees_equal C (extend_trees tg bl trs1) (extend_trees tg bl trs2).
 Proof.
   intros Htrs. apply trees_equal_insert; first done.
   split; first done.
   split; first done.
-  intros t l.
-  (*
-  pose (it := mkItemForLoc (mkPerm PermLazy Active) tg None).
-  exists it, it. assert (item_for_loc_in_tree it (init_tree tg) l) as H.
-  { econstructor; [done..|].
-    cbn. rewrite lookup_empty. done. }
+  intros t Ex.
+  pose (it := mkItem tg None Active (init_perms Active)).
+  exists it, it.
   split; first done.
   split; first done.
-  econstructor. done.
-  *)
-  Admitted.
+  apply item_eq_up_to_C_reflexive.
+Qed.
 
 Lemma init_mem_lookup_fresh_poison blk off (n:nat) h :
   0 ≤ off ∧ off < n →
@@ -206,16 +202,15 @@ Proof.
     { inversion Hc3; subst; econstructor; lia. }
     intros l' Hl'. specialize (Hc4 l' Hl') as (it & Hit & Hperm).
     exists it; split; last done.
-    (*
-    inversion Hit as [tree H H1]; simplify_eq.
-    eapply (is_in_trees _ _ _ tree); last done.
-    rewrite /extend_trees lookup_insert_ne //.
-    intros Heq. rewrite -Heq in H.
+    inversion Hit as [tree [H H1]]; simplify_eq.
+    rewrite /trees_lookup /extend_trees lookup_insert_ne.
+    1: exists tree; split; done.
     eapply elem_of_dom_2 in H.
+    intro Heq. rewrite -Heq in H.
     rewrite state_wf_dom in H; last done.
     apply elem_of_map in H as ((l1 & l2) & Heq2 & H).
     simpl in Heq2. subst l1.
-    eapply is_fresh_block, H. 
+    apply (is_fresh_block _ _ H).
   - (* tag interp *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s). split_and!.
     { simpl. intros tr tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
@@ -243,8 +238,7 @@ Proof.
     { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
-  *)
-Admitted.
+Qed.
 
 (* If two trees are `tree_equal` then an access in one succeeds in the other
    and the resulting trees are still `tree_equal` *)
