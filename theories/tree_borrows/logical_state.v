@@ -8,7 +8,7 @@ From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs.
 From simuliris.tree_borrows Require Export steps_wf.
-(* From simuliris.stacked_borrows Require Import steps_progress steps_retag. *)
+From simuliris.tree_borrows Require Import steps_progress.
 From iris.prelude Require Import options.
 
 (** * BorLang ghost state *)
@@ -379,6 +379,147 @@ Section utils.
       + econstructor.
   Abort.
   *)
+
+  Lemma every_node_iff_every_lookup
+    {tr prop}
+    (GloballyUnique : forall tg, tree_contains tg tr -> exists it, tree_unique tg it tr)
+    : every_node prop tr <-> forall tg it, tree_lookup tr tg it -> prop it.
+  Proof.
+    rewrite every_node_eqv_universal.
+    split.
+    - intros Every tg it [Ex Unq].
+      apply Every.
+      eapply exists_node_increasing; [eassumption|].
+      eapply every_node_increasing; [eassumption|].
+      erewrite every_node_eqv_universal.
+      intros. symmetry. auto.
+    - intros Lookup it Exists.
+      apply (Lookup (itag it)).
+      assert (tree_contains it.(itag) tr) as Ex. {
+        eapply exists_node_increasing; [eassumption|].
+        erewrite every_node_eqv_universal.
+        intros. subst. rewrite /IsTag. auto.
+      }
+      destruct (GloballyUnique _ Ex) as [it' Unq'].
+      assert (it = it') as Eq. {
+        apply (proj1 (every_node_eqv_universal _ _) Unq' it Exists).
+        rewrite /IsTag; auto.
+      }
+      rewrite -Eq in Unq'.
+      split; assumption.
+  Qed.
+
+  Lemma tree_equal_implies_globally_unique_1
+    {tr1 tr2} :
+    tree_equal tr1 tr2 ->
+    forall tg, tree_contains tg tr1 -> exists it, tree_unique tg it tr1.
+  Proof.
+    intros [ExIff [SameRel Lookup]] tg Ex.
+    destruct (Lookup _ Ex) as [it1 [it2 [Lookup1 [Lookup2 EqC]]]].
+    exists it1.
+    apply Lookup1.
+  Qed.
+
+  Lemma tree_equal_implies_globally_unique_2
+    {tr1 tr2} :
+    tree_equal tr1 tr2 ->
+    forall tg, tree_contains tg tr2 -> exists it, tree_unique tg it tr2.
+  Proof.
+    intro Eq.
+    pose proof (tree_equal_sym _ _ Eq) as Eq'.
+    revert Eq'.
+    apply tree_equal_implies_globally_unique_1.
+  Qed.
+
+
+  Lemma tree_equal_transfer_lookup_1
+    {tr1 tr2 tg it1} :
+    tree_equal tr1 tr2 ->
+    tree_lookup tr1 tg it1 ->
+    exists it2,
+      tree_lookup tr2 tg it2
+      /\ item_eq_up_to_C tr1 tr2 tg it1 it2.
+  Proof.
+    intros [SameTg [SameRel MkLookup]] [Ex1 Unq1].
+    destruct (MkLookup _ Ex1) as [it1' [it2 [Lookup1' [Lookup2 EqC']]]].
+    assert (it1 = it1') by (eapply tree_unique_unify; [eassumption|apply Unq1|apply Lookup1']).
+    subst it1'.
+    exists it2.
+    split; assumption.
+  Qed.
+
+  Lemma tree_equal_transfer_lookup_2
+    {tr1 tr2 tg it2} :
+    tree_equal tr1 tr2 ->
+    tree_lookup tr2 tg it2 ->
+    exists it1,
+      tree_lookup tr1 tg it1
+      /\ item_eq_up_to_C tr1 tr2 tg it1 it2.
+  Proof.
+    intros Eq Lookup2.
+    pose proof (tree_equal_sym _ _ Eq) as Eq'.
+    destruct (tree_equal_transfer_lookup_1 Eq' Lookup2) as [it1 [Lookup1 EqC']].
+    exists it1; split; [assumption|].
+    apply item_eq_up_to_C_sym.
+    assumption.
+  Qed.
+
+  Lemma is_Some_ignore_bind
+    {X Y} {o : option X} {g : X -> Y} :
+    is_Some (o ≫= fun x => Some (g x)) <-> is_Some o.
+  Proof.
+    destruct o; simpl; split; intro H.
+    - auto.
+    - auto.
+    - inversion H; discriminate.
+    - inversion H; discriminate.
+  Qed.
+
+
+  Lemma item_eq_up_to_C_allows_same_access
+    {tr1 tr2 tg it1 it2 kind cids acc_tg range} :
+    tree_equal tr1 tr2 ->
+    item_eq_up_to_C tr1 tr2 tg it1 it2 ->
+    (* Might need extra hypotheses on the entire tree. *)
+    is_Some (item_apply_access (apply_access_perm kind) cids (rel_dec tr1 acc_tg (itag it1)) range it1) ->
+    is_Some (item_apply_access (apply_access_perm kind) cids (rel_dec tr2 acc_tg (itag it2)) range it2).
+  Proof.
+    rewrite /item_apply_access /permissions_apply_range'.
+    rewrite is_Some_ignore_bind.
+    rewrite is_Some_ignore_bind.
+    intros Eq EqC.
+    intro App1.
+    rewrite -mem_apply_range'_success_condition in App1.
+    rewrite -mem_apply_range'_success_condition.
+    intros l InRange.
+    specialize (App1 l InRange).
+    specialize (EqC l).
+  Admitted.
+
+  Lemma tree_equal_allows_same_access
+    {tr1 tr2 kind cids acc_tg range} :
+    tree_equal tr1 tr2 ->
+    is_Some (memory_access kind cids acc_tg range tr1) ->
+    is_Some (memory_access kind cids acc_tg range tr2).
+  Proof.
+    intros Eq Acc1.
+    apply apply_access_success_condition.
+    pose proof (proj2 (apply_access_success_condition _ _ _ _ _) Acc1) as Every1.
+    (* Get it into a more usable form *)
+    rewrite every_node_iff_every_lookup in Every1.
+    2: eapply tree_equal_implies_globally_unique_1; eassumption.
+    rewrite every_node_iff_every_lookup.
+    2: eapply tree_equal_implies_globally_unique_2; eassumption.
+    (* And now we can unfold the definitions more *)
+    intros tg it Lookup2.
+    pose proof Eq as EqCopy.
+    destruct EqCopy as [ExIff [SameRel Lookup]].
+    destruct (tree_equal_transfer_lookup_2 Eq Lookup2) as [it1 [Lookup1 EqC]].
+    eapply item_eq_up_to_C_allows_same_access.
+    - eassumption.
+    - eassumption.
+    - eapply Every1; eassumption.
+  Qed.
 
 
 End utils.

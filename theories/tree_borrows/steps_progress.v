@@ -32,8 +32,8 @@ Qed.
 
 
 Lemma apply_access_success_condition tr cids access_tag range fn :
-  every_node (fun it => is_Some (item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it)) tr ->
-  is_Some (tree_apply_access fn cids access_tag range tr).
+  every_node (fun it => is_Some (item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it)) tr
+  <-> is_Some (tree_apply_access fn cids access_tag range tr).
 Proof.
   rewrite /tree_apply_access.
   rewrite join_success_condition.
@@ -42,24 +42,53 @@ Proof.
 Qed.
 
 Lemma mem_apply_range'_success_condition {X} (map : gmap Z X) fn range :
-  (forall l, range'_contains range l -> is_Some (fn (map !! l))) ->
+  (forall l, range'_contains range l -> is_Some (fn (map !! l))) <->
   is_Some (mem_apply_range' fn range map).
 Proof.
   destruct range as [z sz].
   generalize dependent z.
   generalize dependent map.
-  induction sz as [|? IHsz]; intros map z.
+  induction sz as [|sz IHsz]; intros map z.
   - rewrite /mem_apply_range' //=.
-  - intro PerLoc.
-    rewrite /mem_apply_range' //= /mem_apply_loc.
-    destruct (PerLoc z) as [? H]. { rewrite /range'_contains //=; lia. }
-    rewrite H //=.
-    rewrite /mem_apply_range' //= in IHsz.
-    eapply IHsz.
-    intros l Contains.
-    rewrite lookup_insert_ne.
-    + apply PerLoc. rewrite /range'_contains //= in Contains |- *. lia.
-    + rewrite /range'_contains //= in Contains. lia.
+    split; intro.
+    + econstructor; reflexivity.
+    + rewrite /range'_contains; simpl. intros. lia.
+  - split.
+    + intro PerLoc.
+      rewrite /mem_apply_range' //= /mem_apply_loc.
+      destruct (PerLoc z) as [? H]. { rewrite /range'_contains //=; lia. }
+      rewrite H //=.
+      rewrite /mem_apply_range' //= in IHsz.
+      eapply IHsz.
+      intros l Contains.
+      rewrite lookup_insert_ne.
+      * apply PerLoc. rewrite /range'_contains //= in Contains |- *. lia.
+      * rewrite /range'_contains //= in Contains. lia.
+    + intros Success l InRange.
+      inversion Success as [map' App'].
+      rewrite /mem_apply_range' /= in App'.
+      remember (mem_apply_loc _ _ _) as AppLoc eqn:HeqAppLoc.
+      destruct AppLoc as [map''|]; last discriminate.
+      simpl in *.
+      destruct (decide (l = z)).
+      * subst; simpl in *.
+        rewrite /mem_apply_loc in HeqAppLoc.
+        destruct (fn _); last discriminate; auto.
+      * assert (range'_contains (z+1, sz) l) as InSubRange. {
+          rewrite /range'_contains in InRange |- *. simpl in *. lia.
+        }
+        assert (map'' !! l = map !! l) as Eql. {
+          rewrite /mem_apply_loc in HeqAppLoc.
+          destruct (fn _); [simpl in *|discriminate].
+          injection HeqAppLoc; intros; subst.
+          rewrite lookup_insert_ne; [reflexivity|lia].
+        }
+        rewrite <- Eql.
+        rewrite /mem_apply_loc in HeqAppLoc.
+        assert (is_Some (mem_apply_range' fn (z+1, sz) map'')) as App''. {
+         eexists. rewrite /mem_apply_range'. simpl. apply App'.
+        }
+        apply (proj2 (IHsz _ _) App'' l InSubRange).
 Qed.
 
 
