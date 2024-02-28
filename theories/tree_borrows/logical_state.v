@@ -476,9 +476,41 @@ Section utils.
   Qed.
 
 
+  Lemma loc_eq_up_to_C_allows_same_access
+    {tr1 tr2 tg it1 it2 l kind acc_tg cids}
+    (SameTg : itag it1 = itag it2)
+    (* FIXME: we need a global hypothesis on the success of the access. *)
+    (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
+    :
+    loc_eq_up_to_C tr1 tr2 tg it1 it2 l ->
+    is_Some (apply_access_perm kind (rel_dec tr1 acc_tg (itag it1))
+            (bool_decide (protector_is_active (iprot it1) cids))
+            (default {| initialized := PermLazy; perm := initp it1 |}
+               (iperm it1 !! l)))
+    ->
+    is_Some (apply_access_perm kind (rel_dec tr2 acc_tg (itag it2))
+     (bool_decide (protector_is_active (iprot it2) cids))
+     (default {| initialized := PermLazy; perm := initp it2 |}
+        (iperm it2 !! l))).
+  Proof.
+    intros EqC Acc1.
+    inversion EqC as [EqProt EqCLookup].
+    inversion EqCLookup as [perm Lookup EqLookup|].
+    - rewrite -SameTg.
+      rewrite -SameRel.
+      rewrite -EqProt.
+      rewrite /item_lookup in EqLookup. rewrite -EqLookup.
+      apply Acc1.
+    - (* FIXME: here we need a lemma that accesses that succeed globally affect
+         all pseudo-conflicted the same way. *) admit.
+  Admitted.
+
+
   Lemma item_eq_up_to_C_allows_same_access
-    {tr1 tr2 tg it1 it2 kind cids acc_tg range} :
-    tree_equal tr1 tr2 ->
+    {tr1 tr2 tg it1 it2 kind cids acc_tg range}
+    (SameTg : itag it1 = itag it2)
+    (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
+    :
     item_eq_up_to_C tr1 tr2 tg it1 it2 ->
     (* Might need extra hypotheses on the entire tree. *)
     is_Some (item_apply_access (apply_access_perm kind) cids (rel_dec tr1 acc_tg (itag it1)) range it1) ->
@@ -487,14 +519,19 @@ Section utils.
     rewrite /item_apply_access /permissions_apply_range'.
     rewrite is_Some_ignore_bind.
     rewrite is_Some_ignore_bind.
-    intros Eq EqC.
+    intros EqC.
     intro App1.
     rewrite -mem_apply_range'_success_condition in App1.
     rewrite -mem_apply_range'_success_condition.
     intros l InRange.
     specialize (App1 l InRange).
     specialize (EqC l).
-  Admitted.
+    eapply loc_eq_up_to_C_allows_same_access.
+    + apply SameTg.
+    + apply SameRel.
+    + apply EqC.
+    + apply App1.
+  Qed.
 
   Lemma tree_equal_allows_same_access
     {tr1 tr2 kind cids acc_tg range} :
@@ -515,8 +552,10 @@ Section utils.
     pose proof Eq as EqCopy.
     destruct EqCopy as [ExIff [SameRel Lookup]].
     destruct (tree_equal_transfer_lookup_2 Eq Lookup2) as [it1 [Lookup1 EqC]].
-    eapply item_eq_up_to_C_allows_same_access.
-    - eassumption.
+    eapply item_eq_up_to_C_allows_same_access; [| |eauto|].
+    - erewrite tree_unique_specifies_tag. 2,3: eapply Lookup1.
+      erewrite tree_unique_specifies_tag. 2,3: eapply Lookup2.
+      reflexivity.
     - eassumption.
     - eapply Every1; eassumption.
   Qed.
