@@ -476,11 +476,57 @@ Section utils.
   Qed.
 
 
+  Lemma pseudo_conflicted_allows_same_access
+    {tr1 tr2 tg l confl1 confl2 kind rel isprot cids ini im acc_tg range it1}
+    (* Main hypotheses *)
+    (Confl1 : pseudo_conflicted tr1 tg l confl1)
+    (Confl2 : pseudo_conflicted tr2 tg l confl2)
+    (* Auxiliary stuff to bind the local access to the global success for the pseudo conflicted case *)
+    (GlobalSuccess : is_Some (tree_apply_access (apply_access_perm kind) cids acc_tg range tr1))
+    (ProtSpec : isprot = bool_decide (protector_is_active (iprot it1) cids))
+    (RelSpec : rel = rel_dec tr1 acc_tg tg)
+    (PermSpec : item_lookup it1 l = {| initialized := ini; perm := Reserved im confl1 |})
+    : is_Some
+         (apply_access_perm kind rel isprot
+            {| initialized := ini; perm := Reserved im confl1 |})
+    -> is_Some
+         (apply_access_perm kind rel isprot
+            {| initialized := ini; perm := Reserved im confl2 |}).
+  Proof.
+    rewrite /apply_access_perm /apply_access_perm_inner; simpl.
+    (* Most cases are by reflexivity. *)
+    destruct kind, rel; simpl.
+    all: destruct ini, isprot; simpl; try auto.
+    all: inversion Confl1.
+    all: inversion Confl2.
+    all: destruct im.
+    all: subst; simpl; try auto.
+    (* Once we get reflexivity out of the way we are left with the accesses
+       where there is UB in the target because of the conflicted.
+       We now need to prove that actually there is also UB in the source,
+       just not _here_, instead it occured at the cousin that creates the conflict. *)
+    all: exfalso.
+    (* FIXME: here we need a lemma that shows
+       1. a Child/This access for tg is Foreign for tg_cous who is Cousin of tg
+       2. a Foreign access for such tg_cous is UB globally.
+       We can indeed check that in all of the following cases we have
+       rel = This or rel = Child and kind = AccessWrite. *)
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
   Lemma loc_eq_up_to_C_allows_same_access
-    {tr1 tr2 tg it1 it2 l kind acc_tg cids}
-    (SameTg : itag it1 = itag it2)
-    (* FIXME: we need a global hypothesis on the success of the access. *)
+    {tr1 tr2 tg it1 it2 l kind acc_tg cids range}
+    (Tg1 : itag it1 = tg)
+    (Tg2 : itag it2 = tg)
     (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
+    (GlobalSuccess : is_Some (tree_apply_access (apply_access_perm kind) cids acc_tg range tr1))
     :
     loc_eq_up_to_C tr1 tr2 tg it1 it2 l ->
     is_Some (apply_access_perm kind (rel_dec tr1 acc_tg (itag it1))
@@ -495,24 +541,36 @@ Section utils.
   Proof.
     intros EqC Acc1.
     inversion EqC as [EqProt EqCLookup].
-    inversion EqCLookup as [perm Lookup EqLookup|].
-    - rewrite -SameTg.
+    inversion EqCLookup as [perm Lookup EqLookup|???? Prot Confl1 Confl2 Lookup1 Lookup2].
+    - rewrite Tg2 -Tg1.
       rewrite -SameRel.
       rewrite -EqProt.
       rewrite /item_lookup in EqLookup. rewrite -EqLookup.
       apply Acc1.
-    - (* FIXME: here we need a lemma that accesses that succeed globally affect
-         all pseudo-conflicted the same way. *) admit.
-  Admitted.
-
+    - rewrite /item_lookup in Lookup1, Lookup2.
+      rewrite -Lookup2.
+      rewrite -Lookup1 in Acc1.
+      eapply pseudo_conflicted_allows_same_access.
+      + exact Confl1.
+      + exact Confl2.
+      + exact GlobalSuccess.
+      + rewrite -EqProt; reflexivity.
+      + rewrite SameRel Tg2 //=.
+      + rewrite /item_lookup Lookup1 //=.
+      + rewrite -SameRel.
+        rewrite -EqProt.
+        rewrite Tg2 -Tg1.
+        apply Acc1.
+  Qed.
 
   Lemma item_eq_up_to_C_allows_same_access
     {tr1 tr2 tg it1 it2 kind cids acc_tg range}
-    (SameTg : itag it1 = itag it2)
+    (Tg1 : itag it1 = tg)
+    (Tg2 : itag it2 = tg)
     (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
+    (GlobalSuccess : is_Some (tree_apply_access (apply_access_perm kind) cids acc_tg range tr1))
     :
     item_eq_up_to_C tr1 tr2 tg it1 it2 ->
-    (* Might need extra hypotheses on the entire tree. *)
     is_Some (item_apply_access (apply_access_perm kind) cids (rel_dec tr1 acc_tg (itag it1)) range it1) ->
     is_Some (item_apply_access (apply_access_perm kind) cids (rel_dec tr2 acc_tg (itag it2)) range it2).
   Proof.
@@ -527,8 +585,10 @@ Section utils.
     specialize (App1 l InRange).
     specialize (EqC l).
     eapply loc_eq_up_to_C_allows_same_access.
-    + apply SameTg.
+    + apply Tg1.
+    + apply Tg2.
     + apply SameRel.
+    + apply GlobalSuccess.
     + apply EqC.
     + apply App1.
   Qed.
@@ -552,11 +612,11 @@ Section utils.
     pose proof Eq as EqCopy.
     destruct EqCopy as [ExIff [SameRel Lookup]].
     destruct (tree_equal_transfer_lookup_2 Eq Lookup2) as [it1 [Lookup1 EqC]].
-    eapply item_eq_up_to_C_allows_same_access; [| |eauto|].
-    - erewrite tree_unique_specifies_tag. 2,3: eapply Lookup1.
-      erewrite tree_unique_specifies_tag. 2,3: eapply Lookup2.
-      reflexivity.
+    eapply item_eq_up_to_C_allows_same_access; [| | | |eauto|].
+    - erewrite tree_unique_specifies_tag. 2,3: eapply Lookup1. reflexivity.
+    - erewrite tree_unique_specifies_tag. 2,3: eapply Lookup2. reflexivity.
     - eassumption.
+    - apply Acc1.
     - eapply Every1; eassumption.
   Qed.
 
