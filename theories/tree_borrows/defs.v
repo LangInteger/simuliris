@@ -20,7 +20,10 @@ Definition item_wf (it:item) (nxtp:tag) (nxtc:call_id) :=
 Definition tree_item_included (tr:tree item) (nxtp:tag) (nxtc: call_id) :=
   forall tg,
   tree_contains tg tr -> exists it,
-  tree_unique tg it tr /\ item_wf it nxtp nxtc.
+    tree_unique tg tr
+    /\ tree_item_determined tg it tr
+    /\ item_wf it nxtp nxtc.
+  (* FIXME: unique *)
 
 (* FIXME: consistent naming *)
 Definition wf_tree (tr:tree item) (nxtp:tag) (nxtc:call_id) :=

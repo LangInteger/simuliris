@@ -2,20 +2,91 @@ From iris.prelude Require Import prelude options.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas.
 From iris.prelude Require Import options.
 
-Lemma exists_unique_exists tr tg it :
+Lemma unique_somewhere
+  {a b} :
+  a + b = 1 -> a = 1 \/ b = 1.
+Proof. lia. Qed.
+
+Lemma unique_found_here
+  {a b} :
+  1 + a + b = 1 -> a = 0 /\ b = 0.
+Proof. lia. Qed.
+
+Lemma absent_nowhere
+  {a b c} :
+  a + b + c = 0 <-> a = 0 /\ b = 0 /\ c = 0.
+Proof. lia. Qed.
+
+Lemma unique_exists {tr tg} :
+  tree_unique tg tr ->
+  tree_contains tg tr.
+Proof.
+  rewrite /tree_unique /tree_count_tg /has_tag.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [discriminate|].
+  rewrite /IsTag.
+  destruct (decide (itag data = tg)).
+  - rewrite bool_decide_eq_true_2; [auto|assumption].
+  - rewrite bool_decide_eq_false_2; [|assumption].
+    simpl.
+    intro Somewhere.
+    right.
+    destruct (unique_somewhere Somewhere).
+    + left. apply IHtr1. assumption.
+    + right. apply IHtr2. assumption.
+Qed.
+
+Lemma count_gt0_exists {tr tg} :
+  tree_count_tg tg tr >= 1 <->
+  tree_contains tg tr.
+Proof.
+Admitted.
+
+Lemma count_0_not_exists tr tg :
+  tree_count_tg tg tr = 0
+  <-> ~tree_contains tg tr.
+Proof.
+  rewrite /tree_count_tg /has_tag.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [tauto|].
+  rewrite /IsTag.
+  split.
+  - intro Nowhere.
+    destruct (proj1 absent_nowhere Nowhere) as [?[??]].
+    destruct (decide (itag data = tg)).
+    + rewrite bool_decide_eq_true_2 in Nowhere; [|assumption].
+      simpl in *; discriminate.
+    + intros [|[|]].
+      * contradiction.
+      * apply IHtr1; assumption.
+      * apply IHtr2; assumption.
+  - intro nEx.
+    apply absent_nowhere.
+    split; [|split].
+    + destruct (decide (itag data = tg)).
+      * exfalso. apply nEx. auto.
+      * rewrite bool_decide_eq_false_2; auto.
+    + apply IHtr1. auto.
+    + apply IHtr2. auto.
+Qed.
+
+Lemma unique_lookup tr tg :
+  tree_unique tg tr ->
+  exists it, tree_item_determined tg it tr.
+Proof.
+Admitted.
+
+Lemma exists_determined_exists tr tg it :
   tree_contains tg tr ->
-  tree_unique tg it tr ->
+  tree_item_determined tg it tr ->
   exists_node (eq it) tr.
 Proof.
-  move=> Contains Unique.
+  move=> Contains Det.
   induction tr; simpl in *; auto.
-  destruct Unique as [?[??]].
+  destruct Det as [?[??]].
   destruct Contains as [?|[?|?]].
   - left; symmetry; auto.
   - right; left; auto.
   - right; right; auto.
 Qed.
-
 
 Lemma insert_eqv_strict_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
   {search_dec:forall it, Decision (search it)} :
@@ -223,13 +294,13 @@ Proof.
     - apply IHtr2; exact Fresh2.
 Qed.
 
-Lemma inserted_unique (tgp tg:tag) (ins:item) (tr:tree item) :
+Lemma inserted_determined (tgp tg:tag) (ins:item) (tr:tree item) :
   IsTag tg ins ->
   ~tree_contains tg tr ->
-  tree_unique tg ins (insert_child_at tr ins (IsTag tgp)).
+  tree_item_determined tg ins (insert_child_at tr ins (IsTag tgp)).
 Proof.
   intros Tg Fresh.
-  unfold tree_unique.
+  unfold tree_item_determined.
   unfold tree_contains in Fresh; rewrite <- every_not_eqv_not_exists in Fresh.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; auto.
   destruct Fresh as [?[??]].
@@ -238,6 +309,45 @@ Proof.
     simpl; intro; contradiction.
   - try repeat split; [|apply IHtr1; assumption|apply IHtr2; assumption].
     simpl; intro; contradiction.
+Qed.
+
+Lemma inserted_count_sum (tgp tg : tag) (ins : item) (tr : tree item) :
+  IsTag tg ins ->
+  tg ≠ tgp ->
+  tree_count_tg tg (insert_child_at tr ins (IsTag tgp))
+  = tree_count_tg tg tr + tree_count_tg tgp tr.
+Proof.
+  intros Tg Ne.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [auto|].
+  destruct (decide _) as [Tgp|nTgp]; simpl.
+  + rewrite IHtr1.
+    rewrite IHtr2.
+    rewrite /has_tag.
+    rewrite (bool_decide_eq_true_2 _ Tgp).
+    assert (~IsTag tg data) as nTgd. { intro Tgd. apply Ne. unfold IsTag in *. congruence. }
+    rewrite (bool_decide_eq_false_2 _ nTgd).
+    rewrite (bool_decide_eq_true_2 _ Tg).
+    lia.
+  + rewrite IHtr1.
+    rewrite IHtr2.
+    rewrite /has_tag.
+    rewrite (bool_decide_eq_false_2 _ nTgp).
+    lia.
+Qed.
+
+Lemma inserted_unique (tgp tg : tag) (ins : item) (tr : tree item) :
+  IsTag tg ins ->
+  ~tree_contains tg tr ->
+  tree_unique tgp tr ->
+  tree_unique tg (insert_child_at tr ins (IsTag tgp)).
+Proof.
+  intros Tg nEx Unq.
+  rewrite /tree_unique in Unq |- *.
+  rewrite <- count_0_not_exists in nEx.
+  rewrite inserted_count_sum.
+  + lia.
+  + assumption.
+  + intro Eq. rewrite Eq in nEx. congruence.
 Qed.
 
 Lemma inserted_not_strict_parent (t:tag) (ins:item) (tr:tree item) :
@@ -346,12 +456,12 @@ Proof.
   - eapply (insertion_order_nonstrictparent _ tg tg'); eauto.
 Qed.
 
-Lemma tree_unique_specifies_tag tr tg it :
+Lemma tree_determined_specifies_tag tr tg it :
   tree_contains tg tr ->
-  tree_unique tg it tr ->
+  tree_item_determined tg it tr ->
   itag it = tg.
 Proof.
-  rewrite /tree_contains /tree_unique.
+  rewrite /tree_contains /tree_item_determined.
   rewrite exists_node_eqv_existential.
   rewrite every_node_eqv_universal.
   intros [n [Exn Tgn]] Every.
@@ -359,14 +469,14 @@ Proof.
 Qed.
 
 
-Lemma create_child_unique tr tgp newp tg :
+Lemma create_child_determined tr tgp newp tg :
   tree_contains tgp tr ->
   ~tree_contains tg tr ->
   forall cids tr',
   create_child cids tgp tg newp tr = Some tr' ->
   (
     tree_contains tg tr'
-    /\ tree_unique tg (create_new_item tg newp) tr'
+    /\ tree_item_determined tg (create_new_item tg newp) tr'
   ).
 Proof.
   intros ContainsTgp FreshTg cids tr' CreateChild.
@@ -377,7 +487,7 @@ Proof.
   rewrite <- TgIns.
   split.
   - eapply insert_true_produces_exists; [auto|assumption].
-  - eapply inserted_unique; simpl; assumption.
+  - eapply inserted_determined; simpl; assumption.
 Qed.
 
 Lemma create_new_item_uniform_perm tg newp z :
@@ -403,15 +513,15 @@ Lemma create_new_item_prot_prop prop tg newp :
   prop (iprot (create_new_item tg newp)).
 Proof. simpl; tauto. Qed.
 
-Lemma create_child_preserves_unique tg it tr tr':
+Lemma create_child_preserves_determined tg it tr tr':
   forall tg' cids tgp newp,
   tg ≠ tg' ->
-  tree_unique tg it tr ->
+  tree_item_determined tg it tr ->
   create_child cids tgp tg' newp tr = Some tr' ->
-  tree_unique tg it tr'.
+  tree_item_determined tg it tr'.
 Proof.
   move=> ???? Ne.
-  rewrite /tree_unique every_node_eqv_universal every_node_eqv_universal.
+  rewrite /tree_item_determined every_node_eqv_universal every_node_eqv_universal.
   move=> Unq CreateChild.
   injection CreateChild; intro; subst.
   intro n; specialize Unq with n.
@@ -426,14 +536,24 @@ Proof.
   assumption.
 Qed.
 
-Lemma tree_unique_unify
+
+Lemma create_child_preserves_count tg tr tr':
+  forall tg' cids tgp newp,
+  tg ≠ tg' ->
+  create_child cids tgp tg' newp tr = Some tr' ->
+  tree_count_tg tg tr = tree_count_tg tg tr'.
+Proof.
+Admitted.
+
+
+Lemma tree_determined_unify
   {tg tr it it'}
   (Ex : tree_contains tg tr)
-  (Unq : tree_unique tg it tr)
-  (Unq' : tree_unique tg it' tr)
+  (Unq : tree_item_determined tg it tr)
+  (Unq' : tree_item_determined tg it' tr)
   : it = it'.
 Proof.
-  rewrite /tree_unique /tree_contains in Ex, Unq, Unq'.
+  rewrite /tree_item_determined /tree_contains in Ex, Unq, Unq'.
   repeat rewrite every_node_eqv_universal in Ex, Unq, Unq'.
   repeat rewrite exists_node_eqv_existential in Ex, Unq, Unq'.
   destruct Ex as [it0 [??]].

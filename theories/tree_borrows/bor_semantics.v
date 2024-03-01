@@ -560,10 +560,14 @@ Definition tree_contains tg tr
   : Prop :=
   exists_node (IsTag tg) tr.
 
-Definition tree_unique tg it tr
+Definition tree_item_determined tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
+Definition has_tag tg it : bool := bool_decide (IsTag tg it).
+
+Definition tree_count_tg tg tr : nat := count_nodes (has_tag tg) tr.
+Definition tree_unique tg tr : Prop := tree_count_tg tg tr = 1.
 
 (* TODO change to thing below *)
 Definition trees_at_block prop trs blk
@@ -587,8 +591,11 @@ Qed.
 Definition trees_contain tg trs blk :=
   trees_at_block (tree_contains tg) trs blk.
 
+Definition trees_item_determined tg trs blk it :=
+  trees_at_block (tree_item_determined tg it) trs blk.
+
 Definition trees_unique tg trs blk it :=
-  trees_at_block (tree_unique tg it) trs blk.
+  trees_at_block (tree_unique tg) trs blk.
 
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.

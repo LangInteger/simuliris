@@ -41,7 +41,7 @@ to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
   {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
@@ -49,7 +49,7 @@ Lemma access_effect_per_loc_within_range
     let rel := rel_dec tr access_tag affected_tag in
     let isprot := bool_decide (protector_is_active pre.(iprot) cids) in
     apply_access_perm kind rel isprot zpre = Some zpost
-    /\ tree_unique affected_tag post tr'
+    /\ tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
   ).
@@ -58,7 +58,7 @@ Proof.
   (* use apply_access_spec_per_node to get info on the post permission *)
   destruct (apply_access_spec_per_node Ex Unq ACC) as [post [SpecPost [ContainsPost UniquePost]]].
   (* and then it's per-tag work *)
-  rewrite (tree_unique_specifies_tag _ _ _ Ex Unq) in SpecPost.
+  rewrite (tree_determined_specifies_tag _ _ _ Ex Unq) in SpecPost.
   option step in SpecPost as ?:tmpSpec.
   injection SpecPost; intro H; subst; clear SpecPost.
   (* now down to per-location *)
@@ -78,12 +78,12 @@ Qed.
 Lemma access_effect_per_loc_outside_range
   {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Outside : ~range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
   : exists post, (
-    tree_unique affected_tag post tr
+    tree_item_determined affected_tag post tr
     /\ item_lazy_perm_at_loc post z = zpre
     /\ iprot post = iprot pre
   ).
@@ -109,7 +109,7 @@ Qed.
 
 Lemma _
   (Ex : tree_contains ?aff ?tr)
-  (Unq : tree_unique ?aff ?pre ?tr)
+  (Unq : tree_item_determined ?aff ?pre ?tr)
   (Within : range_contains ?range ?z)
 
   optional: (Nonchild : ~ParentChildIn ?aff ?acc ?tr)
@@ -125,7 +125,7 @@ Where the conclusion can be either
   : False.
 * there is some item in the new tree that is related to ?pre:
   : exists post zpost, (
-    tree_unique ?aff post ?tr'
+    tree_item_determined ?aff post ?tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
     /\ ...
@@ -138,7 +138,7 @@ Ltac auto_access_event_within_range :=
   match goal with
   (* First off, if we see an access step, we apply the key per-location lemma *)
   | Ex : tree_contains ?aff ?tr,
-    Unq : tree_unique ?aff ?pre ?tr,
+    Unq : tree_item_determined ?aff ?pre ?tr,
     Within : range'_contains ?range ?z,
     Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
     |- exists _ _, _ =>
@@ -146,7 +146,7 @@ Ltac auto_access_event_within_range :=
     exists post, zpost;
     clear Step Unq Within Ex
   | Ex : tree_contains ?aff ?tr,
-    Unq : tree_unique ?aff ?pre ?tr,
+    Unq : tree_item_determined ?aff ?pre ?tr,
     Within : range'_contains ?range ?z,
     Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
     |- _ =>
@@ -180,7 +180,7 @@ Ltac auto_access_event_within_range :=
 Lemma nonchild_write_reserved_to_disabled
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -188,7 +188,7 @@ Lemma nonchild_write_reserved_to_disabled
   (Reach : reach (Reserved TyFrz ResActivable) (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
@@ -198,7 +198,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma nonchild_write_any_protected_to_disabled
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -206,7 +206,7 @@ Lemma nonchild_write_any_protected_to_disabled
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
@@ -216,7 +216,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma nonchild_read_active_to_frozen
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -224,7 +224,7 @@ Lemma nonchild_read_active_to_frozen
   (Reach : reach Active (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Frozen (perm zpost)
     /\ reach (perm zpre) (perm zpost)
@@ -234,7 +234,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_write_frozen_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -247,7 +247,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_write_protected_freeze_like_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -265,7 +265,7 @@ Qed.
 Lemma child_read_disabled_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -278,14 +278,14 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_write_any_to_init_active
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ perm zpost = Active
     /\ iprot post = iprot pre
@@ -296,14 +296,14 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_read_any_to_init_nondis
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ ~reach Disabled (perm zpost)
     /\ iprot post = iprot pre
@@ -315,7 +315,7 @@ Proof. do 15 auto_access_event_within_range. Qed.
 Lemma protected_nonchild_write_initialized_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -330,7 +330,7 @@ Proof. do 15 auto_access_event_within_range. Qed.
 Lemma protected_nonchild_read_initialized_active_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -350,7 +350,7 @@ Definition freeze_like p : Prop :=
 Lemma protected_nonchild_read_any_to_conflicted
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -358,7 +358,7 @@ Lemma protected_nonchild_read_any_to_conflicted
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ iprot post = iprot pre
     /\ item_lazy_perm_at_loc post z = zpost
     /\ freeze_like (perm zpost)
@@ -379,7 +379,7 @@ Proof. unfold freeze_like. do 15 auto_access_event_within_range. Qed.
    - tree_contains
    - ParentChildIn
    - protector_is_for_call
-   - tree_unique
+   - tree_determined
 
    through steps:
    - bor_step
@@ -421,13 +421,13 @@ Ltac migrate prop dest :=
       pose proof prop as dest;
       rewrite <- ACC in prop
     end
-  (* Migrate a tree_unique (lossy) *)
-  | tree_unique ?tg _ ?tr =>
+  (* Migrate a tree_item_determined (lossy) *)
+  | tree_item_determined ?tg _ ?tr =>
     lazymatch goal with
     | Seq : bor_local_seq _  tr _ _ _ _,
       Ex : tree_contains tg tr
       |- _ =>
-      pose proof (bor_local_seq_last_unique Ex prop (bor_local_seq_forget Seq)) as dest
+      pose proof (bor_local_seq_last_determined Ex prop (bor_local_seq_forget Seq)) as dest
     end
   (* failed *)
   | ?other =>
@@ -452,30 +452,30 @@ Ltac forget x :=
   end;
   clear x.
 
-(* `created_unique`, `created_protected`, and `created_nonparent` know the properties of items produced by `create_new_item`
+(* `created_determined`, `created_protected`, and `created_nonparent` know the properties of items produced by `create_new_item`
    Usage:
-      created tg unique as [tgExists tgUnique].
+      created tg determined as [tgExists tgUnique].
       created tg protected as tgProtected.
       created tg nonparent of tg' as Unrelated.
    If you have sufficient hypotheses, these will produce proofs for
    - tree_contains tg ?tr
-   - tree_unique tg (create_new_item tg _) ?tr
+   - tree_item_determined tg (create_new_item tg _) ?tr
    - protector_is_for_call (iprot (create_new_item tg _)) _
    - ~ParentChildIn tg tg' ?tr
    respectively.
 *)
-Ltac created_unique tg bindEx bindUnq :=
+Ltac created_determined tg bindEx bindUnq :=
   match goal with
   | Rebor : bor_local_step ?tr _ (RetagBLEvt _ tg _ _) _ _ |- _ =>
-    pose proof (bor_local_step_retag_produces_contains_unique Rebor) as [bindEx bindUnq]
+    pose proof (bor_local_step_retag_produces_contains_determined Rebor) as [bindEx bindUnq]
   end.
 
-Tactic Notation "created" constr(tg) "unique" "as" "[" ident(ex) ident(uq) "]" :=
-  created_unique tg ex uq.
-Tactic Notation "created" constr(tg) "unique" :=
+Tactic Notation "created" constr(tg) "determined" "as" "[" ident(ex) ident(uq) "]" :=
+  created_determined tg ex uq.
+Tactic Notation "created" constr(tg) "determined" :=
   let ex := fresh "Exists" in
   let uq := fresh "Unique" in
-  created_unique tg ex uq.
+  created_determined tg ex uq.
 
 Ltac created_protected tg dest :=
   let newp := fresh "newp" in
@@ -554,7 +554,7 @@ Lemma fwrite_cwrite_disjoint
 Proof.
   intros [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -604,7 +604,7 @@ Lemma fwrite_cread_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -665,7 +665,7 @@ Lemma protected_fwrite_cwrite_disjoint
 Proof.
   intros [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -714,7 +714,7 @@ Lemma protected_fwrite_cread_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -774,7 +774,7 @@ Lemma activated_fread_cwrite_disjoint
 Proof.
   move=> [z [RContains1 [RContains2 RContains3]]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -859,7 +859,7 @@ Lemma protected_cwrite_fwrite_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -898,7 +898,7 @@ Proof.
   assert (bor_local_seq
     {|seq_inv:=fun tr cids =>
       (forall it,
-        tree_unique tg' it tr ->
+        tree_item_determined tg' it tr ->
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenActPost. {
@@ -938,7 +938,7 @@ Lemma protected_cread_fwrite_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -976,7 +976,7 @@ Proof.
   assert (bor_local_seq
     {|seq_inv:=fun tr cids =>
       (forall it,
-        tree_unique tg' it tr ->
+        tree_item_determined tg' it tr ->
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenNonDisPost. {
@@ -1012,7 +1012,7 @@ Lemma protected_cwrite_fread_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -1049,7 +1049,7 @@ Proof.
   assert (bor_local_seq
     {|seq_inv:=fun tr cids =>
       (forall it,
-        tree_unique tg' it tr ->
+        tree_item_determined tg' it tr ->
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenActPost. {
@@ -1087,7 +1087,7 @@ Lemma protected_fread_cwrite_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.

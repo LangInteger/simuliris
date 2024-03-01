@@ -26,8 +26,9 @@ Lemma wf_tree_mono tr :
   Proper ((≤)%nat==> (≤)%nat ==> impl) (wf_tree tr).
 Proof.
   move=> ?? Le1 ? ? Le2 WF ? Ex.
-  destruct (WF _ Ex) as [it [Uniqueit WFit]].
-  exists it; split.
+  destruct (WF _ Ex) as [it [Uniqueit [Detit WFit]]].
+  exists it; split; [|split].
+  - assumption.
   - assumption.
   - eapply wf_item_mono; eauto.
 Qed.
@@ -224,6 +225,13 @@ Proof.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
 Qed.
 
+Lemma tree_apply_access_preserve_unique
+  {tr tr' tg fn cids acc_tg range} :
+  tree_apply_access fn cids acc_tg range tr = Some tr' ->
+  tree_unique tg tr <-> tree_unique tg tr'.
+Proof.
+Admitted.
+
 Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
   tree_apply_access fn cids tg range tr = Some tr' ->
@@ -233,14 +241,18 @@ Proof.
   intros WF Access.
   intros tg' Ex'.
   pose proof (proj2 (access_preserves_tags Access) Ex') as Ex.
-  destruct (WF tg' Ex) as  [it [Unqit Wfit]].
-  destruct (apply_access_spec_per_node Ex Unqit Access) as [post [PostSpec [_ Unqpost]]].
-  exists post; split; [assumption|].
-  rewrite /item_wf in Wfit |- *.
-  symmetry in PostSpec.
-  destruct (item_apply_access_preserves_metadata PostSpec) as [Same1 Same2].
-  simpl. rewrite /IsTag /protector_is_for_call. rewrite <- Same1, <- Same2.
-  auto.
+  destruct (WF tg' Ex) as  [it [Unqit [Detit Wfit]]].
+  destruct (apply_access_spec_per_node Ex Detit Access) as [post [PostSpec [_ Unqpost]]].
+  exists post; split; [|split].
+  - rewrite -tree_apply_access_preserve_unique.
+    + exact Unqit.
+    + apply Access.
+  - assumption.
+  - rewrite /item_wf in Wfit |- *.
+    symmetry in PostSpec.
+    destruct (item_apply_access_preserves_metadata PostSpec) as [Same1 Same2].
+    simpl. rewrite /IsTag /protector_is_for_call. rewrite <- Same1, <- Same2.
+    auto.
 Qed.
 
 Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
@@ -330,7 +342,9 @@ Proof.
   unfold wf_tree; unfold tree_item_included.
   intros tg Ex. inversion Ex as [isTag|[Contra|Contra]].
   -- simpl in isTag; inversion isTag as [isRootTag]. simpl in isRootTag. eexists; simpl.
-     rewrite /IsTag in isTag |- *; simpl in *. split.
+     rewrite /IsTag in isTag |- *; simpl in *. split; [|split].
+     ** rewrite /init_tree /tree_unique /= /has_tag /IsTag /=.
+        rewrite bool_decide_eq_true_2; auto.
      ** tauto.
      ** rewrite /item_wf. simpl. split.
         ++ intros tg' Tag. inversion Tag. subst. simpl. lia.
@@ -637,7 +651,22 @@ Proof.
   destruct (decide (tg = nxtp)).
   - unfold create_child in CREATE.
     exists (create_new_item nxtp newp).
-    split.
+    split; [|split].
+    + injection CREATE; intros; subst; clear CREATE.
+      apply inserted_unique.
+      * rewrite /create_new_item /IsTag //=.
+      * intro TooBig. destruct (WF nxtp TooBig) as [it0 [_ [Det0 [Lt0 _]]]].
+        specialize (Lt0 nxtp ltac:(eapply tree_determined_specifies_tag; eauto)).
+        lia.
+      * assert (tree_contains oldt tr) as ExOld. {
+          eapply exists_insert_requires_parent; [|apply Ex'].
+          rewrite every_not_eqv_not_exists; intro Exp.
+          destruct (WF nxtp Exp) as [it0 [_ [Det0 [Lt0 _]]]].
+          specialize (Lt0 nxtp ltac:(eapply tree_determined_specifies_tag; eauto)).
+          lia.
+        }
+        destruct (WF oldt ExOld) as [_ [Unq _]].
+        assumption.
     + injection CREATE; intros; subst; clear CREATE.
       apply insert_true_preserves_every.
       * tauto.
@@ -649,18 +678,19 @@ Proof.
           simpl; subst.
           assumption.
         }
-        destruct (WF nxtp MalformedContains) as [it' [Uniqueit' [Wfit' _]]].
+        destruct (WF nxtp MalformedContains) as [it' [Uniqueit' [Detit' [Wfit' _]]]].
         specialize (Wfit' nxtp). unfold IsTag in Wfit'.
-        rewrite (tree_unique_specifies_tag tr _ _ MalformedContains Uniqueit') in Wfit'.
+        rewrite (tree_determined_specifies_tag tr _ _ MalformedContains Detit') in Wfit'.
         specialize (Wfit' ltac:(auto)).
         lia.
     + assumption.
   - assert (tree_contains tg tr) as Ex. {
       eapply insertion_minimal_tags; [| |exact CREATE]; auto.
     }
-    destruct (WF tg Ex) as [it [Uniqueit WFit]].
-    exists it. split.
-    + eapply create_child_preserves_unique; [| |exact CREATE]; auto.
+    destruct (WF tg Ex) as [it [Uniqueit [Detit WFit]]].
+    exists it. split; [|split].
+    + rewrite /tree_unique. erewrite <-create_child_preserves_count; eassumption.
+    + eapply create_child_preserves_determined; [| |exact CREATE]; auto.
     + eapply wf_item_mono; [| |eassumption]; lia.
 Qed.
 
