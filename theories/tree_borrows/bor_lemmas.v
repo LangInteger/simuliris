@@ -4,7 +4,7 @@ From iris.prelude Require Import options.
 
 Lemma unique_somewhere
   {a b} :
-  a + b = 1 -> a = 1 \/ b = 1.
+  a + b = 1 -> (a = 1 /\ b = 0) \/ (b = 1 /\ a = 0).
 Proof. lia. Qed.
 
 Lemma unique_found_here
@@ -15,6 +15,11 @@ Proof. lia. Qed.
 Lemma absent_nowhere
   {a b c} :
   a + b + c = 0 <-> a = 0 /\ b = 0 /\ c = 0.
+Proof. lia. Qed.
+
+Lemma exists_somewhere
+  {a b c} :
+  a + b + c ≥ 1 <-> a ≥ 1 \/ b ≥ 1 \/ c ≥ 1.
 Proof. lia. Qed.
 
 Lemma unique_exists {tr tg} :
@@ -30,7 +35,7 @@ Proof.
     simpl.
     intro Somewhere.
     right.
-    destruct (unique_somewhere Somewhere).
+    destruct (unique_somewhere Somewhere) as [[]|[]].
     + left. apply IHtr1. assumption.
     + right. apply IHtr2. assumption.
 Qed.
@@ -39,7 +44,20 @@ Lemma count_gt0_exists {tr tg} :
   tree_count_tg tg tr >= 1 <->
   tree_contains tg tr.
 Proof.
-Admitted.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [lia|].
+  rewrite exists_somewhere. 
+  rewrite IHtr1.
+  rewrite IHtr2.
+  rewrite /has_tag.
+  destruct (decide (IsTag tg data)) as [Tg|nTg].
+  - rewrite bool_decide_eq_true_2; [|assumption].
+    apply ZifyClasses.or_morph; [split; auto|].
+    reflexivity.
+  - rewrite bool_decide_eq_false_2; [|assumption].
+    apply ZifyClasses.or_morph; [split; intro; [lia|contradiction]|].
+    reflexivity.
+Qed.
+
 
 Lemma count_0_not_exists tr tg :
   tree_count_tg tg tr = 0
@@ -68,11 +86,47 @@ Proof.
     + apply IHtr2. auto.
 Qed.
 
+Lemma absent_determined tr tg :
+  tree_count_tg tg tr = 0 ->
+  forall it, tree_item_determined tg it tr.
+Proof.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [auto|].
+  rewrite absent_nowhere.
+  intros [Absent0 [Absent1 Absent2]] it.
+  split; [|split].
+  + intro. rewrite /has_tag bool_decide_eq_true_2 in Absent0; [discriminate|assumption].
+  + apply IHtr1. assumption.
+  + apply IHtr2. assumption.
+Qed.
+
 Lemma unique_lookup tr tg :
   tree_unique tg tr ->
   exists it, tree_item_determined tg it tr.
 Proof.
-Admitted.
+  rewrite /tree_unique.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [intro; discriminate|].
+  rewrite /has_tag.
+  destruct (decide (IsTag tg data)).
+  - rewrite bool_decide_eq_true_2; [|assumption].
+    intro Found. destruct (unique_found_here Found).
+    exists data; split; [|split].
+    + tauto.
+    + apply absent_determined. assumption.
+    + apply absent_determined. assumption.
+  - rewrite bool_decide_eq_false_2; [|assumption].
+    simpl.
+    intro Find. destruct (unique_somewhere Find) as [[Found ?]|[Found ?]].
+    + destruct (IHtr1 Found) as [it ?].
+      exists it; split; [|split].
+      * tauto.
+      * assumption.
+      * apply absent_determined. assumption.
+    + destruct (IHtr2 Found) as [it ?].
+      exists it; split; [|split].
+      * tauto.
+      * apply absent_determined. assumption.
+      * assumption.
+Qed.
 
 Lemma exists_determined_exists tr tg it :
   tree_contains tg tr ->
