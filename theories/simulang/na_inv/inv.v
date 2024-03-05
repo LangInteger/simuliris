@@ -51,7 +51,7 @@ Section laws.
         ghost_map_auth naGS_col_name 1 (map_seq 0 cols') -∗ alloc_rel b_t b_s (λ _, alloc_rel_pred cols') -∗ na_bij_interp P_s σ_s' T_s').
   Proof.
     iIntros "Hinv Hrel". iDestruct "Hinv" as (L cols ? ? HL) "(Hcols & Hbij & Hgs)".
-    iExists _. do 2 (iSplit; [done|]). iFrame "Hcols".
+    iExists _. do 2 (iSplit; [done|]). iFrame.
     iDestruct (heapbij_access with "Hbij Hrel") as (?) "[$ Hclose]".
     iIntros (cols' σ_s' T_s' ? ? Hdom HP) "Hcols He". iExists L, cols'. iFrame. repeat (iSplit; [done|]).
     iSplit.
