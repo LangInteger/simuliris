@@ -98,7 +98,7 @@ Section log_rel.
       iPoseProof (rrel_value_source with H) as (? ->) H'
     ];
     try iClear H; try iRename H' into H.
-(*
+
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
@@ -113,7 +113,7 @@ Section log_rel.
     discr_source. discr_source. val_discr_source "Hv2".
     iApply (sim_call with "Hv1"). iIntros (??) "Hr". iApply lift_post_val; eauto.
   Qed.
-
+(*
   Lemma log_rel_initcall :
     ⊢ log_rel InitCall InitCall.
   Proof.
@@ -482,7 +482,7 @@ Section refl.
     - (* Var *)
       by iApply log_rel_var.
     - (* Call *)
-      admit; by iApply (log_rel_call with "IH IH1").
+      by iApply (log_rel_call with "IH IH1").
     - (* InitCall *)
       admit; by iApply log_rel_initcall.
     - (* EndCall *)
