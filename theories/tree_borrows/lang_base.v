@@ -215,17 +215,23 @@ Proof. destruct rel; solve_decision. Qed.
 Global Instance child_rel_dec rel : Decision (child rel).
 Proof. destruct rel; solve_decision. Qed.
 
-Record newperm := mkNewPerm {
-  initial_state : permission;
-  new_protector : option protector;
-}.
-Global Instance newperm_eq_dec : EqDecision newperm.
-Proof. solve_decision. Qed.
-Global Instance newperm_countable : Countable newperm.
+Inductive pointer_kind := Box | MutRef (im : interior_mut) | ShrRef .
+Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.
+Proof. solve_decision. Defined.
+Global Instance pointer_kind_countable : Countable pointer_kind.
 Proof.
-  refine (inj_countable'
-    (λ newp, (newp.(initial_state), newp.(new_protector)))
-    (λ t, {| initial_state:=t.1; new_protector:=t.2 |}) _); by intros [].
+  refine (inj_countable
+    (λ m, match m with
+           | Box => inl ()
+           | MutRef im => inr (inl im)
+           | ShrRef => inr (inr ())
+           end)
+    (λ b, Some match b with
+           | inl _ => Box
+           | inr (inl im) => MutRef im
+           | inr (inr _) => ShrRef
+           end)
+    _); by intros [].
 Qed.
 
 
@@ -264,9 +270,9 @@ Inductive expr :=
 (* | CAS (e0 e1 e2 : expr) *)     (* CAS the value `e2` for `e1` to the place `e0` *)
 (* | AtomWrite (e1 e2: expr) *)
 (* | AtomRead (e: expr) *)
-(* retag *) (* Retag the memory pointed to by `e1` of type (Reference pk T) with
-  retag kind `kind`, for call_id `e2`. *)
-| Retag (e1 : expr) (e2 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
+(* retag *) (* Retag the memory pointed to by `e1` with
+  retag kind `kind`, for call_id `e2`. The new pointer should have pointer kind pk. *)
+| Retag (e1 : expr) (e2 : expr) (pk : pointer_kind) (sz : nat) (kind : retag_kind)
 (* let binding *)
 | Let (x : binder) (e1 e2: expr)
 (* case *)
@@ -397,7 +403,7 @@ Inductive bor_local_event :=
   | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
   | InitCallBLEvt (cid : call_id)
   | EndCallBLEvt (cid : call_id)
-  | RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)
+  | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
   | SilentBLEvt.
 
 (** Internal events *)
@@ -409,6 +415,6 @@ Inductive event :=
 | WriteEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
-| RetagEvt (alloc : block) (otag ntag : tag) (newp : newperm) (c : call_id)
+| RetagEvt (alloc : block) (otag ntag : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
 | SilentEvt.
 

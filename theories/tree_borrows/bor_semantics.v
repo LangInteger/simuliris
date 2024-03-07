@@ -604,12 +604,34 @@ Definition ParentChildInBlk tg tg' trs blk :=
 
 (** Reborrow *)
 
-Definition create_new_item tg perm :=
-  {| itag:=tg; iprot:=perm.(new_protector); initp:=perm.(initial_state); iperm:=∅ |}.
+Definition pointer_kind_to_perm (pk : pointer_kind) : permission := 
+  match pk with
+    Box => Active
+  | MutRef im => Reserved im ResActivable
+  | ShrRef => Frozen
+  end.
 
-Definition create_child cids (oldt:tag) (newt:tag) (newp:newperm)
+Definition pointer_kind_to_strength (pk : pointer_kind) : prot_strong := 
+  match pk with
+    Box => ProtWeak
+  | _ => ProtStrong
+  end.
+
+Definition retag_kind_to_prot (cid : call_id) (rk : retag_kind) (s : prot_strong) : option protector := 
+  match rk with
+    Default => None
+  | FnEntry => Some (mkProtector s cid)
+  end.
+
+Definition create_new_item tg pk rk cid :=
+  let s := pointer_kind_to_strength pk in
+  let perm := pointer_kind_to_perm pk in
+  let prot := retag_kind_to_prot cid rk s in
+  {| itag:=tg; iprot:=prot; initp:=perm; iperm:=∅ |}.
+
+Definition create_child cids (oldt:tag) (newt:tag) pk cid rk
   : app (tree item) := fun tr =>
-  let it := create_new_item newt newp in
+  let it := create_new_item newt pk cid rk in
   Some $ insert_child_at tr it (IsTag oldt).
 
 Definition item_lazy_perm_at_loc it (l:loc')
@@ -666,15 +688,14 @@ Inductive bor_local_step tr cids
       tr cids
       (EndCallBLEvt cid)
       tr (cids ∖ {[cid]})
-  | RetagLIS tr' tgp tg newp (cid : call_id)
+  | RetagLIS tr' tgp tg pk (cid : call_id) rk
     (EL: cid ∈ cids)
     (EXISTS_PARENT: tree_contains tgp tr)
     (FRESH_CHILD: ~tree_contains tg tr)
-    (COMPAT_CID: protector_compatible_call cid (new_protector newp))
-    (RETAG_EFFECT: create_child cids tgp tg newp tr = Some tr') :
+    (RETAG_EFFECT: create_child cids tgp tg pk rk cid tr = Some tr') :
     bor_local_step
       tr cids
-      (RetagBLEvt tgp tg newp cid)
+      (RetagBLEvt tgp tg pk cid rk)
       tr' cids
   .
 
@@ -774,19 +795,18 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs cids nxtp nxtc
       (WriteEvt alloc tg range val)
       trs' cids nxtp nxtc
-  | RetagIS trs' trs'' parentt (alloc : block) range (newp : newperm) cid
+  | RetagIS trs' trs'' parentt (alloc : block) range pk cid rk
       (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
          NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
                We want to do the read *after* the insertion so that it properly initializes the locations of the range *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
-    (SAME_CID : is_Some newp.(new_protector) -> protector_is_for_call cid newp.(new_protector))
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp newp) alloc trs = Some trs')
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk rk cid) alloc trs = Some trs')
     (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :
     bor_step
       trs cids nxtp nxtc
-      (RetagEvt alloc parentt nxtp newp cid)
+      (RetagEvt alloc parentt nxtp pk cid rk)
       trs'' cids (S nxtp) nxtc
   | DeallocIS trs' (alloc : block) (tg : tag) range
     (EXISTS_TAG: trees_contain tg trs alloc)

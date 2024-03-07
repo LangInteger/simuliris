@@ -112,8 +112,8 @@ Inductive ectx_item :=
 | DerefEctx (sz : nat)
 | RefEctx
 (* | FieldEctx (path : list nat) *)
-| RetagREctx (e1 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
-| RetagLEctx (r2 : result) (newp : newperm) (sz : nat) (kind : retag_kind)
+| RetagREctx (e1 : expr) (pk : pointer_kind) (sz : nat) (kind : retag_kind)
+| RetagLEctx (r2 : result) (pk : pointer_kind) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
 | CaseEctx (el : list expr)
 (* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
@@ -172,8 +172,8 @@ Inductive ctx_item :=
   | FreeCtx
   | DerefCtx (sz : nat)
   | RefCtx
-  | RetagLCtx (e2 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
-  | RetagRCtx (e1 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
+  | RetagLCtx (e2 : expr) (pk : pointer_kind) (sz : nat) (kind : retag_kind)
+  | RetagRCtx (e1 : expr) (pk : pointer_kind) (sz : nat) (kind : retag_kind)
   | CaseLCtx (el : list expr)
   | CaseRCtx (e : expr) (el1 el2 : list expr)
   | WhileLCtx (e1 : expr)
@@ -235,7 +235,7 @@ Inductive expr_head :=
   | WriteHead
   | AllocHead (sz : nat)
   | FreeHead
-  | RetagHead (newp : newperm) (sz : nat) (kind : retag_kind)
+  | RetagHead (pk : pointer_kind) (sz : nat) (kind : retag_kind)
   | CaseHead
   | ForkHead
   | WhileHead
@@ -536,11 +536,10 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               h (Free (Place (blk,l) lbor sz))
               (DeallocEvt blk lbor (l, sz))
               (free_mem (blk,l) sz h) #[☠] []
-| RetagBS blk l otag ntag sz kind cid newp
-    (NEW_PERM : newp.(new_protector) = match kind with FnEntry => Some cid | Default => None end) :
+| RetagBS blk l otag ntag sz kind cid pk :
     mem_expr_step
-              h (Retag #[ScPtr l otag] #[ScCallId (call cid)] newp sz kind)
-              (RetagEvt blk otag ntag newp sz)
+              h (Retag #[ScPtr l otag] #[ScCallId (call cid)] pk sz kind)
+              (RetagEvt blk otag ntag pk sz kind)
               h #[ScPtr l ntag] []
 
 (* observable behavior *)
