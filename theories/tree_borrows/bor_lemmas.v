@@ -597,8 +597,24 @@ Lemma create_child_preserves_count tg tr tr':
   create_child cids tgp tg' newp tr = Some tr' ->
   tree_count_tg tg tr = tree_count_tg tg tr'.
 Proof.
-Admitted.
-
+  intros tg' cids tgp newp Ne.
+  generalize dependent tr'.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; intros tr' Create; inversion Create; [reflexivity|].
+  destruct (decide (IsTag tgp data)).
+  + simpl.
+    rewrite /has_tag.
+    assert (~IsTag tg (create_new_item tg' newp)) as NotTg. {
+      rewrite /create_new_item /IsTag //=.
+    }
+    erewrite IHtr1; [|reflexivity].
+    erewrite IHtr2; [|reflexivity].
+    rewrite (bool_decide_eq_false_2 _ NotTg).
+    lia.
+  + simpl.
+    erewrite IHtr1; [|reflexivity].
+    erewrite IHtr2; [|reflexivity].
+    reflexivity.
+Qed.
 
 Lemma tree_determined_unify
   {tg tr it it'}
@@ -639,4 +655,88 @@ Proof.
   all: apply Subtree; left; simpl.
 Qed.
 
+Lemma not_strict_parent_of_self
+  {tg tr} :
+  ~StrictParentChildIn tg tg tr.
+Proof.
+Admitted.
+
+Lemma cousins_different
+  {tr} tg1 tg2
+  :
+  rel_dec tr tg1 tg2 = Cousin ->
+  tg1 ≠ tg2.
+Proof.
+  rewrite /rel_dec.
+  destruct (decide _), (decide _) as [|nRel].
+  all: try congruence.
+  intros _ Eq. subst.
+  apply nRel.
+  left. reflexivity.
+Qed.
+
+Lemma cousins_have_disjoint_strict_children
+  {tr tg} tg1 tg2
+  :
+  tree_unique tg tr ->
+  rel_dec tr tg1 tg2 = Cousin ->
+  StrictParentChildIn tg1 tg tr ->
+  StrictParentChildIn tg2 tg tr ->
+  False.
+Proof.
+Admitted.
+
+
+Lemma StrictParentChild_ParentChild
+  {tr tg1 tg2 tg3} :
+  StrictParentChildIn tg1 tg2 tr ->
+  ParentChildIn tg2 tg3 tr ->
+  StrictParentChildIn tg1 tg3 tr.
+Proof.
+  intros Strict12 [Eq|Strict23].
+  + subst. assumption.
+  + eapply StrictParentChild_transitive; eassumption.
+Qed.
+
+Lemma ParentChild_StrictParentChild
+  {tr tg1 tg2 tg3} :
+  ParentChildIn tg1 tg2 tr ->
+  StrictParentChildIn tg2 tg3 tr ->
+  StrictParentChildIn tg1 tg3 tr.
+Proof.
+  intros [Eq|Strict12] Strict23.
+  + subst. assumption.
+  + eapply StrictParentChild_transitive; eassumption.
+Qed.
+
+
+Lemma cousins_have_disjoint_children
+  {tr tg} tg1 tg2
+  :
+  tree_unique tg tr ->
+  rel_dec tr tg1 tg2 = Cousin ->
+  ParentChildIn tg1 tg tr ->
+  ParentChildIn tg2 tg tr ->
+  False.
+Proof.
+  intros Unique Cousins Parent1 Parent2.
+  assert (tg1 ≠ tg2). { eapply cousins_different. eassumption. }
+  unfold ParentChildIn in *.
+  destruct Parent1, Parent2; subst.
+  + congruence.
+  + rewrite /rel_dec in Cousins.
+    destruct (decide _). 1: {
+      eapply not_strict_parent_of_self.
+      eapply StrictParentChild_ParentChild; eassumption.
+    }
+    destruct (decide _) as [|nRel]. 1: congruence.
+    apply nRel.
+    right. assumption.
+  + rewrite /rel_dec in Cousins.
+    destruct (decide _) as [|nRel]. 1: destruct (decide _); discriminate.
+    destruct (decide _). 1: discriminate.
+    apply nRel.
+    right. assumption.
+  + eapply cousins_have_disjoint_strict_children; eassumption.
+Qed.
 

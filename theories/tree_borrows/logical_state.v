@@ -299,92 +299,6 @@ Section utils.
     apply tree_equal_sym.
   Qed.
 
-(*
-  Lemma decide_ParentChild_same {X} tr tr' t t' (y n : X) :
-    (forall t t', ParentChildIn t t' tr <-> ParentChildIn t t' tr') ->
-    (if decide (ParentChildIn t t' tr) then y else n)
-    = (if decide (ParentChildIn t t' tr') then y else n).
-  Proof.
-    intros SameRel.
-    destruct (decide _) as [p|p]; destruct (decide _).
-    all: try reflexivity.
-    all: rewrite SameRel in p; contradiction.
-  Qed.
-
-  Lemma item_for_loc_apply_access_only_cares_about_rel tr tr' it fn acc_tg cids range l :
-    (forall t t', ParentChildIn t t' tr <-> ParentChildIn t t' tr') ->
-    item_for_loc_apply_access it fn (rel_dec tr acc_tg) cids range l
-    = item_for_loc_apply_access it fn (rel_dec tr' acc_tg) cids range l.
-  Proof.
-    intros SameRel.
-    rewrite /item_for_loc_apply_access.
-    rewrite /rel_dec.
-    f_equal.
-    repeat rewrite (decide_ParentChild_same tr tr').
-    - reflexivity.
-    - assumption.
-    - assumption.
-    - assumption.
-  Qed.
-  *)
-
-(*
-  (* The key facts about pseudo_conflicted is that it doesn't appear out of nowhere.
-     On a retag we need to prove that it hasn't become pseudo_conflicted.
-     On a dealloc we need to prove that it stayed pseudo_conflicted (just in a different way),
-     but most accesses *if they succeed* preserve pseudo_conflicted as-is. *)
-  Lemma pseudo_conflicted_is_permanent tr l tg cl cid kind acc_tg range tr' :
-    pseudo_conflicted tr l tg cl cid ->
-    memory_access kind C acc_tg range tr = Some tr' ->
-    exists cl', pseudo_conflicted tr' l tg cl' cid.
-  Proof.
-    (* I need to fix the definition of pseudo_conflicted first *)
-  Admitted.
-
-  Lemma pseudo_conflicted_not_from_access tr l tg cl' cid kind acc_tg range tr' :
-    memory_access kind C acc_tg range tr = Some tr' ->
-    pseudo_conflicted tr l tg cl' cid ->
-    exists cl, pseudo_conflicted tr l tg cl cid.
-  Proof.
-    (* I need to fix the definition of pseudo_conflicted first *)
-  Admitted.
-  *)
-
-(*
-  (* FIXME: needs refactoring out item_for_loc first *)
-  Lemma eq_up_to_C_preserved_by_access l tr1 tr2 tr1' tr2' blk tg it1 it2 cids kind acc_tg range:
-    item_for_loc_in_tree it1 tr1 l ->
-    item_for_loc_in_tree it2 tr2 l ->
-    eq_up_to_C tr1 tr2 blk tg it1 it2 ->
-    (forall t t', ParentChildIn t t' tr1 <-> ParentChildIn t t' tr2) ->
-    memory_access kind cids acc_tg range tr1 = Some tr1' ->
-    memory_access kind cids acc_tg range tr2 = Some tr2' ->
-    exists it1' it2',
-      item_for_loc_memory_access it1 fn (rel_dec tr1' acc_tg) cids range l = Some it1'
-      /\ item_for_loc_apply_access it2 fn (rel_dec tr2' acc_tg) cids range l = Some it2'
-      /\ eq_up_to_C tr1' tr2' blk tg it1 it2.
-  Proof.
-    intros It1 It2 eqC SameRel App1 App2.
-    destruct (item_for_loc_in_tree_post_access tr1 tr1' it1 l fn cids acc_tg range It1 App1)
-      as [it1' [ItApp1 It1']].
-    destruct (item_for_loc_in_tree_post_access tr2 tr2' it2 l fn cids acc_tg range It2 App2)
-      as [it2' [ItApp It2']].
-    exists it1', it2'.
-    split; [|split].
-    - erewrite item_for_loc_apply_access_only_cares_about_rel; [eassumption|].
-      intros.
-      erewrite <- access_eqv_rel; [reflexivity|].
-      eassumption.
-    - erewrite item_for_loc_apply_access_only_cares_about_rel; [eassumption|].
-      intros.
-      erewrite <- access_eqv_rel; [reflexivity|].
-      eassumption.
-    - inversion eqC; subst.
-      + econstructor; reflexivity.
-      + econstructor.
-  Abort.
-  *)
-
   Lemma every_node_iff_every_lookup
     {tr prop}
     (GloballyUnique : forall tg, tree_contains tg tr -> exists it, tree_item_determined tg it tr)
@@ -610,10 +524,17 @@ Section utils.
         eapply ParentChild_transitive; eassumption.
       - enough (ParentChildIn tg_this tg_cous tr) by contradiction.
         eapply ParentChild_transitive; eassumption.
-      - admit. (* FIXME: needs an extra lemma that two cousins can't have the same child.
-                  Now that we have true uniqueness this actually holds *)
+      - exfalso.
+        eapply cousins_have_disjoint_children with (tg1 := tg_this) (tg2 := tg_cous).
+        * eassumption.
+        * rewrite /rel_dec.
+          rewrite decide_False; [|eassumption].
+          rewrite decide_False; [|eassumption].
+          reflexivity.
+        * eassumption.
+        * eassumption.
       - reflexivity.
-  Admitted.
+  Qed.
 
   Lemma cousin_write_for_initialized_protected_nondisabled_is_ub
     {it l acc_tg tr range tg}

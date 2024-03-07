@@ -225,12 +225,48 @@ Proof.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
 Qed.
 
+Lemma tree_apply_access_same_count
+  {tr tr' tr0 tg fn cids acc_tg range} :
+  join_nodes
+    (map_nodes
+       (λ it : item,
+          item_apply_access fn cids (rel_dec tr0 acc_tg (itag it)) range it) tr) =
+  Some tr' → tree_count_tg tg tr = tree_count_tg tg tr'.
+Proof.
+  revert tr'.
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Access.
+  - inversion Access; subst. reflexivity.
+  - rewrite /tree_apply_access in Access.
+    destruct (option_bind_success_step _ _ _ Access) as [data' [data'Spec Access']].
+    destruct (option_bind_success_step _ _ _ Access') as [tr1' [tr1'Spec Access'']].
+    destruct (option_bind_success_step _ _ _ Access'') as [tr2' [tr2'Spec Access''']].
+    injection Access'''; intros; subst.
+    simpl.
+    erewrite IHtr1; [|apply tr1'Spec].
+    erewrite IHtr2; [|apply tr2'Spec].
+    assert (has_tag tg data = has_tag tg data') as SameTg. {
+      rewrite /has_tag /IsTag.
+      destruct (item_apply_access_preserves_metadata data'Spec) as [EqTg _].
+      simpl in *.
+      destruct (decide (itag data = tg)), (decide (itag data' = tg)).
+      all: repeat (rewrite bool_decide_eq_true_2; [|easy]).
+      all: repeat (rewrite bool_decide_eq_false_2; [|easy]).
+      all: try reflexivity.
+      all: congruence.
+    }
+    rewrite SameTg.
+    reflexivity.
+Qed.
+
 Lemma tree_apply_access_preserve_unique
   {tr tr' tg fn cids acc_tg range} :
   tree_apply_access fn cids acc_tg range tr = Some tr' ->
   tree_unique tg tr <-> tree_unique tg tr'.
 Proof.
-Admitted.
+  rewrite /tree_unique. intro Access.
+  erewrite tree_apply_access_same_count; [|exact Access].
+  tauto.
+Qed.
 
 Lemma tree_apply_access_wf fn tr tr' cids tg range nxtp nxtc :
   wf_tree tr nxtp nxtc ->
