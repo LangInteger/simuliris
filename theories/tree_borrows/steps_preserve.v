@@ -76,27 +76,27 @@ Proof.
 Qed.
 
 Lemma insertion_preserves_tags
-  {tr tg tgp tgc cids tr' newp}
+  {tr tg tgp tgc cids tr' pk rk cid}
   (Ex : tree_contains tg tr)
-  (Create : create_child cids tgp tgc newp tr = Some tr')
+  (Create : create_child cids tgp tgc pk rk cid tr = Some tr')
   : tree_contains tg tr'.
 Proof.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr _ _ _ _ _ Create) as Insert.
+  pose proof (create_child_isSome tr _ _ _ _ _ _ _ Create) as Insert.
   rewrite Insert.
   apply insert_preserves_exists.
   exact Ex.
 Qed.
 
 Lemma insertion_minimal_tags
-  {tr tg tgp tgc cids tr' newp}
+  {tr tg tgp tgc cids tr' pk rk cid}
   (Ne : tgc ≠ tg)
   (Ex : tree_contains tg tr')
-  (Create : create_child cids tgp tgc newp tr = Some tr')
+  (Create : create_child cids tgp tgc pk rk cid tr = Some tr')
   : tree_contains tg tr.
 Proof.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr _ _ _ _ _ Create) as Insert.
+  pose proof (create_child_isSome tr _ _ _ _ _ _ _ Create) as Insert.
   all: rewrite Insert in Ex.
   eapply insert_false_infer_exists; [|exact Ex].
   rewrite /IsTag; simpl; assumption.
@@ -164,13 +164,13 @@ Proof.
 Qed.
 
 Lemma bor_local_step_retag_produces_contains_determined
-  {tgp tg tr tr' cids cids' newp cid}
+  {tgp tg tr tr' cids cids' pk rk cid}
   (Step : bor_local_step
     tr cids
-    (RetagBLEvt tgp tg newp cid)
+    (RetagBLEvt tgp tg pk cid rk)
     tr' cids')
   : tree_contains tg tr'
-  /\ tree_item_determined tg (create_new_item tg newp) tr'.
+  /\ tree_item_determined tg (create_new_item tg pk rk cid) tr'.
 Proof.
   inversion Step as [| | |????????? RETAG_EFFECT]; subst.
   split.
@@ -191,11 +191,11 @@ Lemma bor_local_step_preserves_determined_easy
   | AccessBLEvt _ _ _ => iprot it = iprot it'
   | InitCallBLEvt _
   | EndCallBLEvt _
-  | RetagBLEvt _ _ _ _
+  | RetagBLEvt _ _ _ _ _
   | SilentBLEvt => it = it'
   end.
 Proof.
-  inversion Step as [???? EXISTS_TAG ACC| | |??????? FRESH_CHILD ? RETAG_EFFECT]; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |???????? FRESH_CHILD RETAG_EFFECT]; subst.
   - (* Access *)
     destruct (apply_access_spec_per_node Ex Unq ACC) as [?[Spec[_?]]].
     eexists; split; eauto.
@@ -215,7 +215,7 @@ Lemma bor_local_step_eqv_rel
   (Step : bor_local_step tr cids evt tr' cids')
   : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
 Proof.
-  inversion Step as [????? ACC| | |??????? FRESH_CHILD ? RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |???????? FRESH_CHILD RETAG_EFFECT]; subst.
   - (* Access *)
     rewrite access_eqv_rel; [|apply ACC].
     tauto.
@@ -230,14 +230,14 @@ Proof.
 Qed.
 
 Lemma bor_local_step_retag_produces_rel
-  {tgp tg tr tr' cids cids' newp cid}
+  {tgp tg tr tr' cids cids' pk rk cid}
   (Step : bor_local_step
     tr cids
-    (RetagBLEvt tgp tg newp cid)
+    (RetagBLEvt tgp tg pk rk cid)
     tr' cids')
   : ParentChildIn tgp tg tr'.
 Proof.
-  inversion Step as [????? ACC| | |?????? EXISTS_PARENT FRESH_CHILD ? RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |??????? EXISTS_PARENT FRESH_CHILD RETAG_EFFECT]; subst.
   injection RETAG_EFFECT; intros; subst.
   eapply insert_produces_ParentChild.
   * eapply new_item_has_tag.
@@ -245,15 +245,15 @@ Proof.
 Qed.
 
 Lemma bor_local_step_retag_order_nonparent
-  {tgp tg tg' tr tr' cids cids' newp cid}
+  {tgp tg tg' tr tr' cids cids' pk rk cid}
   (Ex' : tree_contains tg' tr)
   (Step : bor_local_step
     tr cids
-    (RetagBLEvt tgp tg newp cid)
+    (RetagBLEvt tgp tg pk rk cid)
     tr' cids')
   : ~ParentChildIn tg tg' tr'.
 Proof.
-  inversion Step as [????? ACC| | |?????? EXISTS_PARENT FRESH_CHILD ? RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |??????? EXISTS_PARENT FRESH_CHILD RETAG_EFFECT]; subst.
   injection RETAG_EFFECT; intros; subst.
   eapply insertion_order_nonparent; eassumption.
 Qed.
@@ -903,7 +903,7 @@ Proof.
   - pose proof (tree_determined_unify Ex Unq Unq'); subst.
     assumption.
   - assert (affected_tag ≠ tg) as Ne by (intro; subst; contradiction).
-    pose proof (create_child_preserves_determined _ _ _ _ _ _ _ _ Ne Unq RETAG_EFFECT) as UnqPost.
+    pose proof (create_child_preserves_determined _ _ _ _ _ _ _ _ _ _ Ne Unq RETAG_EFFECT) as UnqPost.
     pose proof (insertion_preserves_tags Ex RETAG_EFFECT) as Ex'.
     pose proof (tree_determined_unify Ex' UnqPost Unq'); subst.
     assumption.

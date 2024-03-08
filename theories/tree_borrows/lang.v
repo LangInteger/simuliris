@@ -178,8 +178,8 @@ Inductive enc_expr_leaf : Type :=
   | EncString (str:string) | EncValue (val:value)
   | EncOperator (op:bin_op) | EncLoc (l:loc)
   | EncTag (tg:tag) | EncPointer (ptr:nat)
-  | EncNewperm (newp:newperm)
-  | EncRetagKind (rtk:retag_kind) | EncBinder (bind:binder)
+  | EncRetagKind (rtk:retag_kind)
+  | EncPointerKind (pkk:pointer_kind) | EncBinder (bind:binder)
   .
 Global Instance enc_expr_leaf_dec_eq : EqDecision enc_expr_leaf.
 Proof. solve_decision. Qed.
@@ -192,7 +192,7 @@ Proof.
     | EncTag tg => inr $ inl $ inl tg | EncPointer ptr => inr $ inl $ inr ptr
     | EncRetagKind rtk => inr $ inr $ inl rtk
     | EncBinder bind => inr $ inr $ inr $ inl bind
-    | EncNewperm newp => inr $ inr $ inr $ inr newp
+    | EncPointerKind pk => inr $ inr $ inr $ inr pk
     end)
     (λ e, match e with
     | (inl (inl (inl str))) => EncString str | (inl (inl (inr val))) => EncValue val
@@ -200,7 +200,7 @@ Proof.
     | (inr (inl (inl tg))) => EncTag tg | (inr (inl (inr ptr))) => EncPointer ptr
     | (inr (inr (inl rtk))) => EncRetagKind rtk
     | (inr (inr (inr (inl bind)))) => EncBinder bind
-    | (inr (inr (inr (inr newp)))) => EncNewperm newp
+    | (inr (inr (inr (inr pk)))) => EncPointerKind pk
     end) _); by intros [].
 Qed.
 
@@ -227,8 +227,8 @@ Proof.
       | Alloc ptr => GenNode 12 [GenLeaf $ EncPointer ptr]
       | Deref e ptr => GenNode 13 [GenLeaf $ EncPointer ptr; go e]
       | Ref e => GenNode 14 [go e]
-      | Retag e1 e2 newp sz kind =>
-          GenNode 15 [GenLeaf $ EncNewperm newp;
+      | Retag e1 e2 pk sz kind =>
+          GenNode 15 [GenLeaf $ EncPointerKind pk;
                       GenLeaf $ EncPointer sz;
                       GenLeaf $ EncRetagKind kind; go e1; go e2]
       | Let x e1 e2 => GenNode 16 [GenLeaf $ EncBinder x; go e1; go e2]
@@ -254,10 +254,10 @@ Proof.
      | GenNode 12 [GenLeaf (EncPointer ptr)] => Alloc ptr
      | GenNode 13 [GenLeaf (EncPointer ptr); e] => Deref (go e) ptr
      | GenNode 14 [e] => Ref (go e)
-     | GenNode 15 [GenLeaf (EncNewperm newp);
+     | GenNode 15 [GenLeaf (EncPointerKind pk);
                    GenLeaf (EncPointer sz);
                    GenLeaf (EncRetagKind kind); e1; e2] =>
-        Retag (go e1) (go e2) newp sz kind
+        Retag (go e1) (go e2) pk sz kind
      | GenNode 16 [GenLeaf (EncBinder x); e1; e2] => Let x (go e1) (go e2)
      | GenNode 17 (e :: el) => Case (go e) (go <$> el)
      | GenNode 23 [e] => Fork (go e)

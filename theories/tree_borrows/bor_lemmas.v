@@ -443,35 +443,33 @@ Proof.
     * destruct Contra as [Contra0 [Contra1 Contra2]]; auto.
 Qed.
 
-Lemma create_child_isSome tr tgp tgc :
-  forall cids tr' newp,
-  create_child cids tgp tgc newp tr = Some tr' ->
-  tr' = insert_child_at tr (create_new_item tgc newp) (IsTag tgp).
+Lemma create_child_isSome tr tgp tgc pk rk cid :
+  forall cids tr',
+  create_child cids tgp tgc pk rk cid tr = Some tr' ->
+  tr' = insert_child_at tr (create_new_item tgc pk rk cid) (IsTag tgp).
 Proof.
-  move=> ? tr' ? CreateChild.
+  move=> ? tr' CreateChild.
   unfold create_child in CreateChild.
-  inversion CreateChild.
+  injection CreateChild.
   auto.
 Qed.
 
-Lemma new_item_has_tag tg :
-  forall perm,
-  IsTag tg (create_new_item tg perm).
+Lemma new_item_has_tag tg pk rk cid :
+  IsTag tg (create_new_item tg pk rk cid).
 Proof.
-  move=> ?.
   unfold create_new_item.
   unfold IsTag; simpl; reflexivity.
 Qed.
 
-Lemma insertion_contains tr tgp tgc :
-  forall cids tr' newp,
+Lemma insertion_contains tr tgp tgc pk rk cid :
+  forall cids tr',
   tree_contains tgp tr ->
-  create_child cids tgp tgc newp tr = Some tr' ->
+  create_child cids tgp tgc pk rk cid tr = Some tr' ->
   tree_contains tgc tr'.
 Proof.
-  move=> ? tr' ? ContainsParent CreateChild.
+  move=> ? tr' ContainsParent CreateChild.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr tgp tgc _ _ _ CreateChild) as Insert.
+  pose proof (create_child_isSome tr tgp tgc _ _ _ _ _ CreateChild) as Insert.
   rewrite Insert.
   apply insert_true_produces_exists.
   - apply new_item_has_tag.
@@ -481,15 +479,15 @@ Qed.
 Lemma insertion_order_nonstrictparent tr tg tg' :
   tree_contains tg' tr ->
   ~tree_contains tg tr ->
-  forall tgp cids newp tr',
+  forall tgp cids pk rk cid tr',
   tree_contains tgp tr ->
-  create_child cids tgp tg newp tr = Some tr' ->
+  create_child cids tgp tg pk rk cid tr = Some tr' ->
   ~StrictParentChildIn tg tg' tr'.
 Proof.
-  move=> Present Fresh tgp ?? tr' ParentPresent Insert Contra.
+  move=> Present Fresh tgp ???? tr' ParentPresent Insert Contra.
   unfold create_child in Insert.
   injection Insert; intros; subst; clear Insert.
-  eapply inserted_not_strict_parent with (ins := (create_new_item tg _)).
+  eapply inserted_not_strict_parent with (ins := (create_new_item tg _ _ _)).
   - apply ParentPresent.
   - simpl; apply Fresh.
   - apply Present.
@@ -499,9 +497,9 @@ Qed.
 Lemma insertion_order_nonparent tr tg tg' :
   tree_contains tg' tr ->
   ~tree_contains tg tr ->
-  forall tgp cids newp tr',
+  forall tgp cids pk rk cid tr',
   tree_contains tgp tr ->
-  create_child cids tgp tg newp tr = Some tr' ->
+  create_child cids tgp tg pk rk cid tr = Some tr' ->
   ~ParentChildIn tg tg' tr'.
 Proof.
   intros; intro Related.
@@ -523,20 +521,20 @@ Proof.
 Qed.
 
 
-Lemma create_child_determined tr tgp newp tg :
+Lemma create_child_determined tr tgp pk rk cid tg :
   tree_contains tgp tr ->
   ~tree_contains tg tr ->
   forall cids tr',
-  create_child cids tgp tg newp tr = Some tr' ->
+  create_child cids tgp tg pk rk cid tr = Some tr' ->
   (
     tree_contains tg tr'
-    /\ tree_item_determined tg (create_new_item tg newp) tr'
+    /\ tree_item_determined tg (create_new_item tg pk rk cid) tr'
   ).
 Proof.
   intros ContainsTgp FreshTg cids tr' CreateChild.
-  pose proof (create_child_isSome _ _ _ _ _ _ CreateChild) as Insertion.
+  pose proof (create_child_isSome _ _ _ _ _ _ _ _ CreateChild) as Insertion.
   subst.
-  pose ins := create_new_item tg newp.
+  pose ins := create_new_item tg pk rk cid.
   assert (itag ins = tg) as TgIns by (apply new_item_has_tag).
   rewrite <- TgIns.
   split.
@@ -544,10 +542,10 @@ Proof.
   - eapply inserted_determined; simpl; assumption.
 Qed.
 
-Lemma create_new_item_uniform_perm tg newp z :
-  item_lazy_perm_at_loc (create_new_item tg newp) z = {|
+Lemma create_new_item_uniform_perm tg pk rk cid z :
+  item_lazy_perm_at_loc (create_new_item tg pk rk cid) z = {|
     initialized := PermLazy;
-    perm := newp.(initial_state)
+    perm := pointer_kind_to_perm pk
   |}.
 Proof.
   unfold item_lazy_perm_at_loc.
@@ -557,24 +555,26 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma create_new_item_perm_prop prop tg newp z :
-  prop (initial_state newp) ->
-  prop (perm (item_lazy_perm_at_loc (create_new_item tg newp) z)).
+Lemma create_new_item_perm_prop prop tg pk rk cid z :
+  prop (pointer_kind_to_perm pk) ->
+  prop (perm (item_lazy_perm_at_loc (create_new_item tg pk rk cid) z)).
 Proof. rewrite create_new_item_uniform_perm; simpl; tauto. Qed.
 
-Lemma create_new_item_prot_prop prop tg newp :
-  prop (new_protector newp) ->
-  prop (iprot (create_new_item tg newp)).
+Lemma create_new_item_prot_prop prop tg pk rk cid :
+  let s := pointer_kind_to_strength pk in
+  let prot := retag_kind_to_prot cid rk s in
+  prop (prot) ->
+  prop (iprot (create_new_item tg pk rk cid)).
 Proof. simpl; tauto. Qed.
 
 Lemma create_child_preserves_determined tg it tr tr':
-  forall tg' cids tgp newp,
+  forall tg' cids tgp pk rk cid,
   tg ≠ tg' ->
   tree_item_determined tg it tr ->
-  create_child cids tgp tg' newp tr = Some tr' ->
+  create_child cids tgp tg' pk rk cid tr = Some tr' ->
   tree_item_determined tg it tr'.
 Proof.
-  move=> ???? Ne.
+  move=> ?????? Ne.
   rewrite /tree_item_determined every_node_eqv_universal every_node_eqv_universal.
   move=> Unq CreateChild.
   injection CreateChild; intro; subst.
@@ -592,18 +592,18 @@ Qed.
 
 
 Lemma create_child_preserves_count tg tr tr':
-  forall tg' cids tgp newp,
+  forall tg' cids tgp pk rk cid,
   tg ≠ tg' ->
-  create_child cids tgp tg' newp tr = Some tr' ->
+  create_child cids tgp tg' pk rk cid tr = Some tr' ->
   tree_count_tg tg tr = tree_count_tg tg tr'.
 Proof.
-  intros tg' cids tgp newp Ne.
+  intros tg' cids tgp pk rk cid Ne.
   generalize dependent tr'.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; intros tr' Create; inversion Create; [reflexivity|].
   destruct (decide (IsTag tgp data)).
   + simpl.
     rewrite /has_tag.
-    assert (~IsTag tg (create_new_item tg' newp)) as NotTg. {
+    assert (~IsTag tg (create_new_item tg' pk rk cid)) as NotTg. {
       rewrite /create_new_item /IsTag //=.
     }
     erewrite IHtr1; [|reflexivity].

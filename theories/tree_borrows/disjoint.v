@@ -477,6 +477,7 @@ Tactic Notation "created" constr(tg) "determined" :=
   let uq := fresh "Unique" in
   created_determined tg ex uq.
 
+(*
 Ltac created_protected tg dest :=
   let newp := fresh "newp" in
   lazymatch goal with
@@ -1994,3 +1995,4 @@ Qed.
 
 
 
+ *)

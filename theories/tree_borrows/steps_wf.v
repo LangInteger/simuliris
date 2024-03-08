@@ -213,8 +213,8 @@ Proof.
   apply Read.
 Qed.
 
-Lemma create_child_preserve_nonempty cids oldtg newtg newp :
-  preserve_tree_nonempty (create_child cids oldtg newtg newp).
+Lemma create_child_preserve_nonempty cids oldtg newtg pk rk cid :
+  preserve_tree_nonempty (create_child cids oldtg newtg pk rk cid).
 Proof.
   intros tr tr' Nonempty Create.
   unfold create_child in Create.
@@ -679,14 +679,14 @@ Qed.
 
 (** Retag *)
 
-Lemma insert_child_wf cids oldt nxtp newp nxtc
-  (IT_WF : item_wf (create_new_item nxtp newp) (S nxtp) nxtc)
-  : preserve_tree_wf (create_child cids oldt nxtp newp) nxtp (S nxtp) nxtc nxtc.
+Lemma insert_child_wf cids oldt nxtp pk rk cid nxtc
+  (IT_WF : item_wf (create_new_item nxtp pk rk cid) (S nxtp) nxtc)
+  : preserve_tree_wf (create_child cids oldt nxtp pk rk cid) nxtp (S nxtp) nxtc nxtc.
 Proof.
   intros tr tr' WF CREATE tg Ex'.
   destruct (decide (tg = nxtp)).
   - unfold create_child in CREATE.
-    exists (create_new_item nxtp newp).
+    exists (create_new_item nxtp pk rk cid).
     split; [|split].
     + injection CREATE; intros; subst; clear CREATE.
       apply inserted_unique.
@@ -730,10 +730,10 @@ Proof.
     + eapply wf_item_mono; [| |eassumption]; lia.
 Qed.
 
-Lemma retag_step_wf σ σ' e e' l ot nt ptr cid efs :
-  mem_expr_step σ.(shp) e (RetagEvt l ot nt ptr cid) σ'.(shp) e' efs →
+Lemma retag_step_wf σ σ' e e' l ot nt pk rk cid efs :
+  mem_expr_step σ.(shp) e (RetagEvt l ot nt pk cid rk) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (RetagEvt l ot nt ptr cid)
+           (RetagEvt l ot nt pk cid rk)
            σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
   state_wf σ → state_wf σ'.
 Proof.
@@ -741,7 +741,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
-  inversion IS as [| | | |????????? SAME_CID ? RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
+  inversion IS as [| | | |??????????? RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
   constructor; simpl.
   - rewrite /same_blocks /=.
     (* Something is bodged here *)
@@ -760,17 +760,12 @@ Proof.
         unfold item_wf. split.
         -- intros tg Eqtg. unfold IsTag, create_new_item in Eqtg. simpl in Eqtg. lia.
         -- intros cid' prot.
-           apply WF; simpl.
+           apply WF; simpl in prot|-*.
            enough (cid = cid') by (subst; auto).
-           simpl in prot.
-           unfold protector_is_for_call in prot, SAME_CID.
-           rewrite prot in SAME_CID.
-           injection SAME_CID; [auto|].
-           destruct (new_protector ptr); auto.
-           inversion prot.
+           destruct rk; cbv in prot|-*; by simplify_eq.
       + apply WF.
   - unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (memory_access_preserve_nonempty _ _ _ _) READ_ON_REBOR).
-    unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (create_child_preserve_nonempty _ _ _ _) RETAG_EFFECT).
+    unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (create_child_preserve_nonempty _ _ _ _ _ _) RETAG_EFFECT).
     apply WF.
   - apply WF.
 Qed.
