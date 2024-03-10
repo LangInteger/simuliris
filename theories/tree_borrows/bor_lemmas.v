@@ -7,6 +7,13 @@ Lemma unique_somewhere
   a + b = 1 -> (a = 1 /\ b = 0) \/ (b = 1 /\ a = 0).
 Proof. lia. Qed.
 
+Lemma unique_somewhere_3way
+  {a b c} :
+  a + b + c = 1 -> (a = 1 /\ b = 0 /\ c = 0)
+                \/ (a = 0 /\ b = 1 /\ c = 0)
+                \/ (a = 0 /\ b = 0 /\ c = 1).
+Proof. lia. Qed.
+
 Lemma unique_found_here
   {a b} :
   1 + a + b = 1 -> a = 0 /\ b = 0.
@@ -657,13 +664,20 @@ Qed.
 
 Lemma not_strict_parent_of_self
   {tg tr} :
+  tree_contains tg tr ->
   ~StrictParentChildIn tg tg tr.
 Proof.
-Admitted.
+  rewrite /StrictParentChildIn.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; intros Ex; [tauto|].
+  intros [Here [Sub1 Sub2]].
+  destruct Ex as [Ex0|[Ex1|Ex2]].
+  + apply IHtr2; [|assumption]. apply Here. assumption.
+  + apply IHtr1; [|assumption]. apply Ex1.
+  + apply IHtr2; [|assumption]. apply Ex2.
+Qed.
 
 Lemma cousins_different
-  {tr} tg1 tg2
-  :
+  {tr} tg1 tg2 :
   rel_dec tr tg1 tg2 = Cousin ->
   tg1 ≠ tg2.
 Proof.
@@ -675,17 +689,363 @@ Proof.
   left. reflexivity.
 Qed.
 
-Lemma cousins_have_disjoint_strict_children
-  {tr tg} tg1 tg2
-  :
+Lemma unique_exists_iff_unique
+  {tr prop} tg :
   tree_unique tg tr ->
+  exists_subtree (fun br => IsTag tg (root br) -> prop br) tr
+  <-> every_subtree (fun br => IsTag tg (root br) -> prop br) tr.
+Proof.
+Admitted.
+
+Lemma unique_found_branch_1
+  {data tr1 tr2} tg :
+  tree_unique tg (branch data tr1 tr2) ->
+  tree_unique tg tr1 ->
+  ~tree_contains tg tr2 /\ ~IsTag tg data.
+Proof.
+  rewrite /tree_unique.
+  intros Unq Unq'.
+  simpl in Unq.
+  destruct (unique_somewhere_3way Unq) as [ [?[??]] |[ [H[??]] | [?[??]] ]]; [congruence| |congruence].
+  split; first (rewrite <- count_0_not_exists; assumption).
+  intro Tg. rewrite /has_tag in H.
+  rewrite bool_decide_eq_true_2 in H; [|assumption].
+  congruence.
+Qed.
+
+Lemma unique_found_branch_2
+  {data tr1 tr2} tg :
+  tree_unique tg (branch data tr1 tr2) ->
+  tree_unique tg tr2 ->
+  ~tree_contains tg tr1 /\ ~IsTag tg data.
+Proof.
+  rewrite /tree_unique.
+  intros Unq Unq'.
+  simpl in Unq.
+  destruct (unique_somewhere_3way Unq) as [ [?[??]] |[ [?[??]] | [H[??]] ]]; [congruence|congruence| ].
+  split; first (rewrite <- count_0_not_exists; assumption).
+  intro Tg. rewrite /has_tag in H.
+  rewrite bool_decide_eq_true_2 in H; [|assumption].
+  congruence.
+Qed.
+
+Lemma exists_subtree_increasing
+  {X} {tr : tree X} {P Q} :
+  (forall br, P br -> Q br) ->
+  exists_subtree P tr ->
+  exists_subtree Q tr.
+Proof.
+  induction tr as [|?? IHtr1 ? IHtr2]; simpl; [tauto|].
+  intros Impl [Here|[Ex1|Ex2]].
+  - left. apply Impl. assumption.
+  - right. left. apply IHtr1; assumption.
+  - right. right. apply IHtr2; assumption.
+Qed.
+
+Lemma unique_strict_parent_child_focus_1
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr1 ->
+  tree_unique tg2 tr1 ->
+  StrictParentChildIn tg1 tg2 tr1
+  <-> StrictParentChildIn tg1 tg2 (branch data tr1 tr2).
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /StrictParentChildIn.
+  simpl; split.
+  + intro P1.
+    destruct (unique_found_branch_1 _ Unq1 Unq1') as [Absent NotTg].
+    try repeat split.
+    - intro; contradiction.
+    - assumption.
+    - rewrite every_subtree_eqv_universal.
+      intros br Sub Tg.
+      exfalso.
+      apply Absent.
+      enough (exists_subtree (compose (IsTag tg1) root) tr2) as FoundTg.
+      * rewrite <- exists_node_iff_exists_root in FoundTg.
+        exact FoundTg.
+      * eapply exists_subtree_increasing; [|eassumption].
+        simpl. intros. subst. auto.
+  + intro P1.
+    apply P1.
+Qed.
+
+Lemma unique_strict_parent_child_focus_2
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr2 ->
+  tree_unique tg2 tr2 ->
+  StrictParentChildIn tg1 tg2 tr2
+  <-> StrictParentChildIn tg1 tg2 (branch data tr1 tr2).
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /StrictParentChildIn.
+  simpl; split.
+  + intro P1.
+    destruct (unique_found_branch_2 _ Unq1 Unq1') as [Absent NotTg].
+    try repeat split.
+    - intro; contradiction.
+    - rewrite every_subtree_eqv_universal.
+      intros br Sub Tg.
+      exfalso.
+      apply Absent.
+      enough (exists_subtree (compose (IsTag tg1) root) tr1) as FoundTg.
+      * rewrite <- exists_node_iff_exists_root in FoundTg.
+        exact FoundTg.
+      * eapply exists_subtree_increasing; [|eassumption].
+        simpl. intros. subst. auto.
+    - assumption.
+  + intro P1.
+    apply P1.
+Qed.
+
+Lemma unique_parent_child_focus_1
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr1 ->
+  tree_unique tg2 tr1 ->
+  ParentChildIn tg1 tg2 tr1
+  <-> ParentChildIn tg1 tg2 (branch data tr1 tr2).
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /ParentChildIn.
+  rewrite unique_strict_parent_child_focus_1; first reflexivity; assumption.
+Qed.
+
+Lemma unique_parent_child_focus_2
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr2 ->
+  tree_unique tg2 tr2 ->
+  ParentChildIn tg1 tg2 tr2
+  <-> ParentChildIn tg1 tg2 (branch data tr1 tr2).
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /ParentChildIn.
+  rewrite unique_strict_parent_child_focus_2; first reflexivity; assumption.
+Qed.
+
+
+Lemma cousins_in_branch_1
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr1 ->
+  tree_unique tg2 tr1 ->
+  rel_dec (branch data tr1 tr2) tg1 tg2 = Cousin
+  <-> rel_dec tr1 tg1 tg2 = Cousin.
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /rel_dec.
+  pose proof (unique_parent_child_focus_1 _ _ Unq1 Unq2 Unq1' Unq2') as [].
+  pose proof (unique_parent_child_focus_1 _ _ Unq2 Unq1 Unq2' Unq1') as [].
+  repeat destruct (decide _); try tauto.
+Qed.
+
+Lemma cousins_in_branch_2
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr2 ->
+  tree_unique tg2 tr2 ->
+  rel_dec (branch data tr1 tr2) tg1 tg2 = Cousin
+  <-> rel_dec tr2 tg1 tg2 = Cousin.
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /rel_dec.
+  pose proof (unique_parent_child_focus_2 _ _ Unq1 Unq2 Unq1' Unq2') as [].
+  pose proof (unique_parent_child_focus_2 _ _ Unq2 Unq1 Unq2' Unq1') as [].
+  repeat destruct (decide _); try tauto.
+Qed.
+
+Lemma cousins_find_common_ancestor
+  {tr} tg1 tg2 :
+  tree_unique tg1 tr ->
+  tree_unique tg2 tr ->
+  rel_dec tr tg1 tg2 = Cousin ->
+  exists_subtree (fun '(data, tr1, tr2) =>
+    (tree_contains tg1 tr1 /\ tree_contains tg2 tr2)
+    \/ (tree_contains tg2 tr1 /\ tree_contains tg1 tr2)
+    \/ (IsTag tg1 data /\ tree_contains tg2 tr1)
+    \/ (IsTag tg2 data /\ tree_contains tg1 tr1)
+  ) tr.
+Proof.
+  rewrite /tree_unique.
+  intros Unq1 Unq2 Rel.
+
+  assert (every_subtree (fun '(root, _, br2) => IsTag tg1 root -> ~tree_contains tg2 br2) tr)
+    as Unrel1. {
+      rewrite /rel_dec in Rel.
+      destruct (decide _) as [|nRel1], (decide _); try discriminate.
+      rewrite every_subtree_eqv_universal.
+      intros [[data tr1] tr2] Sub Tg Ex.
+      apply nRel1.
+      rewrite /ParentChildIn. right. rewrite /StrictParentChildIn.
+      rewrite <- unique_exists_iff_unique; [|assumption].
+      rewrite exists_subtree_eqv_existential.
+      eexists; split; [eassumption|auto].
+  }
+
+  assert (every_subtree (fun '(root, _, br2) => IsTag tg2 root -> ~tree_contains tg1 br2) tr)
+    as Unrel2. {
+      rewrite /rel_dec in Rel.
+      destruct (decide _), (decide _) as [|nRel2]; try discriminate.
+      rewrite every_subtree_eqv_universal.
+      intros [[data tr1] tr2] Sub Tg Ex.
+      apply nRel2.
+      rewrite /ParentChildIn. right. rewrite /StrictParentChildIn.
+      rewrite <- unique_exists_iff_unique; [|assumption].
+      rewrite exists_subtree_eqv_existential.
+      eexists; split; [eassumption|auto].
+  }
+
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; [discriminate|].
+  rewrite /has_tag in Unq1, Unq2.
+  destruct (decide (IsTag tg1 data)), (decide (IsTag tg2 data)).
+  - exfalso. eapply cousins_different; [eassumption|].
+    unfold IsTag in *; congruence.
+  - rewrite bool_decide_eq_false_2 /= in Unq2; [|assumption].
+    destruct (unique_somewhere Unq2) as [[Unq21 _] | [Unq22 _]].
+    + left. right. right. left.
+      split; [assumption|].
+      apply unique_exists.
+      assumption.
+    + (* absurd because they would be related *)
+      exfalso.
+      apply Unrel1; [assumption|].
+      apply unique_exists.
+      assumption.
+  - rewrite bool_decide_eq_false_2 /= in Unq1; [|assumption].
+    destruct (unique_somewhere Unq1) as [[Unq11 _] | [Unq12 _]].
+    + left. right. right. right.
+      split; [assumption|].
+      apply unique_exists.
+      assumption.
+    + (* absurd because they would be related *)
+      exfalso.
+      apply Unrel2; [assumption|].
+      apply unique_exists.
+      assumption.
+  - pose proof Unq1 as Unq1_remember.
+    pose proof Unq2 as Unq2_remember.
+    rewrite bool_decide_eq_false_2 /= in Unq1; [|assumption].
+    rewrite bool_decide_eq_false_2 /= in Unq2; [|assumption].
+    destruct (unique_somewhere Unq1) as [[Unq11 _] | [Unq12 _]],
+             (unique_somewhere Unq2) as [[Unq21 _] | [Unq22 _]].
+    + (* recurse left *)
+      right. left.
+      apply IHtr1.
+      * apply Unq11.
+      * apply Unq21.
+      * eapply cousins_in_branch_1; eassumption.
+      * apply Unrel1.
+      * apply Unrel2.
+    + (* found the common ancestor *)
+      left. left. split; apply unique_exists; assumption.
+    + (* found the common ancestor *)
+      left. right. left. split; apply unique_exists; assumption.
+    + (* recurse right *)
+      right. right.
+      apply IHtr2.
+      * apply Unq12.
+      * apply Unq22.
+      * eapply cousins_in_branch_2; eassumption.
+      * apply Unrel1.
+      * apply Unrel2.
+Qed.
+
+Lemma subtree_count_lower_bound
+  tr tg :
+  every_subtree (fun '(data, tr1, tr2) =>
+    tree_count_tg tg tr ≥ tree_count_tg tg tr1 + tree_count_tg tg tr2
+  ) tr.
+Proof.
+Admitted.
+
+Lemma contains_child
+  {tr tg tg'} :
+  ParentChildIn tg tg' tr ->
+  tree_contains tg tr ->
+  tree_contains tg' tr.
+Proof.
+  intros [Eq|Strict]; [subst; tauto|].
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [tauto|].
+  intros [Here|[Ex1|Ex2]].
+  - simpl in Strict. right; right.
+    apply Strict. assumption.
+  - right; left. apply IHtr1; [|assumption].
+    apply Strict.
+  - right; right. apply IHtr2; [|assumption].
+    apply Strict.
+Qed.
+
+Lemma strict_child_in_subtree
+  {tg tg' tr data tr1 tr2} :
+  StrictParentChildIn tg tg' tr ->
+  exists_subtree (eq (data, tr1, tr2)) tr ->
+  StrictParentChildIn tg tg' tr1 /\ StrictParentChildIn tg tg' tr2.
+Proof.
+Admitted.
+
+Lemma cousins_have_disjoint_strict_children
+  {tr tg} tg1 tg2 :
+  tree_unique tg tr ->
+  tree_unique tg1 tr ->
+  tree_unique tg2 tr ->
   rel_dec tr tg1 tg2 = Cousin ->
   StrictParentChildIn tg1 tg tr ->
   StrictParentChildIn tg2 tg tr ->
   False.
 Proof.
-Admitted.
-
+  intros Unique Ex1 Ex2 Cousins Strict1 Strict2.
+  pose proof (cousins_find_common_ancestor _ _ Ex1 Ex2 Cousins) as CommonAncestor.
+  rewrite exists_subtree_eqv_existential in CommonAncestor.
+  destruct CommonAncestor as [[[data tr1] tr2] [EqSub Separate]].
+  pose proof (subtree_count_lower_bound tr tg) as CountAtAncestor.
+  rewrite every_subtree_eqv_universal in CountAtAncestor.
+  specialize (CountAtAncestor (data, tr1, tr2) EqSub).
+  simpl in *.
+  assert (tree_count_tg tg tr1 ≥ 1). {
+    destruct Separate as [[Ex1' _] | [[Ex2' _]| [[_ Ex2']|[_ Ex1']]]].
+    + rewrite count_gt0_exists.
+      eapply contains_child; [right|eassumption].
+      apply (strict_child_in_subtree Strict1 EqSub).
+    + apply count_gt0_exists.
+      eapply contains_child; [right|eassumption].
+      apply (strict_child_in_subtree Strict2 EqSub).
+    + apply count_gt0_exists.
+      eapply contains_child; [right|eassumption].
+      apply (strict_child_in_subtree Strict2 EqSub).
+    + apply count_gt0_exists.
+      eapply contains_child; [right|eassumption].
+      apply (strict_child_in_subtree Strict1 EqSub).
+  }
+  assert (tree_count_tg tg tr2 ≥ 1). {
+    destruct Separate as [[_ Ex1'] | [[_ Ex2']|[[Ex2' _] | [Ex1' _]]]].
+    + rewrite count_gt0_exists.
+      eapply contains_child; [right|eassumption].
+      apply (strict_child_in_subtree Strict2 EqSub).
+    + apply count_gt0_exists.
+      eapply contains_child; [right|eassumption].
+      apply (strict_child_in_subtree Strict1 EqSub).
+    + apply count_gt0_exists.
+      unfold StrictParentChildIn in *.
+      rewrite every_subtree_eqv_universal in Strict1.
+      apply (Strict1 (data, tr1, tr2) EqSub Ex2').
+    + apply count_gt0_exists.
+      unfold StrictParentChildIn in *.
+      rewrite every_subtree_eqv_universal in Strict2.
+      apply (Strict2 (data, tr1, tr2) EqSub Ex1').
+  }
+  assert (tree_count_tg tg tr ≥ 2) as Twice by lia.
+  rewrite Unique in Twice.
+  lia.
+Qed.
 
 Lemma StrictParentChild_ParentChild
   {tr tg1 tg2 tg3} :
@@ -714,19 +1074,21 @@ Lemma cousins_have_disjoint_children
   {tr tg} tg1 tg2
   :
   tree_unique tg tr ->
+  tree_unique tg1 tr ->
+  tree_unique tg2 tr ->
   rel_dec tr tg1 tg2 = Cousin ->
   ParentChildIn tg1 tg tr ->
   ParentChildIn tg2 tg tr ->
   False.
 Proof.
-  intros Unique Cousins Parent1 Parent2.
+  intros Unique Ex1 Ex2 Cousins Parent1 Parent2.
   assert (tg1 ≠ tg2). { eapply cousins_different. eassumption. }
   unfold ParentChildIn in *.
   destruct Parent1, Parent2; subst.
   + congruence.
   + rewrite /rel_dec in Cousins.
     destruct (decide _). 1: {
-      eapply not_strict_parent_of_self.
+      eapply not_strict_parent_of_self; [eapply unique_exists; eassumption|].
       eapply StrictParentChild_ParentChild; eassumption.
     }
     destruct (decide _) as [|nRel]. 1: congruence.
@@ -737,6 +1099,8 @@ Proof.
     destruct (decide _). 1: discriminate.
     apply nRel.
     right. assumption.
-  + eapply cousins_have_disjoint_strict_children; eassumption.
+  + eapply cousins_have_disjoint_strict_children with (tg1 := tg1) (tg2 := tg2).
+    2,3,4,5,6: eassumption.
+    eassumption.
 Qed.
 
