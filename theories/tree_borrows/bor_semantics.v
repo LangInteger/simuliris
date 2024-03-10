@@ -798,7 +798,9 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | RetagIS trs' trs'' parentt (alloc : block) range pk cid rk
       (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
          NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
-               We want to do the read *after* the insertion so that it properly initializes the locations of the range *)
+               We want to do the read *after* the insertion so that it properly initializes the locations of the range
+         FIXME: require newperm to have a valid initial permission (not Active nor Disabled)
+         FIXME: newperm should NOT contain the protector, only information to dynamically compute it: replace newperm with pointer_kind. Don't retag shared references. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
