@@ -508,8 +508,8 @@ Section utils.
 
   Lemma child_of_this_is_foreign_for_cousin
     {tr tg_this tg_cous tg_child} :
-    tree_contains tg_this tr ->
-    tree_contains tg_cous tr ->
+    tree_unique tg_this tr ->
+    tree_unique tg_cous tr ->
     tree_unique tg_child tr ->
     rel_dec tr tg_this tg_cous = Cousin ->
     (rel_dec tr tg_child tg_this = This \/ rel_dec tr tg_child tg_this = Child) ->
@@ -517,7 +517,8 @@ Section utils.
   Proof.
     intros Ex_this Ex_cous Ex_child.
     intros Rel_this_cous [Rel_child_this | Rel_child_this].
-    + rewrite (rel_this_antisym _ _ Rel_child_this); [|apply unique_exists|]; assumption.
+    + rewrite (rel_this_antisym _ _ Rel_child_this); first assumption.
+      all: apply unique_exists; assumption.
     + rewrite /rel_dec in Rel_this_cous, Rel_child_this |- *.
       repeat destruct (decide (ParentChildIn _ _ _)); try discriminate.
       - enough (ParentChildIn tg_this tg_cous tr) by contradiction.
@@ -527,6 +528,8 @@ Section utils.
       - exfalso.
         eapply cousins_have_disjoint_children with (tg1 := tg_this) (tg2 := tg_cous).
         * eassumption.
+        * assumption.
+        * assumption.
         * rewrite /rel_dec.
           rewrite decide_False; [|eassumption].
           rewrite decide_False; [|eassumption].
@@ -571,8 +574,9 @@ Section utils.
     (Confl1 : pseudo_conflicted tr1 tg l confl1)
     (Confl2 : pseudo_conflicted tr2 tg l confl2)
     (AccEx : tree_unique acc_tg tr1)
-    (TgEx : tree_contains tg tr1)
+    (TgEx : tree_unique tg tr1)
     (* Auxiliary stuff to bind the local access to the global success for the pseudo conflicted case *)
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
     (GlobalSuccess : is_Some (tree_apply_access (apply_access_perm kind) C acc_tg range tr1))
     (ProtSpec : isprot = bool_decide (protector_is_active (iprot it1) C))
     (RelSpec : rel = rel_dec tr1 acc_tg tg)
@@ -609,8 +613,8 @@ Section utils.
     all: eapply child_of_this_is_foreign_for_cousin.
     all: try apply RelCous.
     all: try assumption.
-    all: try apply LookupCous.
-    all: rewrite -RelSpec; auto.
+    all: try rewrite -RelSpec; auto.
+    all: apply GloballyUnique1; apply LookupCous.
   Qed.
 
   Lemma loc_eq_up_to_C_allows_same_access
@@ -618,9 +622,10 @@ Section utils.
     (Tg1 : itag it1 = tg)
     (Tg2 : itag it2 = tg)
     (UnqAcc : tree_unique acc_tg tr1)
-    (Ex1 : tree_contains tg tr1)
+    (Ex1 : tree_unique tg tr1)
     (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
     (GlobalSuccess : is_Some (tree_apply_access (apply_access_perm kind) C acc_tg range tr1))
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
     (InRange : range'_contains range l)
     :
     loc_eq_up_to_C tr1 tr2 tg it1 it2 l ->
@@ -650,6 +655,7 @@ Section utils.
       + exact Confl2.
       + exact UnqAcc.
       + exact Ex1.
+      + exact GloballyUnique1.
       + exact GlobalSuccess.
       + rewrite -EqProt; reflexivity.
       + rewrite SameRel Tg2 //=.
@@ -666,9 +672,10 @@ Section utils.
     (Tg1 : itag it1 = tg)
     (Tg2 : itag it2 = tg)
     (UnqAcc : tree_unique acc_tg tr1)
-    (Ex1 : tree_contains tg tr1)
+    (Ex1 : tree_unique tg tr1)
     (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
     (GlobalSuccess : is_Some (tree_apply_access (apply_access_perm kind) C acc_tg range tr1))
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
     :
     item_eq_up_to_C tr1 tr2 tg it1 it2 ->
     is_Some (item_apply_access (apply_access_perm kind) C (rel_dec tr1 acc_tg (itag it1)) range it1) ->
@@ -691,13 +698,15 @@ Section utils.
     + apply Ex1.
     + apply SameRel.
     + apply GlobalSuccess.
+    + exact GloballyUnique1.
     + exact InRange.
     + apply EqC.
     + apply App1.
   Qed.
 
   Lemma tree_equal_allows_same_access
-    {tr1 tr2 kind acc_tg range} :
+    {tr1 tr2 kind acc_tg range}
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1) :
     tree_equal tr1 tr2 ->
     tree_unique acc_tg tr1 ->
     is_Some (memory_access kind C acc_tg range tr1) ->
@@ -716,13 +725,14 @@ Section utils.
     pose proof Eq as EqCopy.
     destruct EqCopy as [ExIff [SameRel Lookup]].
     destruct (tree_equal_transfer_lookup_2 Eq Lookup2) as [it1 [Lookup1 EqC]].
-    eapply item_eq_up_to_C_allows_same_access; [| | | | | |eauto|].
+    eapply item_eq_up_to_C_allows_same_access; [| | | | | | |eauto|].
     - erewrite tree_determined_specifies_tag. 2,3: eapply Lookup1. reflexivity.
     - erewrite tree_determined_specifies_tag. 2,3: eapply Lookup2. reflexivity.
     - apply UnqAcc.
-    - apply Lookup1.
+    - apply GloballyUnique1. apply Lookup1.
     - eassumption.
     - apply Acc1.
+    - exact GloballyUnique1.
     - eapply Every1; eassumption.
   Qed.
 

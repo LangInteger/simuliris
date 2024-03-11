@@ -689,13 +689,186 @@ Proof.
   left. reflexivity.
 Qed.
 
+Lemma exists_subtree_increasing
+  {X} {tr : tree X} {P Q} :
+  (forall br, P br -> Q br) ->
+  exists_subtree P tr ->
+  exists_subtree Q tr.
+Proof.
+  induction tr as [|?? IHtr1 ? IHtr2]; simpl; [tauto|].
+  intros Impl [Here|[Ex1|Ex2]].
+  - left. apply Impl. assumption.
+  - right. left. apply IHtr1; assumption.
+  - right. right. apply IHtr2; assumption.
+Qed.
+
+
+Lemma find_unique_subtree
+  {tr tg} :
+  tree_unique tg tr ->
+  exists br,
+    exists_subtree (eq br) tr
+    /\ IsTag tg (root br).
+Proof.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; [rewrite /tree_unique /=; discriminate|].
+  intros Unq.
+  rewrite /tree_unique /= in Unq.
+  destruct (unique_somewhere_3way Unq) as [ [H0 _] |[ [_ [H1 _]] | [_ [_ H2]] ]].
+  - exists (data, tr1, tr2).
+    split; [left; reflexivity|].
+    simpl. rewrite /has_tag in H0.
+    destruct (decide (IsTag tg data)); [assumption|].
+    rewrite bool_decide_eq_false_2 in H0; [discriminate|assumption].
+  - destruct (IHtr1 H1) as [br1 [??]].
+    exists br1. split; [|assumption]. right; left; assumption.
+  - destruct (IHtr2 H2) as [br2 [??]].
+    exists br2. split; [|assumption]. right; right; assumption.
+Qed.
+
+(* FIXME: these proofs ane absolutely horrible, refactor them. *)
+Lemma unique_only_one_subtree
+  {tr tg br1 br2} :
+  tree_unique tg tr ->
+  exists_subtree (eq br1) tr ->
+  exists_subtree (eq br2) tr ->
+  IsTag tg (root br1) ->
+  IsTag tg (root br2) ->
+  br1 = br2.
+Proof.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; [tauto|].
+  intros Unq Sub1 Sub2 Tg1 Tg2.
+  destruct Sub1 as [Here1|[Sub11|Sub12]], Sub2 as [Here2|[Sub21|Sub22]].
+  - (* easy *) congruence.
+  - (* too many tags: one here, one in tr1 *)
+    assert ((if has_tag tg data then 1 else 0) = 1). {
+      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+    }
+    assert (tree_count_tg tg tr1 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq.
+    lia.
+  - (* too many tags: one here, one in tr2 *)
+    assert ((if has_tag tg data then 1 else 0) = 1). {
+      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+    }
+    assert (tree_count_tg tg tr2 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq.
+    lia.
+  - (* too many tags: one in tr1, one here *)
+    assert ((if has_tag tg data then 1 else 0) = 1). {
+      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+    }
+    assert (tree_count_tg tg tr1 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq.
+    lia.
+  - (* recurse left *)
+    assert (tree_count_tg tg tr1 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq.
+    assert (tree_count_tg tg tr1 = 1) by lia.
+    apply IHtr1; assumption.
+  - (* too many tags: one in tr1, one in tr2 *)
+    assert (tree_count_tg tg tr1 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    assert (tree_count_tg tg tr2 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq. lia.
+  - (* too many tags: one in tr2, one here *)
+    assert ((if has_tag tg data then 1 else 0) = 1). {
+      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+    }
+    assert (tree_count_tg tg tr2 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq.
+    lia.
+  - (* too many tags: one in tr2, one in tr1 *)
+    assert (tree_count_tg tg tr1 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    assert (tree_count_tg tg tr2 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq. lia.
+  - (* recurse right *)
+    assert (tree_count_tg tg tr2 ≥ 1). {
+      rewrite count_gt0_exists.
+      enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
+      + rewrite -exists_node_iff_exists_root in Root. assumption.
+      + eapply exists_subtree_increasing; [|eassumption].
+        intros; subst. assumption.
+    }
+    rewrite /tree_unique /= in Unq.
+    assert (tree_count_tg tg tr2 = 1) by lia.
+    apply IHtr2; assumption.
+Qed.
+
 Lemma unique_exists_iff_unique
   {tr prop} tg :
   tree_unique tg tr ->
-  exists_subtree (fun br => IsTag tg (root br) -> prop br) tr
+  exists_subtree (fun br => IsTag tg (root br) /\ prop br) tr
   <-> every_subtree (fun br => IsTag tg (root br) -> prop br) tr.
 Proof.
-Admitted.
+  intros Unq. split.
+  - intros Ex.
+    rewrite every_subtree_eqv_universal.
+    rewrite exists_subtree_eqv_existential in Ex.
+    intros br Sub Tg.
+    destruct Ex as [br' [Ex' [Tg' Prop']]].
+    assert (br = br'). { eapply unique_only_one_subtree; eauto. }
+    subst. assumption.
+  - intros All.
+    rewrite every_subtree_eqv_universal in All.
+    rewrite exists_subtree_eqv_existential.
+    destruct (find_unique_subtree Unq) as [br [Sub Tg]].
+    exists br.
+    specialize (All br Sub Tg).
+    split; last split; assumption.
+Qed.
 
 Lemma unique_found_branch_1
   {data tr1 tr2} tg :
@@ -727,19 +900,6 @@ Proof.
   intro Tg. rewrite /has_tag in H.
   rewrite bool_decide_eq_true_2 in H; [|assumption].
   congruence.
-Qed.
-
-Lemma exists_subtree_increasing
-  {X} {tr : tree X} {P Q} :
-  (forall br, P br -> Q br) ->
-  exists_subtree P tr ->
-  exists_subtree Q tr.
-Proof.
-  induction tr as [|?? IHtr1 ? IHtr2]; simpl; [tauto|].
-  intros Impl [Here|[Ex1|Ex2]].
-  - left. apply Impl. assumption.
-  - right. left. apply IHtr1; assumption.
-  - right. right. apply IHtr2; assumption.
 Qed.
 
 Lemma unique_strict_parent_child_focus_1
@@ -965,7 +1125,20 @@ Lemma subtree_count_lower_bound
     tree_count_tg tg tr ≥ tree_count_tg tg tr1 + tree_count_tg tg tr2
   ) tr.
 Proof.
-Admitted.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [tauto|].
+  split; last split.
+  - lia.
+  - rewrite every_subtree_eqv_universal in IHtr1.
+    rewrite every_subtree_eqv_universal.
+    intros br Sub. specialize (IHtr1 br Sub).
+    destruct br as [[??]?].
+    lia.
+  - rewrite every_subtree_eqv_universal in IHtr2.
+    rewrite every_subtree_eqv_universal.
+    intros br Sub. specialize (IHtr2 br Sub).
+    destruct br as [[??]?].
+    lia.
+Qed.
 
 Lemma contains_child
   {tr tg tg'} :
@@ -990,7 +1163,15 @@ Lemma strict_child_in_subtree
   exists_subtree (eq (data, tr1, tr2)) tr ->
   StrictParentChildIn tg tg' tr1 /\ StrictParentChildIn tg tg' tr2.
 Proof.
-Admitted.
+  rewrite /StrictParentChildIn.
+  repeat rewrite every_subtree_eqv_universal.
+  intros Child Sub.
+  split; intros br Sub' Root.
+  all: apply Child; [|eassumption].
+  all: eapply exists_subtree_transitive; [eassumption|].
+  - simpl; right; left; assumption.
+  - simpl; right; right; assumption.
+Qed.
 
 Lemma cousins_have_disjoint_strict_children
   {tr tg} tg1 tg2 :
