@@ -270,8 +270,6 @@ Section utils.
     apply loc_eq_up_to_C_sym.
     auto.
   Qed.
-  
-  (* FIXME: add lookup lemma tree_equals tr1 tr2 → tree_lookup t it1 tr1 → ∃ it2, tree_lookup t it2 tr2 ∧ it_rel it1 it2 *)
 
   Lemma tree_equal_sym : Symmetric tree_equal.
   Proof.
@@ -736,6 +734,122 @@ Section utils.
     - eapply Every1; eassumption.
   Qed.
 
+  Lemma access_same_rel_dec
+    {tr tr' fn cids acc_tg range}
+    : tree_apply_access fn cids acc_tg range tr = Some tr' ->
+    forall tg tg', rel_dec tr tg tg' = rel_dec tr' tg tg'.
+  Proof.
+    intros Acc tg tg'.
+    rewrite /rel_dec.
+    pose proof (@access_eqv_rel tg tg' _ _ _ _ _ _ Acc).
+    pose proof (@access_eqv_rel tg' tg _ _ _ _ _ _ Acc).
+    destruct (decide _), (decide _), (decide _), (decide _).
+    all: tauto.
+  Qed.
+
+ Lemma perm_eq_up_to_C_preserved_by_access
+    {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
+    (SameProt : iprot it1 = iprot it2)
+    (SameTg : itag it1 = itag it2) (* note: redundant *)
+    (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
+    :
+    perm_eq_up_to_C tr1 tr2 tg l (iprot it1) (item_lookup it1 l) (item_lookup it2 l) ->
+    memory_access kind C acc_tg range tr1 = Some tr1' ->
+    memory_access kind C acc_tg range tr2 = Some tr2' ->
+    tree_lookup tr1 tg it1 ->
+    tree_lookup tr2 tg it2 ->
+    item_apply_access (apply_access_perm kind) C (rel_dec tr1 acc_tg (itag it1)) range it1 = Some it1' ->
+    item_apply_access (apply_access_perm kind) C (rel_dec tr2 acc_tg (itag it2)) range it2 = Some it2' ->
+    perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
+  Proof.
+    intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
+    inversion EqC as [p pSpec Equal|].
+    - (* reflexive case *)
+      rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
+      injection it1'Spec; intros; subst; clear it1'Spec.
+      rewrite bind_Some in ItAcc2; destruct ItAcc2 as [perms2' [PermsAcc2 it2'Spec]].
+      injection it2'Spec; intros; subst; clear it2'Spec.
+      simpl.
+      pose proof (mem_apply_range'_spec _ _ l _ _ PermsAcc1) as Perms1'Spec.
+      pose proof (mem_apply_range'_spec _ _ l _ _ PermsAcc2) as Perms2'Spec.
+      destruct (decide _).
+      + (* within range *)
+        destruct Perms1'Spec as [p1 [LookupSome1' PermAcc1]].
+        destruct Perms2'Spec as [p2 [LookupSome2' PermAcc2]].
+        rewrite /item_lookup LookupSome1' LookupSome2' /=.
+        rewrite /item_lookup in Equal.
+        rewrite Equal SameRel SameProt SameTg in PermAcc1.
+        rewrite PermAcc1 in PermAcc2.
+        injection PermAcc2; intros; subst. constructor.
+      + (* outside range *)
+        rewrite /item_lookup in Equal.
+        rewrite /item_lookup /= Perms1'Spec Perms2'Spec Equal.
+        constructor.
+    - admit. (* TODO: pseudo-conflicted case *)
+  Admitted.
+
+  Lemma item_eq_up_to_C_preserved_by_access
+    {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
+    :
+    item_eq_up_to_C tr1 tr2 tg it1 it2 ->
+    memory_access kind C acc_tg range tr1 = Some tr1' ->
+    memory_access kind C acc_tg range tr2 = Some tr2' ->
+    item_apply_access (apply_access_perm kind) C (rel_dec tr1 acc_tg (itag it1)) range it1 = Some it1' ->
+    item_apply_access (apply_access_perm kind) C (rel_dec tr2 acc_tg (itag it2)) range it2 = Some it2' ->
+    item_eq_up_to_C tr1' tr2' tg it1' it2'.
+  Proof.
+    intros EqC Acc1 Acc2 ItAcc1 ItAcc2.
+    econstructor.
+    - rewrite <- (proj2 (item_apply_access_preserves_metadata ItAcc1)).
+      rewrite <- (proj2 (item_apply_access_preserves_metadata ItAcc2)).
+      apply EqC. assumption.
+    - eapply perm_eq_up_to_C_preserved_by_access.
+      + apply EqC.
+      + eassumption.
+      + eassumption.
+      + eassumption.
+      + eassumption.
+  Qed.
+
+  Lemma tree_equal_preserved_by_access
+    {tr1 tr2 tr1' tr2' kind acc_tg range}
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
+    (GloballyUnique2 : forall tg, tree_contains tg tr2 -> tree_unique tg tr2)
+    :
+    tree_equal tr1 tr2 ->
+    tree_contains acc_tg tr1 ->
+    memory_access kind C acc_tg range tr1 = Some tr1' ->
+    memory_access kind C acc_tg range tr2 = Some tr2' ->
+    tree_equal tr1' tr2'.
+  Proof.
+    intros [SameTg [SameRel EqC]] ExAcc Acc1 Acc2.
+    split; [|split].
+    - intros tg.
+      rewrite <- (access_preserves_tags Acc1).
+      rewrite <- (access_preserves_tags Acc2).
+      apply SameTg.
+    - intros tg tg'.
+      rewrite <- (access_same_rel_dec Acc1).
+      rewrite <- (access_same_rel_dec Acc2).
+      apply SameRel.
+    - intros tg Ex1'.
+      pose proof (proj2 (access_preserves_tags Acc1) Ex1') as Ex1.
+      pose proof (proj1 (SameTg _) Ex1) as Ex2.
+      pose proof (proj1 (access_preserves_tags Acc2) Ex2) as Ex2'.
+      destruct (EqC tg Ex1) as [it1 [it2 [Lookup1 [Lookup2 EqC12]]]].
+      destruct (apply_access_spec_per_node Ex1 (proj2 Lookup1) Acc1) as [it1' [it1'Spec [_ Lookup1']]].
+      destruct (apply_access_spec_per_node Ex2 (proj2 Lookup2) Acc2) as [it2' [it2'Spec [_ Lookup2']]].
+      exists it1'. exists it2'.
+      split; [|split].
+      + split; assumption.
+      + split; assumption.
+      + eapply item_eq_up_to_C_preserved_by_access.
+        * eassumption.
+        * eassumption.
+        * eassumption.
+        * symmetry; assumption.
+        * symmetry; assumption.
+  Qed.
 
 End utils.
 
