@@ -286,7 +286,7 @@ Proof.
   - assumption.
   - rewrite /item_wf in Wfit |- *.
     symmetry in PostSpec.
-    destruct (item_apply_access_preserves_metadata PostSpec) as [Same1 Same2].
+    destruct (item_apply_access_preserves_metadata PostSpec) as [Same1 [Same2 _]].
     simpl. rewrite /IsTag /protector_is_for_call. rewrite <- Same1, <- Same2.
     auto.
 Qed.

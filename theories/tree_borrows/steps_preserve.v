@@ -6,7 +6,8 @@ Lemma item_apply_access_preserves_metadata
   {kind cids rel range it it'} :
   item_apply_access kind cids rel range it = Some it' ->
   it.(itag) = it'.(itag)
-  /\ it.(iprot) = it'.(iprot).
+  /\ it.(iprot) = it'.(iprot)
+  /\ it.(initp) = it'.(initp).
 Proof.
   rewrite /item_apply_access.
   destruct permissions_apply_range'; simpl.

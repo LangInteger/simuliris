@@ -641,10 +641,10 @@ Qed.
 
 Lemma tree_apply_access_only_cares_about_rel
   {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
-  {tr1 tr2}
-  (Agree : forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
-  : join_nodes (map_nodes (fun it => fn cids (rel_dec tr1 access_tag it.(itag)) range it) tr)
-  = join_nodes (map_nodes (fun it => fn cids (rel_dec tr2 access_tag it.(itag)) range it) tr).
+  {rel1 rel2 : tag -> tag -> rel_pos}
+  (Agree : forall tg tg', rel1 tg tg' = rel2 tg tg')
+  : join_nodes (map_nodes (fun it => fn cids (rel1 access_tag it.(itag)) range it) tr)
+  = join_nodes (map_nodes (fun it => fn cids (rel2 access_tag it.(itag)) range it) tr).
 Proof.
   induction tr as [|data sibling IHsibling child IHchild]; [simpl; reflexivity|].
   simpl.
@@ -652,13 +652,23 @@ Proof.
   rewrite IHchild; clear IHchild.
   unfold rel_dec.
   f_equal. f_equal.
+  apply Agree.
+Qed.
+
+Lemma same_parent_childs_agree
+  {tr1 tr2}
+  : (forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2) ->
+  (forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg').
+Proof.
+  intros SameRel tg tg'.
+  rewrite /rel_dec.
   destruct (decide (ParentChildIn _ _ _)) as [R1|R1].
   all: destruct (decide (ParentChildIn _ _ _)) as [R1'|R1'].
   all: destruct (decide (ParentChildIn _ _ _)) as [R2|R2].
   all: destruct (decide (ParentChildIn _ _ _)) as [R2'|R2'].
   all: try reflexivity.
-  all: rewrite <- Agree in R2'; auto; try contradiction.
-  all: rewrite <- Agree in R2; auto; try contradiction.
+  all: rewrite <- SameRel in R2'; auto; try contradiction.
+  all: rewrite <- SameRel in R2; auto; try contradiction.
   all: apply Subtree; left; simpl.
 Qed.
 

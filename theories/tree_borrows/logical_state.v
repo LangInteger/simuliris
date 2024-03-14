@@ -800,8 +800,8 @@ Section utils.
   Proof.
     intros EqC Acc1 Acc2 ItAcc1 ItAcc2.
     econstructor.
-    - rewrite <- (proj2 (item_apply_access_preserves_metadata ItAcc1)).
-      rewrite <- (proj2 (item_apply_access_preserves_metadata ItAcc2)).
+    - rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata ItAcc1))).
+      rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata ItAcc2))).
       apply EqC. assumption.
     - eapply perm_eq_up_to_C_preserved_by_access. (*
       + apply EqC. exact l. (* ?? *)
