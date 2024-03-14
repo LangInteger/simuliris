@@ -142,9 +142,9 @@ Proof.
   destruct (initialized _); [|done].
   destruct (bool_decide (protector_is_active _ _)); [|done].
   destruct (decide (post = Disabled)).
-  - rewrite bool_decide_eq_true_2; auto.
-    destruct (ProtVulnerable ltac:(assumption)); discriminate.
-  - rewrite bool_decide_eq_false_2; auto.
+  - subst; auto.
+    destruct (ProtVulnerable ltac:(reflexivity)); discriminate.
+  - destruct post; auto. contradiction.
 Qed.
 
 

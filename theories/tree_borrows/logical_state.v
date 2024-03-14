@@ -25,7 +25,7 @@ tag_name : gname;
   (* A view of parts of the heap, conditional on the tag *)
 heap_view_inG :: ghost_mapG Σ (tag * loc) scalar;
   heap_view_source_name : gname;
-  heap_view_target_name : gname;
+heap_view_target_name : gname;
 
   (* Public call IDs *)
   pub_call_inG :: ghost_mapG Σ call_id unit;
@@ -67,7 +67,7 @@ Proof. solve_inG. Qed.
 Section utils.
 
   Definition tree_lookup (tr : tree item) (tg : tag) (it : item) :=
-    tree_contains tg tr
+tree_contains tg tr
     /\ tree_item_determined tg it tr.
 
   Definition trees_lookup (trs : trees) blk tg it :=
@@ -763,7 +763,7 @@ Section utils.
     perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
   Proof.
     intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
-    inversion EqC as [p pSpec Equal|].
+    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2].
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
@@ -785,31 +785,96 @@ Section utils.
         rewrite /item_lookup in Equal.
         rewrite /item_lookup /= Perms1'Spec Perms2'Spec Equal.
         constructor.
-    - admit. (* TODO: pseudo-conflicted case *)
+    - (* The permissions are pseudo-conflicted, this restricts the possible accesses. *)
+      rewrite SameRel SameTg in ItAcc1.
+      rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [perms1'Spec it1'Spec]].
+      rewrite bind_Some in ItAcc2; destruct ItAcc2 as [perms2' [perms2'Spec it2'Spec]].
+      injection it1'Spec; intros; subst; clear it1'Spec.
+      injection it2'Spec; intros; subst; clear it2'Spec.
+      rewrite /item_lookup /=.
+      pose proof (mem_apply_range'_spec _ _ l _ _ perms1'Spec) as perm1'Spec; clear perms1'Spec.
+      pose proof (mem_apply_range'_spec _ _ l _ _ perms2'Spec) as perm2'Spec; clear perms2'Spec.
+      (* Now we do the case analysis of the access that occured *)
+      (* First off, if we're out of range then we can take the exact same witness. *)
+      destruct (decide (range'_contains range l)).
+      2: {
+        rewrite perm1'Spec.
+        rewrite perm2'Spec.
+        rewrite /item_lookup in itLookup1, itLookup2.
+        rewrite -itLookup1 -itLookup2.
+        econstructor.
+        + assumption.
+        + inversion Confl1.
+          * constructor.
+          * admit. (* Lemma needed about the fact that the conflicting cousin is still there. *)
+        + inversion Confl2.
+          * constructor.
+          * admit. (* Lemma needed about the fact that the conflicting cousin is still there. *)
+      }
+      (* Now we're within range *)
+      destruct perm1'Spec as [perm1' [perm1'Lookup perm1'Spec]].
+      destruct perm2'Spec as [perm2' [perm2'Lookup perm2'Spec]].
+      rewrite perm1'Lookup perm2'Lookup; clear perm1'Lookup perm2'Lookup.
+      simpl.
+      rewrite bool_decide_eq_true_2 in perm1'Spec; [|assumption].
+      rewrite bool_decide_eq_true_2 in perm2'Spec; [|rewrite -SameProt; assumption].
+      rewrite /item_lookup in itLookup1, itLookup2.
+      rewrite -itLookup1 in perm1'Spec; clear itLookup1.
+      rewrite -itLookup2 in perm2'Spec; clear itLookup2.
+      (* Next we need to unwrap the apply_access_perm to get to apply_access_perm_inner *)
+      rewrite bind_Some in perm1'Spec; destruct perm1'Spec as [perm1 [perm1Spec perm1'Spec]].
+      rewrite bind_Some in perm1'Spec; destruct perm1'Spec as [tmp1 [tmp1Spec perm1'Spec]].
+      injection perm1'Spec; simpl; intros; subst; clear perm1'Spec.
+      rewrite bind_Some in perm2'Spec; destruct perm2'Spec as [perm2 [perm2Spec perm2'Spec]].
+      rewrite bind_Some in perm2'Spec; destruct perm2'Spec as [tmp2 [tmp2Spec perm2'Spec]].
+      injection perm2'Spec; simpl; intros; subst; clear perm2'Spec.
+      simpl in *.
+      (* We can finally start the big case analysis at the level of the state machine *)
+      destruct ini, perm1, perm2; try congruence.
+      all: injection tmp1Spec; intros; subst; clear tmp1Spec.
+      all: injection tmp2Spec; intros; subst; clear tmp2Spec.
+      all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.
+      all: destruct confl2; simpl in *; try discriminate.
+      all: try (injection perm1Spec; intros; subst); clear perm1Spec.
+      all: try (injection perm2Spec; intros; subst); clear perm2Spec.
+      all: try constructor; auto.
+      all: try constructor.
+      (* Now they are all ResActivable and we need to show that the cousin is still a witness.
+         We'll want a dedicated lemma for that. *)
+      all: admit.
   Admitted.
 
   Lemma item_eq_up_to_C_preserved_by_access
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
+    (SameTg : itag it1 = itag it2)
+    (SameRel : forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
     :
     item_eq_up_to_C tr1 tr2 tg it1 it2 ->
     memory_access kind C acc_tg range tr1 = Some tr1' ->
     memory_access kind C acc_tg range tr2 = Some tr2' ->
+    tree_lookup tr1 tg it1 ->
+    tree_lookup tr2 tg it2 ->
     item_apply_access (apply_access_perm kind) C (rel_dec tr1 acc_tg (itag it1)) range it1 = Some it1' ->
     item_apply_access (apply_access_perm kind) C (rel_dec tr2 acc_tg (itag it2)) range it2 = Some it2' ->
     item_eq_up_to_C tr1' tr2' tg it1' it2'.
   Proof.
-    intros EqC Acc1 Acc2 ItAcc1 ItAcc2.
+    intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
     econstructor.
     - rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata ItAcc1))).
       rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata ItAcc2))).
       apply EqC. assumption.
-    - eapply perm_eq_up_to_C_preserved_by_access. (*
-      + apply EqC. exact l. (* ?? *)
+    - eapply perm_eq_up_to_C_preserved_by_access.
+      + apply EqC. assumption.
+      + apply SameTg.
+      + apply SameRel.
+      + apply EqC.
       + eassumption.
       + eassumption.
       + eassumption.
       + eassumption.
-  Qed. *) Admitted.
+      + eassumption.
+      + eassumption.
+  Qed.
 
   Lemma tree_equal_preserved_by_access
     {tr1 tr2 tr1' tr2' kind acc_tg range}
@@ -844,6 +909,12 @@ Section utils.
       + split; assumption.
       + split; assumption.
       + eapply item_eq_up_to_C_preserved_by_access.
+        * erewrite tree_lookup_correct_tag; [|exact Lookup1].
+          erewrite tree_lookup_correct_tag; [|exact Lookup2].
+          reflexivity.
+        * eassumption.
+        * eassumption.
+        * eassumption.
         * eassumption.
         * eassumption.
         * eassumption.

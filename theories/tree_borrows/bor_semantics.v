@@ -347,8 +347,10 @@ Definition apply_access_perm kind rel (isprot:bool)
   new ← apply_access_perm_inner kind rel isprot old;
   validated ← if operm.(initialized) then (
     (* only if the permission is initialized do we possibly trigger protector UB *)
-    if isprot && bool_decide (new = Disabled) then (
+    if isprot then (
+      if new is Disabled then (
         None
+      ) else Some new
     ) else Some new
   ) else Some new;
   Some $ mkPerm
