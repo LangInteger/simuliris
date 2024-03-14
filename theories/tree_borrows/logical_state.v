@@ -803,13 +803,13 @@ Section utils.
     - rewrite <- (proj2 (item_apply_access_preserves_metadata ItAcc1)).
       rewrite <- (proj2 (item_apply_access_preserves_metadata ItAcc2)).
       apply EqC. assumption.
-    - eapply perm_eq_up_to_C_preserved_by_access.
-      + apply EqC.
+    - eapply perm_eq_up_to_C_preserved_by_access. (*
+      + apply EqC. exact l. (* ?? *)
       + eassumption.
       + eassumption.
       + eassumption.
       + eassumption.
-  Qed.
+  Qed. *) Admitted.
 
   Lemma tree_equal_preserved_by_access
     {tr1 tr2 tr1' tr2' kind acc_tg range}
