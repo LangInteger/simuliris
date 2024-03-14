@@ -70,6 +70,12 @@ Definition trees_rel_dec (trs : trees) blk tg tg' :=
   | Some tr => rel_dec tr tg tg'
   end.
 
+Lemma trees_rel_dec_refl ev1 ev2 trs blk tg :
+  trees_contain tg trs blk →
+  wf_trees trs ev1 ev2 →
+  trees_rel_dec trs blk tg tg = This.
+Admitted.
+
 Lemma apply_trees_access_lookup_general cids ev1 ev2 trs kind blk off1 sz offi acc_tg lu_tg trs' itold :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk trs = Some trs' →
   wf_trees trs ev1 ev2 →
