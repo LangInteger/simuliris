@@ -417,17 +417,13 @@ Fixpoint write_mem l (v: value) h: mem :=
   | s :: v => write_mem (l +ₗ 1) v (<[l := s]> h)
   end.
 
-Section no_mangle.
-Local Unset Mangle Names. (* work around https://github.com/mattam82/Coq-Equations/issues/407 *)
-Equations read_mem (l: loc) (n: nat) h: option value :=
-  read_mem l n h := go l n (Some [])
-  where go : loc → nat → option value → option value :=
-        go l' O      oacc := oacc;
-        go l' (S n')  oacc :=
-          acc ← oacc ;
-          v ← h !! l';
-          go (l' +ₗ 1) n' (Some (acc ++ [v])).
-End no_mangle.
+Fixpoint read_mem (l: loc) (n: nat) h: option value :=
+  match n with
+    0%nat => Some []
+  | S n' => 
+      rr ← read_mem (l +ₗ 1) n' h ;
+      v  ← h !! l ;
+      Some (v :: rr) end.
 
 Definition fresh_block (h : mem) : block :=
   let loclst : list loc := elements (dom h) in
@@ -508,6 +504,7 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
     (* failed copies lead to poison, but still of the appropriate length *)
     mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []
 | WriteBS blk l lbor sz v
+    (LEN: length v = sz)
     (DEFINED: ∀ (i: nat), (i < length v)%nat → (blk,l) +ₗ i ∈ dom h) :
     mem_expr_step
               h (Place (blk, l) lbor sz <- Val v)

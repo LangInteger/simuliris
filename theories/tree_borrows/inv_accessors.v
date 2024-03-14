@@ -289,9 +289,9 @@ Section lemmas.
         intros [[-> _]%array_tag_map_lookup2 | ?]; eauto.
     }
     eauto.
-  Qed.
+  Qed. *)
 
-  (** Read lemmas *)
+  (** Read lemmas *) (*
     Lemma bor_interp_readN_target_local σ_t σ_s (t : ptr_id) l scs :
     bor_interp σ_t σ_s -∗
     l ↦t∗[tk_local]{t} scs -∗
@@ -348,15 +348,15 @@ Section lemmas.
     specialize (Hcontrol Hpre) as [Hown Hmem].
     split_and!; [| done ].
     - rewrite Hmem. rewrite list_lookup_lookup_total; [done | ]. by apply lookup_lt_is_Some_2.
-  Qed.
+  Qed. *)
 
-  Lemma bor_interp_readN_target σ_t σ_s (t : ptr_id) tk l v_t :
+  Lemma bor_interp_readN_target σ_t σ_s (t : tag) tk l v_t :
     bor_interp σ_t σ_s -∗
     l ↦t∗[tk]{t} v_t -∗
     t $$ tk -∗
     ⌜∀ i:nat, (i < length v_t)%nat → loc_controlled (l +ₗ i) t tk (v_t !!! i) σ_t⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -369,13 +369,13 @@ Section lemmas.
     apply Ht. done.
   Qed.
 
-  Lemma bor_interp_readN_source σ_t σ_s (t : ptr_id) tk l v_s :
+  Lemma bor_interp_readN_source σ_t σ_s (t : tag) tk l v_s :
     bor_interp σ_t σ_s -∗
     l ↦s∗[tk]{t} v_s -∗
     t $$ tk -∗
-    ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
+      ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
@@ -387,6 +387,7 @@ Section lemmas.
     apply Hs. done.
   Qed.
 
+(*
   Lemma bor_interp_readN_source_protected σ_t σ_s (t : ptr_id) tk l v_s c M :
     (∀ i: nat, (i < length v_s)%nat → call_set_in M t (l +ₗ i)) →
     bor_interp σ_t σ_s -∗

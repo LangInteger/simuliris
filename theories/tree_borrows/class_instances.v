@@ -238,14 +238,13 @@ Section safe_reach.
   Global Instance safe_implies_write_place_right P σ l' t' T' l t T :
     SafeImplies False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
-  (* Doesn't build because memory_written has been changed
-  Global Instance safe_implies_write P σ l t T v :
-    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+  Global Instance safe_implies_write P σ l t sz v :
+    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ trees_contain t (strs σ) l.1 ∧ is_Some (apply_within_trees (memory_access AccessWrite (scs σ) t (l.2, length v)) l.1 (strs σ)) ∧ length v = sz) P (Write (Place l t sz) (Val v)) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_write_result P σ r r' :
     SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
   Proof. prove_safe_implies. Qed.
-   *)
+   
 
   Global Instance safe_implies_alloc P σ sz :
     SafeImplies (sz > 0)%nat P (Alloc sz) σ.

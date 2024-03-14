@@ -18,7 +18,9 @@ Implicit Types Φ : expr → expr → iProp Σ.
 Implicit Types σ σ_s σ_t : state.
 Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
-Implicit Types f : fname.
+Implicit Types f : fname. 
+
+(*
 
 
 (** ** Retags *)
@@ -663,38 +665,42 @@ Proof.
     intros [_ (i & -> & Hi)]. exfalso; apply Hneq_loc.
     apply seq_loc_set_elem. eauto.
 Qed.
+*)
 
-Lemma sim_write_unique_unprotected π l t T v_t v_s v_t' v_s' Φ :
-  length v_t = tsize T →
-  length v_s = tsize T →
-  t $$ tk_unq -∗
-  l ↦t∗[tk_unq]{t} v_t -∗
-  l ↦s∗[tk_unq]{t} v_s -∗
+
+Lemma sim_write_unique_unprotected π l t sz tk v_t v_s v_t' v_s' Φ :
+  tk = tk_unq_res →
+  length v_t = sz →
+  length v_s = sz →
+  t $$ tk -∗
+  l ↦t∗[tk]{t} v_t -∗
+  l ↦s∗[tk]{t} v_s -∗
   (* crucial: without protectors, we need to write related values, as the locations
     will need to be public in the state_rel -- after all, there is no protector, so it can't be private! *)
   value_rel v_t' v_s' -∗
-  (t $$ tk_unq -∗ l ↦t∗[tk_unq]{t} v_t' -∗ l ↦s∗[tk_unq]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
-  Write (Place l (Tagged t) T) #v_t' ⪯{π} Write (Place l (Tagged t) T) #v_s' [{ Φ }].
+  (t $$ tk_unq_act -∗ l ↦t∗[tk_unq_act]{t} v_t' -∗ l ↦s∗[tk_unq_act]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  Write (Place l t sz) #v_t' ⪯{π} Write (Place l t sz) #v_s' [{ Φ }].
 Proof.
   (* get the loc controlled things. exploit source UB. update the ghost state. *)
-  iIntros (Hlen_t Hlen_s) "Htag Ht Hs #Hvrel Hsim".
+  iIntros (Heq Hsz1 Hsz2) "Htag Ht Hs #Hvrel Hsim".
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iPoseProof (bor_interp_readN_target with "Hbor Ht Htag") as "%Hcontrol_t".
   iPoseProof (bor_interp_readN_source with "Hbor Hs Htag") as "%Hcontrol_s".
 
   iModIntro.
-  destruct Hsafe as [Hpool Hsafe].
-  specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & (α' & Hstack_s) & Hlen_s').
+  destruct Hsafe as [Hpool Hsafe]. 
+  specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & Hcontain & (α' & Htree_s) & Hlen_s').
+  Print trees_contain.
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
-  destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
+  destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
 
   (* from source reduction, we get that bor_state_pre is satisfied for the affected locations *)
-  assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk_unq σ_s ∧ bor_state_own (l +ₗ i) t tk_unq σ_t) as Hcontrol_own.
+  assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk_unq_res σ_s ∧ bor_state_own (l +ₗ i) t tk_unq_res σ_t) as Hcontrol_own.
   { intros i Hi.
     destruct (Hcontrol_s i Hi) as [Hown _].
-    { specialize (for_each_lookup_case_2 _ _ _ _ _ Hstack_s) as [Hs _].
+    { subst tk. simpl. Abort. (*
       specialize (Hs i ltac:(lia)) as (stk0 & stk' & Hstk0 & Hstk' & Hacc1').
       destruct access1 as [[] | ] eqn:Hacc1; last done.
       specialize (access1_in_stack _ _ _ _ _ _ Hacc1) as (it & Hit & Htg & Hperm).
@@ -810,8 +816,8 @@ Proof.
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
     iPureIntro. eapply base_step_wf; done.
-Qed.
-
+Qed. *)
+(*
 Lemma target_write_local v_t v_t' T l t Ψ :
   length v_t = tsize T →
   length v_t' = tsize T →
@@ -1502,6 +1508,8 @@ Proof.
   iSplitR. { iPureIntro. eapply dealloc_base_step'; done. }
   iFrame. iSplitL; last done. by iApply "Hsim".
 Qed.
+
+*)
 
 
 (** operational lemmas for calls *)

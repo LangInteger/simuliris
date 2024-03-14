@@ -271,30 +271,23 @@ Lemma read_mem_is_Some' l n h :
   (∀ m, (m < n)%nat → l +ₗ m ∈ dom h) ↔
   is_Some (read_mem l n h).
 Proof.
-  eapply (read_mem_elim
-            (λ l n h ov,
-              (∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom h) ↔ is_Some ov)
-            (λ _ _ h l n oacc gov, is_Some oacc →
-              ((∀ m : nat, (m < n)%nat → l +ₗ m ∈ dom h) ↔
-               is_Some gov))).
-  - naive_solver.
-  - intros. split; first naive_solver. by intros; lia.
-  - intros l1 n1 h2 l2 n2 oacc IH [acc Eqacc]. rewrite Eqacc /=.
-    split.
-    + intros BLK.
-      assert (is_Some (h2 !! l2)) as [v2 Eq2].
-      { apply (elem_of_dom (D:=gset loc)). rewrite -(shift_loc_0_nat l2).
-        apply BLK. lia. }
-      rewrite Eq2 /=. apply IH; [by eexists|].
-      intros m Lt. rewrite shift_loc_assoc -(Nat2Z.inj_add 1). apply BLK. lia.
-    + intros [v Eq]. destruct (h2 !! l2) as [v2|] eqn:Eq2; [|done].
-      simpl in Eq.
-      specialize (IH acc v2 (ltac:(by eexists))).
-      intros m Lt. destruct m as [|m].
-      { rewrite shift_loc_0_nat. apply (elem_of_dom_2 _ _ _ Eq2). }
-      rewrite (_: l2 +ₗ S m = l2 +ₗ 1 +ₗ m); last first.
-      { by rewrite shift_loc_assoc -(Nat2Z.inj_add 1). }
-      apply IH; [|lia]. by eexists.
+  induction n as [|n IH] in l|-*.
+  1: simpl; split; intros; first done; lia.
+  specialize (IH (l +ₗ 1)).
+  setoid_rewrite shift_loc_assoc in IH.
+  destruct IH as (IHl & IHr).
+  split.
+  - intros H. destruct IHl as (x & Hx).
+    { intros m Hm. assert (1 + m = S m) as -> by lia. eapply H; lia. }
+    rewrite /= Hx /=. setoid_rewrite elem_of_dom in H.
+    destruct (H 0%nat) as (y & Hy); first lia.
+    rewrite shift_loc_0 in Hy. rewrite Hy //.
+  - simpl. intros (rmr&(rr&Hrr&(hl&Hhl&[= <-])%option_bind_inv)%option_bind_inv).
+    intros [|m] Hm.
+    1: rewrite shift_loc_0; by eapply elem_of_dom_2.
+    assert (Z.of_nat (S m) = (1 + m)%Z) as -> by lia.
+    apply IHr; last lia.
+    by exists rr.
 Qed.
 
 Lemma read_mem_is_Some l n h
@@ -307,44 +300,16 @@ Lemma read_mem_values l n h v :
   length v = n ∧
   (∀ i, (i < n)%nat → h !! (l +ₗ i) = v !! i).
 Proof.
-  eapply (read_mem_elim
-            (λ l n h ovl, ∀ vl, ovl = Some vl →
-              length vl = n ∧
-              (∀ i, (i < n)%nat → h !! (l +ₗ i) = vl !! i))
-            (λ _ _ h l n oacc ovl, ∀ acc vl,
-              oacc = Some acc → ovl = Some vl →
-              (∀ i, (i < length acc)%nat → h !! (l +ₗ (i - length acc)) = acc !! i) →
-              length vl = (length acc + n)%nat ∧
-              (∀ i, (i < length acc)%nat → h !! (l +ₗ (i - length acc)) = vl !! i) ∧
-              (∀ i, (i < n)%nat → h !! (l +ₗ i) = vl !! (length acc + i)%nat))).
-  - intros ??? IH vl1 Eq.
-    destruct (IH [] vl1) as [IH1 IH2]; [done..|simpl;intros;lia|].
-    split; [done|]. intros i.
-     rewrite -{2}(Nat.add_0_l i) -(nil_length (A:=scalar)). by apply IH2.
-  - clear. intros _ _ ????????. simplify_eq/=.
-    (* We use [simplify_eq/=] to work around https://github.com/mattam82/Coq-Equations/issues/449. *)
-    split; [lia|]. split; [done|intros; lia].
-  - clear. move => l0 n0 h l n oacc IH acc vl -> /=.
-    case lookup as [v|] eqn:Eq; [|done].
-    move => /= Eqvl ACC.
-    destruct (IH acc v (acc ++ [v]) vl eq_refl Eqvl) as [IH0 [IH1 IH2]];
-      last split; last split.
-    { intros i. rewrite app_length /=. intros Lt.
-      rewrite (_: l +ₗ 1 +ₗ (i - (length acc + 1)%nat) = l +ₗ (i - length acc));
-        last first. { rewrite shift_loc_assoc. f_equal. lia. }
-      case (decide (i = length acc)) => ?; [subst i|].
-      - by rewrite Z.sub_diag shift_loc_0 list_lookup_middle.
-      - have ?: (i < length acc)%nat by lia.
-        rewrite ACC; [|done]. by rewrite lookup_app_l. }
-    { rewrite IH0 app_length /=. lia. }
-    { intros i Lt. rewrite -IH1; [|rewrite app_length /=; lia].
-      f_equal. rewrite shift_loc_assoc. f_equal. rewrite app_length /=. lia. }
-    intros [|i] Lt.
-    + rewrite Nat.add_0_r -IH1; [|rewrite app_length /=; lia].
-      rewrite app_length /= shift_loc_assoc. do 2 f_equal. lia.
-    + rewrite (_: (l +ₗ S i) =  (l +ₗ 1 +ₗ i));
-        [|rewrite shift_loc_assoc; f_equal; lia].
-      rewrite IH2; [|lia]. f_equal. rewrite app_length /=. lia.
+  induction n as [|n IH] in l,v|-*.
+  { simpl. intros [= <-]. split; first done. lia. }
+  simpl. intros (rr&Hrr&(hl&Hhl&[= <-])%option_bind_inv)%option_bind_inv.
+  destruct (IH _ _ Hrr) as (Hn&Hrst).
+  split; first by rewrite -Hn.
+  intros [|m] Hm.
+  1: rewrite shift_loc_0 /= Hhl //.
+  assert (Z.of_nat (S m) = (1 + m)%Z) as -> by lia.
+  rewrite /= -Hrst /=; last lia.
+  rewrite shift_loc_assoc //.
 Qed.
 
 Lemma read_mem_values' l n h v :
