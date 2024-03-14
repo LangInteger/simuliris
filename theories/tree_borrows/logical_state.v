@@ -1135,15 +1135,22 @@ Section heap_defs.
       that needs to be able to remove stacks from the state without updating all the ghost state that may still make assumptions about it.
   *)
 
+  Definition bor_state_pre_unq (l : loc) (t : tag) (σ : state) :=
+      ∃ it, trees_lookup σ.(strs) l.1 t it
+       ∧ (item_lookup it l.2).(perm) ≠ Disabled
+       ∧ ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)).
+
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
-    | tk_unq_act | tk_unq_res => ∃ it, trees_lookup σ.(strs) l.1 t it
-                   ∧ (item_lookup it l.2).(perm) ≠ Disabled
-                   ∧ ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs))
+    | tk_unq_act | tk_unq_res => bor_state_pre_unq l t σ
     | tk_pub => ∃ it, trees_lookup σ.(strs) l.1 t it
                    ∧ (item_lookup it l.2).(perm) ≠ Disabled
     end.
+
+  Lemma bor_state_pre_unq_or l t tk σ : (tk = tk_unq_res ∨ tk = tk_unq_act) →
+    bor_state_pre l t tk σ = bor_state_pre_unq l t σ.
+  Proof. intros [-> | ->]; done. Qed.
 
 (*
   Lemma loc_protected_bor_state_pre l t c σ tk :

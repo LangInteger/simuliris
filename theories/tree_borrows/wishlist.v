@@ -68,7 +68,16 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma apply_trees_access_lookup_general cids ev1 ev2 trs kind blk off1 sz offi acc_tg lu_tg trs' itold :
+Lemma trees_equal_allows_same_access C tr1 tr2 blk ev1 ev2 ev3 ev4 kind acc_tg range :
+  (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
+  trees_equal C tr1 tr2 →
+  wf_trees tr1 ev1 ev2 →
+  wf_trees tr2 ev3 ev4 →
+  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
+  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
+Admitted.
+
+Lemma apply_trees_access_lookup_general offi cids ev1 ev2 trs kind blk off1 sz acc_tg lu_tg trs' itold :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk trs = Some trs' →
   wf_trees trs ev1 ev2 →
   off1 ≤ offi < off1 + sz →

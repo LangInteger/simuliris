@@ -7,6 +7,7 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_retag steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
+From simuliris.tree_borrows Require Import wishlist.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -669,7 +670,7 @@ Qed.
 
 
 Lemma sim_write_unique_unprotected π l t sz tk v_t v_s v_t' v_s' Φ :
-  tk = tk_unq_res →
+  (tk = tk_unq_res ∨ tk = tk_unq_act) →
   length v_t = sz →
   length v_s = sz →
   t $$ tk -∗
@@ -690,26 +691,49 @@ Proof.
   iModIntro.
   destruct Hsafe as [Hpool Hsafe]. 
   specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & Hcontain & (α' & Htree_s) & Hlen_s').
-  Print trees_contain.
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
 
   (* from source reduction, we get that bor_state_pre is satisfied for the affected locations *)
-  assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk_unq_res σ_s ∧ bor_state_own (l +ₗ i) t tk_unq_res σ_t) as Hcontrol_own.
-  { intros i Hi.
-    destruct (Hcontrol_s i Hi) as [Hown _].
-    { subst tk. simpl. Abort. (*
-      specialize (Hs i ltac:(lia)) as (stk0 & stk' & Hstk0 & Hstk' & Hacc1').
-      destruct access1 as [[] | ] eqn:Hacc1; last done.
-      specialize (access1_in_stack _ _ _ _ _ _ Hacc1) as (it & Hit & Htg & Hperm).
-      destruct it as [perm tg opro]. simpl in *. simplify_eq.
-      all: exists stk0, perm, opro; done.
-    }
-    split; first done.
-    move : Hown. rewrite /bor_state_own. setoid_rewrite Hsst_eq. done.
-  }
+  assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk σ_s ∧ bor_state_own (l +ₗ i) t tk σ_t) as Hcontrol_own.
+  { intros i Hi. 
+    destruct (Hcontrol_s i Hi) as [Hown_s _].
+    { rewrite bor_state_pre_unq_or; last done. rewrite /bor_state_pre_unq /=.
+      eapply trees_contain_trees_lookup_1 in Hcontain as Hcontain2.
+      2: apply Hwf_s. destruct Hcontain2 as (it & Hlookup).
+      exists it; split; first done.
+      eapply (apply_trees_access_lookup_general (l.2 + i)) in Htree_s as HH.
+      2: apply Hwf_s. 2: lia. 2: apply Hlookup.
+      destruct HH as (itnew & Hlookup_new & Hinit & Hprot & Haccess).
+      destruct (item_lookup it (l.2 + i)) as [init perm] eqn:Hluit.
+      simpl. erewrite trees_rel_dec_refl in Haccess.
+      rewrite /apply_access_perm /= in Haccess.
+      apply option_bind_inv in Haccess as (perm' & H1 & _).
+      by destruct perm. }
+    destruct (Hcontrol_t i) as [Hown_t _].
+    1: lia.
+    { rewrite bor_state_pre_unq_or; last done. rewrite /bor_state_pre_unq /=.
+      edestruct (trees_equal_same_tags) as [HL _]; first done.
+      apply HL in Hcontain; clear HL.
+      eapply trees_contain_trees_lookup_1 in Hcontain as Hcontain2.
+      2: apply Hwf_t. destruct Hcontain2 as (it & Hlookup).
+      exists it; split; first done.
+      eapply mk_is_Some in Htree_s.
+      eapply trees_equal_allows_same_access in Htree_s as Htree_t.
+      2-4: try done; try eapply Hwf_s; try eapply Hwf_t.
+      destruct Htree_t as [αt Htree_t].
+      eapply (apply_trees_access_lookup_general (l.2 + i)) in Htree_t as HH.
+      2: apply Hwf_t. 2: lia. 2: apply Hlookup.
+      destruct HH as (itnew & Hlookup_new & Hinit & Hprot & Haccess).
+      destruct (item_lookup it (l.2 + i)) as [init perm] eqn:Hluit.
+      simpl. erewrite trees_rel_dec_refl in Haccess.
+      rewrite /apply_access_perm /= in Haccess.
+      apply option_bind_inv in Haccess as (perm' & H1 & _).
+      by destruct perm. }
+    done.
+  } (*
   assert (α' = σ_s.(sst)) as ->.
   { rewrite (memory_written_access1 σ_s.(sst)) in Hstack_s; first congruence.
     intros i Hi.
@@ -816,7 +840,7 @@ Proof.
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
     iPureIntro. eapply base_step_wf; done.
-Qed. *)
+Qed. *) Abort.
 (*
 Lemma target_write_local v_t v_t' T l t Ψ :
   length v_t = tsize T →

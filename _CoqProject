@@ -161,7 +161,7 @@ theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
 theories/tree_borrows/inv_accessors.v # needs stuff
 theories/tree_borrows/steps_refl.v # in progress
-#theories/tree_borrows/steps_opt.v # idk, ignore for now
+theories/tree_borrows/steps_opt.v # in progress
 theories/tree_borrows/primitive_laws.v # needs steps_opt, for now commented out
 theories/tree_borrows/proofmode.v
 theories/tree_borrows/wishlist.v
