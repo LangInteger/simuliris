@@ -24,8 +24,6 @@ Proof.
 Qed.
 (***** not part of the API *****)
 
-
-
 Lemma trees_contain_trees_lookup_1 trs ev1 ev2 blk tg :
   wf_trees trs ev1 ev2 →
   trees_contain tg trs blk → ∃ it, trees_lookup trs blk tg it.
@@ -53,28 +51,22 @@ Proof.
   apply Lookup.
 Qed.
 
-Lemma apply_trees_access_lookup_same_tag cids ev1 ev2 trs kind blk off1 sz offi t trs':
-  apply_within_trees (memory_access kind cids t (off1, sz)) blk trs = Some trs' →
-  wf_trees trs ev1 ev2 →
-  off1 ≤ offi < off1 + sz →
-  ∃ itold itnew, trees_lookup trs blk t itold ∧ trees_lookup trs' blk t itnew ∧
-                 let permold := item_lookup itold offi in let permnew := item_lookup itnew offi in
-                 initp itold = initp itnew ∧
-                 iprot itold = iprot itnew ∧
-                 apply_access_perm kind This (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew.
-Admitted.
-
 Definition trees_rel_dec (trs : trees) blk tg tg' :=
   match trs !! blk with
-  | None => Cousin
+  | None => This
   | Some tr => rel_dec tr tg tg'
   end.
 
-Lemma trees_rel_dec_refl ev1 ev2 trs blk tg :
-  trees_contain tg trs blk →
-  wf_trees trs ev1 ev2 →
+Lemma trees_rel_dec_refl trs blk tg :
   trees_rel_dec trs blk tg tg = This.
-Admitted.
+Proof.
+  rewrite /trees_rel_dec.
+  destruct (trs !! blk); [|reflexivity].
+  rewrite /rel_dec.
+  rewrite decide_True; [|left; reflexivity].
+  rewrite decide_True; [|left; reflexivity].
+  reflexivity.
+Qed.
 
 Lemma apply_trees_access_lookup_general cids ev1 ev2 trs kind blk off1 sz offi acc_tg lu_tg trs' itold :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk trs = Some trs' →
@@ -126,3 +118,26 @@ Proof.
     rewrite permAcc.
     rewrite /item_lookup /= permSome //=.
 Qed.
+
+
+Lemma apply_trees_access_lookup_same_tag cids ev1 ev2 trs kind blk off1 sz offi tg trs':
+  apply_within_trees (memory_access kind cids tg (off1, sz)) blk trs = Some trs' →
+  wf_trees trs ev1 ev2 →
+  off1 ≤ offi < off1 + sz →
+  trees_contain tg trs blk →
+  ∃ itold itnew, trees_lookup trs blk tg itold ∧ trees_lookup trs' blk tg itnew ∧
+                 let permold := item_lookup itold offi in let permnew := item_lookup itnew offi in
+                 initp itold = initp itnew ∧
+                 iprot itold = iprot itnew ∧
+                 apply_access_perm kind This (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew.
+Proof.
+  intros App wf InRange Ex.
+  destruct (trees_contain_trees_lookup_1 _ _ _ _ _ wf Ex) as [itold Lookup].
+  destruct (apply_trees_access_lookup_general _ _ _ _ _ _ _ _ _ _ _ _ _ App wf InRange Lookup) as [itnew newSpec].
+  exists itold, itnew.
+  rewrite trees_rel_dec_refl in newSpec.
+  split; first assumption.
+  apply newSpec.
+Qed.
+
+
