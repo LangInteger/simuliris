@@ -342,6 +342,16 @@ Proof.
   apply (tree_apply_access_wf _ _ _ _ _ _ _ _ WF Dealloc).
 Qed.
 
+Lemma memory_access_wf tr tr' acc cids tg range nxtp nxtc :
+  wf_tree tr nxtp nxtc ->
+  memory_access acc cids tg range tr = Some tr' ->
+  wf_tree tr' nxtp nxtc.
+Proof.
+  destruct acc.
+  - eapply memory_read_wf.
+  - eapply memory_write_wf.
+Qed.
+
 
 Lemma init_mem_singleton_dom (blk:block) n sz :
   (sz > 0)%nat ->

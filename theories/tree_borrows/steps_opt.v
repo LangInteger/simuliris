@@ -812,13 +812,33 @@ Proof.
     iPureIntro. intros c M' HM'_some. simpl.
     specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
     split; first done. intros t' L [Ht HL]%Hprot. split; first done.
-
     intros l' HlL. specialize (HL l' HlL).
     eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| |done].
     rewrite Hscs_eq. apply Hin.
   - (* tag invariant *)
-    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom). split_and!; [ | | | done..]. (*
-    { intros t' tk Ht.
+    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom). split_and!; [ | | | done..].
+    { intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
+      { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
+        split_and!; [done|done|..]; last first.
+        - eapply dom_agree_on_tag_union; last done. eapply dom_agree_on_tag_array_tag_map; congruence.
+        - admit.
+        - admit. }
+      { destruct (Htag_interp _ _ Ht) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
+        split_and!; [done|done|..]; last first.
+        - eapply dom_agree_on_tag_union; last done.
+          eapply dom_agree_on_tag_not_elem; by eapply array_tag_map_lookup_None.
+        - intros l1 sc [HinF|(Hnel1&Hin)]%lookup_union_Some_raw.
+          1: by rewrite array_tag_map_lookup_None in HinF.
+          ospecialize (Hcontrol_s' _ _ Hin).
+          eapply loc_controlled_access_outside; last done; try done.
+          (*
+          { rewrite /bor_state_pre /bor_state_pre_unq in Hpre|-*.
+          Print bor_state_pre. Print loc_controlled.
+          Print dom_agree_on_tag.
+          Search loc_controlled.
+          rewrite /dom_agree_on_tag. Locate dom_agree_on_tag
+          Search dom_agree_on_tag array_tag_map.
+        
       specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrolled_t & Hcontrolled_s & Hdom).
       split_and!; [ done | done | | | ].
       - intros l' sc_t Hsc. rewrite Hsst_eq.
