@@ -105,7 +105,7 @@ tree_contains tg tr
     | pseudo_conflicted_cousin_init tg_cous it_cous :
         (* If it's not actually conflicted, it can be pseudo conflicted if there is *)
         (* A cousin that is protected *)
-        rel_dec tr tg tg_cous = Cousin ->
+        rel_dec tr tg tg_cous = Foreign Cousin ->
         tree_lookup tr tg_cous it_cous ->
         protector_is_active it_cous.(iprot) C ->
         (* and who on this location is initalized not disabled *)
@@ -235,7 +235,6 @@ tree_contains tg tr
     intros blk tr tg LookupEmp.
     inversion LookupEmp.
   Qed.
-
 
   Lemma perm_eq_up_to_C_sym
     {tr1 tr2 tg l cid perm1 perm2}
@@ -493,7 +492,7 @@ tree_contains tg tr
     {tr tg tg'} :
     tree_contains tg tr ->
     tree_contains tg' tr ->
-    rel_dec tr tg tg' = This -> tg = tg'.
+    rel_dec tr tg tg' = Child This -> tg = tg'.
   Proof.
     rewrite /rel_dec.
     remember (decide (ParentChildIn tg tg' tr)) as Rel.
@@ -509,18 +508,16 @@ tree_contains tg tr
     tree_unique tg_this tr ->
     tree_unique tg_cous tr ->
     tree_unique tg_child tr ->
-    rel_dec tr tg_this tg_cous = Cousin ->
-    (rel_dec tr tg_child tg_this = This \/ rel_dec tr tg_child tg_this = Child) ->
-    rel_dec tr tg_child tg_cous = Cousin.
+    rel_dec tr tg_this tg_cous = Foreign Cousin ->
+    (if rel_dec tr tg_child tg_this is Child _ then True else False) ->
+    rel_dec tr tg_child tg_cous = Foreign Cousin.
   Proof.
     intros Ex_this Ex_cous Ex_child.
-    intros Rel_this_cous [Rel_child_this | Rel_child_this].
-    + rewrite (rel_this_antisym _ _ Rel_child_this); first assumption.
-      all: apply unique_exists; assumption.
+    intros Rel_this_cous Rel_child_this_Foreign.
+    destruct (rel_dec _ tg_child _) as [|pos] eqn:Rel_child_this; [contradiction|].
+    destruct pos.
     + rewrite /rel_dec in Rel_this_cous, Rel_child_this |- *.
       repeat destruct (decide (ParentChildIn _ _ _)); try discriminate.
-      - enough (ParentChildIn tg_this tg_cous tr) by contradiction.
-        eapply ParentChild_transitive; eassumption.
       - enough (ParentChildIn tg_this tg_cous tr) by contradiction.
         eapply ParentChild_transitive; eassumption.
       - exfalso.
@@ -534,7 +531,11 @@ tree_contains tg tr
           reflexivity.
         * eassumption.
         * eassumption.
+      - enough (ParentChildIn tg_this tg_cous tr) by contradiction.
+        eapply ParentChild_transitive; eassumption.
       - reflexivity.
+    + rewrite (rel_this_antisym _ _ Rel_child_this); first assumption.
+      all: apply unique_exists; assumption.
   Qed.
 
   Lemma cousin_write_for_initialized_protected_nondisabled_is_ub
@@ -543,7 +544,7 @@ tree_contains tg tr
     (Protected : protector_is_active (iprot it) C)
     (NonDis : perm (item_lookup it l) ≠ Disabled)
     (IsInit : initialized (item_lookup it l) = PermInit)
-    (IsCousin : rel_dec tr acc_tg tg = Cousin)
+    (IsCousin : rel_dec tr acc_tg tg = Foreign Cousin)
     (InRange : range'_contains range l)
     : ~ is_Some (tree_apply_access (apply_access_perm AccessWrite) C acc_tg range tr).
   Proof.
@@ -558,7 +559,7 @@ tree_contains tg tr
     rewrite is_Some_ignore_bind in Absurd.
     rewrite -mem_apply_range'_success_condition in Absurd.
     rewrite bool_decide_eq_true_2 in Absurd; [|auto].
-    enough (is_Some (apply_access_perm AccessWrite Cousin true (item_lookup it l))) as Absurd'.
+    enough (is_Some (apply_access_perm AccessWrite (Foreign Cousin) true (item_lookup it l))) as Absurd'.
     - rewrite /apply_access_perm in Absurd'.
       destruct (item_lookup _ _) as [[] [[][]| | |]]; simpl in Absurd'.
       all: try inversion Absurd'; discriminate.
@@ -1248,28 +1249,28 @@ Section heap_defs.
            | Reserved TyFrz _ => ¬ protector_is_active it.(iprot) σ.(scs)
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
-            | This => True
+            | Child This => True
                (* it' is a child of it *)
-            | Child => (item_lookup it' l.2).(perm) = Disabled
-            | Parent => (item_lookup it' l.2).(perm) ≠ Disabled
-            | Cousin => (item_lookup it' l.2).(perm) ≠ Active end
+            | Child Strict => (item_lookup it' l.2).(perm) = Disabled
+            | Foreign Parent => (item_lookup it' l.2).(perm) ≠ Disabled
+            | Foreign Cousin => (item_lookup it' l.2).(perm) ≠ Active end
     | tk_unq tk_act
        => (item_lookup it l.2).(perm) = Active ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
-            | This => True
+            | Child This => True
                (* it' is a child of it *)
-            | Child => (item_lookup it' l.2).(perm) = Disabled
-            | Parent => (item_lookup it' l.2).(perm) = Active
-            | Cousin => match (item_lookup it' l.2).(perm) with
+            | Child Strict => (item_lookup it' l.2).(perm) = Disabled
+            | Foreign Parent => (item_lookup it' l.2).(perm) = Active
+            | Foreign Cousin => match (item_lookup it' l.2).(perm) with
                        Disabled | Reserved InteriorMut _ => True | _ => False end end
     | tk_pub
        => (item_lookup it l.2).(perm) = Frozen ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
-            | This => True
+            | Child This => True
                (* it' is a child of it *)
-            | Child => (item_lookup it' l.2).(perm) ≠ Active
-            | Parent => (item_lookup it' l.2).(perm) ≠ Disabled
-            | Cousin => (item_lookup it' l.2).(perm) ≠ Active end
+            | Child Strict => (item_lookup it' l.2).(perm) ≠ Active
+            | Foreign Parent => (item_lookup it' l.2).(perm) ≠ Disabled
+            | Foreign Cousin => (item_lookup it' l.2).(perm) ≠ Active end
     end.
 
   Lemma bor_state_own_some_tree l t tk σ :

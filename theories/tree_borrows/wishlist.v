@@ -53,12 +53,12 @@ Qed.
 
 Definition trees_rel_dec (trs : trees) blk tg tg' :=
   match trs !! blk with
-  | None => This
+  | None => Child This
   | Some tr => rel_dec tr tg tg'
   end.
 
 Lemma trees_rel_dec_refl trs blk tg :
-  trees_rel_dec trs blk tg tg = This.
+  trees_rel_dec trs blk tg tg = Child This.
 Proof.
   rewrite /trees_rel_dec.
   destruct (trs !! blk); [|reflexivity].
@@ -218,7 +218,7 @@ Lemma apply_trees_access_lookup_same_tag cids ev1 ev2 trs kind blk off1 sz offi 
                  let permold := item_lookup itold offi in let permnew := item_lookup itnew offi in
                  initp itold = initp itnew ∧
                  iprot itold = iprot itnew ∧
-                 apply_access_perm kind This (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew.
+                 apply_access_perm kind (Child This) (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew.
 Proof.
   intros App wf InRange Ex.
   destruct (trees_contain_trees_lookup_1 _ _ _ _ _ wf Ex) as [itold Lookup].

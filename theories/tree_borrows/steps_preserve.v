@@ -833,7 +833,7 @@ Qed.
 
 Lemma apply_access_perm_child_produces_perminit
   {pre post kind b rel}
-  (CHILD : child rel)
+  (CHILD : if rel is Child _ then True else False)
   (Access : apply_access_perm kind rel b pre = Some post)
   : initialized post = PermInit.
 Proof.
@@ -874,7 +874,7 @@ Proof.
   all: eapply apply_access_perm_child_produces_perminit.
   all: try eassumption.
   all: try (rewrite Lkup; simpl; try exact Apply).
-  all: unfold child; auto.
+  all: simpl; done.
 Qed.
 
 Lemma bor_local_step_preserves_perminit

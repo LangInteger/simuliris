@@ -688,7 +688,7 @@ Qed.
 
 Lemma cousins_different
   {tr} tg1 tg2 :
-  rel_dec tr tg1 tg2 = Cousin ->
+  rel_dec tr tg1 tg2 = Foreign Cousin ->
   tg1 ≠ tg2.
 Proof.
   rewrite /rel_dec.
@@ -1007,8 +1007,8 @@ Lemma cousins_in_branch_1
   tree_unique tg2 (branch data tr1 tr2) ->
   tree_unique tg1 tr1 ->
   tree_unique tg2 tr1 ->
-  rel_dec (branch data tr1 tr2) tg1 tg2 = Cousin
-  <-> rel_dec tr1 tg1 tg2 = Cousin.
+  rel_dec (branch data tr1 tr2) tg1 tg2 = Foreign Cousin
+  <-> rel_dec tr1 tg1 tg2 = Foreign Cousin.
 Proof.
   intros Unq1 Unq2 Unq1' Unq2'.
   rewrite /rel_dec.
@@ -1023,8 +1023,8 @@ Lemma cousins_in_branch_2
   tree_unique tg2 (branch data tr1 tr2) ->
   tree_unique tg1 tr2 ->
   tree_unique tg2 tr2 ->
-  rel_dec (branch data tr1 tr2) tg1 tg2 = Cousin
-  <-> rel_dec tr2 tg1 tg2 = Cousin.
+  rel_dec (branch data tr1 tr2) tg1 tg2 = Foreign Cousin
+  <-> rel_dec tr2 tg1 tg2 = Foreign Cousin.
 Proof.
   intros Unq1 Unq2 Unq1' Unq2'.
   rewrite /rel_dec.
@@ -1037,7 +1037,7 @@ Lemma cousins_find_common_ancestor
   {tr} tg1 tg2 :
   tree_unique tg1 tr ->
   tree_unique tg2 tr ->
-  rel_dec tr tg1 tg2 = Cousin ->
+  rel_dec tr tg1 tg2 = Foreign Cousin ->
   exists_subtree (fun '(data, tr1, tr2) =>
     (tree_contains tg1 tr1 /\ tree_contains tg2 tr2)
     \/ (tree_contains tg2 tr1 /\ tree_contains tg1 tr2)
@@ -1051,7 +1051,7 @@ Proof.
   assert (every_subtree (fun '(root, _, br2) => IsTag tg1 root -> ~tree_contains tg2 br2) tr)
     as Unrel1. {
       rewrite /rel_dec in Rel.
-      destruct (decide _) as [|nRel1], (decide _); try discriminate.
+      destruct (decide _), (decide _) as [|nRel1]; try discriminate.
       rewrite every_subtree_eqv_universal.
       intros [[data tr1] tr2] Sub Tg Ex.
       apply nRel1.
@@ -1064,7 +1064,7 @@ Proof.
   assert (every_subtree (fun '(root, _, br2) => IsTag tg2 root -> ~tree_contains tg1 br2) tr)
     as Unrel2. {
       rewrite /rel_dec in Rel.
-      destruct (decide _), (decide _) as [|nRel2]; try discriminate.
+      destruct (decide _) as [|nRel2], (decide _); try discriminate.
       rewrite every_subtree_eqv_universal.
       intros [[data tr1] tr2] Sub Tg Ex.
       apply nRel2.
@@ -1188,7 +1188,7 @@ Lemma cousins_have_disjoint_strict_children
   tree_unique tg tr ->
   tree_unique tg1 tr ->
   tree_unique tg2 tr ->
-  rel_dec tr tg1 tg2 = Cousin ->
+  rel_dec tr tg1 tg2 = Foreign Cousin ->
   StrictParentChildIn tg1 tg tr ->
   StrictParentChildIn tg2 tg tr ->
   False.
@@ -1267,7 +1267,7 @@ Lemma cousins_have_disjoint_children
   tree_unique tg tr ->
   tree_unique tg1 tr ->
   tree_unique tg2 tr ->
-  rel_dec tr tg1 tg2 = Cousin ->
+  rel_dec tr tg1 tg2 = Foreign Cousin ->
   ParentChildIn tg1 tg tr ->
   ParentChildIn tg2 tg tr ->
   False.
@@ -1278,18 +1278,13 @@ Proof.
   destruct Parent1, Parent2; subst.
   + congruence.
   + rewrite /rel_dec in Cousins.
-    destruct (decide _). 1: {
-      eapply not_strict_parent_of_self; [eapply unique_exists; eassumption|].
-      eapply StrictParentChild_ParentChild; eassumption.
-    }
-    destruct (decide _) as [|nRel]. 1: congruence.
-    apply nRel.
-    right. assumption.
+    destruct (decide _) as [|nRel]; [congruence|].
+    destruct (decide _); [congruence|].
+    apply nRel. right. assumption.
   + rewrite /rel_dec in Cousins.
-    destruct (decide _) as [|nRel]. 1: destruct (decide _); discriminate.
-    destruct (decide _). 1: discriminate.
-    apply nRel.
-    right. assumption.
+    destruct (decide _); [congruence|].
+    destruct (decide _) as [|nRel]; [congruence|].
+    apply nRel. right. assumption.
   + eapply cousins_have_disjoint_strict_children with (tg1 := tg1) (tg2 := tg2).
     2,3,4,5,6: eassumption.
     eassumption.

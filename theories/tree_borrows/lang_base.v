@@ -200,20 +200,20 @@ Bind Scope val_scope with value.
 Inductive access_kind := AccessRead | AccessWrite.
 Inductive access_visibility := VisibleAll | OnlyNonChildren.
 
-Inductive rel_pos := This | Parent | Child | Cousin.
-Definition foreign rel := match rel with Parent | Cousin => True | _ => False end.
-Definition child rel := match rel with This | Child => True | _ => False end.
+Inductive foreign_rel_pos := Parent | Cousin.
+Inductive child_rel_pos := Strict | This.
+Inductive rel_pos := Foreign (pos : foreign_rel_pos) | Child (pos : child_rel_pos).
 
 Global Instance access_kind_eq_dec : EqDecision access_kind.
 Proof. solve_decision. Qed.
 Global Instance access_visibility_eq_dec : EqDecision access_visibility.
 Proof. solve_decision. Qed.
+Global Instance foreign_rel_pos_eq_dec : EqDecision foreign_rel_pos.
+Proof. solve_decision. Qed.
+Global Instance child_rel_pos_eq_dec : EqDecision child_rel_pos.
+Proof. solve_decision. Qed.
 Global Instance rel_pos_eq_dec : EqDecision rel_pos.
 Proof. solve_decision. Qed.
-Global Instance foreign_rel_dec rel : Decision (foreign rel).
-Proof. destruct rel; solve_decision. Qed.
-Global Instance child_rel_dec rel : Decision (child rel).
-Proof. destruct rel; solve_decision. Qed.
 
 Inductive pointer_kind := Box | MutRef (im : interior_mut) | ShrRef .
 Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.

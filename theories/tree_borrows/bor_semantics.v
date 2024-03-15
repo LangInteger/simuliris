@@ -209,23 +209,20 @@ Proof. rewrite /ParentChildIn. solve_decision. Qed.
    because they are strict, are inverses of each other.
  *)
 Definition rel_dec (tr:tree item) := fun t t' =>
-  match decide (ParentChildIn t t' tr), decide (ParentChildIn t' t tr) with
-  | left _, left _ => This
-  | left _, right _ => Parent
-  | right _, left _ => Child
-  | right _, right _ => Cousin
-  end.
+  if decide (ParentChildIn t' t tr)
+  then Child (if decide (ParentChildIn t t' tr) then This else Strict)
+  else Foreign (if decide (ParentChildIn t t' tr) then Parent else Cousin).
 
-Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Cousin -> rel_dec tr t' t = Cousin.
+Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Foreign Cousin -> rel_dec tr t' t = Foreign Cousin.
 Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
 
-Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = This -> rel_dec tr t' t = This.
+Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = Child This -> rel_dec tr t' t = Child This.
 Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
 
-Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Parent -> rel_dec tr t' t = Child.
+Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Foreign Parent -> rel_dec tr t' t = Child Strict.
 Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
 
-Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child -> rel_dec tr t' t = Parent.
+Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child Strict -> rel_dec tr t' t = Foreign Parent.
 Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
@@ -236,15 +233,15 @@ Implicit Type (prot:option protector).
 Definition requires_init (rel:rel_pos)
   : perm_init :=
   match rel with
-  | This | Child => PermInit
-  | Parent | Cousin => PermLazy
+  | Child _ => PermInit
+  | Foreign _ => PermLazy
   end.
 
 (* State machine without protector UB *)
 Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
   : app permission := fun perm =>
   match kind, rel with
-  | AccessRead, (Parent | Cousin) =>
+  | AccessRead, Foreign _ =>
       match perm with
       | Reserved TyFrz ResActivable => if isprot then Some $ Reserved TyFrz ResConflicted else Some $ Reserved TyFrz ResActivable
       | Reserved InteriorMut ResActivable => if isprot then Some $ Reserved InteriorMut ResConflicted else Some $ Reserved InteriorMut ResActivable
@@ -255,19 +252,19 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
-  | AccessWrite, (Parent | Cousin) =>
+  | AccessWrite, Foreign _ =>
       match perm with
       | Reserved InteriorMut ResActivable => if isprot then Some Disabled else Some $ Reserved InteriorMut ResActivable
       | Reserved InteriorMut ResConflicted => if isprot then Some Disabled else Some $ Reserved InteriorMut ResConflicted
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
-  | AccessRead, (This | Child) =>
+  | AccessRead, Child _ =>
       match perm with
       | Disabled => None
       | _ => Some perm
       end
-  | AccessWrite, (This | Child) =>
+  | AccessWrite, Child _ =>
       match perm with
       | Reserved TyFrz ResConflicted => if isprot then None else Some Active
       | Reserved InteriorMut ResConflicted => if isprot then None else Some Active
@@ -369,8 +366,8 @@ Definition nonchildren_only
   (fn : rel_pos -> bool -> app lazy_permission)
   : rel_pos -> bool -> app lazy_permission := fun rel isprot perm =>
   match rel with
-  | This | Parent | Cousin => fn rel isprot perm
-  | Child => Some perm
+  | Child Strict => Some perm
+  | _ => fn rel isprot perm
   end.
 
 (* FIXME: share code *)
