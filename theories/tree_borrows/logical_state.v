@@ -946,7 +946,8 @@ Section state_bijection.
         (* local *)
         (tk = tk_local ∨
         (* unique with protector *)
-        ((tk = tk_unq_res ∨ tk = tk_unq_act) ∧ ∃ c, call_set_in' Mcall_t c t l)).
+        (* FIXME: should this become [exists act, tk = tk_unq act] ? Or something equivalent ? *)
+        ((tk = tk_unq tk_res ∨ tk = tk_unq tk_act) ∧ ∃ c, call_set_in' Mcall_t c t l)).
     (* This definition enforces quite strict requirements on the state:
       - the domains of the heaps shp are the same: dom σ_s.(shp) = dom σ_t.(shp)
       - the trees are the same, up to conflicted: trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs)
@@ -1214,12 +1215,13 @@ Section heap_defs.
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
-    | tk_unq_act | tk_unq_res => bor_state_pre_unq l t σ
+    | tk_unq _ => bor_state_pre_unq l t σ
     | tk_pub => ∃ it, trees_lookup σ.(strs) l.1 t it
                    ∧ (item_lookup it l.2).(perm) ≠ Disabled
     end.
 
-  Lemma bor_state_pre_unq_or l t tk σ : (tk = tk_unq_res ∨ tk = tk_unq_act) →
+  (* FIXME: merge the two tk_unq ? *)
+  Lemma bor_state_pre_unq_or l t tk σ : (tk = tk_unq tk_act ∨ tk = tk_unq tk_res) →
     bor_state_pre l t tk σ = bor_state_pre_unq l t σ.
   Proof. intros [-> | ->]; done. Qed.
 
@@ -1240,7 +1242,7 @@ Section heap_defs.
     | tk_local => (item_lookup it l.2).(perm) = Active ∧
             (* The item is the only one in the tree *)
             ∀ it' t', tree_lookup tr t' it' -> t = t'
-    | tk_unq_res
+    | tk_unq tk_res
        => (match (item_lookup it l.2).(perm) with
            | Active | Reserved InteriorMut _ => True
            | Reserved TyFrz _ => ¬ protector_is_active it.(iprot) σ.(scs)
@@ -1251,7 +1253,7 @@ Section heap_defs.
             | Child => (item_lookup it' l.2).(perm) = Disabled
             | Parent => (item_lookup it' l.2).(perm) ≠ Disabled
             | Cousin => (item_lookup it' l.2).(perm) ≠ Active end
-    | tk_unq_act
+    | tk_unq tk_act
        => (item_lookup it l.2).(perm) = Active ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
             | This => True

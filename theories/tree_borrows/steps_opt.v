@@ -669,14 +669,14 @@ Qed.
 *)
 
 
-(* TODO make tk_unq one constructor *)
+(* FIXME: now that tk_unq is a single contstructor, can we merge the two cases ? *)
 Lemma tk_to_frac_unq tk :
-  (tk = tk_unq_res ∨ tk = tk_unq_act) →
+  (tk = tk_unq tk_act ∨ tk = tk_unq tk_res) →
   tk_to_frac tk = DfracOwn 1.
 Proof. by intros [->| ->]. Qed.
 
 Lemma sim_write_unique_unprotected π l t sz tk v_t v_s v_t' v_s' Φ :
-  (tk = tk_unq_res ∨ tk = tk_unq_act) →
+  (tk = tk_unq tk_act ∨ tk = tk_unq tk_res) →
   length v_t = sz →
   length v_s = sz →
   t $$ tk -∗
@@ -685,7 +685,7 @@ Lemma sim_write_unique_unprotected π l t sz tk v_t v_s v_t' v_s' Φ :
   (* crucial: without protectors, we need to write related values, as the locations
     will need to be public in the state_rel -- after all, there is no protector, so it can't be private! *)
   value_rel v_t' v_s' -∗
-  (t $$ tk_unq_act -∗ l ↦t∗[tk_unq_act]{t} v_t' -∗ l ↦s∗[tk_unq_act]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  (t $$ tk_unq tk_act -∗ l ↦t∗[tk_unq tk_act]{t} v_t' -∗ l ↦s∗[tk_unq tk_act]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
   Write (Place l t sz) #v_t' ⪯{π} Write (Place l t sz) #v_s' [{ Φ }].
 Proof.
   (* get the loc controlled things. exploit source UB. update the ghost state. *)
@@ -762,7 +762,7 @@ Proof.
   iMod (ghost_map_array_tag_update _ _ _ v_t' with "Htag_t_auth Ht") as "[Ht Htag_t_auth]"; first lia.
   iMod (ghost_map_array_tag_update _ _ _ v_s' with "Htag_s_auth Hs") as "[Hs Htag_s_auth]"; first lia.
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htk".
-  iMod (tkmap_update_strong tk_unq_act () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first (destruct Heq; congruence).
+  iMod (tkmap_update_strong (tk_unq tk_act) () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first (destruct Heq; congruence).
 
   iModIntro.
   pose (σ_s' := (mkState (write_mem l v_s' σ_s.(shp)) trs_s' σ_s.(scs) σ_s.(snp) σ_s.(snc))).
@@ -777,7 +777,7 @@ Proof.
   (* re-establish the invariants *)
   (* TODO: large parts of this, except for the tag interpretation, are similar to
     the write_public lemma *)
-  iExists M_call, (<[t:=(tk_unq_act, ())]> M_tag), (array_tag_map l t v_t' ∪ M_t), (array_tag_map l t v_s' ∪ M_s).
+  iExists M_call, (<[t:=(tk_unq tk_act, ())]> M_tag), (array_tag_map l t v_t' ∪ M_t), (array_tag_map l t v_s' ∪ M_s).
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
   iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
   - (* pub cid *)
@@ -802,7 +802,7 @@ Proof.
       * iRight. iPureIntro. exists t'.
         destruct Hprivl as (tk' & H & H0 & H1).
         destruct (decide (t = t')) as [<- | Hne].
-        { exists tk_unq_act. rewrite lookup_insert.
+        { exists (tk_unq tk_act). rewrite lookup_insert.
           destruct H1 as [Hf|H1]; first by (destruct Heq; congruence).
           split; first done. split; first (apply lookup_union_is_Some; by right).
           right. split; last apply H1. by right. }
