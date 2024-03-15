@@ -1114,6 +1114,12 @@ Section call_defs.
   Definition call_set_is (c : call_id) (M : gmap tag (gset loc)) :=
     ghost_map_elem call_gname c (DfracOwn 1) M.
 
+  Definition tag_protected_for c trs l t := ∃ it,
+      trees_lookup trs l.1 t it
+    ∧ protector_is_for_call c it.(iprot)
+    ∧ (((item_lookup it l.2).(initialized) = PermInit  
+      → (item_lookup it l.2).(perm) ≠ Disabled)).
+
   (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below. *)
   Definition call_set_interp (M : gmap call_id (gmap tag (gset loc))) (σ : state) : Prop :=
     ∀ c (M' : gmap tag (gset loc)), M !! c = Some M' →
@@ -1121,16 +1127,10 @@ Section call_defs.
       (* for every tag *)
       ∀ t (L : gset loc), M' !! t = Some L →
         tag_valid σ.(snp) t ∧
-        ∀ (l : loc), l ∈ L → ∃ it,
-          trees_lookup σ.(strs) l.1 t it
-          /\ protector_is_for_call c it.(iprot) ∧
-          (((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled)).
+        ∀ (l : loc), l ∈ L → tag_protected_for c σ.(strs) l t.
 
   Definition loc_protected_by σ t l c :=
-    c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ ∃ it, 
-      trees_lookup σ.(strs) l.1 t it
-      ∧ protector_is_for_call c it.(iprot)
-      ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled).
+    c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ tag_protected_for c σ.(strs) l t.
 
   Lemma call_set_interp_access M σ c t l :
     call_set_interp M σ →

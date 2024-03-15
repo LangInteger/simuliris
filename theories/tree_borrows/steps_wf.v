@@ -586,6 +586,7 @@ Proof.
   done.
 Qed.
 
+(* TODO make it sane *)
 Lemma write_mem_dom l (vl : value) h h'
   (DEFINED: ∀ i : nat, (i < length vl)%nat → (l +ₗ i) ∈ dom h)
   (SUCCESS: write_mem l vl h = h') :
@@ -608,6 +609,59 @@ Proof.
       replace (l +ₗ (1 + i)) with (l +ₗ (1 + i)%nat) by (unfold shift_loc; simpl; f_equal; lia).
       apply DEFINED.
       lia.
+Qed.
+Lemma write_mem_dom_sane l (vl : value) h
+  (DEFINED: ∀ i : nat, (i < length vl)%nat → (l +ₗ i) ∈ dom h) :
+  dom (write_mem l vl h) = dom h.
+Proof.
+  by eapply write_mem_dom.
+Qed.
+
+(* These two are not needed for write_step_wf but for other parts of the development *)
+
+Lemma write_mem_lookup l vl h :
+  (∀ (i: nat), (i < length vl)%nat → write_mem l vl h !! (l +ₗ i) = vl !! i) ∧
+  (∀ (l': loc), (∀ (i: nat), (i < length vl)%nat → l' ≠ l +ₗ i) →
+    write_mem l vl h !! l' = h !! l').
+Proof.
+  revert l h. induction vl as [|v vl IH]; move => l h; simpl;
+    [split; [intros ?; by lia|done]|].
+  destruct (IH (l +ₗ 1) (<[l:=v]> h)) as [IH1 IH2]. split.
+  - intros i Lt. destruct i as [|i].
+    + rewrite shift_loc_0_nat /=. rewrite IH2; [by rewrite lookup_insert|].
+      move => ? _.
+      rewrite shift_loc_assoc -{1}(shift_loc_0 l) => /shift_loc_inj ?. by lia.
+    + rewrite /= -IH1; [|lia].  by rewrite shift_loc_assoc -(Nat2Z.inj_add 1).
+  - intros l' Lt. rewrite IH2.
+    + rewrite lookup_insert_ne; [done|].
+      move => ?. subst l'. apply (Lt O); [lia|by rewrite shift_loc_0_nat].
+    + move => i Lti. rewrite shift_loc_assoc -(Nat2Z.inj_add 1).
+      apply Lt. by lia.
+Qed.
+
+Lemma write_mem_lookup_case l vl h l' :
+  (∃ (i: nat), (i < length vl)%nat ∧ l' = l +ₗ i ∧ write_mem l vl h !! (l +ₗ i) = vl !! i)
+  ∨ ((∀ (i: nat), (i < length vl)%nat → l' ≠ l +ₗ i) ∧ write_mem l vl h !! l' = h !! l').
+Proof.
+  destruct (write_mem_lookup l vl h) as [EQ1 EQ2].
+  case (decide (l'.1 = l.1)) => [Eql|NEql];
+    [case (decide (l.2 ≤ l'.2 < l.2 + length vl)) => [[Le Lt]|NIN]|].
+  - have Eql2: l' = l +ₗ Z.of_nat (Z.to_nat (l'.2 - l.2)). {
+      destruct l, l'. move : Eql Le => /= -> ?.
+      rewrite /shift_loc /= Z2Nat.id; [|lia]. f_equal. lia. }
+    have Lt1: (Z.to_nat (l'.2 - l.2) < length vl)%nat
+      by rewrite -(Nat2Z.id (length _)) -Z2Nat.inj_lt; lia.
+    specialize (EQ1 _ Lt1).
+    rewrite -Eql2 in EQ1. left.
+    exists (Z.to_nat (l'.2 - l.2)). repeat split; [done..|by rewrite -Eql2].
+  - right.
+    have ?: (∀ (i: nat), (i < length vl)%nat → l' ≠ l +ₗ i).
+    { intros i Lt Eq3. apply NIN. rewrite Eq3 /=. lia. }
+    split; [done|]. by apply EQ2.
+  - right.
+    have ?: (∀ (i: nat), (i < length vl)%nat → l' ≠ l +ₗ i).
+    { intros i Lt Eq3. apply NEql. by rewrite Eq3. }
+    split; [done|]. by apply EQ2.
 Qed.
 
 Lemma write_step_wf σ σ' e e' l bor ptr vl efs :

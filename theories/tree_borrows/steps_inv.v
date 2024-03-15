@@ -24,19 +24,21 @@ Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
   σ' = mkState (shp σ) α' (scs σ) (snp σ) (snc σ) ∧
   e = (ValR v)) ∨
   e = ValR (replicate (tsize T) ScPoison) ∧ memory_read (sst σ) (scs σ) l t (tsize T) = None ∧ σ' = σ).
-Proof. intros Hhead. inv_base_step; first by eauto 10. destruct σ; eauto 10. Qed.
+Proof. intros Hhead. inv_base_step; first by eauto 10. destruct σ; eauto 10. Qed. *)
 
-Lemma head_write_inv (P : prog) l bor T v σ σ' e' efs :
-  base_step P (Write (Place l bor T) (Val v)) σ e' σ' efs →
-  ∃ α',
+Lemma head_write_inv (P : prog) l bor sz v σ σ' e' efs :
+  base_step P (Write (Place l bor sz) (Val v)) σ e' σ' efs →
+  ∃ trs',
   efs = [] ∧
   e' = (#[ScPoison])%E ∧
-  σ' = mkState (write_mem l v σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc) ∧
-  length v = tsize T ∧
+  σ' = mkState (write_mem l v σ.(shp)) trs' σ.(scs) σ.(snp) σ.(snc) ∧
+  length v = sz ∧
   (∀ i : nat, (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧
-  memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α'.
+  trees_contain bor σ.(strs) l.1 ∧
+  apply_within_trees (memory_access AccessWrite (scs σ) bor (l.2, sz)) l.1 σ.(strs) = Some trs'.
 Proof. intros Hhead. inv_base_step. eauto 9. Qed.
 
+(*
 Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pkind T rkind :
   base_step P (Retag #[ScPtr l ot] #[ScCallId c] pkind T rkind) σ e' σ' efs →
   ∃ nt α' nxtp',

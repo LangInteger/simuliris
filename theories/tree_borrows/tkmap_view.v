@@ -781,6 +781,17 @@ Section lemmas.
     apply own_update. by apply: tkmap_view_update.
   Qed.
 
+  Lemma tkmap_update_strong {γ m tk k v} tk' w :
+    tk ≠ tk_pub →
+    tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk', w)]> m) ∗ k ↪[γ]{tk'} w.
+  Proof.
+    iIntros (Hne) "Hauth Helem".
+    iMod (tkmap_delete Hne with "Hauth Helem") as "Hauth".
+    iMod (tkmap_insert tk' k w with "Hauth") as "(Hauth&$)".
+    1: apply lookup_delete.
+    iModIntro. rewrite insert_delete_insert //.
+  Qed.
+
   (** Big-op versions of above lemmas *)
   Lemma tkmap_lookup_big {γ q m} m0 :
     tkmap_auth γ q m -∗

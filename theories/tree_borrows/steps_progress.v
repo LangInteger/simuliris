@@ -532,16 +532,17 @@ Proof.
     specialize (STK _ _ Lt Eq).
     destruct (access1_write_is_Some _ _ _ STK) as [? Eq2]. rewrite Eq2. by eexists.
 Qed.
+*)
+Lemma write_base_step' P (σ: state) l bor sz v trs'
+  (LEN: length v = sz)
+  (BLK: ∀ n, (n < sz)%nat → l +ₗ n ∈ dom σ.(shp)) 
+  (INTREE: trees_contain bor σ.(strs) l.1)
+  (APPLY: apply_within_trees (memory_access AccessWrite (scs σ) bor (l.2, sz)) l.1 σ.(strs) = Some trs') :
+  let σ' := mkState (write_mem l v σ.(shp)) trs' σ.(scs) σ.(snp) σ.(snc) in
+  base_step P (Write (Place l bor sz) (Val v)) σ #[☠] σ' [].
+Proof. intros σ'. destruct l. econstructor 2; econstructor; eauto. by rewrite LEN. Qed.
 
-Lemma write_base_step' P (σ: state) l bor T v α
-  (LEN: length v = tsize T)
-  (*(LOCVAL: v <<t σ.(snp))*)
-  (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
-  (BOR: memory_written σ.(sst) σ.(scs) l bor (tsize T) = Some α) :
-  let σ' := mkState (write_mem l v σ.(shp)) α σ.(scs) σ.(snp) σ.(snc) in
-  base_step P (Write (Place l bor T) (Val v)) σ #[☠] σ' [].
-Proof. intros. econstructor 2; econstructor; eauto; by rewrite LEN. Qed.
-
+(*
 Lemma write_base_step P (σ: state) l bor T v
   (WF: state_wf σ)
   (LEN: length v = tsize T)
