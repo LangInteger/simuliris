@@ -8,13 +8,13 @@ From iris.prelude Require Import options.
 
 Lemma wf_init_state : state_wf init_state.
 Proof.
-  constructor; simpl; try intros ?; set_solver.
+  constructor; simpl; try split; try intros ?; try set_solver.
 Qed.
 
 (** Steps preserve wellformedness *)
 
-Lemma wf_item_fresh_mono it :
-  Proper ((≤)%nat==> (≤)%nat ==> impl) (wf_item_fresh it).
+Lemma wf_item_mono it :
+  Proper ((≤)%nat==> (≤)%nat ==> impl) (item_wf it).
 Proof.
   move=> ?? Le1 ?? Le2 [WFle WFprot].
   split.
@@ -22,20 +22,21 @@ Proof.
   - intros cid protit. specialize (WFprot cid protit). lia.
 Qed.
 
-Lemma wf_tree_fresh_mono tr :
-  Proper ((≤)%nat==> (≤)%nat ==> impl) (wf_tree_fresh tr).
+Lemma tree_items_compat_nexts_mono tr :
+  Proper ((≤)%nat==> (≤)%nat ==> impl) (tree_items_compat_nexts tr).
 Proof.
-  move=> ?? Le1 ? ? Le2 WF.
-  eapply every_node_increasing; first eassumption.
-  rewrite every_node_eqv_universal; move=> ? ?.
-  apply wf_item_fresh_mono; assumption.
+  intros ?? Le1 ? ? Le2 WF.
+  eapply every_node_eqv_universal.
+  intros it Ex.
+  eapply every_node_eqv_universal in WF; last done.
+  eapply wf_item_mono; eauto.
 Qed.
 
-Lemma wf_trees_fresh_mono trs :
-  Proper ((≤)%nat==> (≤)%nat ==> impl) (wf_trees_fresh trs).
+Lemma trees_compat_nexts_mono trs :
+  Proper ((≤)%nat==> (≤)%nat ==> impl) (trees_compat_nexts trs).
 Proof.
   move=> ?? Le1 ? ? Le2 WF ?? /WF Hf.
-  eapply wf_tree_fresh_mono; eassumption.
+  eapply tree_items_compat_nexts_mono; eassumption.
 Qed.
 
 Lemma wf_mem_tag_mono h :
@@ -46,65 +47,107 @@ Proof.
   lia.
 Qed.
 
-Definition preserve_wf_tree_fresh (fn:app (tree item)) nxtp nxtp' nxtc nxtc' :=
-  forall tr tr',
-    wf_tree_nodup tr ->
-    wf_tree_fresh tr nxtp nxtc ->
-    fn tr = Some tr' ->
-    wf_tree_fresh tr' nxtp' nxtc'.
+Definition preserve_tree_compat_nexts (fn:app (tree item)) nxtp nxtp' nxtc nxtc' :=
+  forall tr tr', tree_items_compat_nexts tr nxtp nxtc -> fn tr = Some tr' -> tree_items_compat_nexts tr' nxtp' nxtc'.
 
-Definition preserve_wf_tree_nodup (fn:app (tree item)) Precond :=
-  forall tr tr',
-    Precond tr ->
-    wf_tree_nodup tr ->
-    fn tr = Some tr' ->
-    wf_tree_nodup tr'.
+Definition preserve_tree_tag_count (fn:app (tree item)) :=
+  forall tr tr' tg, fn tr = Some tr' -> tree_count_tg tg tr = tree_count_tg tg tr'.
 
-Definition preserve_tree_nonempty (fn:app (tree item)) :=
-  forall tr tr', ~tr = empty -> fn tr = Some tr' -> ~tr' = empty.
+Lemma preserve_tag_count_wf fn tr tr' :
+  preserve_tree_tag_count fn →
+  wf_tree tr →
+  fn tr = Some tr' →
+  wf_tree tr'.
+Proof.
+  intros Hf H1 Heq tg Htg%count_gt0_exists.
+  erewrite <- Hf in Htg; last done.
+  eapply count_gt0_exists in Htg.
+  destruct (H1 _ Htg) as (ito & Hunq & _).
+  rewrite /tree_unique in Hunq.
+  erewrite Hf in Hunq; last done.
+  pose proof (unique_lookup _ _ Hunq) as (itn & Hdet).
+  by eexists.
+Qed.
 
-(* Any function that operates only on permissions (which is all transitions steps)
-   leaves the tag and protector unchanged which means that most of the preservation lemmas
-   are trivial once we get to the level of items *)
-Definition preserve_item_metadata (fn:app item) :=
-  forall it it', fn it = Some it' -> it.(iprot) = it'.(iprot) /\ it.(initp) = it'.(initp) /\ it.(itag) = it'.(itag).
+Lemma preserve_tag_count_contains fn tr tr' tg :
+  preserve_tree_tag_count fn →
+  tree_contains tg tr →
+  fn tr = Some tr' →
+  tree_contains tg tr'.
+Proof.
+  intros Hf H1%count_gt0_exists Heq.
+  eapply count_gt0_exists.
+  by erewrite <- Hf.
+Qed.
+
+Lemma preserve_tag_count_contains_2 fn tr tr' tg :
+  preserve_tree_tag_count fn →
+  tree_contains tg tr' →
+  fn tr = Some tr' →
+  tree_contains tg tr.
+Proof.
+  intros Hf H1%count_gt0_exists Heq.
+  eapply count_gt0_exists.
+  by erewrite Hf.
+Qed.
+
+Lemma tree_empty_iff_count tr: 
+  (exists tg, tree_count_tg tg tr ≥ 1) ↔ tr ≠ empty.
+Proof.
+  destruct tr as [|it cld slb].
+  - split; last done. simpl.
+    intros (tg & Htg). lia.
+  - split; first done.
+    intros _. exists (it.(itag)).
+    rewrite /= /has_tag bool_decide_eq_true_2 //.
+    lia.
+Qed.
+
+Lemma preserve_tag_count_nonempty fn tr tr' :
+  preserve_tree_tag_count fn →
+  tr ≠ empty →
+  fn tr = Some tr' →
+  tr' ≠ empty.
+Proof.
+  intros Hf (tg & Htg)%tree_empty_iff_count Heq.
+  eapply tree_empty_iff_count. exists tg.
+  by erewrite <- Hf.
+Qed.
 
 (* Since there are a lot of layers to the model (trees -> tree -> item -> perms)
    that we mostly don't really need to reason about (e.g. tree_item_included is per-item
    and we don't need tree-wide reasoning) we start with some lemmas to turn the per-trees
    wf preservation to per-item wf preservation *)
 
-Lemma apply_within_trees_wf_nodup trs trs' blk fn Precond :
+Lemma apply_within_trees_wf trs trs' blk fn:
   apply_within_trees fn blk trs = Some trs' ->
-  trees_at_block Precond trs blk ->
-  preserve_wf_tree_nodup fn Precond ->
-  wf_trees_nodup trs -> wf_trees_nodup trs'.
+  preserve_tree_tag_count fn ->
+  wf_trees trs -> wf_trees trs'.
 Proof.
-  intros App Pre WFfn WF.
-  unfold apply_within_trees in App; destruct (trs !! blk) as [t|] eqn:Lookup; inversion App as [App0]; clear App.
-  destruct (fn t) eqn:Map; inversion App0 as [E]; clear App0.
-  intro blk'; destruct (decide (blk = blk')); intros tr Lookup'.
-  all: inversion E; simplify_eq.
-  (* Handle the insertion/deletion *)
-  1: rewrite lookup_insert in Lookup'.
-  2: rewrite lookup_insert_ne in Lookup'; [|done].
-  all: simplify_eq.
-  (* WF impl *)
-  - apply (WFfn t).
-    + rewrite /trees_contain /trees_at_block Lookup in Pre. assumption.
-    + apply (WF _ _ Lookup).
-    + done.
-  - apply (WF blk' _ Lookup').
+  intros App WFfn (WFeach & WFglob).
+  unfold apply_within_trees in App; destruct (trs !! blk) as [t|] eqn:Lookup;
+  simpl in App; last done.
+  apply bind_Some in App as (t2 & Ht2 & [= <-]). split.
+  - intros tr' it' [(<- & <-)|(Hne1 & Hne2)]%lookup_insert_Some.
+    + eapply preserve_tag_count_wf; try done.
+      by eapply WFeach.
+    + by eapply WFeach.
+  - intros blk1 blk2 tr1 tr2 tg [(Heq1 & Heq2)|(Hne1 & Hne2)]%lookup_insert_Some [(Heq1' & Heq2')|(Hne1' & Hne2')]%lookup_insert_Some Hcont1 Hcont2;
+    simplify_eq; first done.
+    + eapply WFglob; try done.
+      eapply preserve_tag_count_contains_2; last done; done.
+    + eapply WFglob; try done.
+      eapply preserve_tag_count_contains_2; last done; done.
+    + by eapply WFglob.
 Qed.
 
-Lemma apply_within_trees_wf_fresh trs trs' nxtp nxtp' nxtc nxtc' blk fn:
+Lemma apply_within_trees_compat trs trs' nxtp nxtp' nxtc nxtc' blk fn:
   apply_within_trees fn blk trs = Some trs' ->
-  (forall tr, wf_tree_fresh tr nxtp nxtc -> wf_tree_fresh tr nxtp' nxtc') ->
-  preserve_wf_tree_fresh fn nxtp nxtp' nxtc nxtc' ->
-  wf_trees_nodup trs ->
-  wf_trees_fresh trs nxtp nxtc -> wf_trees_fresh trs' nxtp' nxtc'.
+  (forall tr, tree_items_compat_nexts tr nxtp nxtc -> tree_items_compat_nexts tr nxtp' nxtc') ->
+  preserve_tree_compat_nexts fn nxtp nxtp' nxtc nxtc' ->
+  trees_compat_nexts trs nxtp nxtc -> trees_compat_nexts trs' nxtp' nxtc'.
 Proof.
-  intros App WFtrans WFfn Nodup WF.
+  intros App WFtrans WFfn WF.
   unfold apply_within_trees in App; destruct (trs !! blk) as [t|] eqn:Lookup; inversion App as [App0]; clear App.
   destruct (fn t) eqn:Map; inversion App0 as [E]; clear App0.
   intro blk'; destruct (decide (blk = blk')); intros tr Lookup'.
@@ -114,32 +157,67 @@ Proof.
   2: rewrite lookup_insert_ne in Lookup'; [|done].
   all: simplify_eq.
   (* WF impl *)
-  - apply (WFfn t).
-    + apply (Nodup blk' _ Lookup).
-    + apply (WF blk' _ Lookup).
-    + done.
+  - apply (WFfn t); [|done]; apply (WF blk' _ Lookup).
   - apply (WFtrans tr); apply (WF blk' _ Lookup').
 Qed.
 
-Lemma apply_within_trees_preserve_nonempty trs trs' blk fn :
-  wf_non_empty trs ->
-  preserve_tree_nonempty fn ->
-  apply_within_trees fn blk trs = Some trs' ->
-  wf_non_empty trs'.
+Lemma tree_items_compat_next_not_containing tg1 tg2 tr ev :
+  tree_contains tg1 tr →
+  tree_items_compat_nexts tr tg2 ev →
+  tg1 >= tg2 →
+  False.
 Proof.
-  intros WF Preserve ApplySome blk' tr'' Lookup.
-  destruct (apply_within_trees_lookup _ _ _ _ ApplySome) as [LookupEq LookupNeq].
-  destruct (decide (blk' = blk)).
-  - subst.
-    destruct LookupEq as [tr [tr' [Eqtr [Eqtr' Eqtrfn]]]].
-    rewrite Eqtr' in Lookup; injection Lookup; intro; subst.
-    apply (Preserve tr tr'').
-    * apply (WF blk).
-      unfold apply_within_trees in ApplySome.
-      exact Eqtr.
-    * auto.
-  - apply (WF blk').
-    rewrite LookupNeq; [auto|lia].
+  intros Hintro Hcompat Hle.
+  eapply (exists_node_increasing _ (λ _, False)) in Hintro.
+  1: eapply exists_node_eqv_existential in Hintro as (?&?&[]).
+  eapply every_node_increasing; first exact Hcompat.
+  eapply every_node_eqv_universal.
+  intros n ? (H1&H2) H3%H1. lia.
+Qed.
+
+Lemma apply_within_trees_compat_both trs trs' nxtp nxtp' nxtc nxtc' blk fn:
+  apply_within_trees fn blk trs = Some trs' ->
+  (forall tr, tree_items_compat_nexts tr nxtp nxtc -> tree_items_compat_nexts tr nxtp' nxtc') ->
+  (forall tr tr', fn tr = Some tr' -> tree_items_compat_nexts tr nxtp nxtc -> wf_tree tr ->
+          tree_items_compat_nexts tr' nxtp' nxtc' /\ wf_tree tr') ->
+  (forall tr tr' tg, fn tr = Some tr' -> tree_contains tg tr' -> tree_contains tg tr \/ tg >= nxtp) ->
+  trees_compat_nexts trs nxtp nxtc /\
+  wf_trees trs ->
+  trees_compat_nexts trs' nxtp' nxtc' /\
+  wf_trees trs'.
+Proof.
+  intros (tr&Htr&(tr'&Hfn&[= <-])%bind_Some)%bind_Some WFtrans WFfn Hnewtags (WF1 & WF2).
+  split; last split.
+  - intros blk1 tr1 [(->&->)|(Hne&Hin)]%lookup_insert_Some.
+    + eapply WFfn; first done. 1: by eapply WF1. 1: by eapply WF2.
+    + by eapply WFtrans, WF1.
+  - intros blk1 tr1 [(->&->)|(Hne&Hin)]%lookup_insert_Some.
+    + eapply WFfn; first done. 1: by eapply WF1. 1: by eapply WF2.
+    + by eapply WF2.
+  - intros blk1 blk2 tr1 tr2 tg.
+    intros [(?&?)|(Hne1&Hin1)]%lookup_insert_Some [(?&?)|(Hne2&Hin2)]%lookup_insert_Some;
+      simplify_eq; intros Hcont1 Hcont2.
+    + done.
+    + destruct (Hnewtags _ _ _ Hfn Hcont1) as [Hold|Hgt].
+      1: by eapply WF2.
+      exfalso; eapply tree_items_compat_next_not_containing; first exact Hcont2.
+      1: by eapply WF1. done.
+    + destruct (Hnewtags _ _ _ Hfn Hcont2) as [Hold|Hgt].
+      1: by eapply WF2.
+      exfalso; eapply tree_items_compat_next_not_containing; first exact Hcont1.
+      1: by eapply WF1. done.
+    + by eapply WF2.
+Qed.
+
+Lemma apply_within_trees_compat_nonempty trs1 trs2 blk fn :
+  wf_non_empty trs1 →
+  (∀ tr1 tr2, tr1 ≠ empty → fn tr1 = Some tr2 → tr2 ≠ empty) →
+  apply_within_trees fn blk trs1 = Some trs2 →
+  wf_non_empty trs2.
+Proof.
+  intros Hwf Hempt (tr1&H1&(tr2&H2&[= <-])%bind_Some)%bind_Some blk' tr' [(<-&<-)|(Hin&Hne)]%lookup_insert_Some.
+  - eapply Hempt; last done. by eapply Hwf.
+  - by eapply Hwf.
 Qed.
 
 Lemma delete_trees_preserve_nonempty trs blk :
@@ -166,50 +244,51 @@ Proof.
   auto.
 Qed.
 
-Lemma extend_trees_wf_nodup trs tr blk :
-  wf_trees_nodup trs ->
-  wf_tree_nodup tr ->
-  wf_trees_nodup (<[blk := tr]> trs).
+Lemma extend_trees_wf trs tr blk :
+  wf_trees trs →
+  wf_tree tr →
+  (∀ blk tr' tg, trs !! blk = Some tr' → tree_contains tg tr → tree_contains tg tr' → False) →
+  wf_trees (<[blk := tr]> trs).
 Proof.
-  intros WFs WF.
-  intros blk' tr'.
-  destruct (decide (blk = blk')).
-  - simplify_eq; rewrite lookup_insert; intro H; injection H; intro; subst; done.
-  - rewrite lookup_insert_ne; [|done]; apply (WFs blk').
+  intros (WFs & Hunq) WF Hisnew. split.
+  - intros blk' tr' [(-> & ->)|(Hne & Hin)]%lookup_insert_Some; first done.
+    by eapply WFs.
+  - intros blk1 blk2 tr1 tr2 tg.
+    intros [(?&?)|(Hne1&Hin1)]%lookup_insert_Some [(?&?)|(Hne2&Hin2)]%lookup_insert_Some;
+    simplify_eq; intros Hcont1 Hcont2.
+    + done.
+    + exfalso. by eapply Hisnew.
+    + exfalso. by eapply Hisnew.
+    + by eapply Hunq.
 Qed.
 
-Lemma extend_trees_wf_fresh trs tr blk nxtp nxtc :
-  wf_trees_fresh trs nxtp nxtc ->
-  wf_tree_fresh tr nxtp nxtc ->
-  wf_trees_fresh (<[blk := tr]> trs) nxtp nxtc.
+Lemma extend_trees_compat_nexts trs tr blk snp snc :
+  trees_compat_nexts trs snp snc →
+  tree_items_compat_nexts tr snp snc →
+  trees_compat_nexts (<[blk := tr]> trs) snp snc.
 Proof.
-  intros WFs WF.
-  intros blk' tr'.
-  destruct (decide (blk = blk')).
-  - simplify_eq; rewrite lookup_insert; intro H; injection H; intro; subst; done.
-  - rewrite lookup_insert_ne; [|done]; apply (WFs blk').
+  intros H1 H2 blk' tr' [(<-&<-)|(Hne1&Hin1)]%lookup_insert_Some; first done.
+  by eapply H1.
 Qed.
 
-Lemma delete_trees_wf_nodup trs blk :
-  wf_trees_nodup trs ->
-  wf_trees_nodup (delete blk trs).
+Lemma delete_trees_wf trs blk :
+  wf_trees trs ->
+  wf_trees (delete blk trs).
+Proof.
+  intros (Heach&Hunq); split.
+  - intros blk' tr' (Hin&Hne)%lookup_delete_Some.
+    by eapply Heach.
+  - intros blk1 blk2 tr1 tr2 tg (_&Hin1)%lookup_delete_Some (_&Hin2)%lookup_delete_Some.
+    by eapply Hunq.
+Qed.
+
+Lemma delete_trees_compat_nexts trs blk nxtp nxtc :
+  trees_compat_nexts trs nxtp nxtc ->
+  trees_compat_nexts (delete blk trs) nxtp nxtc.
 Proof.
   intros WFs blk'.
-  intros tr' Delete.
-  intros.
-  eapply WFs.
-  apply (proj1 (lookup_delete_Some _ _ _ _) Delete).
-Qed.
-
-Lemma delete_trees_wf_fresh trs blk nxtp nxtc :
-  wf_trees_fresh trs nxtp nxtc ->
-  wf_trees_fresh (delete blk trs) nxtp nxtc.
-Proof.
-  intros WFs blk'.
-  intros tr' Delete.
-  intros.
-  eapply WFs.
-  apply (proj1 (lookup_delete_Some _ _ _ _) Delete).
+  intros tr' (Hin&Hne)%lookup_delete_Some.
+  by eapply WFs.
 Qed.
 
 
@@ -237,48 +316,53 @@ Proof.
   - apply (IHtr2 All2); apply Some2'.
 Qed.
 
-Lemma joinmap_preserve_nonempty fn :
-  preserve_tree_nonempty (fun tr => join_nodes (map_nodes fn tr)).
+Lemma joinmap_preserve_tree_tag_count_dep fn :
+  (∀ tr, preserve_item_metadata (fn tr)) →
+  preserve_tree_tag_count (fun tr => join_nodes (map_nodes (fn tr) tr)).
 Proof.
-  intro tr; induction tr as [|data ????]; intros tr' Nonempty JoinMap; [contradiction|].
-  simpl in JoinMap.
-  destruct (fn data); [|inversion JoinMap]; simpl in *.
-  destruct (join_nodes _); [|inversion JoinMap]; simpl in *.
-  destruct (join_nodes _); [|inversion JoinMap]; simpl in *.
-  injection JoinMap; intro; subst.
-  intro H; inversion H.
+  intros Hfn tr.
+  remember (fn tr) as fntr eqn:Heq. specialize (Hfn tr). rewrite <- Heq in Hfn.
+  clear Heq.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; intros tr' tg Heq.
+  1: by injection Heq as <-.
+  move : Heq => /=.
+  intros (itroot&Hitroot&(tr1'&Htr1'&(tr2'&Htr2&[= <-])%bind_Some)%bind_Some)%bind_Some.
+  simpl; f_equal; first f_equal.
+  - destruct (Hfn _ _ Hitroot) as (H1 & H2 & H3).
+    rewrite /has_tag /IsTag !bool_decide_decide.
+    destruct decide as [Heq|Heq]; rewrite H1 in Heq.
+    1: rewrite decide_True //. rewrite decide_False //.
+  - by eapply IHtr1.
+  - by apply IHtr2.
 Qed.
 
-Lemma deallocate_preserve_nonempty cids tg range :
-  preserve_tree_nonempty (memory_deallocate cids tg range).
+Lemma joinmap_preserve_tree_tag_count fn :
+  preserve_item_metadata fn →
+  preserve_tree_tag_count (fun tr => join_nodes (map_nodes fn tr)).
+Proof.
+  intros H. by eapply joinmap_preserve_tree_tag_count_dep.
+Qed.
+
+Lemma deallocate_preserve_tree_tag_count cids tg range :
+  preserve_tree_tag_count (memory_deallocate cids tg range).
 Proof.
   intros tr tr' Nonempty Dealloc.
   rewrite /memory_deallocate /memory_access_nonchildren_only in Dealloc.
-  remember (tree_apply_access (nonchildren_only _) _ _ _ _) as tr''.
-  destruct tr''; simpl in Dealloc; [|discriminate].
-  eapply joinmap_preserve_nonempty.
-  2: exact Dealloc.
-  eapply joinmap_preserve_nonempty.
-  1: exact Nonempty.
-  symmetry; eassumption.
+  eapply bind_Some in Dealloc as (trm & H1 & H2).
+  eapply joinmap_preserve_tree_tag_count in H1.
+  2: eapply item_apply_access_preserves_metadata_dep.
+  erewrite H1.
+  eapply joinmap_preserve_tree_tag_count.
+  2: exact H2.
+  intros it1 it2 Heq; repeat destruct bool_decide; simpl in Heq; simplify_eq; done.
 Qed.
 
-Lemma memory_access_preserve_nonempty kind cids tg range :
-  preserve_tree_nonempty (memory_access kind cids tg range).
+Lemma create_child_preserve_nonempty cids oldtg newtg pk rk cid tr tr' :
+  create_child cids oldtg newtg pk rk cid tr = Some tr' →
+  tr ≠ empty →
+  tr' ≠ empty.
 Proof.
-  intros tr tr' Nonempty Read.
-  eapply joinmap_preserve_nonempty.
-  1: exact Nonempty.
-  apply Read.
-Qed.
-
-Lemma create_child_preserve_nonempty cids oldtg newtg pk rk cid :
-  preserve_tree_nonempty (create_child cids oldtg newtg pk rk cid).
-Proof.
-  intros tr tr' Nonempty Create.
-  unfold create_child in Create.
-  injection Create; intros; subst; clear Create.
-  (* No need to do an induction, we can prove it's nonempty with just the root *)
+  intros [= <-] Hne.
   destruct tr as [|data].
   1: contradiction.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
@@ -292,29 +376,9 @@ Lemma tree_apply_access_same_count
           item_apply_access fn cids (rel_dec tr0 acc_tg (itag it)) range it) tr) =
   Some tr' → tree_count_tg tg tr = tree_count_tg tg tr'.
 Proof.
-  revert tr'.
-  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Access.
-  - inversion Access; subst. reflexivity.
-  - rewrite /tree_apply_access in Access.
-    destruct (option_bind_success_step _ _ _ Access) as [data' [data'Spec Access']].
-    destruct (option_bind_success_step _ _ _ Access') as [tr1' [tr1'Spec Access'']].
-    destruct (option_bind_success_step _ _ _ Access'') as [tr2' [tr2'Spec Access''']].
-    injection Access'''; intros; subst.
-    simpl.
-    erewrite IHtr1; [|apply tr1'Spec].
-    erewrite IHtr2; [|apply tr2'Spec].
-    assert (has_tag tg data = has_tag tg data') as SameTg. {
-      rewrite /has_tag /IsTag.
-      destruct (item_apply_access_preserves_metadata data'Spec) as [EqTg _].
-      simpl in *.
-      destruct (decide (itag data = tg)), (decide (itag data' = tg)).
-      all: repeat (rewrite bool_decide_eq_true_2; [|easy]).
-      all: repeat (rewrite bool_decide_eq_false_2; [|easy]).
-      all: try reflexivity.
-      all: congruence.
-    }
-    rewrite SameTg.
-    reflexivity.
+  intros H.
+  eapply joinmap_preserve_tree_tag_count; last done.
+  eapply item_apply_access_preserves_metadata_dep.
 Qed.
 
 Lemma tree_apply_access_preserve_unique
@@ -327,103 +391,26 @@ Proof.
   tauto.
 Qed.
 
-Lemma exists_with_tag
-  {it tr}
-  : exists_node (eq it) tr ->
-  tree_contains (itag it) tr.
-Proof.
-  intro Ex.
-  eapply exists_node_increasing; first eassumption.
-  rewrite every_node_eqv_universal; intros ? _ ?; subst.
-  rewrite /IsTag //=.
-Qed.
-
-Lemma determined_contains_exists_equal
-  {tr it tg} :
-  itag it = tg ->
-  tree_contains tg tr ->
-  tree_item_determined tg it tr ->
-  exists_node (eq it) tr.
-Proof.
-  intros Tg Ex Det.
-  rewrite /tree_item_determined in Det.
-  rewrite every_node_eqv_universal in Det.
-  eapply exists_node_increasing; first eassumption.
-  rewrite every_node_eqv_universal; intros it0 Exit0 Tg0.
-  symmetry; apply Det; done.
-Qed.
-
-Lemma unique_exists_determined
-  {tr it tg} :
-  IsTag tg it ->
-  tree_unique tg tr ->
-  exists_node (eq it) tr ->
-  tree_item_determined tg it tr.
-Proof.
-  intros Tg Unq Eq.
-  rewrite /tree_item_determined.
-  rewrite every_node_eqv_universal.
-  intros it' Eq' Tg'.
-  destruct (unique_lookup _ _ Unq) as [it0 Det0].
-  rewrite /tree_item_determined every_node_eqv_universal in Det0.
-  rewrite (Det0 _ Eq); last assumption.
-  rewrite (Det0 _ Eq'); last assumption.
-  reflexivity.
-Qed.
-
-Lemma tree_apply_access_wf_nodup fn tr tr' cids tg range :
-  wf_tree_nodup tr ->
+Lemma tree_apply_access_wf fn tr tr' cids tg range :
+  wf_tree tr ->
   tree_apply_access fn cids tg range tr = Some tr' ->
-  wf_tree_nodup tr'.
+  wf_tree tr'.
 Proof.
-  intros WF Access.
-  intros tg0 Ex0'.
-  specialize (WF tg0).
-  rewrite /tree_unique.
-  erewrite <-tree_apply_access_same_count; last eassumption.
-  apply WF. apply count_gt0_exists.
-  erewrite tree_apply_access_same_count; last eassumption.
-  apply count_gt0_exists.
-  assumption.
+  eapply preserve_tag_count_wf.
+  rewrite /tree_apply_access.
+  eapply joinmap_preserve_tree_tag_count_dep.
+  intros ?. eapply item_apply_access_preserves_metadata_dep.
 Qed.
 
-Lemma tree_apply_access_wf_fresh fn tr tr' cids tg range nxtp nxtc :
-  wf_tree_nodup tr ->
-  wf_tree_fresh tr nxtp nxtc ->
+Lemma tree_apply_access_compat_nexts fn tr tr' cids tg range nxtp nxtc :
+  tree_items_compat_nexts tr nxtp nxtc ->
   tree_apply_access fn cids tg range tr = Some tr' ->
-  wf_tree_fresh tr' nxtp nxtc.
+  tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
-  rewrite /wf_tree_fresh.
-  do 2 rewrite every_node_eqv_universal.
-  intros Nodup WF Access.
-  pose proof (tree_apply_access_wf_nodup _ _ _ _ _ _ Nodup Access) as Nodup'.
-  intros it' ExEq'.
-  pose proof (exists_with_tag ExEq') as Ex'.
-  pose proof (proj2 (access_preserves_tags Access) Ex') as Ex.
-  pose proof (Nodup _ Ex) as Unq.
-  destruct (unique_lookup _ _ Unq) as [it Det].
-  assert (exists_node (eq it) tr) as Exit. {
-    eapply determined_contains_exists_equal; [|eassumption|eassumption].
-    eapply tree_determined_specifies_tag; eassumption.
-  }
-  pose proof (WF it Exit) as Freshit.
-  destruct (apply_access_spec_per_node Ex Det Access) as [post [PostSpec [_ Unqpost]]].
-  assert (post = it'). {
-    eapply tree_determined_unify.
-    - apply Ex'.
-    - apply Unqpost.
-    - eapply unique_exists_determined.
-      + rewrite /IsTag //=.
-      + apply Nodup'. assumption.
-      + assumption.
-  }
-  subst.
-  symmetry in PostSpec.
-  destruct (item_apply_access_preserves_metadata PostSpec) as [Same1 [Same2 _]].
-  rewrite /wf_item_fresh /IsTag /protector_is_for_call. rewrite <- Same1, <- Same2.
-  auto.
+  eapply tree_joinmap_preserve_prop.
+  intros it1 it2 (H1&H2&H3)%item_apply_access_preserves_metadata.
+  rewrite /item_wf /IsTag /= H1 H2. done.
 Qed.
-
 Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
   join_nodes (map_nodes (fun it => if P it then None else Some it) tr) = Some tr' ->
   tr = tr'.
@@ -440,98 +427,58 @@ Proof.
     tauto.
 Qed.
 
-Lemma memory_deallocate_wf_nodup tr tr' cids tg range :
-  wf_tree_nodup tr ->
+Lemma memory_deallocate_wf tr tr' cids tg range :
+  wf_tree tr ->
   memory_deallocate cids tg range tr = Some tr' ->
-  wf_tree_nodup tr'.
+  wf_tree tr'.
 Proof.
-  intros Nodup Dealloc.
+  rewrite /memory_deallocate /memory_access_nonchildren_only.
+  intros Hwf (mid&H1&H2)%bind_Some.
+  eapply tree_apply_access_wf in H1; last done.
+  apply join_map_id_is_Some_identical in H2.
+  by subst mid.
+Qed.
+
+Lemma memory_deallocate_compat_nexts tr tr' cids tg range nxtp nxtc :
+  tree_items_compat_nexts tr nxtp nxtc ->
+  memory_deallocate cids tg range tr = Some tr' ->
+  tree_items_compat_nexts tr' nxtp nxtc.
+Proof.
+  intros WF Dealloc.
   rewrite /memory_deallocate /memory_access_nonchildren_only in Dealloc.
   remember (tree_apply_access _ _ _ _ _) as tr''.
   destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
-  assert (wf_tree_nodup tr'') as WF''. {
-    apply (tree_apply_access_wf_nodup _ _ _ _ _ _ Nodup ltac:(symmetry; eassumption)).
+  assert (tree_items_compat_nexts tr'' nxtp nxtc) as WF''. {
+    apply (tree_apply_access_compat_nexts _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
   }
   erewrite <- (join_map_id_is_Some_identical _ tr'' tr').
   - assumption.
   - exact Dealloc.
 Qed.
 
-Lemma memory_deallocate_wf_fresh tr tr' cids tg range nxtp nxtc :
-  wf_tree_nodup tr ->
-  wf_tree_fresh tr nxtp nxtc ->
-  memory_deallocate cids tg range tr = Some tr' ->
-  wf_tree_fresh tr' nxtp nxtc.
-Proof.
-  intros Nodup WF Dealloc.
-  rewrite /memory_deallocate /memory_access_nonchildren_only in Dealloc.
-  remember (tree_apply_access _ _ _ _ _) as tr''.
-  destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
-  assert (wf_tree_fresh tr'' nxtp nxtc) as WF''. {
-    apply (tree_apply_access_wf_fresh _ _ _ _ _ _ _ _ Nodup WF ltac:(symmetry; eassumption)).
-  }
-  erewrite <- (join_map_id_is_Some_identical _ tr'' tr').
-  - assumption.
-  - exact Dealloc.
-Qed.
-
-Lemma memory_read_wf_nodup tr tr' cids tg range :
-  wf_tree_nodup tr ->
-  memory_access AccessRead cids tg range tr = Some tr' ->
-  wf_tree_nodup tr'.
-Proof.
-  intros.
-  eapply tree_apply_access_wf_nodup; eassumption.
-Qed.
-
-Lemma memory_read_wf_fresh tr tr' cids tg range nxtp nxtc :
-  wf_tree_nodup tr ->
-  wf_tree_fresh tr nxtp nxtc ->
-  memory_access AccessRead cids tg range tr = Some tr' ->
-  wf_tree_fresh tr' nxtp nxtc.
-Proof.
-  intros.
-  eapply tree_apply_access_wf_fresh; eassumption.
-Qed.
-
-Lemma memory_write_wf_nodup tr tr' cids tg range :
-  wf_tree_nodup tr ->
-  memory_access AccessWrite cids tg range tr = Some tr' ->
-  wf_tree_nodup tr'.
-Proof.
-  intros.
-  eapply tree_apply_access_wf_nodup; eassumption.
-Qed.
-
-Lemma memory_write_wf_fresh tr tr' cids tg range nxtp nxtc :
-  wf_tree_nodup tr ->
-  wf_tree_fresh tr nxtp nxtc ->
-  memory_access AccessWrite cids tg range tr = Some tr' ->
-  wf_tree_fresh tr' nxtp nxtc.
-Proof.
-  intros.
-  eapply tree_apply_access_wf_fresh; eassumption.
-Qed.
-
-Lemma memory_access_wf_nodup tr tr' acc cids tg range :
-  wf_tree_nodup tr ->
+Lemma memory_access_wf tr tr' acc cids tg range  :
+  wf_tree tr ->
   memory_access acc cids tg range tr = Some tr' ->
-  wf_tree_nodup tr'.
+  wf_tree tr'.
 Proof.
-  destruct acc.
-  - eapply memory_read_wf_nodup.
-  - eapply memory_write_wf_nodup.
+  intros WF Dealloc.
+  by eapply tree_apply_access_wf.
 Qed.
 
-Lemma memory_access_wf tr tr' acc cids tg range nxtp nxtc :
-  wf_tree_nodup tr ->
-  wf_tree_fresh tr nxtp nxtc ->
-  memory_access acc cids tg range tr = Some tr' ->
-  wf_tree_fresh tr' nxtp nxtc.
+Lemma memory_access_tag_count acc cids tg range :
+  preserve_tree_tag_count (memory_access acc cids tg range).
 Proof.
-  destruct acc.
-  - eapply memory_read_wf_fresh.
-  - eapply memory_write_wf_fresh.
+  eapply joinmap_preserve_tree_tag_count_dep.
+  intros tr. eapply item_apply_access_preserves_metadata_dep.
+Qed.
+
+Lemma memory_access_compat_nexts tr tr' acc cids tg range nxtp nxtc :
+  tree_items_compat_nexts tr nxtp nxtc ->
+  memory_access acc cids tg range tr = Some tr' ->
+  tree_items_compat_nexts tr' nxtp nxtc.
+Proof.
+  intros WF Dealloc.
+  by eapply tree_apply_access_compat_nexts.
 Qed.
 
 
@@ -562,28 +509,24 @@ Proof.
   set_solver.
 Qed.
 
-Lemma init_tree_wf_nodup t :
-  wf_tree_nodup (init_tree t).
+Lemma wf_init_tree t' :
+  wf_tree (init_tree t').
 Proof.
-  rewrite /init_tree.
-  intro t'. rewrite /= /IsTag /=.
-  intros [e|[|]]; try contradiction; subst.
-  rewrite /tree_unique /= /has_tag /IsTag /=.
-  rewrite bool_decide_eq_true_2; lia.
+  intros tg H.
+  cbv in H. destruct_or!; try done.
+  subst tg.
+  eexists; split; last done.
+  by rewrite /tree_unique /init_tree /= /has_tag bool_decide_true.
 Qed.
 
-Lemma init_tree_wf_fresh c t t' :
+Lemma init_tree_compat_nexts c t t' :
   (t' < t)%nat ->
-  wf_tree_fresh (init_tree t') t c.
+  tree_items_compat_nexts (init_tree t') t c.
 Proof.
-  intro Le.
-  unfold wf_tree_fresh. rewrite every_node_eqv_universal.
-  intros it Ex. inversion Ex as [isTag|[Contra|Contra]].
-  2,3: inversion Contra.
-  simpl in isTag.
-  subst.
-  rewrite /wf_item_fresh /IsTag /protector_is_for_call /=.
-  split; intros; try discriminate; subst; auto.
+  intros Hok. cbv.
+  repeat split.
+  - intros ? ->. lia.
+  - done.
 Qed.
 
 Lemma init_tree_nonempty t :
@@ -591,6 +534,12 @@ Lemma init_tree_nonempty t :
 Proof.
   intros. subst.
   rewrite /init_tree //.
+Qed.
+
+Lemma init_tree_contains_only tg1 tg2 :
+  tree_contains tg1 (init_tree tg2) -> tg1 = tg2.
+Proof.
+  intros H. cbv in H. by destruct_or!.
 Qed.
 
 Lemma alloc_step_wf (σ σ': state) e e' l bor ptr efs:
@@ -606,29 +555,21 @@ Proof.
   inversion IS as [x| | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
   - apply same_blocks_init_extend; [lia|].
     apply WF.
-  - apply extend_trees_wf_fresh.
-    * eapply wf_trees_fresh_mono.
-      3: apply WF.
-      all: simpl; lia.
-    * apply init_tree_wf_fresh.
-      lia.
-  - apply extend_trees_wf_nodup.
+  - apply extend_trees_wf.
     * apply WF.
-    * apply init_tree_wf_nodup.
-  - intros blk.
-    destruct (decide (blk = fresh_block h)).
-    * simplify_eq.
-      intros tr IsSome.
-      eapply init_tree_nonempty.
-      rewrite /extend_trees in IsSome.
-      rewrite lookup_insert in IsSome.
-      injection IsSome.
-      eauto.
-    * intros tr.
-      rewrite /extend_trees.
-      rewrite lookup_insert_ne.
-      + apply WF.(state_wf_non_empty _).
-      + congruence.
+    * apply wf_init_tree.
+    * intros blk tro tg Hin Hinit%init_tree_contains_only Hintro.
+      subst tg.
+      pose proof (state_wf_tree_compat _ WF _ _ Hin) as Hcompat.
+      simpl in Hcompat.
+      eapply tree_items_compat_next_not_containing; [done..|]; lia.
+  - eapply extend_trees_compat_nexts.
+    * eapply trees_compat_nexts_mono; last eapply WF.
+      all: simpl; lia.
+    * eapply init_tree_compat_nexts; lia. 
+  - rewrite /extend_trees. intros blk tr' [(<-&<-)|(Hne1&Hin)]%lookup_insert_Some.
+    2: by eapply (state_wf_non_empty _ WF).
+    by eapply init_tree_nonempty.
   - apply WF.
 Qed.
 
@@ -712,26 +653,6 @@ Proof.
       rewrite -Z.add_assoc. apply HR. lia.
 Qed.
 
-Lemma wf_fresh_not_contains
-  {trs nxtp nxtc tg blk} :
-  wf_trees_fresh trs nxtp nxtc ->
-  (tg >= nxtp)%nat ->
-  ~trees_contain tg trs blk.
-Proof.
-  intros WF Ge Ex.
-  rewrite /trees_contain /trees_at_block in Ex.
-  destruct (trs !! blk) as [tr|] eqn:Lookup; last contradiction.
-  pose proof (WF blk tr Lookup) as Fresh.
-  rewrite /wf_tree_fresh every_node_eqv_universal in Fresh.
-  rewrite /tree_contains exists_node_eqv_existential in Ex.
-  destruct Ex as [it [Exit Tgit]].
-  specialize (Fresh it Exit).
-  destruct Fresh as [Freshtg _].
-  rewrite /wf_item_fresh in Freshtg.
-  specialize (Freshtg tg Tgit).
-  lia.
-Qed.
-
 (** Dealloc *)
 Lemma dealloc_step_wf σ σ' e e' l bor ptr efs :
   mem_expr_step σ.(shp) e (DeallocEvt l bor ptr) σ'.(shp) e' efs →
@@ -753,22 +674,20 @@ Proof.
     pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
     rewrite /same_blocks in Same.
     rewrite Same. done.
-  - apply delete_trees_wf_fresh.
-    apply (apply_within_trees_wf_fresh _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
-    * tauto.
-    * intros tr tr'. apply memory_deallocate_wf_fresh.
-    * apply (WF.(state_wf_tree_nodup _)).
-    * apply (WF.(state_wf_tree_fresh _)).
-  - apply delete_trees_wf_nodup.
-    apply (apply_within_trees_wf_nodup _ _ _ _ (fun it => True) ACC).
-    * rewrite /trees_at_block Lookup //=.
-    * intros nEx tr tr'. apply memory_deallocate_wf_nodup.
-    * apply (WF.(state_wf_tree_nodup _)).
-  - apply delete_trees_preserve_nonempty.
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (deallocate_preserve_nonempty _ _ _) ACC).
+  - apply delete_trees_wf.
+    eapply apply_within_trees_wf; first exact ACC.
+    2: apply WF.
+    eapply deallocate_preserve_tree_tag_count.
+  - apply delete_trees_compat_nexts.
+    eapply apply_within_trees_compat; first exact ACC.
+    3: eapply WF. 1: done. all: simpl.
+    intros ??. eapply memory_deallocate_compat_nexts.
+  - intros blk tr' (Hin&Hne)%lookup_delete_Some.
+    eapply apply_within_trees_lookup in ACC as (_&ACC).
+    erewrite <- ACC in Hne; last done.
+    eapply (state_wf_non_empty _ WF), Hne.
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
-
 
 Lemma read_step_wf σ σ' e e' l bor ptr vl efs :
   mem_expr_step σ.(shp) e (CopyEvt l bor ptr vl) σ'.(shp) e' efs →
@@ -789,19 +708,17 @@ Proof.
     rewrite (apply_within_trees_same_dom trs _ _ _ ACC).
     set_solver.
   - (* wf *)
-    apply (apply_within_trees_wf_fresh _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
-    * tauto.
-    * intros tr tr'. apply memory_read_wf_fresh.
-    * apply (WF.(state_wf_tree_nodup _)).
-    * apply (WF.(state_wf_tree_fresh _)).
-  - (* nodup *)
-    apply (apply_within_trees_wf_nodup _ _ _ _ (fun _ => True) ACC).
-    * rewrite /trees_at_block. rewrite /apply_within_trees in ACC.
-      destruct (trs !! l); [tauto|discriminate].
-    * intros nEx tr tr'. apply memory_read_wf_nodup.
-    * apply (WF.(state_wf_tree_nodup _)).
-  - (* nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _) ACC).
+    eapply apply_within_trees_wf.
+    * exact ACC.
+    * eapply memory_access_tag_count.
+    * apply WF.
+  - eapply apply_within_trees_compat.
+    * exact ACC.
+    * done.
+    * intros ??. eapply memory_access_compat_nexts.
+    * apply WF.
+  - eapply apply_within_trees_compat_nonempty. 1: apply WF. 2: exact ACC.
+    intros tr1 tr2. eapply preserve_tag_count_nonempty, memory_access_tag_count.
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -820,7 +737,7 @@ Proof.
   done.
 Qed.
 
-(* TODO make it sane *)
+(* TODO less equalities makes applying the rule easier, see _sane version below *)
 Lemma write_mem_dom l (vl : value) h h'
   (DEFINED: ∀ i : nat, (i < length vl)%nat → (l +ₗ i) ∈ dom h)
   (SUCCESS: write_mem l vl h = h') :
@@ -919,19 +836,17 @@ Proof.
     rewrite (apply_within_trees_same_dom trs _ _ _ ACC).
     set_solver.
   - (* wf *)
-    apply (apply_within_trees_wf_fresh _ _ nxtp' nxtp' nxtc' nxtc' _ _ ACC).
-    * tauto.
-    * intros tr tr'. apply memory_write_wf_fresh.
-    * apply (WF.(state_wf_tree_nodup _)).
-    * apply (WF.(state_wf_tree_fresh _)).
-  - (* nodup *)
-    apply (apply_within_trees_wf_nodup _ _ _ _ (fun _ => True) ACC).
-    * rewrite /trees_at_block. rewrite /apply_within_trees in ACC.
-      destruct (trs !! l); [tauto|discriminate].
-    * intros nEx tr tr'. apply memory_write_wf_nodup.
-    * apply (WF.(state_wf_tree_nodup _)).
-  - (* nonempty *)
-    apply (apply_within_trees_preserve_nonempty _ _ _ _ (WF.(state_wf_non_empty _)) (memory_access_preserve_nonempty _ _ _ _) ACC).
+    eapply apply_within_trees_wf.
+    * exact ACC.
+    * eapply memory_access_tag_count.
+    * apply WF.
+  - eapply apply_within_trees_compat.
+    * exact ACC.
+    * done.
+    * intros ??. eapply memory_access_compat_nexts.
+    * apply WF.
+  - eapply apply_within_trees_compat_nonempty. 1: apply WF. 2: exact ACC.
+    intros tr1 tr2. eapply preserve_tag_count_nonempty, memory_access_tag_count.
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -949,7 +864,7 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
   constructor; simpl; [try apply WF..|].
-  - eapply wf_trees_fresh_mono; [| |apply WF]; auto.
+  - eapply trees_compat_nexts_mono; [| |apply WF]; auto.
   - intros c. rewrite elem_of_union.
     move => [|/(state_wf_cid_agree _ WF)]; [intros ->%elem_of_singleton_1; by left|by right].
 Qed.
@@ -973,41 +888,53 @@ Proof.
 Qed.
 
 (** Retag *)
-
-Lemma insert_child_wf_fresh cids oldt nxtp pk rk cid nxtc
-  (IT_WF : wf_item_fresh (create_new_item nxtp pk rk cid) (S nxtp) nxtc)
-  : preserve_wf_tree_fresh (create_child cids oldt nxtp pk rk cid) nxtp (S nxtp) nxtc nxtc.
+Lemma insert_child_notfound tr (it:item) P Pdec :
+  (every_node (λ x, ~P x) tr) →
+  @insert_child_at _ tr it P Pdec = tr.
 Proof.
-  intros tr tr' Nodup WF CREATE.
-  rewrite /wf_tree_fresh.
-  inversion CREATE.
-  rewrite <- insert_true_preserves_every.
-  - eapply wf_tree_fresh_mono; last apply WF; lia.
-  - assumption.
+  intros Hevery.
+  induction tr as [|d tr1 IH1 tr2 IH2] in Hevery|-*; first done.
+  simpl in Hevery|-*. destruct Hevery as (Hnd & Hn1 & Hn2).
+  rewrite decide_False //.
+  f_equal.
+  - by eapply IH1.
+  - by eapply IH2.
 Qed.
 
-Lemma insert_child_wf_nodup cids oldt nxtp pk rk cid :
-  preserve_wf_tree_nodup (create_child cids oldt nxtp pk rk cid)
-    (fun tr => ~tree_contains nxtp tr /\ tree_unique oldt tr).
+Lemma insert_child_wf cids oldt nxtp pk rk cid nxtc tro trn
+  (IT_WF : item_wf (create_new_item nxtp pk rk cid) (S nxtp) nxtc)
+  : 
+  create_child cids oldt nxtp pk rk cid tro = Some trn →
+  tree_items_compat_nexts tro nxtp nxtc →
+  wf_tree tro →
+  tree_items_compat_nexts trn (S nxtp) nxtc ∧
+  wf_tree trn.
 Proof.
-  intros tr tr' [nEx Exp] WF Create.
-  injection Create; intros; subst; clear Create.
-  intros tg Ex.
-  destruct (decide (tg = nxtp)).
-  + subst.
-    apply inserted_unique.
-    * apply new_item_has_tag.
-    * assumption.
-    * assumption.
-  + rewrite /tree_unique.
-    rewrite <- (create_child_preserves_count tg tr _ nxtp cids oldt pk rk cid);
-      last reflexivity; try eassumption.
-    enough (tree_contains tg tr) by (apply WF; done).
-    rewrite <-count_gt0_exists.
-    erewrite (create_child_preserves_count tg tr _ nxtp cids oldt pk rk cid);
-      last reflexivity; last eassumption; try eassumption.
-    rewrite count_gt0_exists.
-    eassumption.
+  intros CREATE Hcompat Hwf.
+  destruct (decide (tree_contains oldt tro)) as [Hin|Hnin]; last first.
+  { rewrite /create_child insert_child_notfound in CREATE.
+    - injection CREATE as ->. split; last done.
+      eapply tree_items_compat_nexts_mono; last exact Hcompat. all:lia.
+    - by eapply every_not_eqv_not_exists. }
+  split; last first.
+  - intros tg Hcont%count_gt0_exists.
+    destruct (decide (tg = nxtp)) as [->|].
+    + eapply create_child_determined in CREATE as H2; try done.
+      * destruct H2 as (_&H2). eexists; split; last done.
+        rewrite /create_child in CREATE. injection CREATE as <-.
+        eapply inserted_unique. 1: done.
+        -- intros H1. eapply tree_items_compat_next_not_containing; [exact H1|done|lia].
+        -- destruct (Hwf _ Hin) as (?&Hunq&?); done.
+      * intros ?. eapply tree_items_compat_next_not_containing. 1-2: done. lia.
+    + erewrite <- create_child_preserves_count in Hcont; try done.
+      eapply count_gt0_exists, Hwf in Hcont as (it&Hunq&Hdet).
+      exists it. split; last by eapply create_child_preserves_determined.
+      rewrite /tree_unique in Hunq.
+      by erewrite create_child_preserves_count in Hunq.
+  - injection CREATE as <-.
+    eapply (insert_true_preserves_every tro).
+    + apply IT_WF. 
+    + eapply tree_items_compat_nexts_mono; last done; lia.
 Qed.
 
 Lemma retag_step_wf σ σ' e e' l ot nt pk rk cid efs :
@@ -1022,49 +949,39 @@ Proof.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
   inversion IS as [| | | |??????????? RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
-  constructor; simpl.
-  - rewrite /same_blocks /=.
-    (* Something is bodged here *)
-    setoid_rewrite <- (apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR).
-    setoid_rewrite <- (apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
+  assert (trees_compat_nexts trs' (S nt) nxtc' ∧ wf_trees trs') as (Hwf1 & Hwf2).
+  { eapply apply_within_trees_compat_both; first done.
+    1: done. 3: eapply apply_within_trees_compat_both; first done; last first.
+    - intros ?????; split; first by eapply memory_access_compat_nexts.
+      by eapply memory_access_wf.
+    - intros ???? ?%count_gt0_exists. left. eapply count_gt0_exists.
+      by erewrite memory_access_tag_count.
+    - split; by eapply WF.
+    - simpl. intros tr tr' tg Hcr Hcont.
+      destruct (decide (tg = nt)) as [->|Hne].
+      1: right; lia.
+      1: left; eapply insertion_minimal_tags; last done; try done.
+    - simpl. intros ?????.
+      eapply insert_child_wf; try done.
+      split; rewrite /create_new_item /=.
+      + rewrite /IsTag /=. intros ? <-; lia.
+      + destruct rk; last done.
+        rewrite /= /protector_is_for_call /=.
+        intros ? [= <-]. by eapply WF.
+    - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
+constructor; simpl.
+  - rewrite /same_blocks /=
+            -(apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR)
+            -(apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
     apply WF.
-  - apply (apply_within_trees_wf_fresh _ _ (S nt) (S nt) nxtc' nxtc' _ _ READ_ON_REBOR).
-    * intros tr WFtr. eapply wf_tree_fresh_mono; [| |eassumption]; auto.
-    * intros tr tr'.
-      intros WFold Access. eapply memory_read_wf_fresh; eassumption.
-    * eapply apply_within_trees_wf_nodup; [eassumption| |eapply insert_child_wf_nodup|apply WF].
-      unfold trees_contain, trees_at_block in *.
-      destruct (trs !! l) eqn:Lookup; last tauto.
-      split; first assumption.
-      apply (WF.(state_wf_tree_nodup _) l _ Lookup); assumption.
-    * apply (apply_within_trees_wf_fresh _ _ nt (S nt) nxtc' nxtc' _ _ RETAG_EFFECT).
-      + intros tr WFtr. eapply wf_tree_fresh_mono; [| |eassumption]; auto.
-      + intros tr tr'.
-        intros WFold Access. eapply insert_child_wf_fresh; [|eassumption|eassumption].
-        rewrite /wf_item_fresh /create_new_item /IsTag /protector_is_for_call /call_of_protector /=.
-        rewrite /retag_kind_to_prot /pointer_kind_to_strength.
-        split; first lia.
-        intro.
-        destruct rk; simpl; last discriminate.
-        intro H; injection H; intros; subst.
-        apply WF. simpl. assumption.
-      + apply WF.
-      + apply WF.
-  - eapply (apply_within_trees_wf_nodup _ _ _ _ (fun _ => True)).
-    + eassumption.
-    + rewrite /trees_at_block. rewrite /apply_within_trees in READ_ON_REBOR.
-      destruct (_ !! l); [tauto|discriminate].
-    + intros nEx tr tr'. apply memory_read_wf_nodup.
-    + eapply apply_within_trees_wf_nodup; [| |eapply insert_child_wf_nodup|].
-      * eassumption.
-      * unfold trees_contain, apply_within_trees, trees_at_block in *.
-        destruct (trs !! l) eqn:Lookup; [simpl in *| discriminate].
-        split; [assumption|].
-        apply (WF.(state_wf_tree_nodup _) _ _ Lookup). eassumption.
-      * apply WF.
-  - unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (memory_access_preserve_nonempty _ _ _ _) READ_ON_REBOR).
-    unshelve eapply (apply_within_trees_preserve_nonempty _ _ _ _ _ (create_child_preserve_nonempty _ _ _ _ _ _) RETAG_EFFECT).
-    apply WF.
+  - done.
+  - done.
+  - eapply apply_within_trees_compat_nonempty; last done.
+    1: eapply apply_within_trees_compat_nonempty; last done.
+    1: apply WF.
+    + intros ????; by eapply create_child_preserve_nonempty.
+    + intros ????. eapply preserve_tag_count_nonempty; try done.
+      eapply memory_access_tag_count.
   - apply WF.
 Qed.
 

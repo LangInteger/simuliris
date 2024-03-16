@@ -20,12 +20,12 @@ Class bor_stateGS Σ := BorStateGS {
   (* tag ownership *)
   (* Last param is unit, should probably be cleaned up *)
   tag_inG :: tkmapG Σ tag unit;
-tag_name : gname;
+  tag_name : gname;
 
   (* A view of parts of the heap, conditional on the tag *)
-heap_view_inG :: ghost_mapG Σ (tag * loc) scalar;
+  heap_view_inG :: ghost_mapG Σ (tag * loc) scalar;
   heap_view_source_name : gname;
-heap_view_target_name : gname;
+  heap_view_target_name : gname;
 
   (* Public call IDs *)
   pub_call_inG :: ghost_mapG Σ call_id unit;
@@ -861,8 +861,8 @@ tree_contains tg tr
   Proof.
     intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
     econstructor.
-    - rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata ItAcc1))).
-      rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata ItAcc2))).
+    - rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata _ _ ItAcc1))).
+      rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata _ _ ItAcc2))).
       apply EqC. assumption.
     - eapply perm_eq_up_to_C_preserved_by_access.
       + apply EqC. assumption.

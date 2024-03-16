@@ -25,16 +25,15 @@ Qed.
 (***** not part of the API *****)
 
 Lemma trees_contain_trees_lookup_1 trs blk tg :
-  wf_trees_nodup trs →
+  wf_trees trs →
   trees_contain tg trs blk → ∃ it, trees_lookup trs blk tg it.
 Proof.
-  intros wf.
+  intros (wf&_).
   rewrite /trees_contain /trees_lookup /trees_at_block.
   specialize (wf blk).
   destruct (trs !! blk) as [tr|]; [|tauto].
   intros Ex.
-  pose proof (wf tr ltac:(reflexivity) tg Ex) as Unq.
-  destruct (unique_lookup _ _ Unq) as [it Det].
+  destruct (wf tr ltac:(reflexivity) tg Ex) as [it [Unq Det]].
   exists it, tr.
   split; [|split].
   - reflexivity.
@@ -72,34 +71,34 @@ Qed.
 Lemma trees_equal_allows_same_access C tr1 tr2 blk kind acc_tg range :
   (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
   trees_equal C tr1 tr2 →
-  wf_trees_nodup tr1 →
-  wf_trees_nodup tr2 →
-  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) →
+  wf_trees tr1 →
+  wf_trees tr2 →
+  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
 Admitted.
 
 Lemma wf_tree_tree_unique tr :
-  wf_tree_nodup tr →
+  wf_tree tr →
   ∀ tg,
   tree_contains tg tr →
   tree_unique tg tr.
 Proof.
   intros Hwf tg Hcont.
-  by apply Hwf.
+  by destruct (Hwf tg Hcont) as (? & H & _).
 Qed.
 
 Lemma trees_equal_preserved_by_access
   {C blk tr1 tr2 tr1' tr2' kind acc_tg range}
   :
-  wf_trees_nodup tr1 →
-  wf_trees_nodup tr2 →
+  wf_trees tr1 →
+  wf_trees tr2 →
   trees_equal C tr1 tr2 ->
   trees_contain acc_tg tr1 blk ->
   apply_within_trees (memory_access kind C acc_tg range) blk tr1 = Some tr1' ->
   apply_within_trees (memory_access kind C acc_tg range) blk tr2 = Some tr2' ->
   trees_equal C tr1' tr2'.
 Proof.
-  intros Hwf1 Hwf2 Heq Hcont.
+  intros (Hwf1&_) (Hwf2&_) Heq Hcont.
   intros ((tr1blk & tr1blk' & Hlutr1 & Hlutr1' & Hacc1) & Htr1nblk)%apply_within_trees_lookup.
   intros ((tr2blk & tr2blk' & Hlutr2 & Hlutr2' & Hacc2) & Htr2nblk)%apply_within_trees_lookup.
   intros blk'. destruct (decide (blk = blk')) as [<- | Hne];
@@ -111,12 +110,13 @@ Proof.
   eapply tree_equal_preserved_by_access.
   3, 5, 6: done.
   3: rewrite /trees_contain /trees_at_block Hlutr1 // in Hcont.
-  all: intros tg Ex; (match goal with [ H : wf_trees_nodup _ |- _] => by eapply H end).
+  all: eapply wf_tree_tree_unique; 
+    (match goal with [ H : each_tree_wf _ |- _] => by eapply H end).
 Qed.
 
 Lemma apply_trees_access_lookup_general offi cids trs kind blk off1 sz acc_tg lu_tg trs' itold :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk trs = Some trs' →
-  wf_trees_nodup trs →
+  wf_trees trs →
   off1 ≤ offi < off1 + sz →
   trees_lookup trs blk lu_tg itold →
   ∃       itnew, trees_lookup trs' blk lu_tg itnew ∧
@@ -125,7 +125,7 @@ Lemma apply_trees_access_lookup_general offi cids trs kind blk off1 sz acc_tg lu
                  iprot itold = iprot itnew ∧
                  apply_access_perm kind (trees_rel_dec trs blk acc_tg lu_tg) (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew.
 Proof.
-  intros App wf InBounds Lookup.
+  intros App (wf&_) InBounds Lookup.
   rewrite /apply_within_trees in App.
   rewrite bind_Some in App.
   destruct App as [tr [trSome Acc]].
@@ -167,7 +167,7 @@ Qed.
 
 Lemma apply_trees_access_lookup_outside blki offi cids trs kind blk off1 sz acc_tg lu_tg trs' itold :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk trs = Some trs' →
-  wf_trees_nodup trs →
+  wf_trees trs →
   ¬ (blki = blk ∧ off1 ≤ offi < off1 + sz) →
   trees_lookup trs blki lu_tg itold →
   ∃       itnew, trees_lookup trs' blki lu_tg itnew ∧
@@ -176,7 +176,7 @@ Lemma apply_trees_access_lookup_outside blki offi cids trs kind blk off1 sz acc_
                  iprot itold = iprot itnew ∧
                  permold = permnew.
 Proof.
-  intros App wf OutOfBounds Lookup.
+  intros App (wf&_) OutOfBounds Lookup.
   rewrite /apply_within_trees in App.
   rewrite bind_Some in App.
   destruct App as [tr [trSome Acc]].
@@ -212,7 +212,7 @@ Qed.
 
 Lemma apply_trees_access_lookup_same_tag cids trs kind blk off1 sz offi tg trs':
   apply_within_trees (memory_access kind cids tg (off1, sz)) blk trs = Some trs' →
-  wf_trees_nodup trs →
+  wf_trees trs  →
   off1 ≤ offi < off1 + sz →
   trees_contain tg trs blk →
   ∃ itold itnew, trees_lookup trs blk tg itold ∧ trees_lookup trs' blk tg itnew ∧
@@ -249,7 +249,7 @@ Qed.
 
 Lemma apply_trees_access_lookup_outside_rev blki offi cids trs kind blk off1 sz acc_tg lu_tg trs' itnew :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk trs = Some trs' →
-  wf_trees_nodup trs →
+  wf_trees trs →
   ¬ (blki = blk ∧ off1 ≤ offi < off1 + sz) →
   trees_lookup trs' blki lu_tg itnew →
   ∃       itold, trees_lookup trs blki lu_tg itold ∧
@@ -259,11 +259,9 @@ Lemma apply_trees_access_lookup_outside_rev blki offi cids trs kind blk off1 sz 
                  permold = permnew.
 Proof.
   intros App wf OutOfBounds Lookup.
-  assert (wf_trees_nodup trs') as wf'.
-  { eapply apply_within_trees_wf_nodup with (Precond := fun _ => True); try done.
-    + unfold apply_within_trees in App; unfold trees_at_block; destruct (trs !! blk);
-      last discriminate. tauto.
-    + intros tr tr' _. eapply memory_access_wf_nodup. }
+  assert (wf_trees trs') as wf'.
+  { eapply apply_within_trees_wf; try done.
+    intros ????. by eapply memory_access_tag_count. }
   pose proof App as App2.
   rewrite /apply_within_trees in App.
   rewrite bind_Some in App.
@@ -308,7 +306,7 @@ Qed.
 
 (* TODO move somewhere else *)
 Lemma tag_protected_preserved_by_access tg_acc tg_prs l C c trs trs' acc blk off sz :
-  wf_trees_nodup trs →
+  wf_trees trs →
   apply_within_trees (memory_access acc C tg_acc (off, sz)) blk trs = Some trs' →
   call_is_active c C →
   tag_protected_for c trs  l tg_prs →
@@ -433,25 +431,13 @@ Proof.
     exists itnew, trnew. do 2 (split; first done).
     split; first by rewrite -Hpermold.
     intros it' t' Hluit'.
-    assert (wf_tree_nodup trnew) as Hwfnew_nodup.
-    { destruct (decide (l.1 = blk)) as [<-|Hne].
-      - rewrite /apply_within_trees Htrold /= in Happly.
-        eapply bind_Some in Happly as (? & H1 & [= H2]).
-        rewrite -H2 lookup_insert in Htrnew.
-        injection Htrnew as ->. eapply memory_access_wf_nodup; last done.
-        by eapply Hwf.
-      - eapply bind_Some in Happly as (? & H1 & (? & H2 & [= H3])%bind_Some).
-        rewrite -H3 lookup_insert_ne // in Htrnew.
-        by eapply Hwf.
-    }
-    assert (wf_tree_fresh trnew (snp σ) (snc σ)) as Hwfnew_fresh.
+    assert (wf_tree trnew) as Hwfnew.
     { destruct (decide (l.1 = blk)) as [<-|Hne].
       - rewrite /apply_within_trees Htrold /= in Happly.
         eapply bind_Some in Happly as (? & H1 & [= H2]).
         rewrite -H2 lookup_insert in Htrnew.
         injection Htrnew as ->. eapply memory_access_wf; last done.
-        + destruct Hwf as [_ _ Hwf _ _]. by eapply Hwf.
-        + destruct Hwf as [_ Hwf _ _]. by eapply Hwf.
+        destruct Hwf as [_ Hwf _ _]. by eapply Hwf.
       - eapply bind_Some in Happly as (? & H1 & (? & H2 & [= H3])%bind_Some).
         rewrite -H3 lookup_insert_ne // in Htrnew.
         destruct Hwf as [_ Hwf _ _]. by eapply Hwf.

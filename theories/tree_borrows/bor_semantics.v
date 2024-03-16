@@ -213,17 +213,28 @@ Definition rel_dec (tr:tree item) := fun t t' =>
   then Child (if decide (ParentChildIn t t' tr) then This else Strict)
   else Foreign (if decide (ParentChildIn t t' tr) then Parent else Cousin).
 
+Definition rel_pos_inv (r : rel_pos) : rel_pos := match r with
+  Child This => Child This
+| Child Strict => Foreign Parent
+| Foreign Parent => Child Strict
+| Foreign Cousin => Foreign Cousin end.
+
+Lemma rel_pos_inv_inv r : rel_pos_inv (rel_pos_inv r) = r.
+Proof. by destruct r as [[]|[]]. Qed.
+
+Lemma rel_dec_flip tr t t' r : rel_dec tr t t' = r -> rel_dec tr t' t = rel_pos_inv r.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; subst r; simpl; congruence. Qed.
+Lemma rel_dec_flip2 tr t t' : rel_dec tr t t' = rel_pos_inv (rel_dec tr t' t).
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); simpl; congruence. Qed.
+
 Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Foreign Cousin -> rel_dec tr t' t = Foreign Cousin.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
-
+Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = Child This -> rel_dec tr t' t = Child This.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
-
+Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Foreign Parent -> rel_dec tr t' t = Child Strict.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
-
+Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child Strict -> rel_dec tr t' t = Foreign Parent.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+Proof. eapply rel_dec_flip. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
@@ -254,8 +265,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       end
   | AccessWrite, Foreign _ =>
       match perm with
-      | Reserved InteriorMut ResActivable => if isprot then Some Disabled else Some $ Reserved InteriorMut ResActivable
-      | Reserved InteriorMut ResConflicted => if isprot then Some Disabled else Some $ Reserved InteriorMut ResConflicted
+      | Reserved InteriorMut ra => if isprot then Some Disabled else Some $ Reserved InteriorMut ra
       | Disabled => Some Disabled
       | _ => Some Disabled
       end

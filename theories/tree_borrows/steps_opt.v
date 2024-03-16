@@ -816,7 +816,18 @@ Proof.
     eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| |done].
     rewrite Hscs_eq. apply Hin.
   - (* tag invariant *)
-    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom). split_and!; [ | | | done..].
+    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom). split_and!; [ | | | done..]; first last.
+    { intros t' l'. rewrite lookup_union_is_Some.
+      intros [[-> _]%array_tag_map_lookup1 | ?]; first by rewrite lookup_insert.
+      eapply lookup_insert_is_Some'; right.
+      by eapply Hs_dom.
+    }
+    { intros t' l'. rewrite lookup_union_is_Some.
+      intros [[-> _]%array_tag_map_lookup1 | ?]; first by rewrite lookup_insert.
+      eapply lookup_insert_is_Some'; right.
+      by eapply Ht_dom.
+    }
+    simpl.
     { intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
       { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
         split_and!; [done|done|..]; last first.
