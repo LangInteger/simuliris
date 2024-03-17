@@ -1835,21 +1835,28 @@ Fixpoint array_tag_map (l : loc) (t : tag) (v : list scalar) : gmap (tag * loc) 
   | [] => ∅
   | sc :: v' => <[(t, l) := sc]> (array_tag_map (l +ₗ 1) t v')
   end.
-Lemma array_tag_map_lookup1 l t v t' l' :
+Lemma array_tag_map_lookup1 l t v t' l' r :
+  array_tag_map l t v !! (t', l') = Some r →
+  t' = t ∧ l.1 = l'.1 ∧ l.2 ≤ l'.2 < l.2 + length v.
+Proof.
+  induction v as [ | sc v IH] in l,r |-*.
+  - simpl. rewrite lookup_empty. intros [=].
+  - simpl. rewrite lookup_insert_Some. move => [[[= <- <-] Heq] | [Hneq Ht]].
+    + split; first done. lia.
+    + move : (IH (l +ₗ 1) ltac:(eauto) ltac:(eauto)). destruct l. simpl. intros (H1&H2); split; first done; lia.
+Qed.
+Lemma array_tag_map_lookup1_is_Some l t v t' l' :
   is_Some (array_tag_map l t v !! (t', l')) →
   t' = t ∧ l.1 = l'.1 ∧ l.2 ≤ l'.2 < l.2 + length v.
 Proof.
-  induction v as [ | sc v IH] in l |-*.
-  - simpl. rewrite lookup_empty. intros [? [=]].
-  - simpl. move => [sc0 ]. rewrite lookup_insert_Some. move => [[[= <- <-] Heq] | [Hneq Ht]].
-    + split; first done. lia.
-    + move : (IH (l +ₗ 1) ltac:(eauto)). destruct l. simpl. intros (H1&H2); split; first done; lia.
+  intros [x Hx]. by eapply array_tag_map_lookup1.
 Qed.
+
 Lemma array_tag_map_lookup2 l t v t' l' :
   is_Some (array_tag_map l t v !! (t', l')) →
   t' = t ∧ ∃ i, (i < length v)%nat ∧ l' = l +ₗ i.
 Proof.
-  intros (-> & H1 & H2)%array_tag_map_lookup1.
+  intros [x (-> & H1 & H2)%array_tag_map_lookup1].
   split; first done. exists (Z.to_nat (l'.2 - l.2)).
   destruct l, l';  rewrite /shift_loc; simpl in *. split.
   - lia.
@@ -1873,7 +1880,7 @@ Lemma array_tag_map_lookup_None t t' l v :
   t ≠ t' → ∀ l', array_tag_map l t v !! (t', l') = None.
 Proof.
   intros Hneq l'. destruct (array_tag_map l t v !! (t', l')) eqn:Harr; last done.
-  specialize (array_tag_map_lookup1 l t v t' l' ltac:(eauto)) as [Heq _]; congruence.
+  specialize (array_tag_map_lookup1 l t v t' l' ltac:(eauto) ltac:(eauto)) as [Heq _]; congruence.
 Qed.
 
 Lemma array_tag_map_lookup_None' l t v l' :

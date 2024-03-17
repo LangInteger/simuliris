@@ -818,66 +818,50 @@ Proof.
   - (* tag invariant *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom). split_and!; [ | | | done..]; first last.
     { intros t' l'. rewrite lookup_union_is_Some.
-      intros [[-> _]%array_tag_map_lookup1 | ?]; first by rewrite lookup_insert.
+      intros [[-> _]%array_tag_map_lookup1_is_Some | ?]; first by rewrite lookup_insert.
       eapply lookup_insert_is_Some'; right.
       by eapply Hs_dom.
     }
     { intros t' l'. rewrite lookup_union_is_Some.
-      intros [[-> _]%array_tag_map_lookup1 | ?]; first by rewrite lookup_insert.
+      intros [[-> _]%array_tag_map_lookup1_is_Some | ?]; first by rewrite lookup_insert.
       eapply lookup_insert_is_Some'; right.
       by eapply Ht_dom.
     }
     simpl.
-    { intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
-      { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
-        split_and!; [done|done|..]; last first.
-        - eapply dom_agree_on_tag_union; last done. eapply dom_agree_on_tag_array_tag_map; congruence.
-        - admit.
-        - admit. }
-      { destruct (Htag_interp _ _ Ht) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
-        split_and!; [done|done|..]; last first.
-        - eapply dom_agree_on_tag_union; last done.
-          eapply dom_agree_on_tag_not_elem; by eapply array_tag_map_lookup_None.
-        - intros l1 sc [HinF|(Hnel1&Hin)]%lookup_union_Some_raw.
-          1: by rewrite array_tag_map_lookup_None in HinF.
-          ospecialize (Hcontrol_s' _ _ Hin).
-          eapply loc_controlled_access_outside; last done; try done.
-          (*
-          { rewrite /bor_state_pre /bor_state_pre_unq in Hpre|-*.
-          Print bor_state_pre. Print loc_controlled.
-          Print dom_agree_on_tag.
-          Search loc_controlled.
-          rewrite /dom_agree_on_tag. Locate dom_agree_on_tag
-          Search dom_agree_on_tag array_tag_map.
-        
-      specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrolled_t & Hcontrolled_s & Hdom).
-      split_and!; [ done | done | | | ].
-      - intros l' sc_t Hsc. rewrite Hsst_eq.
-        eapply (loc_controlled_write_unprotected _ _ _ (tsize T) _ _ σ_t);
-          [ | done | lia | | intros; apply Hcontrol_own; lia | done | apply Hsc].
-          + intros ->. simplify_eq. done.
-          + rewrite -Hsst_eq -Hscs_eq. done.
-      - intros l' sc_s Hsc.
-        eapply (loc_controlled_write_unprotected _ _ _ (tsize T) _ _ σ_s);
-          [ | done | lia | | intros; apply Hcontrol_own; lia | done | apply Hsc].
-          + intros ->. simplify_eq. done.
-          + done.
-      - apply dom_agree_on_tag_union; last done.
-        destruct (decide (t' = t)) as [-> | Hneq].
-        + apply dom_agree_on_tag_array_tag_map. lia.
-        + apply dom_agree_on_tag_not_elem; apply array_tag_map_lookup_None; done.
-    }
-    { intros t' l'. rewrite lookup_union_is_Some.
-      intros [[-> _]%array_tag_map_lookup1 | ?]; by eauto.
-    }
-    { intros t' l'. rewrite lookup_union_is_Some.
-      intros [[-> _]%array_tag_map_lookup1 | ?]; by eauto.
-    }
+    intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
+    { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
+      split_and!; [done|done|..]; last first.
+      - eapply dom_agree_on_tag_union; last done. eapply dom_agree_on_tag_array_tag_map; congruence.
+      - (* TODO case for the things unaffected *)
+        intros lac sc [Hacc|H]%lookup_union_Some_raw. 2: admit.
+        pose proof Hacc as (_&Heq1&Heq2)%array_tag_map_lookup1.
+        intros Hpre. admit. (* loc_controlled for this location, this tag.
+          Idea: establish postcondition because write succeeded *)
+      - admit. (* like previous case *) }
+    { (* we are a different tag *)
+      destruct (Htag_interp _ _ Ht) as (Hv1&Hv2&Hlc1&Hlc2&Hagr).
+      split_and!; try done; first last.
+      - eapply dom_agree_on_tag_union; last done.
+        eapply dom_agree_on_tag_not_elem; by eapply array_tag_map_lookup_None.
+      - intros lx scv [(H1&_)%array_tag_map_lookup1|(_&HM_s)]%lookup_union_Some_raw; simplify_eq.
+        specialize (Hlc2 _ _ HM_s).
+        destruct (decide (lx.1 = l.1 ∧ (l.2 ≤ lx.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
+        2: { eapply loc_controlled_access_outside; try done.
+             rewrite /σ_s' /=write_mem_lookup_outside //. }
+        admit. (* loc_controlled on modified area, but different tag.
+          Idea: the precondition is violated since access made things disabled *)
+      - intros lx scv [(H1&_)%array_tag_map_lookup1|(_&HM_t)]%lookup_union_Some_raw; simplify_eq.
+        specialize (Hlc1 _ _ HM_t).
+        destruct (decide (lx.1 = l.1 ∧ (l.2 ≤ lx.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
+        2: { eapply loc_controlled_access_outside; try done.
+             rewrite /= write_mem_lookup_outside // Hlen_t' //. }
+        admit. (* like above *) }
   - (* source state wf *)
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
     iPureIntro. eapply base_step_wf; done.
-Qed. *) Abort.
+Admitted.
+
 (*
 Lemma target_write_local v_t v_t' T l t Ψ :
   length v_t = tsize T →

@@ -20,9 +20,7 @@ Definition item_wf (it:item) (nxtp:tag) (nxtc:call_id) :=
 
 Definition tree_items_unique (tr:tree item) :=
   forall tg,
-  tree_contains tg tr -> exists it,
-    tree_unique tg tr
-    /\ tree_item_determined tg it tr.
+  tree_contains tg tr -> tree_unique tg tr.
 
 Definition tree_items_compat_nexts (tr:tree item) (nxtp:tag) (nxtc: call_id) :=
   every_node (λ it, item_wf it nxtp nxtc) tr.

@@ -33,12 +33,9 @@ Proof.
   specialize (wf blk).
   destruct (trs !! blk) as [tr|]; [|tauto].
   intros Ex.
-  destruct (wf tr ltac:(reflexivity) tg Ex) as [it [Unq Det]].
-  exists it, tr.
-  split; [|split].
-  - reflexivity.
-  - assumption.
-  - assumption.
+  specialize (wf tr ltac:(reflexivity) tg Ex) as Unq.
+  destruct (unique_lookup _ _ Unq) as (it & Det).
+  exists it, tr. done.
 Qed.
 
 Lemma trees_contain_trees_lookup_2 it trs blk tg :
@@ -84,7 +81,7 @@ Lemma wf_tree_tree_unique tr :
   tree_unique tg tr.
 Proof.
   intros Hwf tg Hcont.
-  by destruct (Hwf tg Hcont) as (? & H & _).
+  by apply (Hwf tg Hcont).
 Qed.
 
 Lemma trees_equal_preserved_by_access
@@ -334,7 +331,6 @@ Proof.
     by rewrite -Hacc.
 Qed.
 
-(* TODO this is the same proof, copied 4 (well, 3.5) times. I don't know how to make it nicer :( *)
 Lemma loc_controlled_access_outside l tk sc cids σ σ' kind blk off1 sz acc_tg lu_tg :
   apply_within_trees (memory_access kind cids acc_tg (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
   shp σ !! l = shp σ' !! l →

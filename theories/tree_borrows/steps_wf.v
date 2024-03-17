@@ -62,11 +62,9 @@ Proof.
   intros Hf H1 Heq tg Htg%count_gt0_exists.
   erewrite <- Hf in Htg; last done.
   eapply count_gt0_exists in Htg.
-  destruct (H1 _ Htg) as (ito & Hunq & _).
+  specialize (H1 _ Htg) as Hunq.
   rewrite /tree_unique in Hunq.
-  erewrite Hf in Hunq; last done.
-  pose proof (unique_lookup _ _ Hunq) as (itn & Hdet).
-  by eexists.
+  by erewrite Hf in Hunq.
 Qed.
 
 Lemma preserve_tag_count_contains fn tr tr' tg :
@@ -515,7 +513,6 @@ Proof.
   intros tg H.
   cbv in H. destruct_or!; try done.
   subst tg.
-  eexists; split; last done.
   by rewrite /tree_unique /init_tree /= /has_tag bool_decide_true.
 Qed.
 
@@ -790,6 +787,18 @@ Proof.
       apply Lt. by lia.
 Qed.
 
+Lemma write_mem_lookup_outside l vl h l' :
+  ¬ (l'.1 = l.1 ∧ (l.2 ≤ l'.2 < l.2 + length vl)%Z) →
+  write_mem l vl h !! l' = h !! l'.
+Proof.
+  destruct (write_mem_lookup l vl h) as (_&H).
+  intros Hout. rewrite H //.
+  intros i Hlt ->.
+  apply Hout.
+  split; first done.
+  simpl. lia.
+Qed.
+
 Lemma write_mem_lookup_case l vl h l' :
   (∃ (i: nat), (i < length vl)%nat ∧ l' = l +ₗ i ∧ write_mem l vl h !! (l +ₗ i) = vl !! i)
   ∨ ((∀ (i: nat), (i < length vl)%nat → l' ≠ l +ₗ i) ∧ write_mem l vl h !! l' = h !! l').
@@ -920,15 +929,14 @@ Proof.
   - intros tg Hcont%count_gt0_exists.
     destruct (decide (tg = nxtp)) as [->|].
     + eapply create_child_determined in CREATE as H2; try done.
-      * destruct H2 as (_&H2). eexists; split; last done.
+      * destruct H2 as (_&H2).
         rewrite /create_child in CREATE. injection CREATE as <-.
         eapply inserted_unique. 1: done.
         -- intros H1. eapply tree_items_compat_next_not_containing; [exact H1|done|lia].
-        -- destruct (Hwf _ Hin) as (?&Hunq&?); done.
+        -- by eapply (Hwf _ Hin).
       * intros ?. eapply tree_items_compat_next_not_containing. 1-2: done. lia.
     + erewrite <- create_child_preserves_count in Hcont; try done.
-      eapply count_gt0_exists, Hwf in Hcont as (it&Hunq&Hdet).
-      exists it. split; last by eapply create_child_preserves_determined.
+      eapply count_gt0_exists, Hwf in Hcont as Hunq.
       rewrite /tree_unique in Hunq.
       by erewrite create_child_preserves_count in Hunq.
   - injection CREATE as <-.
@@ -969,7 +977,7 @@ Proof.
         rewrite /= /protector_is_for_call /=.
         intros ? [= <-]. by eapply WF.
     - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
-constructor; simpl.
+  constructor; simpl.
   - rewrite /same_blocks /=
             -(apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR)
             -(apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
