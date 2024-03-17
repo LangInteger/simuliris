@@ -759,6 +759,8 @@ Proof.
     no separate lemma for, this is quite an atomic operation. *)
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   rewrite !(tk_to_frac_unq tk) //.
+  iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hheaplet_t".
+  iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hheaplet_s".
   iMod (ghost_map_array_tag_update _ _ _ v_t' with "Htag_t_auth Ht") as "[Ht Htag_t_auth]"; first lia.
   iMod (ghost_map_array_tag_update _ _ _ v_s' with "Htag_s_auth Hs") as "[Hs Htag_s_auth]"; first lia.
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htk".
@@ -778,11 +780,12 @@ Proof.
   (* TODO: large parts of this, except for the tag interpretation, are similar to
     the write_public lemma *)
   iExists M_call, (<[t:=(tk_unq tk_act, ())]> M_tag), (array_tag_map l t v_t' ∪ M_t), (array_tag_map l t v_s' ∪ M_s).
+  rewrite -!@insert_union_singleton_l. (* TODO remove *)
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
   iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
-  - (* state rel *)
+  - (* state rel *) 
     rewrite /state_rel; simpl. iSplitL.
     { iPureIntro. rewrite !write_mem_dom_sane; [by rewrite Hdom_eq | done..]. }
     do 4 (iSplitL; first done). iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hsrel)".
@@ -795,19 +798,28 @@ Proof.
       rewrite -(list_lookup_total_correct _ _ _ Hsc_t).
       iSplitR. { iPureIntro. apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
       iApply (value_rel_lookup_total with "Hvrel"). lia.
-    + (* unaffected location (but might still be same location) *)
+    + (* unaffected location (it can not be the same block) *)
       simpl. rewrite Hwrite in Hs.
       iDestruct ("Hsrel" $! l' with "[//]") as "[Hpubl | (%t' & %Hprivl)]".
       * iLeft. rewrite /pub_loc Hwrite Heq'; first done. intros. apply Hi. lia.
       * iRight. iPureIntro. exists t'.
         destruct Hprivl as (tk' & H & H0 & H1).
         destruct (decide (t = t')) as [<- | Hne].
-        { exists (tk_unq tk_act). rewrite lookup_insert.
-          destruct H1 as [Hf|H1]; first by (destruct Heq; congruence).
-          split; first done. split; first (apply lookup_union_is_Some; by right).
-          right. split; last apply H1. by right. }
+        { exfalso. assert (l.1 = l'.1) as Hleq.
+          { destruct Htag_interp as (_&_&_&Hunq_t&_).
+            destruct H0 as (?&(x&Hx&_)%bind_Some).
+            eapply Hunq_t; eapply elem_of_dom_2; first done.
+            eapply Hx.
+          }
+          rewrite /heaplet_lookup /= -Hleq Hheaplet_t /= in H0.
+          destruct H0 as (x&Hx%list_to_heaplet_lookup_Some).
+          rewrite Hsz1 -Hlen_s' -Hlen_t' in Hx.
+          specialize (Hi (Z.to_nat (l'.2 - l.2)) (ltac:(lia))).
+          apply Hi, injective_projections; first by simpl.
+          simpl. lia. }
         { exists tk'. split_and!; [by rewrite lookup_insert_ne | | done].
-          apply lookup_union_is_Some. by right. }
+          rewrite /heaplet_lookup /= lookup_insert_ne //.
+          congruence. }
   - (* call invariant *)
     iPureIntro. intros c M' HM'_some. simpl.
     specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
@@ -816,46 +828,70 @@ Proof.
     eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| |done].
     rewrite Hscs_eq. apply Hin.
   - (* tag invariant *)
-    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom). split_and!; [ | | | done..]; first last.
-    { intros t' l'. rewrite lookup_union_is_Some.
-      intros [[-> _]%array_tag_map_lookup1_is_Some | ?]; first by rewrite lookup_insert.
-      eapply lookup_insert_is_Some'; right.
-      by eapply Hs_dom.
+    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | | | | ]; first last.
+    1-2: rewrite /dom_unique_per_tag !dom_insert_lookup_L //.
+    { intros t' l' (x&(x1&Hx1%lookup_insert_Some&Hx2)%bind_Some). simpl in Hx1.
+      destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert.
+      rewrite lookup_insert_ne; first eapply (Hs_dom _ l').
+      1: eexists; rewrite /heaplet_lookup /= Hx1 /= Hx2 //.
+      intros ->. eapply Hne1. f_equal. eapply Hunq2; eapply elem_of_dom_2; done.
     }
-    { intros t' l'. rewrite lookup_union_is_Some.
-      intros [[-> _]%array_tag_map_lookup1_is_Some | ?]; first by rewrite lookup_insert.
-      eapply lookup_insert_is_Some'; right.
-      by eapply Ht_dom.
+    { intros t' l' (x&(x1&Hx1%lookup_insert_Some&Hx2)%bind_Some). simpl in Hx1.
+      destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert.
+      rewrite lookup_insert_ne; first eapply (Ht_dom _ l').
+      1: eexists; rewrite /heaplet_lookup /= Hx1 /= Hx2 //.
+      intros ->. eapply Hne1. f_equal. eapply Hunq1; eapply elem_of_dom_2; done.
     }
     simpl.
     intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
     { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
       split_and!; [done|done|..]; last first.
-      - eapply dom_agree_on_tag_union; last done. eapply dom_agree_on_tag_array_tag_map; congruence.
-      - (* TODO case for the things unaffected *)
-        intros lac sc [Hacc|H]%lookup_union_Some_raw. 2: admit.
-        pose proof Hacc as (_&Heq1&Heq2)%array_tag_map_lookup1.
-        intros Hpre. admit. (* loc_controlled for this location, this tag.
+      - eapply dom_agree_on_tag_update_same; first done.
+        apply list_to_heaplet_dom_1; congruence.
+      - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
+        { exfalso. eapply Hne1. simpl. f_equal.
+          eapply Hunq2; eapply elem_of_dom_2; done. }
+        rewrite /= in Heq1,H2. injection Heq1 as Hlac. 
+        (* TODO refactor from here *)
+        intros Hpre; split; last first.
+        { rewrite /σ_s' /=. destruct (write_mem_lookup_case l v_s' (shp σ_s) lac) as [(i&Hil&->&->)|(Hwrong&_)].
+          2: { eapply list_to_heaplet_lookup_Some in H2. exfalso.
+               eapply (Hwrong (Z.to_nat (lac.2 - l.2))); first lia.
+               eapply injective_projections; first done.
+               simpl. lia. }
+          rewrite list_to_heaplet_nth // in H2. }
+        admit. (* loc_controlled for this location, this tag.
           Idea: establish postcondition because write succeeded *)
-      - admit. (* like previous case *) }
+      - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
+        { exfalso. eapply Hne1. simpl. f_equal.
+          eapply Hunq1; eapply elem_of_dom_2; done. }
+        rewrite /= in Heq1,H2. injection Heq1 as Hlac.
+        intros Hpre; split; last first.
+        { rewrite /=. destruct (write_mem_lookup_case l v_t' (shp σ_t) lac) as [(i&Hil&->&->)|(Hwrong&_)].
+          2: { eapply list_to_heaplet_lookup_Some in H2. exfalso.
+               eapply (Hwrong (Z.to_nat (lac.2 - l.2))); first lia.
+               eapply injective_projections; first done.
+               simpl. lia. }
+          rewrite list_to_heaplet_nth // in H2. }
+        admit. (* loc_controlled for this location, this tag.
+          Idea: establish postcondition because write succeeded *) }
     { (* we are a different tag *)
       destruct (Htag_interp _ _ Ht) as (Hv1&Hv2&Hlc1&Hlc2&Hagr).
       split_and!; try done; first last.
-      - eapply dom_agree_on_tag_union; last done.
-        eapply dom_agree_on_tag_not_elem; by eapply array_tag_map_lookup_None.
-      - intros lx scv [(H1&_)%array_tag_map_lookup1|(_&HM_s)]%lookup_union_Some_raw; simplify_eq.
-        specialize (Hlc2 _ _ HM_s).
-        destruct (decide (lx.1 = l.1 ∧ (l.2 ≤ lx.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
+      - by eapply dom_agree_on_tag_upd_ne.
+      - intros lw sc. rewrite (heaplet_lookup_raw_insert_ne (t,l) (t',lw)) //. 2: simpl; congruence.
+        intros HM_s. specialize (Hlc2 _ _ HM_s).
+        destruct (decide (lw.1 = l.1 ∧ (l.2 ≤ lw.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
         2: { eapply loc_controlled_access_outside; try done.
              rewrite /σ_s' /=write_mem_lookup_outside //. }
         admit. (* loc_controlled on modified area, but different tag.
           Idea: the precondition is violated since access made things disabled *)
-      - intros lx scv [(H1&_)%array_tag_map_lookup1|(_&HM_t)]%lookup_union_Some_raw; simplify_eq.
-        specialize (Hlc1 _ _ HM_t).
-        destruct (decide (lx.1 = l.1 ∧ (l.2 ≤ lx.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
+      - intros lw sc. rewrite (heaplet_lookup_raw_insert_ne (t,l) (t',lw)) //. 2: simpl; congruence.
+        intros HM_s. specialize (Hlc1 _ _ HM_s).
+        destruct (decide (lw.1 = l.1 ∧ (l.2 ≤ lw.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
         2: { eapply loc_controlled_access_outside; try done.
              rewrite /= write_mem_lookup_outside // Hlen_t' //. }
-        admit. (* like above *) }
+        admit. (* like above *) } 
   - (* source state wf *)
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)

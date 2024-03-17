@@ -361,12 +361,11 @@ Section lemmas.
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
     destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & _ & _).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
     iPureIntro.
-    intros i Hi.
-    specialize (Ht_lookup i Hi). rewrite list_lookup_lookup_total in Ht_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    apply Ht. done.
+    intros i Hi. eapply Ht.
+    rewrite /heaplet_lookup Ht_lookup /= list_to_heaplet_nth list_lookup_lookup_total //.
+    by apply lookup_lt_is_Some_2.
   Qed.
 
   Lemma bor_interp_readN_source σ_t σ_s (t : tag) tk l v_s :
@@ -380,11 +379,10 @@ Section lemmas.
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
     destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & _ & Hs & _).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_s_auth Hp") as "%Hs_lookup".
-    iPureIntro. intros i Hi.
-    specialize (Hs_lookup i Hi). rewrite list_lookup_lookup_total in Hs_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    apply Hs. done.
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Hs_lookup".
+    iPureIntro. intros i Hi. eapply Hs.
+    rewrite /heaplet_lookup Hs_lookup /= list_to_heaplet_nth list_lookup_lookup_total //.
+    by apply lookup_lt_is_Some_2.
   Qed.
 
 (*
