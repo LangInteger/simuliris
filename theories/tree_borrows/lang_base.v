@@ -1,4 +1,12 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
+(** Core language definitions.
+  This defines most of the low level stuff, starting at "what is a tag"
+  up to the inductive definition of borrow events.
+  This does *not* include nontrivial computations about objects of the language,
+  which are mostly in [bor_semantics.v].
+  Trivial lemmas (decidability/countability instances and easy conversions)
+  are included here, but overall most lemmas should be kept to files such as [bor_lemmas.v].
+
+  This file has been adapted from the Stacked Borrows development, available at 
   https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
@@ -30,6 +38,9 @@ Definition call_id_set := gset call_id.
 (** Tags for pointers *)
 Notation tag := nat (only parsing).
 
+(* Whether a type contains interior mutability.
+   This is only relevant for [Reserved] and appears in the state machine
+   because some transitions depend on interior mutability. *)
 Inductive interior_mut := InteriorMut | TyFrz.
 Global Instance interior_mut_eq_dec : EqDecision interior_mut.
 Proof. solve_decision. Defined.
@@ -47,7 +58,7 @@ Proof.
     _); by intros [].
 Qed.
 
-
+(* Whether a [Reserved] tag is also conflicted. *)
 Inductive res_conflicted := ResConflicted | ResActivable.
 Global Instance res_conflicted_eq_dec : EqDecision res_conflicted.
 Proof. solve_decision. Defined.
@@ -65,7 +76,10 @@ Proof.
     _); by intros [].
 Qed.
 
-
+(* [permission] is the lowest level of the state machine.
+   This is _not yet_ the per-location data, that would be [lazy_permission].
+   We will sometimes call "permission" something that in reality is a
+   [lazy_permission]. *)
 Inductive permission :=
   | Reserved (mut:interior_mut) (confl:res_conflicted)
   | Active | Frozen | Disabled.
@@ -86,13 +100,13 @@ Proof.
       end) _); by intros [].
 Qed.
 
+(* Strong/weak protectors are a distinction that is necessary because
+   of [Box], because even though [Box] is protected, it needs to allow deallocation.
+   We will not really consider optimizations where this distinction is important,
+   but for completeness we do distinguish two kinds of protectors. *)
 Inductive prot_strong :=
   | ProtStrong
   | ProtWeak
-  .
-Inductive access_strong :=
-  | AllProt
-  | OnlyStrong
   .
 
 Global Instance prot_strong_eq_dec : EqDecision prot_strong.
@@ -104,16 +118,12 @@ Proof.
     (λ b:bool, if b then ProtStrong else ProtWeak) _); by intros [].
 Qed.
 
-Definition prot_relevant (pr:prot_strong) (acc:access_strong) : bool :=
-  match pr, acc with
-  | ProtWeak, OnlyStrong => false
-  | _, _ => true
-  end.
-
-(** Tree of borrows. *)
+(* A protector. Note that while we say a tag "has a protector" when it is protected,
+   this development will often call "protector" a variable of type [option protector]
+   because unlike a [protector], all tags have one. *)
 Record protector := mkProtector {
-  strong : prot_strong;
-  call : call_id;
+  strong : prot_strong; (* [ProtWeak] for [Box]es, [ProtStrong] for everything else *)
+  call : call_id; (* Function call id that the tag is an argument of *)
 }.
 Global Instance protector_eq_dec : EqDecision protector.
 Proof. solve_decision. Defined.
@@ -124,7 +134,9 @@ Proof.
     (λ t, {| strong:=t.1; call:=t.2 |}) _); by intros [].
 Qed.
 
-
+(* Boolean flag that records if a permission has been initialized.
+   A permission starts uninitialized and becomes permanently initialized on the
+   first child access. See [bor_semantics.v]'s [requires_init]. *)
 Inductive perm_init :=
   | PermInit
   | PermLazy
@@ -132,12 +144,15 @@ Inductive perm_init :=
 
 Global Instance perm_init_eq_dec : EqDecision perm_init.
 Proof. solve_decision. Defined.
+
+(* Initialized status is irreversible. *)
 Definition most_init p p' :=
   match p with
   | PermInit => PermInit
   | PermLazy => p'
   end.
 
+(* The true per-location data is a permission *and* an initialized status. *)
 Record lazy_permission := mkPerm {
   initialized : perm_init;
   perm        : permission;
@@ -145,15 +160,19 @@ Record lazy_permission := mkPerm {
 Global Instance lazy_perm_eq_dec : EqDecision lazy_permission.
 Proof. solve_decision. Defined.
 
-(* Permissions for one tag *)
+(* Permissions for one tag. This is most of the available per-tag-per-allocation data. *)
 Definition permissions := gmap Z lazy_permission.
 
 (* Data associated with one tag *)
-(* Note: this is a substructure of the miri "Node" *)
+(* Note: this is a substructure of the miri "Node", as it doesn't include the
+   pointers that impose the structure of the tree.
+   In this development we instead define the tree structure using the [tree] type. *)
 Record item := mkItem {
+  (* Metadata determined on item creation *)
   itag  : tag;
   iprot : option protector;
   initp : permission;
+  (* Most of the data (and all of the modifiable data) is here. *)
   iperm : permissions;
 }.
 Global Instance item_eq_dec : EqDecision item.
@@ -198,8 +217,12 @@ Definition value := list scalar.
 Bind Scope val_scope with value.
 
 Inductive access_kind := AccessRead | AccessWrite.
+(* Implicit accesses inserted on function exit are not visible to children *)
 Inductive access_visibility := VisibleAll | OnlyNonChildren.
 
+(* The state machine only cares about Foreign vs Child.
+   The invariants need more fine-grained relationships between tags.
+   We use this two-layer representation so that things compute better. *)
 Inductive foreign_rel_pos := Parent | Cousin.
 Inductive child_rel_pos := Strict | This.
 Inductive rel_pos := Foreign (pos : foreign_rel_pos) | Child (pos : child_rel_pos).
@@ -399,6 +422,9 @@ Definition mem := gmap loc scalar.
 
 (** Internal events *)
 
+(* Per-allocation events.
+   This is only useful during the proofs against the operational semantics:
+   if we drop support for [disjoint.v] we should also delete this definition. *)
 Inductive bor_local_event :=
   | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
   | InitCallBLEvt (cid : call_id)
@@ -406,7 +432,13 @@ Inductive bor_local_event :=
   | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
   | SilentBLEvt.
 
-(** Internal events *)
+(* Events in all their generality.
+   We use the point of view adopted by Stacked Borrows and regarded by LLVM
+   as acceptable which is to make FAILED READS NOT UB.
+   A failed read has its own event [FailedCopyEvt] which returns poison
+   instead of triggering immediate UB. This is assumed to be a sound change
+   w.r.t. the semantics and is expected to allow proving more optimizations
+   (they would still be true, but they wouldn't be *provable* with our means) *)
 Inductive event :=
 | AllocEvt (alloc : block) (lbor : tag) (range : Z * nat)
 | DeallocEvt (alloc : block) (lbor: tag) (range : Z * nat)
