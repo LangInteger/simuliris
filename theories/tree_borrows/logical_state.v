@@ -1276,6 +1276,21 @@ Section heap_defs.
   Qed.
 *)
 
+  Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
+      (match (item_lookup it l.2).(perm) with
+           | Active => True
+           | Reserved InteriorMut _ => tkk = tk_res
+           | Reserved TyFrz _ => tkk = tk_res ∧ ¬ protector_is_active it.(iprot) σ.(scs)
+           | _ => False end) ∧
+          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
+            | Child This => True
+               (* it' is a child of it *)
+            | Child Strict => (item_lookup it' l.2).(perm) = Disabled
+            | Foreign Parent => match (item_lookup it' l.2).(perm) with
+                Active => True | Disabled => False | _ => tkk = tk_res end
+            | Foreign Cousin => match (item_lookup it' l.2).(perm) with
+                       Disabled | Reserved InteriorMut _ => True | Active => False | _ => tkk = tk_res end end.
+
 (* TODO check that rel_dec is used the right way around *)
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧
@@ -1283,26 +1298,8 @@ Section heap_defs.
     | tk_local => (item_lookup it l.2).(perm) = Active ∧
             (* The item is the only one in the tree *)
             ∀ it' t', tree_lookup tr t' it' -> t = t'
-    | tk_unq tk_res
-       => (match (item_lookup it l.2).(perm) with
-           | Active | Reserved InteriorMut _ => True
-           | Reserved TyFrz _ => ¬ protector_is_active it.(iprot) σ.(scs)
-           | _ => False end) ∧
-          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
-            | Child This => True
-               (* it' is a child of it *)
-            | Child Strict => (item_lookup it' l.2).(perm) = Disabled
-            | Foreign Parent => (item_lookup it' l.2).(perm) ≠ Disabled
-            | Foreign Cousin => (item_lookup it' l.2).(perm) ≠ Active end
-    | tk_unq tk_act
-       => (item_lookup it l.2).(perm) = Active ∧
-          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
-            | Child This => True
-               (* it' is a child of it *)
-            | Child Strict => (item_lookup it' l.2).(perm) = Disabled
-            | Foreign Parent => (item_lookup it' l.2).(perm) = Active
-            | Foreign Cousin => match (item_lookup it' l.2).(perm) with
-                       Disabled | Reserved InteriorMut _ => True | _ => False end end
+    | tk_unq tkk
+       => bor_state_post_unq l t σ it tr tkk
     | tk_pub
        => (item_lookup it l.2).(perm) = Frozen ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 

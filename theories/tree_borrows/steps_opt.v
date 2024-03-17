@@ -675,8 +675,8 @@ Lemma tk_to_frac_unq tk :
   tk_to_frac tk = DfracOwn 1.
 Proof. by intros [->| ->]. Qed.
 
-Lemma sim_write_unique_unprotected π l t sz tk v_t v_s v_t' v_s' Φ :
-  (tk = tk_unq tk_act ∨ tk = tk_unq tk_res) →
+Lemma sim_write_unique_unprotected π l t sz tk tkk v_t v_s v_t' v_s' Φ :
+  (tk = tk_unq tkk) →
   length v_t = sz →
   length v_s = sz →
   t $$ tk -∗
@@ -717,7 +717,7 @@ Proof.
   assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk σ_s ∧ bor_state_own (l +ₗ i) t tk σ_t) as Hcontrol_own.
   { intros i Hi. 
     destruct (Hcontrol_s i Hi) as [Hown_s _].
-    { rewrite bor_state_pre_unq_or; last done. rewrite /bor_state_pre_unq /=.
+    { rewrite bor_state_pre_unq_or; last (subst tk; destruct tkk; tauto). rewrite /bor_state_pre_unq /=.
       eapply trees_contain_trees_lookup_1 in Hcontain as Hcontain2.
       2: apply Hwf_s. destruct Hcontain2 as (it & Hlookup).
       exists it; split; first done.
@@ -731,7 +731,7 @@ Proof.
       by destruct perm. }
     destruct (Hcontrol_t i) as [Hown_t _].
     1: lia.
-    { rewrite bor_state_pre_unq_or; last done. rewrite /bor_state_pre_unq /=.
+    { rewrite bor_state_pre_unq_or; last (subst tk; destruct tkk; tauto). rewrite /bor_state_pre_unq /=.
       eapply trees_contain_trees_lookup_1 in Hcontain_t as Hcontain2.
       2: apply Hwf_t. destruct Hcontain2 as (it & Hlookup).
       exists it; split; first done.
@@ -758,13 +758,13 @@ Proof.
   (* update the ghost state.
     no separate lemma for, this is quite an atomic operation. *)
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
-  rewrite !(tk_to_frac_unq tk) //.
+  rewrite !(tk_to_frac_unq tk). 2: subst tk; destruct tkk; tauto.
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hheaplet_t".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hheaplet_s".
   iMod (ghost_map_array_tag_update _ _ _ v_t' with "Htag_t_auth Ht") as "[Ht Htag_t_auth]"; first lia.
   iMod (ghost_map_array_tag_update _ _ _ v_s' with "Htag_s_auth Hs") as "[Hs Htag_s_auth]"; first lia.
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htk".
-  iMod (tkmap_update_strong (tk_unq tk_act) () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first (destruct Heq; congruence).
+  iMod (tkmap_update_strong (tk_unq tk_act) () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first (by subst tk).
 
   iModIntro.
   pose (σ_s' := (mkState (write_mem l v_s' σ_s.(shp)) trs_s' σ_s.(scs) σ_s.(snp) σ_s.(snc))).
@@ -851,30 +851,27 @@ Proof.
       - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq2; eapply elem_of_dom_2; done. }
-        rewrite /= in Heq1,H2. injection Heq1 as Hlac. 
-        (* TODO refactor from here *)
-        intros Hpre; split; last first.
-        { rewrite /σ_s' /=. destruct (write_mem_lookup_case l v_s' (shp σ_s) lac) as [(i&Hil&->&->)|(Hwrong&_)].
-          2: { eapply list_to_heaplet_lookup_Some in H2. exfalso.
-               eapply (Hwrong (Z.to_nat (lac.2 - l.2))); first lia.
-               eapply injective_projections; first done.
-               simpl. lia. }
-          rewrite list_to_heaplet_nth // in H2. }
-        admit. (* loc_controlled for this location, this tag.
-          Idea: establish postcondition because write succeeded *)
+        rewrite /= in Heq1,H2. injection Heq1 as Hlac. subst tk.
+        assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
+        { rewrite /heaplet_lookup /= -Hlac Hheaplet_s /=.
+          destruct (list_to_heaplet v_s l.2 !! lac.2) eqn:Heq; first by eexists.
+          exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
+          lia. }
+        eapply loc_controlled_write_becomes_active.
+        1: exact Htree_s. 1-2: rewrite /σ_s' /=; by destruct l.
+        1: done. 1: done. 1: congruence. 1: done. 1: by eapply Hcontrol_s'.
       - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq1; eapply elem_of_dom_2; done. }
-        rewrite /= in Heq1,H2. injection Heq1 as Hlac.
-        intros Hpre; split; last first.
-        { rewrite /=. destruct (write_mem_lookup_case l v_t' (shp σ_t) lac) as [(i&Hil&->&->)|(Hwrong&_)].
-          2: { eapply list_to_heaplet_lookup_Some in H2. exfalso.
-               eapply (Hwrong (Z.to_nat (lac.2 - l.2))); first lia.
-               eapply injective_projections; first done.
-               simpl. lia. }
-          rewrite list_to_heaplet_nth // in H2. }
-        admit. (* loc_controlled for this location, this tag.
-          Idea: establish postcondition because write succeeded *) }
+        rewrite /= in Heq1,H2. injection Heq1 as Hlac. subst tk.
+        assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
+        { rewrite /heaplet_lookup /= -Hlac Hheaplet_t /=.
+          destruct (list_to_heaplet v_t l.2 !! lac.2) eqn:Heq; first by eexists.
+          exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
+          lia. }
+        eapply loc_controlled_write_becomes_active.
+        1: exact Htree_t. 1-2: rewrite /=; by destruct l.
+        1: done. 1: done. 1: congruence. 1: done. 1: by eapply Hcontrol_t'. }
     { (* we are a different tag *)
       destruct (Htag_interp _ _ Ht) as (Hv1&Hv2&Hlc1&Hlc2&Hagr).
       split_and!; try done; first last.
