@@ -15,7 +15,7 @@ Lemma decision_equiv (P Q:Prop) :
   Decision Q.
 Proof.
   unfold Decision. tauto.
-Qed.
+Defined.
 
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
 
@@ -26,12 +26,12 @@ Implicit Type (trs:trees) (t:tag).
 Definition range'_contains (r:range') (l:loc') : Prop :=
   (r.1 ≤ l)%Z /\ (l < r.1 + r.2)%Z.
 Global Instance decision_range'_contains (r:range') (l:loc') : Decision (range'_contains r l).
-Proof. solve_decision. Qed.
+Proof. solve_decision. Defined.
 
 Definition range_contains (r:range) (l:loc) : Prop :=
   r.1 = l.1 /\ range'_contains r.2 l.2.
 Global Instance decision_range_contains (r:range) (l:loc) : Decision (range_contains r l).
-Proof. solve_decision. Qed.
+Proof. solve_decision. Defined.
 
 Lemma range'_contains_excludes_equal range z' :
   let '(z, sz) := range in
@@ -180,25 +180,25 @@ Qed.
 
 Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
-Proof. rewrite /IsTag. solve_decision. Qed.
+Proof. rewrite /IsTag. solve_decision. Defined.
 
 Definition HasRootTag t : Tprop (tbranch item) := fun br => IsTag t (root br).
 Global Instance HasRootTag_dec t it : Decision (HasRootTag t it).
-Proof. rewrite /HasRootTag. solve_decision. Qed.
+Proof. rewrite /HasRootTag. solve_decision. Defined.
 
 Definition HasStrictChildTag t' : Tprop (tbranch item) := exists_strict_child (IsTag t').
 Global Instance HasChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
-Proof. rewrite /HasStrictChildTag. solve_decision. Qed.
+Proof. rewrite /HasStrictChildTag. solve_decision. Defined.
 
 Definition StrictParentChildIn t t' : Tprop (tree item)
   := every_subtree (fun br => (IsTag t (root br)) -> (HasStrictChildTag t' br)).
 Global Instance StrictParentChildIn_dec t t' tr : Decision (StrictParentChildIn t t' tr).
-Proof. rewrite /StrictParentChildIn. solve_decision. Qed.
+Proof. rewrite /StrictParentChildIn. solve_decision. Defined.
 
 Definition ParentChildIn t t' : Tprop (tree item)
   := fun tr => t = t' \/ StrictParentChildIn t t' tr.
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
-Proof. rewrite /ParentChildIn. solve_decision. Qed.
+Proof. rewrite /ParentChildIn. solve_decision. Defined.
 
 (* Decide the relative position (parent/child/other) of two tags.
    Read this as "t1 is a `rel_dec tr t1 t2` of t2", i.e.
@@ -213,17 +213,28 @@ Definition rel_dec (tr:tree item) := fun t t' =>
   then Child (if decide (ParentChildIn t t' tr) then This else Strict)
   else Foreign (if decide (ParentChildIn t t' tr) then Parent else Cousin).
 
+Definition rel_pos_inv (r : rel_pos) : rel_pos := match r with
+  Child This => Child This
+| Child Strict => Foreign Parent
+| Foreign Parent => Child Strict
+| Foreign Cousin => Foreign Cousin end.
+
+Lemma rel_pos_inv_inv r : rel_pos_inv (rel_pos_inv r) = r.
+Proof. by destruct r as [[]|[]]. Qed.
+
+Lemma rel_dec_flip tr t t' r : rel_dec tr t t' = r -> rel_dec tr t' t = rel_pos_inv r.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; subst r; simpl; congruence. Qed.
+Lemma rel_dec_flip2 tr t t' : rel_dec tr t t' = rel_pos_inv (rel_dec tr t' t).
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); simpl; congruence. Qed.
+
 Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Foreign Cousin -> rel_dec tr t' t = Foreign Cousin.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
-
+Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = Child This -> rel_dec tr t' t = Child This.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
-
+Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Foreign Parent -> rel_dec tr t' t = Child Strict.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
-
+Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child Strict -> rel_dec tr t' t = Foreign Parent.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; congruence. Qed.
+Proof. eapply rel_dec_flip. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
@@ -254,8 +265,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       end
   | AccessWrite, Foreign _ =>
       match perm with
-      | Reserved InteriorMut ResActivable => if isprot then Some Disabled else Some $ Reserved InteriorMut ResActivable
-      | Reserved InteriorMut ResConflicted => if isprot then Some Disabled else Some $ Reserved InteriorMut ResConflicted
+      | Reserved InteriorMut ra => if isprot then Some Disabled else Some $ Reserved InteriorMut ra
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
@@ -275,7 +285,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
 
 Definition call_is_active c cids := (c ∈ cids).
 Global Instance call_is_active_dec c cids : Decision (call_is_active c cids).
-Proof. rewrite /call_is_active. solve_decision. Qed.
+Proof. rewrite /call_is_active. solve_decision. Defined.
 
 Definition call_of_protector (prot:option protector) :=
   match prot with
@@ -285,7 +295,7 @@ Definition call_of_protector (prot:option protector) :=
 
 Definition protector_is_for_call c prot := call_of_protector prot = Some c.
 Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
-Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Qed.
+Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Defined.
 
 Definition protector_compatible_call c prot := is_Some prot -> protector_is_for_call c prot.
 
@@ -306,7 +316,7 @@ Global Instance witness_protector_is_active_dec prot cids :
 Proof.
   rewrite /witness_protector_is_active.
   case_match; [case_match|]; solve_decision.
-Qed.
+Defined.
 
 Lemma protector_is_active_matches_witness prot cids :
   witness_protector_is_active prot cids <-> protector_is_active prot cids.
@@ -327,7 +337,7 @@ Global Instance protector_is_active_dec prot cids :
 Proof.
   eapply decision_equiv; [eapply protector_is_active_matches_witness|].
   solve_decision.
-Qed.
+Defined.
 
 Definition protector_is_strong prot :=
   match prot with
@@ -335,7 +345,7 @@ Definition protector_is_strong prot :=
   | _ => False
   end.
 Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
-Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
+Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Defined.
 
 (* State machine including protector UB *)
 Definition apply_access_perm kind rel (isprot:bool)
@@ -832,5 +842,35 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs (cids ∖ {[c]}) nxtp nxtc
   .
 
+(* conversion is magic *)
+Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some oo) : A := oo.
+Local Notation unwrap K := (unpack_option K eq_refl).
+
+(* We create some trees to unit-test our definitions *)
+Local Definition initial_tree := init_tree 1.
+Local Definition with_one_child :=
+  unwrap (create_child ∅ 1 2 (MutRef TyFrz) Default 0 initial_tree).
+Local Definition with_two_children :=
+  unwrap (create_child ∅ 1 3 (ShrRef) Default 0 with_one_child).
+Local Definition with_three_children :=
+  unwrap (create_child ∅ 2 4 (Box) Default 0 with_two_children).
+
+(* conversion keeps being magical *)
+Succeed Example foo : rel_dec with_three_children 1 1 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 2 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 3 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 4 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 1 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 2 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 3 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 4 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 1 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 2 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 3 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 4 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 1 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 2 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 4 = Child This     := eq_refl.
 
 

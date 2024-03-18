@@ -2,17 +2,27 @@ From iris.prelude Require Import prelude options.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas.
 From iris.prelude Require Import options.
 
-Lemma item_apply_access_preserves_metadata
-  {kind cids rel range it it'} :
-  item_apply_access kind cids rel range it = Some it' ->
-  it.(itag) = it'.(itag)
-  /\ it.(iprot) = it'.(iprot)
-  /\ it.(initp) = it'.(initp).
+(* Any function that operates only on permissions (which is all transitions steps)
+   leaves the tag and protector unchanged which means that most of the preservation lemmas
+   are trivial once we get to the level of items *)
+Definition preserve_item_metadata (fn:app item) :=
+  forall it it', fn it = Some it' -> it.(itag) = it'.(itag) /\ it.(iprot) = it'.(iprot) /\ it.(initp) = it'.(initp).
+
+Lemma item_apply_access_preserves_metadata_dep
+  {kind cids rel range} :
+  preserve_item_metadata (λ it, item_apply_access kind cids (rel it) range it).
 Proof.
-  rewrite /item_apply_access.
+  intros it it'. rewrite /item_apply_access.
   destruct permissions_apply_range'; simpl.
   2: intro; discriminate.
   intros [= <-]. rewrite //=.
+Qed.
+
+Lemma item_apply_access_preserves_metadata
+  {kind cids rel range} :
+  preserve_item_metadata (λ it, item_apply_access kind cids rel range it).
+Proof.
+  eapply item_apply_access_preserves_metadata_dep.
 Qed.
 
 Lemma access_eqv_strict_rel
@@ -23,7 +33,7 @@ Proof.
   eapply join_map_eqv_strict_rel; [|exact Access].
   rewrite /=.
   move=> ???.
-  rewrite (proj1 (item_apply_access_preserves_metadata ltac:(eassumption))).
+  unshelve erewrite (proj1 (item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
   reflexivity.
 Qed.
 
@@ -63,7 +73,7 @@ Proof.
       split; auto.
       unfold IsTag in *; subst.
       symmetry.
-      rewrite (proj1 (item_apply_access_preserves_metadata ltac:(eassumption))).
+      rewrite (proj1 ( item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
       reflexivity.
   * eapply exists_node_increasing.
     - exact Contains.
@@ -72,7 +82,7 @@ Proof.
       destruct xspec as [v App].
       destruct App as [H0].
       unfold IsTag in *; subst.
-      rewrite (proj1 (item_apply_access_preserves_metadata ltac:(eassumption))).
+      rewrite (proj1 (item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
       reflexivity.
 Qed.
 
@@ -142,7 +152,7 @@ Proof.
     unfold IsTag.
     split.
     - tauto.
-    - rewrite <- (proj1 (item_apply_access_preserves_metadata ltac:(eassumption))).
+    - rewrite <- (proj1 (item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
       tauto.
 Qed.
 
