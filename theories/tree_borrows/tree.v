@@ -88,20 +88,20 @@ Definition join_nodes {X}
 Definition every_subtree {X} (prop:Tprop (tbranch X)) (tr:tree X)
   := fold_subtrees True (fun sub lt rt => prop sub /\ lt /\ rt) tr.
 Global Instance every_subtree_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (every_subtree prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
+Proof. intro. induction tr; solve_decision. Defined.
 
 Definition exists_subtree {X} (prop:Tprop (tbranch X)) (tr:tree X)
   := fold_subtrees False (fun sub lt rt => prop sub \/ lt \/ rt) tr.
 Global Instance exists_subtree_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (exists_subtree prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
+Proof. intro. induction tr; solve_decision. Defined.
 
 Definition every_node {X} (prop:Tprop X) (tr:tree X) := fold_nodes True (fun data lt rt => prop data /\ lt /\ rt) tr.
 Global Instance every_node_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (every_node prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
+Proof. intro. induction tr; solve_decision. Defined.
 
 Definition exists_node {X} (prop:Tprop X) (tr:tree X) := fold_nodes False (fun data lt rt => prop data \/ lt \/ rt) tr.
 Global Instance exists_node_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (exists_node prop tr).
-Proof. intro. induction tr; solve_decision. Qed.
+Proof. intro. induction tr; solve_decision. Defined.
 
 Definition count_nodes {X} (prop:X -> bool) :=
   fold_nodes 0 (fun data lt rt => (if prop data then 1 else 0) + lt + rt).
@@ -110,7 +110,7 @@ Definition exists_strict_child {X} (prop:Tprop X)
   : Tprop (tbranch X) := fun '(_, _, child) => exists_node prop child.
 Global Instance exists_strict_child_dec {X} prop (tr:tbranch X) :
   (forall u, Decision (prop u)) -> Decision (exists_strict_child prop tr).
-Proof. intro. solve_decision. Qed.
+Proof. intro. solve_decision. Defined.
 
 Definition empty_children {X} (tr:tbranch X)
   : Prop :=

@@ -494,69 +494,75 @@ Lemma loc_controlled_write_becomes_active l sc cids σ σ' blk off1 sz tg vls sc
   state_wf σ →
   l.1 = blk →
   length vls = sz →
+  trees_contain tg (strs σ) blk →
   list_to_heaplet vls off1 !! l.2 = Some sc →
   loc_controlled l tg (tk_unq tkkold) scold σ →
-  loc_controlled l tg (tk_unq tk_act) sc σ'.
+  (* we also prove that it's usable *)
+  loc_controlled l tg (tk_unq tk_act) sc σ' ∧ bor_state_pre l tg (tk_unq tk_act) σ'.
 Proof.
-  intros Happly Heq_shp Heq_scs Hwf Hblk Hsz Hsc Hold Hpre.
-  split; last first.
+  intros Happly Heq_shp Heq_scs Hwf Hblk Hsz Hcontain Hsc Hold.
+  assert (shp σ' !! l = Some sc) as Hheap.
   { rewrite -Heq_shp /=.
-    destruct (write_mem_lookup_case (blk, off1) vls (shp σ) l) as [(i&Hil&->&->)|(Hwrong&_)].
+    destruct (write_mem_lookup_case (blk, off1) vls (shp σ) l) as [(i&Hil&->&HH)|(Hwrong&_)].
     2: { eapply list_to_heaplet_lookup_Some in Hsc. exfalso.
          eapply (Hwrong (Z.to_nat (l.2 - off1))); first lia.
          eapply injective_projections; first done.
          simpl. lia. }
-    rewrite list_to_heaplet_nth // in Hsc. }
+    rewrite HH. rewrite list_to_heaplet_nth // in Hsc. }
   assert (wf_trees σ.(strs)) as Hwf_pre by eapply Hwf.
   assert (wf_trees σ'.(strs)) as Hwf_post.
   { eapply apply_within_trees_wf; try done.
     eapply memory_access_tag_count. }
-  destruct Hpre as (itnew & (trnew & Htr' & Hlunew) & Hndis & Hiffrozen).
   pose proof Happly as Happlys.
-  eapply bind_Some in Happly as (trold & Htrold & (q&Haccess&[= Hstrs])%bind_Some).
-  pose proof Htr' as Htrnew.
-  rewrite -Hstrs Hblk lookup_insert in Htr'. injection Htr' as ->.
+  eapply bind_Some in Happly as (trold & Htrold & (trnew&Haccess&[= Hstrs])%bind_Some).
+  rewrite /trees_contain /trees_at_block Htrold in Hcontain.
+  eapply wf_tree_tree_unique in Hcontain as Hunique; last by eapply Hwf_pre.
+  eapply unique_lookup in Hunique as (itold & Hdet).
+  assert (tree_lookup trold tg itold) as Hitold by done.
   assert (off1 ≤ l.2 < off1 + sz) as Hinbound.
   { subst sz. by eapply list_to_heaplet_lookup_Some. }
-  exists itnew, trnew.
-  do 2 (split; first done).
-  assert (perm (item_lookup itnew l.2) = Active ∧ bor_state_pre l tg (tk_unq tkkold) σ) as (Hsolv&Hpre2).
-  { eapply apply_trees_access_lookup_general_rev in Happlys.
-    2: done. 3: { exists trnew; split; try done. by rewrite -Hblk. } 2: eassumption.
-    destruct Happlys as (itold & Hluold & _ & _ & Happlys).
-    pose (ppn := item_lookup itnew l.2). fold ppn in Happlys|-*.
+  eapply apply_trees_access_lookup_general in Happlys as Happlyself.
+  2: done. 3: by exists trold. 2: eassumption.
+  destruct Happlyself as (itnew & Hlunew & _ & _ & Happlyself).
+  assert (perm (item_lookup itnew l.2) = Active ∧ bor_state_pre l tg (tk_unq tkkold) σ) as (Hactive&Hpre2).
+  { eapply bind_Some in Happlyself as (prm&Hperm1&(pv&Hperm2&[= <-])%bind_Some).
+    simpl in Hperm1,Hperm2|-*. rewrite trees_rel_dec_refl /= in Hperm1.
     pose (ppo := item_lookup itold l.2). fold ppo.
-    enough (perm ppn = Active ∧ perm (ppo) ≠ Disabled ∧ (perm ppo = Frozen→ protector_is_active (iprot itold) (scs σ))) as (H1&H2).
+    enough (pv = Active ∧ perm (ppo) ≠ Disabled ∧ (perm ppo = Frozen→ protector_is_active (iprot itold) (scs σ))) as (H1&H2).
     { split; first done. simpl. rewrite /bor_state_pre_unq.
-      eexists; split; first by rewrite Hblk. done. }
-    rewrite trees_rel_dec_refl /= /apply_access_perm /= /apply_access_perm_inner in Happlys.
-    eapply bind_Some in Happlys as (prm&Hperm1&(pv&Hperm2&[= <-])%bind_Some).
-    rewrite /= in Hperm1,Hperm2|-*.
-    subst ppo.
-    destruct (perm (item_lookup itold l.2)) as  [[] []| | |], (initialized _) as [];
-      repeat (simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
-  }
-  split; first by rewrite Hsolv.
+      eexists. split; last apply H2.
+      eexists; by subst blk. } subst ppo.
+    repeat case_match; simplify_eq; try done. }
+  split; last first.
+  { exists itnew. split; first by rewrite Hblk. by rewrite Hactive. }
+  intros _. split; last done.
+  rewrite -Hstrs /trees_lookup lookup_insert in Hlunew.
+  destruct Hlunew as (?&[= <-]&Hlunew).
+  exists itnew, trnew.
+  split; first done.
+  split; first rewrite -Hstrs Hblk lookup_insert //.
+  split; first by rewrite Hactive.
   destruct (Hold Hpre2) as ((it'&tr'&Htr'&Hlu'&_&Holdothers)&_).
   assert (tr' = trold) as ->.
   { rewrite Hblk Htrold in Hlu'. congruence. }
   intros itmod tmod Hlumod.
   eapply apply_trees_access_lookup_general_rev in Happlys.
-  2: done. 2: eassumption. 2: { exists trnew; split; first by rewrite -Hblk. apply Hlumod. }
-  destruct Happlys as (itold & (tr'&Htr''&Hluold) & _ & _ & Hperm).
+  2: done. 2: eassumption. 2: { exists trnew; split; last done. rewrite -Hstrs lookup_insert //. }
+  destruct Happlys as (itold' & (tr'&Htr''&Hluold) & _ & _ & Hperm).
   assert (tr' = trold) as ->.
   { rewrite Htrold in Htr''. congruence. }
   specialize (Holdothers _ _ Hluold).
   rewrite /trees_rel_dec Htrold /= /apply_access_perm /= /apply_access_perm_inner in Hperm.
-  erewrite <-access_same_rel_dec; last done.
+  erewrite <-access_same_rel_dec; last done. clear Happlyself.
   (* TODO looks like the access relation stuff is the wrong way around in logical_state *)
   (* At least, the lemma only works when it's switched there *)
   assert (rel_dec trold tg tmod = rel_dec trold tmod tg) as Hfalse by admit;
-  rewrite Hfalse in Hperm; clear Hfalse; rewrite rel_dec_flip2 in Hperm.
+  rewrite Hfalse in Holdothers|-*; clear Hfalse.
+  rewrite rel_dec_flip2 in Holdothers|-*.
   eapply bind_Some in Hperm as (prm&Hperm1&(pv&Hperm2&[= <-])%bind_Some).
   rewrite /= in Hperm1,Hperm2|-*.
-  destruct rel_dec as [[]|[]] eqn:Heq, (perm (item_lookup itold l.2)) as [[] []| | |] eqn:Heqp, (initialized _) as [] eqn:Heqi;
-    repeat (simpl; try simpl in Hperm1; simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
+  destruct rel_dec as [[]|[]], (perm (item_lookup itold' l.2)) as [[] []| | |], (initialized _) as [];
+    repeat (simpl; try simpl in Hperm1; try simpl in Holdothers; simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
 Admitted.
 
 

@@ -15,7 +15,7 @@ Lemma decision_equiv (P Q:Prop) :
   Decision Q.
 Proof.
   unfold Decision. tauto.
-Qed.
+Defined.
 
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
 
@@ -26,12 +26,12 @@ Implicit Type (trs:trees) (t:tag).
 Definition range'_contains (r:range') (l:loc') : Prop :=
   (r.1 ≤ l)%Z /\ (l < r.1 + r.2)%Z.
 Global Instance decision_range'_contains (r:range') (l:loc') : Decision (range'_contains r l).
-Proof. solve_decision. Qed.
+Proof. solve_decision. Defined.
 
 Definition range_contains (r:range) (l:loc) : Prop :=
   r.1 = l.1 /\ range'_contains r.2 l.2.
 Global Instance decision_range_contains (r:range) (l:loc) : Decision (range_contains r l).
-Proof. solve_decision. Qed.
+Proof. solve_decision. Defined.
 
 Lemma range'_contains_excludes_equal range z' :
   let '(z, sz) := range in
@@ -180,25 +180,25 @@ Qed.
 
 Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
-Proof. rewrite /IsTag. solve_decision. Qed.
+Proof. rewrite /IsTag. solve_decision. Defined.
 
 Definition HasRootTag t : Tprop (tbranch item) := fun br => IsTag t (root br).
 Global Instance HasRootTag_dec t it : Decision (HasRootTag t it).
-Proof. rewrite /HasRootTag. solve_decision. Qed.
+Proof. rewrite /HasRootTag. solve_decision. Defined.
 
 Definition HasStrictChildTag t' : Tprop (tbranch item) := exists_strict_child (IsTag t').
 Global Instance HasChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
-Proof. rewrite /HasStrictChildTag. solve_decision. Qed.
+Proof. rewrite /HasStrictChildTag. solve_decision. Defined.
 
 Definition StrictParentChildIn t t' : Tprop (tree item)
   := every_subtree (fun br => (IsTag t (root br)) -> (HasStrictChildTag t' br)).
 Global Instance StrictParentChildIn_dec t t' tr : Decision (StrictParentChildIn t t' tr).
-Proof. rewrite /StrictParentChildIn. solve_decision. Qed.
+Proof. rewrite /StrictParentChildIn. solve_decision. Defined.
 
 Definition ParentChildIn t t' : Tprop (tree item)
   := fun tr => t = t' \/ StrictParentChildIn t t' tr.
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
-Proof. rewrite /ParentChildIn. solve_decision. Qed.
+Proof. rewrite /ParentChildIn. solve_decision. Defined.
 
 (* Decide the relative position (parent/child/other) of two tags.
    Read this as "t1 is a `rel_dec tr t1 t2` of t2", i.e.
@@ -285,7 +285,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
 
 Definition call_is_active c cids := (c ∈ cids).
 Global Instance call_is_active_dec c cids : Decision (call_is_active c cids).
-Proof. rewrite /call_is_active. solve_decision. Qed.
+Proof. rewrite /call_is_active. solve_decision. Defined.
 
 Definition call_of_protector (prot:option protector) :=
   match prot with
@@ -295,7 +295,7 @@ Definition call_of_protector (prot:option protector) :=
 
 Definition protector_is_for_call c prot := call_of_protector prot = Some c.
 Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
-Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Qed.
+Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Defined.
 
 Definition protector_compatible_call c prot := is_Some prot -> protector_is_for_call c prot.
 
@@ -316,7 +316,7 @@ Global Instance witness_protector_is_active_dec prot cids :
 Proof.
   rewrite /witness_protector_is_active.
   case_match; [case_match|]; solve_decision.
-Qed.
+Defined.
 
 Lemma protector_is_active_matches_witness prot cids :
   witness_protector_is_active prot cids <-> protector_is_active prot cids.
@@ -337,7 +337,7 @@ Global Instance protector_is_active_dec prot cids :
 Proof.
   eapply decision_equiv; [eapply protector_is_active_matches_witness|].
   solve_decision.
-Qed.
+Defined.
 
 Definition protector_is_strong prot :=
   match prot with
@@ -345,7 +345,7 @@ Definition protector_is_strong prot :=
   | _ => False
   end.
 Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
-Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Qed.
+Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Defined.
 
 (* State machine including protector UB *)
 Definition apply_access_perm kind rel (isprot:bool)
@@ -841,6 +841,5 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       (EndCallEvt c)
       trs (cids ∖ {[c]}) nxtp nxtc
   .
-
 
 

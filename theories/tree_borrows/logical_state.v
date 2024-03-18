@@ -1284,11 +1284,14 @@ Section heap_defs.
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
             | Child This => True
-               (* it' is a child of it *)
+              (* all children of t must be disabled *)
             | Child Strict => (item_lookup it' l.2).(perm) = Disabled
             | Foreign Parent => match (item_lookup it' l.2).(perm) with
+              (* all parents of t must be active (or at least not be disabled for tk_res) *)
                 Active => True | Disabled => False | _ => tkk = tk_res end
             | Foreign Cousin => match (item_lookup it' l.2).(perm) with
+              (* all cousins of t must be disabled or interiormut
+                 (for tk_res they must just not be active) *)
                        Disabled | Reserved InteriorMut _ => True | Active => False | _ => tkk = tk_res end end.
 
 (* TODO check that rel_dec is used the right way around *)

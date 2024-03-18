@@ -842,7 +842,7 @@ Proof.
       1: eexists; rewrite /heaplet_lookup /= Hx1 /= Hx2 //.
       intros ->. eapply Hne1. f_equal. eapply Hunq1; eapply elem_of_dom_2; done.
     }
-    simpl.
+    simpl. 
     intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
     { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
       split_and!; [done|done|..]; last first.
@@ -859,7 +859,7 @@ Proof.
           lia. }
         eapply loc_controlled_write_becomes_active.
         1: exact Htree_s. 1-2: rewrite /σ_s' /=; by destruct l.
-        1: done. 1: done. 1: congruence. 1: done. 1: by eapply Hcontrol_s'.
+        1: done. 1: done. 1: congruence. 1: done. 1: done. 1: by eapply Hcontrol_s'.
       - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq1; eapply elem_of_dom_2; done. }
@@ -869,9 +869,9 @@ Proof.
           destruct (list_to_heaplet v_t l.2 !! lac.2) eqn:Heq; first by eexists.
           exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
           lia. }
-        eapply loc_controlled_write_becomes_active.
+        eapply loc_controlled_write_becomes_active. 
         1: exact Htree_t. 1-2: rewrite /=; by destruct l.
-        1: done. 1: done. 1: congruence. 1: done. 1: by eapply Hcontrol_t'. }
+        1: done. 1: done. 1: congruence. 1: done. 1: done. 1: by eapply Hcontrol_t'. }
     { (* we are a different tag *)
       destruct (Htag_interp _ _ Ht) as (Hv1&Hv2&Hlc1&Hlc2&Hagr).
       split_and!; try done; first last.
