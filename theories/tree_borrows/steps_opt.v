@@ -842,7 +842,32 @@ Proof.
       1: eexists; rewrite /heaplet_lookup /= Hx1 /= Hx2 //.
       intros ->. eapply Hne1. f_equal. eapply Hunq1; eapply elem_of_dom_2; done.
     }
-    simpl. 
+    simpl.
+    assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_s' l.2 !! lac.2 = Some sc →
+          loc_controlled lac t (tk_unq tk_act) sc σ_s' ∧ bor_state_pre lac t (tk_unq tk_act) σ_s') as Hlct_s.
+    { intros lac sc H1 H2.  subst tk.
+      assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
+      { rewrite /heaplet_lookup /= -H1 Hheaplet_s /=.
+        destruct (list_to_heaplet v_s l.2 !! lac.2) eqn:Heq; first by eexists.
+        exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
+        lia. }
+      eapply loc_controlled_write_becomes_active.
+      1: exact Htree_s. 1-2: rewrite /=; by destruct l.
+      1: done. 1: done. 1: congruence. 1: done. 1: done.
+      destruct (Htag_interp _ _ Htk) as (_ & _ & _ & Hcontrol_s' & _). by eapply Hcontrol_s'. }
+    pose (σ_t' := (mkState (write_mem l v_t' (shp σ_t)) trs_t' (scs σ_t) (snp σ_t) (snc σ_t))).
+    assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_t' l.2 !! lac.2 = Some sc →
+          loc_controlled lac t (tk_unq tk_act) sc σ_t' ∧ bor_state_pre lac t (tk_unq tk_act) σ_t') as Hlct_t.
+    { intros lac sc H1 H2.  subst tk.
+      assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
+      { rewrite /heaplet_lookup /= -H1 Hheaplet_t /=.
+        destruct (list_to_heaplet v_t l.2 !! lac.2) eqn:Heq; first by eexists.
+        exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
+        lia. }
+      eapply loc_controlled_write_becomes_active.
+      1: exact Htree_t. 1-2: rewrite /=; by destruct l.
+      1: done. 1: done. 1: congruence. 1: done. 1: done.
+      destruct (Htag_interp _ _ Htk) as (_ & _ & Hcontrol_t' & _). by eapply Hcontrol_t'. }
     intros t' tk' [(<- & [= <-])|(Hne & Ht)]%lookup_insert_Some.
     { destruct (Htag_interp _ _ Htk) as (Hvalid_s & Hvalid_t & Hcontrol_t' & Hcontrol_s' & Hagree).
       split_and!; [done|done|..]; last first.
@@ -852,26 +877,12 @@ Proof.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq2; eapply elem_of_dom_2; done. }
         rewrite /= in Heq1,H2. injection Heq1 as Hlac. subst tk.
-        assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
-        { rewrite /heaplet_lookup /= -Hlac Hheaplet_s /=.
-          destruct (list_to_heaplet v_s l.2 !! lac.2) eqn:Heq; first by eexists.
-          exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
-          lia. }
-        eapply loc_controlled_write_becomes_active.
-        1: exact Htree_s. 1-2: rewrite /σ_s' /=; by destruct l.
-        1: done. 1: done. 1: congruence. 1: done. 1: done. 1: by eapply Hcontrol_s'.
+        eapply Hlct_s; done.
       - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq1; eapply elem_of_dom_2; done. }
         rewrite /= in Heq1,H2. injection Heq1 as Hlac. subst tk.
-        assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
-        { rewrite /heaplet_lookup /= -Hlac Hheaplet_t /=.
-          destruct (list_to_heaplet v_t l.2 !! lac.2) eqn:Heq; first by eexists.
-          exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
-          lia. }
-        eapply loc_controlled_write_becomes_active. 
-        1: exact Htree_t. 1-2: rewrite /=; by destruct l.
-        1: done. 1: done. 1: congruence. 1: done. 1: done. 1: by eapply Hcontrol_t'. }
+        eapply Hlct_t; done. }
     { (* we are a different tag *)
       destruct (Htag_interp _ _ Ht) as (Hv1&Hv2&Hlc1&Hlc2&Hagr).
       split_and!; try done; first last.
@@ -881,19 +892,28 @@ Proof.
         destruct (decide (lw.1 = l.1 ∧ (l.2 ≤ lw.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
         2: { eapply loc_controlled_access_outside; try done.
              rewrite /σ_s' /=write_mem_lookup_outside //. }
-        admit. (* loc_controlled on modified area, but different tag.
-          Idea: the precondition is violated since access made things disabled *)
+        assert (∃ sc, list_to_heaplet v_s' l.2 !! lw.2 = Some sc) as (ssc&Hssc).
+        { destruct (list_to_heaplet v_s' l.2 !! lw.2) eqn:Hhl; try by eexists.
+          eapply list_to_heaplet_lookup_None in Hhl. lia. }
+        eapply loc_controlled_write_invalidates_others.
+        1: done. 1: subst σ_s'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
+        1: done. 2: done. do 2 (eapply Hlct_s; [symmetry; eapply Hin|try done..]).
       - intros lw sc. rewrite (heaplet_lookup_raw_insert_ne (t,l) (t',lw)) //. 2: simpl; congruence.
         intros HM_s. specialize (Hlc1 _ _ HM_s).
         destruct (decide (lw.1 = l.1 ∧ (l.2 ≤ lw.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
         2: { eapply loc_controlled_access_outside; try done.
              rewrite /= write_mem_lookup_outside // Hlen_t' //. }
-        admit. (* like above *) } 
+        assert (∃ sc, list_to_heaplet v_t' l.2 !! lw.2 = Some sc) as (ssc&Hssc).
+        { destruct (list_to_heaplet v_t' l.2 !! lw.2) eqn:Hhl; try by eexists.
+          eapply list_to_heaplet_lookup_None in Hhl. lia. }
+        eapply loc_controlled_write_invalidates_others.
+        1: done. 1: subst σ_t'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
+        1: done. 2: done. do 2 (eapply Hlct_t; [symmetry; eapply Hin|try done..]). }
   - (* source state wf *)
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
     iPureIntro. eapply base_step_wf; done.
-Admitted.
+Qed.
 
 (*
 Lemma target_write_local v_t v_t' T l t Ψ :

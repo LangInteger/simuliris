@@ -1279,7 +1279,7 @@ Section heap_defs.
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
       (match (item_lookup it l.2).(perm) with
            | Active => True
-           | Reserved InteriorMut _ => tkk = tk_res
+           | Reserved InteriorMut _ => False (* tkk = tk_res *) (* Change: this was banned since it's not actually unique *)
            | Reserved TyFrz _ => tkk = tk_res ∧ ¬ protector_is_active it.(iprot) σ.(scs)
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
