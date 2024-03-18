@@ -225,7 +225,7 @@ Proof. by destruct r as [[]|[]]. Qed.
 Lemma rel_dec_flip tr t t' r : rel_dec tr t t' = r -> rel_dec tr t' t = rel_pos_inv r.
 Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; subst r; simpl; congruence. Qed.
 Lemma rel_dec_flip2 tr t t' : rel_dec tr t t' = rel_pos_inv (rel_dec tr t' t).
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); simpl; congruence. Qed.
+Proof. by eapply rel_dec_flip. Qed.
 
 Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Foreign Cousin -> rel_dec tr t' t = Foreign Cousin.
 Proof. eapply rel_dec_flip. Qed.

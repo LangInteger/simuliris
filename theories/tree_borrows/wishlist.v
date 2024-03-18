@@ -403,6 +403,7 @@ Proof.
           erewrite (access_same_rel_dec H1). congruence.
         - apply bind_Some in Happly as (itwrong & Hwrong & (y & Hy & [= Hacc])%bind_Some).
           rewrite -Hacc lookup_insert_ne // Hx in Htrnew. congruence. }
+      rewrite rel_dec_flip2 in Hothers. rewrite rel_dec_flip2.
       rewrite Hreldec. destruct HHHH as (Hinit2 & Hprot2 & Hperm2). rewrite -Hperm2. apply Hothers.
   - intros (it & Htrlu & Hperm).
     pose proof Htrlu as Htrlu2.
@@ -433,6 +434,7 @@ Proof.
             erewrite (access_same_rel_dec H1). congruence.
           - apply bind_Some in Happly as (itwrong & Hwrong & (y & Hy & [= Hacc])%bind_Some).
             rewrite -Hacc lookup_insert_ne // Hx in Htrnew. congruence. }
+        rewrite rel_dec_flip2 in Hothers. rewrite rel_dec_flip2.
         rewrite Hreldec. destruct HHHH as (Hinit2 & Hprot2 & Hperm2). rewrite -Hperm2. apply Hothers.
       * split; first rewrite -Heq3 -Heq2 -Heq_scs //.
         intros itnew' t' Hit'.
@@ -449,6 +451,7 @@ Proof.
             erewrite (access_same_rel_dec H1). congruence.
           - apply bind_Some in Happly as (itwrong & Hwrong & (y & Hy & [= Hacc])%bind_Some).
             rewrite -Hacc lookup_insert_ne // Hx in Htrnew. congruence. }
+        rewrite rel_dec_flip2 in Hothers. rewrite rel_dec_flip2.
         rewrite Hreldec. destruct HHHH as (Hinit2 & Hprot2 & Hperm2). rewrite -Hperm2. apply Hothers.
   - destruct Hlc as (Hownold & Hscold); first done.
     split; last by rewrite -Heq_shp.
@@ -554,16 +557,12 @@ Proof.
   specialize (Holdothers _ _ Hluold).
   rewrite /trees_rel_dec Htrold /= /apply_access_perm /= /apply_access_perm_inner in Hperm.
   erewrite <-access_same_rel_dec; last done. clear Happlyself.
-  (* TODO looks like the access relation stuff is the wrong way around in logical_state *)
-  (* At least, the lemma only works when it's switched there *)
-  assert (rel_dec trold tg tmod = rel_dec trold tmod tg) as Hfalse by admit;
-  rewrite Hfalse in Holdothers|-*; clear Hfalse.
   rewrite rel_dec_flip2 in Holdothers|-*.
   eapply bind_Some in Hperm as (prm&Hperm1&(pv&Hperm2&[= <-])%bind_Some).
   rewrite /= in Hperm1,Hperm2|-*.
   destruct rel_dec as [[]|[]], (perm (item_lookup itold' l.2)) as [[] []| | |], (initialized _) as [];
     repeat (simpl; try simpl in Hperm1; try simpl in Holdothers; simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
-Admitted.
+Qed.
 
 
 

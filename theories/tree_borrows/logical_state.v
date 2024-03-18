@@ -1282,7 +1282,7 @@ Section heap_defs.
            | Reserved InteriorMut _ => tkk = tk_res
            | Reserved TyFrz _ => tkk = tk_res ∧ ¬ protector_is_active it.(iprot) σ.(scs)
            | _ => False end) ∧
-          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
+          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
             | Child This => True
               (* all children of t must be disabled *)
             | Child Strict => (item_lookup it' l.2).(perm) = Disabled
@@ -1305,7 +1305,7 @@ Section heap_defs.
        => bor_state_post_unq l t σ it tr tkk
     | tk_pub
        => (item_lookup it l.2).(perm) = Frozen ∧
-          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t t' with 
+          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
             | Child This => True
                (* it' is a child of it *)
             | Child Strict => (item_lookup it' l.2).(perm) ≠ Active
