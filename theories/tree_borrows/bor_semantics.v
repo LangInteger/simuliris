@@ -842,4 +842,35 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs (cids ∖ {[c]}) nxtp nxtc
   .
 
+(* conversion is magic *)
+Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some oo) : A := oo.
+Local Notation unwrap K := (unpack_option K eq_refl).
+
+(* We create some trees to unit-test our definitions *)
+Local Definition initial_tree := init_tree 1.
+Local Definition with_one_child :=
+  unwrap (create_child ∅ 1 2 (MutRef TyFrz) Default 0 initial_tree).
+Local Definition with_two_children :=
+  unwrap (create_child ∅ 1 3 (ShrRef) Default 0 with_one_child).
+Local Definition with_three_children :=
+  unwrap (create_child ∅ 2 4 (Box) Default 0 with_two_children).
+
+(* conversion keeps being magical *)
+Succeed Example foo : rel_dec with_three_children 1 1 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 2 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 3 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 4 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 1 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 2 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 3 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 4 = Foreign Parent := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 1 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 2 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 3 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 4 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 1 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 2 = Child Strict   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 4 = Child This     := eq_refl.
+
 
