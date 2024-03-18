@@ -895,9 +895,10 @@ Proof.
         assert (∃ sc, list_to_heaplet v_s' l.2 !! lw.2 = Some sc) as (ssc&Hssc).
         { destruct (list_to_heaplet v_s' l.2 !! lw.2) eqn:Hhl; try by eexists.
           eapply list_to_heaplet_lookup_None in Hhl. lia. }
+        intros Hpre. exfalso. revert Hpre.
         eapply loc_controlled_write_invalidates_others.
         1: done. 1: subst σ_s'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
-        1: done. 2: done. do 2 (eapply Hlct_s; [symmetry; eapply Hin|try done..]).
+        1: done. 2: done. done.
       - intros lw sc. rewrite (heaplet_lookup_raw_insert_ne (t,l) (t',lw)) //. 2: simpl; congruence.
         intros HM_s. specialize (Hlc1 _ _ HM_s).
         destruct (decide (lw.1 = l.1 ∧ (l.2 ≤ lw.2 < l.2 + length v_s')%Z)) as [Hin|Hout].
@@ -906,9 +907,11 @@ Proof.
         assert (∃ sc, list_to_heaplet v_t' l.2 !! lw.2 = Some sc) as (ssc&Hssc).
         { destruct (list_to_heaplet v_t' l.2 !! lw.2) eqn:Hhl; try by eexists.
           eapply list_to_heaplet_lookup_None in Hhl. lia. }
+        intros Hpre. exfalso. revert Hpre.
         eapply loc_controlled_write_invalidates_others.
         1: done. 1: subst σ_t'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
-        1: done. 2: done. do 2 (eapply Hlct_t; [symmetry; eapply Hin|try done..]). }
+        1: done. 2: done. done.
+    }
   - (* source state wf *)
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)

@@ -572,24 +572,18 @@ Lemma loc_controlled_write_invalidates_others l sc cids σ σ' blk off1 sz tg_ac
   l.1 = blk →
   (off1 ≤ l.2 < off1 + sz) →
   tg_acc ≠ tg_lu →
-  bor_state_own l tg_acc (tk_unq tk_act) σ' →
+  trees_contain tg_acc σ.(strs) blk →
   loc_controlled l tg_lu tk sc σ →
-  loc_controlled l tg_lu tk sc σ'.
+  bor_state_pre l tg_lu tk σ' →
+  False.
 Proof.
-  intros Happly Heq_shp Heq_scs Hwf Hblk Hsz Htgne Hact Hcontrol Hpre.
-  exfalso. subst blk.
-  rewrite /bor_state_own in Hact.
-  destruct Hact as (itaccnew & trnew & Hluaccnew & Htrnew & Hunqactnew).
-  pose proof Happly as (trold&Htrold&(trnew'&Haccess&[= Hstrs])%bind_Some)%bind_Some.
-  assert (trnew' = trnew) as ->. { rewrite -Hstrs lookup_insert in Htrnew. congruence. }
-  eapply apply_trees_access_lookup_general_rev in Happly as Hitrev.
-  2: apply Hwf. 2: eassumption. 2: exists trnew; split; first done; last exact Hluaccnew.
-  destruct Hitrev as (itaccold & (trold' & Htrold' & Hitaccold) & Hinititacc & Hprotitacc & Hpermitacc).
-  assert (trold' = trold) as -> by congruence. clear Htrold'.
-  rewrite trees_rel_dec_refl in Hpermitacc.
+  intros Happly Heq_shp Heq_scs Hwf Hblk Hsz Htgne Htgin Hcontrol Hpre.
+  subst blk.
+  pose proof Happly as (trold&Htrold&(trnew&Haccess&[= Hstrs])%bind_Some)%bind_Some.
+  assert (strs σ' !! l.1 = Some trnew) as Htrnew.
+  { by rewrite -Hstrs lookup_insert. }
   destruct tk as [|tkk|].
-  - clear Hinititacc Hprotitacc Hpermitacc.
-    destruct Hpre as (itnew&(trnew'&Htrnew'&Hitnew)&Hnondis).
+  - destruct Hpre as (itnew&(trnew'&Htrnew'&Hitnew)&Hnondis).
     assert (trnew' = trnew) as -> by congruence. clear Htrnew'.
     eapply apply_trees_access_lookup_general_rev in Happly as Hitrev.
     2: apply Hwf. 2: eassumption. 2: exists trnew; split; first done; last exact Hitnew.
@@ -619,7 +613,7 @@ Proof.
     destruct Hitrev as (itold & (trold' & Htrold' & Hitold) & Hinitit & Hprotit & Hpermit).
     assert (trold' = trold) as -> by congruence. clear Htrold'.
     destruct Hcontrol as (Hcontrol&_).
-    { exists itold. split; first by eexists. clear Hinititacc Hprotitacc Hpermitacc.
+    { exists itold. split; first by eexists.
       pose proof Hpermit as (x1&Hx1&(x2&Hx2&[=Hx3])%bind_Some)%bind_Some.
       rewrite /apply_access_perm_inner in Hx1.
       rewrite -Hx3 /= in Hnondis Hfreezeprot.
@@ -629,26 +623,36 @@ Proof.
     destruct Hcontrol as (itold' & trold' & Hitold' & Htrold' & Hsame & Hothers).
     assert (trold' = trold) as -> by congruence. clear Htrold'.
     assert (itold' = itold) as -> by by eapply tree_lookup_unique. clear Hitold'.
-    destruct Hunqactnew as (Hactnewactive&Hunqactnew).
-    specialize (Hunqactnew _ _ Hitnew).
+    rewrite /trees_contain /trees_at_block Htrold in Htgin.
+    pose proof Htgin as Hunq%wf_tree_tree_unique.
+    2: by eapply (state_wf_tree_unq _ Hwf).
+    pose proof Hunq as (itaccold&Hdet)%unique_lookup.
+    assert (tree_lookup trold tg_acc itaccold) as Hitaccold by done.
+    eapply apply_trees_access_lookup_general in Happly as Hitrev.
+    2: apply Hwf. 2: eassumption. 2: exists trold; split; first done; last exact Hitaccold.
+    destruct Hitrev as (itaccnew & (trnew' & Htrnew' & Hitaccnew) & Hinititacc & Hprotitacc & Hpermitacc).
+    assert (trnew' = trnew) as -> by congruence. clear Htrnew'.
+    rewrite trees_rel_dec_refl in Hpermitacc.
     specialize (Hothers _ _ Hitaccold).
-    rewrite rel_dec_flip2 in Hunqactnew.
-    erewrite <- access_same_rel_dec in Hunqactnew. 2: exact Haccess.
-    pose proof Hpermit as (x1&Hx1&(x2&Hx2&[=Hx3])%bind_Some)%bind_Some.
-    pose proof Hpermitacc as (y1&Hy1&(y2&Hy2&[=Hy3])%bind_Some)%bind_Some.
-    rewrite /apply_access_perm_inner in Hx1 Hy1.
-    rewrite -!Hx3 -!Hprotit /= in Hnondis Hfreezeprot Hunqactnew.
-    rewrite -!Hy3 -!Hprotitacc /= in Hactnewactive.
+    pose proof Hpermit as (x1&Hx1&(x2&Hx2&[=Hx3])%bind_Some)%bind_Some. clear Hpermit.
+    pose proof Hpermitacc as (y1&Hy1&(y2&Hy2&[=Hy3])%bind_Some)%bind_Some. clear Hpermitacc.
+    rewrite /apply_access_perm_inner in Hx1,Hy1.
+    rewrite -!Hx3 -!Hprotit /= in Hnondis Hfreezeprot.
     rewrite /trees_rel_dec Htrold in Hx1.
     rewrite !bool_decide_decide in Hx1,Hx2,Hy1,Hy2.
     destruct (rel_dec trold tg_acc tg_lu) as [[]|[]] eqn:Hreldec.
-    4: { eapply Htgne, rel_this_antisym. 3: done. 1: apply Hitaccold. 1: apply Hitold. }
+    4: { eapply Htgne, rel_this_antisym. 3: done. 2: apply Hitold. done. }
     all: destruct (perm (item_lookup itold l.2)) as [[][]| | |] eqn:Heqpx, (initialized (item_lookup itold l.2)) as [] eqn:Heqinitx; simpl in *; simplify_eq; try done.
-    all: destruct (perm (item_lookup itaccold l.2)) as [[][]| | |] eqn:Heqpy, (initialized (item_lookup itaccold l.2)) as [] eqn:Heqinity; simpl in *; simplify_eq; try done.
     all: repeat (destruct decide; simplify_eq; try done).
+    all: destruct (perm (item_lookup itaccold l.2)) as [[][]| | |] eqn:Heqpy, (initialized (item_lookup itaccold l.2)) as [] eqn:Heqinity; simpl in *; simplify_eq; try done.
   - destruct Hcontrol as ((itold&trold'&Hitold&Htrold'&Hactive&Hunq)&_); first done.
     assert (trold' = trold) as -> by congruence. clear Htrold'.
-    eapply Htgne; symmetry. eapply Hunq; done.
+    rewrite /trees_contain /trees_at_block Htrold in Htgin.
+    pose proof Htgin as Htgunq%wf_tree_tree_unique.
+    2: by eapply (state_wf_tree_unq _ Hwf).
+    pose proof Htgunq as (itaccold&Hdet)%unique_lookup.
+    assert (tree_lookup trold tg_acc itaccold) as Hitaccold by done.
+    eapply Htgne; symmetry. eapply Hunq; try done.
 Qed.
  
     
