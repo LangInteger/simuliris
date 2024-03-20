@@ -1,5 +1,16 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-https://gitlab.mpi-sws.org/FP/stacked-borrows
+(** Tree Borrows state machine and tree manipulation.
+   This file defines the semantics of the operations of Tree Borrows.
+   It more or less replicates
+   - https://github.com/rust-lang/miri/blob/master/src/borrow_tracker/tree_borrows/mod.rs
+   - https://github.com/rust-lang/miri/blob/master/src/borrow_tracker/tree_borrows/perms.rs
+   (small differences come mostly from the underlying implementation of trees)
+
+   Trivial lemmas are provided (e.g. countability of objects and decidability
+   of properties), but the more involved lemmas are mostly in [bor_lemmas.v].
+
+   This file has been adapted from [theories/stacked_borrows/bor_semantics.v],
+   itself adapted from the original Stacked Borrows development available at
+   https://gitlab.mpi-sws.org/FP/stacked-borrows.
 *)
 
 From Equations Require Import Equations.
@@ -43,11 +54,18 @@ Proof.
   lia.
 Qed.
 
+(* Applies a function [option X -> option X] to a single location in memory.
+                                   ^^^^^^ computation may trigger UB.
+                       ^^^^^^ location may be uninitialized *)
 Definition mem_apply_loc {X} (fn : option X -> option X) z
   : app (gmap loc' X) := fun map =>
     new ← fn (map !! z);
     Some (<[z := new]> map).
 
+(* Applies a function to a range of memory.
+   The whole operation is UB iff any of the per-location operations are UB.
+   If the set of locations you want to access cannot be expressed as a range,
+   see [mem_fold_apply]. *)
 Fixpoint mem_apply_locs {X} (fn:option X -> option X) z sz
   {struct sz} : app (gmap loc' X) := fun map =>
   match sz with
@@ -57,12 +75,19 @@ Fixpoint mem_apply_locs {X} (fn:option X -> option X) z sz
       mem_apply_locs fn (z + 1)%Z sz' newmap
   end.
 
+(* Collect the list of locations that satisfy a predicate.
+   This is useful when we exit a function and need to perform an implicit
+   access to all initialized locations. *)
 Definition mem_enumerate_sat {X} (fn : X -> bool)
   : gmap loc' X -> list Z :=
   gmap_fold _ (fun k v acc =>
     if fn v then k :: acc else acc
   ) [] .
 
+(* Apply a function to all the locations passed as a list.
+   The whole operation is UB iff any of the per-location operations are UB.
+   If the set of locations you want to access can be expressed as a range,
+   see [mem_apply_loc] which might be easier to reason about. *)
 Fixpoint mem_fold_apply {X} (fn : option X -> option X) locs
   : app (gmap loc' X) := fun map =>
   match locs with
@@ -72,14 +97,25 @@ Fixpoint mem_fold_apply {X} (fn : option X -> option X) locs
       mem_fold_apply fn locs' newmap
   end.
 
+(* Part of the API for permission update. All memory accesses have an effect
+   on the permissions that can be expressed by a faillible function from
+   (optionally uninitialized) permissions to permissions lifted to the entire
+   memory by means of [mem_apply_range']. *)
 Definition mem_apply_range' {X} (fn:option X -> option X) (r:range')
   : app (gmap loc' X) := mem_apply_locs fn r.1 r.2.
 
+(* The behavior of [mem_apply_range'] is completely specified by
+   [mem_apply_range'_spec] and [mem_apply_range'_success_condition].
+
+   This one states what happens to each location inside aund outside of the
+   range of the access. *)
 Lemma mem_apply_range'_spec {X} fn r z' :
   forall (map newmap: gmap loc' X),
   (mem_apply_range' fn r map = Some newmap) ->
   if (decide (range'_contains r z'))
+    (* Locations in range have been updated by [fn] *)
     then exists val, newmap !! z' = Some val /\ fn (map !! z') = Some val
+    (* Locations out of range are unchanged *)
     else newmap !! z' = map !! z'.
 Proof.
   unfold mem_apply_range'.
@@ -126,12 +162,17 @@ Proof.
            rewrite lookup_insert_ne in IHsz; auto.
 Qed.
 
+(* [mem_apply_range'] expects an [option lazy_permission -> option lazy_permission].
+   In practice we prefer expressing the state machine as [lazy_permission -> option lazy_permission].
+   The second can easily be lifted to the first when given the default permission
+   (stored in [item]'s [initp] field). *)
 Definition permissions_apply_range' (pdefault:lazy_permission) (range:range') (f:app lazy_permission)
   : app permissions := fun ps =>
   mem_apply_range'
     (fun oldp => f (default pdefault oldp))
     range ps.
 
+(* Special instance of [mem_apply_range'] when the function is infaillible. *)
 Lemma mem_apply_range'_defined_isSome {X} (map:gmap Z X) (fn:option X -> X) :
   forall range, is_Some (mem_apply_range' (fun x => Some (fn x)) range map).
 Proof.
@@ -178,6 +219,7 @@ Qed.
 
 (** CORE SEMANTICS *)
 
+(* FIXME: see if this is easier to manipulate when it's a notation *)
 Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
 Global Instance IsTag_dec t it : Decision (IsTag t it).
 Proof. rewrite /IsTag. solve_decision. Defined.
@@ -187,14 +229,34 @@ Global Instance HasRootTag_dec t it : Decision (HasRootTag t it).
 Proof. rewrite /HasRootTag. solve_decision. Defined.
 
 Definition HasStrictChildTag t' : Tprop (tbranch item) := exists_strict_child (IsTag t').
-Global Instance HasChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
+Global Instance HasStrictChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
 Proof. rewrite /HasStrictChildTag. solve_decision. Defined.
 
+(* We define that [t] is a strict parent of [t'] when every subtree
+   whose root is labeled [t] contains a strict child labeled [t'].
+   When the tree is well-formed (tags are unique) and contains [t],
+   this becomes equivalent to "there is a node labeled [t] with a strict
+   child labeled [t']".
+
+   WARNING: when the tree is not well-formed or does not contain the tags,
+   [StrictParentChildIn] may not satisfy the axioms you expect of a parent-child
+   relationship.
+
+   Do not interpret [StrictParentChildIn t t' tr] too literally unless you know
+   - [tree_unique t tr]
+   - [tree_unique t' tr]
+
+   Well-formedness will usually put you in a position where you know
+   - [tree_contains t tr]
+   - [tree_contains t' tr]
+   - [WF : forall tg, tree_contains tg tr -> tree_unique tg tr]
+   which is obviously sufficient. *)
 Definition StrictParentChildIn t t' : Tprop (tree item)
   := every_subtree (fun br => (IsTag t (root br)) -> (HasStrictChildTag t' br)).
 Global Instance StrictParentChildIn_dec t t' tr : Decision (StrictParentChildIn t t' tr).
 Proof. rewrite /StrictParentChildIn. solve_decision. Defined.
 
+(* Reflexive closure of [StrictParentChildIn]. *)
 Definition ParentChildIn t t' : Tprop (tree item)
   := fun tr => t = t' \/ StrictParentChildIn t t' tr.
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
@@ -202,12 +264,17 @@ Proof. rewrite /ParentChildIn. solve_decision. Defined.
 
 (* Decide the relative position (parent/child/other) of two tags.
    Read this as "t1 is a `rel_dec tr t1 t2` of t2", i.e.
-   `rel_dec tr t1 t2 = Child` means `t1` is a child of `t2` in `tr`,
-   `rel_dec tr t1 t2 = Cousin` means `t1` is a cousino of `t2` in `tr`.
+   `rel_dec tr t1 t2 = Child Strict` means `t1` is a strict child of `t2` in `tr`,
+   `rel_dec tr t1 t2 = Foreign Cousin` means `t1` is a cousin of `t2` in `tr`.
 
-   Naturally `This` and `Cousin` are symmetric, while `Parent` and `Child`,
+   Naturally `Child This` and `Foreign Cousin` are symmetric,
+   while `Foreign Parent` and `Child Strict`,
    because they are strict, are inverses of each other.
- *)
+
+   Recall that we are using the toplevel distinction
+   [Foreign] / [Child] so that statements compute better, and the specifics
+   [Strict]/[This]/[Parent]/[Cousin] because some invariants need to be able
+   to make the distinction. *)
 Definition rel_dec (tr:tree item) := fun t t' =>
   if decide (ParentChildIn t' t tr)
   then Child (if decide (ParentChildIn t t' tr) then This else Strict)
@@ -227,6 +294,15 @@ Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; su
 Lemma rel_dec_flip2 tr t t' : rel_dec tr t t' = rel_pos_inv (rel_dec tr t' t).
 Proof. by eapply rel_dec_flip. Qed.
 
+(* These are simple properties of [rel_dec] that hold regardless of well-formedness.
+
+   Other such properties include
+   - transitivity (proven in [bor_lemmas.v] as [StrictParentChildIn_transitive]
+
+   On the other hand some properties DO NOT HOLD WITHOUT WELL-FORMEDNESS, such as
+   - cousins have disjoint children (proven in [bor_lemmas.v] as [cousins_have_disjoint_children])
+   - cousins have some common ancestor (proven in [bor_lemmas.v] as [cousins_find_common_ancestor])
+ *)
 Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Foreign Cousin -> rel_dec tr t' t = Foreign Cousin.
 Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = Child This -> rel_dec tr t' t = Child This.
@@ -240,7 +316,8 @@ Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
 Implicit Type (prot:option protector).
 
-(* Tells if an access requires you to initialize the permission afterwards (child accesses) *)
+(* Tells if an access requires you to initialize the permission afterwards.
+   This is exactly child accesses. *)
 Definition requires_init (rel:rel_pos)
   : perm_init :=
   match rel with
@@ -248,34 +325,43 @@ Definition requires_init (rel:rel_pos)
   | Foreign _ => PermLazy
   end.
 
-(* State machine without protector UB *)
+(* State machine without protector UB.
+   Protector UB is handled later in [apply_access_perm]. *)
 Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
   : app permission := fun perm =>
   match kind, rel with
   | AccessRead, Foreign _ =>
+      (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
       match perm with
+        (* FIXME: refactor *)
       | Reserved TyFrz ResActivable => if isprot then Some $ Reserved TyFrz ResConflicted else Some $ Reserved TyFrz ResActivable
       | Reserved InteriorMut ResActivable => if isprot then Some $ Reserved InteriorMut ResConflicted else Some $ Reserved InteriorMut ResActivable
       | Reserved TyFrz ResConflicted | Reserved InteriorMut ResConflicted => Some perm
       | Active => if isprot then
-        (* This is just a trick for commutativity of read operations.
-           Protector should get triggered anyway *)
+        (* So that the function is commutative on all states and not just on reachable states,
+           we change the transition into [Active -> Disabled] when a protector is present.
+           This happens to slightly simplify the protector check. *)
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end
   | AccessWrite, Foreign _ =>
+      (* Foreign write. Disables everything except interior mutable [Reserved]. *)
       match perm with
       | Reserved InteriorMut ra => if isprot then Some Disabled else Some $ Reserved InteriorMut ra
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
   | AccessRead, Child _ =>
+      (* Child read. Mostly noop. (not visible here: this access is [requires_init] and will have
+         an effect on the [lazy_permission]). *)
       match perm with
       | Disabled => None
       | _ => Some perm
       end
   | AccessWrite, Child _ =>
+      (* Child write. Activates unconflicted [Reserved]. *)
       match perm with
+        (* FIXME: refactor *)
       | Reserved TyFrz ResConflicted => if isprot then None else Some Active
       | Reserved InteriorMut ResConflicted => if isprot then None else Some Active
       | Reserved TyFrz ResActivable | Reserved InteriorMut ResActivable | Active => Some Active
@@ -283,6 +369,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       end
   end.
 
+(* A protector is active when the call id it contains is currently part of
+   the set of active call ids. *)
 Definition call_is_active c cids := (c ∈ cids).
 Global Instance call_is_active_dec c cids : Decision (call_is_active c cids).
 Proof. rewrite /call_is_active. solve_decision. Defined.
@@ -297,11 +385,11 @@ Definition protector_is_for_call c prot := call_of_protector prot = Some c.
 Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
 Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Defined.
 
-Definition protector_compatible_call c prot := is_Some prot -> protector_is_for_call c prot.
-
-(* This definition overlaps with logical_state.v:protected_by
+(* FIXME: This definition overlaps with logical_state.v:protected_by
    We should pick one of them. If we pick this one it should be simplified
-   to match prot with Some (mkProtector _ c) => c in cids | None => False end. *)
+   to match prot with Some (mkProtector _ c) => c in cids | None => False end.
+
+   In practice: delete [protector_is_active]. rename [witness_protector_is_active]. fix proofs. *)
 Definition protector_is_active prot cids :=
   exists c, protector_is_for_call c prot /\ call_is_active c cids.
 
@@ -347,7 +435,10 @@ Definition protector_is_strong prot :=
 Global Instance protector_is_strong_dec prot : Decision (protector_is_strong prot).
 Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Defined.
 
-(* State machine including protector UB *)
+(* State machine including protector UB.
+   After applying [apply_access_perm_inner] we still need to
+   - trigger the protector if it is active and if the transition performed [_ -> Disabled]
+   - update the [initialized] status of the permission. *)
 Definition apply_access_perm kind rel (isprot:bool)
   : app lazy_permission := fun operm =>
   let old := operm.(perm) in
@@ -364,6 +455,8 @@ Definition apply_access_perm kind rel (isprot:bool)
     (most_init operm.(initialized) (requires_init rel)) (* can only become more initialized *)
     validated.
 
+(* The effect of an access on an item is to apply it to the permissions while
+   keeping the metadata (tag, protector, default permission) unchanged. *)
 Definition item_apply_access (fn : rel_pos -> bool -> app lazy_permission) cids rel range
   : app item := fun it =>
   let oldps := it.(iperm) in
@@ -372,6 +465,9 @@ Definition item_apply_access (fn : rel_pos -> bool -> app lazy_permission) cids 
     (fn rel protected) oldps;
   Some $ mkItem it.(itag) it.(iprot) it.(initp) newps.
 
+(* For function exit we need to apply a transformation only to nonchildren nodes.
+   This function filters out strict children to turn any function into a function
+   that operates only on nonchildren. *)
 Definition nonchildren_only
   (fn : rel_pos -> bool -> app lazy_permission)
   : rel_pos -> bool -> app lazy_permission := fun rel isprot perm =>
@@ -380,7 +476,8 @@ Definition nonchildren_only
   | _ => fn rel isprot perm
   end.
 
-(* FIXME: share code *)
+(* Lift a function on nodes to a function on trees.
+   Returns [None] if and only if the image by at least one of the nodes returns [None]. *)
 Definition tree_apply_access
   (fn:rel_pos -> bool -> app lazy_permission)
   cids (access_tag:tag) range (tr:tree item)
@@ -390,42 +487,58 @@ Definition tree_apply_access
   ) in
   join_nodes (map_nodes app tr).
 
+(* Initial permissions. *)
 Definition init_perms perm
+  (* FIXME: simplify to just ø directly ? *)
   : permissions := mem_apply_range'_defined (fun _ => mkPerm PermLazy perm) (0%Z, O) ∅.
 
+(* Initial tree is a single root whose default permission is [Active]. *)
 Definition init_tree t
   : tree item := branch (mkItem t None Active (init_perms Active)) empty empty.
 
+(* Create a new allocation. *)
 Definition extend_trees t blk
   : trees -> trees := fun ts =>
   <[blk := init_tree t]>ts.
 
 (* Perform the access check on a block of continuous memory.
- * This implements Tree::before_memory_{read,write,deallocation}. *)
+   Combines together the previously defined
+   - [apply_access_perm] function on permissions (including protector UB), with
+   - [tree_apply_access] that lifts functions on permissions to functions on trees.
+   This implements Tree::before_memory_{read,write,deallocation}. *)
 Definition memory_access kind cids tg range
   : app (tree item) := fun tr =>
   tree_apply_access (apply_access_perm kind) cids tg range tr.
+(* Same thing but only to nonchildren, provides the access to perform on function exit. *)
 Definition memory_access_nonchildren_only kind cids tg range
   : app (tree item) := fun tr =>
   tree_apply_access (nonchildren_only (apply_access_perm kind)) cids tg range tr.
 
+(* The transformation to apply on function exit doesn't actually do anything
+   except trigger UB if there is still a protector, but it's simpler to express it
+   in terms of functions that we already have. *)
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
+  (* Implicit write on deallocation. *)
   let post_write := memory_access_nonchildren_only AccessRead cids t range tr in
+  (* Then strong protector UB. *)
   let find_strong_prot : item -> option item := fun it => (
+    (* FIXME: switch to plain [decide] ? *)
     if bool_decide (protector_is_strong it.(iprot)) && bool_decide (protector_is_active it.(iprot) cids)
     then None
     else Some it
   ) in
+  (* Triggers UB iff some node triggers UB. *)
   option_bind
     (fun tr' => join_nodes (map_nodes find_strong_prot tr'))
     post_write.
 
-(* Normal reachability definition is not easily destructable, so we're defining it
-   manually and proving it's equivalent to the reflexive transitive closuse of one step.
-   The witness step needs to be strict otherwise the proof of equivalence will be stuck.
-*)
-
+(* We want to reason about reachability of states in the state machine.
+   The default definition doesn't compute well, so we define
+   1. a definition that computes
+   2. a definition by the reflexive transitive closure of some much more
+      easy to verify step.
+   The two are provably equivalent. *)
 Definition witness_transition p p' : Prop :=
   match p, p' with
   | Reserved m ResActivable, Reserved m' ResConflicted
@@ -516,6 +629,8 @@ Proof.
   all: do 10 witness_reach_solve.
 Qed.
 
+(* This is the important lemma of this section.
+   The [reach] definition that computes well is correct. *)
 Lemma reach_correct p p' :
   reach p p' <-> witness_reach p p'.
 Proof.
