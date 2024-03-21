@@ -750,7 +750,55 @@ tree_contains tg tr
     all: tauto.
   Qed.
 
- Lemma perm_eq_up_to_C_preserved_by_access
+  Lemma access_preserves_pseudo_conflicted_activable
+    {tr tg l kind acc_tg range tr'} :
+    pseudo_conflicted tr tg l ResActivable ->
+    memory_access kind C acc_tg range tr = Some tr' ->
+    pseudo_conflicted tr' tg l ResActivable.
+  Proof.
+    intros PseudoC Acc.
+    inversion PseudoC as [|tg_cous it_cous cous_rel [cous_ex cous_det] cous_prot cous_nondis cous_init].
+    destruct (apply_access_spec_per_node cous_ex cous_det Acc)
+          as (cous' & cous'_spec & cous'_ex & cous'_det).
+    symmetry in cous'_spec.
+    rewrite bind_Some in cous'_spec.
+    destruct cous'_spec as (perms' & perms'_spec & cous'_build).
+    injection cous'_build; intros; subst; clear cous'_build.
+    pose proof (mem_apply_range'_spec _ _ l _ _ perms'_spec) as effect_at_l.
+    destruct (decide _).
+    + (* within range. Big case analysis incoming. *)
+      destruct effect_at_l as (perm' & perm'_lookup & perm'_spec).
+      rewrite bind_Some in perm'_spec;
+        destruct perm'_spec as (perm & perm_apply_inner & perm'_spec).
+      rewrite bind_Some in perm'_spec;
+        destruct perm'_spec as (perm_validated & perm_check_prot & perm'_spec).
+      injection perm'_spec; intros; subst; clear perm'_spec.
+      econstructor.
+      * erewrite <- access_same_rel_dec; eassumption.
+      * split; eassumption.
+      * eassumption.
+      * rewrite /item_lookup /= perm'_lookup /=.
+        rewrite /item_lookup in cous_init.
+        destruct (iperm it_cous !! l) eqn:it_cous_defined; last discriminate.
+        rewrite it_cous_defined cous_init in perm_check_prot.
+        rewrite bool_decide_eq_true_2 in perm_check_prot; last assumption.
+        destruct perm; try discriminate.
+        all: injection perm_check_prot; intros; subst; congruence.
+      * rewrite /item_lookup /= perm'_lookup /=.
+        rewrite /item_lookup in cous_init.
+        destruct (iperm it_cous !! l) eqn:it_cous_defined; last discriminate.
+        rewrite it_cous_defined cous_init //=.
+    + (* out of range is a lot easier *)
+      econstructor.
+      * erewrite <- access_same_rel_dec; eassumption.
+      * split; eassumption.
+      * eassumption.
+      * rewrite /item_lookup /= effect_at_l. assumption.
+      * rewrite /item_lookup /= effect_at_l. assumption.
+  Qed.
+
+
+  Lemma perm_eq_up_to_C_preserved_by_access
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
     (SameProt : iprot it1 = iprot it2)
     (SameTg : itag it1 = itag it2) (* note: redundant *)
@@ -807,12 +855,12 @@ tree_contains tg tr
         rewrite -itLookup1 -itLookup2.
         econstructor.
         + assumption.
-        + inversion Confl1.
+        + inversion Confl1; subst.
           * constructor.
-          * admit. (* Lemma needed about the fact that the conflicting cousin is still there. *)
-        + inversion Confl2.
+          * eapply access_preserves_pseudo_conflicted_activable; eassumption.
+        + inversion Confl2; subst.
           * constructor.
-          * admit. (* Lemma needed about the fact that the conflicting cousin is still there. *)
+          * eapply access_preserves_pseudo_conflicted_activable; eassumption.
       }
       (* Now we're within range *)
       destruct perm1'Spec as [perm1' [perm1'Lookup perm1'Spec]].
@@ -843,9 +891,9 @@ tree_contains tg tr
       all: try constructor; auto.
       all: try constructor.
       (* Now they are all ResActivable and we need to show that the cousin is still a witness.
-         We'll want a dedicated lemma for that. *)
-      all: admit.
-  Admitted.
+         See the above lemma for exactly that. *)
+      all: eapply access_preserves_pseudo_conflicted_activable; eassumption.
+  Qed.
 
   Lemma item_eq_up_to_C_preserved_by_access
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
