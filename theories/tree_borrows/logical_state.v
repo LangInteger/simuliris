@@ -316,12 +316,12 @@ tree_contains tg tr
       assert (tree_contains it.(itag) tr) as Ex. {
         eapply exists_node_increasing; [eassumption|].
         erewrite every_node_eqv_universal.
-        intros. subst. rewrite /IsTag. auto.
+        intros. subst. auto.
       }
       destruct (GloballyUnique _ Ex) as [it' Unq'].
       assert (it = it') as Eq. {
         apply (proj1 (every_node_eqv_universal _ _) Unq' it Exists).
-        rewrite /IsTag; auto.
+        auto.
       }
       rewrite -Eq in Unq'.
       split; assumption.

@@ -33,9 +33,8 @@ Lemma unique_exists {tr tg} :
   tree_unique tg tr ->
   tree_contains tg tr.
 Proof.
-  rewrite /tree_unique /tree_count_tg /has_tag.
+  rewrite /tree_unique /tree_count_tg.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [discriminate|].
-  rewrite /IsTag.
   destruct (decide (itag data = tg)).
   - rewrite bool_decide_eq_true_2; [auto|assumption].
   - rewrite bool_decide_eq_false_2; [|assumption].
@@ -55,7 +54,6 @@ Proof.
   rewrite exists_somewhere. 
   rewrite IHtr1.
   rewrite IHtr2.
-  rewrite /has_tag.
   destruct (decide (IsTag tg data)) as [Tg|nTg].
   - rewrite bool_decide_eq_true_2; [|assumption].
     apply ZifyClasses.or_morph; [split; auto|].
@@ -70,9 +68,8 @@ Lemma count_0_not_exists tr tg :
   tree_count_tg tg tr = 0
   <-> ~tree_contains tg tr.
 Proof.
-  rewrite /tree_count_tg /has_tag.
+  rewrite /tree_count_tg.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [tauto|].
-  rewrite /IsTag.
   split.
   - intro Nowhere.
     destruct (proj1 absent_nowhere Nowhere) as [?[??]].
@@ -101,7 +98,7 @@ Proof.
   rewrite absent_nowhere.
   intros [Absent0 [Absent1 Absent2]] it.
   split; [|split].
-  + intro. rewrite /has_tag bool_decide_eq_true_2 in Absent0; [discriminate|assumption].
+  + intro. rewrite bool_decide_eq_true_2 in Absent0; [discriminate|assumption].
   + apply IHtr1. assumption.
   + apply IHtr2. assumption.
 Qed.
@@ -112,7 +109,6 @@ Lemma unique_lookup tr tg :
 Proof.
   rewrite /tree_unique.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl; [intro; discriminate|].
-  rewrite /has_tag.
   destruct (decide (IsTag tg data)).
   - rewrite bool_decide_eq_true_2; [|assumption].
     intro Found. destruct (unique_found_here Found).
@@ -211,11 +207,11 @@ Proof.
     subst; simpl.
     split; intro H; destruct H as [H[??]]; try repeat split; try assumption.
     all: intro Hyp.
-    + rewrite <- join_map_preserves_exists; unfold IsTag in *.
+    + rewrite <- join_map_preserves_exists.
       * apply H. erewrite FnPreservesTag; eassumption.
       * intros; subst. erewrite FnPreservesTag; eauto.
       * apply EqTr2'.
-    + rewrite join_map_preserves_exists; unfold IsTag in *.
+    + rewrite join_map_preserves_exists.
       * apply H. erewrite <- FnPreservesTag; eassumption.
       * intros; subst. erewrite FnPreservesTag; eauto.
       * apply EqTr2'.
@@ -240,7 +236,6 @@ Proof.
   induction tr as [|data ????]; simpl; auto.
 destruct (decide (IsTag t data)) eqn:Found; simpl.
   - try repeat split; auto.
-    intro H; left; easy.
   - try repeat split; auto.
     intro H; contradiction.
 Qed.
@@ -323,7 +318,7 @@ Proof.
   all: destruct Absent as [Absent0 [Absent1 Absent2]].
   all: destruct Pins as [Pins0 [Pins1 Pins2]].
   all: try repeat split.
-  - intro Contra; exfalso; unfold IsTag in Tg'; unfold IsTag in Contra.
+  - intro Contra; exfalso.
     subst; contradiction.
   - apply IHtr1; assumption.
   - apply IHtr2; [|destruct Pins2 as [?[??]]]; assumption.
@@ -383,15 +378,13 @@ Proof.
   destruct (decide _) as [Tgp|nTgp]; simpl.
   + rewrite IHtr1.
     rewrite IHtr2.
-    rewrite /has_tag.
     rewrite (bool_decide_eq_true_2 _ Tgp).
-    assert (~IsTag tg data) as nTgd. { intro Tgd. apply Ne. unfold IsTag in *. congruence. }
+    assert (~IsTag tg data) as nTgd. { intro Tgd. apply Ne. congruence. }
     rewrite (bool_decide_eq_false_2 _ nTgd).
     rewrite (bool_decide_eq_true_2 _ Tg).
     lia.
   + rewrite IHtr1.
     rewrite IHtr2.
-    rewrite /has_tag.
     rewrite (bool_decide_eq_false_2 _ nTgp).
     lia.
 Qed.
@@ -430,7 +423,7 @@ Proof.
   all: destruct ContainsParent as [Parent0 | [Parent1 | Parent2]].
   - simpl in Rel.
     destruct Rel as [_ [_ [Bad _]]]; apply Net'.
-    unfold IsTag in Bad; destruct Bad; reflexivity.
+    destruct Bad; reflexivity.
   - apply IHtr1.
     * auto.
     * destruct Rel as [Rel0 [Rel1 Rel2]]; auto.
@@ -464,8 +457,7 @@ Qed.
 Lemma new_item_has_tag tg pk rk cid :
   IsTag tg (create_new_item tg pk rk cid).
 Proof.
-  unfold create_new_item.
-  unfold IsTag; simpl; reflexivity.
+  rewrite /create_new_item //=.
 Qed.
 
 Lemma insertion_contains tr tgp tgc pk rk cid :
@@ -609,9 +601,8 @@ Proof.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; intros tr' Create; inversion Create; [reflexivity|].
   destruct (decide (IsTag tgp data)).
   + simpl.
-    rewrite /has_tag.
     assert (~IsTag tg (create_new_item tg' pk rk cid)) as NotTg. {
-      rewrite /create_new_item /IsTag //=.
+      rewrite /create_new_item //=.
     }
     erewrite IHtr1; [|reflexivity].
     erewrite IHtr2; [|reflexivity].
@@ -726,7 +717,7 @@ Proof.
   destruct (unique_somewhere_3way Unq) as [ [H0 _] |[ [_ [H1 _]] | [_ [_ H2]] ]].
   - exists (data, tr1, tr2).
     split; [left; reflexivity|].
-    simpl. rewrite /has_tag in H0.
+    simpl.
     destruct (decide (IsTag tg data)); [assumption|].
     rewrite bool_decide_eq_false_2 in H0; [discriminate|assumption].
   - destruct (IHtr1 H1) as [br1 [??]].
@@ -751,7 +742,7 @@ Proof.
   - (* easy *) congruence.
   - (* too many tags: one here, one in tr1 *)
     assert ((if has_tag tg data then 1 else 0) = 1). {
-      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+      rewrite bool_decide_eq_true_2; subst; auto.
     }
     assert (tree_count_tg tg tr1 ≥ 1). {
       rewrite count_gt0_exists.
@@ -764,7 +755,7 @@ Proof.
     lia.
   - (* too many tags: one here, one in tr2 *)
     assert ((if has_tag tg data then 1 else 0) = 1). {
-      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+      rewrite bool_decide_eq_true_2; subst; auto.
     }
     assert (tree_count_tg tg tr2 ≥ 1). {
       rewrite count_gt0_exists.
@@ -777,14 +768,14 @@ Proof.
     lia.
   - (* too many tags: one in tr1, one here *)
     assert ((if has_tag tg data then 1 else 0) = 1). {
-      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+      rewrite bool_decide_eq_true_2; subst; auto.
     }
     assert (tree_count_tg tg tr1 ≥ 1). {
       rewrite count_gt0_exists.
       enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
       + rewrite -exists_node_iff_exists_root in Root. assumption.
       + eapply exists_subtree_increasing; [|eassumption].
-        intros; subst. assumption.
+        intros; subst; reflexivity.
     }
     rewrite /tree_unique /= in Unq.
     lia.
@@ -805,7 +796,7 @@ Proof.
       enough (exists_subtree (compose (IsTag tg) root) tr1) as Root.
       + rewrite -exists_node_iff_exists_root in Root. assumption.
       + eapply exists_subtree_increasing; [|eassumption].
-        intros; subst. assumption.
+        intros; subst; reflexivity.
     }
     assert (tree_count_tg tg tr2 ≥ 1). {
       rewrite count_gt0_exists.
@@ -817,14 +808,14 @@ Proof.
     rewrite /tree_unique /= in Unq. lia.
   - (* too many tags: one in tr2, one here *)
     assert ((if has_tag tg data then 1 else 0) = 1). {
-      rewrite /has_tag. rewrite bool_decide_eq_true_2; subst; auto.
+      rewrite bool_decide_eq_true_2; subst; auto.
     }
     assert (tree_count_tg tg tr2 ≥ 1). {
       rewrite count_gt0_exists.
       enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
       + rewrite -exists_node_iff_exists_root in Root. assumption.
       + eapply exists_subtree_increasing; [|eassumption].
-        intros; subst. assumption.
+        intros; subst. reflexivity.
     }
     rewrite /tree_unique /= in Unq.
     lia.
@@ -841,7 +832,7 @@ Proof.
       enough (exists_subtree (compose (IsTag tg) root) tr2) as Root.
       + rewrite -exists_node_iff_exists_root in Root. assumption.
       + eapply exists_subtree_increasing; [|eassumption].
-        intros; subst. assumption.
+        intros; subst. reflexivity.
     }
     rewrite /tree_unique /= in Unq. lia.
   - (* recurse right *)
@@ -891,7 +882,7 @@ Proof.
   simpl in Unq.
   destruct (unique_somewhere_3way Unq) as [ [?[??]] |[ [H[??]] | [?[??]] ]]; [congruence| |congruence].
   split; first (rewrite <- count_0_not_exists; assumption).
-  intro Tg. rewrite /has_tag in H.
+  intro Tg.
   rewrite bool_decide_eq_true_2 in H; [|assumption].
   congruence.
 Qed.
@@ -907,7 +898,7 @@ Proof.
   simpl in Unq.
   destruct (unique_somewhere_3way Unq) as [ [?[??]] |[ [?[??]] | [H[??]] ]]; [congruence|congruence| ].
   split; first (rewrite <- count_0_not_exists; assumption).
-  intro Tg. rewrite /has_tag in H.
+  intro Tg.
   rewrite bool_decide_eq_true_2 in H; [|assumption].
   congruence.
 Qed.
@@ -1075,10 +1066,9 @@ Proof.
   }
 
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; [discriminate|].
-  rewrite /has_tag in Unq1, Unq2.
   destruct (decide (IsTag tg1 data)), (decide (IsTag tg2 data)).
   - exfalso. eapply cousins_different; [eassumption|].
-    unfold IsTag in *; congruence.
+    congruence.
   - rewrite bool_decide_eq_false_2 /= in Unq2; [|assumption].
     destruct (unique_somewhere Unq2) as [[Unq21 _] | [Unq22 _]].
     + left. right. right. left.
@@ -1112,7 +1102,7 @@ Proof.
       apply IHtr1.
       * apply Unq11.
       * apply Unq21.
-      * eapply cousins_in_branch_1; eassumption.
+      * eapply cousins_in_branch_1; try eassumption; assumption.
       * apply Unrel1.
       * apply Unrel2.
     + (* found the common ancestor *)
@@ -1124,7 +1114,7 @@ Proof.
       apply IHtr2.
       * apply Unq12.
       * apply Unq22.
-      * eapply cousins_in_branch_2; eassumption.
+      * eapply cousins_in_branch_2; try eassumption; assumption.
       * apply Unrel1.
       * apply Unrel2.
 Qed.

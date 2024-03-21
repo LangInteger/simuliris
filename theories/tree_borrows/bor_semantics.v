@@ -219,10 +219,7 @@ Qed.
 
 (** CORE SEMANTICS *)
 
-(* FIXME: see if this is easier to manipulate when it's a notation *)
-Definition IsTag t : Tprop (item) := fun it => it.(itag) = t.
-Global Instance IsTag_dec t it : Decision (IsTag t it).
-Proof. rewrite /IsTag. solve_decision. Defined.
+Notation IsTag t := (fun it => it.(itag) = t) (only parsing).
 
 Definition HasRootTag t : Tprop (tbranch item) := fun br => IsTag t (root br).
 Global Instance HasRootTag_dec t it : Decision (HasRootTag t it).
@@ -659,7 +656,7 @@ Proof. by destruct b. Qed.
 
 Lemma IsTag_reverse it it' :
   IsTag it.(itag) it' -> IsTag it'.(itag) it.
-Proof. unfold IsTag. auto. Qed.
+Proof. simpl. auto. Qed.
 
 Lemma apply_access_idempotent
   {kind rel} (isprot isprot' : bool) {perm perm'}
@@ -688,7 +685,7 @@ Definition tree_item_determined tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
-Definition has_tag tg it : bool := bool_decide (IsTag tg it).
+Notation has_tag tg := (fun it => bool_decide (IsTag tg it)) (only parsing).
 
 Definition tree_count_tg tg tr : nat := count_nodes (has_tag tg) tr.
 Definition tree_unique tg tr : Prop := tree_count_tg tg tr = 1.

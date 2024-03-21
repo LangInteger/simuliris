@@ -97,7 +97,7 @@ Proof.
     intros (tg & Htg). lia.
   - split; first done.
     intros _. exists (it.(itag)).
-    rewrite /= /has_tag bool_decide_eq_true_2 //.
+    rewrite /= bool_decide_eq_true_2 //.
     lia.
 Qed.
 
@@ -327,7 +327,7 @@ Proof.
   intros (itroot&Hitroot&(tr1'&Htr1'&(tr2'&Htr2&[= <-])%bind_Some)%bind_Some)%bind_Some.
   simpl; f_equal; first f_equal.
   - destruct (Hfn _ _ Hitroot) as (H1 & H2 & H3).
-    rewrite /has_tag /IsTag !bool_decide_decide.
+    rewrite !bool_decide_decide.
     destruct decide as [Heq|Heq]; rewrite H1 in Heq.
     1: rewrite decide_True //. rewrite decide_False //.
   - by eapply IHtr1.
@@ -407,7 +407,7 @@ Lemma tree_apply_access_compat_nexts fn tr tr' cids tg range nxtp nxtc :
 Proof.
   eapply tree_joinmap_preserve_prop.
   intros it1 it2 (H1&H2&H3)%item_apply_access_preserves_metadata.
-  rewrite /item_wf /IsTag /= H1 H2. done.
+  rewrite /item_wf /= H1 H2. done.
 Qed.
 Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
   join_nodes (map_nodes (fun it => if P it then None else Some it) tr) = Some tr' ->
@@ -513,7 +513,7 @@ Proof.
   intros tg H.
   cbv in H. destruct_or!; try done.
   subst tg.
-  by rewrite /tree_unique /init_tree /= /has_tag bool_decide_true.
+  by rewrite /tree_unique /init_tree /= bool_decide_true.
 Qed.
 
 Lemma init_tree_compat_nexts c t t' :
@@ -972,7 +972,7 @@ Proof.
     - simpl. intros ?????.
       eapply insert_child_wf; try done.
       split; rewrite /create_new_item /=.
-      + rewrite /IsTag /=. intros ? <-; lia.
+      + rewrite /=. intros ? <-; lia.
       + destruct rk; last done.
         rewrite /= /protector_is_for_call /=.
         intros ? [= <-]. by eapply WF.

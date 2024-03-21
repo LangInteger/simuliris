@@ -71,7 +71,7 @@ Proof.
       destruct Hspec as [v App].
       exists v.
       split; auto.
-      unfold IsTag in *; subst.
+      subst.
       symmetry.
       rewrite (proj1 ( item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
       reflexivity.
@@ -81,7 +81,7 @@ Proof.
       intros x Exists xspec.
       destruct xspec as [v App].
       destruct App as [H0].
-      unfold IsTag in *; subst.
+      subst.
       rewrite (proj1 (item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
       reflexivity.
 Qed.
@@ -110,7 +110,7 @@ Proof.
   pose proof (create_child_isSome tr _ _ _ _ _ _ _ Create) as Insert.
   all: rewrite Insert in Ex.
   eapply insert_false_infer_exists; [|exact Ex].
-  rewrite /IsTag; simpl; assumption.
+  simpl; assumption.
 Qed.
 
 Lemma apply_access_spec_per_node
@@ -149,7 +149,6 @@ Proof.
   * pose proof (SuccessCond n Exn) as NodeSuccess.
     destruct NodeSuccess as [post' post'Spec].
     exists post'.
-    unfold IsTag.
     split.
     - tauto.
     - rewrite <- (proj1 (item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
@@ -236,8 +235,8 @@ Proof.
     injection RETAG_EFFECT; intros; subst.
     rewrite <- insert_eqv_rel.
     * tauto.
-    * rewrite /IsTag new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex).
-    * rewrite /IsTag new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex').
+    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex).
+    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex').
 Qed.
 
 Lemma bor_local_step_retag_produces_rel
