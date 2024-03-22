@@ -338,6 +338,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
         (* So that the function is commutative on all states and not just on reachable states,
            we change the transition into [Active -> Disabled] when a protector is present.
            This happens to slightly simplify the protector check. *)
+        (* This is also crucial, otherwise concurrent reads make things annoying *)
         Some Disabled else Some Frozen
       | Frozen | Disabled  => Some perm
       end

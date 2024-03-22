@@ -9,7 +9,7 @@ From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_retag steps_inv.
-From simuliris.tree_borrows Require Import logical_state inv_accessors.
+From simuliris.tree_borrows Require Import logical_state inv_accessors trees_equal.
 From iris.prelude Require Import options.
 
 (***** not part of the API *****)
@@ -104,7 +104,7 @@ Proof.
   specialize (Heq blk).
   rewrite Hlutr1 Hlutr2 in Heq.
   inversion Heq as [x1 x2 Heq1|]; subst x1 x2. (* yikes *)
-  eapply tree_equal_preserved_by_access.
+  eapply tree_equal_preserved_by_memory_access.
   3, 5, 6: done.
   3: rewrite /trees_contain /trees_at_block Hlutr1 // in Hcont.
   all: eapply wf_tree_tree_unique; 

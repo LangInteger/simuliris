@@ -7,7 +7,7 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_retag steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
-From simuliris.tree_borrows Require Import wishlist.
+From simuliris.tree_borrows Require Import wishlist trees_equal.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -668,13 +668,6 @@ Proof.
 Qed.
 *)
 
-
-(* FIXME: now that tk_unq is a single contstructor, can we merge the two cases ? *)
-Lemma tk_to_frac_unq tk :
-  (tk = tk_unq tk_act ∨ tk = tk_unq tk_res) →
-  tk_to_frac tk = DfracOwn 1.
-Proof. by intros [->| ->]. Qed.
-
 Lemma sim_write_unique_unprotected π l t sz tk tkk v_t v_s v_t' v_s' Φ :
   (tk = tk_unq tkk) →
   length v_t = sz →
@@ -758,13 +751,13 @@ Proof.
   (* update the ghost state.
     no separate lemma for, this is quite an atomic operation. *)
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
-  rewrite !(tk_to_frac_unq tk). 2: subst tk; destruct tkk; tauto.
+  subst tk.
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hheaplet_t".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hheaplet_s".
   iMod (ghost_map_array_tag_update _ _ _ v_t' with "Htag_t_auth Ht") as "[Ht Htag_t_auth]"; first lia.
   iMod (ghost_map_array_tag_update _ _ _ v_s' with "Htag_s_auth Hs") as "[Hs Htag_s_auth]"; first lia.
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htk".
-  iMod (tkmap_update_strong (tk_unq tk_act) () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first (by subst tk).
+  iMod (tkmap_update_strong (tk_unq tk_act) () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first done.
 
   iModIntro.
   pose (σ_s' := (mkState (write_mem l v_s' σ_s.(shp)) trs_s' σ_s.(scs) σ_s.(snp) σ_s.(snc))).
@@ -845,7 +838,7 @@ Proof.
     simpl.
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_s' l.2 !! lac.2 = Some sc →
           loc_controlled lac t (tk_unq tk_act) sc σ_s' ∧ bor_state_pre lac t (tk_unq tk_act) σ_s') as Hlct_s.
-    { intros lac sc H1 H2.  subst tk.
+    { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_s /=.
         destruct (list_to_heaplet v_s l.2 !! lac.2) eqn:Heq; first by eexists.
@@ -858,7 +851,7 @@ Proof.
     pose (σ_t' := (mkState (write_mem l v_t' (shp σ_t)) trs_t' (scs σ_t) (snp σ_t) (snc σ_t))).
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_t' l.2 !! lac.2 = Some sc →
           loc_controlled lac t (tk_unq tk_act) sc σ_t' ∧ bor_state_pre lac t (tk_unq tk_act) σ_t') as Hlct_t.
-    { intros lac sc H1 H2.  subst tk.
+    { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_t /=.
         destruct (list_to_heaplet v_t l.2 !! lac.2) eqn:Heq; first by eexists.
@@ -876,12 +869,12 @@ Proof.
       - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq2; eapply elem_of_dom_2; done. }
-        rewrite /= in Heq1,H2. injection Heq1 as Hlac. subst tk.
+        rewrite /= in Heq1,H2. injection Heq1 as Hlac.
         eapply Hlct_s; done.
       - intros lac sc (csv&[(Heq1&<-)|(Hne1&Hne2)]%lookup_insert_Some&H2)%bind_Some; last first.
         { exfalso. eapply Hne1. simpl. f_equal.
           eapply Hunq1; eapply elem_of_dom_2; done. }
-        rewrite /= in Heq1,H2. injection Heq1 as Hlac. subst tk.
+        rewrite /= in Heq1,H2. injection Heq1 as Hlac.
         eapply Hlct_t; done. }
     { (* we are a different tag *)
       destruct (Htag_interp _ _ Ht) as (Hv1&Hv2&Hlc1&Hlc2&Hagr).
