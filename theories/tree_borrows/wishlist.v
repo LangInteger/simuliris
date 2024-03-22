@@ -65,15 +65,6 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma trees_equal_allows_same_access C tr1 tr2 blk kind acc_tg range :
-  (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
-  trees_equal C tr1 tr2 →
-  wf_trees tr1 →
-  wf_trees tr2 →
-  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
-  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
-Admitted.
-
 Lemma wf_tree_tree_unique tr :
   wf_tree tr →
   ∀ tg,
@@ -83,6 +74,27 @@ Proof.
   intros Hwf tg Hcont.
   by apply (Hwf tg Hcont).
 Qed.
+
+Lemma trees_equal_allows_same_access C tr1 tr2 blk kind acc_tg range :
+  (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
+  trees_equal C tr1 tr2 →
+  wf_trees tr1 →
+  wf_trees tr2 →
+  trees_contain acc_tg tr1 blk →
+  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
+  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
+Proof.
+  intros Heq Hwf1 Hwf2 Hcont [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
+  specialize (Heq blk).
+  rewrite H1 in Heq. inversion Heq as [? trr2 Heqr q H2'|]; simplify_eq.
+  eapply mk_is_Some, tree_equal_allows_same_access in H2 as (trr2'&Htrr2').
+  * eexists. rewrite /apply_within_trees -H2' /= Htrr2' /= //.
+  * intros tg. eapply wf_tree_tree_unique. eapply Hwf1, H1.
+  * apply Heqr.
+  * eapply wf_tree_tree_unique. 1: eapply Hwf1, H1.
+    rewrite /trees_contain /trees_at_block H1 // in Hcont.
+Qed.
+
 
 Lemma trees_equal_preserved_by_access
   {C blk tr1 tr2 tr1' tr2' kind acc_tg range}

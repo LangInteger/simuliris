@@ -661,13 +661,13 @@ Section utils.
     eapply (loc_eq_up_to_C_allows_same_access Tg1 Tg2 UnqAcc Ex1); try done.
   Qed.
 
-  Lemma tree_equal_allows_same_access
+  Lemma tree_equal_allows_same_access_maybe_nonchildren_only (b:bool)
     {tr1 tr2 kind acc_tg range}
     (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1) :
     tree_equal tr1 tr2 ->
     tree_unique acc_tg tr1 ->
-    is_Some (memory_access kind C acc_tg range tr1) ->
-    is_Some (memory_access kind C acc_tg range tr2).
+    is_Some (tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr1) ->
+    is_Some (tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr2).
   Proof.
     intros Eq UnqAcc Acc1.
     apply apply_access_success_condition.
@@ -682,7 +682,7 @@ Section utils.
     pose proof Eq as EqCopy.
     destruct EqCopy as [ExIff [SameRel Lookup]].
     destruct (tree_equal_transfer_lookup_2 Eq Lookup2) as [it1 [Lookup1 EqC]].
-    eapply (item_eq_up_to_C_allows_same_access false); [| | | | | | |eauto|].
+    eapply (item_eq_up_to_C_allows_same_access b); [| | | | | | |eauto|].
     - erewrite tree_determined_specifies_tag. 2,3: eapply Lookup1. reflexivity.
     - erewrite tree_determined_specifies_tag. 2,3: eapply Lookup2. reflexivity.
     - apply UnqAcc.
@@ -693,6 +693,17 @@ Section utils.
     - eapply Every1; eassumption.
   Qed.
 
+  Lemma tree_equal_allows_same_access
+    {tr1 tr2 kind acc_tg range}
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1) :
+    tree_equal tr1 tr2 ->
+    tree_unique acc_tg tr1 ->
+    is_Some (memory_access kind C acc_tg range tr1) ->
+    is_Some (memory_access kind C acc_tg range tr2).
+  Proof.
+    by eapply (tree_equal_allows_same_access_maybe_nonchildren_only false).
+  Qed. 
+
   Lemma tree_equal_allows_same_access_nonchildren_only
     {tr1 tr2 kind acc_tg range}
     (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1) :
@@ -701,29 +712,8 @@ Section utils.
     is_Some (memory_access_nonchildren_only kind C acc_tg range tr1) ->
     is_Some (memory_access_nonchildren_only kind C acc_tg range tr2).
   Proof.
-    intros Eq UnqAcc Acc1.
-    apply apply_access_success_condition.
-    pose proof (proj2 (apply_access_success_condition _ _ _ _ _) Acc1) as Every1.
-    (* Get it into a more usable form *)
-    rewrite every_node_iff_every_lookup in Every1.
-    2: eapply tree_equal_implies_globally_unique_1; eassumption.
-    rewrite every_node_iff_every_lookup.
-    2: eapply tree_equal_implies_globally_unique_2; eassumption.
-    (* And now we can unfold the definitions more *)
-    intros tg it Lookup2.
-    pose proof Eq as EqCopy.
-    destruct EqCopy as [ExIff [SameRel Lookup]].
-    destruct (tree_equal_transfer_lookup_2 Eq Lookup2) as [it1 [Lookup1 EqC]].
-    eapply (item_eq_up_to_C_allows_same_access true); [| | | | | | |eauto|].
-    - erewrite tree_determined_specifies_tag. 2,3: eapply Lookup1. reflexivity.
-    - erewrite tree_determined_specifies_tag. 2,3: eapply Lookup2. reflexivity.
-    - apply UnqAcc.
-    - apply GloballyUnique1. apply Lookup1.
-    - eassumption.
-    - apply Acc1.
-    - exact GloballyUnique1.
-    - eapply Every1; eassumption.
-  Qed.
+    by eapply (tree_equal_allows_same_access_maybe_nonchildren_only true).
+  Qed. 
 
   Lemma access_same_rel_dec
     {tr tr' fn cids acc_tg range}
