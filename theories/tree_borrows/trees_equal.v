@@ -15,23 +15,6 @@ From iris.prelude Require Import options.
 (* TODO cleanup *)
 Section utils.
 
-  Definition maybe_non_children_only (b:bool) := if b then nonchildren_only else λ x, x.
-
-  Lemma maybe_non_children_only_no_effect b1 fn rel ip perm :
-    rel ≠ Child Strict →
-    maybe_non_children_only b1 fn rel ip perm =
-    fn rel ip perm.
-  Proof.
-    by destruct b1, rel as [[]|[]].
-  Qed.
-
-  Lemma maybe_non_children_only_effect_or_nop b1 fn rel :
-    (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm) ∨
-    (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm).
-  Proof.
-    destruct b1, rel as [[]|[]]; simpl; eauto.
-  Qed.
-
   Definition tree_lookup (tr : tree item) (tg : tag) (it : item) := tree_contains tg tr ∧ tree_item_determined tg it tr.
 
   Definition trees_lookup (trs : trees) blk tg it :=
@@ -67,6 +50,15 @@ Section utils.
     default {| initialized := PermLazy; perm := it.(initp) |} (it.(iperm) !! l).
 
   Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
+
+  Lemma tag_valid_mono upper1 upper2 n1 n2 :
+    tag_valid upper1 n1 →
+    (upper1 ≤ upper2)%nat →
+    (n2 ≤ n1)%nat →
+    tag_valid upper2 n2.
+  Proof.
+    rewrite /tag_valid. lia.
+  Qed.
 
   Context (C : gset call_id).
 
@@ -713,7 +705,7 @@ Section utils.
     is_Some (memory_access_nonchildren_only kind C acc_tg range tr2).
   Proof.
     by eapply (tree_equal_allows_same_access_maybe_nonchildren_only true).
-  Qed. 
+  Qed.
 
   Lemma access_same_rel_dec
     {tr tr' fn cids acc_tg range}
@@ -997,5 +989,146 @@ Section utils.
   Proof.
     by eapply (tree_equal_preserved_by_access_maybe_nonchildren_only true).
   Qed.
+
+  Lemma tree_equal_memory_deallocate
+    {tr1 tr2 tr1' tr2' acc_tg range}
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
+    (GloballyUnique2 : forall tg, tree_contains tg tr2 -> tree_unique tg tr2)
+    :
+    tree_equal tr1 tr2 ->
+    tree_contains acc_tg tr1 ->
+    memory_deallocate C acc_tg range tr1 = Some tr1' ->
+    memory_deallocate C acc_tg range tr2 = Some tr2' ->
+    tree_equal tr1' tr2'.
+  Proof.
+    intros Heq Hcontains (pw1&Hacc1&<-%join_map_id_is_Some_identical)%bind_Some
+                         (pw2&Hacc2&<-%join_map_id_is_Some_identical)%bind_Some.
+    by eapply (@tree_equal_preserved_by_memory_access_nonchildren_only tr1 tr2).
+  Qed.
+
+  Lemma exists_node_to_tree_lookup tr itm
+    (GloballyUnique : forall tg, tree_contains tg tr -> tree_unique tg tr) :
+    exists_node (eq itm) tr →
+    tree_lookup tr (itag itm) itm.
+  Proof.
+    intros Hexi. assert (tree_contains (itag itm) tr) as Hcontain.
+    - eapply exists_node_increasing; first done.
+      eapply every_node_eqv_universal; intros ? _ <-. done.
+    - split; first done.
+      eapply GloballyUnique, unique_lookup in Hcontain as (it2 & Hit2).
+      enough (itm = it2) by by subst itm.
+      eapply every_node_eqv_universal in Hit2; first eapply Hit2.
+      all: done.
+  Qed.
+
+  Lemma tree_lookup_to_exists_node tr itm :
+    tree_lookup tr (itag itm) itm →
+    exists_node (eq itm) tr.
+  Proof.
+    intros (Hcont&Hitm). by eapply exists_determined_exists.
+  Qed.
+
+  Lemma is_Some_if {A} (P : bool) (s:A) : is_Some (if P then Some s else None) → P.
+  Proof.
+    destruct P; first done.
+    intros (x&[=]).
+  Qed.
+
+  Lemma is_Some_if_neg {A} (P : bool) (s:A) : is_Some (if P then None else Some s) → P = false.
+  Proof.
+    destruct P; last done.
+    intros (x&[=]).
+  Qed.
+
+  Lemma tree_equal_allows_same_deallocation
+    {tr1 tr2 acc_tg range}
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
+    (GloballyUnique2 : forall tg, tree_contains tg tr2 -> tree_unique tg tr2) :
+    tree_equal tr1 tr2 ->
+    tree_unique acc_tg tr1 ->
+    is_Some (memory_deallocate C acc_tg range tr1) ->
+    is_Some (memory_deallocate C acc_tg range tr2).
+  Proof.
+    intros Heq Hunq (tr1'&(pw1&Hpw1&Htrr%mk_is_Some)%bind_Some).
+    pose proof Hpw1 as HH.
+    eapply mk_is_Some, tree_equal_allows_same_access_nonchildren_only in HH as (pw2&Hpw2). 2-4: done.
+    opose proof (tree_equal_preserved_by_memory_access_nonchildren_only _ _ _ _ Hpw1 Hpw2) as Heqpw.
+    1-3: done. 1: by eapply unique_exists.
+    rewrite /memory_deallocate Hpw2 /option_bind //.
+    eapply join_success_condition, every_node_map, every_node_eqv_universal.
+    intros itm2 Hitm2%exists_node_to_tree_lookup.
+    2: { intros ttg Hcont.
+         eapply access_preserves_tags, GloballyUnique2 in Hcont.
+         2: apply Hpw2. setoid_rewrite <- tree_apply_access_preserve_unique; last apply Hpw2.
+         done. }
+    assert (tree_contains (itag itm2) pw2) as Hcont by apply Hitm2.
+    destruct Heqpw as (Hsame&_&Hacc). setoid_rewrite <- Hsame in Hcont.
+    apply Hacc in Hcont as (itm1&itm2'&Hlu1&Hlu2&Hiteq).
+    assert (itm2' = itm2) as ->.
+    1: eapply tree_determined_unify. 1,3: eapply Hitm2. 1: eapply Hlu2.
+    assert (itag itm1 = itag itm2) as Htageq.
+    1: eapply tree_lookup_correct_tag, Hlu1.
+    eapply join_success_condition in Htrr.
+    setoid_rewrite every_node_map in Htrr.
+    eapply every_node_eqv_universal in Htrr.
+    2: { eapply tree_lookup_to_exists_node. rewrite -Htageq in Hlu1. done. }
+    simpl in Htrr. eapply is_Some_if_neg in Htrr.
+    destruct (Hiteq 0) as (Hloceq&_). simpl.
+    rewrite -!Hloceq Htrr. done.
+  Qed.
+
+  Lemma trees_equal_insert tr1 tr2 ttr1 ttr2 blk :
+    trees_equal tr1 tr2 →
+    tree_equal ttr1 ttr2 →
+    trees_equal (<[blk := ttr1]> tr1) (<[blk := ttr2]> tr2).
+  Proof.
+    intros Htr Httr blk'.
+    destruct (decide (blk = blk')) as [Heq|Hne].
+    - rewrite -!Heq !lookup_insert. by econstructor.
+    - rewrite !lookup_insert_ne //.
+  Qed.
+
+  Lemma apply_within_trees_equal fn blk tr1 tr1' tr2 :
+    (∀ ttr1 ttr1' ttr2, fn ttr1 = Some ttr1' → tree_equal ttr1 ttr2 →
+       tr1 !! blk = Some ttr1 → tr1' !! blk = Some ttr1' → tr2 !! blk = Some ttr2 →
+     ∃ ttr2', fn ttr2 = Some ttr2' ∧ tree_equal ttr1' ttr2') →
+    apply_within_trees fn blk tr1 = Some tr1' →
+    trees_equal tr1 tr2 →
+    ∃ tr2', apply_within_trees fn blk tr2 = Some tr2' ∧
+       trees_equal tr1' tr2'.
+  Proof.
+    intros Hfn Happly Heq.
+    rewrite /apply_within_trees in Happly|-*.
+    specialize (Heq blk) as Heqblk.
+    inversion Heqblk as [ttr1 ttr2 Hteq Htr1 Htr2|HN1 HN2]; last rewrite -HN1 // in Happly.
+    rewrite -Htr1 -?Htr2 /= in Happly|-*.
+    destruct (fn ttr1) as [ttr1'|] eqn:Hfnttr1; last done.
+    rewrite /= in Happly. injection Happly as <-.
+    destruct (Hfn ttr1 ttr1' ttr2) as (ttr2' & Hfnttr2 & Heq'); try done.
+    1: by rewrite lookup_insert.
+    rewrite Hfnttr2 /=. eexists; split; first done.
+    by apply trees_equal_insert.
+  Qed.
+
+  Lemma trees_equal_delete tr1 tr2 blk :
+    trees_equal tr1 tr2 →
+    trees_equal (delete blk tr1) (delete blk tr2).
+  Proof.
+    intros Htr blk'.
+    destruct (decide (blk = blk')) as [Heq|Hne].
+    - rewrite -!Heq !lookup_delete. by econstructor.
+    - rewrite !lookup_delete_ne //.
+  Qed.
+
+  Lemma trees_equal_init_trees ts tt tg bl :
+    trees_equal ts tt →
+    trees_equal (extend_trees tg bl ts) (extend_trees tg bl tt).
+  Proof.
+    intros Htrs. apply trees_equal_insert; first done.
+    eapply tree_equal_reflexive.
+    eapply wf_tree_tree_item_determined.
+    eapply wf_init_tree.
+  Qed.
+
 
 End utils.

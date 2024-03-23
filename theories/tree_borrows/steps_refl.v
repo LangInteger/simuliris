@@ -5,7 +5,7 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
-From simuliris.tree_borrows Require Import trees_equal steps_progress steps_retag steps_inv.
+From simuliris.tree_borrows Require Import trees_equal wishlist steps_progress steps_retag steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From iris.prelude Require Import options.
 
@@ -29,46 +29,6 @@ Proof. iIntros "H". iApply sim_expr_base. iExists (PlaceR _ _ _), (PlaceR _ _ _)
 Lemma sim_result r_t r_s (Φ : result → result → iProp Σ) π :
   Φ r_t r_s -∗ of_result r_t ⪯{π} of_result r_s {{ Φ }}.
 Proof. iIntros "H". iApply sim_expr_base. by iApply lift_post_val. Qed.
-
-Lemma trees_equal_insert C tr1 tr2 ttr1 ttr2 blk :
-  trees_equal C tr1 tr2 →
-  tree_equal C ttr1 ttr2 →
-  trees_equal C (<[blk := ttr1]> tr1) (<[blk := ttr2]> tr2).
-Proof.
-  intros Htr Httr blk'.
-  destruct (decide (blk = blk')) as [Heq|Hne].
-  - rewrite -!Heq !lookup_insert. by econstructor.
-  - rewrite !lookup_insert_ne //.
-Qed.
-
-Lemma trees_equal_delete C tr1 tr2 blk :
-  trees_equal C tr1 tr2 →
-  trees_equal C (delete blk tr1) (delete blk tr2).
-Proof.
-  intros Htr blk'.
-  destruct (decide (blk = blk')) as [Heq|Hne].
-  - rewrite -!Heq !lookup_delete. by econstructor.
-  - rewrite !lookup_delete_ne //.
-Qed.
-
-Lemma trees_equal_init_trees C ts tt tg bl :
-  trees_equal C ts tt →
-  trees_equal C (extend_trees tg bl ts) (extend_trees tg bl tt).
-Proof.
-  intros Htrs. apply trees_equal_insert; first done.
-  split; first done.
-  split; first done.
-  intros t l.
-  (*
-  pose (it := mkItemForLoc (mkPerm PermLazy Active) tg None).
-  exists it, it. assert (item_for_loc_in_tree it (init_tree tg) l) as H.
-  { econstructor; [done..|].
-    cbn. rewrite lookup_empty. done. }
-  split; first done.
-  split; first done.
-  econstructor. done.
-  *)
-  Admitted.
 
 Lemma init_mem_lookup_fresh_poison blk off (n:nat) h :
   0 ≤ off ∧ off < n →
@@ -177,10 +137,10 @@ Proof.
     + iPureIntro. cbn. by rewrite Hsnp_eq.
     + iPureIntro. cbn. by rewrite Hsnc_eq.
     + iPureIntro. cbn. by rewrite Hscs_eq. 
-    + cbn. fold blk. iIntros ((blk'&off') [sc Hsc]).
+    + simpl. fold blk. iIntros ((blk'&off') [sc Hsc]).
       apply init_mem_lookup_fresh_inv in Hsc as Hsc'; last eapply is_fresh_block.
       destruct Hsc' as [([= ->] & -> & Hpos & Hlt)|[([=] & _)|(Hthru&Hne)]].
-      * iLeft. unfold pub_loc. cbn. iIntros (sc_t Hlu).
+      * iLeft. iIntros (sc_t Hlu).
         rewrite Hsc in Hlu.
         injection Hlu as <-. 
         iExists ScPoison. iSplit; last done. iPureIntro.
@@ -199,35 +159,31 @@ Proof.
            intros <-. by rewrite HNone in HtagSome.
   - (* call interp *) 
     iPureIntro.
-    intros c M Hc. cbn. specialize (Hcall_interp c M Hc) as (Hc1 & Hc2).
+    intros c M Hc. simpl. specialize (Hcall_interp c M Hc) as (Hc1 & Hc2).
     split; first done. intros t L Ht.
     specialize (Hc2 t L Ht) as (Hc3 & Hc4).
     split.
-    { inversion Hc3; subst; econstructor; lia. }
+    { eapply tag_valid_mono; try done; lia. }
     intros l' Hl'. specialize (Hc4 l' Hl') as (it & Hit & Hperm).
     exists it; split; last done.
-    (*
-    inversion Hit as [tree H H1]; simplify_eq.
-    eapply (is_in_trees _ _ _ tree); last done.
+    destruct Hit as (trr&Hit1&Hit2); eexists; split; last done.
     rewrite /extend_trees lookup_insert_ne //.
-    intros Heq. rewrite -Heq in H.
-    eapply elem_of_dom_2 in H.
-    rewrite state_wf_dom in H; last done.
-    apply elem_of_map in H as ((l1 & l2) & Heq2 & H).
-    simpl in Heq2. subst l1.
-    eapply is_fresh_block, H. 
+    intros Heq. rewrite -Heq in Hit1.
+    eapply elem_of_dom_2 in Hit1.
+    rewrite state_wf_dom // in Hit1.
+    by eapply is_fresh_block_fst in Hit1.
   - (* tag interp *)
-    iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s). split_and!.
+    iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2). split_and!.
     { simpl. intros tr tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
       - (* new tag: as these are public, the locations under this tag are not directly controlled *)
         split_and!; [ rewrite /tag_valid; lia | rewrite /tag_valid; lia | | |].
         + intros l' sc_t Hsc_t. exfalso. specialize (Hdom_t nt l' ltac:(eauto)) as (? &?). subst nt. congruence.
         + intros l' sc_t Hsc_t. exfalso. specialize (Hdom_s nt l' ltac:(eauto)) as (? &?). subst nt. congruence.
         + apply dom_agree_on_tag_not_elem. 
-          * intros l'. destruct (M_t !! (nt, l')) eqn:Hs; last done.
+          * intros l'. destruct heaplet_lookup eqn:Hs; last done.
             destruct (Hdom_t nt l' ltac:(eauto)) as (? & ?).
             subst nt. congruence.
-          * intros l'. destruct (M_s !! (nt, l')) eqn:Hs; last done.
+          * intros l'. destruct heaplet_lookup eqn:Hs; last done.
             destruct (Hdom_s nt l' ltac:(eauto)) as (? & ?).
             subst nt. congruence.
       - (* old tag *)
@@ -241,51 +197,10 @@ Proof.
     }
     { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
     { intros t l'. rewrite lookup_insert_is_Some'. eauto. }
+    { done. }
+    { done. }
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
-  *)
-Admitted.
-
-(* If two trees are `tree_equal` then an access in one succeeds in the other
-   and the resulting trees are still `tree_equal` *)
-Lemma tree_equal_memory_access cids tr1 tr2 kind access_tg access_range tr1' :
-tree_equal cids tr1 tr2 →
-memory_access kind cids access_tg access_range tr1 = Some tr1' →
-∃ tr2',
-  memory_access kind cids access_tg access_range tr2 = Some tr2' ∧
-  tree_equal cids tr1' tr2'.
-Proof.
-Admitted.
-
-(* If two trees are `tree_equal` then a deallocation in one succeeds in the other
-   and the resulting trees are still `tree_equal` *)
-Lemma tree_equal_memory_deallocate cids tr1 tr2 access_tg access_range tr1' :
-tree_equal cids tr1 tr2 →
-memory_deallocate cids access_tg access_range tr1 = Some tr1' →
-∃ tr2',
-  memory_deallocate cids access_tg access_range tr2 = Some tr2' ∧
-  tree_equal cids tr1' tr2'.
-Proof.
-Admitted.
-
-Lemma apply_within_trees_equal C fn blk tr1 tr1' tr2 :
-  (∀ ttr1 ttr1' ttr2, fn ttr1 = Some ttr1' → tree_equal C ttr1 ttr2 →
-   ∃ ttr2', fn ttr2 = Some ttr2' ∧ tree_equal C ttr1' ttr2') →
-  apply_within_trees fn blk tr1 = Some tr1' →
-  trees_equal C tr1 tr2 →
-  ∃ tr2', apply_within_trees fn blk tr2 = Some tr2' ∧
-     trees_equal C tr1' tr2'.
-Proof.
-  intros Hfn Happly Heq.
-  rewrite /apply_within_trees in Happly|-*.
-  specialize (Heq blk) as Heqblk.
-  inversion Heqblk as [ttr1 ttr2 Hteq Htr1 Htr2|HN1 HN2]; last rewrite -HN1 // in Happly.
-  rewrite -Htr1 -?Htr2 /= in Happly|-*.
-  destruct (fn ttr1) as [ttr1'|] eqn:Hfnttr1; last done.
-  rewrite /= in Happly. injection Happly as <-.
-  destruct (Hfn ttr1 ttr1' ttr2) as (ttr2' & Hfnttr2 & Heq'); try done.
-  rewrite Hfnttr2 /=. eexists; split; first done.
-  by apply trees_equal_insert.
 Qed.
 
 Lemma sim_free_public sz sz' l_t l_s bor_t bor_s Φ π :
@@ -303,7 +218,16 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   odestruct (apply_within_trees_equal _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
-  { intros ttr1 ttr1' ttr2 H1 H2. by eapply tree_equal_memory_deallocate. }
+  { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
+    assert (tree_contains bor_s ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
+    edestruct tree_equal_allows_same_deallocation as (ttr2'&Httr2').
+    5: eapply mk_is_Some, H1. 3: done.
+    1-3: eapply wf_tree_tree_unique.
+    1,3: by eapply Hwf_s. 1: by eapply Hwf_t.
+    1: done.
+    exists ttr2'; split; first done.
+    eapply tree_equal_memory_deallocate. 5,6,4,3: done.
+    all: eapply wf_tree_tree_unique. 1: by eapply Hwf_s. by eapply Hwf_t. }
   iSplitR.
   { iPureIntro. do 3 eexists. eapply dealloc_base_step'; try done.
     - setoid_rewrite <- elem_of_dom. setoid_rewrite <- elem_of_dom in Hdealloc_s. rewrite -Hdom_eq //.
@@ -354,37 +278,23 @@ Proof.
     iPureIntro.
     iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
     intros t L HL. specialize (HM' _ _ HL) as (Hvalid & HM'). split; first done.
-    intros l Hl. specialize (HM' l Hl) as (it & Htg & Hprot).
-(*
-    
-    destruct (for_each_true_lookup_case_2 _ _ _ _ _ Hstack_t) as [EQ1 EQ2].
-    (* from Hstack_s, l cannot be in the affected range because it is protected by c,
-      so α' !! l = σt.(sst) !! l. *)
-    destruct (block_case l_s l (tsize T_s)) as [Hneq|(i & Hi & ->)].
-    + rewrite EQ2//. eauto.
-    + exfalso. clear EQ2.
-      specialize (EQ1 _ Hi) as (stk1 & stk' & Eqstk1 & Eqstk' & Hdealloc).
-      rewrite Eqstk1 in Hstk. simplify_eq.
-      move : Hdealloc. destruct (dealloc1 stk bor_s σ_t.(scs)) eqn:Eqd; last done.
-      intros _.
-      destruct (dealloc1_Some stk bor_s σ_t.(scs)) as (it & Eqit & ? & FA & GR).
-      { by eexists. }
-      rewrite ->Forall_forall in FA. apply (FA _ Hit).
-      rewrite /is_active_protector /= /is_active bool_decide_true //.
+    intros l Hl. specialize (HM' l Hl).
+    eapply tag_protected_preserved_by_delete. 4: apply HM'.
+    1: apply Hwf_t. 1: eassumption. 1: apply Hcs.
   - (* re-establish the tag interpretation *)
-    destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s).
-    iPureIntro. split_and!; [ | done | done].
+    destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2).
+    iPureIntro. split_and!; [ | done..].
     intros t tk Ht. simpl. specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrol_t & Hcontrol_s & Hag).
     split_and!; [done | done | | | done].
-    + intros l sc_t Hsc_t%Hcontrol_t.
-      eapply loc_controlled_dealloc_update; [ apply Hstack_t | done | | done].
-      intros [-> _]. rewrite Hpub in Ht. congruence.
+    + intros l sc_t Hsc_t%Hcontrol_t. rewrite Hscs_eq in Happly_t.
+      eapply loc_controlled_dealloc_update; [ apply Happly_t | done | done | | done ].
+      intros -> _. rewrite Hpub in Ht. congruence.
     + intros l sc_s Hsc_s%Hcontrol_s.
-      eapply loc_controlled_dealloc_update; [apply Hstack_s | done | | done].
-      intros [-> _]. rewrite Hpub in Ht. congruence.
+      eapply loc_controlled_dealloc_update; [apply Happly_s | done | done | | done].
+      intros -> _. rewrite Hpub in Ht. congruence.
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
-Qed. *) Admitted.
+Qed.
 
 (*
 (** TODO: generalize, move, and use it for the opt lemmas too *)

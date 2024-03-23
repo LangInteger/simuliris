@@ -70,6 +70,7 @@ Proof.
   } rewrite InitPerm in ForeachSpec.
   eexists. eexists.
   split; [|split; [|split]]; [|exact UniquePost|reflexivity|reflexivity].
+  simpl in ForeachSpec.
   rewrite ForeachSpec.
   unfold item_lazy_perm_at_loc.
   rewrite PermExists; simpl; reflexivity.

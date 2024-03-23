@@ -439,6 +439,12 @@ Proof.
   move=> /(help _ _ ∅) /=. apply is_fresh.
 Qed.
 
+Lemma is_fresh_block_fst h : fresh_block h ∉ (set_map fst (dom h) : gset _).
+Proof.
+  intros ((blk&off)&H1&H2)%elem_of_map_1. simpl in *. subst blk.
+  by eapply is_fresh_block.
+Qed.
+
 Lemma fresh_block_equiv (h1 h2: mem) :
   dom h1 ≡ dom h2 → fresh_block h1 = fresh_block h2.
 Proof.
@@ -517,6 +523,7 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               (AllocEvt blk lbor (0, sz))
               (init_mem (blk, 0) sz h) (Place (blk, 0) lbor sz) []
 | DeallocBS blk l (sz:nat) lbor :
+    (* FIXME: l here is an offset. But we usually want to deallocate at offset 0, right? *)
     (* FIXME: This is wrong because it allows double-free of zero-sized allocations
               Possible solutions:
               - Change the heap from `gmap loc scalar` to `gmap blk (gmap Z scalar)`

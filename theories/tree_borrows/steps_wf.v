@@ -6,6 +6,30 @@ From simuliris.tree_borrows Require Import helpers.
 From simuliris.tree_borrows Require Export defs steps_foreach steps_access steps_preserve bor_lemmas.
 From iris.prelude Require Import options.
 
+
+
+Lemma wf_tree_tree_unique tr :
+  wf_tree tr →
+  ∀ tg,
+  tree_contains tg tr →
+  tree_unique tg tr.
+Proof.
+  intros Hwf tg Hcont.
+  by apply (Hwf tg Hcont).
+Qed.
+
+Lemma wf_tree_tree_item_determined tr :
+  wf_tree tr →
+  ∀ tg,
+  tree_contains tg tr →
+  ∃ it, tree_item_determined tg it tr.
+Proof.
+  intros Hwf tg Hcont.
+  eapply unique_lookup, wf_tree_tree_unique.
+  all: done.
+Qed.
+
+
 Lemma wf_init_state : state_wf init_state.
 Proof.
   constructor; simpl; try split; try intros ?; try set_solver.
@@ -227,6 +251,18 @@ Proof.
   apply (proj1 (lookup_delete_Some _ _ _ _) Delete).
 Qed.
 
+Lemma apply_within_trees_bind trs blk fn1 fn2 :
+  apply_within_trees (λ x, y ← fn1 x; fn2 y) blk trs =
+  trs' ← apply_within_trees fn1 blk trs;
+  apply_within_trees fn2 blk trs'.
+Proof.
+  rewrite /apply_within_trees /=.
+  destruct (trs !! blk) as [tr1|] eqn:Heq; last done.
+  rewrite /=. destruct (fn1 tr1) as [tr1b|]; last done.
+  rewrite /= lookup_insert /=. destruct (fn2 tr1b) as [tr1c|]; last done.
+  rewrite /= insert_insert //.
+Qed.
+
 Lemma apply_within_trees_same_dom (trs trs' : gmap positive (tree item)) blk fn :
   apply_within_trees fn blk trs = Some trs' ->
   dom trs = dom trs'.
@@ -443,7 +479,7 @@ Lemma memory_deallocate_compat_nexts tr tr' cids tg range nxtp nxtc :
   tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  rewrite /memory_deallocate /memory_access_nonchildren_only in Dealloc.
+  rewrite /memory_deallocate /memory_access_nonchildren_only /memory_access_maybe_nonchildren_only /= in Dealloc.
   remember (tree_apply_access _ _ _ _ _) as tr''.
   destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
   assert (tree_items_compat_nexts tr'' nxtp nxtc) as WF''. {
@@ -454,25 +490,25 @@ Proof.
   - exact Dealloc.
 Qed.
 
-Lemma memory_access_wf tr tr' acc cids tg range  :
+Lemma memory_access_wf b tr tr' acc cids tg range  :
   wf_tree tr ->
-  memory_access acc cids tg range tr = Some tr' ->
+  memory_access_maybe_nonchildren_only b acc cids tg range tr = Some tr' ->
   wf_tree tr'.
 Proof.
   intros WF Dealloc.
   by eapply tree_apply_access_wf.
 Qed.
 
-Lemma memory_access_tag_count acc cids tg range :
-  preserve_tree_tag_count (memory_access acc cids tg range).
+Lemma memory_access_tag_count b acc cids tg range :
+  preserve_tree_tag_count (memory_access_maybe_nonchildren_only b acc cids tg range).
 Proof.
   eapply joinmap_preserve_tree_tag_count_dep.
   intros tr. eapply item_apply_access_preserves_metadata_dep.
 Qed.
 
-Lemma memory_access_compat_nexts tr tr' acc cids tg range nxtp nxtc :
+Lemma memory_access_compat_nexts b tr tr' acc cids tg range nxtp nxtc :
   tree_items_compat_nexts tr nxtp nxtc ->
-  memory_access acc cids tg range tr = Some tr' ->
+  memory_access_maybe_nonchildren_only b acc cids tg range tr = Some tr' ->
   tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.

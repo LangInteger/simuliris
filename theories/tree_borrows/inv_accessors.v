@@ -912,47 +912,64 @@ Section lemmas.
       intros i sc0 Hsc0. cbn.
       rewrite shift_loc_assoc. replace (1 + i)%Z with (Z.of_nat $ S i) by lia. done.
   Qed.
-
+  *)
   (** Dealloc lemmas *)
-  Lemma loc_controlled_dealloc_update σ l l' (bor : tag) n (α' : stacks) (t : ptr_id) (tk : tag_kind) sc :
-    memory_deallocated σ.(sst) σ.(scs) l bor n = Some α' →
+  Lemma loc_controlled_dealloc_update σ l l' sz (α' : trees) (acc_tg lu_tg : tag) (tk : tag_kind) sc :
+    apply_within_trees (memory_deallocate σ.(scs) acc_tg (l.2, sz)) l.1 σ.(strs)  = Some α' →
     state_wf σ →
-    (bor = Tagged t ∧ (∃ i:nat, l' = l +ₗ i ∧ (i < n)%nat) → tk = tk_pub) →
-    loc_controlled l' t tk sc σ →
-    loc_controlled l' t tk sc (mkState (free_mem l n σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc)).
+    trees_contain acc_tg σ.(strs) l.1 →
+    (acc_tg = lu_tg → l.1 = l'.1 → tk = tk_pub) →
+    loc_controlled l' lu_tg tk sc σ →
+    loc_controlled l' lu_tg tk sc (mkState (free_mem l sz σ.(shp)) (delete l.1 α') σ.(scs) σ.(snp) σ.(snc)).
   Proof.
-    intros Hdealloc Hwf Hpub Hcontrol Hpre.
-    destruct tk.
+    intros Hdealloc Hwf Hcontain Hpub Hcontrol Hpre.
+    edestruct free_mem_lookup as [_ free_mem_lookup].
+    destruct tk as [|tkk|].
     - (* public *)
-      destruct Hpre as (stk & pm & opro & Hstk & Hit & Hpm). simpl in *.
-      destruct (for_each_dealloc_lookup_Some _ _ _ _ _ Hdealloc _ _ Hstk) as [Hneq Hstk'].
-      destruct Hcontrol as [Hown Hshp]. { exists stk, pm, opro. done. }
-      destruct Hown as (stk' & Hstk'' & Hsro).
+      destruct Hpre as (it'&Hlu'&Hndis). simpl in Hlu'|-*.
+      destruct Hlu' as (tr'&Htr'&Hlu').
+      pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
+      rewrite delete_insert_delete in Htr'|-*.
+      eapply lookup_delete_Some in Htr' as (Hne&Htr').
+      destruct Hcontrol as (Hown&Hmem).
+      { exists it'. split; last done. exists tr'. done. }
       split.
-      + simplify_eq. exists stk. done.
-      + destruct (free_mem_lookup_case l' l n σ.(shp)) as [(_ & ->) | (i & Hi & -> & _)]; first done.
-        specialize (Hneq i Hi). congruence.
-    - (* unique *)
-      destruct Hpre as (stk & pm & opro & Hstk & Hit & Hpm). simpl in *.
-      destruct (for_each_dealloc_lookup_Some _ _ _ _ _ Hdealloc _ _ Hstk) as [Hneq Hstk'].
-      destruct Hcontrol as [Hown Hshp]. { exists stk, pm, opro. done. }
-      destruct Hown as (stk' & Hstk'' & (opro' & ? & ->)).
+      2: { erewrite free_mem_lookup; first done.
+           intros i _. intros ->. by simpl in Hne. }
+      destruct Hown as (it&tr&Hlu&Htr&Hit).
+      exists it, tr. split; first done. split; last done.
+      rewrite /= lookup_delete_ne /= //.
+    - (* unique *) (* it's the same proof *)
+      destruct Hpre as (it'&Hlu'&Hndis). simpl in Hlu'|-*.
+      destruct Hlu' as (tr'&Htr'&Hlu').
+      pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
+      rewrite delete_insert_delete in Htr'|-*.
+      eapply lookup_delete_Some in Htr' as (Hne&Htr').
+      destruct Hcontrol as (Hown&Hmem).
+      { exists it'. split; last done. exists tr'. done. }
       split.
-      + simplify_eq. exists stk. split; first done. rewrite Hstk' in Hstk''.
-        injection Hstk'' as ->. eauto.
-      + destruct (free_mem_lookup_case l' l n σ.(shp)) as [(_ & ->) | (i & Hi & -> & _)]; first done.
-        specialize (Hneq i Hi). congruence.
-    - (* local *) clear Hpre. destruct Hcontrol as [Hown Hshp]; first done. simpl.
-      destruct (free_mem_lookup_case l' l n σ.(shp)) as [(Hi & ->) | (i & Hi & -> & Hfree)].
-      + split; last done. destruct (for_each_dealloc_lookup _ _ _ _ _ Hdealloc) as (_ & Heq).
-        rewrite Heq; done.
-      + exfalso. destruct (for_each_true_lookup_case_2 _ _ _ _ _ Hdealloc) as [Heq _].
-        specialize (Heq _ Hi) as (stk & stk' & Hstk & Hstk' & Hd1).
-        rewrite Hown in Hstk. injection Hstk as <-.
-        destruct (dealloc1 _ _ _) eqn:Heq; [ | done].
-        destruct (dealloc1_singleton_Some _ _ _ ltac:(eauto)) as (<- & _).
-        enough (tk_local = tk_pub) by congruence. apply Hpub. eauto.
-  Qed.
+      2: { erewrite free_mem_lookup; first done.
+           intros i _. intros ->. by simpl in Hne. }
+      destruct Hown as (it&tr&Hlu&Htr&Hit).
+      exists it, tr. split; first done. split; last done.
+      rewrite /= lookup_delete_ne /= //.
+    - (* local *)
+      clear Hpre. destruct Hcontrol as [Hown Hshp]; first done. simpl.
+      destruct (decide (l.1 = l'.1)) as [Hsameblk|Hne].
+      + enough (acc_tg = lu_tg) by by ospecialize (Hpub _ _).
+        destruct Hown as (tr&it&Hit&Htr&_&Hothers).
+        odestruct unique_implies_lookup as (it2&Hlu2).
+        2: symmetry; by eapply Hothers.
+        eapply wf_tree_tree_unique. 1: by eapply Hwf.
+        rewrite /trees_contain /trees_at_block Hsameblk Htr // in Hcontain.
+      + split.
+        2: { erewrite free_mem_lookup; first done.
+             intros i _. intros ->. by simpl in Hne. }
+        destruct Hown as (it&tr&Hit&Htr&HH).
+        exists it, tr. split; first done. simpl. split; last done.
+        pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
+        rewrite delete_insert_delete lookup_delete_ne //.
+  Qed. (*
 
 
   (** Retag *)

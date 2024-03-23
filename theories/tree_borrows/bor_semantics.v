@@ -504,13 +504,31 @@ Definition extend_trees t blk
    - [apply_access_perm] function on permissions (including protector UB), with
    - [tree_apply_access] that lifts functions on permissions to functions on trees.
    This implements Tree::before_memory_{read,write,deallocation}. *)
-Definition memory_access kind cids tg range
+
+Definition maybe_non_children_only (b:bool) := if b then nonchildren_only else λ x, x.
+
+Lemma maybe_non_children_only_no_effect b1 fn rel ip perm :
+  rel ≠ Child Strict →
+  maybe_non_children_only b1 fn rel ip perm =
+  fn rel ip perm.
+Proof.
+  by destruct b1, rel as [[]|[]].
+Qed.
+
+Lemma maybe_non_children_only_effect_or_nop b1 fn rel :
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm) ∨
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm).
+Proof.
+  destruct b1, rel as [[]|[]]; simpl; eauto.
+Qed.
+
+Definition memory_access_maybe_nonchildren_only b kind cids tg range
   : app (tree item) := fun tr =>
-  tree_apply_access (apply_access_perm kind) cids tg range tr.
+  tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) cids tg range tr.
+
+Definition memory_access := memory_access_maybe_nonchildren_only false.
 (* Same thing but only to nonchildren, provides the access to perform on function exit. *)
-Definition memory_access_nonchildren_only kind cids tg range
-  : app (tree item) := fun tr =>
-  tree_apply_access (nonchildren_only (apply_access_perm kind)) cids tg range tr.
+Definition memory_access_nonchildren_only := memory_access_maybe_nonchildren_only true.
 
 (* The transformation to apply on function exit doesn't actually do anything
    except trigger UB if there is still a protector, but it's simpler to express it

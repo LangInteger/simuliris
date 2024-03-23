@@ -888,7 +888,7 @@ Proof.
         assert (∃ sc, list_to_heaplet v_s' l.2 !! lw.2 = Some sc) as (ssc&Hssc).
         { destruct (list_to_heaplet v_s' l.2 !! lw.2) eqn:Hhl; try by eexists.
           eapply list_to_heaplet_lookup_None in Hhl. lia. }
-        intros Hpre. exfalso. revert Hpre.
+        rewrite /loc_controlled.
         eapply loc_controlled_write_invalidates_others.
         1: done. 1: subst σ_s'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
         1: done. 2: done. done.

@@ -299,6 +299,7 @@ Section call_defs.
   Definition tag_protected_for c trs l t := ∃ it,
       trees_lookup trs l.1 t it
     ∧ protector_is_for_call c it.(iprot)
+    ∧ protector_is_strong it.(iprot)
     ∧ (((item_lookup it l.2).(initialized) = PermInit  
       → (item_lookup it l.2).(perm) ≠ Disabled)).
 
@@ -419,7 +420,7 @@ Section heap_defs.
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
       (match (item_lookup it l.2).(perm) with
            | Active => True
-           | Reserved InteriorMut _ => False (* tkk = tk_res *) (* Change: this was banned since it's not actually unique *)
+(*            | Reserved IntgeriorMut _ => False (* tkk = tk_res *) (* Change: this was banned since it's not actually unique *) *)
            | Reserved TyFrz _ => tkk = tk_res ∧ ¬ protector_is_active it.(iprot) σ.(scs)
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
@@ -618,6 +619,14 @@ Section heap_defs.
     1: apply H1a. 2: apply H1b.
     all: rewrite /heaplet_lookup /= H1 /= H2 //.
   Qed.
+
+  Lemma dom_agree_on_tag_not_elem M_t M_s t :
+    (∀ l, heaplet_lookup M_t (t, l) = None) → (∀ l, heaplet_lookup M_s (t, l) = None) →
+    dom_agree_on_tag M_t M_s t.
+  Proof.
+    intros Ht Hs. split.
+    all: intros l (x&H1); by rewrite ?Ht ?Hs in H1.
+  Qed.
 (*
   Lemma dom_agree_on_tag_upd_ne_source M_t M_s t t' l sc :
     t ≠ t' →
@@ -652,11 +661,6 @@ Section heap_defs.
   Lemma dom_agree_on_tag_lookup_source M_t M_s t l :
     dom_agree_on_tag M_t M_s t → is_Some (M_s !! (t, l)) → is_Some (M_t !! (t, l)).
   Proof. intros Hag Hsome. apply Hag, Hsome. Qed.
-
-  Lemma dom_agree_on_tag_not_elem M_t M_s t :
-    (∀ l, M_t !! (t, l) = None) → (∀ l, M_s !! (t, l) = None) →
-    dom_agree_on_tag M_t M_s t.
-  Proof. intros Ht Hs. split; intros l; rewrite Ht Hs; congruence. Qed.
 
   Lemma dom_agree_on_tag_difference M1_t M1_s M2_t M2_s t :
     dom_agree_on_tag M1_t M1_s t → dom_agree_on_tag M2_t M2_s t →
