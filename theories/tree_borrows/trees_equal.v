@@ -46,8 +46,15 @@ Section utils.
     it.(itag) = tg.
   Proof. intros [?[??]]. eapply tree_lookup_correct_tag; eassumption. Qed.
 
-  Definition item_lookup (it : item) (l : Z) :=
-    default {| initialized := PermLazy; perm := it.(initp) |} (it.(iperm) !! l).
+  Lemma item_wf_lookup it l ev1 ev2 :
+    item_wf it ev1 ev2 →
+    lazy_perm_wf (item_lookup it l).
+  Proof.
+    intros [H1 H2 H3 H4].
+    rewrite /item_lookup. edestruct (iperm it !! l) as [pp|] eqn:H5.
+    - simpl. eapply map_Forall_lookup_1 in H4; done.
+    - simpl. intros Hne. exfalso. apply H3, Hne.
+  Qed.
 
   Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
 
@@ -596,13 +603,11 @@ Section utils.
     loc_eq_up_to_C tr1 tr2 tg it1 it2 l ->
     is_Some (maybe_non_children_only b (apply_access_perm kind) (rel_dec tr1 acc_tg (itag it1))
             (bool_decide (protector_is_active (iprot it1) C))
-            (default {| initialized := PermLazy; perm := initp it1 |}
-               (iperm it1 !! l)))
+            (item_lookup it1 l))
     ->
     is_Some (maybe_non_children_only b (apply_access_perm kind) (rel_dec tr2 acc_tg (itag it2))
      (bool_decide (protector_is_active (iprot it2) C))
-     (default {| initialized := PermLazy; perm := initp it2 |}
-        (iperm it2 !! l))).
+     (item_lookup it2 l)).
   Proof.
     intros EqC Acc1.
     inversion EqC as [EqProt EqCLookup].
@@ -610,14 +615,12 @@ Section utils.
     - rewrite Tg2 -Tg1.
       rewrite -SameRel.
       rewrite -EqProt.
-      rewrite /item_lookup in EqLookup. rewrite -EqLookup.
       apply Acc1.
-    - rewrite /item_lookup in Lookup1, Lookup2.
-      rewrite -Lookup2.
+    - rewrite Lookup2.
       rewrite -Lookup1 in Acc1.
       edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq].
       2: by erewrite Heq.
-      rewrite Heq.
+      rewrite Heq. rewrite -Lookup2.
       eapply (pseudo_conflicted_allows_same_access Confl1 Confl2 UnqAcc Ex1 GloballyUnique1 GlobalSuccess).
       + rewrite -EqProt; reflexivity.
       + rewrite SameRel -Tg2 //=.
@@ -752,14 +755,14 @@ Section utils.
        | .. ]).
       * rewrite /item_lookup /= perm'_lookup /=.
         rewrite /item_lookup in cous_init.
-        destruct (iperm it_cous !! l) eqn:it_cous_defined; last discriminate.
-        rewrite it_cous_defined cous_init in perm_check_prot.
-        rewrite bool_decide_eq_true_2 in perm_check_prot; last assumption.
-        destruct perm; try discriminate.
+        destruct (iperm it_cous !! l) eqn:it_cous_defined.
+        all: rewrite it_cous_defined !cous_init in perm_check_prot.
+        all: rewrite bool_decide_eq_true_2 in perm_check_prot; last assumption.
+        all: destruct perm; try discriminate.
         all: injection perm_check_prot; intros; subst; congruence.
       * rewrite /item_lookup /= perm'_lookup /=.
         rewrite /item_lookup in cous_init.
-        destruct (iperm it_cous !! l) eqn:it_cous_defined; last discriminate.
+        destruct (iperm it_cous !! l) eqn:it_cous_defined;
         rewrite it_cous_defined cous_init //=.
       * rewrite /item_lookup /= perm'_lookup //.
       * rewrite /item_lookup /= perm'_lookup //.
@@ -1120,9 +1123,9 @@ Section utils.
     - rewrite !lookup_delete_ne //.
   Qed.
 
-  Lemma trees_equal_init_trees ts tt tg bl :
+  Lemma trees_equal_init_trees ts tt tg bl off sz :
     trees_equal ts tt →
-    trees_equal (extend_trees tg bl ts) (extend_trees tg bl tt).
+    trees_equal (extend_trees tg bl off sz ts) (extend_trees tg bl off sz tt).
   Proof.
     intros Htrs. apply trees_equal_insert; first done.
     eapply tree_equal_reflexive.

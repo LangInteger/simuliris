@@ -178,6 +178,9 @@ Record item := mkItem {
 Global Instance item_eq_dec : EqDecision item.
 Proof. solve_decision. Defined.
 
+Definition item_lookup (it : item) (l : Z) :=
+  default (mkPerm PermLazy it.(initp)) (it.(iperm) !! l).
+
 (* Per-allocation borrow data *)
 Definition trees := gmap block (tree item).
 
@@ -238,19 +241,19 @@ Proof. solve_decision. Qed.
 Global Instance rel_pos_eq_dec : EqDecision rel_pos.
 Proof. solve_decision. Qed.
 
-Inductive pointer_kind := Box | MutRef (im : interior_mut) | ShrRef .
+Inductive pointer_kind := Box (im : interior_mut) | MutRef (im : interior_mut) | ShrRef .
 Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.
 Proof. solve_decision. Defined.
 Global Instance pointer_kind_countable : Countable pointer_kind.
 Proof.
   refine (inj_countable
     (λ m, match m with
-           | Box => inl ()
+           | Box im => inl im
            | MutRef im => inr (inl im)
            | ShrRef => inr (inr ())
            end)
     (λ b, Some match b with
-           | inl _ => Box
+           | inl im => Box im
            | inr (inl im) => MutRef im
            | inr (inr _) => ShrRef
            end)

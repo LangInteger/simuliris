@@ -6,7 +6,24 @@ From simuliris.tree_borrows Require Import helpers.
 From simuliris.tree_borrows Require Export defs steps_foreach steps_access steps_preserve bor_lemmas.
 From iris.prelude Require Import options.
 
+Definition preserves_lazy_perm_wf fn := ∀ perm1 perm2, fn perm1 = Some perm2 → lazy_perm_wf perm1 → lazy_perm_wf perm2.
 
+Lemma apply_access_perm_wf kind pos isprot :
+  preserves_lazy_perm_wf (apply_access_perm kind pos isprot).
+Proof.
+  rewrite /apply_access_perm /apply_access_perm_inner /lazy_perm_wf /=.
+  intros perm1 perm2 (p1&H1&(p2&H2&[= <-])%bind_Some)%bind_Some Hwf. simpl.
+  repeat (case_match; simpl in *; simplify_eq; try done).
+Qed.
+
+Lemma apply_access_perm_maybe_wf b kind pos isprot :
+  preserves_lazy_perm_wf (maybe_non_children_only b (apply_access_perm kind) pos isprot).
+Proof.
+  intros perm1 perm2.
+  edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
+  2: by intros [= <-].
+  apply apply_access_perm_wf.
+Qed.
 
 Lemma wf_tree_tree_unique tr :
   wf_tree tr →
@@ -40,10 +57,12 @@ Qed.
 Lemma wf_item_mono it :
   Proper ((≤)%nat==> (≤)%nat ==> impl) (item_wf it).
 Proof.
-  move=> ?? Le1 ?? Le2 [WFle WFprot].
+  move=> ?? Le1 ?? Le2 [WFle WFprot WFdef WFperms].
   split.
   - intros tg tgit. specialize (WFle tg tgit). lia.
   - intros cid protit. specialize (WFprot cid protit). lia.
+  - apply WFdef.
+  - apply WFperms.
 Qed.
 
 Lemma tree_items_compat_nexts_mono tr :
@@ -194,7 +213,7 @@ Proof.
   1: eapply exists_node_eqv_existential in Hintro as (?&?&[]).
   eapply every_node_increasing; first exact Hcompat.
   eapply every_node_eqv_universal.
-  intros n ? (H1&H2) H3%H1. lia.
+  intros n ? [H1 _ _ _] H3%H1. lia.
 Qed.
 
 Lemma apply_within_trees_compat_both trs trs' nxtp nxtp' nxtc nxtc' blk fn:
@@ -437,14 +456,31 @@ Proof.
 Qed.
 
 Lemma tree_apply_access_compat_nexts fn tr tr' cids tg range nxtp nxtc :
+  (∀ rp ip, preserves_lazy_perm_wf (fn rp ip)) →
   tree_items_compat_nexts tr nxtp nxtc ->
   tree_apply_access fn cids tg range tr = Some tr' ->
   tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
+  intros Hlazy.
   eapply tree_joinmap_preserve_prop.
-  intros it1 it2 (H1&H2&H3)%item_apply_access_preserves_metadata.
-  rewrite /item_wf /= H1 H2. done.
+  intros it1 it2 Hacc.
+  pose proof Hacc as (H1&H2&H3)%item_apply_access_preserves_metadata.
+  intros [Htag Hcid Hdef Hperms]. split.
+  1-3: rewrite /= -?H1 -?H2 -?H3 //.
+  pose proof Hacc as (px&Hpx&[= <-])%bind_Some; simpl.
+  apply map_Forall_lookup_2. intros k pnew Hpnew.
+  eapply (mem_apply_range'_spec _ _ k) in Hpx.
+  destruct decide.
+  - destruct Hpx as (p'&Hp'&Hfn).
+    rewrite Hpnew in Hp'. injection Hp' as <-.
+    eapply Hlazy; first exact Hfn.
+    rewrite /default. destruct (iperm it1 !! k) as [pold|] eqn:Hpold.
+    + rewrite Hpold. simpl. eapply map_Forall_lookup_1 in Hperms; done.
+    + rewrite Hpold. intros Hf. exfalso. apply Hdef, Hf.
+  - rewrite Hpnew in Hpx. symmetry in Hpx.
+    eapply map_Forall_lookup_1 in Hperms; done.
 Qed.
+
 Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
   join_nodes (map_nodes (fun it => if P it then None else Some it) tr) = Some tr' ->
   tr = tr'.
@@ -483,7 +519,8 @@ Proof.
   remember (tree_apply_access _ _ _ _ _) as tr''.
   destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
   assert (tree_items_compat_nexts tr'' nxtp nxtc) as WF''. {
-    apply (tree_apply_access_compat_nexts _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
+    unshelve eapply (tree_apply_access_compat_nexts _ _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
+    intros ??; eapply (apply_access_perm_maybe_wf true).
   }
   erewrite <- (join_map_id_is_Some_identical _ tr'' tr').
   - assumption.
@@ -512,7 +549,8 @@ Lemma memory_access_compat_nexts b tr tr' acc cids tg range nxtp nxtc :
   tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  by eapply tree_apply_access_compat_nexts.
+  eapply tree_apply_access_compat_nexts; try done.
+  intros ??; eapply apply_access_perm_maybe_wf.
 Qed.
 
 
@@ -529,11 +567,11 @@ Proof.
       set_solver.
 Qed.
 
-Lemma same_blocks_init_extend h sz trs nxtp :
+Lemma same_blocks_init_extend h off sz trs nxtp :
   (sz > 0)%nat ->
   same_blocks h trs ->
-  same_blocks (init_mem (fresh_block h, 0) sz h)
-    (extend_trees nxtp (fresh_block h) trs).
+  same_blocks (init_mem (fresh_block h, off) sz h)
+    (extend_trees nxtp (fresh_block h) off sz trs).
 Proof.
   intros Nonzero Same.
   rewrite /same_blocks init_mem_dom dom_insert_L set_map_union_L.
@@ -543,8 +581,8 @@ Proof.
   set_solver.
 Qed.
 
-Lemma wf_init_tree t' :
-  wf_tree (init_tree t').
+Lemma wf_init_tree t' off sz:
+  wf_tree (init_tree t' off sz).
 Proof.
   intros tg H.
   cbv in H. destruct_or!; try done.
@@ -552,25 +590,30 @@ Proof.
   by rewrite /tree_unique /init_tree /= bool_decide_true.
 Qed.
 
-Lemma init_tree_compat_nexts c t t' :
+Lemma init_tree_compat_nexts c t t' off sz :
   (t' < t)%nat ->
-  tree_items_compat_nexts (init_tree t') t c.
+  tree_items_compat_nexts (init_tree t' off sz) t c.
 Proof.
-  intros Hok. cbv.
-  repeat split.
+  intros Hok. cbv -[init_perms].
+  repeat split; simpl.
   - intros ? ->. lia.
   - done.
+  - done.
+  - eapply map_Forall_lookup_2.
+    intros k p [(Hr&Heq)|(Hr&Heq)]%mem_apply_range'_defined_lookup_Some.
+    + subst p. done.
+    + by rewrite lookup_empty in Heq.
 Qed.
 
-Lemma init_tree_nonempty t :
-  forall tr, tr = (init_tree t) -> tr ≠ empty.
+Lemma init_tree_nonempty t off sz :
+  forall tr, tr = (init_tree t off sz) -> tr ≠ empty.
 Proof.
   intros. subst.
   rewrite /init_tree //.
 Qed.
 
-Lemma init_tree_contains_only tg1 tg2 :
-  tree_contains tg1 (init_tree tg2) -> tg1 = tg2.
+Lemma init_tree_contains_only tg1 off sz tg2 :
+  tree_contains tg1 (init_tree tg2 off sz) -> tg1 = tg2.
 Proof.
   intros H. cbv in H. by destruct_or!.
 Qed.
@@ -1012,6 +1055,8 @@ Proof.
       + destruct rk; last done.
         rewrite /= /protector_is_for_call /=.
         intros ? [= <-]. by eapply WF.
+      + clear. cbv. by case_match.
+      + done.
     - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
   constructor; simpl.
   - rewrite /same_blocks /=

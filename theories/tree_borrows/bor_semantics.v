@@ -217,6 +217,17 @@ Proof.
   - assumption.
 Qed.
 
+Lemma mem_apply_range'_defined_lookup_Some {X} fn r (z:Z) (map : gmap Z X) x :
+  (mem_apply_range'_defined fn r map) !! z = Some x →
+  (range'_contains r z ∧ x = fn (map !! z)) ∨
+  (¬range'_contains r z ∧ map !! z = Some x).
+Proof.
+  intros HH. opose proof (@mem_apply_range'_defined_spec X fn r z map _ _) as Hpp; first done.
+  destruct decide.
+  - left. split; first done. destruct Hpp as (xx&H1&H2). rewrite H2. congruence.
+  - right. split; first done. rewrite -HH Hpp //.
+Qed.
+
 (** CORE SEMANTICS *)
 
 Notation IsTag t := (fun it => it.(itag) = t) (only parsing).
@@ -486,18 +497,18 @@ Definition tree_apply_access
   join_nodes (map_nodes app tr).
 
 (* Initial permissions. *)
-Definition init_perms perm
+Definition init_perms perm off sz
   (* FIXME: simplify to just ø directly ? *)
-  : permissions := mem_apply_range'_defined (fun _ => mkPerm PermLazy perm) (0%Z, O) ∅.
+  : permissions := mem_apply_range'_defined (fun _ => mkPerm PermInit perm) (off, sz) ∅.
 
 (* Initial tree is a single root whose default permission is [Active]. *)
-Definition init_tree t
-  : tree item := branch (mkItem t None Active (init_perms Active)) empty empty.
+Definition init_tree t off sz
+  : tree item := branch (mkItem t None Disabled (init_perms Active off sz)) empty empty.
 
 (* Create a new allocation. *)
-Definition extend_trees t blk
+Definition extend_trees t blk off sz
   : trees -> trees := fun ts =>
-  <[blk := init_tree t]>ts.
+  <[blk := init_tree t off sz]>ts.
 
 (* Perform the access check on a block of continuous memory.
    Combines together the previously defined
@@ -518,6 +529,13 @@ Qed.
 Lemma maybe_non_children_only_effect_or_nop b1 fn rel :
   (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm) ∨
   (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm).
+Proof.
+  destruct b1, rel as [[]|[]]; simpl; eauto.
+Qed.
+
+Lemma maybe_non_children_only_effect_or_nop_strong b1 fn rel :
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm ∧ (b1 ≠ true ∨ rel ≠ Child Strict)) ∨
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm ∧ b1 = true ∧ rel = Child Strict).
 Proof.
   destruct b1, rel as [[]|[]]; simpl; eauto.
 Qed.
@@ -746,14 +764,13 @@ Definition ParentChildInBlk tg tg' trs blk :=
 
 Definition pointer_kind_to_perm (pk : pointer_kind) : permission := 
   match pk with
-    Box => Active
-  | MutRef im => Reserved im ResActivable
+    Box im | MutRef im => Reserved im ResActivable
   | ShrRef => Frozen
   end.
 
 Definition pointer_kind_to_strength (pk : pointer_kind) : prot_strong := 
   match pk with
-    Box => ProtWeak
+    Box _ => ProtWeak
   | _ => ProtStrong
   end.
 
@@ -775,9 +792,7 @@ Definition create_child cids (oldt:tag) (newt:tag) pk cid rk
   Some $ insert_child_at tr it (IsTag oldt).
 
 Definition item_lazy_perm_at_loc it (l:loc')
-  : lazy_permission :=
-  let op := iperm it !! l in
-  default {| initialized := PermLazy; perm := initp it |} op.
+  : lazy_permission := item_lookup it l.
 
 Definition item_perm_at_loc it z
   : permission :=
@@ -910,7 +925,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     bor_step
       trs cids nxtp nxtc
       (AllocEvt blk nxtp (off, sz))
-      (extend_trees nxtp blk trs) cids (S nxtp) nxtc
+      (extend_trees nxtp blk off sz trs) cids (S nxtp) nxtc
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
@@ -978,13 +993,13 @@ Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some 
 Local Notation unwrap K := (unpack_option K eq_refl).
 
 (* We create some trees to unit-test our definitions *)
-Local Definition initial_tree := init_tree 1.
+Local Definition initial_tree := init_tree 1 0 4.
 Local Definition with_one_child :=
   unwrap (create_child ∅ 1 2 (MutRef TyFrz) Default 0 initial_tree).
 Local Definition with_two_children :=
   unwrap (create_child ∅ 1 3 (ShrRef) Default 0 with_one_child).
 Local Definition with_three_children :=
-  unwrap (create_child ∅ 2 4 (Box) Default 0 with_two_children).
+  unwrap (create_child ∅ 2 4 (Box TyFrz) Default 0 with_two_children).
 
 (* conversion keeps being magical *)
 Succeed Example foo : rel_dec with_three_children 1 1 = Child This     := eq_refl.

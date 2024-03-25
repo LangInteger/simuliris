@@ -13,9 +13,15 @@ Definition wf_mem_tag (h: mem) (nxtp: tag) :=
   ∀ (l l':loc) pid, h !! l = Some (ScPtr l' pid) →
     (pid < nxtp)%nat.
 
-Definition item_wf (it:item) (nxtp:tag) (nxtc:call_id) :=
-  (forall tg, IsTag tg it -> (tg < nxtp)%nat)
-  /\ (forall cid, protector_is_for_call cid (iprot it) -> (cid < nxtc)%nat).
+Definition lazy_perm_wf (lp : lazy_permission) :=
+  lp.(perm) = Active → lp.(initialized) = PermInit.
+
+Record item_wf (it:item) (nxtp:tag) (nxtc:call_id) := {
+  item_tag_valid : forall tg, IsTag tg it -> (tg < nxtp)%nat;
+  item_cid_valid : forall cid, protector_is_for_call cid (iprot it) -> (cid < nxtc)%nat;
+  item_default_perm_valid : it.(initp) ≠ Active;
+  item_perms_valid : map_Forall (λ _, lazy_perm_wf) it.(iperm)
+}.
 
 
 Definition tree_items_unique (tr:tree item) :=
@@ -24,7 +30,7 @@ Definition tree_items_unique (tr:tree item) :=
 
 Definition tree_items_compat_nexts (tr:tree item) (nxtp:tag) (nxtc: call_id) :=
   every_node (λ it, item_wf it nxtp nxtc) tr.
-  (* FIXME: unique *)
+  (* FIXME: rename above to just tree_items_wf *)
 
 (* FIXME: consistent naming *)
 Definition wf_tree (tr:tree item) :=

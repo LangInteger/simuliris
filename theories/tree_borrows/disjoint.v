@@ -66,13 +66,13 @@ Proof.
   rewrite (decide_True _ _ Within) in ForeachSpec.
   destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
   assert (default {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
-    unfold item_lazy_perm_at_loc. destruct (iperm pre !! z); simpl; reflexivity.
+    unfold item_lazy_perm_at_loc, item_lookup. destruct (iperm pre !! z); simpl; reflexivity.
   } rewrite InitPerm in ForeachSpec.
   eexists. eexists.
   split; [|split; [|split]]; [|exact UniquePost|reflexivity|reflexivity].
   simpl in ForeachSpec.
   rewrite ForeachSpec.
-  unfold item_lazy_perm_at_loc.
+  unfold item_lazy_perm_at_loc, item_lookup.
   rewrite PermExists; simpl; reflexivity.
 Qed.
 
@@ -99,7 +99,7 @@ Proof.
     injection SpecPost; intros; subst; clear SpecPost.
     pose proof (mem_apply_range'_spec _ _ z _ _ SpecPerms) as RangeForeach.
     rewrite (decide_False _ _ Outside) in RangeForeach.
-    unfold item_lazy_perm_at_loc; simpl.
+    unfold item_lazy_perm_at_loc, item_lookup; simpl.
     rewrite RangeForeach; reflexivity.
   }
   eexists.

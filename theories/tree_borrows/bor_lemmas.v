@@ -547,7 +547,7 @@ Lemma create_new_item_uniform_perm tg pk rk cid z :
     perm := pointer_kind_to_perm pk
   |}.
 Proof.
-  unfold item_lazy_perm_at_loc.
+  unfold item_lazy_perm_at_loc, item_lookup.
   unfold create_new_item; simpl.
   unfold init_perms.
   rewrite lookup_empty; simpl.

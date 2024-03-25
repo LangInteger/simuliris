@@ -13,7 +13,7 @@ Lemma alloc_base_step P σ sz :
   let l := (fresh_block σ.(shp), 0) in
   let t := σ.(snp) in
   let σ' := mkState (init_mem l sz σ.(shp))
-                    (extend_trees t l.1 σ.(strs)) σ.(scs) (S t) σ.(snc) in
+                    (extend_trees t l.1 0 sz σ.(strs)) σ.(scs) (S t) σ.(snc) in
   base_step P (Alloc sz) σ (Place l t sz) σ' [].
 Proof.
   simpl. econstructor.
@@ -95,8 +95,7 @@ Qed.
 
 Definition is_access_compatible (tr : tree item) (cids : call_id_set) (tg : tag) (range : range') (kind : access_kind) (it : item ) :=
   forall l, range'_contains range l ->
-    let initial := default {| initialized := PermLazy; perm := initp it |}
-           (iperm it !! l) in
+    let initial := item_lookup it l in
     let protected := bool_decide (protector_is_active (iprot it) cids) in
     exists post,
       apply_access_perm_inner kind (rel_dec tr tg (itag it)) protected (perm initial) = Some post

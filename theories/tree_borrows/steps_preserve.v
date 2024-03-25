@@ -326,7 +326,7 @@ Proof.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_preserves_backward_reach.
@@ -352,7 +352,7 @@ Proof.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_preserves_forward_unreach.
@@ -379,7 +379,7 @@ Proof.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
     eapply apply_access_perm_preserves_protected_freeze_like.
@@ -831,7 +831,7 @@ Proof.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   destruct (bool_decide _).
   all: destruct (decide (range'_contains _ _)).
   all: try (rewrite Spec; tauto).
@@ -875,7 +875,7 @@ Proof.
   all: option step in PostSpec as ?:Foreach.
   all: injection PostSpec; intros e; subst; clear PostSpec.
   all: pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  all: rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  all: rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   all: destruct (bool_decide _).
   all: destruct (decide (range'_contains _ _)); [|contradiction].
   all: try (rewrite Spec; tauto).
@@ -997,7 +997,7 @@ Proof.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].
@@ -1109,7 +1109,7 @@ Proof.
   option step in Access as ?:Foreach.
   injection Access; intros e; subst; clear Access.
   pose proof (mem_apply_range'_spec _ _ z _ _ Foreach) as Spec; clear Foreach.
-  rewrite /item_perm_at_loc /item_lazy_perm_at_loc; simpl.
+  rewrite /item_perm_at_loc /item_lazy_perm_at_loc /item_lookup; simpl.
   rewrite bool_decide_eq_true_2 in Spec; [|assumption].
   destruct (decide (range'_contains _ _)).
   - destruct Spec as [?[Lkup Apply]].

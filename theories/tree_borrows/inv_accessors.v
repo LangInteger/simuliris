@@ -36,11 +36,11 @@ Section lemmas.
     simpl. rewrite !dom_delete_L IH. done.
   Qed.
 
-  Lemma extend_trees_preserve σ :
+  Lemma extend_trees_preserve off sz σ :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     state_wf σ →
     ∀ l' tree, σ.(strs) !! l'.1 = Some tree → α' !! l'.1 = Some tree.
   Proof.
@@ -48,16 +48,16 @@ Section lemmas.
     rewrite /α' /extend_trees lookup_insert_ne //.
     intros <-. eapply elem_of_dom_2 in Hl'.
     rewrite state_wf_dom // in Hl'.
-    eapply elem_of_map in Hl' as ((blk'&off)&Heq&Heq2).
+    eapply elem_of_map in Hl' as ((blk'&off'')&Heq&Heq2).
     cbn in Heq. subst blk'.
     by eapply is_fresh_block in Heq2.
   Qed.
 
-  Lemma extend_trees_find_item σ t it (loc : loc) :
+  Lemma extend_trees_find_item σ t it off sz (loc : loc) :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     state_wf σ →
     trees_lookup σ.(strs) loc.1 t it ->
     trees_lookup  α' loc.1 t it.
@@ -69,29 +69,28 @@ Section lemmas.
   Qed.
 
   (* TODO refactor the tree lemmas *)
-
-  Lemma exists_node_init_tree tg P :
-    exists_node P (init_tree tg) ↔
-    P (mkItem tg None Active ∅).
+  Lemma exists_node_init_tree tg off (sz:nat) P :
+    exists_node P (init_tree tg off sz) ↔
+    P (mkItem tg None Disabled (init_perms Active off sz)).
   Proof.
-    cbv. tauto.
+    cbv -[init_perms]. tauto.
   Qed.
 
-  Lemma every_node_init_tree tg P :
-    every_node P (init_tree tg) ↔
-    P (mkItem tg None Active ∅).
+  Lemma every_node_init_tree tg off sz P :
+    every_node P (init_tree tg off sz) ↔
+    P (mkItem tg None Disabled (init_perms Active off sz)).
   Proof.
-    cbv. tauto.
+    cbv -[init_perms]. tauto.
   Qed.
 
-  Lemma extend_trees_find_item_rev σ t it (loc : loc) :
+  Lemma extend_trees_find_item_rev σ t it off sz (loc : loc) :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     state_wf σ →
     trees_lookup α' loc.1 t it ->
-    trees_lookup σ.(strs) loc.1 t it ∨ (it = mkItem nt None Active ∅ ∧ loc.1 = blk).
+    trees_lookup σ.(strs) loc.1 t it ∨ (it = mkItem nt None Disabled (init_perms Active off sz) ∧ loc.1 = blk).
   Proof.
     intros blk l nt α' Hwf Hinv.
     inversion Hinv as [tree [H1 Hinv1]]; clear Hinv.
@@ -122,12 +121,12 @@ Section lemmas.
     move : Ha. apply is_fresh_block.
   Qed.
 
-  Lemma loc_controlled_alloc_update σ l' n t (tk : tag_kind) sc :
+  Lemma loc_controlled_alloc_update σ l' off sz n t (tk : tag_kind) sc :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
     let h' := init_mem l n σ.(shp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     let σ' := mkState h' α' σ.(scs) (S σ.(snp)) σ.(snc) in
     t ≠ nt →
     state_wf σ →
@@ -140,7 +139,7 @@ Section lemmas.
     { destruct tk as [|[]|]; unfold bor_state_pre in Hpre|-*.
       4: done.
       all: destruct Hpre as (it & [Ha Hb]); exists it.
-      all: split; auto; destruct (extend_trees_find_item_rev _ _ _ _ Hwf Ha) as [|[]]; [assumption|].
+      all: split; auto; destruct (extend_trees_find_item_rev _ _ _ _ _ _ Hwf Ha) as [|[]]; [assumption|].
       all: subst it nt; pose proof (trees_lookup_correct_tag Ha) as SameTg.
       all: by rewrite /= in SameTg.
     }

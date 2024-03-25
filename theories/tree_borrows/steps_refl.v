@@ -110,8 +110,8 @@ Proof.
   iModIntro.
   pose (blk := (fresh_block σ_t.(shp))). (* can be σ_s and σ_t, it does not matter. *)
   pose (l := (blk, 0)). pose (nt := σ_t.(snp)).
-  pose (α_t' := extend_trees ((snp σ_t)) blk (strs σ_t)).
-  pose (α_s' := extend_trees ((snp σ_s)) blk (strs σ_s)).
+  pose (α_t' := extend_trees ((snp σ_t)) blk 0 T (strs σ_t)).
+  pose (α_s' := extend_trees ((snp σ_s)) blk 0 T (strs σ_s)).
   pose (σ_t' := (mkState (init_mem l T σ_t.(shp)) α_t' σ_t.(scs) (S σ_t.(snp)) σ_t.(snc))).
   pose (σ_s' := (mkState (init_mem l T σ_s.(shp)) α_s' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc))).
   assert (Hhead_s : base_step P_s (Alloc T) σ_s (Place l (nt) T) σ_s' []).

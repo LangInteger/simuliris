@@ -74,5 +74,5 @@ Lemma head_alloc_inv (P : prog) sz σ σ' e' efs :
   (sz > 0)%nat ∧
   efs = [] ∧
   e' = Place (blk, 0) σ.(snp) sz ∧
-  σ' = mkState (init_mem (blk, 0) sz σ.(shp)) (extend_trees σ.(snp) blk σ.(strs)) σ.(scs) (S σ.(snp)) σ.(snc).
+  σ' = mkState (init_mem (blk, 0) sz σ.(shp)) (extend_trees σ.(snp) blk 0 sz σ.(strs)) σ.(scs) (S σ.(snp)) σ.(snc).
 Proof. intros Hhead. inv_base_step. eauto. Qed.
