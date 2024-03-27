@@ -25,6 +25,26 @@ Proof.
   apply apply_access_perm_wf.
 Qed.
 
+Definition preserves_reach fn := ∀ perm1 perm2, fn perm1 = Some perm2 → reach perm1.(perm) perm2.(perm).
+
+Lemma apply_access_perm_reach kind pos isprot :
+  preserves_reach (apply_access_perm kind pos isprot).
+Proof.
+  rewrite /apply_access_perm /apply_access_perm_inner /preserves_reach /=.
+  intros perm1 perm2 (p1&H1&(p2&H2&[= <-])%bind_Some)%bind_Some. simpl.
+  repeat (case_match; simpl in *; simplify_eq; try done).
+Qed.
+
+Lemma apply_access_perm_maybe_reach b kind pos isprot :
+  preserves_reach (maybe_non_children_only b (apply_access_perm kind) pos isprot).
+Proof.
+  intros perm1 perm2.
+  edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
+  2: intros [= <-]; by eapply reach_reflexive.
+  apply apply_access_perm_reach.
+Qed.
+
+
 Lemma wf_tree_tree_unique tr :
   wf_tree tr →
   ∀ tg,
@@ -57,12 +77,13 @@ Qed.
 Lemma wf_item_mono it :
   Proper ((≤)%nat==> (≤)%nat ==> impl) (item_wf it).
 Proof.
-  move=> ?? Le1 ?? Le2 [WFle WFprot WFdef WFperms].
+  move=> ?? Le1 ?? Le2 [WFle WFprot WFdef WFperms WFreach].
   split.
   - intros tg tgit. specialize (WFle tg tgit). lia.
   - intros cid protit. specialize (WFprot cid protit). lia.
   - apply WFdef.
   - apply WFperms.
+  - apply WFreach.
 Qed.
 
 Lemma tree_items_compat_nexts_mono tr :
@@ -457,28 +478,35 @@ Qed.
 
 Lemma tree_apply_access_compat_nexts fn tr tr' cids tg range nxtp nxtc :
   (∀ rp ip, preserves_lazy_perm_wf (fn rp ip)) →
+  (∀ rp ip, preserves_reach (fn rp ip)) →
   tree_items_compat_nexts tr nxtp nxtc ->
   tree_apply_access fn cids tg range tr = Some tr' ->
   tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
-  intros Hlazy.
+  intros Hlazy Hpreach.
   eapply tree_joinmap_preserve_prop.
   intros it1 it2 Hacc.
   pose proof Hacc as (H1&H2&H3)%item_apply_access_preserves_metadata.
-  intros [Htag Hcid Hdef Hperms]. split.
+  intros [Htag Hcid Hdef Hperms Hreach]. split.
   1-3: rewrite /= -?H1 -?H2 -?H3 //.
-  pose proof Hacc as (px&Hpx&[= <-])%bind_Some; simpl.
-  apply map_Forall_lookup_2. intros k pnew Hpnew.
-  eapply (mem_apply_range'_spec _ _ k) in Hpx.
-  destruct decide.
-  - destruct Hpx as (p'&Hp'&Hfn).
-    rewrite Hpnew in Hp'. injection Hp' as <-.
-    eapply Hlazy; first exact Hfn.
+  all: pose proof Hacc as (px&Hpx&[= <-])%bind_Some; simpl.
+  2: intros Hndis; specialize (Hreach Hndis).
+  all: apply map_Forall_lookup_2; intros k pnew Hpnew.
+  all: eapply (mem_apply_range'_spec _ _ k) in Hpx.
+  all: destruct decide.
+  2,4: rewrite Hpnew in Hpx; symmetry in Hpx;
+       eapply map_Forall_lookup_1 in Hperms; try done.
+  1,3: destruct Hpx as (p'&Hp'&Hfn);
+       rewrite Hpnew in Hp'; injection Hp' as <-.
+  - eapply Hlazy; first exact Hfn.
     rewrite /default. destruct (iperm it1 !! k) as [pold|] eqn:Hpold.
     + rewrite Hpold. simpl. eapply map_Forall_lookup_1 in Hperms; done.
     + rewrite Hpold. intros Hf. exfalso. apply Hdef, Hf.
-  - rewrite Hpnew in Hpx. symmetry in Hpx.
-    eapply map_Forall_lookup_1 in Hperms; done.
+  - eapply reach_transitive. 2: eapply Hpreach; exact Hfn.
+    rewrite /default. destruct (iperm it1 !! k) as [pold|] eqn:Hpold.
+    + rewrite Hpold. simpl. eapply map_Forall_lookup_1 in Hreach; done.
+    + rewrite Hpold. simpl. by eapply reach_reflexive.
+  - eapply map_Forall_lookup_1 in Hreach; done.
 Qed.
 
 Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
@@ -519,8 +547,9 @@ Proof.
   remember (tree_apply_access _ _ _ _ _) as tr''.
   destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
   assert (tree_items_compat_nexts tr'' nxtp nxtc) as WF''. {
-    unshelve eapply (tree_apply_access_compat_nexts _ _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
-    intros ??; eapply (apply_access_perm_maybe_wf true).
+    unshelve eapply (tree_apply_access_compat_nexts _ _ _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
+    1: intros ??; eapply (apply_access_perm_maybe_wf true).
+    1: intros ??; eapply (apply_access_perm_maybe_reach true).
   }
   erewrite <- (join_map_id_is_Some_identical _ tr'' tr').
   - assumption.
@@ -550,7 +579,8 @@ Lemma memory_access_compat_nexts b tr tr' acc cids tg range nxtp nxtc :
 Proof.
   intros WF Dealloc.
   eapply tree_apply_access_compat_nexts; try done.
-  intros ??; eapply apply_access_perm_maybe_wf.
+  1: intros ??; eapply apply_access_perm_maybe_wf.
+  1: intros ??; eapply apply_access_perm_maybe_reach.
 Qed.
 
 
@@ -603,6 +633,7 @@ Proof.
     intros k p [(Hr&Heq)|(Hr&Heq)]%mem_apply_range'_defined_lookup_Some.
     + subst p. done.
     + by rewrite lookup_empty in Heq.
+  - intros Hne. congruence.
 Qed.
 
 Lemma init_tree_nonempty t off sz :
@@ -1057,6 +1088,7 @@ Proof.
         intros ? [= <-]. by eapply WF.
       + clear. cbv. by case_match.
       + done.
+      + intros _. eapply map_Forall_empty.
     - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
   constructor; simpl.
   - rewrite /same_blocks /=

@@ -296,67 +296,20 @@ Proof.
   - iPureIntro. by eapply base_step_wf.
 Qed.
 
-(*
-(** TODO: generalize, move, and use it for the opt lemmas too *)
-Lemma sim_copy_public_controlled_update σ l l' (bor : tag) (T : type) (α' : stacks) (t : ptr_id) (tk : tag_kind) sc :
-  memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α' →
-  state_wf σ →
-  (bor = Tagged t → tk = tk_pub) →
-  loc_controlled l' t tk sc σ →
-  loc_controlled l' t tk sc (mkState σ.(shp) α' σ.(scs) σ.(snp) σ.(snc)).
-Proof.
-  intros Hread Hwf Hbor Hcontrol Hpre.
-  (* need to update the loc_controlled.
-    intuitive justification:
-    - if l is not affected by the Copy, we are fine.
-    - if it is affected, we already know that we accessed with a public tag [bor_s].
-      In case this current tag [t] is local, we have a contradiction as the tags must be the same.
-      In case this current tag [t] is unique: if the item is in the stack, then it must still be because it would have been protected
-      In case this current tag [t] is public: it should still be there, as it is not incompatible with our copy access (we leave SharedROs there).
-  *)
-
-  specialize (for_each_access1 _ _ _ _ _ _ _ Hread) as Hsub.
-  assert (bor_state_pre l' t tk σ) as H.
-  { move : Hpre. destruct tk; [ | | done ].
-    all: intros (st' & pm & opro & Hα'_some & Hit & Hpm);
-      specialize (Hsub _ _ Hα'_some) as (st & Hα_some & Hsublist & _);
-      exists st, pm, opro;
-      split_and!; [ done | | done]; specialize (Hsublist _ Hit) as ([] & Hit' & Heq & Heq' & Hperm'); simpl in *;
-      rewrite Heq Heq' -Hperm'; done.
-  }
-  specialize (Hcontrol H) as [Hown Hmem].
-  split; last done.
-  move: Hpre.
-  destruct tk; simpl.
-  * (* goal: use access1_active_SRO_preserving *)
-    intros (st & pm & opro & Hsome_st & Hit & Hpm). exists st. split; first done.
-    destruct Hown as (st'' & Hsome_st'' & Hactive).
-    destruct (for_each_lookup_case _ _ _ _ _ Hread _ _ _ Hsome_st'' Hsome_st) as [-> | [Hacc _]]; first done.
-    destruct access1 as [ [n st']| ] eqn:Hacc_eq; simpl in Hacc; simplify_eq.
-    eapply access1_active_SRO_preserving; [ | done | apply Hacc_eq | done ].
-    eapply Hwf; done.
-  * intros (st & pm & opro & Hsome_st & Hit & Hpm).
-    destruct Hown as (st' & Hsome_st' & opro' & st'0 & Heq).
-    destruct (for_each_lookup_case _ _ _ _ _ Hread _ _ _ Hsome_st' Hsome_st) as [-> | [Hacc _]]; first by eauto.
-    destruct access1 as [ [n st'']| ] eqn:Hacc_eq; simpl in Hacc; simplify_eq.
-    exists st. split; first done. exists opro'.
-    eapply access1_head_preserving; [ eapply Hwf; done| done | | apply Hacc_eq| eexists; done ].
-    (* need that opro = opro' *)
-    specialize (access1_read_eq _ _ _ _ t _ _ _ ltac:(eapply Hwf; done) Hacc_eq ltac:(by left) Hit Hpm ltac:(done) ltac:(done)) as Heq.
-    simplify_eq. done.
-  * intros _. simpl in Hown.
-    specialize (for_each_access1_lookup_inv _ _ _ _ _ _ _ Hread _ _ Hown) as (st' & Hst' & [[n' Hacc_eq] | Heq]).
-    2: { rewrite Heq. done. }
-    specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%elem_of_list_singleton & Htg & _).
-    (* contradiction, since t is public *)
-    simpl in Htg. subst bor. discriminate Hbor. done.
-Qed.
-
 Lemma sim_copy_public Φ π l_t bor_t T_t l_s bor_s T_s :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
   (∀ v_t v_s, value_rel v_t v_s -∗ v_t ⪯{π} ValR v_s [{ Φ }]) -∗
   Copy (PlaceR l_t bor_t T_t) ⪯{π} Copy (PlaceR l_s bor_s T_s) [{ Φ }].
 Proof.
+  iIntros "[#Hscrel ->] Hsim".
+  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> ->].
+  iClear "Hscrel".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iModIntro.
+  destruct Hsafe as [Hpool Hsafe].
+  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  destruct Hp as (Hsst_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq). (*
+  specialize (pool_safe_implies Hsafe Hpool) as (trs' & Hdealloc_s & Hpos & Hcontain & Happly_s).
   iIntros "#Hrel Hsim".
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iModIntro.
@@ -490,9 +443,9 @@ Proof.
   enough (sc_t = sc_t' ∧ sc_s = sc_s') by naive_solver.
   move : Hread_both (Hv_t i Hi) (Hv_s i Hi) Hs_t Hs_v.
   by move => [-> ->] <- <- [= ->] [= ->].
-Qed.
+Qed. *) Admitted.
 
-(** Write *)
+(** Write *) (*
 Lemma sim_write_public Φ π l_t bor_t T_t l_s bor_s T_s v_t' v_s' :
   rrel (PlaceR l_t bor_t T_t) (PlaceR l_s bor_s T_s) -∗
   value_rel v_t' v_s' -∗

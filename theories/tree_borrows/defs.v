@@ -20,7 +20,8 @@ Record item_wf (it:item) (nxtp:tag) (nxtc:call_id) := {
   item_tag_valid : forall tg, IsTag tg it -> (tg < nxtp)%nat;
   item_cid_valid : forall cid, protector_is_for_call cid (iprot it) -> (cid < nxtc)%nat;
   item_default_perm_valid : it.(initp) ≠ Active;
-  item_perms_valid : map_Forall (λ _, lazy_perm_wf) it.(iperm)
+  item_perms_valid : map_Forall (λ _, lazy_perm_wf) it.(iperm);
+  item_perm_reachable : it.(initp) ≠ Disabled → map_Forall (λ k v, reach it.(initp) (perm v)) it.(iperm)
 }.
 
 

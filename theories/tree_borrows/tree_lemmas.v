@@ -571,5 +571,12 @@ Proof.
   simpl. tauto.
 Qed.
 
+Lemma fold_immediate_children_at_count {X Y} p (ini:Y) fn (tr : tree X) :
+  length (fold_immediate_children_at p ini fn tr)
+= count_nodes p tr.
+Proof.
+  induction tr as [|x tr1 IH1 tr2 IH2]; first done.
+  simpl. rewrite !app_length IH1 IH2. by destruct (p x).
+Qed.
 
 

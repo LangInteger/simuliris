@@ -589,8 +589,8 @@ Proof.
     repeat (simpl; try simpl in Hperm1; try simpl in Holdothers; simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
 Qed.
 
-Lemma loc_controlled_write_invalidates_others l sc cids σ σ' blk off1 sz tg_acc tg_lu vls tk A:
-  apply_within_trees (memory_access AccessWrite cids tg_acc (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
+Lemma loc_controlled_write_invalidates_others l sc σ σ' blk off1 sz tg_acc tg_lu vls tk A:
+  apply_within_trees (memory_access AccessWrite σ.(scs) tg_acc (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
   (write_mem (blk, off1) vls (shp σ)) = shp σ' →
   scs σ = scs σ' →
   state_wf σ →
@@ -653,7 +653,7 @@ Proof.
     2: by eapply (state_wf_tree_unq _ Hwf).
     pose proof Hunq as (itaccold&Hdet)%unique_lookup.
     assert (tree_lookup trold tg_acc itaccold) as Hitaccold by done.
-    destruct (rel_dec trold tg_acc tg_lu) as [foreignpos|childpos] eqn:Hreldec.
+    destruct (rel_dec trold tg_acc tg_lu) as [foreignpos|[isimm|]] eqn:Hreldec.
     + eapply apply_trees_access_lookup_general in Happly as Hitrev.
       2: apply Hwf. 2: eassumption. 2: exists trold; split; first done; last exact Hitaccold.
       destruct Hitrev as (itaccnew & (trnew' & Htrnew' & Hitaccnew) & Hinititacc & Hprotitacc & Hpermitacc).
@@ -663,16 +663,19 @@ Proof.
       pose proof Hpermit as (x1&Hx1&(x2&Hx2&[=Hx3])%bind_Some)%bind_Some. clear Hpermit.
       pose proof Hpermitacc as (y1&Hy1&(y2&Hy2&[=Hy3])%bind_Some)%bind_Some. clear Hpermitacc.
       rewrite /apply_access_perm_inner in Hx1,Hy1.
-      rewrite -!Hx3 -!Hprotit /= in Hnondis Hfreezeprot.
+      rewrite -!Hx3 -!Hprotit -?Heq_scs /= in Hnondis Hfreezeprot Hx1 Hx2.
       rewrite /trees_rel_dec Htrold in Hx1.
       rewrite !bool_decide_decide in Hx1,Hx2,Hy1,Hy2.
       rewrite Hreldec in Hx1,Hothers.
       destruct foreignpos as [pp|].
-      all: destruct (perm (item_lookup itold l.2)) as [[][]| | |] eqn:Heqpx, (initialized (item_lookup itold l.2)) as [] eqn:Heqinitx; simpl in *; simplify_eq; try done.
+      all: destruct (perm (item_lookup itold l.2)) as [[][]| | |], 
+                    (initialized (item_lookup itold l.2)) as []; 
+             simpl in *; simplify_eq; try done.
       all: repeat (destruct decide; simplify_eq; try done).
-    + destruct childpos as [isimm|].
-      2: { eapply Htgne, rel_this_antisym. 3: done. 2: apply Hitold. done. }
-      pose proof Hreldec as HH.
+      all: destruct (perm (item_lookup itaccold l.2)) as [[][]| | |], 
+                    (initialized (item_lookup itaccold l.2)) as []; 
+             simpl in *; simplify_eq; try destruct Hsame; done.
+    + pose proof Hreldec as HH.
       rewrite /rel_dec in HH.
       edestruct (decide (ParentChildIn _ _ _)) as [HPC|]; last done.
       edestruct (decide (ParentChildIn _ _ _)) as [|HNPC]; first done.
@@ -701,6 +704,7 @@ Proof.
       rewrite decide_True // /= in Hothers.
       pose proof Hpermitsw as (y1&Hy1&(y2&Hy2&[=Hy3])%bind_Some)%bind_Some. clear Hpermitsw.
       rewrite /apply_access_perm Hothers /= in Hy1. done.
+    + eapply Htgne, rel_this_antisym. 3: done. 2: apply Hitold. done.
   - destruct Hcontrol as ((itold&trold'&Hitold&Htrold'&Hactive&Hunq)&_); first done.
     assert (trold' = trold) as -> by congruence. clear Htrold'.
     rewrite /trees_contain /trees_at_block Htrold in Htgin.

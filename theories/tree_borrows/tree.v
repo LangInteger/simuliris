@@ -112,16 +112,6 @@ Global Instance exists_strict_child_dec {X} prop (tr:tbranch X) :
   (forall u, Decision (prop u)) -> Decision (exists_strict_child prop tr).
 Proof. intro. solve_decision. Defined.
 
-Definition exists_sibling {X} (prop:X -> Prop) :=
-  fold_nodes False (fun data lt _ => prop data \/ lt).
-Global Instance exists_sibling_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (exists_sibling prop tr).
-Proof. intro. induction tr; solve_decision. Defined.
-Definition exists_immediate_child {X} (prop:X -> Prop)
-  : Tprop (tbranch X) := fun '(_, _, child) => exists_sibling prop child.
-Global Instance exists_immediate_child_dec {X} prop (tr:tbranch X) :
-  (forall u, Decision (prop u)) -> Decision (exists_immediate_child prop tr).
-Proof. intro. solve_decision. Defined.
-
 Definition empty_children {X} (tr:tbranch X)
   : Prop :=
   let '(_, _, children) := tr in
@@ -139,5 +129,22 @@ Definition insert_child_at {X} (tr:tree X) (ins:X) (search:Tprop X) {search_dec:
       else branch data sibling child
     end
   ) tr.
+
+Definition fold_siblings {X Y} (empty:Y) (fn : X -> Y -> Y) (tr : tree X) : Y :=
+  fold_nodes empty (λ x tl _, fn x tl) tr.
+Fixpoint fold_immediate_children_at {X Y} (prop:X -> bool) (empty:Y) (fn : X -> Y -> Y) (tr : tree X) : list Y :=
+  match tr with empty => nil
+    | branch x tl tr => (if prop x then [fold_siblings empty fn tr] else nil) ++
+            fold_immediate_children_at prop empty fn tl ++ fold_immediate_children_at prop empty fn tr end.
+
+Definition exists_sibling {X} (prop:X -> Prop) :=
+  fold_siblings False (fun data lt => prop data \/ lt).
+Global Instance exists_sibling_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (exists_sibling prop tr).
+Proof. intro. induction tr; solve_decision. Defined.
+Definition exists_immediate_child {X} (prop:X -> Prop)
+  : Tprop (tbranch X) := fun '(_, _, child) => exists_sibling prop child.
+Global Instance exists_immediate_child_dec {X} prop (tr:tbranch X) :
+  (forall u, Decision (prop u)) -> Decision (exists_immediate_child prop tr).
+Proof. intro. solve_decision. Defined.
 
 

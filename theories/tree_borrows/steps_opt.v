@@ -901,8 +901,8 @@ Proof.
         { destruct (list_to_heaplet v_t' l.2 !! lw.2) eqn:Hhl; try by eexists.
           eapply list_to_heaplet_lookup_None in Hhl. lia. }
         intros Hpre. exfalso. revert Hpre.
-        eapply loc_controlled_write_invalidates_others.
-        1: done. 1: subst σ_t'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
+        eapply loc_controlled_write_invalidates_others. 
+        1: by rewrite Hscs_eq in Htree_t. 1: subst σ_t'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
         1: done. 2: done. done.
     }
   - (* source state wf *)

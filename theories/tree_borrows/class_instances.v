@@ -220,14 +220,12 @@ Section safe_reach.
   Proof. prove_safe_implies. Qed.
    *)
 
-  (* doesn't build because we don't have types anymore
   Global Instance safe_implies_copy_val P σ r :
-    SafeImplies (∃ l t T, r = PlaceR l t T) P (Copy r) σ.
+    SafeImplies (∃ l t sz, r = PlaceR l t sz) P (Copy r) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_copy_place P σ l t T :
-    SafeImplies ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T))) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
+  Global Instance safe_implies_copy_place P σ l tg sz :
+    SafeImplies ((∃ v, read_mem l sz σ.(shp) = Some v ∧ trees_contain tg σ.(strs) l.1 ∧ is_Some (apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs))) ∨ (trees_contain tg σ.(strs) l.1 ∧ apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None)) P (Copy (Place l tg sz)) σ.
   Proof. prove_safe_implies. Qed.
-   *)
 
   Global Instance safe_implies_write_val_left1 P σ v v' :
     SafeImplies False P (Write (Val v) (Val v')) σ.

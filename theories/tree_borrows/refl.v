@@ -319,7 +319,7 @@ Section log_rel.
     discr_source. val_discr_source "Hv".
     sim_pures. solve_rrel_refl.
   Qed.
-(*
+
   Lemma log_rel_copy e_t e_s :
     log_rel e_t e_s -∗ log_rel (Copy e_t) (Copy e_s).
   Proof.
@@ -332,7 +332,7 @@ Section log_rel.
     iApply (sim_copy_public with "[Hv]"). { by iApply rrel_place. }
     iIntros (v_t v_s) "Hv". sim_val. eauto.
   Qed.
-
+(*
   Lemma log_rel_write e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -498,7 +498,7 @@ Section refl.
     - (* Ref *)
       by iApply (log_rel_ref with "IH").
     - (* Copy *)
-      admit; by iApply (log_rel_copy with "IH").
+      by iApply (log_rel_copy with "IH").
     - (* Write *)
       admit; by iApply (log_rel_write with "IH IH1").
     - (* Alloc *)
