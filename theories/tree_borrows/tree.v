@@ -112,6 +112,16 @@ Global Instance exists_strict_child_dec {X} prop (tr:tbranch X) :
   (forall u, Decision (prop u)) -> Decision (exists_strict_child prop tr).
 Proof. intro. solve_decision. Defined.
 
+Definition exists_sibling {X} (prop:X -> Prop) :=
+  fold_nodes False (fun data lt _ => prop data \/ lt).
+Global Instance exists_sibling_dec {X} prop (tr:tree X) : (forall x, Decision (prop x)) -> Decision (exists_sibling prop tr).
+Proof. intro. induction tr; solve_decision. Defined.
+Definition exists_immediate_child {X} (prop:X -> Prop)
+  : Tprop (tbranch X) := fun '(_, _, child) => exists_sibling prop child.
+Global Instance exists_immediate_child_dec {X} prop (tr:tbranch X) :
+  (forall u, Decision (prop u)) -> Decision (exists_immediate_child prop tr).
+Proof. intro. solve_decision. Defined.
+
 Definition empty_children {X} (tr:tbranch X)
   : Prop :=
   let '(_, _, children) := tr in

@@ -226,8 +226,8 @@ Inductive access_visibility := VisibleAll | OnlyNonChildren.
 (* The state machine only cares about Foreign vs Child.
    The invariants need more fine-grained relationships between tags.
    We use this two-layer representation so that things compute better. *)
-Inductive foreign_rel_pos := Parent | Cousin.
-Inductive child_rel_pos := Strict | This.
+Inductive foreign_rel_pos := Parent (direct:bool) | Cousin.
+Inductive child_rel_pos := Strict (direct:bool) | This.
 Inductive rel_pos := Foreign (pos : foreign_rel_pos) | Child (pos : child_rel_pos).
 
 Global Instance access_kind_eq_dec : EqDecision access_kind.

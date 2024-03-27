@@ -313,6 +313,15 @@ Proof.
   right; right; right; left; auto.
 Qed.
 
+Lemma exists_sibling_insert {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+  {search_dec:forall x, Decision (search x)} :
+  exists_sibling prop tr ↔ exists_sibling prop (insert_child_at tr ins search).
+Proof.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
+  destruct (decide (search data)); simpl.
+  all: rewrite IHtr1 //.
+Qed.
+
 Lemma insert_false_infer_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
   {search_dec:forall x, Decision (search x)} :
   ~prop ins ->
@@ -537,5 +546,30 @@ Proof.
   rewrite Preserves; [|eassumption].
   tauto.
 Qed.
+
+Lemma join_map_preserves_exists_sibling {X} (tr tr':tree X) (prop:Tprop X) :
+  forall fn,
+  (forall x y, fn x = Some y -> prop x <-> prop y) ->
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  exists_sibling prop tr <-> exists_sibling prop tr'.
+Proof.
+  move=> ? Preserves JoinMap.
+  generalize dependent tr'.
+  induction tr as [|?? IHtr1 ? IHtr2]; [simpl; move=> ? H; injection H; intros; subst; tauto|].
+  intros tr' JoinMap.
+  destruct (destruct_joined _ _ _ _ JoinMap) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]]; subst.
+  simpl.
+  erewrite IHtr1; [|eassumption].
+  rewrite Preserves; [|eassumption].
+  tauto.
+Qed.
+
+Lemma exists_sibling_exists_node {X} tr (prop : X → Prop) :
+  exists_sibling prop tr → exists_node prop tr.
+Proof.
+  induction tr as [|data tl IHl ? _]; first done.
+  simpl. tauto.
+Qed.
+
 
 

@@ -99,7 +99,7 @@ Fixpoint mem_fold_apply {X} (fn : option X -> option X) locs
 
 (* Part of the API for permission update. All memory accesses have an effect
    on the permissions that can be expressed by a faillible function from
-   (optionally uninitialized) permissions to permissions lifted to the entire
+   (optionally uninitialized) permissions to Parentpermissions lifted to the entire
    memory by means of [mem_apply_range']. *)
 Definition mem_apply_range' {X} (fn:option X -> option X) (r:range')
   : app (gmap loc' X) := mem_apply_locs fn r.1 r.2.
@@ -240,6 +240,10 @@ Definition HasStrictChildTag t' : Tprop (tbranch item) := exists_strict_child (I
 Global Instance HasStrictChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
 Proof. rewrite /HasStrictChildTag. solve_decision. Defined.
 
+Definition HasImmediateChildTag t' : Tprop (tbranch item) := exists_immediate_child (IsTag t').
+Global Instance HasImmediateChildTag_dec t' tr : Decision (HasImmediateChildTag t' tr).
+Proof. rewrite /HasImmediateChildTag. solve_decision. Defined.
+
 (* We define that [t] is a strict parent of [t'] when every subtree
    whose root is labeled [t] contains a strict child labeled [t'].
    When the tree is well-formed (tags are unique) and contains [t],
@@ -270,6 +274,11 @@ Definition ParentChildIn t t' : Tprop (tree item)
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
 Proof. rewrite /ParentChildIn. solve_decision. Defined.
 
+Definition ImmediateParentChildIn t t' : Tprop (tree item)
+  := every_subtree (fun br => (IsTag t (root br)) -> (HasImmediateChildTag t' br)).
+Global Instance ImmediateParentChildIn_dec t t' tr : Decision (ImmediateParentChildIn t t' tr).
+Proof. rewrite /ImmediateParentChildIn. solve_decision. Defined.
+
 (* Decide the relative position (parent/child/other) of two tags.
    Read this as "t1 is a `rel_dec tr t1 t2` of t2", i.e.
    `rel_dec tr t1 t2 = Child Strict` means `t1` is a strict child of `t2` in `tr`,
@@ -285,13 +294,13 @@ Proof. rewrite /ParentChildIn. solve_decision. Defined.
    to make the distinction. *)
 Definition rel_dec (tr:tree item) := fun t t' =>
   if decide (ParentChildIn t' t tr)
-  then Child (if decide (ParentChildIn t t' tr) then This else Strict)
-  else Foreign (if decide (ParentChildIn t t' tr) then Parent else Cousin).
+  then Child (if decide (ParentChildIn t t' tr) then This else Strict (bool_decide (ImmediateParentChildIn t' t tr)))
+  else Foreign (if decide (ParentChildIn t t' tr) then Parent (bool_decide (ImmediateParentChildIn t t' tr)) else Cousin).
 
 Definition rel_pos_inv (r : rel_pos) : rel_pos := match r with
   Child This => Child This
-| Child Strict => Foreign Parent
-| Foreign Parent => Child Strict
+| Child (Strict b) => Foreign (Parent b)
+| Foreign (Parent b) => Child (Strict b)
 | Foreign Cousin => Foreign Cousin end.
 
 Lemma rel_pos_inv_inv r : rel_pos_inv (rel_pos_inv r) = r.
@@ -315,9 +324,9 @@ Lemma rel_dec_cousin_sym tr t t' : rel_dec tr t t' = Foreign Cousin -> rel_dec t
 Proof. eapply rel_dec_flip. Qed.
 Lemma rel_dec_this_sym tr t t' : rel_dec tr t t' = Child This -> rel_dec tr t' t = Child This.
 Proof. eapply rel_dec_flip. Qed.
-Lemma rel_dec_parent_antisym tr t t' : rel_dec tr t t' = Foreign Parent -> rel_dec tr t' t = Child Strict.
+Lemma rel_dec_parent_antisym tr t t' b: rel_dec tr t t' = Foreign (Parent b) -> rel_dec tr t' t = Child (Strict b).
 Proof. eapply rel_dec_flip. Qed.
-Lemma rel_dec_child_antisym tr t t' : rel_dec tr t t' = Child Strict -> rel_dec tr t' t = Foreign Parent.
+Lemma rel_dec_child_antisym tr t t' b : rel_dec tr t t' = Child (Strict b) -> rel_dec tr t' t = Foreign (Parent b).
 Proof. eapply rel_dec_flip. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
@@ -481,7 +490,7 @@ Definition nonchildren_only
   (fn : rel_pos -> bool -> app lazy_permission)
   : rel_pos -> bool -> app lazy_permission := fun rel isprot perm =>
   match rel with
-  | Child Strict => Some perm
+  | Child (Strict _) => Some perm
   | _ => fn rel isprot perm
   end.
 
@@ -519,11 +528,12 @@ Definition extend_trees t blk off sz
 Definition maybe_non_children_only (b:bool) := if b then nonchildren_only else λ x, x.
 
 Lemma maybe_non_children_only_no_effect b1 fn rel ip perm :
-  rel ≠ Child Strict →
+  (∀ b, rel ≠ Child (Strict b)) →
   maybe_non_children_only b1 fn rel ip perm =
   fn rel ip perm.
 Proof.
-  by destruct b1, rel as [[]|[]].
+  destruct b1, rel as [[]|[]]; try done.
+  intros H. exfalso. by eapply H.
 Qed.
 
 Lemma maybe_non_children_only_effect_or_nop b1 fn rel :
@@ -534,8 +544,8 @@ Proof.
 Qed.
 
 Lemma maybe_non_children_only_effect_or_nop_strong b1 fn rel :
-  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm ∧ (b1 ≠ true ∨ rel ≠ Child Strict)) ∨
-  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm ∧ b1 = true ∧ rel = Child Strict).
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm ∧ (b1 ≠ true ∨ (∀ b, rel ≠ Child (Strict b)))) ∨
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm ∧ b1 = true ∧ ∃ b, rel = Child (Strict b)).
 Proof.
   destruct b1, rel as [[]|[]]; simpl; eauto.
 Qed.
@@ -1000,23 +1010,31 @@ Local Definition with_two_children :=
   unwrap (create_child ∅ 1 3 (ShrRef) Default 0 with_one_child).
 Local Definition with_three_children :=
   unwrap (create_child ∅ 2 4 (Box TyFrz) Default 0 with_two_children).
+(*
+   1
+  / \
+ 2   3
+ |
+ 4
+In particular, 4 is a non-immediate child of 1, but all other child relations are immediate.
 
+*)
 (* conversion keeps being magical *)
-Succeed Example foo : rel_dec with_three_children 1 1 = Child This     := eq_refl.
-Succeed Example foo : rel_dec with_three_children 1 2 = Foreign Parent := eq_refl.
-Succeed Example foo : rel_dec with_three_children 1 3 = Foreign Parent := eq_refl.
-Succeed Example foo : rel_dec with_three_children 1 4 = Foreign Parent := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 1 = Child Strict   := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 2 = Child This     := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 3 = Foreign Cousin := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 4 = Foreign Parent := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 1 = Child Strict   := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 2 = Foreign Cousin := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 3 = Child This     := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 4 = Foreign Cousin := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 1 = Child Strict   := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 2 = Child Strict   := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 4 = Child This     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 1 = Child This             := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 2 = Foreign (Parent true)  := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 3 = Foreign (Parent true)  := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 4 = Foreign (Parent false) := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 1 = Child (Strict true)    := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 2 = Child This             := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 3 = Foreign Cousin         := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 4 = Foreign (Parent true)  := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 1 = Child (Strict true)    := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 2 = Foreign Cousin         := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 3 = Child This             := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 4 = Foreign Cousin         := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 1 = Child (Strict false)   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 2 = Child (Strict true)    := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin         := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 4 = Child This             := eq_refl.
 
 

@@ -424,10 +424,10 @@ Section heap_defs.
            | Reserved TyFrz _ => tkk = tk_res ∧ ¬ protector_is_active it.(iprot) σ.(scs)
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
-            | Child This => True
-              (* all children of t must be disabled *)
-            | Child Strict => (item_lookup it' l.2).(perm) = Disabled
-            | Foreign Parent => match (item_lookup it' l.2).(perm) with
+              (* all immediate children of t must be disabled *)
+            | Child (Strict true) => (item_lookup it' l.2).(perm) = Disabled
+            | Child _ => True
+            | Foreign (Parent _) => match (item_lookup it' l.2).(perm) with
               (* all parents of t must be active (or at least not be disabled for tk_res) *)
                 Active => True | Disabled => False | _ => tkk = tk_res end
             | Foreign Cousin => match (item_lookup it' l.2).(perm) with
@@ -449,8 +449,8 @@ Section heap_defs.
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
             | Child This => True
                (* it' is a child of it *)
-            | Child Strict => (item_lookup it' l.2).(perm) ≠ Active
-            | Foreign Parent => (item_lookup it' l.2).(perm) ≠ Disabled
+            | Child (Strict _) => (item_lookup it' l.2).(perm) ≠ Active
+            | Foreign (Parent _) => (item_lookup it' l.2).(perm) ≠ Disabled
             | Foreign Cousin => (item_lookup it' l.2).(perm) ≠ Active end
     end.
 

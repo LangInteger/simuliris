@@ -190,6 +190,38 @@ Proof.
   - erewrite <- insert_eqv_strict_rel in Strict; assumption.
 Qed.
 
+Lemma insert_eqv_imm_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
+  {search_dec:forall it, Decision (search it)} :
+  ~IsTag t ins ->
+  ~IsTag t' ins ->
+  ImmediateParentChildIn t t' tr <-> ImmediateParentChildIn t t' (insert_child_at tr ins search).
+Proof.
+  intros Nott Nott'; unfold ImmediateParentChildIn.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; auto.
+  destruct (decide (search data)).
+  + rewrite IHtr1; clear IHtr1. rewrite IHtr2; clear IHtr2.
+    simpl.
+    split; intro Hyp.
+    - destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
+      try repeat split; auto.
+      intro H; right. rewrite <- exists_sibling_insert. auto.
+    - destruct Hyp as [Hyp0 [Hyp1 [Hyp21 [Hyp22 _]]]].
+      try repeat split; auto.
+      intro H; destruct (Hyp0 H) as [|]; [contradiction|].
+      by eapply exists_sibling_insert.
+  + rewrite IHtr1; clear IHtr1. rewrite IHtr2; clear IHtr2.
+    simpl.
+    split; intro Hyp.
+- destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
+  try repeat split; auto.
+  intro H; auto.
+  rewrite <- exists_sibling_insert. auto.
+- destruct Hyp as [Hyp0 [Hyp1 Hyp2]].
+  try repeat split; auto.
+  intro H; auto.
+  erewrite exists_sibling_insert. eauto.
+Qed.
+
 Lemma join_map_eqv_strict_rel t t' (tr tr':tree item) :
   forall fn,
   (forall it it', fn it = Some it' -> itag it = itag it') ->
@@ -227,6 +259,32 @@ Proof.
   rewrite join_map_eqv_strict_rel; eauto.
 Qed.
 
+Lemma join_map_eqv_imm_rel
+  {t t' tr tr' fn}
+  (PreservesTags : forall it it', fn it = Some it' -> itag it = itag it')
+  (Success : join_nodes (map_nodes fn tr) = Some tr')
+  : ImmediateParentChildIn t t' tr <-> ImmediateParentChildIn t t' tr'.
+Proof.
+  generalize dependent tr'.
+  unfold ImmediateParentChildIn.
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Success; simpl in *.
+  - inversion Success; auto.
+  - destruct (destruct_joined _ _ _ _ Success) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]].
+    rewrite IHtr1; [|eapply EqTr1'].
+    rewrite IHtr2; [|eapply EqTr2'].
+    subst; simpl.
+    split; intros (H&?&?); split_and!; try done.
+    all: intro Hyp.
+    + rewrite <- join_map_preserves_exists_sibling.
+      * apply H. erewrite PreservesTags; eassumption.
+      * intros; subst. erewrite PreservesTags; eauto.
+      * apply EqTr2'.
+    + rewrite join_map_preserves_exists_sibling.
+      * apply H. erewrite <- PreservesTags; eassumption.
+      * intros; subst. erewrite PreservesTags; eauto.
+      * apply EqTr2'.
+Qed.
+
 Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
   ~IsTag t ins ->
   StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
@@ -234,7 +292,7 @@ Proof.
   intro Nott.
   unfold StrictParentChildIn.
   induction tr as [|data ????]; simpl; auto.
-destruct (decide (IsTag t data)) eqn:Found; simpl.
+  destruct (decide (IsTag t data)) eqn:Found; simpl.
   - try repeat split; auto.
   - try repeat split; auto.
     intro H; contradiction.
@@ -250,6 +308,41 @@ Proof.
   assert (~IsTag t ins) as NotTg by (intro H; rewrite <- H in Ne; rewrite <- Tg in Ne; contradiction).
   pose proof (insert_produces_StrictParentChild _ _ tr NotTg) as H.
   rewrite Tg in H; assumption.
+Qed.
+
+Lemma insert_produces_ImmediateParentChild t (ins:item) (tr:tree item) :
+  ~IsTag t ins ->
+  ImmediateParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
+Proof.
+  intro Nott.
+  unfold StrictParentChildIn.
+  induction tr as [|data ????]; simpl; auto.
+  destruct (decide (IsTag t data)) eqn:Found; simpl.
+  - try repeat split; auto.
+  - try repeat split; auto.
+    intro H; contradiction.
+Qed.
+
+
+Lemma Immediate_is_StrictChildTag tg tr :
+  HasImmediateChildTag tg tr →
+  HasStrictChildTag tg tr.
+Proof.
+  destruct tr as ((data&tl)&tr). simpl.
+  by eapply exists_sibling_exists_node.
+Qed.
+
+Lemma Immediate_is_StrictParentChild t1 t2 (tr:tree item) :
+  ImmediateParentChildIn t1 t2 tr →
+  StrictParentChildIn t1 t2 tr.
+Proof.
+  intros Himm.
+  unfold StrictParentChildIn, ImmediateParentChildIn in *.
+  eapply every_subtree_eqv_universal.
+  intros br H1 H2.
+  eapply Immediate_is_StrictChildTag.
+  eapply every_subtree_eqv_universal in Himm; try done.
+  by apply Himm.
 Qed.
 
 Lemma StrictParentChild_transitive t t' t'' (tr:tree item) :
@@ -649,9 +742,10 @@ Qed.
 Lemma same_parent_childs_agree
   {tr1 tr2}
   : (forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2) ->
+    (forall tg tg', ImmediateParentChildIn tg tg' tr1 <-> ImmediateParentChildIn tg tg' tr2) ->
   (forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg').
 Proof.
-  intros SameRel tg tg'.
+  intros SameRel SameImmRel tg tg'.
   rewrite /rel_dec.
   destruct (decide (ParentChildIn _ _ _)) as [R1|R1].
   all: destruct (decide (ParentChildIn _ _ _)) as [R1'|R1'].
@@ -660,7 +754,8 @@ Proof.
   all: try reflexivity.
   all: rewrite <- SameRel in R2'; auto; try contradiction.
   all: rewrite <- SameRel in R2; auto; try contradiction.
-  all: apply Subtree; left; simpl.
+  all: erewrite bool_decide_ext; last apply SameImmRel.
+  all: done.
 Qed.
 
 Lemma not_strict_parent_of_self
@@ -933,6 +1028,36 @@ Proof.
     apply P1.
 Qed.
 
+Lemma unique_immediate_parent_child_focus_1
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr1 ->
+  tree_unique tg2 tr1 ->
+  ImmediateParentChildIn tg1 tg2 tr1
+  <-> ImmediateParentChildIn tg1 tg2 (branch data tr1 tr2).
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /ImmediateParentChildIn.
+  simpl; split.
+  + intro P1.
+    destruct (unique_found_branch_1 _ Unq1 Unq1') as [Absent NotTg].
+    try repeat split.
+    - intro; contradiction.
+    - assumption.
+    - rewrite every_subtree_eqv_universal.
+      intros br Sub Tg.
+      exfalso.
+      apply Absent.
+      enough (exists_subtree (compose (IsTag tg1) root) tr2) as FoundTg.
+      * rewrite <- exists_node_iff_exists_root in FoundTg.
+        exact FoundTg.
+      * eapply exists_subtree_increasing; [|eassumption].
+        simpl. intros. subst. auto.
+  + intro P1.
+    apply P1.
+Qed.
+
 Lemma unique_strict_parent_child_focus_2
   {data tr1 tr2} tg1 tg2 :
   tree_unique tg1 (branch data tr1 tr2) ->
@@ -944,6 +1069,36 @@ Lemma unique_strict_parent_child_focus_2
 Proof.
   intros Unq1 Unq2 Unq1' Unq2'.
   rewrite /StrictParentChildIn.
+  simpl; split.
+  + intro P1.
+    destruct (unique_found_branch_2 _ Unq1 Unq1') as [Absent NotTg].
+    try repeat split.
+    - intro; contradiction.
+    - rewrite every_subtree_eqv_universal.
+      intros br Sub Tg.
+      exfalso.
+      apply Absent.
+      enough (exists_subtree (compose (IsTag tg1) root) tr1) as FoundTg.
+      * rewrite <- exists_node_iff_exists_root in FoundTg.
+        exact FoundTg.
+      * eapply exists_subtree_increasing; [|eassumption].
+        simpl. intros. subst. auto.
+    - assumption.
+  + intro P1.
+    apply P1.
+Qed.
+
+Lemma unique_immediate_parent_child_focus_2
+  {data tr1 tr2} tg1 tg2 :
+  tree_unique tg1 (branch data tr1 tr2) ->
+  tree_unique tg2 (branch data tr1 tr2) ->
+  tree_unique tg1 tr2 ->
+  tree_unique tg2 tr2 ->
+  ImmediateParentChildIn tg1 tg2 tr2
+  <-> ImmediateParentChildIn tg1 tg2 (branch data tr1 tr2).
+Proof.
+  intros Unq1 Unq2 Unq1' Unq2'.
+  rewrite /ImmediateParentChildIn.
   simpl; split.
   + intro P1.
     destruct (unique_found_branch_2 _ Unq1 Unq1') as [Absent NotTg].
@@ -1005,7 +1160,9 @@ Proof.
   rewrite /rel_dec.
   pose proof (unique_parent_child_focus_1 _ _ Unq1 Unq2 Unq1' Unq2') as [].
   pose proof (unique_parent_child_focus_1 _ _ Unq2 Unq1 Unq2' Unq1') as [].
-  repeat destruct (decide _); try tauto.
+  pose proof (unique_immediate_parent_child_focus_1 _ _ Unq1 Unq2 Unq1' Unq2') as [].
+  pose proof (unique_immediate_parent_child_focus_1 _ _ Unq2 Unq1 Unq2' Unq1') as [].
+  repeat destruct (decide _); repeat destruct bool_decide; try tauto; done.
 Qed.
 
 Lemma cousins_in_branch_2
@@ -1021,7 +1178,9 @@ Proof.
   rewrite /rel_dec.
   pose proof (unique_parent_child_focus_2 _ _ Unq1 Unq2 Unq1' Unq2') as [].
   pose proof (unique_parent_child_focus_2 _ _ Unq2 Unq1 Unq2' Unq1') as [].
-  repeat destruct (decide _); try tauto.
+  pose proof (unique_immediate_parent_child_focus_2 _ _ Unq1 Unq2 Unq1' Unq2') as [].
+  pose proof (unique_immediate_parent_child_focus_2 _ _ Unq2 Unq1 Unq2' Unq1') as [].
+  repeat destruct (decide _); repeat destruct bool_decide; try tauto; done.
 Qed.
 
 Lemma cousins_find_common_ancestor
@@ -1279,4 +1438,257 @@ Proof.
     2,3,4,5,6: eassumption.
     eassumption.
 Qed.
+
+Lemma immediate_parent_child_not_equal tr tg1 tg2 :
+  tree_unique tg1 tr ->
+  tree_unique tg2 tr ->
+  ImmediateParentChildIn tg1 tg2 tr ->
+  tg1 ≠ tg2.
+Proof.
+  intros Hunq _ HPC ->.
+  induction tr as [|data tr1 IH1 tr2 IH2]; first done.
+  simpl in *. rewrite /tree_unique /= bool_decide_decide in Hunq.
+  destruct HPC as (Hsibl & HPC1 & HPC2).
+  apply unique_somewhere_3way in Hunq as [(Heq1&Heq2&Heq3)|[(Heq1&Heq2&Heq3)|(Heq1&Heq2&Heq3)]].
+  - destruct decide as [H|]; last done.
+    specialize (Hsibl H). eapply exists_sibling_exists_node in Hsibl.
+    eapply count_0_not_exists in Heq3; eapply Heq3.
+    rewrite /tree_contains. apply Hsibl.
+  - apply IH1; done.
+  - apply IH2; done.
+Qed.
+
+(* Very ugly counting argument.
+   I hope there is a better proof of `immediate_not_transitive` *)
+Fixpoint tree_count_tg_skip_siblings tg (tr : tree item) :=
+  match tr with empty => 0 |
+    branch _ sl sr => tree_count_tg_skip_siblings tg sl + tree_count_tg tg sr end.
+Fixpoint tree_count_tg_only_siblings tg (tr : tree item) :=
+  match tr with empty => 0 |
+    branch it sl sr => (if decide (itag it = tg) then 1 else 0) + tree_count_tg_only_siblings tg sl end.
+Lemma tree_count_tg_decompose tg tr :
+  tree_count_tg tg tr = tree_count_tg_only_siblings tg tr + tree_count_tg_skip_siblings tg tr.
+Proof.
+  induction tr as [|it tr1 IHtr1 tr2 IHtr2]; first done.
+  - simpl in *. rewrite IHtr1 IHtr2 decide_bool_decide. lia.
+Qed.
+
+Lemma exists_sibling_count tg tr :
+  exists_sibling (λ it : item, itag it = tg) tr →
+  tree_count_tg_only_siblings tg tr ≥ 1.
+Proof.
+  induction tr as [|it tr1 Htr1 tr2 _]; first done.
+  simpl. intros [Heq|Hne].
+  - rewrite decide_True; lia.
+  - specialize (Htr1 Hne); lia.
+Qed.
+
+Lemma exists_sibling_child_count tg1 tg2 tr :
+  exists_sibling (λ it : item, itag it = tg1) tr →
+  StrictParentChildIn tg1 tg2 tr →
+  tree_count_tg_skip_siblings tg2 tr ≥ 1.
+Proof.
+  induction tr as [|it tr1 Htr1 tr2 Htr2]; first done.
+  simpl. intros [Heq|Hne] (Hfound&Hsibl&_).
+  - specialize (Hfound Heq). eapply count_gt0_exists in Hfound. lia.
+  - specialize (Htr1 Hne Hsibl). lia.
+Qed.
+
+Lemma immediate_not_transitive_strong
+  tr1 tg1 tg2 tg3 :
+  tree_unique tg1 tr1 ->
+  tree_unique tg3 tr1 ->
+  ImmediateParentChildIn tg1 tg2 tr1 ->
+  StrictParentChildIn tg2 tg3 tr1 ->
+  ImmediateParentChildIn tg1 tg3 tr1 ->
+  False.
+Proof.
+  intros Unq1 Unq3 IPC1 IPC2 IPC3.
+  assert (tg1 ≠ tg3) as Htg13ne by by eapply immediate_parent_child_not_equal.
+  induction tr1 as [|data tr1 IH1 tr2 IH2]; first done.
+  simpl in *. rewrite /tree_unique /= bool_decide_decide in Unq1.
+  apply unique_somewhere_3way in Unq1 as [(Heq1&Heq2&Heq3)|[(Heq1&Heq2&Heq3)|(Heq1&Heq2&Heq3)]].
+  - destruct decide as [H|]; last done.
+    destruct IPC1 as (Hsibl1 & _ & _).
+    destruct IPC2 as (_ & ICP1 & ICP2).
+    destruct IPC3 as (Hsibl3 & _ & _). clear IH1 IH2.
+    rewrite /tree_unique /= in Unq3.
+    enough (tree_count_tg tg3 tr2 ≥ 2) by lia. clear Unq3.
+    rewrite tree_count_tg_decompose.
+    opose proof (exists_sibling_child_count tg2 tg3 tr2 _ _) as Hlia1.
+    1: by apply Hsibl1. 1: done.
+    opose proof (exists_sibling_count tg3 tr2 _) as Hlia2.
+    1: by apply Hsibl3. lia.
+  - destruct_and!. eapply IH1; try done.
+    rewrite /tree_unique /= bool_decide_decide in Unq3.
+    apply unique_somewhere_3way in Unq3 as [(Heq1'&Heq2'&Heq3')|[(Heq1'&Heq2'&Heq3')|(Heq1'&Heq2'&Heq3')]]; try done.
+    all: enough (tree_count_tg tg3 tr1 ≥ 1) by lia.
+    all: eapply count_gt0_exists.
+    all: eapply contains_child; first (right; by eapply Immediate_is_StrictParentChild).
+    all: eapply count_gt0_exists; lia.
+  - destruct_and!. eapply IH2; try done.
+    rewrite /tree_unique /= bool_decide_decide in Unq3.
+    apply unique_somewhere_3way in Unq3 as [(Heq1'&Heq2'&Heq3')|[(Heq1'&Heq2'&Heq3')|(Heq1'&Heq2'&Heq3')]]; try done.
+    all: enough (tree_count_tg tg3 tr2 ≥ 1) by lia.
+    all: eapply count_gt0_exists.
+    all: eapply contains_child; first (right; by eapply Immediate_is_StrictParentChild).
+    all: eapply count_gt0_exists; lia.
+Qed.
+
+Lemma immediate_not_transitive
+  tr1 tg1 tg2 tg3 :
+  tree_unique tg1 tr1 ->
+  tree_unique tg3 tr1 ->
+  ImmediateParentChildIn tg1 tg2 tr1 ->
+  ImmediateParentChildIn tg2 tg3 tr1 ->
+  ImmediateParentChildIn tg1 tg3 tr1 ->
+  False.
+Proof.
+  intros H1 H2 H3 H4 H5; unshelve eapply (immediate_not_transitive_strong _ _ _ _ H1 H2 H3 _ H5).
+  by eapply Immediate_is_StrictParentChild.
+Qed.
+
+Lemma tree_all_unique_structural_l it tr1 tr2 :
+  (∀ tg, tree_contains tg (branch it tr1 tr2) → tree_unique tg (branch it tr1 tr2)) →
+  (∀ tg, tree_contains tg tr1 → tree_unique tg tr1).
+Proof.
+  intros Hall tg Hcont.
+  opose proof (Hall tg _) as Htg.
+  - simpl. tauto.
+  - rewrite /tree_unique /= in Htg|-*.
+    eapply count_gt0_exists in Hcont. lia.
+Qed.
+
+Lemma tree_all_unique_structural_r it tr1 tr2 :
+  (∀ tg, tree_contains tg (branch it tr1 tr2) → tree_unique tg (branch it tr1 tr2)) →
+  (∀ tg, tree_contains tg tr2 → tree_unique tg tr2).
+Proof.
+  intros Hall tg Hcont.
+  opose proof (Hall tg _) as Htg.
+  - simpl. tauto.
+  - rewrite /tree_unique /= in Htg|-*.
+    eapply count_gt0_exists in Hcont. lia.
+Qed.
+
+Lemma exists_node_is_root_child it tr1 tr2 tg2 :
+  let tr := branch it tr1 tr2 in
+  (∀ tg, tree_contains tg tr → tree_unique tg tr) →
+  exists_node (λ it, itag it = tg2) tr2 →
+  ParentChildIn (itag it) tg2 tr.
+Proof.
+  intros tr Hunq Hexi. subst tr.
+  right. eapply unique_exists_iff_unique.
+  1: eapply Hunq; by left.
+  left. split; first done.
+  simpl. done.
+Qed.
+
+Lemma exists_node_exists_sibling_parent_child tr tg2 :
+  (∀ tg, tree_contains tg tr → tree_unique tg tr) →
+  exists_node (λ it, itag it = tg2) tr →
+  ∃ tsw,
+  exists_sibling (λ it, itag it = tsw) tr ∧
+  ParentChildIn tsw tg2 tr.
+Proof.
+  induction tr as [|it tr1 IHtr1 tr2 IHtr2]; first done.
+  intros Hallunq [Heq|[Hl|Hr]]; simpl in *.
+  - exists tg2. split; first by left. by left.
+  - pose proof Hl as Htr1.
+    eapply IHtr1 in Hl as (tsw&Hsib&Hpc).
+    2: eapply tree_all_unique_structural_l, Hallunq.
+    exists tsw; split; first by right.
+    eapply exists_sibling_exists_node in Hsib.
+    rewrite <- unique_parent_child_focus_1; first done.
+    3-4: eapply tree_all_unique_structural_l; try exact Hallunq.
+    1-2: eapply Hallunq; right; left.
+    all: done.
+  - exists (itag it). split; first by left.
+    eapply exists_node_is_root_child. 1: exact Hallunq. done.
+Qed.
+
+Lemma immediate_sandwich tr tg1 tg2 :
+  (∀ tg, tree_contains tg tr → tree_unique tg tr) →
+  tree_unique tg1 tr →
+  StrictParentChildIn tg1 tg2 tr →
+  ∃ tsw,
+  ImmediateParentChildIn tg1 tsw tr ∧ ParentChildIn tsw tg2 tr.
+Proof.
+  induction tr as [|it tr1 IHtr1 tr2 IHtr2]; first done. intros Hallunq.
+  rewrite /tree_unique /= bool_decide_decide.
+  intros [(Heq1&Heq2&Heq3)|[(Heq1&Heq2&Heq3)|(Heq1&Heq2&Heq3)]]%unique_somewhere_3way (HSP1&HSP2&HSP3).
+  - destruct decide as [Hteq|]; last done.
+    specialize (HSP1 Hteq).
+    destruct (exists_node_exists_sibling_parent_child tr2 tg2) as (tsw&Hs1&Hs2).
+    1: by eapply tree_all_unique_structural_r.
+    1: done.
+    exists tsw. split_and!; try done.
+    + eapply every_subtree_eqv_universal. intros tb Htb Htg.
+      exfalso; eapply count_0_not_exists; first exact Heq2.
+      eapply exists_node_iff_exists_root. eapply exists_subtree_increasing; last done.
+      intros ? <-; done.
+    + eapply every_subtree_eqv_universal. intros tb Htb Htg.
+      exfalso; eapply count_0_not_exists; first exact Heq3.
+      eapply exists_node_iff_exists_root. eapply exists_subtree_increasing; last done.
+      intros ? <-; done.
+    + eapply exists_sibling_exists_node in Hs1.
+      rewrite <- unique_parent_child_focus_2; first done.
+      3-4: eapply tree_all_unique_structural_r; try exact Hallunq.
+      1-2: eapply Hallunq; right; right.
+      all: done.
+  - destruct IHtr1 as (tsw&Hs1&Hs2).
+    1: eapply tree_all_unique_structural_l; done.
+    1: apply Heq2.
+    1: done.
+    exists tsw. split_and!; try done.
+    + destruct decide; done.
+    + eapply every_subtree_eqv_universal. intros tb Htb Htg.
+      exfalso; eapply count_0_not_exists; first exact Heq3.
+      eapply exists_node_iff_exists_root. eapply exists_subtree_increasing; last done.
+      intros ? <-; done.
+    + assert (tree_contains tsw tr1) as Htswin.
+      { eapply contains_child. 1: right; by eapply Immediate_is_StrictParentChild.
+        eapply count_gt0_exists. lia. }
+      assert (tree_contains tg2 tr1) as Htg2in.
+      { eapply contains_child; done. }
+      rewrite <- unique_parent_child_focus_1; first done.
+      3-4: eapply tree_all_unique_structural_l; try exact Hallunq.
+      1-2: eapply Hallunq; right; left.
+      all: done.
+  - destruct IHtr2 as (tsw&Hs1&Hs2).
+    1: eapply tree_all_unique_structural_r; done.
+    1: apply Heq3.
+    1: done.
+    exists tsw. split_and!; try done.
+    + destruct decide; done.
+    + eapply every_subtree_eqv_universal. intros tb Htb Htg.
+      exfalso; eapply count_0_not_exists; first exact Heq2.
+      eapply exists_node_iff_exists_root. eapply exists_subtree_increasing; last done.
+      intros ? <-; done.
+    + assert (tree_contains tsw tr2) as Htswin.
+      { eapply contains_child. 1: right; by eapply Immediate_is_StrictParentChild.
+        eapply count_gt0_exists. lia. }
+      assert (tree_contains tg2 tr2) as Htg2in.
+      { eapply contains_child; done. }
+      rewrite <- unique_parent_child_focus_2; first done.
+      3-4: eapply tree_all_unique_structural_r; try exact Hallunq.
+      1-2: eapply Hallunq; right; right.
+      all: done.
+Qed.
+
+Lemma immediate_parent_not_child it1 it2 tr :
+  tree_unique it1 tr →
+  tree_unique it2 tr →
+  ImmediateParentChildIn it1 it2 tr →
+  ParentChildIn it2 it1 tr →
+  False.
+Proof.
+  intros Hu1 Hu2 H1 [H2|H2].
+  1: { eapply immediate_parent_child_not_equal. 3: done. all: done. }
+  eapply not_strict_parent_of_self; last first.
+  - eapply StrictParentChild_transitive; last done.
+    by eapply Immediate_is_StrictParentChild.
+  - by eapply unique_exists.
+Qed.
+
+
 

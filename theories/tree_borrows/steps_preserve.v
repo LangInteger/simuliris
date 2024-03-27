@@ -25,6 +25,18 @@ Proof.
   eapply item_apply_access_preserves_metadata_dep.
 Qed.
 
+Lemma access_eqv_immediate_rel
+  {t t' tr tr' fn cids tg range}
+  (Access : tree_apply_access fn cids tg range tr = Some tr')
+  : ImmediateParentChildIn t t' tr <-> ImmediateParentChildIn t t' tr'.
+Proof.
+  eapply join_map_eqv_imm_rel; [|exact Access].
+  rewrite /=.
+  move=> ???.
+  unshelve erewrite (proj1 (item_apply_access_preserves_metadata _ _ ltac:(eassumption))).
+  reflexivity.
+Qed.
+
 Lemma access_eqv_strict_rel
   {t t' tr tr' fn cids tg range}
   (Access : tree_apply_access fn cids tg range tr = Some tr')
@@ -234,6 +246,27 @@ Proof.
   - (* Retag *)
     injection RETAG_EFFECT; intros; subst.
     rewrite <- insert_eqv_rel.
+    * tauto.
+    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex).
+    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex').
+Qed.
+
+Lemma bor_local_step_eqv_imm_rel
+  {tg tg' tr tr' cids cids' evt}
+  (Ex : tree_contains tg tr)
+  (Ex' : tree_contains tg' tr)
+  (Step : bor_local_step tr cids evt tr' cids')
+  : ImmediateParentChildIn tg tg' tr <-> ImmediateParentChildIn tg tg' tr'.
+Proof.
+  inversion Step as [????? ACC| | |???????? FRESH_CHILD RETAG_EFFECT]; subst.
+  - (* Access *)
+    rewrite access_eqv_immediate_rel; [|apply ACC].
+    tauto.
+  - tauto.
+  - tauto.
+  - (* Retag *)
+    injection RETAG_EFFECT; intros; subst.
+    rewrite <- insert_eqv_imm_rel.
     * tauto.
     * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex).
     * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex').

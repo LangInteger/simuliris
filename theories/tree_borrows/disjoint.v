@@ -1741,6 +1741,7 @@ Lemma tree_apply_access_only_cares_about_rel
   {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
   {tr1 tr2}
   (Agree : forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
+  (RAgree : forall tg tg', ImmediateParentChildIn tg tg' tr1 <-> ImmediateParentChildIn tg tg' tr2)
   : join_nodes (map_nodes (fun it => fn cids (rel_dec tr1 access_tag it.(itag)) range it) tr)
   = join_nodes (map_nodes (fun it => fn cids (rel_dec tr2 access_tag it.(itag)) range it) tr).
 Proof.
@@ -1757,7 +1758,8 @@ Proof.
   all: try reflexivity.
   all: rewrite <- Agree in R2'; auto; try contradiction.
   all: rewrite <- Agree in R2; auto; try contradiction.
-  all: apply Subtree; left; simpl.
+  all: erewrite bool_decide_ext; last apply RAgree.
+  all: done.
 Qed.
 
 Lemma tree_apply_access_commutes
@@ -1792,7 +1794,10 @@ Proof.
   1: exact Step1'2.
   all: intros tg tg'.
   - eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn2PreservesTag. exact H.
+  - eapply join_map_eqv_imm_rel; [|eassumption]. intros it it' H. eapply Fn2PreservesTag. exact H.
   - symmetry. eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - symmetry. eapply join_map_eqv_imm_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - tauto.
   - tauto.
 Qed.
 
