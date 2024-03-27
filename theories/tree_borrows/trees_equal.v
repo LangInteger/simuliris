@@ -721,9 +721,8 @@ Section utils.
     pose proof (@access_eqv_rel tg' tg _ _ _ _ _ _ Acc).
     pose proof (@access_eqv_immediate_rel tg tg' _ _ _ _ _ _ Acc).
     pose proof (@access_eqv_immediate_rel tg' tg _ _ _ _ _ _ Acc).
-    destruct (decide _), (decide _), (decide _), (decide _).
+    repeat destruct (decide _).
     all: try tauto.
-    all: erewrite <- bool_decide_ext; done.
   Qed.
 
   Lemma access_preserves_pseudo_conflicted_activable (b:bool)

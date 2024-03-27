@@ -754,7 +754,7 @@ Proof.
   all: try reflexivity.
   all: rewrite <- SameRel in R2'; auto; try contradiction.
   all: rewrite <- SameRel in R2; auto; try contradiction.
-  all: erewrite bool_decide_ext; last apply SameImmRel.
+  all: erewrite decide_ext; last apply SameImmRel.
   all: done.
 Qed.
 

@@ -698,7 +698,7 @@ Proof.
       rewrite /rel_dec decide_False // /= in Hothers.
       2: { intros HH. eapply immediate_parent_not_child. 4: exact HH. 3: done.
            all: eapply Hwf; first done. all: done. }
-      rewrite bool_decide_decide decide_True // /= in Hothers.
+      rewrite decide_True // /= in Hothers.
       pose proof Hpermitsw as (y1&Hy1&(y2&Hy2&[=Hy3])%bind_Some)%bind_Some. clear Hpermitsw.
       rewrite /apply_access_perm Hothers /= in Hy1. done.
   - destruct Hcontrol as ((itold&trold'&Hitold&Htrold'&Hactive&Hunq)&_); first done.
@@ -750,7 +750,8 @@ Proof.
   eapply unique_exists in Hu2 as Hc2.
   eapply unique_exists in Hu3 as Hc3.
   intros H1 H2.
-  rewrite /rel_dec in H2|-*. repeat destruct decide; try done.
+  rewrite /rel_dec in H2|-*.
+  rewrite !(decide_bool_decide (ImmediateParentChildIn _ _ _)) in H2|-*. repeat destruct decide; try done.
   1-2: rewrite /rel_dec in H1; repeat destruct decide; try done; exfalso; eauto using ParentChild_transitive.
   exfalso. eapply cousins_have_disjoint_children in H1; first done.
   1-3: eapply Hwf. 1: exact Hc3. 1-2: done. all: done.
@@ -771,7 +772,7 @@ Proof.
   eapply unique_exists in Hu1 as Hc1.
   eapply unique_exists in Hu2 as Hc2.
   eapply unique_exists in Hu3 as Hc3.
-  rewrite /rel_dec. rewrite !bool_decide_decide.
+  rewrite /rel_dec.
   repeat destruct decide; try done.
   all: try by (exfalso; eauto using ParentChild_transitive).
   all: intros _ _; eexists; try done.

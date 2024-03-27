@@ -1758,7 +1758,7 @@ Proof.
   all: try reflexivity.
   all: rewrite <- Agree in R2'; auto; try contradiction.
   all: rewrite <- Agree in R2; auto; try contradiction.
-  all: erewrite bool_decide_ext; last apply RAgree.
+  all: erewrite decide_ext; last apply RAgree.
   all: done.
 Qed.
 

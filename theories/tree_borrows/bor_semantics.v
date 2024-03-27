@@ -294,8 +294,8 @@ Proof. rewrite /ImmediateParentChildIn. solve_decision. Defined.
    to make the distinction. *)
 Definition rel_dec (tr:tree item) := fun t t' =>
   if decide (ParentChildIn t' t tr)
-  then Child (if decide (ParentChildIn t t' tr) then This else Strict (bool_decide (ImmediateParentChildIn t' t tr)))
-  else Foreign (if decide (ParentChildIn t t' tr) then Parent (bool_decide (ImmediateParentChildIn t t' tr)) else Cousin).
+  then Child (if decide (ParentChildIn t t' tr) then This else Strict (if decide (ImmediateParentChildIn t' t tr) then Immediate else FurtherAway))
+  else Foreign (if decide (ParentChildIn t t' tr) then Parent (if decide (ImmediateParentChildIn t t' tr) then Immediate else FurtherAway) else Cousin).
 
 Definition rel_pos_inv (r : rel_pos) : rel_pos := match r with
   Child This => Child This
@@ -307,7 +307,7 @@ Lemma rel_pos_inv_inv r : rel_pos_inv (rel_pos_inv r) = r.
 Proof. by destruct r as [[]|[]]. Qed.
 
 Lemma rel_dec_flip tr t t' r : rel_dec tr t t' = r -> rel_dec tr t' t = rel_pos_inv r.
-Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; subst r; simpl; congruence. Qed.
+Proof. rewrite /rel_dec. do 2 destruct (decide (ParentChildIn _ _ _)); intro; subst r; simpl; rewrite ?decide_bool_decide; congruence. Qed.
 Lemma rel_dec_flip2 tr t t' : rel_dec tr t t' = rel_pos_inv (rel_dec tr t' t).
 Proof. by eapply rel_dec_flip. Qed.
 
@@ -1020,21 +1020,21 @@ In particular, 4 is a non-immediate child of 1, but all other child relations ar
 
 *)
 (* conversion keeps being magical *)
-Succeed Example foo : rel_dec with_three_children 1 1 = Child This             := eq_refl.
-Succeed Example foo : rel_dec with_three_children 1 2 = Foreign (Parent true)  := eq_refl.
-Succeed Example foo : rel_dec with_three_children 1 3 = Foreign (Parent true)  := eq_refl.
-Succeed Example foo : rel_dec with_three_children 1 4 = Foreign (Parent false) := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 1 = Child (Strict true)    := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 2 = Child This             := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 3 = Foreign Cousin         := eq_refl.
-Succeed Example foo : rel_dec with_three_children 2 4 = Foreign (Parent true)  := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 1 = Child (Strict true)    := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 2 = Foreign Cousin         := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 3 = Child This             := eq_refl.
-Succeed Example foo : rel_dec with_three_children 3 4 = Foreign Cousin         := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 1 = Child (Strict false)   := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 2 = Child (Strict true)    := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin         := eq_refl.
-Succeed Example foo : rel_dec with_three_children 4 4 = Child This             := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 1 = Child This                   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 2 = Foreign (Parent Immediate)   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 3 = Foreign (Parent Immediate)   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 1 4 = Foreign (Parent FurtherAway) := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 1 = Child (Strict Immediate)     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 2 = Child This                   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 3 = Foreign Cousin               := eq_refl.
+Succeed Example foo : rel_dec with_three_children 2 4 = Foreign (Parent Immediate)   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 1 = Child (Strict Immediate)     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 2 = Foreign Cousin               := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 3 = Child This                   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 3 4 = Foreign Cousin               := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 1 = Child (Strict FurtherAway)   := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 2 = Child (Strict Immediate)     := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin               := eq_refl.
+Succeed Example foo : rel_dec with_three_children 4 4 = Child This                   := eq_refl.
 
 

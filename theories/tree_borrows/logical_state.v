@@ -425,7 +425,7 @@ Section heap_defs.
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
               (* all immediate children of t must be disabled *)
-            | Child (Strict true) => (item_lookup it' l.2).(perm) = Disabled
+            | Child (Strict Immediate) => (item_lookup it' l.2).(perm) = Disabled
             | Child _ => True
             | Foreign (Parent _) => match (item_lookup it' l.2).(perm) with
               (* all parents of t must be active (or at least not be disabled for tk_res) *)
