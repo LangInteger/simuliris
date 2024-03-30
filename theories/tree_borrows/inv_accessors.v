@@ -144,7 +144,7 @@ Section lemmas.
       all: by rewrite /= in SameTg.
     }
     split; last by eapply init_mem_preserve.
-    destruct Hown as (it & tr & Hin & Ht & Htrs).
+    destruct Hown as (it & tr & Hin & Ht & Hinit & Htrs).
     exists it, tr; split_and!; try done.
     by apply extend_trees_preserve.
   Qed.

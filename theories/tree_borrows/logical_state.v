@@ -125,8 +125,8 @@ Section state_bijection.
       ∃ tk, M_tag !! t = Some (tk, tt) ∧ is_Some (heaplet_lookup M_t (t, l)) ∧
         (* local *)
         (tk = tk_local ∨
-        (* unique with protector *)
-        (∃ ak c, tk = tk_unq ak ∧ call_set_in' Mcall_t c t l)).
+        (* unique active with protector *)
+        (∃ c, tk = tk_unq tk_act ∧ call_set_in' Mcall_t c t l)).
     (* This definition enforces quite strict requirements on the state:
       - the domains of the heaps shp are the same: dom σ_s.(shp) = dom σ_t.(shp)
       - the trees are the same, up to conflicted: trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs)
@@ -391,8 +391,8 @@ Section heap_defs.
 
   Definition bor_state_pre_unq (l : loc) (t : tag) (σ : state) :=
       ∃ it, trees_lookup σ.(strs) l.1 t it
-       ∧ (item_lookup it l.2).(perm) ≠ Disabled
-       ∧ ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)).
+       ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled)
+       ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)).
 
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
@@ -419,7 +419,7 @@ Section heap_defs.
 
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
       (match (item_lookup it l.2).(perm) with
-           | Active => True
+           | Active => tkk = tk_act
            | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs)
            | Reserved TyFrz _ => tkk = tk_res (* say something about protectors here *)
            | _ => False end) ∧
@@ -437,7 +437,7 @@ Section heap_defs.
 
 (* TODO check that rel_dec is used the right way around *)
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
-    ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧
+    ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧ (item_lookup it l.2).(initialized) = PermInit ∧
     match tk with
     | tk_local => (item_lookup it l.2).(perm) = Active ∧
             (* The item is the only one in the tree *)

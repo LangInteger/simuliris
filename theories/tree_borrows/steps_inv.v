@@ -14,17 +14,19 @@ Lemma head_free_inv (P : prog) l t sz σ σ' e' efs :
     efs = [].
 Proof. intros Hhead. inv_base_step. eauto 8. Qed.
 
-(*
-Lemma head_copy_inv (P : prog) l t T σ e σ' efs :
-  base_step P (Copy (PlaceR l t T)) σ e σ' efs →
+Lemma head_copy_inv (P : prog) l bor sz σ σ' e' efs :
+  base_step P (Copy (Place l bor sz)) σ e' σ' efs →
+  trees_contain bor σ.(strs) l.1 ∧
   efs = [] ∧
-  ((∃ v α', read_mem l (tsize T) (shp σ) = Some v ∧
-  memory_read (sst σ) (scs σ) l t (tsize T) = Some α' ∧
-  (*v <<t snp σ ∧*)
-  σ' = mkState (shp σ) α' (scs σ) (snp σ) (snc σ) ∧
-  e = (ValR v)) ∨
-  e = ValR (replicate (tsize T) ScPoison) ∧ memory_read (sst σ) (scs σ) l t (tsize T) = None ∧ σ' = σ).
-Proof. intros Hhead. inv_base_step; first by eauto 10. destruct σ; eauto 10. Qed. *)
+((apply_within_trees (memory_access AccessRead (scs σ) bor (l.2, sz)) l.1 σ.(strs) = None ∧
+  σ = σ' ∧
+  e' = ValR (replicate sz ScPoison)%V) ∨
+  ∃ trs' (v':value),
+  e' = (v')%E ∧
+  σ' = mkState σ.(shp) trs' σ.(scs) σ.(snp) σ.(snc) ∧
+  read_mem l sz σ.(shp) = Some v' ∧
+  apply_within_trees (memory_access AccessRead (scs σ) bor (l.2, sz)) l.1 σ.(strs) = Some trs').
+Proof. intros Hhead. inv_base_step; destruct σ; eauto 9. Qed.
 
 Lemma head_write_inv (P : prog) l bor sz v σ σ' e' efs :
   base_step P (Write (Place l bor sz) (Val v)) σ e' σ' efs →

@@ -714,7 +714,7 @@ Proof.
       eapply trees_contain_trees_lookup_1 in Hcontain as Hcontain2.
       2: apply Hwf_s. destruct Hcontain2 as (it & Hlookup).
       exists it; split; first done.
-      eapply (apply_trees_access_lookup_general (l.2 + i)) in Htree_s as HH.
+      eapply (apply_trees_access_lookup_general _ (l.2 + i)) in Htree_s as HH.
       2: apply Hwf_s. 2: lia. 2: apply Hlookup.
       destruct HH as (itnew & Hlookup_new & Hinit & Hprot & Haccess).
       destruct (item_lookup it (l.2 + i)) as [init perm] eqn:Hluit.
@@ -728,7 +728,7 @@ Proof.
       eapply trees_contain_trees_lookup_1 in Hcontain_t as Hcontain2.
       2: apply Hwf_t. destruct Hcontain2 as (it & Hlookup).
       exists it; split; first done.
-      eapply (apply_trees_access_lookup_general (l.2 + i)) in Htree_t as HH.
+      eapply (apply_trees_access_lookup_general _ (l.2 + i)) in Htree_t as HH.
       2: apply Hwf_t. 2: lia. 2: apply Hlookup.
       destruct HH as (itnew & Hlookup_new & Hinit & Hprot & Haccess).
       destruct (item_lookup it (l.2 + i)) as [init perm] eqn:Hluit.

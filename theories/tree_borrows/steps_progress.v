@@ -470,20 +470,16 @@ Proof.
 Qed.
  *)
 
-(*
-Lemma copy_base_step' P (σ: state) l bor T v α (WF: state_wf σ) :
-  read_mem l (tsize T) σ.(shp) = Some v →
-  memory_read σ.(sst) σ.(scs) l bor (tsize T) = Some α →
-  let σ' := mkState σ.(shp) α σ.(scs) σ.(snp) σ.(snc) in
-  base_step P (Copy (Place l bor T)) σ (Val v) σ' [].
+Lemma copy_base_step' P (σ: state) l tg sz v trs' (WF: state_wf σ) :
+  trees_contain tg σ.(strs) l.1 →
+  read_mem l sz σ.(shp) = Some v →
+  apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = Some trs' →
+  let σ' := mkState σ.(shp) trs' σ.(scs) σ.(snp) σ.(snc) in
+  base_step P (Copy (Place l tg sz)) σ (Val v) σ' [].
 Proof.
-  intros RM. econstructor; econstructor; eauto.
-  (*move => l1 [t1|//] /elem_of_list_lookup [i Eqi].*)
-  (*apply (state_wf_mem_tag _ WF (l +ₗ i) l1).*)
-  (*destruct (read_mem_values _ _ _ _ RM) as [Eq1 Eq2].*)
-  (*rewrite Eq2; [done|]. rewrite -Eq1. by eapply lookup_lt_Some.*)
+  intros TC RM Happly. destruct l. do 2 econstructor. all: eauto.
 Qed.
-
+(* TODO remove?
 Lemma copy_base_step P (σ: state) l bor T
   (WF: state_wf σ)
   (BLK: ∀ n, (n < tsize T)%nat → l +ₗ n ∈ dom σ.(shp))
@@ -500,14 +496,17 @@ Proof.
   { move => ? /BLK. by rewrite (state_wf_dom _ WF). }
   do 2 eexists. do 2 (split; [done|]). intros σ'.
   eapply copy_base_step'; eauto.
+Qed. *)
+
+Lemma failed_copy_base_step' P (σ: state) l tg sz (WF: state_wf σ) :
+  trees_contain tg σ.(strs) l.1 →
+  apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None →
+  base_step P (Copy (Place l tg sz)) σ (Val $ replicate sz ScPoison) σ [].
+Proof.
+  intros TC Happly. destruct l, σ. do 2 econstructor; by eauto.
 Qed.
 
-Lemma failed_copy_base_step' P (σ: state) l bor T (WF: state_wf σ) :
-  memory_read σ.(sst) σ.(scs) l bor (tsize T) = None →
-  base_step P (Copy (Place l bor T)) σ (Val $ replicate (tsize T) ScPoison) σ [].
-Proof.
-  intros RM. destruct σ; simpl in *. econstructor; [eapply FailedCopyBS | ]. econstructor; eauto.
-Qed.
+(*
 
 Lemma access1_write_is_Some cids stk bor
   (BOR: access1_write_pre cids stk bor) :

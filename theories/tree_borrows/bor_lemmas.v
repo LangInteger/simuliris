@@ -2,6 +2,9 @@ From iris.prelude Require Import prelude options.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas.
 From iris.prelude Require Import options.
 
+Lemma most_init_comm m1 m2 : most_init m1 m2 = most_init m2 m1.
+Proof. by destruct m1, m2. Qed.
+
 Lemma unique_somewhere
   {a b} :
   a + b = 1 -> (a = 1 /\ b = 0) \/ (b = 1 /\ a = 0).
