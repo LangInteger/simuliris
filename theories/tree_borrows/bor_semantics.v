@@ -351,9 +351,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
       match perm with
         (* FIXME: refactor *)
-      | Reserved TyFrz ResActivable => if isprot then Some $ Reserved TyFrz ResConflicted else Some $ Reserved TyFrz ResActivable
-      | Reserved InteriorMut ResActivable => if isprot then Some $ Reserved InteriorMut ResConflicted else Some $ Reserved InteriorMut ResActivable
-      | Reserved TyFrz ResConflicted | Reserved InteriorMut ResConflicted => Some perm
+      | Reserved im ResActivable => if isprot then Some $ Reserved im ResConflicted else Some $ Reserved im ResActivable
+      | Reserved _ ResConflicted => Some perm
       | Active => if isprot then
         (* So that the function is commutative on all states and not just on reachable states,
            we change the transition into [Active -> Disabled] when a protector is present.
@@ -379,10 +378,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Child _ =>
       (* Child write. Activates unconflicted [Reserved]. *)
       match perm with
-        (* FIXME: refactor *)
-      | Reserved TyFrz ResConflicted => if isprot then None else Some Active
-      | Reserved InteriorMut ResConflicted => if isprot then None else Some Active
-      | Reserved TyFrz ResActivable | Reserved InteriorMut ResActivable | Active => Some Active
+      | Reserved _ ResConflicted => if isprot then None else Some Active
+      | Reserved _ ResActivable | Active => Some Active
       | _ => None
       end
   end.
