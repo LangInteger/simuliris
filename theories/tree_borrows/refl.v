@@ -332,7 +332,7 @@ Section log_rel.
     iApply (sim_copy_public with "[Hv]"). { by iApply rrel_place. }
     iIntros (v_t v_s) "Hv". sim_val. eauto.
   Qed.
-(*
+
   Lemma log_rel_write e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -350,7 +350,7 @@ Section log_rel.
     iApply (sim_write_public with "[Hv1] Hv2"). { by iApply rrel_place. }
     solve_rrel_refl.
   Qed.
-
+  (*
   Lemma log_rel_retag e1_t e1_s e2_t e2_s pk T k :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -500,7 +500,7 @@ Section refl.
     - (* Copy *)
       by iApply (log_rel_copy with "IH").
     - (* Write *)
-      admit; by iApply (log_rel_write with "IH IH1").
+      by iApply (log_rel_write with "IH IH1").
     - (* Alloc *)
       by iApply log_rel_alloc.
     - (* Free *)

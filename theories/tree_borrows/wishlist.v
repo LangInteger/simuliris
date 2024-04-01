@@ -1075,3 +1075,54 @@ Proof.
       eapply rel_this_antisym; last done.
       all: by eapply lookup_implies_contains.
 Qed.
+
+
+(* not generalized to maybe_nonchildren_only since this one is specific *)
+Lemma loc_controlled_write_invalidates_pub l cids σ σ' blk off1 sz tg scold (A:Prop):
+  apply_within_trees (memory_access AccessWrite cids tg (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
+  state_wf σ →
+  l.1 = blk →
+  trees_contain tg (strs σ) blk →
+  (off1 ≤ l.2 < off1 + sz) →
+  loc_controlled l tg tk_pub scold σ →
+  A.
+Proof.
+  intros Happly Hwf Hblk Hcontain Hinbound Hold.
+  assert (wf_trees σ.(strs)) as Hwf_pre by eapply Hwf.
+  assert (wf_trees σ'.(strs)) as Hwf_post.
+  { eapply apply_within_trees_wf; try done.
+    eapply memory_access_tag_count. }
+  pose proof Happly as Happlys.
+  eapply bind_Some in Happly as (trold & Htrold & (trnew&Haccess&[= Hstrs])%bind_Some).
+  rewrite /trees_contain /trees_at_block Htrold in Hcontain.
+  assert (strs σ' !! blk = Some trnew) as Htrnew.
+  1: rewrite -Hstrs lookup_insert //.
+  eapply wf_tree_tree_unique in Hcontain as Hunique; last by eapply Hwf_pre.
+  eapply unique_lookup in Hunique as (itold & Hdet).
+  assert (tree_lookup trold tg itold) as Hitold by done.
+  eapply apply_trees_access_lookup_general in Happlys as Happlyself.
+  2: done. 3: by exists trold. 2: eassumption.
+  destruct Happlyself as (itnew & Hlunew & _ & _ & Happlyself).
+  rewrite trees_rel_dec_refl /= /apply_access_perm /apply_access_perm_inner /= in Happlyself.
+  destruct Hold as ((itold'&trold'&Htrold'&Hitold'&Hisinit&Hfrozen&Hothers)&_).
+  { exists itold. subst blk. split; first by eexists.
+    intros Hdis. rewrite Hdis in Happlyself. done. } 
+  assert (trold' = trold) as -> by congruence.
+  assert (itold' = itold) as -> by by eapply tree_lookup_unique.
+  rewrite Hfrozen in Happlyself. done.
+Qed.
+
+Lemma loc_controlled_write_invalidates_pub' l cids σ σ' blk off1 sz tg scold:
+  apply_within_trees (memory_access AccessWrite cids tg (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
+  state_wf σ →
+  l.1 = blk →
+  trees_contain tg (strs σ) blk →
+  (off1 ≤ l.2 < off1 + sz) →
+  loc_controlled l tg tk_pub scold σ →
+  loc_controlled l tg tk_pub scold σ'.
+Proof.
+  eapply loc_controlled_write_invalidates_pub.
+Qed.
+
+
+
