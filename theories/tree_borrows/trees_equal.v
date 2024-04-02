@@ -1135,5 +1135,88 @@ Section utils.
     eapply wf_init_tree.
   Qed.
 
-
 End utils.
+
+Section call_set.
+
+  Create HintDb call_mono_db.
+
+  Lemma call_is_active_mono C1 C2 cid :
+    C1 ⊆ C2 →
+    call_is_active cid C1 →
+    call_is_active cid C2.
+  Proof.
+    rewrite /call_is_active. set_solver.
+  Qed.
+  Hint Resolve call_is_active_mono : call_mono_db.
+
+  Lemma protector_is_active_mono C1 C2 prot :
+    C1 ⊆ C2 →
+    protector_is_active prot C1 →
+    protector_is_active prot C2.
+  Proof.
+    intros Hss (c&Hc1&Hc2). eexists; split; by eauto with call_mono_db.
+  Qed.
+  Hint Resolve protector_is_active_mono : call_mono_db.
+
+  Lemma pseudo_conflicted_mono C1 C2 tr tg off rc :
+    C1 ⊆ C2 →
+    pseudo_conflicted C1 tr tg off rc →
+    pseudo_conflicted C2 tr tg off rc.
+  Proof.
+    induction 2.
+    + econstructor 1.
+    + econstructor 2; by eauto with call_mono_db.
+  Qed.
+  Hint Resolve pseudo_conflicted_mono : call_mono_db.
+
+  Lemma perm_eq_up_to_C_mono C1 C2 tr1 tr2 tg l cid lp1 lp2 :
+    C1 ⊆ C2 →
+    perm_eq_up_to_C C1 tr1 tr2 tg l cid lp1 lp2 →
+    perm_eq_up_to_C C2 tr1 tr2 tg l cid lp1 lp2.
+  Proof.
+    induction 2; econstructor; by eauto with call_mono_db.
+  Qed.
+  Hint Resolve perm_eq_up_to_C_mono : call_mono_db.
+
+  Lemma loc_eq_up_to_C_mono C1 C2 tr1 tr2 tg it1 it2 l :
+    C1 ⊆ C2 →
+    loc_eq_up_to_C C1 tr1 tr2 tg it1 it2 l →
+    loc_eq_up_to_C C2 tr1 tr2 tg it1 it2 l.
+  Proof.
+    induction 2; econstructor; by eauto with call_mono_db.
+  Qed.
+  Hint Resolve loc_eq_up_to_C_mono : call_mono_db.
+
+  Lemma item_eq_up_to_C_mono C1 C2 tr1 tr2 tg it1 it2 :
+    C1 ⊆ C2 →
+    item_eq_up_to_C C1 tr1 tr2 tg it1 it2 →
+    item_eq_up_to_C C2 tr1 tr2 tg it1 it2.
+  Proof.
+    intros Hss H1 l.
+    specialize (H1 l). by eauto with call_mono_db.
+  Qed.
+  Hint Resolve item_eq_up_to_C_mono : call_mono_db.
+
+  Lemma tree_equal_mono C1 C2 tr1 tr2 :
+    C1 ⊆ C2 →
+    tree_equal C1 tr1 tr2 →
+    tree_equal C2 tr1 tr2.
+  Proof.
+    intros Hss (H1&H2&H3). do 2 (split; first done).
+    intros tg (it1&it2&H4&H5&H6)%H3.
+    exists it1, it2. by eauto with call_mono_db.
+  Qed.
+  Hint Resolve tree_equal_mono : call_mono_db.
+
+  Lemma trees_equal_mono C1 C2 trs1 trs2 :
+    C1 ⊆ C2 →
+    trees_equal C1 trs1 trs2 →
+    trees_equal C2 trs1 trs2.
+  Proof.
+    intros Hss Heq blk. induction (Heq blk).
+    all: econstructor; by eauto with call_mono_db.
+  Qed.
+  Hint Resolve trees_equal_mono : call_mono_db.
+
+End call_set.

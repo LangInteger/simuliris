@@ -969,6 +969,16 @@ Proof.
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
+Lemma initcall_step_wf_inner σ :
+  state_wf σ →
+  state_wf (mkState σ.(shp) σ.(strs) ({[ σ.(snc) ]} ∪ σ.(scs)) σ.(snp) (S σ.(snc))).
+Proof.
+  intros WF.
+  constructor; simpl; [try apply WF..|].
+  - eapply trees_compat_nexts_mono; [| |apply WF]; auto.
+  - intros c. rewrite elem_of_union.
+    move => [|/(state_wf_cid_agree _ WF)]; [intros ->%elem_of_singleton_1; by left|by right].
+Qed.
 
 Lemma initcall_step_wf σ σ' e e' n efs :
   mem_expr_step σ.(shp) e (InitCallEvt n) σ'.(shp) e' efs →
@@ -982,10 +992,7 @@ Proof.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
-  constructor; simpl; [try apply WF..|].
-  - eapply trees_compat_nexts_mono; [| |apply WF]; auto.
-  - intros c. rewrite elem_of_union.
-    move => [|/(state_wf_cid_agree _ WF)]; [intros ->%elem_of_singleton_1; by left|by right].
+  by eapply initcall_step_wf_inner in WF.
 Qed.
 
 (** EndCall *)

@@ -1124,5 +1124,33 @@ Proof.
   eapply loc_controlled_write_invalidates_pub.
 Qed.
 
+Lemma loc_controlled_add_protected l tg tk sc σ σ':
+  shp σ = shp σ' →
+  strs σ = strs σ' →
+  (∀ blk tg it c, trees_lookup σ.(strs) blk tg it → protector_is_for_call c it.(iprot) → call_is_active c σ.(scs) ↔ call_is_active c σ'.(scs)) →
+  loc_controlled l tg tk sc σ →
+  loc_controlled l tg tk sc σ'.
+Proof.
+  intros Hhp Htrs Hscs Hlc Hpre.
+  assert (∀ blk tg it, trees_lookup σ.(strs) blk tg it → protector_is_active it.(iprot) σ.(scs) ↔ protector_is_active it.(iprot) σ'.(scs)) as HHscs.
+  { intros blk tg' it H1; split; intros (c&H2&H3); exists c. all: split; first done. all: by eapply Hscs. }
+  rewrite -Hhp.
+  destruct tk as [|acc|].
+  all: rewrite /loc_controlled /bor_state_pre /bor_state_own in Hlc,Hpre|-*.
+  1,3: rewrite Htrs in Hlc; apply Hlc, Hpre.
+  destruct Hlc as ((it&tr&Htr&Hit&Hinit&Hsame&Hothers)&Hhpc).
+  - destruct Hpre as (itp&Hitp&HH).
+    setoid_rewrite <- HHscs in HH. 2: by rewrite Htrs.
+    exists itp. by rewrite Htrs.
+  - split; last done.
+    exists it, tr. rewrite -Htrs. split_and!; try done.
+    split. 2: done.
+    clear Hothers.
+    case_match; try done.
+    case_match; try done.
+    setoid_rewrite <- HHscs; first done.
+    by eexists.
+Qed.
+
 
 

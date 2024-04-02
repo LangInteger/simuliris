@@ -50,14 +50,14 @@ Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pkind T rkind :
   σ' = mkState σ.(shp) α' σ.(scs) nxtp' σ.(snc) ∧
   c ∈ σ.(scs).
 Proof. intros Hhead. inv_base_step. eauto 8. Qed.
-
+*)
 Lemma head_init_call_inv (P : prog) e' σ σ' efs :
   base_step P InitCall σ e' σ' efs →
   ∃ c,
     c = σ.(snc) ∧
     efs = [] ∧
     e' = (#[ScCallId c])%E ∧
-    σ' = (mkState σ.(shp) σ.(sst) ({[ σ.(snc) ]} ∪ σ.(scs)) σ.(snp) (S σ.(snc))).
+    σ' = (mkState σ.(shp) σ.(strs) ({[ σ.(snc) ]} ∪ σ.(scs)) σ.(snp) (S σ.(snc))).
 Proof. intros Hhead. inv_base_step. eauto. Qed.
 
 Lemma head_end_call_inv (P : prog) e' σ σ' efs c :
@@ -67,7 +67,7 @@ Lemma head_end_call_inv (P : prog) e' σ σ' efs c :
   e' = (#[☠])%E ∧
   σ' = state_upd_calls (.∖ {[ c ]}) σ.
 Proof. intros Hhead. inv_base_step. eauto. Qed.
-*)
+
 
 
 Lemma head_alloc_inv (P : prog) sz σ σ' e' efs :

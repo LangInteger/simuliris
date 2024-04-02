@@ -565,18 +565,20 @@ Lemma call_base_step P σ name e r fn :
   base_step P (Call #[ScFnPtr name] e) σ (apply_func fn r) σ [].
 Proof. by econstructor; econstructor. Qed.
 
-(*
+
 Lemma init_call_base_step P σ :
   let c := σ.(snc) in
-  let σ' := mkState σ.(shp) σ.(sst) ({[σ.(snc)]} ∪ σ.(scs)) σ.(snp) (S σ.(snc)) in
+  let σ' := mkState σ.(shp) σ.(strs) ({[σ.(snc)]} ∪ σ.(scs)) σ.(snp) (S σ.(snc)) in
   base_step P InitCall σ (#[ScCallId (σ.(snc))]) σ' [].
 Proof. by econstructor; econstructor. Qed.
 
 Lemma end_call_base_step P (σ: state) c :
   c ∈ σ.(scs) →
-  let σ' := mkState σ.(shp) σ.(sst) (σ.(scs) ∖ {[c]}) σ.(snp) σ.(snc) in
+  let σ' := mkState σ.(shp) σ.(strs) (σ.(scs) ∖ {[c]}) σ.(snp) σ.(snc) in
   base_step P (EndCall #[ScCallId c]) σ #[☠] σ' [].
 Proof. intros. by econstructor; econstructor. Qed.
+
+(*
 
 Lemma unsafe_action_is_Some_weak {A} (GI: A → nat → Prop)
   (f: A → _ → nat → _ → _) a l last cur_dist n
