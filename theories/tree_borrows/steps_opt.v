@@ -684,6 +684,7 @@ Proof.
   (* get the loc controlled things. exploit source UB. update the ghost state. *)
   iIntros (Heq Hsz1 Hsz2) "Htag Ht Hs #Hvrel Hsim".
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
   iPoseProof (bor_interp_readN_target with "Hbor Ht Htag") as "%Hcontrol_t".
   iPoseProof (bor_interp_readN_source with "Hbor Hs Htag") as "%Hcontrol_s".
 
@@ -692,7 +693,8 @@ Proof.
   specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & Hcontain & (trs_s' & Htree_s) & Hlen_s').
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
-  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  iPoseProof (bor_interp_get_pure with "[Hbor]") as "%Hp".
+  1: by do 4 iExists _.
   destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
 
   eapply mk_is_Some in Htree_s as Htree_t.
@@ -705,9 +707,8 @@ Proof.
   opose proof (trees_equal_preserved_by_access _ _ _ _ Htree_s Htree_t) as Hstrs_eq'.
   1: eapply Hwf_s. 1: eapply Hwf_t. 1, 2: done.
 
-
   (* from source reduction, we get that bor_state_pre is satisfied for the affected locations *)
-  assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk σ_s ∧ bor_state_own (l +ₗ i) t tk σ_t) as Hcontrol_own.
+  assert (∀ i, (i < length v_s)%nat → bor_state_own M_call (l +ₗ i) t tk σ_s ∧ bor_state_own M_call (l +ₗ i) t tk σ_t) as Hcontrol_own.
   { intros i Hi. 
     destruct (Hcontrol_s i Hi) as [Hown_s _].
     { rewrite bor_state_pre_unq_or; last (subst tk; destruct tkk; tauto). rewrite /bor_state_pre_unq /=.
@@ -750,7 +751,7 @@ Proof.
 
   (* update the ghost state.
     no separate lemma for, this is quite an atomic operation. *)
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   subst tk.
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hheaplet_t".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hheaplet_s".
@@ -837,7 +838,7 @@ Proof.
     }
     simpl.
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_s' l.2 !! lac.2 = Some sc →
-          loc_controlled lac t (tk_unq tk_act) sc σ_s' ∧ bor_state_pre lac t (tk_unq tk_act) σ_s') as Hlct_s.
+          loc_controlled M_call lac t (tk_unq tk_act) sc σ_s' ∧ bor_state_pre lac t (tk_unq tk_act) σ_s') as Hlct_s.
     { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_s /=.
@@ -850,7 +851,7 @@ Proof.
       destruct (Htag_interp _ _ Htk) as (_ & _ & _ & Hcontrol_s' & _). by eapply Hcontrol_s'. }
     pose (σ_t' := (mkState (write_mem l v_t' (shp σ_t)) trs_t' (scs σ_t) (snp σ_t) (snc σ_t))).
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_t' l.2 !! lac.2 = Some sc →
-          loc_controlled lac t (tk_unq tk_act) sc σ_t' ∧ bor_state_pre lac t (tk_unq tk_act) σ_t') as Hlct_t.
+          loc_controlled M_call lac t (tk_unq tk_act) sc σ_t' ∧ bor_state_pre lac t (tk_unq tk_act) σ_t') as Hlct_t.
     { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_t /=.

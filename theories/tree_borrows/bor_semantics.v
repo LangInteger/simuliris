@@ -75,14 +75,14 @@ Fixpoint mem_apply_locs {X} (fn:option X -> option X) z sz
       mem_apply_locs fn (z + 1)%Z sz' newmap
   end.
 
-(* Collect the list of locations that satisfy a predicate.
+(* Collect the set of locations that satisfy a predicate.
    This is useful when we exit a function and need to perform an implicit
    access to all initialized locations. *)
 Definition mem_enumerate_sat {X} (fn : X -> bool)
-  : gmap loc' X -> list Z :=
-  gmap_fold _ (fun k v acc =>
-    if fn v then k :: acc else acc
-  ) [] .
+  : gmap loc' X -> gset Z :=
+  map_fold (fun k v acc =>
+    (if fn v then {[k]} else ∅) ∪ acc
+  ) ∅ .
 
 (* Apply a function to all the locations passed as a list.
    The whole operation is UB iff any of the per-location operations are UB.
@@ -884,19 +884,15 @@ Inductive bor_local_seq (invariant : seq_invariant) tr cids
 (* Traverse the entire tree and get for each tag protected by cid its currently initialized locations.
    Those are all the locations that we'll do a read access through *)
 Definition tree_get_all_protected_tags_initialized_locs (cid : nat) (tr : tree item)
-  : list (tag * list Z) :=
-  fold_nodes [] (fun it lacc racc =>
-    (it.(itag), mem_enumerate_sat (fun (p:lazy_permission) =>
-      (* filter out the unprotected and protected by another call.
-         We could also do this outside of the function, which might in fact be
-         easier to reason about eventually *)
-      if decide (Some cid = option_map call it.(iprot)) then
+  : gset (tag * gset Z) :=
+  fold_nodes ∅ (fun it lacc racc =>
+    (if decide (Some cid = option_map call it.(iprot)) then
+      {[(it.(itag), mem_enumerate_sat (fun (p:lazy_permission) =>
         (* filter out the uninitialized *)
         if initialized p then true
-        else false
-      else false) it.(iperm))
-    :: lacc
-    ++ racc
+        else false) it.(iperm))]} else ∅)
+    ∪ lacc
+    ∪ racc
   ) tr.
 
 Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
@@ -905,12 +901,12 @@ Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
     let reader_loc (tg : tag) (loc : Z) : app (tree item) := fun tr =>
       memory_access_nonchildren_only AccessRead cids tg (loc, 1) tr in
     (* read several locs of the same tag, propagate failures *)
-    let reader_locs (tg : tag) (locs : list Z) : app (tree item) := fun tr =>
-      fold_left (fun (tr:option (tree item)) loc => tr ← tr; reader_loc tg loc tr) locs (Some tr) in
+    let reader_locs (tg : tag) (locs : gset Z) : app (tree item) := fun tr =>
+      set_fold (fun loc (tr:option (tree item)) => tr ← tr; reader_loc tg loc tr) (Some tr) locs in
     (* get all initialized locs as defined above, these are what we need to read *)
     let init_locs := tree_get_all_protected_tags_initialized_locs cid tr in
     (* finally we can combine this all *)
-    fold_left (fun (tr:option (tree item)) '(tg, init_locs) => tr ← tr; reader_locs tg init_locs tr) init_locs (Some tr).
+    set_fold (fun '(tg, init_locs) (tr:option (tree item)) => tr ← tr; reader_locs tg init_locs tr) (Some tr) init_locs.
 
 (* FIXME: IMPORTANT: don't make the access visible to children ! *)
 (* Finally we read all protected initialized locations on the entire trees by folding it
@@ -919,10 +915,10 @@ Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
    because this may have a weird behavior if you have the same tag across two trees and e.g. only one
    of them is protected, which shouldn't happen but isn't impossible by construction. *)
 Definition trees_read_all_protected_initialized (cids : call_id_set) (cid : nat) (trs : trees) : option trees :=
-  gmap_fold (option trees) (fun k (tr : tree item) (trs : option trees) =>
+  set_fold (fun k (trs : option trees) =>
     trs ← trs;
     apply_within_trees (tree_read_all_protected_initialized cids cid) k trs
-  ) (Some trs) gmap_empty.
+  ) (Some trs) (dom trs).
 
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
@@ -992,7 +988,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     bor_step
       trs cids nxtp nxtc
       (EndCallEvt c)
-      trs (cids ∖ {[c]}) nxtp nxtc
+      trs' (cids ∖ {[c]}) nxtp nxtc
   .
 
 (* conversion is magic *)

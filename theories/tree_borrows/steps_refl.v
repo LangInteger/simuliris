@@ -734,7 +734,7 @@ Proof.
       setoid_rewrite every_node_iff_every_lookup in Hitems.
       2: by eapply wf_tree_tree_item_determined, Hwf_t.
       apply Hitems in Htr2. eapply (item_cid_valid _ _ _ Htr2) in Hpp. lia.
-    - intros l sc H%Hr. eapply loc_controlled_add_protected; last done; try done.
+    - intros l sc H%Hr. rewrite -!Hsnc_eq. eapply loc_controlled_add_protected; last done; try done.
       intros blk tg it c (tr&Htr1&Htr2) Hpp. simpl.
       rewrite /call_is_active. split; first set_solver.
       intros [Heq%elem_of_singleton|?]%elem_of_union; last set_solver.
@@ -788,7 +788,7 @@ Lemma bor_interp_end_call_own c σ_t σ_s :
   c @@ ∅ ==∗ (* we need it to be empty to avoid tripping private locations *)
   ⌜c ∈ σ_t.(scs) ∧ c ∈ σ_s.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
 Proof.
-  iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
+  iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
   iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
   iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro.
   iPoseProof (state_rel_calls_eq with "Hsrel") as "->".
@@ -799,7 +799,7 @@ Proof.
   { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(Hdom_eq & Hsst_eq & Hsnp_eq & Hsnc_eq & %Hscs_eq & Hl)". rewrite /state_rel. cbn.
-    iFrame "Hdom_eq Hsst_eq Hsnp_eq Hsnc_eq".
+    iFrame "Hdom_eq Hsnp_eq Hsnc_eq".
     iSplitR. { rewrite Hscs_eq. done. }
     iIntros (l Hl). iDestruct ("Hl" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
     - iLeft. iApply "Hpub".

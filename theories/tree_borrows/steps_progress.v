@@ -572,11 +572,12 @@ Lemma init_call_base_step P σ :
   base_step P InitCall σ (#[ScCallId (σ.(snc))]) σ' [].
 Proof. by econstructor; econstructor. Qed.
 
-Lemma end_call_base_step P (σ: state) c :
+Lemma end_call_base_step P (σ: state) trs' c :
   c ∈ σ.(scs) →
-  let σ' := mkState σ.(shp) σ.(strs) (σ.(scs) ∖ {[c]}) σ.(snp) σ.(snc) in
+  trees_read_all_protected_initialized (scs σ) c (strs σ) = Some trs' →
+  let σ' := mkState σ.(shp) trs' (σ.(scs) ∖ {[c]}) σ.(snp) σ.(snc) in
   base_step P (EndCall #[ScCallId c]) σ #[☠] σ' [].
-Proof. intros. by econstructor; econstructor. Qed.
+Proof. intros ??. by econstructor; econstructor. Qed.
 
 (*
 

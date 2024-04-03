@@ -995,6 +995,119 @@ Proof.
   by eapply initcall_step_wf_inner in WF.
 Qed.
 
+Lemma tree_read_all_protected_initialized_tag_count C cid :
+  preserve_tree_tag_count (tree_read_all_protected_initialized C cid).
+Proof.
+  intros tr tr' tg.
+  rewrite /tree_read_all_protected_initialized /=.
+  generalize (tree_get_all_protected_tags_initialized_locs cid tr).
+  intros S. revert S tr'.
+  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' → _ = tree_count_tg tg tr') _ _ _ _).
+  1: congruence.
+  intros (l&offs) S [tr1|] Hnin IH tr' Htr1; last done.
+  rewrite /= in Htr1.
+  erewrite IH; last done.
+  clear IH Hnin S tr. revert tr' Htr1.
+  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' → _ = tree_count_tg tg tr') _ _ _ _ offs).
+  1: congruence.
+  intros off S [tr2|] Hnin IH tr' Htr2; last done.
+  rewrite /= in Htr2.
+  erewrite IH; last done.
+  erewrite memory_access_tag_count; last done. done.
+Qed.
+
+Lemma tree_read_all_protected_initialized_compat_nexts C cid nxtp nxtc :
+  preserve_tree_compat_nexts (tree_read_all_protected_initialized C cid) nxtp nxtp nxtc nxtc.
+Proof.
+  intros tr tr' Htrcompat.
+  rewrite /tree_read_all_protected_initialized /=.
+  generalize (tree_get_all_protected_tags_initialized_locs cid tr).
+  intros S. revert S tr'.
+  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' → tree_items_compat_nexts tr' _ _) _ _ _ _).
+  1: congruence.
+  intros (l&offs) S [tr1|] Hnin IH tr' Htr1; last done.
+  rewrite /= in Htr1.
+  specialize (IH _ eq_refl) as Htr1compat.
+  clear IH Hnin S tr Htrcompat. revert tr' Htr1.
+  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' →tree_items_compat_nexts tr' _ _) _ _ _ _ offs).
+  1: congruence.
+  intros off S [tr2|] Hnin IH tr' Htr2; last done.
+  rewrite /= in Htr2.
+  eapply memory_access_compat_nexts. 2: exact Htr2. by apply IH.
+Qed.
+
+Lemma trees_read_all_protected_initialized_pointwise C trs cid trs' :
+  trees_read_all_protected_initialized C cid trs = Some trs' → ∀ k,
+  (∀ tr, trs !! k = Some tr → ∃ tr', trs' !! k = Some tr' ∧ tree_read_all_protected_initialized C cid tr = Some tr') ∧
+  (trs !! k = None → trs' !! k = None).
+Proof.
+  rewrite /trees_read_all_protected_initialized.
+  pose (λ k trs, trs ← trs; apply_within_trees (tree_read_all_protected_initialized C cid) k trs) as fn.
+  pose (λ tr k, ∃ tr' : tree item, trs' !! k = Some tr' ∧ tree_read_all_protected_initialized C cid tr = Some tr') as Pk.
+  fold fn. intros Hrai.
+  remember (dom trs) as S eqn:HS.
+  assert (S ⊆ dom trs) as Hsubset by set_solver.
+  enough (∀ k, (k ∈ S → ∀ tr, trs !! k = Some tr → Pk tr k) ∧
+               (k ∉ S → trs' !! k = trs !! k)) as Hindu.
+  { intros k. destruct (Hindu k) as (Hi1&Hi2). split.
+    - intros tr HH. apply Hi1. 1: rewrite HS; by eapply elem_of_dom_2. done.
+    - intros HH. rewrite Hi2 // HS. by eapply not_elem_of_dom. }
+  clear HS. revert trs' Pk Hsubset Hrai.
+  refine (set_fold_ind_L (λ (rr : option trees) (S : gset block), ∀ trs', let Pk := _ in S ⊆ _ → rr = Some trs' → ∀ k, (k ∈ S → _) ∧ (k ∉  S → _)) fn (Some trs) _ _ S); clear S.
+  { intros ? Pk _ [= ->] k. split; first set_solver. intros _. done. }
+  intros kin S [trs1'|] Hnin HIH trs2' Pk (Hkindom%singleton_subseteq_l&Hdom)%union_subseteq Hfn; last done.
+  ospecialize (HIH _ Hdom eq_refl).
+  intros k. destruct (decide (k = kin)) as [<-|Hne].
+  - split; last set_solver.
+    destruct (HIH k) as (_&HIHk).
+    specialize (HIHk Hnin).
+    intros _ tr Htr.
+    rewrite /fn /= /apply_within_trees /= HIHk Htr /= in Hfn.
+    eapply bind_Some in Hfn as (tr'&Htr'&[= <-]).
+    exists tr'. rewrite lookup_insert //.
+  - destruct (HIH k) as (HIH1&HIH2).
+    destruct (HIH kin) as (_&HIHkin).
+    specialize (HIHkin Hnin).
+    rewrite /fn /= /apply_within_trees /= HIHkin in Hfn.
+    pose proof Hfn as (trkin&H1&(trkin'&H2&[= <-])%bind_Some)%bind_Some.
+    split.
+    + intros [H%elem_of_singleton|HinS]%elem_of_union; first done.
+      intros tr Htr. edestruct HIH1 as (tr'&Htr'&HP); [done..|].
+      exists tr'. split; last done.
+      rewrite lookup_insert_ne //.
+    + intros (_&H)%not_elem_of_union. rewrite -HIH2 //.
+      rewrite lookup_insert_ne //.
+Qed.
+
+Lemma trees_read_all_protected_initialized_backwards C trs cid trs' :
+  trees_read_all_protected_initialized C cid trs = Some trs' → 
+  ∀ k tr', trs' !! k = Some tr' → ∃ tr, trs !! k = Some tr ∧ tree_read_all_protected_initialized C cid tr = Some tr'.
+Proof.
+  intros H k tr' Htr'.
+  edestruct trees_read_all_protected_initialized_pointwise as (H1&H2). 1: exact H.
+  destruct (trs !! k) as [tr|] eqn:Htr.
+  - exists tr; split; first done.
+    destruct (H1 _ Htr) as (tr1&Htr1&HH).
+    assert (tr1 = tr') as -> by congruence. done.
+  - rewrite Htr' Htr in H2. by discriminate H2.
+Qed.
+
+Lemma trees_read_all_protected_initialized_same_dom C trs cid trs' :
+  trees_read_all_protected_initialized C cid trs = Some trs' →
+  dom trs = dom trs'.
+Proof.
+  intros H.
+  eapply gset_leibniz. intros k.
+  pose proof (trees_read_all_protected_initialized_pointwise _ _ _ _ H k) as (HSome&HNone).
+  split.
+  - intros (tr&(tr'&Htr'&_)%HSome)%elem_of_dom.
+    by eapply elem_of_dom_2.
+  - intros (tr'&Htr')%elem_of_dom.
+    destruct (trs !! k) as [tr|] eqn:Htr; first by eapply elem_of_dom_2.
+    rewrite HNone in Htr'; done.
+Qed.
+  
+
 (** EndCall *)
 Lemma endcall_step_wf σ σ' e e' n efs :
   mem_expr_step σ.(shp) e (EndCallEvt n) σ'.(shp) e' efs →
@@ -1008,7 +1121,27 @@ Proof.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
   inversion IS. clear IS. simplify_eq.
-  constructor; simpl; [apply WF..|].
+  constructor; simpl; try apply WF.
+  - erewrite <- trees_read_all_protected_initialized_same_dom; last done. apply WF.
+  - opose proof (trees_read_all_protected_initialized_pointwise _ _ _ _ _) as Hrai; first done.
+    pose proof (state_wf_tree_unq _ WF) as (Hunq&Hunq2). split.
+    + eintros k tr' (tr&Htr&Hread)%trees_read_all_protected_initialized_backwards; last done.
+      eapply preserve_tag_count_wf.
+      1: by eapply tree_read_all_protected_initialized_tag_count.
+      1: eapply Hunq, Htr.
+      1: done.
+    + eintros blk1 blk2 tr1 tr2 tg (tr1p&Htr1p&Hread1)%trees_read_all_protected_initialized_backwards (tr2p&Htr2p&Hread2)%trees_read_all_protected_initialized_backwards Hin1 Hin2.
+      2-3: done.
+      eapply Hunq2; try done.
+      all: eapply preserve_tag_count_contains_2; [by eapply tree_read_all_protected_initialized_tag_count| |done]; done.
+  - eintros blk tr' (tr&Htr&Hread)%trees_read_all_protected_initialized_backwards.
+    2: done. eapply tree_read_all_protected_initialized_compat_nexts; last done.
+    eapply WF. done.
+  - eintros k tr' (tr&Htr&Hread)%trees_read_all_protected_initialized_backwards; last done.
+    eapply preserve_tag_count_nonempty.
+    1: by eapply tree_read_all_protected_initialized_tag_count.
+    1: eapply WF, Htr.
+    1: done.
   - intros c IN. apply WF.
     apply elem_of_difference in IN. apply IN.
 Qed.

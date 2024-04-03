@@ -62,13 +62,13 @@ Proof. intros Hhead. inv_base_step. eauto. Qed.
 
 Lemma head_end_call_inv (P : prog) e' σ σ' efs c :
   base_step P (EndCall #[ScCallId c]) σ e' σ' efs →
-  c ∈ σ.(scs) ∧
-  efs = [] ∧
-  e' = (#[☠])%E ∧
-  σ' = state_upd_calls (.∖ {[ c ]}) σ.
-Proof. intros Hhead. inv_base_step. eauto. Qed.
-
-
+  ∃ trs',
+    trees_read_all_protected_initialized (scs σ) c (strs σ) = Some trs' ∧
+    c ∈ σ.(scs) ∧
+    efs = [] ∧
+    e' = (#[☠])%E ∧
+    σ' = mkState σ.(shp) trs' (scs σ ∖ {[ c ]}) σ.(snp) σ.(snc).
+Proof. intros Hhead. inv_base_step. by eexists. Qed.
 
 Lemma head_alloc_inv (P : prog) sz σ σ' e' efs :
   base_step P (Alloc sz) σ e' σ' efs →

@@ -383,6 +383,10 @@ Notation "c '@@' M" := (call_set_is call_name c M) (at level 50).
     The interpretation of the tag map and the "heap view" fragments are interlinked.
  *)
 Section heap_defs.
+  Context (Mcall : gmap call_id (gmap tag (gset loc))).
+
+  Definition prot_in_call_set op t l := from_option (λ p, call_set_in' Mcall p.(call) t l) False op.
+
   (** The assumption on the location still being valid for tag [t], i.e., [t] not being disabled. *)
   (* Note: That the stack is still there needs to be part of the precondition [bor_state_pre].
     Otherwise, we will not be able to prove reflexivity for deallocation:
@@ -420,7 +424,7 @@ Section heap_defs.
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
       (match (item_lookup it l.2).(perm) with
            | Active => tkk = tk_act
-           | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs)
+           | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs) ∧ prot_in_call_set it.(iprot) t l
            | Reserved TyFrz _ => tkk = tk_res (* say something about protectors here *)
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
@@ -989,12 +993,12 @@ Section state_interp.
     ghost_map_auth heap_view_target_name 1 M_t ∗
     ghost_map_auth heap_view_source_name 1 M_s.
 
-  Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
+  Definition bor_interp_inner (σ_t σ_s : state)
+    (M_call : gmap call_id (gmap tag (gset loc)))
+    (M_tag : gmap tag (tag_kind * unit))
+    (M_t M_s : gmap (tag * block) (gmap Z scalar)) : iProp Σ :=
   (* since multiple parts of the interpretation need access to these maps,
     we own the authoritative parts here and not in the interpretations below *)
-   ∃ (M_call : gmap call_id (gmap tag (gset loc)))
-     (M_tag : gmap tag (tag_kind * unit))
-     (M_t M_s : gmap (tag * block) (gmap Z scalar)),
     bor_auth M_call M_tag M_t M_s ∗
 
 (*    tag_tainted_interp σ_s ∗ *)
@@ -1003,10 +1007,16 @@ Section state_interp.
     state_rel sc_rel M_tag M_t M_call σ_t σ_s ∗
     (* due to the [state_rel], enforcing this on [σ_t] also does the same for [σ_s] *)
     ⌜call_set_interp M_call σ_t⌝ ∗
-    ⌜tag_interp M_tag M_t M_s σ_t σ_s⌝ ∗
+    ⌜tag_interp M_call M_tag M_t M_s σ_t σ_s⌝ ∗
 
     ⌜state_wf σ_s⌝ ∗
     ⌜state_wf σ_t⌝.
+
+  Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
+   ∃ (M_call : gmap call_id (gmap tag (gset loc)))
+     (M_tag : gmap tag (tag_kind * unit))
+     (M_t M_s : gmap (tag * block) (gmap Z scalar)),
+     bor_interp_inner σ_t σ_s M_call M_tag M_t M_s.
 
   Lemma bor_interp_get_pure σ_t σ_s :
     bor_interp σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs) ∧ σ_s.(snp) = σ_t.(snp) ∧
