@@ -1246,8 +1246,8 @@ Section utils.
       intros z. specialize (Hinit z). destruct (Heqit' z) as (_&Heqlu).
       by erewrite perm_eq_up_to_C_same_init.
   Qed.
-(*
-  Lemma tree_equals_read_all_protected_initialized tr1 tr1' tr2 cid
+
+  Lemma tree_equals_read_all_protected_initialized' tr1 tr1' tr2 cid
     (Hwf1 : wf_tree tr1)
     (Hwf2 : wf_tree tr2) :
     tree_equal tr1 tr2 →
@@ -1255,10 +1255,47 @@ Section utils.
     ∃ tr2', tree_read_all_protected_initialized C cid tr2 = Some tr2' ∧
       tree_equal tr1' tr2'.
   Proof.
+    intros Heq.
     rewrite /tree_read_all_protected_initialized.
-    intros Heq Hapi.
-    rewrite / *)
-
+    erewrite <- (tree_equals_protected_initialized tr1 tr2); last done.
+    2-3: by eapply wf_tree_tree_unique.
+    remember (tree_get_all_protected_tags_initialized_locs cid tr1) as S eqn:HS.
+    assert (∀ tg E, (tg, E) ∈ (elements S) → tree_unique tg tr1) as Hunq.
+    { subst S. intros tg E. setoid_rewrite elem_of_elements.
+      intros (it&Hit&_)%tree_all_protected_initialized_elem_of. all: eapply wf_tree_tree_unique; try apply Hwf1.
+      by eapply lookup_implies_contains. }
+    rewrite /set_fold /=. remember (elements S) as ES. clear dependent S.
+    induction ES as [|(tg&init_locs) S IH] in tr1',Hunq|-*.
+    { simpl. intros [= ->]; by eexists. }
+    simpl. intros (tr1''&H1&H2)%bind_Some.
+    opose proof (IH _ _ H1) as (tr2''&Htr2&HHtr2); clear IH.
+    { intros ???. eapply Hunq. by right. }
+    rewrite Htr2 /=.
+    ospecialize (Hunq tg init_locs _). 1: by left.
+    assert (tree_unique tg tr1'') as Hunq''.
+    { rewrite /tree_unique. erewrite <- tree_read_many_helper_1. 1: exact Hunq. exact H1. }
+    assert (wf_tree tr1'') as Hwf1''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply H1. }
+    assert (wf_tree tr2'') as Hwf2''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf2. 1: exact Htr2. }
+    clear Htr2 H1 Hunq. revert H2.
+    induction (elements init_locs) as [|off E IH] in tr1',Hunq''|-*.
+    { simpl. intros [= ->]; by eexists. }
+    simpl. intros (tr1'''&H1&H2)%bind_Some.
+    specialize (IH _ Hunq'' H1) as (tr2'''&Htr2&HHtr2p). rewrite Htr2 /=.
+    assert (tree_unique tg tr1''') as Hunq'''.
+    { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq''. exact H1. }
+    assert (wf_tree tr1''') as Hwf1'''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1''. 1: apply H1. }
+    assert (wf_tree tr2''') as Hwf2'''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf2''. 1: apply Htr2. }
+    opose proof (tree_equal_allows_same_access_nonchildren_only _ HHtr2p Hunq''' _) as (trr&Htrr).
+    1: by apply wf_tree_tree_unique. 1: by eapply mk_is_Some.
+    exists trr; split; first done.
+    eapply tree_equal_preserved_by_memory_access_nonchildren_only.
+    5-6: done. 3: done. 3: by eapply unique_exists.
+    1-2: by eapply wf_tree_tree_unique.
+Qed.
 
 End utils.
 

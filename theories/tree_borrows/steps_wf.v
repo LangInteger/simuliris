@@ -995,25 +995,38 @@ Proof.
   by eapply initcall_step_wf_inner in WF.
 Qed.
 
+Lemma tree_read_many_helper_2 C tg (L : list Z) :
+  preserve_tree_tag_count (λ tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr) L).
+Proof.
+  intros tr1 tr2 tg'.
+  induction L as [|z L IH] in tr2|-*; simpl.
+  1: intros [= ->]; done.
+  intros (trm&H1&H2)%bind_Some.
+  specialize (IH _ H1). rewrite IH. clear IH H1 tr1.
+  by eapply memory_access_tag_count.
+Qed.
+
+Lemma tree_read_many_helper_1 C (E : list (tag * gset Z)) :
+  preserve_tree_tag_count (λ tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E).
+Proof.
+  intros tr1 tr2 tg.
+  induction E as [|(tg'&L) E IH] in tr2|-*; simpl.
+  1: intros [= ->]; done.
+  intros (trm&H1&H2)%bind_Some.
+  specialize (IH _ H1). rewrite IH. clear IH H1 tr1.
+  by eapply tree_read_many_helper_2.
+Qed.
+
+
 Lemma tree_read_all_protected_initialized_tag_count C cid :
   preserve_tree_tag_count (tree_read_all_protected_initialized C cid).
 Proof.
   intros tr tr' tg.
   rewrite /tree_read_all_protected_initialized /=.
   generalize (tree_get_all_protected_tags_initialized_locs cid tr).
-  intros S. revert S tr'.
-  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' → _ = tree_count_tg tg tr') _ _ _ _).
-  1: congruence.
-  intros (l&offs) S [tr1|] Hnin IH tr' Htr1; last done.
-  rewrite /= in Htr1.
-  erewrite IH; last done.
-  clear IH Hnin S tr. revert tr' Htr1.
-  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' → _ = tree_count_tg tg tr') _ _ _ _ offs).
-  1: congruence.
-  intros off S [tr2|] Hnin IH tr' Htr2; last done.
-  rewrite /= in Htr2.
-  erewrite IH; last done.
-  erewrite memory_access_tag_count; last done. done.
+  intros S. revert S tr'. rewrite /set_fold /=. clear cid.
+  intros H tr'.
+  eapply tree_read_many_helper_1.
 Qed.
 
 Lemma tree_read_all_protected_initialized_compat_nexts C cid nxtp nxtc :
