@@ -101,6 +101,13 @@ Section utils.
         perm_eq_up_to_C tr1 tr2 tg l cid
           {| initialized := ini; perm := Reserved im confl1 |}
           {| initialized := ini; perm := Reserved im confl2 |}
+    | perm_eq_up_to_C_pseudo_post_prot ini im confl1 confl2 :
+        (* But if they are not protected *)
+        ¬ protector_is_active cid C ->
+        (* then we can allow a small difference *)
+        perm_eq_up_to_C tr1 tr2 tg l cid
+          {| initialized := ini; perm := Reserved im confl1 |}
+          {| initialized := ini; perm := Reserved im confl2 |}
     .
 
   Definition loc_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (it1 it2 : item) (l : Z) :=
@@ -216,6 +223,7 @@ Section utils.
     intro EqC.
     inversion EqC.
     + econstructor.
+    + econstructor; eassumption.
     + econstructor; eassumption.
   Qed.
 
@@ -589,6 +597,37 @@ Section utils.
     all: apply GloballyUnique1; apply LookupCous.
   Qed.
 
+  Lemma pseudo_conflicted_post_prot_allows_same_access
+    {tr1 tg l confl1 confl2 kind rel isprot ini im acc_tg range it1 b}
+    (* Main hypotheses *)
+    (AccEx : tree_unique acc_tg tr1)
+    (TgEx : tree_unique tg tr1)
+    (* Auxiliary stuff to bind the local access to the global success for the pseudo conflicted case *)
+    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
+    (GlobalSuccess : is_Some (tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr1))
+    (NoProp : ¬ protector_is_active (iprot it1) C)
+    (ProtSpec : isprot = bool_decide (protector_is_active (iprot it1) C))
+    (RelSpec : rel = rel_dec tr1 acc_tg tg)
+    (PermSpec : item_lookup it1 l = {| initialized := ini; perm := Reserved im confl1 |})
+    (InRange : range'_contains range l)
+    : is_Some
+         (apply_access_perm kind rel isprot
+            {| initialized := ini; perm := Reserved im confl1 |})
+    -> is_Some
+         (apply_access_perm kind rel isprot
+            {| initialized := ini; perm := Reserved im confl2 |}).
+  Proof.
+    rewrite /apply_access_perm /apply_access_perm_inner; simpl.
+    rewrite bool_decide_false in ProtSpec; last done. subst isprot.
+    (* Most cases are by reflexivity. *)
+    destruct kind, rel; simpl.
+    all: destruct ini; simpl; try auto.
+    all: destruct im.
+    all: subst; simpl; try auto.
+    all: destruct confl1, confl2.
+    all: subst; simpl; try auto.
+  Qed.
+
   Lemma loc_eq_up_to_C_allows_same_access
     {tr1 tr2 tg it1 it2 l kind acc_tg range b}
     (Tg1 : itag it1 = tg)
@@ -611,7 +650,7 @@ Section utils.
   Proof.
     intros EqC Acc1.
     inversion EqC as [EqProt EqCLookup].
-    inversion EqCLookup as [perm Lookup EqLookup|???? Prot Confl1 Confl2 Lookup1 Lookup2].
+    inversion EqCLookup as [perm Lookup EqLookup|???? Prot Confl1 Confl2 Lookup1 Lookup2|???? Prot Lookup1 Lookup2].
     - rewrite Tg2 -Tg1.
       rewrite -SameRel.
       rewrite -EqProt.
@@ -625,6 +664,18 @@ Section utils.
       + rewrite -EqProt; reflexivity.
       + rewrite SameRel -Tg2 //=.
       + rewrite /item_lookup Lookup1 //=.
+      + exact InRange.
+      + rewrite Tg1 -Tg2 SameRel EqProt Heq // in Acc1.
+    - rewrite Lookup2.
+      rewrite -Lookup1 in Acc1.
+      edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq].
+      2: by erewrite Heq.
+      rewrite Heq. rewrite -Lookup2.
+      eapply (pseudo_conflicted_post_prot_allows_same_access UnqAcc Ex1 GloballyUnique1 GlobalSuccess).
+      + done.
+      + rewrite -EqProt; reflexivity.
+      + rewrite SameRel -Tg2 //=.
+      + symmetry. apply Lookup1.
       + exact InRange.
       + rewrite Tg1 -Tg2 SameRel EqProt Heq // in Acc1.
   Qed.
@@ -725,6 +776,12 @@ Section utils.
     all: try tauto.
   Qed.
 
+  Lemma memory_access_same_rel_dec
+    {tr tr' acc cids acc_tg range} b
+    : memory_access_maybe_nonchildren_only b acc cids acc_tg range tr = Some tr' ->
+    forall tg tg', rel_dec tr tg tg' = rel_dec tr' tg tg'.
+  Proof. eapply access_same_rel_dec. Qed.
+
   Lemma access_preserves_pseudo_conflicted_activable (b:bool)
     {tr tg l kind acc_tg range tr'} :
     pseudo_conflicted tr tg l ResActivable ->
@@ -805,7 +862,7 @@ Section utils.
     perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
   Proof.
     intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
-    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2].
+    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2].
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
@@ -887,6 +944,57 @@ Section utils.
       (* Now they are all ResActivable and we need to show that the cousin is still a witness.
          See the above lemma for exactly that. *)
       all: eapply access_preserves_pseudo_conflicted_activable; eassumption.
+    - (* The permissions are formerly pseudo-conflicted, but the difference should no longer matter now. *)
+      rewrite SameRel SameTg in ItAcc1.
+      rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [perms1'Spec it1'Spec]].
+      rewrite bind_Some in ItAcc2; destruct ItAcc2 as [perms2' [perms2'Spec it2'Spec]].
+      injection it1'Spec; intros; subst; clear it1'Spec.
+      injection it2'Spec; intros; subst; clear it2'Spec.
+      rewrite /item_lookup /=.
+      pose proof (mem_apply_range'_spec _ _ l _ _ perms1'Spec) as perm1'Spec; clear perms1'Spec.
+      pose proof (mem_apply_range'_spec _ _ l _ _ perms2'Spec) as perm2'Spec; clear perms2'Spec.
+      (* Now we do the case analysis of the access that occured *)
+      (* First off, if we're out of range then we can take the exact same witness. *)
+      destruct (decide (range'_contains range l)).
+      2: {
+        rewrite perm1'Spec.
+        rewrite perm2'Spec.
+        rewrite /item_lookup in itLookup1, itLookup2.
+        rewrite -itLookup1 -itLookup2.
+        econstructor 3.
+        assumption.
+      }
+      (* Now we're within range *)
+      destruct perm1'Spec as [perm1' [perm1'Lookup perm1'Spec]].
+      destruct perm2'Spec as [perm2' [perm2'Lookup perm2'Spec]].
+      rewrite perm1'Lookup perm2'Lookup; clear perm1'Lookup perm2'Lookup.
+      simpl.
+      rewrite bool_decide_eq_false_2 in perm1'Spec; [|assumption].
+      rewrite bool_decide_eq_false_2 in perm2'Spec; [|rewrite -SameProt; assumption].
+      rewrite /item_lookup in itLookup1, itLookup2.
+      rewrite -itLookup1 in perm1'Spec; clear itLookup1.
+      rewrite -itLookup2 in perm2'Spec; clear itLookup2.
+      destruct (maybe_non_children_only_effect_or_nop b (apply_access_perm kind) (rel_dec tr2 acc_tg (itag it2))) as [Heff|Heff].
+      all: rewrite !Heff /= in perm1'Spec,perm2'Spec.
+      2: { simplify_eq. econstructor; first done. all: by eapply access_preserves_pseudo_conflicted. }
+      (* Next we need to unwrap the apply_access_perm to get to apply_access_perm_inner *)
+      rewrite bind_Some in perm1'Spec; destruct perm1'Spec as [perm1 [perm1Spec perm1'Spec]].
+      rewrite bind_Some in perm1'Spec; destruct perm1'Spec as [tmp1 [tmp1Spec perm1'Spec]].
+      injection perm1'Spec; simpl; intros; subst; clear perm1'Spec.
+      rewrite bind_Some in perm2'Spec; destruct perm2'Spec as [perm2 [perm2Spec perm2'Spec]].
+      rewrite bind_Some in perm2'Spec; destruct perm2'Spec as [tmp2 [tmp2Spec perm2'Spec]].
+      injection perm2'Spec; simpl; intros; subst; clear perm2'Spec.
+      simpl in *.
+      (* We can finally start the big case analysis at the level of the state machine *)
+      destruct ini, perm1, perm2; try congruence.
+      all: injection tmp1Spec; intros; subst; clear tmp1Spec.
+      all: injection tmp2Spec; intros; subst; clear tmp2Spec.
+      all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.
+      all: destruct confl2; simpl in *; try discriminate.
+      all: try (injection perm1Spec; intros; subst); clear perm1Spec.
+      all: try (injection perm2Spec; intros; subst); clear perm2Spec.
+      all: try by econstructor 1.
+      all: try by econstructor 3.
   Qed.
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
@@ -1247,6 +1355,58 @@ Section utils.
       by erewrite perm_eq_up_to_C_same_init.
   Qed.
 
+  Lemma tree_equals_read_many_helper_2 tg (L : list Z) tr1 tr1' tr2
+    (Hwf1 : wf_tree tr1)
+    (Hwf2 : wf_tree tr2) :
+    tree_equal tr1 tr2 →
+    tree_unique tg tr1 →
+    let fn := (λ tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr) L) in
+    fn tr1 = Some tr1' →
+    ∃ tr2', fn tr2 = Some tr2' ∧  tree_equal tr1' tr2'.
+  Proof.
+    intros Heq Hunq''.
+    induction L as [|off E IH] in tr1',Hunq''|-*.
+    { simpl. intros [= ->]; by eexists. }
+    simpl. intros (tr1'''&H1&H2)%bind_Some.
+    specialize (IH _ Hunq'' H1) as (tr2'''&Htr2&HHtr2p). rewrite Htr2 /=.
+    assert (tree_unique tg tr1''') as Hunq'''.
+    { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq''. exact H1. }
+    assert (wf_tree tr1''') as Hwf1'''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply H1. }
+    assert (wf_tree tr2''') as Hwf2'''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf2. 1: apply Htr2. }
+    opose proof (tree_equal_allows_same_access_nonchildren_only _ HHtr2p Hunq''' _) as (trr&Htrr).
+    1: by apply wf_tree_tree_unique. 1: by eapply mk_is_Some.
+    exists trr; split; first done.
+    eapply tree_equal_preserved_by_memory_access_nonchildren_only.
+    5-6: done. 3: done. 3: by eapply unique_exists.
+    1-2: by eapply wf_tree_tree_unique.
+  Qed.
+
+  Lemma tree_equals_read_many_helper_1 (E : list (tag * gset Z)) tr1 tr1' tr2
+    (Hwf1 : wf_tree tr1)
+    (Hwf2 : wf_tree tr2) :
+    tree_equal tr1 tr2 →
+    (∀ tg L, (tg, L) ∈ E → tree_unique tg tr1)→
+    let fn := (λ tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
+    fn tr1 = Some tr1' →
+    ∃ tr2', fn tr2 = Some tr2' ∧ tree_equal tr1' tr2'.
+  Proof.
+    intros Heq Hunq.
+    induction E as [|(tg&init_locs) S IH] in tr1',Hunq|-*.
+    { simpl. intros [= ->]; by eexists. }
+    simpl. intros (tr1''&H1&H2)%bind_Some.
+    opose proof (IH _ _ H1) as (tr2''&Htr2&HHtr2); clear IH.
+    { intros ???. eapply Hunq. by right. }
+    rewrite Htr2 /=.
+    ospecialize (Hunq tg init_locs _). 1: by left. revert H2.
+    eapply tree_equals_read_many_helper_2.
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply H1. }
+    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf2. 1: exact Htr2. }
+    { done. }
+    { rewrite /tree_unique. erewrite <- tree_read_many_helper_1. 1: exact Hunq. exact H1. }
+  Qed.
+
   Lemma tree_equals_read_all_protected_initialized' tr1 tr1' tr2 cid
     (Hwf1 : wf_tree tr1)
     (Hwf2 : wf_tree tr2) :
@@ -1259,49 +1419,15 @@ Section utils.
     rewrite /tree_read_all_protected_initialized.
     erewrite <- (tree_equals_protected_initialized tr1 tr2); last done.
     2-3: by eapply wf_tree_tree_unique.
-    remember (tree_get_all_protected_tags_initialized_locs cid tr1) as S eqn:HS.
-    assert (∀ tg E, (tg, E) ∈ (elements S) → tree_unique tg tr1) as Hunq.
-    { subst S. intros tg E. setoid_rewrite elem_of_elements.
+    eapply tree_equals_read_many_helper_1. 1-3: done.
+    {intros tg E. setoid_rewrite elem_of_elements.
       intros (it&Hit&_)%tree_all_protected_initialized_elem_of. all: eapply wf_tree_tree_unique; try apply Hwf1.
       by eapply lookup_implies_contains. }
-    rewrite /set_fold /=. remember (elements S) as ES. clear dependent S.
-    induction ES as [|(tg&init_locs) S IH] in tr1',Hunq|-*.
-    { simpl. intros [= ->]; by eexists. }
-    simpl. intros (tr1''&H1&H2)%bind_Some.
-    opose proof (IH _ _ H1) as (tr2''&Htr2&HHtr2); clear IH.
-    { intros ???. eapply Hunq. by right. }
-    rewrite Htr2 /=.
-    ospecialize (Hunq tg init_locs _). 1: by left.
-    assert (tree_unique tg tr1'') as Hunq''.
-    { rewrite /tree_unique. erewrite <- tree_read_many_helper_1. 1: exact Hunq. exact H1. }
-    assert (wf_tree tr1'') as Hwf1''.
-    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply H1. }
-    assert (wf_tree tr2'') as Hwf2''.
-    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf2. 1: exact Htr2. }
-    clear Htr2 H1 Hunq. revert H2.
-    induction (elements init_locs) as [|off E IH] in tr1',Hunq''|-*.
-    { simpl. intros [= ->]; by eexists. }
-    simpl. intros (tr1'''&H1&H2)%bind_Some.
-    specialize (IH _ Hunq'' H1) as (tr2'''&Htr2&HHtr2p). rewrite Htr2 /=.
-    assert (tree_unique tg tr1''') as Hunq'''.
-    { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq''. exact H1. }
-    assert (wf_tree tr1''') as Hwf1'''.
-    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1''. 1: apply H1. }
-    assert (wf_tree tr2''') as Hwf2'''.
-    { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf2''. 1: apply Htr2. }
-    opose proof (tree_equal_allows_same_access_nonchildren_only _ HHtr2p Hunq''' _) as (trr&Htrr).
-    1: by apply wf_tree_tree_unique. 1: by eapply mk_is_Some.
-    exists trr; split; first done.
-    eapply tree_equal_preserved_by_memory_access_nonchildren_only.
-    5-6: done. 3: done. 3: by eapply unique_exists.
-    1-2: by eapply wf_tree_tree_unique.
-Qed.
+  Qed.
 
 End utils.
 
 Section call_set.
-
-  Create HintDb call_mono_db.
 
   Lemma call_is_active_mono C1 C2 cid :
     C1 ⊆ C2 →
@@ -1310,16 +1436,14 @@ Section call_set.
   Proof.
     rewrite /call_is_active. set_solver.
   Qed.
-  Hint Resolve call_is_active_mono : call_mono_db.
 
   Lemma protector_is_active_mono C1 C2 prot :
     C1 ⊆ C2 →
     protector_is_active prot C1 →
     protector_is_active prot C2.
   Proof.
-    intros Hss (c&Hc1&Hc2). eexists; split; by eauto with call_mono_db.
+    intros Hss (c&Hc1&Hc2). eexists; split; by eauto using call_is_active_mono.
   Qed.
-  Hint Resolve protector_is_active_mono : call_mono_db.
 
   Lemma pseudo_conflicted_mono C1 C2 tr tg off rc :
     C1 ⊆ C2 →
@@ -1328,57 +1452,67 @@ Section call_set.
   Proof.
     induction 2.
     + econstructor 1.
-    + econstructor 2; by eauto with call_mono_db.
+    + econstructor 2; by eauto using protector_is_active_mono.
   Qed.
-  Hint Resolve pseudo_conflicted_mono : call_mono_db.
 
-  Lemma perm_eq_up_to_C_mono C1 C2 tr1 tr2 tg l cid lp1 lp2 :
-    C1 ⊆ C2 →
+  Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat) tr1 tr2 tg l cid lp1 lp2 :
+    (∀ cc, protector_is_for_call cc cid → (cc < nxtc)%nat) →
     perm_eq_up_to_C C1 tr1 tr2 tg l cid lp1 lp2 →
-    perm_eq_up_to_C C2 tr1 tr2 tg l cid lp1 lp2.
+    perm_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg l cid lp1 lp2.
   Proof.
-    induction 2; econstructor; by eauto with call_mono_db.
+    intros Hwf.
+    induction 1 as [| |???? H].
+    1: by econstructor.
+    1: econstructor; try done. 1: eapply protector_is_active_mono; last done; set_solver.
+    1-2: eapply pseudo_conflicted_mono; last done; set_solver.
+    econstructor 3; try done. intros (cc&Hcc&[Hact|<-%elem_of_singleton]%elem_of_union).
+    1: eapply H; by eexists.
+    apply Hwf in Hcc. lia.
   Qed.
-  Hint Resolve perm_eq_up_to_C_mono : call_mono_db.
 
-  Lemma loc_eq_up_to_C_mono C1 C2 tr1 tr2 tg it1 it2 l :
-    C1 ⊆ C2 →
+  Lemma loc_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp l :
+    item_wf it1 nxtp nxtc →
     loc_eq_up_to_C C1 tr1 tr2 tg it1 it2 l →
-    loc_eq_up_to_C C2 tr1 tr2 tg it1 it2 l.
+    loc_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg it1 it2 l.
   Proof.
-    induction 2; econstructor; by eauto with call_mono_db.
+    intros Hwf1.
+    induction 1; econstructor; try done.
+    eapply perm_eq_up_to_C_mono; last done.
+    apply Hwf1.
   Qed.
-  Hint Resolve loc_eq_up_to_C_mono : call_mono_db.
 
-  Lemma item_eq_up_to_C_mono C1 C2 tr1 tr2 tg it1 it2 :
-    C1 ⊆ C2 →
+  Lemma item_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp :
+    item_wf it1 nxtp nxtc →
     item_eq_up_to_C C1 tr1 tr2 tg it1 it2 →
-    item_eq_up_to_C C2 tr1 tr2 tg it1 it2.
+    item_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg it1 it2.
   Proof.
     intros Hss H1 l.
-    specialize (H1 l). by eauto with call_mono_db.
+    specialize (H1 l). by eapply loc_eq_up_to_C_mono.
   Qed.
-  Hint Resolve item_eq_up_to_C_mono : call_mono_db.
 
-  Lemma tree_equal_mono C1 C2 tr1 tr2 :
-    C1 ⊆ C2 →
+  Lemma tree_equal_mono C1 tr1 tr2 nxtc nxtp :
+    tree_items_compat_nexts tr1 nxtp nxtc →
     tree_equal C1 tr1 tr2 →
-    tree_equal C2 tr1 tr2.
+    tree_equal (C1 ∪ {[ nxtc ]}) tr1 tr2.
   Proof.
     intros Hss (H1&H2&H3). do 2 (split; first done).
     intros tg (it1&it2&H4&H5&H6)%H3.
-    exists it1, it2. by eauto with call_mono_db.
+    exists it1, it2. split_and!; try done.
+    eapply item_eq_up_to_C_mono; try done.
+    setoid_rewrite every_node_eqv_universal in Hss.
+    apply Hss, tree_lookup_to_exists_node.
+    erewrite <-tree_lookup_correct_tag in H4; done.
   Qed.
-  Hint Resolve tree_equal_mono : call_mono_db.
 
-  Lemma trees_equal_mono C1 C2 trs1 trs2 :
-    C1 ⊆ C2 →
+  Lemma trees_equal_mono C1 trs1 trs2 nxtc nxtp :
+    trees_compat_nexts trs1 nxtp nxtc →
     trees_equal C1 trs1 trs2 →
-    trees_equal C2 trs1 trs2.
+    trees_equal (C1 ∪ {[ nxtc ]}) trs1 trs2.
   Proof.
-    intros Hss Heq blk. induction (Heq blk).
-    all: econstructor; by eauto with call_mono_db.
+    intros Hss Heq blk. specialize (Heq blk). inversion Heq; simplify_eq.
+    all: econstructor; try done.
+    eapply tree_equal_mono; try done.
+    eapply Hss. done.
   Qed.
-  Hint Resolve trees_equal_mono : call_mono_db.
 
 End call_set.

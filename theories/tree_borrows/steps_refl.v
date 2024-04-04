@@ -704,7 +704,7 @@ Proof.
   iSplitL.
   { iDestruct "Hsrel" as "(H1 & %H2 & H3 & %H4 & %H5 & H6)". rewrite /state_rel. simpl.
     iFrame "H1 H3".
-    iSplit. { iPureIntro. eapply trees_equal_mono; last done. set_solver. }
+    iSplit. { iPureIntro. rewrite union_comm_L. eapply trees_equal_mono; last done. apply Hwf_s. }
     iSplit. { iPureIntro. lia. }
     iSplit. { rewrite H5 Hsnc_eq. done. }
     iIntros (l Hl). iDestruct ("H6" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
@@ -780,9 +780,8 @@ Proof.
   simpl. eauto.
 Qed.
 
-(*
-
 (** EndCall *)
+(*
 Lemma bor_interp_end_call_own c σ_t σ_s :
   bor_interp sc_rel σ_t σ_s -∗
   c @@ ∅ ==∗ (* we need it to be empty to avoid tripping private locations *)
@@ -823,8 +822,8 @@ Proof.
     intros c'. cbn. rewrite elem_of_difference. intros [Hin _]. eauto. }
   iPureIntro. destruct Hwf_t. constructor; [done.. | ].
   intros c'. cbn. rewrite elem_of_difference. intros [Hin _]. eauto.
-Qed.
-
+Qed. *)
+(*
 Lemma sim_endcall_own c π Φ :
   c @@ ∅ -∗ (* needs to be empty so we don't trip private locations *)
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
