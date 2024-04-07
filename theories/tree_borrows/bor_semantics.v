@@ -433,7 +433,7 @@ Proof.
     destruct prot as [p|]; [destruct p as [prot call]|].
     * injection IsProt; intros; subst; assumption.
     * inversion IsProt.
-Qed.
+Defined.
 
 Global Instance protector_is_active_dec prot cids :
   Decision (protector_is_active prot cids).
@@ -487,7 +487,7 @@ Definition nonchildren_only
   (fn : rel_pos -> bool -> app lazy_permission)
   : rel_pos -> bool -> app lazy_permission := fun rel isprot perm =>
   match rel with
-  | Child (Strict _) => Some perm
+  | Foreign (Parent _) => Some perm
   | _ => fn rel isprot perm
   end.
 
@@ -525,7 +525,7 @@ Definition extend_trees t blk off sz
 Definition maybe_non_children_only (b:bool) := if b then nonchildren_only else λ x, x.
 
 Lemma maybe_non_children_only_no_effect b1 fn rel ip perm :
-  (∀ b, rel ≠ Child (Strict b)) →
+  (∀ b, rel ≠ Foreign (Parent b)) →
   maybe_non_children_only b1 fn rel ip perm =
   fn rel ip perm.
 Proof.
@@ -541,8 +541,8 @@ Proof.
 Qed.
 
 Lemma maybe_non_children_only_effect_or_nop_strong b1 fn rel :
-  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm ∧ (b1 ≠ true ∨ (∀ b, rel ≠ Child (Strict b)))) ∨
-  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm ∧ b1 = true ∧ ∃ b, rel = Child (Strict b)).
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = fn rel ip perm ∧ (b1 ≠ true ∨ (∀ b, rel ≠ Foreign (Parent b)))) ∨
+  (∀ ip perm, maybe_non_children_only b1 fn rel ip perm = Some perm ∧ b1 = true ∧ ∃ b, rel = Foreign (Parent b)).
 Proof.
   destruct b1, rel as [[]|[]]; simpl; eauto.
 Qed.
@@ -995,14 +995,30 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
 Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some oo) : A := oo.
 Local Notation unwrap K := (unpack_option K eq_refl).
 
-(* We create some trees to unit-test our definitions *)
+
 Local Definition initial_tree := init_tree 1 0 4.
 Local Definition with_one_child :=
   unwrap (create_child ∅ 1 2 (MutRef TyFrz) Default 0 initial_tree).
 Local Definition with_two_children :=
-  unwrap (create_child ∅ 1 3 (ShrRef) Default 0 with_one_child).
+  unwrap (create_child ∅ 1 3 (MutRef TyFrz) Default 0 with_one_child).
 Local Definition with_three_children :=
-  unwrap (create_child ∅ 2 4 (Box TyFrz) Default 0 with_two_children).
+  unwrap (create_child ∅ 2 4 (MutRef TyFrz) Default 0 with_two_children).
+ (*
+Local Definition with_write_access := unwrap (memory_access AccessWrite ∅ 4 (2%Z,1) with_three_children).
+Local Definition with_nc_write_access := unwrap (memory_access_nonchildren_only AccessWrite ∅ 4 (2%Z,1) with_three_children).
+
+Goal with_write_access = with_nc_write_access.
+Proof.
+  vm_compute. repeat f_equal.
+Qed.
+
+Local Definition with_nc_write_access_root := unwrap (memory_access_nonchildren_only AccessWrite ∅ 1 (2%Z,1) with_three_children).
+
+Goal with_three_children = with_nc_write_access_root.
+Proof.
+  vm_compute. repeat f_equal.
+Abort. *)
+
 (*
    1
   / \
@@ -1029,5 +1045,8 @@ Succeed Example foo : rel_dec with_three_children 4 1 = Child (Strict FurtherAwa
 Succeed Example foo : rel_dec with_three_children 4 2 = Child (Strict Immediate)     := eq_refl.
 Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin               := eq_refl.
 Succeed Example foo : rel_dec with_three_children 4 4 = Child This                   := eq_refl.
+
+
+
 
 

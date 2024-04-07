@@ -733,6 +733,7 @@ Proof.
     repeat (case_match; simplify_eq; try done).
   - congruence.
 Qed.
+
 Lemma apply_access_perm_read_frozen b rel isprot itmo itmn :
   maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
   perm itmo = Frozen →
@@ -744,6 +745,31 @@ Proof.
     repeat (case_match; simplify_eq; try done).
   - congruence.
 Qed.
+
+Lemma apply_access_perm_read_conflicted b rel isprot itmo itmn im :
+  maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
+  perm itmo = Reserved im ResConflicted →
+  perm itmn = Reserved im ResConflicted.
+Proof.
+  edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
+  - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
+    simpl in Hdis,H1,H2|-*.
+    repeat (case_match; simplify_eq; try done).
+  - congruence.
+Qed.
+
+Lemma apply_access_perm_read_reserved_backwards b rel isprot itmo itmn im acc :
+  maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
+  perm itmn = Reserved im acc → ∃ acc,
+  perm itmo = Reserved im acc.
+Proof.
+  edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
+  - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
+    simpl in Hdis,H1,H2|-*.
+    repeat (case_match; simplify_eq; try done; try by eexists).
+  - intros [= ->] ->. by eexists.
+Qed.
+
 Lemma apply_access_perm_read_initialized b rel isprot itmo itmn :
   maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
   initialized itmo = PermInit →
@@ -814,6 +840,22 @@ Proof.
   - edestruct (rel_dec_concat_parent tr t1 t2 t3) as (bb&Hbb); try done.
     by eexists.
   - exists Cousin. eapply rel_dec_concat_cousin; last done; done.
+Qed.
+
+Lemma rel_dec_parent_parent_is_parent tr ttop tmid tbot d1 d2 fp :
+  wf_tree tr → tree_contains ttop tr → tree_contains tmid tr → tree_contains tbot tr →
+  rel_dec tr ttop tbot = Foreign (Parent d1) →
+  rel_dec tr tmid tbot = Foreign (Parent d2) →
+  rel_dec tr ttop tmid = Foreign fp →
+  ∃ d3, fp = Parent d3.
+Proof.
+  intros Hwf Hu1 Hu2 Hu3. unfold rel_dec at 1 2.
+  destruct (decide (ParentChildIn tbot ttop tr)) as [HPC1|HPC1]; try done.
+  destruct (decide (ParentChildIn ttop tbot tr)) as [HPC2|HPC2]; try done. intros _.
+  destruct (decide (ParentChildIn tbot tmid tr)) as [HPC3|HPC3]; try done.
+  destruct (decide (ParentChildIn tmid tbot tr)) as [HPC4|HPC4]; try done. intros _.
+  intros Hfgn. destruct fp; first by eexists.
+  eapply cousins_have_disjoint_children in Hfgn. 5-6: done. 1: done. all: by eapply Hwf.
 Qed.
 
 Lemma loc_controlled_read_preserved l sc σ σ' blk off1 sz tg_acc tg_lu tk Mcall b:
@@ -901,15 +943,16 @@ Proof.
         1: by eapply Hcompat. eapply wf_tree_tree_item_determined. by eapply Hwf. }
       rewrite /lazy_perm_wf in Hwfitold. rewrite /bor_state_post_unq.
       split; first by eapply apply_access_perm_read_initialized.
-      match goal with |- (?A ∧ ?B) => assert (A ∧ if trees_rel_dec (strs σ) l.1 tg_acc tg_lu is Foreign _ then act = tk_res else True) as (Hfp&Hactres) end.
+      match goal with |- (?A ∧ ?B) => assert (A ∧ match trees_rel_dec (strs σ) l.1 tg_acc tg_lu with 
+          Foreign (Parent _) => act = tk_res ∨ (b = true) | Foreign _ => act = tk_res | _ => True end) as (Hfp&Hactres) end.
       { clear Hothers. rewrite -Heq2 -Heq_scs. edestruct maybe_non_children_only_effect_or_nop_strong as [(Heqcc&Hne)|(Heqcc&He1&childkind&He2)]; erewrite Heqcc in Heq3.
-        2: { injection Heq3 as <-. rewrite He2. done. }
+        2: { injection Heq3 as <-. rewrite He2. split; first done. by right. }
         pose proof Heq3 as (x1&Hx1&(x2&Hx2&[= HH])%bind_Some)%bind_Some.
         rewrite -HH -?Heq_scs /= in Hfrzprot|-*.
         rewrite /apply_access_perm_inner in Hx1.
-        repeat (case_match; simplify_eq; (try specialize (Hwfitold eq_refl)); (try (destruct Hsame; [ idtac ])); try done).
-        exfalso.
-        eapply bool_decide_eq_false_1; last apply (Hfrzprot eq_refl eq_refl). done. }
+        repeat (case_match; simplify_eq; (try specialize (Hwfitold eq_refl)); (try (destruct Hsame; [ idtac ])); try done; try (split; [done | (try by left); by right ])).
+        all: exfalso.
+        all: eapply bool_decide_eq_false_1; last apply (Hfrzprot eq_refl eq_refl). all: done. }
       split; first done.
       intros itnew' t' Hit'.
       rewrite /lazy_perm_wf in Hwfitold.
@@ -923,24 +966,30 @@ Proof.
         1: by eapply Hcompat. eapply wf_tree_tree_item_determined. by eapply Hwf. }
       rewrite /lazy_perm_wf in Hwfitold'.
       specialize (Hothers _ _ Hitoldlu').
-      assert (rel_dec trnew t' tg_lu = rel_dec trold t' tg_lu) as Hreldec.
-      { rewrite /apply_within_trees Hx /= in Happly.
+      assert (∀ tg1 tg2, rel_dec trnew tg1 tg2 = rel_dec trold tg1 tg2) as Hreldec_strong.
+      { intros tg1 tg2. rewrite /apply_within_trees Hx /= in Happly.
         apply bind_Some in Happly as (newtr & H1 & [= H2]).
         rewrite -H2 lookup_insert in Htrnew.
         erewrite (access_same_rel_dec H1). congruence. }
+      assert (rel_dec trnew t' tg_lu = rel_dec trold t' tg_lu) as Hreldec.
+      { eapply Hreldec_strong. }
       rewrite Hreldec. destruct HHHH as (Hinit2 & Hprot2 & Hperm2).
-      edestruct maybe_non_children_only_effect_or_nop as [Heqcc|Heqcc]; erewrite Heqcc in Hperm2.
+      edestruct maybe_non_children_only_effect_or_nop_strong as [(Heqcc&Hne)|(Heqcc&He1&childkind&He2)]; erewrite Heqcc in Hperm2.
       2: injection Hperm2 as <-; apply Hothers.
       pose proof Hperm2 as (x1&Hx1&(x2&Hx2&[= HH])%bind_Some)%bind_Some.
       rewrite -HH -?Heq_scs /= in |-*.
       rewrite /apply_access_perm_inner in Hx1. clear Heqcc. clear Hfp.
-      rewrite /trees_rel_dec Htrold in Hactres HH Hx1.
+      rewrite /trees_rel_dec Htrold in Hactres HH Hx1 Hne.
       rewrite /trees_contain /trees_at_block Htrold in Htgin.
       assert (wf_tree trold) as Hwfold by by eapply Hwf.
       opose proof (rel_dec_concat_foreign _ tg_acc t' tg_lu _ _ _ _) as HtransiF.
       1-4: try done; eapply wf_tree_tree_unique; try done; by eapply lookup_implies_contains.
       repeat (case_match; simplify_eq; (try specialize (Hwfitold' eq_refl)); 
           (try edestruct (HtransiF _ _ eq_refl eq_refl) as (?&?)); simplify_eq; try done).
+      all: destruct Hactres as [?|Hactres]; first done.
+      all: subst b; destruct Hne as [?|Hne]; first done.
+      all: erewrite Hreldec_strong in Hreldec;
+           edestruct rel_dec_parent_parent_is_parent as (p&Hp); [exact Hwfold| | | | |exact Hreldec|..]; [| | | |done|]; [done|eapply Hitoldlu'|eapply Hluold|..]; [done|]; subst; exfalso; by eapply Hne.
   - destruct Hlc as (Hownold & Hscold); first done.
     split; last by rewrite -Heq_shp.
     destruct Hownold as (itold & trold' & Hluold & Htrold' & Hisinit & Hsame & Hothers).
@@ -1163,4 +1212,378 @@ Proof.
 Qed.
 
 
+
+Definition is_pseudo_conflicted_by_in' C (tr : tree item) (tg tg_cous : tag) (it : item) (L : gset Z) acc : Prop := 
+  tree_lookup tr tg it ∧
+  protector_is_active it.(iprot) C ∧
+  rel_dec tr tg tg_cous = Foreign Cousin ∧
+  ∃ it_cous l im,
+    l ∈ L ∧
+    tree_lookup tr tg_cous it_cous ∧
+    (item_lookup it l).(perm) = Reserved im acc.
+
+Definition is_pseudo_conflicted_by_in (C : call_id_set) (tr : tree item) (tg : tag) (it : item) (S : gset (tag * gset Z)) acc : Prop := 
+  ∃ tg_cous L,
+    (tg_cous, L) ∈ S ∧
+    is_pseudo_conflicted_by_in' C tr tg tg_cous it L acc.
+
+Lemma wf_tree_wf_singleton tr : wf_tree tr → wf_trees (singletonM xH tr).
+Proof.
+  split.
+  - intros blk ? (<-&<-)%lookup_singleton_Some. done.
+  - intros ???? tg (<-&<-)%lookup_singleton_Some (<-&<-)%lookup_singleton_Some. done.
+Qed.
+
+Lemma tree_access_lookup_general_rev offi cids tr kind off1 sz acc_tg lu_tg tr' itnew b :
+  memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz) tr = Some tr' →
+  wf_tree tr →
+  off1 ≤ offi < off1 + sz →
+  tree_lookup tr' lu_tg itnew →
+  ∃       itold, tree_lookup tr lu_tg itold ∧
+                 let permold := item_lookup itold offi in let permnew := item_lookup itnew offi in
+                 initp itold = initp itnew ∧
+                 iprot itold = iprot itnew ∧
+                 maybe_non_children_only b (apply_access_perm kind) (rel_dec tr acc_tg lu_tg) (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew.
+Proof.
+  intros App WFold InBounds Lookup.
+  odestruct (apply_trees_access_lookup_general_rev _ _ _ _ xH) as (it&H1&H2&H3&H4).
+  2: by eapply wf_tree_wf_singleton.
+  - rewrite /apply_within_trees lookup_singleton /=. erewrite App. rewrite /= insert_singleton. done.
+  - done.
+  - exists tr'. split; first by eapply lookup_singleton. done.
+  - exists it. split_and; try done.
+    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton in H1. injection H1 as <-. done.
+Qed.
+
+Lemma tree_access_lookup_outside_rev offi cids tr kind off1 sz acc_tg lu_tg tr' itnew b :
+  memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz) tr = Some tr' →
+  wf_tree tr →
+  ¬ (off1 ≤ offi < off1 + sz) →
+  tree_lookup tr' lu_tg itnew →
+  ∃       itold, tree_lookup tr lu_tg itold ∧
+                 let permold := item_lookup itold offi in let permnew := item_lookup itnew offi in
+                 initp itold = initp itnew ∧
+                 iprot itold = iprot itnew ∧
+                 permold = permnew.
+Proof.
+  intros App WFold InBounds Lookup.
+  odestruct (apply_trees_access_lookup_outside_rev xH offi _ _ _ xH) as (it&H1&H2&H3&H4).
+  2: by eapply wf_tree_wf_singleton.
+  - rewrite /apply_within_trees lookup_singleton /=. erewrite App. rewrite /= insert_singleton. done.
+  - intros (H1&H2). done.
+  - exists tr'. split; first by eapply lookup_singleton. done.
+  - exists it. split_and; try done.
+    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton in H1. injection H1 as <-. done.
+Qed.
+
+Lemma tree_read_many_pseudo_helper_2_pers C tg_acc (L : list Z) tr1 trL S
+  (Hwf1 : wf_tree tr1) :
+  tree_unique tg_acc tr1 →
+  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  fn L tr1 = Some trL →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C tr1 tg' it S acc → acc = ResConflicted) →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C trL tg' it S acc → acc = ResConflicted).
+Proof.
+  intros Hunq fn Hih H. revert Hih.
+  induction L as [|off L IH] in trL|-*.
+  1: by intros [= ->]. simpl.
+  intros (tr2&Hoff&HL)%bind_Some.
+  specialize (IH _ Hoff).
+  intros tg' it acc (tg_cs&SL&HS&Hlu&Hisprot&Hreldec&it_cous&l&im&HlL&Hlucs&Hres).
+  assert (tree_unique tg_acc tr2) as Hunq2.
+  { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq. exact Hoff. }
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  destruct (decide (l = off)) as [->|Hne].
+  - odestruct tree_access_lookup_general_rev as (it'&H1&H2&H3&H4).
+    1: exact HL. 1: done. 2: exact Hlu. 1: split; first reflexivity; lia.
+    odestruct tree_access_lookup_general_rev as (itcs'&H1cs&H2cs&H3cs&H4cs).
+    1: exact HL. 1: done. 2: exact Hlucs. 1: split; first reflexivity; lia.
+    eapply apply_access_perm_read_reserved_backwards in H4 as HHres.
+    2: done. destruct HHres as (acto & Hacto).
+    enough (acto = ResConflicted).
+    { subst acto. eapply apply_access_perm_read_conflicted in H4 as HHres. 2: done. rewrite Hres in HHres. congruence. }
+    eapply IH.
+    eexists tg_cs, SL. split; first done.
+    split; first eapply H1.
+    split; first by rewrite H3. split.
+    { erewrite access_same_rel_dec; first done. apply HL. }
+    exists itcs', off, im. do 2 (split; first done). done.
+  - odestruct (tree_access_lookup_outside_rev l) as (it'&H1&H2&H3&H4).
+    1: exact HL. 1: done. 2: exact Hlu. 1: lia.
+    odestruct (tree_access_lookup_outside_rev l) as (itcs'&H1cs&H2cs&H3cs&H4cs).
+    1: exact HL. 1: done. 2: exact Hlucs. 1: lia.
+    rewrite -H4 in Hres. eapply IH.
+    eexists tg_cs, SL. split; first done.
+    split; first eapply H1.
+    split; first by rewrite H3. split.
+    { erewrite access_same_rel_dec; first done. apply HL. }
+    exists itcs', l, im. do 2 (split; first done). done.
+Qed.
+
+
+Lemma tree_read_many_pseudo_helper_2_news C tg_acc (L : list Z) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  tree_unique tg_acc tr1 →
+  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  fn L tr1 = Some trL →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in' C trL tg' tg_acc it (list_to_set L) acc → acc = ResConflicted).
+Proof.
+  intros Hunq fn.
+  induction L as [|off L IH] in trL|-*.
+  { simpl. intros [= ->] tg it acc (?&?&?&?&?&?&HH&_). set_solver. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  specialize (IH _ Hoff).
+  intros tg' it acc (Hlu&Hisprot&Hreldec&it_cous&l&im&HlL&Hlucs&Hres).
+  assert (tree_unique tg_acc tr2) as Hunq2.
+  { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq. exact Hoff. }
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  destruct (decide (l = off)) as [->|Hne].
+  - odestruct tree_access_lookup_general_rev as (it'&H1&H2&H3&H4).
+    1: exact HL. 1: done. 2: exact Hlu. 1: split; first reflexivity; lia.
+    erewrite <- access_same_rel_dec in Hreldec; last eapply HL.
+    rewrite rel_dec_flip2 Hreldec /= in H4.
+    odestruct tree_access_lookup_general_rev as (itcs'&H1cs&H2cs&H3cs&H4cs).
+    1: exact HL. 1: done. 2: exact Hlucs. 1: split; first reflexivity; lia.
+    eapply (apply_access_perm_read_reserved_backwards false) in H4 as HHres.
+    2: done. destruct HHres as (acto & Hacto).
+    rewrite bool_decide_true in H4; last done.
+    rewrite /apply_access_perm /= Hacto /= in H4. repeat (case_match; try by simplify_eq; try simpl in H4).
+    all: simpl in H4; simplify_eq; rewrite <- H4 in Hres; simpl in *; simplify_eq; done.
+  - odestruct (tree_access_lookup_outside_rev l) as (it'&H1&H2&H3&H4).
+    1: exact HL. 1: done. 2: exact Hlu. 1: lia.
+    odestruct (tree_access_lookup_outside_rev l) as (itcs'&H1cs&H2cs&H3cs&H4cs).
+    1: exact HL. 1: done. 2: exact Hlucs. 1: lia.
+    rewrite -H4 in Hres. eapply IH.
+    split; first exact H1.
+    split; first by rewrite H3.
+    split.
+    { erewrite access_same_rel_dec; first done. apply HL. }
+    exists itcs', l, im. split_and!; try done.
+    eapply elem_of_list_to_set. eapply elem_of_list_to_set in HlL.
+    eapply elem_of_cons in HlL as [->|HH]; done.
+Qed.
+
+Lemma tree_read_many_pseudo_helper_2 C tg_acc (L : list Z) tr1 trL S
+  (Hwf1 : wf_tree tr1) :
+  tree_unique tg_acc tr1 →
+  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  fn L tr1 = Some trL →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C tr1 tg' it S acc → acc = ResConflicted) →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C trL tg' it (S ∪ {[ (tg_acc, list_to_set L) ]}) acc → acc = ResConflicted).
+Proof.
+  intros Hunq fn Hfn H tg' it' acc (tg_cous&LS&[HH|[= -> -> ]%elem_of_singleton]%elem_of_union&Hrst).
+  - eapply tree_read_many_pseudo_helper_2_pers. 1: exact Hwf1. 1: apply Hunq. 1: apply Hfn.
+    1: apply H. 1: do 2 eexists; done.
+  - eapply tree_read_many_pseudo_helper_2_news. 1: exact Hwf1. 1: apply Hunq. 1: apply Hfn. 1: apply Hrst.
+Qed.
+
+Lemma tree_read_many_pseudo_helper_1 C (L : list (tag * gset Z)) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  (∀ tg S, (tg, S) ∈ L → tree_unique tg tr1) →
+  let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
+  fn L tr1 = Some trL →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C tr1 tg' it ∅ acc → acc = ResConflicted) →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C trL tg' it (list_to_set L) acc → acc = ResConflicted).
+Proof.
+  intros Hunq fn Hfn H.
+  induction L as [|(tg_acc&S) L IH] in trL,Hunq,Hfn|-*.
+  1: rewrite list_to_set_nil; simpl in Hfn; injection Hfn as ->; done.
+  simpl in Hfn.
+  apply bind_Some in Hfn as (tr2&H1&H2).
+  ospecialize (IH _ _ H1).
+  { intros ???; eapply Hunq; by right. }
+  rewrite list_to_set_cons union_comm_L.
+  rewrite - (list_to_set_elements_L S).
+  eapply tree_read_many_pseudo_helper_2. 3: exact H2. 3: done.
+  1: eapply preserve_tag_count_wf. 1: apply tree_read_many_helper_1. 1: done. 1: exact H1.
+  rewrite /tree_unique. erewrite <- tree_read_many_helper_1; last exact H1. eapply Hunq.
+  by left.
+Qed.
+
+Lemma tree_read_many_pseudo_becomes_real C cid tr tr'
+  (Hwf1 : wf_tree tr) :
+  tree_read_all_protected_initialized C cid tr = Some tr' →
+  (∀ tg' it acc, is_pseudo_conflicted_by_in C tr' tg' it (tree_get_all_protected_tags_initialized_locs cid tr) acc → acc = ResConflicted).
+Proof.
+  rewrite /tree_read_all_protected_initialized.
+  pose (tree_get_all_protected_tags_initialized_locs cid tr) as L. fold L.
+  intros Hfn. rewrite -(list_to_set_elements_L L).
+  eapply tree_read_many_pseudo_helper_1.
+  - done.
+  - eintros tg S (it&Hlu%lookup_implies_contains&_)%elem_of_elements%tree_all_protected_initialized_elem_of.
+    all: by eapply wf_tree_tree_unique.
+  - apply Hfn.
+  - intros ??? (?&?&[]%elem_of_empty&_).
+Qed.
+
+Lemma tree_read_many_preserve_protector_2 C tg_acc (L : list Z) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  fn L tr1 = Some trL →
+  ∀ tgl it1 itL, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → iprot it1 = iprot itL.
+Proof.
+  intros fn.
+  induction L as [|off L IH] in trL|-*; simpl.
+  { intros [= ->]. intros tg1 it1 it2 Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
+    by eapply tree_lookup_unique. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  specialize (IH _ Hoff).
+  intros tgl it1 itL Hit1 HitL.
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
+  { eapply lookup_implies_contains, count_gt0_exists in HitL.
+    erewrite <- memory_access_tag_count in HitL; last done.
+    eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
+  eapply apply_access_spec_per_node in HL as (itL'&Hacc&Hlu1&Hlu2). 2-3: by destruct Hit2.
+  assert (tree_lookup trL tgl itL') as HH by done.
+  pose proof (tree_lookup_unique _ _ _ _ HH HitL) as ->.
+  symmetry in Hacc.
+  eapply item_apply_access_preserves_metadata in Hacc as (He1&He2&He3).
+  rewrite -He2. eapply IH; done.
+Qed.
+
+Lemma tree_read_many_preserve_protector_1 C (L : list (tag * gset Z)) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
+  fn L tr1 = Some trL →
+  ∀ tgl it1 itL, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → iprot it1 = iprot itL.
+Proof.
+  intros fn.
+  induction L as [|(tg_acc&S) L IH] in trL|-*; simpl.
+  { intros [= ->]. intros tg1 it1 it2 Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
+    by eapply tree_lookup_unique. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  specialize (IH _ Hoff).
+  intros tgl it1 itL Hit1 HitL.
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
+  { eapply lookup_implies_contains, count_gt0_exists in HitL.
+    erewrite <- tree_read_many_helper_2 in HitL; last done.
+    eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
+  erewrite <- (tree_read_many_preserve_protector_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
+  eapply IH. all: done.
+Qed.
+
+Lemma tree_read_many_preserve_protector C cid tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  tree_read_all_protected_initialized C cid tr1 = Some trL →
+  ∀ tgl it1 itL, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → iprot it1 = iprot itL.
+Proof.
+  rewrite /tree_read_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_read_many_preserve_protector_1. done.
+Qed.
+
+Lemma tree_read_many_more_initialized_2 C tg_acc (L : list Z) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  fn L tr1 = Some trL →
+  ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = PermInit → initialized (item_lookup itL l) = PermInit.
+Proof.
+  intros fn.
+  induction L as [|off L IH] in trL|-*; simpl.
+  { intros [= ->]. intros tg1 it1 it2 l Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
+    by eapply tree_lookup_unique. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  specialize (IH _ Hoff).
+  intros tgl it1 itL z Hit1 HitL.
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  destruct (decide (z = off)) as [->|Hne].
+  - eapply (tree_access_lookup_general_rev off) in HL as (it2 & Hit2 & _ & _ & Hperm). 2: done. 2: lia. 2: done.
+    edestruct (maybe_non_children_only_effect_or_nop) as [Heq|Heq]; erewrite Heq in Hperm.
+    2: { injection Hperm as <-. by eapply IH. }
+    intros H1ini. enough (initialized (item_lookup it2 off) = PermInit) as HH. 2: by eapply IH.
+    eapply bind_Some in Hperm as (x1&Hx1&(x2&Hx2&[= <-])%bind_Some). simpl. rewrite HH. done.
+  - eapply (tree_access_lookup_outside_rev z) in HL as (it2 & Hit2 & _ & _ & Hperm). 2: done. 2: lia. 2: done.
+    rewrite -Hperm. by eapply IH.
+Qed.
+
+Lemma tree_read_many_more_initialized_1 C (L : list (tag * gset Z)) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
+  fn L tr1 = Some trL →
+  ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = PermInit → initialized (item_lookup itL l) = PermInit.
+Proof.
+  intros fn.
+  induction L as [|(tg_acc&S) L IH] in trL|-*; simpl.
+  { intros [= ->]. intros tg1 it1 it2 off Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
+    by eapply tree_lookup_unique. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  specialize (IH _ Hoff).
+  intros tgl it1 itL off Hit1 HitL.
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
+  { eapply lookup_implies_contains, count_gt0_exists in HitL.
+    erewrite <- tree_read_many_helper_2 in HitL; last done.
+    eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
+  intros Hini.
+  erewrite <- (tree_read_many_more_initialized_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
+  eapply IH. all: done.
+Qed.
+
+Lemma tree_read_many_more_initialized C cid tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  tree_read_all_protected_initialized C cid tr1 = Some trL →
+  ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = PermInit → initialized (item_lookup itL l) = PermInit.
+Proof.
+  rewrite /tree_read_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_read_many_more_initialized_1. done.
+Qed.
+(*
+Lemma trees_equal_remove_call C tr1' tr2' tr1 tr2 cid :
+  wf_tree tr1 → wf_tree tr2 →
+  tree_read_all_protected_initialized C cid tr1 = Some tr1' →
+  tree_read_all_protected_initialized C cid tr2 = Some tr2' →
+  tree_equal C tr1' tr2' →
+  tree_equal (C ∖ {[ cid ]}) tr1' tr2'.
+Proof.
+  intros Hwf1 Hwf2 Hrai1 Hrai2 (He1&He2&He3).
+  split_and!; try done.
+  intros tg Hcont. specialize (He3 tg Hcont) as (it1 & it2 & Hlu1 & Hlu2 & Hutc).
+  do 2 eexists. split_and!; try done.
+  specialize (tree_read_many_pseudo_becomes_real _ _ _ _ Hwf1 Hrai1 tg it1) as Hrai1'.
+  specialize (tree_read_many_pseudo_becomes_real _ _ _ _ Hwf2 Hrai2 tg it2) as Hrai2'.
+
+  intros l. specialize (Hutc l) as (Hproteq&Hutc).
+  split; first done.
+
+  inversion Hutc as [x1 x2 Hlu|ini im confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2|]; simplify_eq.
+  - econstructor 1.
+  - destruct (decide (cc = cid)) as [<-|Hne].
+    + econstructor 3. intros (cc'&Hcc'&Hccact').
+      rewrite /protector_is_for_call in Hcc,Hcc'. rewrite Hcc in Hcc'. injection Hcc' as ->.
+      eapply elem_of_difference in Hccact' as (_&H).
+      setoid_rewrite not_elem_of_singleton in H. done.
+    + econstructor 2.
+      * exists cc. split; first done.
+        rewrite /call_is_active. set_solver.
+      * inversion Hpc1 as [|tg_cs it_cs Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs Hinitcs Heq]; first by econstructor.
+        simplify_eq.
+        destruct (decide (cccs = cid)) as [<-|Hnecs].
+        2: econstructor 2; try done; exists cccs; split; try done.
+        2: rewrite /call_is_active in Hp2cs|-*; set_solver.
+        exfalso. enough (ResActivable = ResConflicted) by done.
+        assert (∃ ii, tree_lookup tr1 tg_cs ii) as (it_cs1&Hlucs1).
+        { eapply lookup_implies_contains, count_gt0_exists in Hlucs.
+          erewrite <- tree_read_all_protected_initialized_tag_count in Hlucs; last done.
+          eapply count_gt0_exists in Hlucs. by eapply unique_implies_lookup, wf_tree_tree_unique. }
+        eapply Hrai1'. eexists tg_cs, (mem_enumerate_sat (λ p : lazy_permission, if initialized p then true else false) (iperm it_cs1)).
+        split.
+        { eapply tree_all_protected_initialized_elem_of. 1: by eapply wf_tree_tree_unique.
+          exists it_cs1. split; first done. split; last by eapply mem_enumerate_initalized.
+          erewrite tree_read_many_preserve_protector. 1: done. 3-4: done. 1: done. 1: done. }
+        split; first done. split; first by eexists. split; first done.
+        eexists it_cs, l, im. split_and!. 2: done. 2: by rewrite -Heqi1.
+        eapply mem_enumerate_initalized. eapply tree_read_many_more_initialized. 2: done. 1: done. 1: done. 1: done.
+        Search mem_enumerate_sat.
+        Print is_pseudo_conflicted_by_in'.
+        eexists.
+      
+ done.
+*)
 

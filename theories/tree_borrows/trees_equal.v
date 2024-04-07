@@ -1243,67 +1243,6 @@ Section utils.
     eapply wf_init_tree.
   Qed.
 
-  Lemma mem_enumerate_sat_elem_of {X} fn k (m:gmap _ X) :
-    k ∈ mem_enumerate_sat fn m ↔
-    ∃ v, m !! k = Some v ∧ fn v = true.
-  Proof.
-    rewrite /mem_enumerate_sat. revert k.
-    eapply (map_fold_ind (λ b m, ∀ k, k ∈ b ↔ ∃ v, m !! k = Some v ∧ fn v = true)); clear m.
-    1: intros ?; rewrite lookup_empty; set_solver.
-    intros k1 v1 m r Hk1 IH k.
-    destruct (fn v1) eqn:Hv1; split.
-    - intros [->%elem_of_singleton|(vk&Hvk&Hfnvk)%IH]%elem_of_union.
-      + exists v1; by rewrite lookup_insert.
-      + exists vk. rewrite lookup_insert_ne //.
-        intros ->; congruence.
-    - intros (v&[(<-&<-)|(Hne&HIH)]%lookup_insert_Some&Hfnv).
-      + set_solver.
-      + eapply elem_of_union; right. eapply IH.
-        by exists v.
-    - rewrite (left_id ∅ _).
-      intros (vk&Hvk&Hfnvk)%IH. exists vk. rewrite lookup_insert_ne //.
-      intros ->; congruence.
-    - intros (v&[(<-&<-)|(Hne&HIH)]%lookup_insert_Some&Hfnv); first congruence.
-      rewrite (left_id ∅ _). apply IH. by eexists.
-  Qed.
-
-  Lemma tree_all_protected_initialized_exists_node cid tr tg lst :
-    (tg, lst) ∈ tree_get_all_protected_tags_initialized_locs cid tr ↔
-    exists_node (λ it, it.(itag) = tg ∧ protector_is_for_call cid it.(iprot) ∧ 
-      ∀ z, z ∈ lst ↔ initialized (item_lookup it z) = PermInit) tr.
-  Proof.
-    induction tr as [|it tr1 IH1 tr2 IH2]; first done.
-    simpl in *. split.
-    - intros [[Hif|H]%elem_of_union|H]%elem_of_union.
-      + destruct decide as [Heq|Hne].
-        2: by eapply elem_of_empty in Hif.
-        apply elem_of_singleton in Hif as [= -> ->]. left. split_and!.
-        1: done. 1: rewrite /protector_is_for_call Heq; by destruct (iprot it) as [[]|].
-        intros z. split.
-        * intros (pp&Hpp&Hinit)%mem_enumerate_sat_elem_of.
-          rewrite /item_lookup Hpp /=. by destruct initialized.
-        * intros Hinit. eapply mem_enumerate_sat_elem_of.
-          eexists; erewrite Hinit; split; last done.
-          rewrite /item_lookup in Hinit|-*. by destruct lookup.
-      + right. left. by apply IH1.
-      + right. right. by apply IH2.
-    - intros [(<-&Hprot&HH)|[H|H]].
-      + do 2 (eapply elem_of_union; left).
-        destruct (iprot it) as [[cid' ?]|]; simpl in *.
-        all: rewrite /protector_is_for_call /= in Hprot. 2: done.
-        rewrite Hprot decide_True //.
-        eapply elem_of_singleton. f_equal. eapply gset_leibniz.
-        intros z. split.
-        * intros Hinit%HH. eapply mem_enumerate_sat_elem_of.
-          eexists; erewrite Hinit; split; last done.
-          rewrite /item_lookup /= in Hinit|-*. destruct (iperm it !! z) eqn:Heq.
-          all: rewrite Heq //.
-        * intros (pp&Hpp&Hinit)%mem_enumerate_sat_elem_of. eapply HH.
-          rewrite /item_lookup Hpp /=. by destruct initialized.
-      + eapply elem_of_union. left. eapply elem_of_union. right. eapply IH1. done.
-      + eapply elem_of_union. right. eapply IH2. done.
-  Qed.
-
   Lemma tree_all_protected_initialized_elem_of cid tr tg lst
     (AllUnique : forall tg, tree_contains tg tr -> tree_unique tg tr) :
     (tg, lst) ∈ tree_get_all_protected_tags_initialized_locs cid tr ↔

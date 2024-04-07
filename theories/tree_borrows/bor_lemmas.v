@@ -1693,6 +1693,182 @@ Proof.
   - by eapply unique_exists.
 Qed.
 
+Definition every_strict_child (pt : tag) (P : item → Prop) (tr : tree item) :=
+  every_subtree (λ '(rt, _, childs), itag rt = pt → every_node P childs) tr.
+Definition every_child (pt : tag) (P : item → item → Prop) (tr : tree item) :=
+  every_subtree (λ '(rt, _, childs), itag rt = pt → P rt rt ∧ every_node (P rt) childs) tr.
+
+Lemma every_child_not_in pt P tr :
+  ¬ tree_contains pt tr →
+  every_child pt P tr.
+Proof.
+  induction tr as [|it tr1 IH1 tr2 IH2]; first done.
+  simpl. intros HN. split_and!; tauto.
+Qed.
+
+Lemma every_strict_child_not_in pt P tr :
+  ¬ tree_contains pt tr →
+  every_strict_child pt P tr.
+Proof.
+  induction tr as [|it tr1 IH1 tr2 IH2]; first done.
+  simpl. intros HN. split_and!; tauto.
+Qed.
+
+Lemma every_child_ParentChildIn pt P tr 
+  (Hunq : ∀ tg, tree_contains tg tr → tree_unique tg tr)
+  (Hptunq : tree_unique pt tr) :
+  every_child pt P tr ↔
+  ∀ itp, tree_item_determined pt itp tr → ∀ tg', tree_unique tg' tr → ParentChildIn pt tg' tr → every_node (λ it, it.(itag) = tg' → P itp it) tr.
+Proof.
+  split.
+  - induction tr as [|it tr1 IH1 tr2 IH2].
+    1: done. simpl. intros (Hfound&Hl&Hr).
+    rewrite /tree_unique /= in Hptunq.
+    eapply unique_somewhere_3way in Hptunq as [(Hu1&Hu2&Hu3)|[(Hu1&Hu2&Hu3)|(Hu1&Hu2&Hu3)]];
+    destruct (decide (itag it = pt)) as [Heq|Hne];
+    (try (rewrite bool_decide_true in Hu1; last done));
+    (try (rewrite bool_decide_false in Hu1; last done)); try done.
+    + subst pt. specialize (Hfound eq_refl) as (Hself&Hchildren).
+      intros itp (Hdet1&Hdet2&Hdet3) tg' Hcunq HPC.
+      specialize (Hdet1 eq_refl). subst itp.
+      split; first done.
+      split; last first.
+      { eapply every_node_increasing; first exact Hchildren.
+        eapply every_node_eqv_universal. done. }
+      rewrite /tree_unique /= in Hcunq.
+      eapply unique_somewhere_3way in Hcunq as [(Hu1'&Hu2'&Hu3')|[(Hu1'&Hu2'&Hu3')|(Hu1'&Hu2'&Hu3')]].
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne]; try done. subst tg'.
+        ospecialize (Hunq (itag it) _). 1: by left.
+        rewrite /tree_unique /= bool_decide_true // in Hunq.
+        eapply unique_somewhere_3way in Hunq as [(H1&H2&H3)|[H|H]]; try lia.
+        eapply every_node_eqv_universal; intros n Hn Hit; exfalso.
+        eapply count_0_not_exists; first exact H2.
+        eapply exists_node_eqv_existential. by exists n.
+      * destruct HPC as [Heq|Hne]. 1: by rewrite bool_decide_true in Hu1'.
+        simpl in Hne.
+        destruct Hne as (Hne1&Hne2&Hne3).
+        exfalso. eapply count_0_not_exists; first exact Hu3'.
+        apply Hne1. done.
+      * eapply every_node_eqv_universal; intros n Hn Hit; exfalso.
+        eapply count_0_not_exists; first exact Hu2'.
+        eapply exists_node_eqv_existential. by exists n.
+    + intros itp (Hdet1&Hdet2&Hdet3) tg' Htgunq HPC.
+      rewrite /tree_unique /= in Htgunq.
+      eapply unique_somewhere_3way in Htgunq as [(Hu1'&Hu2'&Hu3')|[(Hu1'&Hu2'&Hu3')|(Hu1'&Hu2'&Hu3')]].
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne']; try done. subst tg'.
+        destruct HPC as [HPC|HPC]; first done.
+        exfalso. simpl in HPC. destruct HPC as (_&HPC&_). eapply count_0_not_exists; first exact Hu2'.
+        eapply contains_child. 1: right; apply HPC.
+        eapply count_gt0_exists. lia.
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne']; try done.
+        split; first done.
+        split.
+        { eapply IH1. 1: by eapply tree_all_unique_structural_l. 1: done. 1: done. 1: done. 1: done.
+          destruct HPC as [HPC|HPC]; first by left. right. apply HPC. }
+        eapply every_node_eqv_universal; intros n Hn Hit; exfalso.
+        eapply count_0_not_exists; first exact Hu3'.
+        eapply exists_node_eqv_existential. by exists n.
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne']; try done.
+        destruct HPC as [->|HPC]; first congruence.
+        exfalso. simpl in HPC. destruct HPC as (_&HPC&_). eapply count_0_not_exists; first exact Hu2'.
+        eapply contains_child. 1: right; apply HPC.
+        eapply count_gt0_exists. lia.
+    + intros itp (Hdet1&Hdet2&Hdet3) tg' Htgunq HPC.
+      rewrite /tree_unique /= in Htgunq.
+      eapply unique_somewhere_3way in Htgunq as [(Hu1'&Hu2'&Hu3')|[(Hu1'&Hu2'&Hu3')|(Hu1'&Hu2'&Hu3')]].
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne']; try done. subst tg'.
+        destruct HPC as [HPC|HPC]; first done.
+        exfalso. simpl in HPC. destruct HPC as (_&_&HPC). eapply count_0_not_exists; first exact Hu3'.
+        eapply contains_child. 1: right; apply HPC.
+        eapply count_gt0_exists. lia.
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne']; try done.
+        destruct HPC as [->|HPC]; first congruence.
+        exfalso. simpl in HPC. destruct HPC as (_&_&HPC). eapply count_0_not_exists; first exact Hu3'.
+        eapply contains_child. 1: right; apply HPC.
+        eapply count_gt0_exists. lia.
+      * rewrite bool_decide_decide in Hu1'. destruct decide as [Heq|Hne']; try done.
+        split; first done.
+        split; last first.
+        { eapply IH2. 1: by eapply tree_all_unique_structural_r. 1: done. 1: done. 1: done. 1: done.
+          destruct HPC as [HPC|HPC]; first by left. right. apply HPC. }
+        eapply every_node_eqv_universal; intros n Hn Hit; exfalso.
+        eapply count_0_not_exists; first exact Hu2'.
+        eapply exists_node_eqv_existential. by exists n.
+  - induction tr as [|it tr1 IH1 tr2 IH2]; first done.
+    intros Heach.
+    rewrite /tree_unique /= in Hptunq. pose proof Hptunq as Hptunqg.
+    eapply unique_somewhere_3way in Hptunq as [(Hu1&Hu2&Hu3)|[(Hu1&Hu2&Hu3)|(Hu1&Hu2&Hu3)]];
+    destruct (decide (itag it = pt)) as [Heq|Hne];
+    (try (rewrite bool_decide_true in Hu1; last done));
+    (try (rewrite bool_decide_false in Hu1; last done)); try done.
+    + simpl. split_and!.
+      2-3: by eapply every_child_not_in, count_0_not_exists.
+      intros _. split.
+      * ospecialize (Heach it _ pt _).
+        { split; first done. split; by eapply absent_determined. }
+        1: rewrite /tree_unique /= Heq bool_decide_true //; lia.
+        destruct Heach as (Heach&_). 1: by left. apply Heach. done.
+      * eapply every_node_eqv_universal. intros itn Hexn.
+        assert (tree_unique (itag itn) tr2) as Hnunq.
+        { eapply tree_all_unique_structural_r; first done.
+          eapply exists_node_eqv_existential. by exists itn. }
+        assert (tree_unique (itag itn) (branch it tr1 tr2)) as Hnoo.
+        { eapply Hunq. right. right.
+          eapply exists_node_eqv_existential. by exists itn. }
+        pose proof Hnoo as Hnunq'.
+        rewrite /tree_unique /= in Hnoo,Hnunq.
+        rewrite Hnunq in Hnoo.
+        eapply unique_somewhere_3way in Hnoo as [Hnoo|[Hnoo|Hnoo]]; try lia.
+        ospecialize (Heach it _ (itag itn) _ _).
+        { split; first done. split; by eapply absent_determined. } 1: done.
+        { right. split_and!.
+          - intros _. rewrite /HasStrictChildTag /=.
+            eapply exists_node_eqv_existential. by eexists.
+          - eapply every_subtree_eqv_universal.
+            intros cbr Hcbr Hrootbr.
+            eapply (exists_subtree_increasing (Q := (compose (λ rt, itag rt = pt) root))) in Hcbr.
+            2: by intros ? <-. setoid_rewrite <- exists_node_iff_exists_root in Hcbr.
+            exfalso. eapply count_0_not_exists. 2: exact Hcbr. done.
+          - eapply every_subtree_eqv_universal.
+            intros cbr Hcbr Hrootbr.
+            eapply (exists_subtree_increasing (Q := (compose (λ rt, itag rt = pt) root))) in Hcbr.
+            2: by intros ? <-. setoid_rewrite <- exists_node_iff_exists_root in Hcbr.
+            exfalso. eapply count_0_not_exists. 2: exact Hcbr. done. }
+        setoid_rewrite every_node_eqv_universal in Heach.
+        apply Heach. 1: right; right; done. 1: done.
+    + split_and!; first done.
+      * eapply IH1. 1: by eapply tree_all_unique_structural_l.
+        1: done.
+        intros itp Hdetitp tg' Htgunq' HPC. eapply Heach.
+        { split; first done. split; try done. eapply every_node_eqv_universal.
+          intros itx Hitx Htg. exfalso. eapply count_0_not_exists.
+          1: exact Hu3. eapply exists_node_eqv_existential. by eexists. }
+        { eapply Hunq. right. left. eapply count_gt0_exists. rewrite /tree_unique in Htgunq'. lia. }
+        destruct HPC as [HPC|HPC]; first by left.
+        right. split; first done. split; try done.
+        eapply every_subtree_eqv_universal.
+        intros cbr Hcbr Hrootbr.
+        eapply (exists_subtree_increasing (Q := (compose (λ rt, itag rt = pt) root))) in Hcbr.
+        2: by intros ? <-. setoid_rewrite <- exists_node_iff_exists_root in Hcbr.
+        exfalso. eapply count_0_not_exists. 2: exact Hcbr. done.
+      * by eapply every_child_not_in, count_0_not_exists.
+    + split_and!; first done.
+      * by eapply every_child_not_in, count_0_not_exists.
+      * eapply IH2. 1: by eapply tree_all_unique_structural_r.
+        1: done.
+        intros itp Hdetitp tg' Htgunq' HPC. eapply Heach.
+        { split; first done. split; try done. eapply every_node_eqv_universal.
+          intros itx Hitx Htg. exfalso. eapply count_0_not_exists.
+          1: exact Hu2. eapply exists_node_eqv_existential. by eexists. }
+        { eapply Hunq. right. right. eapply count_gt0_exists. rewrite /tree_unique in Htgunq'. lia. }
+        destruct HPC as [HPC|HPC]; first by left.
+        right. split; first done. split; try done.
+        eapply every_subtree_eqv_universal.
+        intros cbr Hcbr Hrootbr.
+        eapply (exists_subtree_increasing (Q := (compose (λ rt, itag rt = pt) root))) in Hcbr.
+        2: by intros ? <-. setoid_rewrite <- exists_node_iff_exists_root in Hcbr.
+        exfalso. eapply count_0_not_exists. 2: exact Hcbr. done.
+Qed.
 
 
 
