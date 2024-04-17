@@ -54,15 +54,6 @@ Definition trees_rel_dec (trs : trees) blk tg tg' :=
   | Some tr => rel_dec tr tg tg'
   end.
 
-Lemma rel_dec_refl tr tg :
-  rel_dec tr tg tg = Child This.
-Proof.
-  rewrite /rel_dec.
-  rewrite decide_True; [|left; reflexivity].
-  rewrite decide_True; [|left; reflexivity].
-  reflexivity.
-Qed.
-
 Lemma trees_rel_dec_refl trs blk tg :
   trees_rel_dec trs blk tg tg = Child This.
 Proof.

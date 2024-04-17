@@ -483,6 +483,15 @@ Section utils.
     eapply mutual_parent_child_implies_equal; eauto.
   Qed.
 
+  Lemma rel_dec_refl tr tg :
+    rel_dec tr tg tg = Child This.
+  Proof.
+    rewrite /rel_dec.
+    rewrite decide_True; [|left; reflexivity].
+    rewrite decide_True; [|left; reflexivity].
+    reflexivity.
+  Qed.
+
   Lemma child_of_this_is_foreign_for_cousin
     {tr tg_this tg_cous tg_child} :
     tree_unique tg_this tr ->
@@ -1363,6 +1372,149 @@ Section utils.
       intros (it&Hit&_)%tree_all_protected_initialized_elem_of. all: eapply wf_tree_tree_unique; try apply Hwf1.
       by eapply lookup_implies_contains. }
   Qed.
+
+  (* Remember that the entire reason we have [trees_equal] in the first place
+     is to enable spurious reads. This is the lemma that verifies that after we
+     do a spurious read we get a [tree_equal]. A companion lemma (stating
+     that under certain circumstances the spurious read will succeed) will be proved
+     separately.
+
+     The hypotheses are guided by the optimizations that we want to prove.
+     We can't (and don't plan to) do spurious reads anywhere, only on protected
+     tags. For now we require that the tag also doesn't have Reserved or Active
+     children. Both of these can be relaxed slightly, but a more general version
+     of this lemma will come only if actually required.
+
+     Because we have nice properties of transitivity and reflexivity of [tree_equal]
+     already, the proof can be simplified by only considering the case where
+     before the asymetric read the trees are identical. In other words we're going
+     to check that a tree is [tree_equal] to itself after a read. *)
+  Lemma tree_equal_asymetric_read
+    {tr tr' acc_tg range it}
+    (GloballyUnique : forall tg, tree_contains tg tr -> tree_unique tg tr)
+    :
+    (* Accessed tag must be in the tree and protected*)
+    tree_lookup tr acc_tg it ->
+    protector_is_active it.(iprot) C ->
+    (* A bunch of extra conditions on the structure.
+       There are various sources to these properties:
+       - no reserved children is a property obtained by local analysis known only at optimization time
+       - no active cousins is in wf of the tree
+       - tag is not Disabled comes from the success of the access
+       - tag is initialized is from local analysis
+       - parents are initialized comes from the above + wf
+       They are put in the same clause to simplify this theorem, but we will want
+       a higher-level lemma that derives these assumptions from their actual justification. *)
+    (forall tg' it' loc,
+       tree_lookup tr tg' it' ->
+       range'_contains range loc ->
+       match rel_dec tr acc_tg tg', (item_lookup it' loc).(initialized), (item_lookup it' loc).(perm)  with
+       | Foreign (Parent _), _, (Reserved _ _ | Active) => False (* No Reserved/Active children *)
+       | Foreign Cousin, _, Active => False (* No Active cousins *)
+       | Child _, PermLazy, _ => False (* Tag and its parents are initialized *)
+       | Child This, _, Disabled => False (* The tag itself is not Disabled *)
+       | _, _, _ => True
+       end
+    ) ->
+    (* Under the above conditions if we do a spurious read and it succeeds
+       we get a [tree_equal] on the outcome. *)
+    memory_access AccessRead C acc_tg range tr = Some tr' ->
+    tree_equal tr tr'.
+  Proof.
+    intros Lkup Protected NoReadSensitiveChildren Spurious.
+    split; last split.
+    - intro tg. eapply access_preserves_tags. eassumption.
+    - intros tg1 tg2. eapply access_same_rel_dec. eassumption.
+    (* That was the easy part, helped by the fact that our initial configuration
+       is reflexivity instead of a more general instance of [tree_equal].
+       Soon it will get more interesting. *)
+    - intros tg0 Ex.
+      destruct (unique_implies_lookup (GloballyUnique _ Ex)) as [it0 Lookup0].
+      exists it0.
+      assert (tree_unique tg0 tr') as Unq0'. {
+        erewrite <- tree_apply_access_preserve_unique; last eassumption.
+        apply GloballyUnique. assumption.
+      }
+      destruct (apply_access_spec_per_node (proj1 Lookup0) (proj2 Lookup0) Spurious) as
+          (it0' & it0'Spec & Ex0' & Det0').
+      symmetry in it0'Spec.
+      exists it0'.
+      split; first assumption.
+      split; first (split; assumption).
+      (* Now down to per-item reasoning *)
+      intro loc.
+            split; first (eapply item_apply_access_preserves_metadata; eassumption).
+      rewrite bind_Some in it0'Spec; destruct it0'Spec as (perms' & perms'Spec & EqIt).
+      injection EqIt; intros; subst; clear EqIt.
+      pose proof (mem_apply_range'_spec _ _ loc _ _ perms'Spec) as PerLoc.
+      clear perms'Spec.
+      assert (itag it0 = tg0) by (eapply tree_determined_specifies_tag; eapply Lookup0).
+      assert (itag it = acc_tg) by (eapply tree_determined_specifies_tag; eapply Lkup).
+      subst.
+      (* Finally the reasoning is per-location *)
+      destruct (decide _).
+      + (* In range *)
+        (* This will be needed when we later want to prove that [acc_tg] is a witness
+           for [pseudo_conflicted]. *)
+        assert ((item_lookup it loc).(initialized) = PermInit
+                /\ (item_lookup it loc).(perm) ≠ Disabled) as WitnessProps. {
+          specialize (NoReadSensitiveChildren (itag it) it loc Lkup ltac:(assumption)).
+          rewrite rel_dec_refl in NoReadSensitiveChildren.
+          destruct (initialized _); try tauto.
+          destruct (perm _); try tauto.
+          all: split; congruence.
+        }
+        (* Keep digging until [apply_access_perm_inner] *)
+        destruct PerLoc as (perm' & perm'Lookup & perm'Spec).
+        specialize (NoReadSensitiveChildren (itag it0) it0 loc Lookup0 ltac:(assumption)).
+        unfold item_lookup in *; simpl.
+        rewrite perm'Lookup /=.
+        rewrite bind_Some in perm'Spec; destruct perm'Spec as (tmperm & Inner & perm'Spec).
+        rewrite bind_Some in perm'Spec; destruct perm'Spec as (validated & MoreInit & EqPerm).
+        injection EqPerm; clear EqPerm; intros; subst.
+        (* Now big case analysis on the transition *)
+        destruct (default _ _) as (initialized & perm) eqn:Lookup; simpl in *.
+        destruct (rel_dec _ _ _) as [[]|[]] eqn:Rel; simpl in *; try discriminate; try tauto.
+        all: destruct perm as [mut confl| | |]; simpl in *; try discriminate; try tauto.
+        all: destruct (bool_decide _) eqn:isprot, initialized; simpl in *; try discriminate.
+        (* Handle all the successes *)
+        all: try (injection Inner; intros; subst).
+        all: try (injection MoreInit; intros; subst).
+        all: try constructor.
+        (* Simplify and resume the case analysis *)
+        all: try discriminate; try tauto.
+        all: try destruct confl.
+        all: try (injection Inner; intros; subst).
+        all: try (injection MoreInit; intros; subst).
+        all: try (apply perm_eq_up_to_C_refl; done).
+        (* Finally the pseudo-conflicted analysis *)
+        * eapply perm_eq_up_to_C_pseudo.
+          ** eapply bool_decide_eq_true_1; assumption.
+          (* The tag is indeed pseudo-conflicted, the witness is the accessed
+             tag and we have all the hypotheses already. *)
+          ** econstructor.
+             ++ apply rel_dec_cousin_sym.
+                apply Rel.
+             ++ eassumption.
+             ++ eassumption.
+             ++ apply WitnessProps.
+             ++ apply WitnessProps.
+          ** econstructor.
+        (* Exact same strategy as above *)
+        * eapply perm_eq_up_to_C_pseudo.
+          ** eapply bool_decide_eq_true_1; assumption.
+          ** econstructor.
+             ++ apply rel_dec_cousin_sym.
+                apply Rel.
+             ++ eassumption.
+             ++ eassumption.
+             ++ apply WitnessProps.
+             ++ apply WitnessProps.
+          ** econstructor.
+      + (* Outside of access range, this was a noop. *)
+        rewrite /item_lookup /= PerLoc.
+        constructor.
+    Qed.
 
 End utils.
 
