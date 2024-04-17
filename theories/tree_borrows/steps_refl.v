@@ -781,114 +781,69 @@ Proof.
 Qed.
 
 (** EndCall *)
-(*
-Lemma bor_interp_end_call_own c σ_t σ_s :
-  bor_interp sc_rel σ_t σ_s -∗
-  c @@ ∅ ==∗ (* we need it to be empty to avoid tripping private locations *)
-  ⌜c ∈ σ_t.(scs) ∧ c ∈ σ_s.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
-Proof.
-  iIntros "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
-  iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
-  iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro.
-  iPoseProof (state_rel_calls_eq with "Hsrel") as "->".
-  iSplitR.
-  { destruct (Hcall_interp _ _ Hlookup) as (? & _). done. }
-  iExists (delete c M_call), M_tag, M_t, M_s. iFrame.
-  iSplitL "Hpub_cid".
-  { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
-  iSplitL "Hsrel".
-  { iDestruct "Hsrel" as "(Hdom_eq & Hsst_eq & Hsnp_eq & Hsnc_eq & %Hscs_eq & Hl)". rewrite /state_rel. cbn.
-    iFrame "Hdom_eq Hsnp_eq Hsnc_eq".
-    iSplitR. { rewrite Hscs_eq. done. }
-    iIntros (l Hl). iDestruct ("Hl" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
-    - iLeft. iApply "Hpub".
-    - iRight. iPureIntro. exists t.
-      destruct Hpriv as (tk & Htk & Hs & [-> | [-> (c' & Hin)]]).
-      { exists tk_local. split_and!; eauto. }
-      exists tk_unq. split_and!; [done.. | ]. right. split; first done.
-      exists c'. destruct Hin as (M' & HM' & Hin). exists M'.
-      assert (c ≠ c') as Hneq.
-      { intros <-. simplify_eq. destruct Hin as (L & Hsome & _).
-        rewrite lookup_empty in Hsome. done.
-      }
-      rewrite lookup_delete_ne; last done. done.
-  }
-  iSplitL.
-  { iPureIntro. by apply call_set_interp_remove. }
-  iSplitL.
-  { iPureIntro. apply Htag_interp. }
-  iSplitL.
-  { iPureIntro. destruct Hwf_s. constructor; [done.. | ].
-    intros c'. cbn. rewrite elem_of_difference. intros [Hin _]. eauto. }
-  iPureIntro. destruct Hwf_t. constructor; [done.. | ].
-  intros c'. cbn. rewrite elem_of_difference. intros [Hin _]. eauto.
-Qed. *)
-(*
+
 Lemma sim_endcall_own c π Φ :
   c @@ ∅ -∗ (* needs to be empty so we don't trip private locations *)
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
   EndCall #[ScCallId c] ⪯{π} EndCall #[ScCallId c] [{ Φ }].
 Proof.
-  iIntros "Hcall Hsim". iApply sim_lift_base_step_both. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor) & _ & _)".
-  iMod (bor_interp_end_call_own with "Hbor Hcall") as "[%Hc_in Hbor]". iModIntro.
-  iSplitR.
-  { iPureIntro. do 3 eexists. eapply end_call_base_step. apply Hc_in. }
+  iIntros "Hcall Hsim". iApply sim_lift_base_step_both.
+  iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
+  iModIntro.
+  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
+  specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
+  edestruct trees_equal_read_all_protected_initialized as (trst' & Htrst & Htrseq').
+  3: exact Hstrs_eq. 3: exact Htrss. 1: by eapply Hwf_s. 1: by eapply Hwf_t.
+  iSplit.
+  { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
-  specialize (head_end_call_inv _ _ _ _ _ _ Hhead) as (_ & -> & -> & ->).
-  iModIntro. iExists (#[☠])%E, [], (state_upd_calls (.∖ {[ c ]}) σ_s).
-  iSplitR. { iPureIntro. eapply end_call_base_step. apply Hc_in. }
-  iSplitR "Hsim"; first last.
-  { iFrame "Hsim". done. }
-  iFrame.
-Qed.
-
-Lemma bor_interp_end_call c σ_t σ_s :
-  c ∈ σ_s.(scs) →
-  bor_interp sc_rel σ_t σ_s -∗
-  pub_cid c ==∗
-  ⌜c ∈ σ_t.(scs)⌝ ∗ bor_interp sc_rel (state_upd_calls (.∖ {[ c ]}) σ_t) (state_upd_calls (.∖ {[ c ]}) σ_s).
-Proof.
-  iIntros (Hin_s) "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t) Hcall".
-  specialize (state_wf_cid_agree _ Hwf_s _ Hin_s) as Hlt_s.
-  iPoseProof (state_rel_calls_eq with "Hsrel") as "%Hscs_eq".
-  iPoseProof (state_rel_snc_eq with "Hsrel") as "%Hsnc_eq".
-  iPoseProof (pub_cid_endcall with "Hcall Hpub_cid") as "[Hcall Hpub_cid]"; [done | lia | lia | ].
-
-  (* duplicate with the proof for [bor_interp_endcall_own] *)
+  specialize (head_end_call_inv _ _ _ _ _ _ Hhead) as (? & H & Hcall_int & -> & -> & ->).
+  rewrite -Hscs_eq Htrst in H; injection H as <-.
+  iExists (#[ ☠]%V)%E, [], (mkState σ_s.(shp) trss' (σ_s.(scs) ∖ {[c]}) σ_s.(snp) σ_s.(snc)).
+  iSplitR. { iPureIntro. by eapply end_call_base_step. }
+  iSplitR "Hsim"; last (simpl; by iFrame).
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  specialize (state_wf_cid_agree _ Hwf_s _ Hcall_in) as Hlt_s.
   iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
-  iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro.
-  iPoseProof (state_rel_calls_eq with "Hsrel") as "->".
-  iSplitR.
-  { destruct (Hcall_interp _ _ Hlookup) as (? & _). done. }
-  iExists (delete c M_call), M_tag, M_t, M_s. iFrame.
+  iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro. simpl. iFrame "HP_s HP_t".
+  iExists (delete c M_call), M_tag, M_t, M_s. rewrite /bor_interp_inner. iFrame.
   iSplitL "Hpub_cid".
   { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
   iSplitL "Hsrel".
-  { iDestruct "Hsrel" as "(H1 & H2 & H3 & H4 & %H5 & H6)". rewrite /state_rel. cbn.
-    iFrame "H1 H2 H3 H4".
-    iSplitR. { rewrite H5. done. }
-    iIntros (l Hl). iDestruct ("H6" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
-    - iLeft. iApply "Hpub".
-    - iRight. iPureIntro. exists t.
-      destruct Hpriv as (tk & Htk & Hs & [-> | [-> (c' & Hin)]]).
-      { exists tk_local. split_and!; eauto. }
-      exists tk_unq. split_and!; [done.. | ]. right. split; first done.
-      exists c'. destruct Hin as (M' & HM' & Hin). exists M'.
-      assert (c ≠ c') as Hneq.
-      { intros <-. simplify_eq. destruct Hin as (L & Hsome & _).
-        rewrite lookup_empty in Hsome. done.
-      }
-      rewrite lookup_delete_ne; last done. done.
+  { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
+    iSplit; first done. iSplit.
+    { iPureIntro. eapply trees_equal_remove_call. 7: done. 5-6: done. 1,3: by eapply Hwf_s. 1,2: by eapply Hwf_t. }
+    do 3 (iSplit; first (iPureIntro; try done; by f_equal)).
+    iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
+    { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
+    { iRight. iPureIntro. destruct Hpriv as (t&tk&Htk&Hlu&Ht). exists t, tk. do 2 (split; first done).
+      destruct Ht as [->|(c'&->&M&HM&Hin)]; first by left. right.
+      exists c'; split; first done. exists M. split; last done.
+      rewrite lookup_delete_ne //. intros <-.
+      rewrite Hlookup in HM. injection HM as <-.
+      destruct Hin as (x&Hx&_). by rewrite lookup_empty in Hx. }
   }
-  iSplitL.
-  { iPureIntro. by apply call_set_interp_remove. }
-  iSplitL.
-  { iPureIntro. apply Htag_interp. }
-  iSplitL.
-  { iPureIntro. destruct Hwf_s. constructor; [done.. | ].
-    intros c'. cbn. rewrite elem_of_difference. intros [Hin _]. eauto. }
-  iPureIntro. destruct Hwf_t. constructor; [done.. | ].
-  intros c'. cbn. rewrite elem_of_difference. intros [Hin _]. eauto.
+  iSplit.
+  { iPureIntro. eapply call_set_interp_remove; simpl. 5: exact Hwf_t. 1-4,6: done.
+    rewrite -Hscs_eq //. }
+  iSplit.
+  { iPureIntro. split_and!. 2-5: by eapply Htag_interp.
+    destruct Htag_interp as (H1&H2&H3&H4&H5).
+    intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlu1&Hlu2&Hagree).
+    split_and!; try done.
+    - intros l sc Hlusc.
+      specialize (Hlu1 l sc Hlusc).
+      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu1.
+      1: rewrite -Hscs_eq; exact Htrst. 1-4: done. 1-2: done.
+    - intros l sc Hlusc.
+      specialize (Hlu2 l sc Hlusc).
+      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu2.
+      1: exact Htrss. 1-4: done. 1-2: done.
+ }
+  iSplit; iPureIntro.
+  all: eapply endcall_step_wf_inner.
+  all: try done; by rewrite -Hscs_eq.
 Qed.
 
 Lemma sim_endcall π Φ c c' :
@@ -896,21 +851,65 @@ Lemma sim_endcall π Φ c c' :
   #[☠] ⪯{π} #[☠] [{ Φ }] -∗
   EndCall #[ScCallId c'] ⪯{π} EndCall #[ScCallId c] [{ Φ }].
 Proof.
-  iIntros "#Hsc Hsim". iApply sim_lift_base_step_both. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
-  specialize (pool_safe_implies Hsafe Hpool) as (c0 & [= <-] & Hin_s).
-  iPoseProof (sc_rel_cid_source with "Hsc") as "[%Heq Hpub]". injection Heq as [= ->].
-  iMod (bor_interp_end_call with "Hbor Hpub") as "[%Hin_t Hbor]"; first done. iModIntro.
-  iSplitR.
-  { iPureIntro. do 3 eexists. eapply end_call_base_step. done. }
+  iIntros "#[-> Hsc] Hsim". iApply sim_lift_base_step_both.
+  iIntros (P_t P_s σ_t σ_s T_s K_s) "((HP_t & HP_s & Hbor) & %Hpool & %Hsafe)".
+  iModIntro.
+  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
+  specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
+  edestruct trees_equal_read_all_protected_initialized as (trst' & Htrst & Htrseq').
+  3: exact Hstrs_eq. 3: exact Htrss. 1: by eapply Hwf_s. 1: by eapply Hwf_t.
+  iSplit.
+  { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
-  specialize (head_end_call_inv _ _ _ _ _ _ Hhead) as (_ & -> & -> & ->).
-  iModIntro. iExists (#[☠])%E, [], (state_upd_calls (.∖ {[ c ]}) σ_s).
-  iSplitR. { iPureIntro. eapply end_call_base_step. done. }
-  iSplitR "Hsim"; first last.
-  { iFrame "Hsim". done. }
-  iFrame.
+  specialize (head_end_call_inv _ _ _ _ _ _ Hhead) as (? & H & Hcall_int & -> & -> & ->).
+  rewrite -Hscs_eq Htrst in H; injection H as <-.
+  iExists (#[ ☠]%V)%E, [], (mkState σ_s.(shp) trss' (σ_s.(scs) ∖ {[c]}) σ_s.(snp) σ_s.(snc)).
+  iSplitR. { iPureIntro. by eapply end_call_base_step. }
+  iSplitR "Hsim"; last (simpl; by iFrame).
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  specialize (state_wf_cid_agree _ Hwf_s _ Hcall_in) as Hlt_s.
+  iPoseProof (pub_cid_endcall with "Hsc Hpub_cid") as "(Hcall & Hpub_cid)".
+  1: done. 1: done. 1: by rewrite -Hsnc_eq.
+  iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
+  iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro. simpl. iFrame "HP_s HP_t".
+  iExists (delete c M_call), M_tag, M_t, M_s. rewrite /bor_interp_inner. iFrame.
+  iSplitL "Hsrel".
+  { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
+    iSplit; first done. iSplit.
+    { iPureIntro. eapply trees_equal_remove_call. 7: done. 5-6: done. 1,3: by eapply Hwf_s. 1,2: by eapply Hwf_t. }
+    do 3 (iSplit; first (iPureIntro; try done; by f_equal)).
+    iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
+    { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
+    { iRight. iPureIntro. destruct Hpriv as (t&tk&Htk&Hlu&Ht). exists t, tk. do 2 (split; first done).
+      destruct Ht as [->|(c'&->&M&HM&Hin)]; first by left. right.
+      exists c'; split; first done. exists M. split; last done.
+      rewrite lookup_delete_ne //. intros <-.
+      rewrite Hlookup in HM. injection HM as <-.
+      destruct Hin as (x&Hx&_). by rewrite lookup_empty in Hx. }
+  }
+  iSplit.
+  { iPureIntro. eapply call_set_interp_remove; simpl. 5: exact Hwf_t. 1-4,6: done.
+    rewrite -Hscs_eq //. }
+  iSplit.
+  { iPureIntro. split_and!. 2-5: by eapply Htag_interp.
+    destruct Htag_interp as (H1&H2&H3&H4&H5).
+    intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlu1&Hlu2&Hagree).
+    split_and!; try done.
+    - intros l sc Hlusc.
+      specialize (Hlu1 l sc Hlusc).
+      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu1.
+      1: rewrite -Hscs_eq; exact Htrst. 1-4: done. 1-2: done.
+    - intros l sc Hlusc.
+      specialize (Hlu2 l sc Hlusc).
+      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu2.
+      1: exact Htrss. 1-4: done. 1-2: done.
+ }
+  iSplit; iPureIntro.
+  all: eapply endcall_step_wf_inner.
+  all: try done; by rewrite -Hscs_eq.
 Qed.
-*)
+
 (** Call *)
 Lemma sim_call fn (r_t r_s : result) π Φ :
   rrel r_t r_s -∗

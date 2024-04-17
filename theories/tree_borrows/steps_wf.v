@@ -981,23 +981,17 @@ Proof.
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
 
-Lemma read_step_wf σ σ' e e' l bor ptr vl efs :
-  mem_expr_step σ.(shp) e (CopyEvt l bor ptr vl) σ'.(shp) e' efs →
-  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (CopyEvt l bor ptr vl)
-           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
-  state_wf σ → state_wf σ'.
+Lemma read_step_wf_inner σ b tg blk off sz trs' :
+  trees_contain tg (strs σ) blk →
+  apply_within_trees (memory_access_maybe_nonchildren_only b AccessRead σ.(scs) tg (off, sz)) blk σ.(strs) = Some trs' →
+  state_wf σ → state_wf (mkState σ.(shp) trs' σ.(scs) σ.(snp) σ.(snc)).
 Proof.
-  destruct σ as [h trs cids nxtp nxtc].
-  destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
-  intros BS IS WF.
-  inversion BS; clear BS; simplify_eq.
-  inversion IS as [ |?????? ACC| | | | | | ]; clear IS; simplify_eq.
+  intros CONTAINS ACC WF.
   constructor; simpl.
   - rewrite /same_blocks.
     pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
     rewrite /same_blocks in Same. rewrite <- Same.
-    rewrite (apply_within_trees_same_dom trs _ _ _ ACC).
+    rewrite (apply_within_trees_same_dom _ _ _ _ ACC).
     set_solver.
   - (* wf *)
     eapply apply_within_trees_wf.
@@ -1014,6 +1008,20 @@ Proof.
   - eapply apply_within_trees_compat_nonempty. 1: apply WF. 2: exact ACC.
     intros tr1 tr2. eapply preserve_tag_count_nonempty, memory_access_tag_count.
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
+Qed.
+
+Lemma read_step_wf σ σ' e e' l bor ptr vl efs :
+  mem_expr_step σ.(shp) e (CopyEvt l bor ptr vl) σ'.(shp) e' efs →
+  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
+           (CopyEvt l bor ptr vl)
+           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
+  state_wf σ → state_wf σ'.
+Proof.
+  destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
+  intros BS IS WF.
+  inversion BS; clear BS; simplify_eq.
+  inversion IS as [ |?????? ACC| | | | | | ]; clear IS; simplify_eq.
+  eapply (read_step_wf_inner σ false); done.
 Qed.
 
 Lemma failed_copy_step_wf σ σ' e e' l bor T efs :
@@ -1353,7 +1361,7 @@ Proof.
   eapply memory_access_compat_nexts. 2: exact Htr2. by apply IH.
 Qed.
 
-Lemma trees_read_all_protected_initialized_pointwise C trs cid trs' :
+Lemma trees_read_all_protected_initialized_pointwise_1 C trs cid trs' :
   trees_read_all_protected_initialized C cid trs = Some trs' → ∀ k,
   (∀ tr, trs !! k = Some tr → ∃ tr', trs' !! k = Some tr' ∧ tree_read_all_protected_initialized C cid tr = Some tr') ∧
   (trs !! k = None → trs' !! k = None).
@@ -1396,12 +1404,36 @@ Proof.
       rewrite lookup_insert_ne //.
 Qed.
 
+Lemma trees_read_all_protected_initialized_pointwise_2 C trs cid :
+  (∀ k tr, trs !! k = Some tr → ∃ tr', tree_read_all_protected_initialized C cid tr = Some tr') →
+  ∃ trs', trees_read_all_protected_initialized C cid trs = Some trs'.
+Proof.
+  rewrite /trees_read_all_protected_initialized.
+  pose (λ k trs, trs ← trs; apply_within_trees (tree_read_all_protected_initialized C cid) k trs) as fn.
+  pose (λ k, ∀ tr, trs !! k = Some tr → ∃ tr' : tree item, tree_read_all_protected_initialized C cid tr = Some tr') as Pk.
+  fold fn.
+  remember (dom trs) as S eqn:HS.
+  assert (S ⊆ dom trs) as Hsubset by set_solver.
+  enough ((∀ k, k ∈ S → Pk k) → ∃ trs', set_fold fn (Some trs) S = Some trs' ∧ (∀ k, k ∉ S → trs' !! k = trs !! k)) as Hindu.
+  { intros H. edestruct Hindu as (?&Hindu'&_); last (eexists; eapply Hindu'). intros k _ tr HH. by eapply H. }
+  clear HS. revert Hsubset.
+  refine (set_fold_ind_L (λ (rr : option trees) (S : gset block), S ⊆ _ → (∀ k, k ∈ S → Pk k) → ∃ trs', rr = Some trs' ∧ _) fn (Some trs) _ _ S); clear S.
+  1: intros _ Heq; by eexists.
+  intros kin S trso' Hnin HIH (Hkindom%singleton_subseteq_l&Hdom)%union_subseteq Hk.
+  destruct HIH as (trs'&->&Htrs'). 1: done. 1: intros ??; eapply Hk; set_solver.
+  eapply elem_of_dom in Hkindom as (tr&Htr). pose proof Htr as Htr'. rewrite -Htrs' // in Htr'.
+  odestruct (Hk kin _ _ Htr) as (trr&Htrr). 1: set_solver.
+  rewrite /fn /= /apply_within_trees Htr' /= Htrr /=. eexists; split; first done.
+  intros k (Hn1%not_elem_of_singleton&Hn2)%not_elem_of_union.
+  rewrite lookup_insert_ne //. by apply Htrs'.
+Qed.
+
 Lemma trees_read_all_protected_initialized_backwards C trs cid trs' :
   trees_read_all_protected_initialized C cid trs = Some trs' → 
   ∀ k tr', trs' !! k = Some tr' → ∃ tr, trs !! k = Some tr ∧ tree_read_all_protected_initialized C cid tr = Some tr'.
 Proof.
   intros H k tr' Htr'.
-  edestruct trees_read_all_protected_initialized_pointwise as (H1&H2). 1: exact H.
+  edestruct trees_read_all_protected_initialized_pointwise_1 as (H1&H2). 1: exact H.
   destruct (trs !! k) as [tr|] eqn:Htr.
   - exists tr; split; first done.
     destruct (H1 _ Htr) as (tr1&Htr1&HH).
@@ -1415,7 +1447,7 @@ Lemma trees_read_all_protected_initialized_same_dom C trs cid trs' :
 Proof.
   intros H.
   eapply gset_leibniz. intros k.
-  pose proof (trees_read_all_protected_initialized_pointwise _ _ _ _ H k) as (HSome&HNone).
+  pose proof (trees_read_all_protected_initialized_pointwise_1 _ _ _ _ H k) as (HSome&HNone).
   split.
   - intros (tr&(tr'&Htr'&_)%HSome)%elem_of_dom.
     by eapply elem_of_dom_2.
@@ -1424,23 +1456,16 @@ Proof.
     rewrite HNone in Htr'; done.
 Qed.
 
-
-(** EndCall *)
-Lemma endcall_step_wf σ σ' e e' n efs :
-  mem_expr_step σ.(shp) e (EndCallEvt n) σ'.(shp) e' efs →
-  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (EndCallEvt n)
-           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
-  state_wf σ → state_wf σ'.
+Lemma endcall_step_wf_inner trs' c σ :
+  c ∈ σ.(scs) →
+  trees_read_all_protected_initialized σ.(scs) c σ.(strs) = Some trs' →
+  state_wf σ →
+  state_wf (mkState σ.(shp) trs' (σ.(scs) ∖ {[c]}) σ.(snp) (σ.(snc))).
 Proof.
-  destruct σ as [h trs cids nxtp nxtc].
-  destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
-  intros BS IS WF.
-  inversion BS. clear BS. simplify_eq.
-  inversion IS. clear IS. simplify_eq.
+  intros H1 H2 WF.
   constructor; simpl; try apply WF.
   - erewrite <- trees_read_all_protected_initialized_same_dom; last done. apply WF.
-  - opose proof (trees_read_all_protected_initialized_pointwise _ _ _ _ _) as Hrai; first done.
+  - opose proof (trees_read_all_protected_initialized_pointwise_1 _ _ _ _ _) as Hrai; first done.
     pose proof (state_wf_tree_unq _ WF) as (Hunq&Hunq2). split.
     + eintros k tr' (tr&Htr&Hread)%trees_read_all_protected_initialized_backwards; last done.
       eapply preserve_tag_count_wf.
@@ -1451,7 +1476,7 @@ Proof.
       2-3: done.
       eapply Hunq2; try done.
       all: eapply preserve_tag_count_contains_2; [by eapply tree_read_all_protected_initialized_tag_count| |done]; done.
-  - opose proof (trees_read_all_protected_initialized_pointwise _ _ _ _ _) as Hrai; first done.
+  - opose proof (trees_read_all_protected_initialized_pointwise_1 _ _ _ _ _) as Hrai; first done.
     pose proof (state_wf_tree_unq _ WF) as (Hunq&Hunq2).
     eintros k tr' (tr&Htr&Hread)%trees_read_all_protected_initialized_backwards; last done.
     eapply tree_read_all_protected_initialized_more_init.
@@ -1465,8 +1490,23 @@ Proof.
     1: by eapply tree_read_all_protected_initialized_tag_count.
     1: eapply WF, Htr.
     1: done.
-  - intros c IN. apply WF.
+  - intros c' IN. apply WF.
     apply elem_of_difference in IN. apply IN.
+Qed.
+
+(** EndCall *)
+Lemma endcall_step_wf σ σ' e e' n efs :
+  mem_expr_step σ.(shp) e (EndCallEvt n) σ'.(shp) e' efs →
+  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
+           (EndCallEvt n)
+           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
+  state_wf σ → state_wf σ'.
+Proof.
+  destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
+  intros BS IS WF.
+  inversion BS. clear BS. simplify_eq.
+  inversion IS. clear IS. simplify_eq.
+  eapply endcall_step_wf_inner. all: done.
 Qed.
 
 (** Retag *)

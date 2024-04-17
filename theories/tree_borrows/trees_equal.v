@@ -1516,6 +1516,37 @@ Section utils.
         constructor.
     Qed.
 
+  Lemma trees_equal_read_all_protected_initialized trs1 trs1' trs2 cid
+    (Hwf1 : wf_trees trs1)
+    (Hwf2 : wf_trees trs2) :
+    trees_equal trs1 trs2 →
+    trees_read_all_protected_initialized C cid trs1 = Some trs1' →
+    ∃ trs2', trees_read_all_protected_initialized C cid trs2 = Some trs2' ∧
+      trees_equal trs1' trs2'.
+  Proof.
+    intros Heq Htrapi.
+    epose proof (trees_read_all_protected_initialized_pointwise_1 _ _ _ _ Htrapi) as Htrapi1.
+    odestruct (trees_read_all_protected_initialized_pointwise_2 _ trs2) as (trs2'&Htrs2').
+    { intros k. destruct (Htrapi1 k) as (HH'&_). intros tr2 Htr2.
+      specialize (Heq k). rewrite Htr2 in Heq. inversion Heq as [tr1 x1 Heqtr Htr1 e|]. subst x1.
+      destruct (HH' tr1) as (tr1'&Htr1'&HHtr1'); first done.
+      edestruct tree_equals_read_all_protected_initialized' as (tr2'&Htr2'&Heq').
+      3: exact Heqtr. 3: exact HHtr1'. 1: by eapply Hwf1. 1: by eapply Hwf2.
+      by eexists. }
+    eexists; split; first done.
+    intros k. specialize (Heq k).
+    epose proof (trees_read_all_protected_initialized_pointwise_1 _ _ _ _ Htrs2' k) as (Htrapi2A&Htrapi2B).
+    specialize (Htrapi1 k) as (Htrapi1A&Htrapi1B).
+    inversion Heq as [tr1 tr2 Heqtr Htr1 Htr2|HNone1 HNone2]; last first.
+    - rewrite Htrapi1B // Htrapi2B //. econstructor.
+    - symmetry in Htr1,Htr2.
+      destruct (Htrapi1A _ Htr1) as (tr1'&Htr1'&Hrapi1'). destruct (Htrapi2A _ Htr2) as (tr2'&Htr2'&Hrapi2').
+      rewrite Htr1' Htr2'. econstructor.
+      edestruct tree_equals_read_all_protected_initialized' as (tr2''&Htr2'u&Htr2'eq).
+      4: exact Hrapi1'. 3: exact Heqtr. 1: by eapply Hwf1. 1: by eapply Hwf2.
+      rewrite Hrapi2' in Htr2'u. injection Htr2'u as <-. done.
+  Qed.
+
 End utils.
 
 Section call_set.

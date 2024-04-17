@@ -113,7 +113,7 @@ Section log_rel.
     discr_source. discr_source. val_discr_source "Hv2".
     iApply (sim_call with "Hv1"). iIntros (??) "Hr". iApply lift_post_val; eauto.
   Qed.
-(*
+
   Lemma log_rel_initcall :
     ⊢ log_rel InitCall InitCall.
   Proof.
@@ -136,7 +136,7 @@ Section log_rel.
     iApply (sim_endcall with "Hv").
     sim_finish. sim_val. iModIntro. iSplit; first done. iApply value_rel_poison.
   Qed.
-*)
+
 
   (** a bit of work for eqop *)
   Lemma bor_interp_scalar_eq_source σ_t σ_s sc1_t sc1_s sc2_t sc2_s :
@@ -484,9 +484,9 @@ Section refl.
     - (* Call *)
       by iApply (log_rel_call with "IH IH1").
     - (* InitCall *)
-      admit; by iApply log_rel_initcall.
+      by iApply log_rel_initcall.
     - (* EndCall *)
-      admit; by iApply (log_rel_endcall with "IH").
+      by iApply (log_rel_endcall with "IH").
     - (* Proj *)
       by iApply (log_rel_proj with "IH IH1").
     - (* Conc *)

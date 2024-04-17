@@ -325,23 +325,6 @@ Section call_defs.
     specialize (Hinterp _ _ HM'_some) as (? & Hinterp).
     specialize (Hinterp _ Hin). done.
   Qed.
-
-  Lemma call_set_interp_remove c M σ :
-    call_set_interp M σ →
-    call_set_interp (delete c M) (state_upd_calls (.∖ {[c]}) σ).
-  Proof.
-    intros Hinterp c' M' Hsome. destruct (decide (c' = c)) as [-> | Hneq].
-    { rewrite lookup_delete in Hsome. done. }
-    rewrite lookup_delete_ne in Hsome; last done.
-    apply Hinterp in Hsome as (Hin & Hpid).
-    split.
-    { destruct σ; cbn in *. apply elem_of_difference; split; first done. by apply not_elem_of_singleton. }
-    intros t S HS.
-    apply Hpid in HS as (Ht & Hlookup). split; first by destruct σ.
-    intros l Hl. apply Hlookup in Hl as (it & Hlu & Hdis).
-    exists it. split; last done.
-    by destruct σ.
-  Qed.
 (*
   Lemma loc_protected_by_source (sc_rel : scalar → scalar → iProp Σ) Mtag Mt Mcall σ_t σ_s :
     state_rel sc_rel Mtag Mt Mcall σ_t σ_s -∗
@@ -732,7 +715,6 @@ Section public_call_ids.
       ghost_map_auth pub_call_name 1 M ∗
       (* calso containing the persistent element to make lemmas simpler *)
       [∗ map] c ↦ _ ∈ M, (call_id_is_public σ_t σ_s c ∗ pub_cid c).
-
 
   Lemma call_id_is_public_mono σ_t σ_s σ_t' σ_s' c :
     ((c ∉ σ_t.(scs) ∧ (c < σ_t.(snc))%nat → c ∉ σ_t'.(scs))) →

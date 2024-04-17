@@ -189,7 +189,7 @@ Section safe_reach.
 
 
   Global Instance safe_implies_endcall P σ v :
-    SafeImplies (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs)) P (EndCall (Val v)) σ.
+    SafeImplies (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs) ∧ is_Some (trees_read_all_protected_initialized σ.(scs) c σ.(strs))) P (EndCall (Val v)) σ.
   Proof. prove_safe_implies. Qed.
 
   Global Instance safe_implies_endcall_result_weak P σ r :
