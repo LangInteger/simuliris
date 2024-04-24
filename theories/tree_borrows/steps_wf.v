@@ -1576,9 +1576,8 @@ Proof.
     intros itn Hitn Htg l. enough (itn = itp) by by subst.
     eapply every_node_eqv_universal in Hitdet. 1: eapply Hitdet. 2: done.
     rewrite Htg. destruct HPC as [?|HPC]; first by subst.
-    exfalso. eapply insertion_order_nonstrictparent. 4: done. 4: done.
-    2: done. 2: done. eapply insertion_minimal_tags. 3: done. 2: by eapply unique_exists.
-    intros ->. eapply not_strict_parent_of_self; last done. by eapply unique_exists. }
+    exfalso. eapply insertion_order_nonstrictparent. 3: done. 3: done.
+    2: done. 1: done. }
   destruct (decide (tree_contains tg trn)) as [Hin|Hnin].
   2: by eapply every_child_not_in.
   assert (tree_contains tg tro) as Hino.
@@ -1638,18 +1637,45 @@ Proof.
   destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
 Qed.
 
-Lemma retag_step_wf σ σ' e e' l ot nt pk rk cid efs :
-  mem_expr_step σ.(shp) e (RetagEvt l ot nt pk cid rk) σ'.(shp) e' efs →
-  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (RetagEvt l ot nt pk cid rk)
-           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
-  state_wf σ → state_wf σ'.
+Lemma state_wf_nt_not_contained σ blk :
+  state_wf σ →
+  ¬ trees_contain σ.(snp) σ.(strs) blk.
 Proof.
-  destruct σ as [h trs cids nxtp nxtc].
-  destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
-  intros BS IS WF.
-  inversion BS. clear BS. simplify_eq.
-  inversion IS as [| | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
+  intros Hwf.
+  rewrite /trees_contain /trees_at_block.
+  destruct (strs σ !! blk) as [tr|] eqn:Htr; last tauto.
+  pose proof (state_wf_tree_compat _ Hwf _ _ Htr) as Hcompat.
+  intros (it&Hit&Htg)%exists_node_eqv_existential.
+  eapply every_node_eqv_universal in Hcompat. 2: done.
+  eapply item_tag_valid in Htg; last done. lia.
+Qed.
+
+Lemma create_new_item_wf nt pk rk (cid nxtc' : nat) : 
+  (cid < nxtc')%nat →
+  item_wf (create_new_item nt pk rk cid) (S nt) nxtc'.
+Proof.
+  intros H.
+  split; rewrite /create_new_item /=.
+  + rewrite /=. intros ? <-; lia.
+  + destruct rk; last done.
+    rewrite /= /protector_is_for_call /=.
+    intros ? [= <-]. by eapply H.
+  + clear. cbv. by case_match.
+  + done.
+  + intros _. eapply map_Forall_empty.
+Qed.
+
+
+Lemma retag_step_wf_inner σ blk ot pk rk cid trsmid :
+  state_wf σ →
+  trees_contain ot σ.(strs) blk →
+  ¬ trees_contain σ.(snp) σ.(strs) blk →
+  cid ∈ σ.(scs) →
+  apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk cid) blk σ.(strs) = Some trsmid →
+  state_wf (mkState σ.(shp) trsmid σ.(scs) (S σ.(snp)) σ.(snc)) ∧ trees_contain σ.(snp) trsmid blk.
+Proof.
+  intros WF EXISTS_TAG FRESH_CHILD CALL_ACTIVE RETAG_EFFECT.
+  destruct σ as [h' trs cids' nt nxtc']. simpl in *.
   assert (trees_compat_nexts trsmid (S nt) nxtc' ∧ wf_trees trsmid) as (Hwfmid1 & Hwfmid2).
   { eapply apply_within_trees_compat_both; first done; last first.
     - split; by eapply WF.
@@ -1659,42 +1685,38 @@ Proof.
       1: left; eapply insertion_minimal_tags; last done; try done.
     - simpl. intros ?????.
       eapply insert_child_wf; try done.
-      split; rewrite /create_new_item /=.
-      + rewrite /=. intros ? <-; lia.
-      + destruct rk; last done.
-        rewrite /= /protector_is_for_call /=.
-        intros ? [= <-]. by eapply WF.
-      + clear. cbv. by case_match.
-      + done.
-      + intros _. eapply map_Forall_empty.
+      eapply create_new_item_wf. by eapply WF.
     - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
-  assert (trees_compat_nexts trs' (S nt) nxtc' ∧ wf_trees trs') as (Hwf1 & Hwf2).
-  { eapply apply_within_trees_compat_both; first done.
-    1: done. 3: done.
-    - intros ?????; split; first by eapply memory_access_compat_nexts.
-      by eapply memory_access_wf.
-    - intros ???? ?%count_gt0_exists. left. eapply count_gt0_exists.
-      by erewrite memory_access_tag_count. }
-  constructor; simpl.
+  split; first constructor; simpl.
   - rewrite /same_blocks /=
-            -(apply_within_trees_same_dom _ _ _ _ READ_ON_REBOR)
             -(apply_within_trees_same_dom _ _ _ _ RETAG_EFFECT).
     apply WF.
   - done.
-  - eapply (apply_within_trees_access_compat_parents_more_init false). 4: apply READ_ON_REBOR.
-    1: done. 
-    { eapply bind_Some in RETAG_EFFECT as (x1&Hx1&(x2&Hx2&[= <-])%bind_Some).
-      rewrite /trees_contain /trees_at_block lookup_insert. eapply insertion_contains; last done.
-      by rewrite /trees_contain /trees_at_block Hx1 in EXISTS_TAG. }
-    eapply apply_within_trees_insert_child_parents_more_init. 1: done. 1-2: apply WF. 1-3: done.
+  - eapply apply_within_trees_insert_child_parents_more_init. 1: done. 1-2: apply WF. 1-3: done.
   - done.
   - eapply apply_within_trees_compat_nonempty; last done.
-    1: eapply apply_within_trees_compat_nonempty; last done.
     1: apply WF.
     + intros ????; by eapply create_child_preserve_nonempty.
-    + intros ????. eapply preserve_tag_count_nonempty; try done.
-      eapply memory_access_tag_count.
   - apply WF.
+  - eapply bind_Some in RETAG_EFFECT as (x1&Hx1&(x2&Hx2&[= <-])%bind_Some).
+    rewrite /trees_contain /trees_at_block lookup_insert. eapply insertion_contains; last done.
+    by rewrite /trees_contain /trees_at_block Hx1 in EXISTS_TAG.
+Qed.
+
+Lemma retag_step_wf σ σ' e e' blk range ot nt pk rk cid efs :
+  mem_expr_step σ.(shp) e (RetagEvt blk range ot nt pk cid rk) σ'.(shp) e' efs →
+  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
+           (RetagEvt blk range ot nt pk cid rk)
+           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
+  state_wf σ → state_wf σ'.
+Proof.
+  destruct σ as [h trs cids nxtp nxtc].
+  destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
+  intros BS IS WF.
+  inversion BS. clear BS. simplify_eq.
+  inversion IS as [| | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
+  eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-5: done.
+  eapply read_step_wf_inner in WF. all: done.
 Qed.
 
 Lemma base_step_wf P σ σ' e e' efs :

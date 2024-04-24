@@ -453,6 +453,6 @@ Inductive event :=
 | WriteEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
-| RetagEvt (alloc : block) (otag ntag : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
+| RetagEvt (alloc : block) (range : Z * nat) (otag ntag : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
 | SilentEvt.
 

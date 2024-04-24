@@ -327,6 +327,48 @@ Proof.
 Qed.
 
 
+Lemma ImmediateParentChild_of_insert_is_parent t t' (ins:item) (tr:tree item) :
+  ¬ exists_node (IsTag (ins.(itag))) tr ->
+  exists_node (IsTag t') tr ->
+  t ≠ ins.(itag) →
+  ImmediateParentChildIn t' ins.(itag) (insert_child_at tr ins (IsTag t)) ->
+  t = t'.
+Proof.
+  intros H1 H2 Htag HIPCI.
+  induction tr as [|it tr1 IHtr1 tr2 IHtr2].
+  { by simpl in H2. }
+  destruct (decide (exists_node (IsTag t') tr1)) as [Ht1|Hnt1].
+  { eapply IHtr1. 2: done. 1: intros H; eapply H1; simpl; tauto.
+    simpl in HIPCI. destruct (decide (itag it = t)); simpl in HIPCI.
+    all: eapply HIPCI. }
+  destruct (decide (exists_node (IsTag t') tr2)) as [Ht2|Hnt2].
+  { eapply IHtr2. 2: done. 1: intros H; eapply H1; simpl; tauto.
+    simpl in HIPCI. destruct (decide (itag it = t)); simpl in HIPCI.
+    all: eapply HIPCI. }
+  simpl in H2.
+  destruct H2 as [Heq|[H2|H2]]. 2-3: done.
+  simpl in HIPCI.
+  destruct (decide (itag it = t)) as [|Hne]; first congruence.
+  simpl in HIPCI. destruct HIPCI as (HIPCI&_&_).
+  clear IHtr1 IHtr2.
+  specialize (HIPCI Heq). clear Hnt1. exfalso.
+  assert (¬ exists_node (IsTag (itag ins)) tr2) as H1tr2.
+  { simpl in H1|-*. tauto. }
+  clear H1.
+
+  induction tr2 as [|it' tr1' IHtr1' tr2' IHtr2'].
+  { simpl in HIPCI. done. }
+  simpl in HIPCI. destruct (decide (itag it' = t)) as [Heq'|Hne'].
+  all: simpl in HIPCI.
+  - destruct HIPCI as [|HIPCI]; first congruence.
+    eapply IHtr1'; first done. all: simpl in H1tr2,Hnt2; tauto.
+  - destruct HIPCI as [Hcc|HIPCI].
+    { eapply H1tr2. by left. } 
+    eapply IHtr1'; first done. all: simpl in H1tr2,Hnt2; tauto.
+Qed.
+
+
+
 Lemma Immediate_is_StrictChildTag tg tr :
   HasImmediateChildTag tg tr →
   HasStrictChildTag tg tr.
@@ -500,20 +542,33 @@ Proof.
   + intro Eq. rewrite Eq in nEx. congruence.
 Qed.
 
+Lemma not_strict_parent_of_self
+  {tg tr} :
+  tree_contains tg tr ->
+  ~StrictParentChildIn tg tg tr.
+Proof.
+  rewrite /StrictParentChildIn.
+  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; intros Ex; [tauto|].
+  intros [Here [Sub1 Sub2]].
+  destruct Ex as [Ex0|[Ex1|Ex2]].
+  + apply IHtr2; [|assumption]. apply Here. assumption.
+  + apply IHtr1; [|assumption]. apply Ex1.
+  + apply IHtr2; [|assumption]. apply Ex2.
+Qed.
+
 Lemma inserted_not_strict_parent (t:tag) (ins:item) (tr:tree item) :
   tree_contains t tr ->
   ~tree_contains ins.(itag) tr ->
   forall t',
-  tree_contains t' tr ->
   ~StrictParentChildIn ins.(itag) t' (insert_child_at tr ins (IsTag t)).
 Proof.
-  move=> ContainsParent Fresh t' ContainsOther Rel.
+  move=> ContainsParent Fresh t' Rel.
   assert (~t = ins.(itag)) as Net by (intro; subst; contradiction).
-  assert (~t' = ins.(itag)) as Net' by (intro; subst; contradiction).
+  assert (~t' = ins.(itag)) as Net'.
+  { intro; subst; eapply not_strict_parent_of_self; last done; eapply insert_true_produces_exists; done. }
   unfold ParentChildIn in Rel.
   pose proof (inserted_empty_children t ins tr Fresh) as Contra.
   clear Fresh.
-  clear ContainsOther.
   induction tr as [|data ? IHtr1 ? IHtr2]; simpl in *; try contradiction.
   destruct (decide (IsTag t data)).
   all: destruct ContainsParent as [Parent0 | [Parent1 | Parent2]].
@@ -572,20 +627,18 @@ Proof.
 Qed.
 
 Lemma insertion_order_nonstrictparent tr tg tg' :
-  tree_contains tg' tr ->
   ~tree_contains tg tr ->
   forall tgp cids pk rk cid tr',
   tree_contains tgp tr ->
   create_child cids tgp tg pk rk cid tr = Some tr' ->
   ~StrictParentChildIn tg tg' tr'.
 Proof.
-  move=> Present Fresh tgp ???? tr' ParentPresent Insert Contra.
+  move=> Fresh tgp ???? tr' ParentPresent Insert Contra.
   unfold create_child in Insert.
   injection Insert; intros; subst; clear Insert.
   eapply inserted_not_strict_parent with (ins := (create_new_item tg _ _ _)).
   - apply ParentPresent.
   - simpl; apply Fresh.
-  - apply Present.
   - apply Contra.
 Qed.
 
@@ -759,20 +812,6 @@ Proof.
   all: rewrite <- SameRel in R2; auto; try contradiction.
   all: erewrite decide_ext; last apply SameImmRel.
   all: done.
-Qed.
-
-Lemma not_strict_parent_of_self
-  {tg tr} :
-  tree_contains tg tr ->
-  ~StrictParentChildIn tg tg tr.
-Proof.
-  rewrite /StrictParentChildIn.
-  induction tr as [|data ? IHtr1 ? IHtr2]; simpl; intros Ex; [tauto|].
-  intros [Here [Sub1 Sub2]].
-  destruct Ex as [Ex0|[Ex1|Ex2]].
-  + apply IHtr2; [|assumption]. apply Here. assumption.
-  + apply IHtr1; [|assumption]. apply Ex1.
-  + apply IHtr2; [|assumption]. apply Ex2.
 Qed.
 
 Lemma cousins_different
@@ -1693,6 +1732,35 @@ Proof.
   - by eapply unique_exists.
 Qed.
 
+Lemma immediate_not_transitive_strong_2
+  tr1 tg1 tg2 tg3 :
+  (∀ tg, tree_contains tg tr1 → tree_unique tg tr1) →
+  tree_unique tg1 tr1 ->
+  tree_unique tg2 tr1 ->
+  tree_unique tg3 tr1 ->
+  StrictParentChildIn tg1 tg2 tr1 ->
+  StrictParentChildIn tg2 tg3 tr1 ->
+  ImmediateParentChildIn tg1 tg3 tr1 ->
+  False.
+Proof.
+  intros Huu Hu1 Hu2 Hu3 (tsw&H1&H2)%immediate_sandwich H3. 2-3: done.
+  eapply immediate_not_transitive_strong. 1-2: done. 1: apply H1.
+  destruct H2 as [->|H2].
+  2: eapply StrictParentChild_transitive; first done.
+  all: done.
+Qed.
+
+Lemma ImmediateParentChildIn_parent_not_in tg1 tg2 tr :
+  ¬ tree_contains tg1 tr →
+  ImmediateParentChildIn tg1 tg2 tr.
+Proof.
+  intros H1. eapply every_subtree_eqv_universal.
+  intros bt Hbr Htg. exfalso.
+  eapply H1, exists_node_iff_exists_root. simpl.
+  eapply exists_subtree_eqv_existential. eexists; split; first done.
+  simpl. done.
+Qed.
+
 Definition every_strict_child (pt : tag) (P : item → Prop) (tr : tree item) :=
   every_subtree (λ '(rt, _, childs), itag rt = pt → every_node P childs) tr.
 Definition every_child (pt : tag) (P : item → item → Prop) (tr : tree item) :=
@@ -1870,6 +1938,37 @@ Proof.
         exfalso. eapply count_0_not_exists. 2: exact Hcbr. done.
 Qed.
 
+
+Definition prot_join (ps1 ps2 : prot_strong) : prot_strong := match ps1 with
+  ProtStrong => ProtStrong
+| ProtWeak   => ps2 end.
+
+Lemma prot_join_comm ps1 ps2 : prot_join ps1 ps2 = prot_join ps2 ps1.
+Proof.
+  by destruct ps1, ps2.
+Qed.
+
+Definition prot_le (ps1 ps2 : prot_strong) : Prop := match ps1, ps2 with
+  ProtWeak, _ => True
+| ProtStrong, ProtStrong => True
+| ProtStrong, _ => False end.
+
+Lemma prot_le_def ps1 ps2 : prot_le ps1 ps2 ↔ (ps1 = ProtStrong → ps2 = ProtStrong).
+Proof. destruct ps1, ps2; simpl; split; try firstorder. discriminate. Qed.
+
+Lemma prot_le_refl ps : prot_le ps ps.
+Proof. by destruct ps. Qed.
+
+Lemma prot_le_trans ps1 ps2 ps3 : prot_le ps1 ps2 → prot_le ps2 ps3 → prot_le ps1 ps3.
+Proof. by destruct ps1, ps2, ps3. Qed.
+
+Lemma prot_join_is_strong ps1 ps2 :
+  prot_join ps1 ps2 = ProtStrong ↔ (ps1 = ProtStrong ∨ ps2 = ProtStrong).
+Proof. destruct ps1, ps2; simpl; tauto. Qed.
+
+Lemma prot_join_is_weak ps1 ps2 :
+  prot_join ps1 ps2 = ProtWeak ↔ (ps1 = ProtWeak ∧ ps2 = ProtWeak).
+Proof. destruct ps1, ps2; simpl; tauto. Qed.
 
 
 

@@ -787,15 +787,15 @@ Definition retag_kind_to_prot (cid : call_id) (rk : retag_kind) (s : prot_strong
   | FnEntry => Some (mkProtector s cid)
   end.
 
-Definition create_new_item tg pk rk cid :=
+Definition create_new_item tg pk rk (cid : call_id) :=
   let s := pointer_kind_to_strength pk in
   let perm := pointer_kind_to_perm pk in
   let prot := retag_kind_to_prot cid rk s in
   {| itag:=tg; iprot:=prot; initp:=perm; iperm:=∅ |}.
 
-Definition create_child cids (oldt:tag) (newt:tag) pk cid rk
+Definition create_child cids (oldt:tag) (newt:tag) pk rk (cid : call_id)
   : app (tree item) := fun tr =>
-  let it := create_new_item newt pk cid rk in
+  let it := create_new_item newt pk rk cid in
   Some $ insert_child_at tr it (IsTag oldt).
 
 Definition item_lazy_perm_at_loc it (l:loc')
@@ -961,12 +961,13 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
          FIXME: newperm should NOT contain the protector, only information to dynamically compute it: replace newperm with pointer_kind. Don't retag shared references. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
+    (* TODO get rid of fresh_child assumption here *)
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk rk cid) alloc trs = Some trs')
     (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :
     bor_step
       trs cids nxtp nxtc
-      (RetagEvt alloc parentt nxtp pk cid rk)
+      (RetagEvt alloc range parentt nxtp pk cid rk)
       trs'' cids (S nxtp) nxtc
   | DeallocIS trs' (alloc : block) (tg : tag) range
     (EXISTS_TAG: trees_contain tg trs alloc)
@@ -1003,21 +1004,6 @@ Local Definition with_two_children :=
   unwrap (create_child ∅ 1 3 (MutRef TyFrz) Default 0 with_one_child).
 Local Definition with_three_children :=
   unwrap (create_child ∅ 2 4 (MutRef TyFrz) Default 0 with_two_children).
- (*
-Local Definition with_write_access := unwrap (memory_access AccessWrite ∅ 4 (2%Z,1) with_three_children).
-Local Definition with_nc_write_access := unwrap (memory_access_nonchildren_only AccessWrite ∅ 4 (2%Z,1) with_three_children).
-
-Goal with_write_access = with_nc_write_access.
-Proof.
-  vm_compute. repeat f_equal.
-Qed.
-
-Local Definition with_nc_write_access_root := unwrap (memory_access_nonchildren_only AccessWrite ∅ 1 (2%Z,1) with_three_children).
-
-Goal with_three_children = with_nc_write_access_root.
-Proof.
-  vm_compute. repeat f_equal.
-Abort. *)
 
 (*
    1

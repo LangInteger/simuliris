@@ -123,7 +123,7 @@ Section safe_reach.
     [ rewrite language_to_val_eq in Hval; simpl in Hval; destruct Hval as [? [=]] |
       destruct Hred as (? & ? & ? & Hhead%prim_base_step);
       [ (* this need not complete the proof and may generate a proof obligation *)
-        inv_base_step; subst; try by eauto 10 using of_result_value, of_result_place
+        inv_base_step; subst; try by eauto 20 using of_result_value, of_result_place
       | solve [solve_sub_redexes_are_values]] ].
 
 
@@ -200,11 +200,14 @@ Section safe_reach.
     eauto using of_result_value.
   Qed.
 
-  (* Doesn't build because `retag` has been renamed and changed
-  Global Instance safe_implies_retag P σ v v' pk T rk :
-    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
-      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag v v' pk T rk) σ.
+  Global Instance safe_implies_retag P σ v v' pk sz rk :
+    SafeImplies (∃ c ot l trs1 trs2, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧ 
+      trees_contain ot σ.(strs) l.1 ∧ ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
+      apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk c) l.1 σ.(strs) = Some trs1 ∧
+      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2)
+    P (Retag v v' pk sz rk) σ.
   Proof. prove_safe_implies. Qed.
+  (* Doesn't build because `retag` has been renamed and changed
   Global Instance safe_implies_retag_result P σ r r' pk T rk :
     SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c] ∧ c ∈ σ.(scs) ∧
       is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag r r' pk T rk) σ.

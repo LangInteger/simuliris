@@ -540,10 +540,10 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               h (Free (Place (blk,l) lbor sz))
               (DeallocEvt blk lbor (l, sz))
               (free_mem (blk,l) sz h) #[☠] []
-| RetagBS blk l otag ntag sz kind cid pk :
+| RetagBS l otag ntag sz kind cid pk :
     mem_expr_step
-              h (Retag #[ScPtr l otag] #[ScCallId (call cid)] pk sz kind)
-              (RetagEvt blk otag ntag pk sz kind)
+              h (Retag #[ScPtr l otag] #[ScCallId cid] pk sz kind)
+              (RetagEvt l.1 (l.2, sz) otag ntag pk cid kind)
               h #[ScPtr l ntag] []
 
 (* observable behavior *)

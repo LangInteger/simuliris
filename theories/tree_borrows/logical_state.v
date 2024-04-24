@@ -15,7 +15,8 @@ From iris.prelude Require Import options.
 (** * BorLang ghost state *)
 Class bor_stateGS Σ := BorStateGS {
   (* Maintaining the locations protected by each call id *)
-  call_inG :: ghost_mapG Σ call_id (gmap tag (gset loc));
+  (* For the final bool, true -> strong protector (also deref'able), weak -> only noalias *)
+  call_inG :: ghost_mapG Σ call_id (gmap tag (gmap loc prot_strong));
   call_name : gname;
 
   (* tag ownership *)
@@ -43,7 +44,7 @@ Class bor_stateGS Σ := BorStateGS {
 
 Class bor_stateGpreS Σ := {
   (* Maintaining the locations protected by each call id *)
-  call_pre_inG :: ghost_mapG Σ call_id (gmap tag (gset loc));
+  call_pre_inG :: ghost_mapG Σ call_id (gmap tag (gmap loc prot_strong));
 
   (* tag ownership *)
   tag_pre_inG :: tkmapG Σ tag unit;
@@ -58,7 +59,7 @@ Class bor_stateGpreS Σ := {
   tainted_tag_pre_collection :: ghost_mapG Σ (tag * loc) unit;
 }.
 
-Definition bor_stateΣ : gFunctors := (#[ghost_mapΣ call_id (gmap tag (gset loc)); 
+Definition bor_stateΣ : gFunctors := (#[ghost_mapΣ call_id (gmap tag (gmap loc prot_strong)); 
         ghost_mapΣ (tag * block) (gmap Z scalar); ghost_mapΣ call_id unit; ghost_mapΣ (tag * loc) unit; 
         tkmapΣ tag unit]).
 
@@ -112,21 +113,21 @@ Section state_bijection.
   Section defs.
     (* We need all the maps from the tag interpretation here....
      TODO: can we make that more beautiful? all the different invariants are interleaved in subtle ways, which makes modular reasoning really hard... *)
-    Context (M_tag : gmap tag (tag_kind * unit)) (M_t M_s : gmap (tag * block) (gmap Z scalar)) (Mcall_t : gmap call_id (gmap tag (gset loc))).
+    Context (M_tag : gmap tag (tag_kind * unit)) (M_t M_s : gmap (tag * block) (gmap Z scalar)) (Mcall_t : gmap call_id (gmap tag (gmap loc prot_strong))).
 
 
-    Definition call_set_in (M : gmap tag (gset loc)) t l :=
-      ∃ L, M !! t = Some L ∧ l ∈ L.
-    Definition call_set_in' (M : gmap call_id (gmap tag (gset loc))) c t l :=
-      ∃ M', M !! c = Some M' ∧ call_set_in M' t l.
+    Definition call_set_in (M : gmap tag (gmap loc prot_strong)) t l (s:prot_strong) :=
+      ∃ L s', M !! t = Some L ∧ L !! l = Some s' ∧ prot_le s s'.
+    Definition call_set_in' (M : gmap call_id (gmap tag (gmap loc prot_strong))) c t l b :=
+      ∃ M', M !! c = Some M' ∧ call_set_in M' t l b.
     Definition pub_loc σ_t σ_s (l : loc) : iProp Σ :=
       ∀ sc_t, ⌜σ_t.(shp) !! l = Some sc_t⌝ → ∃ sc_s, ⌜σ_s.(shp) !! l = Some sc_s⌝ ∗ sc_rel sc_t sc_s.
     Definition priv_loc t (l : loc) : Prop :=
       ∃ tk, M_tag !! t = Some (tk, tt) ∧ is_Some (heaplet_lookup M_t (t, l)) ∧
         (* local *)
         (tk = tk_local ∨
-        (* unique active with protector *)
-        (∃ c, tk = tk_unq tk_act ∧ call_set_in' Mcall_t c t l)).
+        (* unique active with strong protector *)
+        (∃ c, tk = tk_unq tk_act ∧ call_set_in' Mcall_t c t l ProtStrong)).
     (* This definition enforces quite strict requirements on the state:
       - the domains of the heaps shp are the same: dom σ_s.(shp) = dom σ_t.(shp)
       - the trees are the same, up to conflicted: trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs)
@@ -289,41 +290,61 @@ End bijection_lemmas.
 
 (** Interpretation for call ids *)
 Section call_defs.
-  Context {Σ} (call_gname : gname) {call_inG : ghost_mapG Σ (call_id) (gmap tag (gset loc))}.
+  Context {Σ} (call_gname : gname) {call_inG : ghost_mapG Σ (call_id) (gmap tag (gmap loc prot_strong))}.
 
   Implicit Types (c : call_id) (pid : tag) (pm : permission).
 
-  Definition call_set_is (c : call_id) (M : gmap tag (gset loc)) :=
+  Definition call_set_is (c : call_id) (M : gmap tag (gmap loc prot_strong)) :=
     ghost_map_elem call_gname c (DfracOwn 1) M.
 
-  Definition tag_protected_for c trs l t := ∃ it,
-      trees_lookup trs l.1 t it
-    ∧ protector_is_for_call c it.(iprot)
-    ∧ protector_is_strong it.(iprot)
-    ∧ (((item_lookup it l.2).(initialized) = PermInit  
-      → (item_lookup it l.2).(perm) ≠ Disabled)).
+  Definition item_protected_for c it off (ps:prot_strong) :=
+          protector_is_for_call c it.(iprot)
+        ∧ (ps = ProtStrong → protector_is_strong it.(iprot))
+        ∧ (((item_lookup it off).(initialized) = PermInit  
+          → (item_lookup it off).(perm) ≠ Disabled)).
+
+  Definition tag_protected_for c trs l t ps := match ps with
+      ProtStrong => ∃ it, trees_lookup trs l.1 t it ∧ item_protected_for c it l.2 ps
+    | ProtWeak   => ∀ it, trees_lookup trs l.1 t it → item_protected_for c it l.2 ps end.
+
+  Lemma tag_protected_for_true_false c trs l t ps :
+    tag_protected_for c trs l t ProtStrong →
+    tag_protected_for c trs l t ps.
+  Proof.
+    destruct ps; first done.
+    intros (it1&Hit1&Hit2&Hit3&Hit4) it' Hit'.
+    enough (it' = it1) as <- by done.
+    rewrite /trees_lookup in Hit1 Hit'.
+    destruct Hit1 as (tr1&Htr1&HH1).
+    destruct Hit' as (tr&Htr&HH). rewrite Htr in Htr1.
+    injection Htr1 as <-.
+    eapply tree_determined_unify. 2: eapply HH. 2: eapply HH1.
+    1: apply HH1.
+  Qed.
 
   (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below. *)
-  Definition call_set_interp (M : gmap call_id (gmap tag (gset loc))) (σ : state) : Prop :=
-    ∀ c (M' : gmap tag (gset loc)), M !! c = Some M' →
+  Definition call_set_interp (M : gmap call_id (gmap tag (gmap loc prot_strong))) (σ : state) : Prop :=
+    ∀ c (M' : gmap tag (gmap loc prot_strong)), M !! c = Some M' →
       c ∈ σ.(scs) ∧
       (* for every tag *)
-      ∀ t (L : gset loc), M' !! t = Some L →
+      ∀ t (L : gmap loc prot_strong), M' !! t = Some L →
         tag_valid σ.(snp) t ∧
-        ∀ (l : loc), l ∈ L → tag_protected_for c σ.(strs) l t.
+        ∀ (l : loc) ps, L !! l = Some ps → tag_protected_for c σ.(strs) l t ps.
 
-  Definition loc_protected_by σ t l c :=
-    c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ tag_protected_for c σ.(strs) l t.
+  Definition loc_protected_by σ t l c ps :=
+    c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ tag_protected_for c σ.(strs) l t ps.
 
-  Lemma call_set_interp_access M σ c t l :
+  Lemma call_set_interp_access M σ c t l ps :
     call_set_interp M σ →
-    call_set_in' M c t l →
-    loc_protected_by σ t l c.
+    call_set_in' M c t l ps →
+    loc_protected_by σ t l c ps.
   Proof.
-    intros Hinterp (M' & HM_some & L & HM'_some & Hin).
+    intros Hinterp (M' & HM_some & L & ps' & HM'_some & Hin & Hps').
     specialize (Hinterp _ _ HM_some) as (? & Hinterp).
     specialize (Hinterp _ _ HM'_some) as (? & Hinterp).
-    specialize (Hinterp _ Hin). done.
+    specialize (Hinterp _ _ Hin).
+    destruct ps, ps'; try done.
+    by eapply tag_protected_for_true_false in Hinterp.
   Qed.
 (*
   Lemma loc_protected_by_source (sc_rel : scalar → scalar → iProp Σ) Mtag Mt Mcall σ_t σ_s :
@@ -366,9 +387,9 @@ Notation "c '@@' M" := (call_set_is call_name c M) (at level 50).
     The interpretation of the tag map and the "heap view" fragments are interlinked.
  *)
 Section heap_defs.
-  Context (Mcall : gmap call_id (gmap tag (gset loc))).
+  Context (Mcall : gmap call_id (gmap tag (gmap loc prot_strong))).
 
-  Definition prot_in_call_set op t l := from_option (λ p, call_set_in' Mcall p.(call) t l) False op.
+  Definition prot_in_call_set op t l := from_option (λ p, call_set_in' Mcall p.(call) t l (p.(strong))) False op.
 
   (** The assumption on the location still being valid for tag [t], i.e., [t] not being disabled. *)
   (* Note: That the stack is still there needs to be part of the precondition [bor_state_pre].
@@ -969,14 +990,14 @@ Section state_interp.
   (** The main combined interpretation for the borrow semantics *)
 
   (* Ownership of the authoritative parts. *)
-  Definition bor_auth (M_call : gmap call_id (gmap tag (gset loc))) (M_tag : gmap tag (tag_kind * unit)) (M_t M_s : gmap (tag * block) (gmap Z scalar)) : iProp Σ :=
+  Definition bor_auth (M_call : gmap call_id (gmap tag (gmap loc prot_strong))) (M_tag : gmap tag (tag_kind * unit)) (M_t M_s : gmap (tag * block) (gmap Z scalar)) : iProp Σ :=
     ghost_map_auth call_name 1 M_call ∗
     tkmap_auth tag_name 1 M_tag ∗
     ghost_map_auth heap_view_target_name 1 M_t ∗
     ghost_map_auth heap_view_source_name 1 M_s.
 
   Definition bor_interp_inner (σ_t σ_s : state)
-    (M_call : gmap call_id (gmap tag (gset loc)))
+    (M_call : gmap call_id (gmap tag (gmap loc prot_strong)))
     (M_tag : gmap tag (tag_kind * unit))
     (M_t M_s : gmap (tag * block) (gmap Z scalar)) : iProp Σ :=
   (* since multiple parts of the interpretation need access to these maps,
@@ -995,7 +1016,7 @@ Section state_interp.
     ⌜state_wf σ_t⌝.
 
   Definition bor_interp (σ_t : state) (σ_s : state) : iProp Σ :=
-   ∃ (M_call : gmap call_id (gmap tag (gset loc)))
+   ∃ (M_call : gmap call_id (gmap tag (gmap loc prot_strong)))
      (M_tag : gmap tag (tag_kind * unit))
      (M_t M_s : gmap (tag * block) (gmap Z scalar)),
      bor_interp_inner σ_t σ_s M_call M_tag M_t M_s.
@@ -1521,7 +1542,7 @@ Lemma sbor_init `{!sborGpreS Σ} P_t P_s T_s :
     progs_are P_t P_s.
 Proof.
   set σ := init_state.
-  iMod (ghost_map_alloc (∅ : gmap call_id (gmap tag (gset loc)))) as (γcall) "[Hcall_auth _]".
+  iMod (ghost_map_alloc (∅ : gmap call_id (gmap tag (gmap loc prot_strong)))) as (γcall) "[Hcall_auth _]".
   iMod (tkmap_alloc (∅ : gmap tag (tag_kind * unit))) as (γtag) "[Htag_auth _]".
   iMod (ghost_map_alloc (∅ : gmap (tag * block) (gmap Z scalar))) as (γtgt) "[Hheap_tgt_auth _]".
   iMod (ghost_map_alloc (∅ : gmap (tag * block) (gmap Z scalar))) as (γsrc) "[Hheap_src_auth _]".

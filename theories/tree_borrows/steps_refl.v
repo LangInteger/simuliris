@@ -164,14 +164,21 @@ Proof.
     specialize (Hc2 t L Ht) as (Hc3 & Hc4).
     split.
     { eapply tag_valid_mono; try done; lia. }
-    intros l' Hl'. specialize (Hc4 l' Hl') as (it & Hit & Hperm).
-    exists it; split; last done.
-    destruct Hit as (trr&Hit1&Hit2); eexists; split; last done.
-    rewrite /extend_trees lookup_insert_ne //.
-    intros Heq. rewrite -Heq in Hit1.
-    eapply elem_of_dom_2 in Hit1.
-    rewrite state_wf_dom // in Hit1.
-    by eapply is_fresh_block_fst in Hit1.
+    intros l' b' Hl'. specialize (Hc4 l' b' Hl').
+    destruct b'.
+    + destruct Hc4 as (it & Hit & Hperm).
+      exists it; split; last done.
+      destruct Hit as (trr&Hit1&Hit2); eexists; split; last done.
+      rewrite /extend_trees lookup_insert_ne //.
+      intros Heq. rewrite -Heq in Hit1.
+      eapply elem_of_dom_2 in Hit1.
+      rewrite state_wf_dom // in Hit1.
+      by eapply is_fresh_block_fst in Hit1.
+    + intros it (tr&Htr&Hit). simpl. eapply Hc4.
+      exists tr; split; last done. rewrite /extend_trees in Htr.
+      eapply lookup_insert_Some in Htr as [(Htr1&Htr2)|(Htr1&Htr2)]; last done.
+      subst tr. destruct Hit as (H1&H2). eapply init_tree_contains_only in H1. subst t.
+      rewrite /tag_valid in Hc3. lia.
   - (* tag interp *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2). split_and!.
     { simpl. intros tr tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
@@ -278,7 +285,7 @@ Proof.
     iPureIntro.
     iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
     intros t L HL. specialize (HM' _ _ HL) as (Hvalid & HM'). split; first done.
-    intros l Hl. specialize (HM' l Hl).
+    intros l b Hl. specialize (HM' l b Hl).
     eapply tag_protected_preserved_by_delete. 4: apply HM'.
     1: apply Hwf_t. 1: eassumption. 1: apply Hcs.
   - (* re-establish the tag interpretation *)
@@ -366,8 +373,8 @@ Proof.
       iPureIntro. intros c M' HM'_some.
       specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
       split; first by apply Hin. intros pid L HL_some. specialize (Hprot pid L HL_some) as [Hpid Hprot].
-      split; first by apply Hpid. intros l Hin_l.
-      specialize (Hprot l Hin_l).
+      split; first by apply Hpid. intros l b Hin_l.
+      specialize (Hprot l b Hin_l).
       eapply (tag_protected_preserved_by_access). 2: apply Htrst. 1: apply Hwf_t.
       1: by rewrite Hscs_eq. done.
     - (* tag invariant *)
@@ -485,7 +492,7 @@ Proof.
     iPureIntro. intros c M' HM'_some. simpl.
     specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
     split; first done. intros t L [Ht HL]%Hprot. split; first done.
-    intros l Hprotl%HL.
+    intros l b Hprotl%HL.
     eapply tag_protected_preserved_by_access; last done.
     1: by eapply Hwf_t. 1: done. apply Hin.
   - (* tag invariant *)
@@ -822,7 +829,7 @@ Proof.
       exists c'; split; first done. exists M. split; last done.
       rewrite lookup_delete_ne //. intros <-.
       rewrite Hlookup in HM. injection HM as <-.
-      destruct Hin as (x&Hx&_). by rewrite lookup_empty in Hx. }
+      destruct Hin as (x&b&Hx&_). by rewrite lookup_empty in Hx. }
   }
   iSplit.
   { iPureIntro. eapply call_set_interp_remove; simpl. 5: exact Hwf_t. 1-4,6: done.
@@ -886,7 +893,7 @@ Proof.
       exists c'; split; first done. exists M. split; last done.
       rewrite lookup_delete_ne //. intros <-.
       rewrite Hlookup in HM. injection HM as <-.
-      destruct Hin as (x&Hx&_). by rewrite lookup_empty in Hx. }
+      destruct Hin as (x&b&Hx&_). by rewrite lookup_empty in Hx. }
   }
   iSplit.
   { iPureIntro. eapply call_set_interp_remove; simpl. 5: exact Hwf_t. 1-4,6: done.

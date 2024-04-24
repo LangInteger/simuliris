@@ -1,5 +1,5 @@
 From simuliris.tree_borrows Require Export notation defs.
-From simuliris.tree_borrows Require Import steps_progress steps_retag.
+From simuliris.tree_borrows Require Import steps_progress.
 From iris.prelude Require Import options.
 
 Lemma head_free_inv (P : prog) l t sz σ σ' e' efs :
@@ -40,17 +40,18 @@ Lemma head_write_inv (P : prog) l bor sz v σ σ' e' efs :
   apply_within_trees (memory_access AccessWrite (scs σ) bor (l.2, sz)) l.1 σ.(strs) = Some trs'.
 Proof. intros Hhead. inv_base_step. eauto 9. Qed.
 
-(*
-Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pkind T rkind :
-  base_step P (Retag #[ScPtr l ot] #[ScCallId c] pkind T rkind) σ e' σ' efs →
-  ∃ nt α' nxtp',
-  retag σ.(sst) σ.(snp) σ.(scs) c l ot rkind pkind T = Some (nt, α', nxtp') ∧
-  e' = (#[ScPtr l nt])%E ∧
-  efs = [] ∧
-  σ' = mkState σ.(shp) α' σ.(scs) nxtp' σ.(snc) ∧
-  c ∈ σ.(scs).
-Proof. intros Hhead. inv_base_step. eauto 8. Qed.
-*)
+Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pk sz rk :
+  base_step P (Retag #[ScPtr l ot] #[ScCallId c] pk sz rk) σ e' σ' efs →
+  ∃ trs1 trs2,
+    e' = (#[ScPtr l σ.(snp)])%E ∧
+    efs = [] ∧
+    σ' = mkState σ.(shp) trs2 σ.(scs) (S σ.(snp)) σ.(snc) ∧
+    c ∈ σ.(scs) ∧
+    trees_contain ot σ.(strs) l.1 ∧ ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
+    apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk c) l.1 σ.(strs) = Some trs1 ∧
+    apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2.
+Proof. intros Hhead. inv_base_step. eauto 10. Qed.
+
 Lemma head_init_call_inv (P : prog) e' σ σ' efs :
   base_step P InitCall σ e' σ' efs →
   ∃ c,
