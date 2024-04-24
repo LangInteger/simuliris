@@ -24,8 +24,11 @@ Implicit Types f : fname.
 (** ** Retags *)
 
 Definition pointer_kind_to_tag_unprotected (pk : pointer_kind) : option tag_kind := match pk with
-  Box im | MutRef im => match im with TyFrz => Some (tk_unq tk_res) | _ => None end
+  Box im | MutRef im => match im with TyFrz => Some (tk_unq tk_res) | _ => None end (* can not have unprotected IM pointers around *)
 | ShrRef => Some tk_pub end.
+Definition pointer_kind_to_tag_protected (pk : pointer_kind) : tag_kind := match pk with
+  Box _ | MutRef _ => tk_unq tk_res (* for protected, IM is not an issue *)
+| ShrRef => tk_pub end.
 
 (** *** Retags without protectors *)
 
@@ -213,12 +216,17 @@ Proof.
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
   1,3: eapply Hwf_s. 2: rewrite Hsnc_eq Hsnp_eq. 1,2: eapply Hwf_t. 1: by eapply Hwf_s.
-  1-2: done. (* This is in progress
+  1-2: done.
+  eapply retag_step_wf_inner in Hwf_s as X. 1: destruct X as (Hwf_mid_s&Hntinmid).
+  2-5: done.
+  eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
+  5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_same_access as (trs2_t&Happly2_t).
-  1: done. 3: done. 1: eapply Hwf_s. 1: eapply Hwf_t. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
-  1: eapply Hwf_s. 1: eapply Hwf_t. 1: done.
-  Check (apply_within_trees_equal). *)
+  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
+  opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
+  clear Hstrs1_eq Hwf_mid_s Hwf_mid_t Hntinmid. (* TODO refactor the above into a separate lemma, maybe? *)
+
 (* Stuff from here on is old and crude
   have Hretag_some_t : is_Some (retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l_s ot Default pk T).
   { destruct Hp as (<- & <- & _ & <- & _). done. }
