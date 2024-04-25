@@ -562,9 +562,7 @@ Definition memory_access_nonchildren_only := memory_access_maybe_nonchildren_onl
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
   (* Implicit write on deallocation. *)
-  (* FIXME: This is a bug. We should be doing a *write* access, visible to everyone.
-            Should we make this a completely new event that combines the write and the protector check that ensues ? *)
-  let post_write := memory_access_nonchildren_only AccessRead cids t range tr in
+  let post_write := memory_access AccessWrite cids t range tr in
   (* Then strong protector UB. *)
   let find_strong_prot : item -> option item := fun it => (
     (* FIXME: switch to plain [decide] ? *)
@@ -959,9 +957,8 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | RetagIS trs' trs'' parentt (alloc : block) range pk cid rk
       (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
          NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
-               We want to do the read *after* the insertion so that it properly initializes the locations of the range
-         FIXME: require newperm to have a valid initial permission (not Active nor Disabled)
-         FIXME: newperm should NOT contain the protector, only information to dynamically compute it: replace newperm with pointer_kind. Don't retag shared references. *)
+               We want to do the read *after* the insertion so that it properly initializes the locations of the range.
+         TODO: make the retag_kind Shared into two kinds, one with interior mutability, and make it so that the shared IM retag is actually a no-op. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
     (* TODO get rid of fresh_child assumption here *)

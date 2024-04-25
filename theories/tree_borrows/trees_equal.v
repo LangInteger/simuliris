@@ -1125,7 +1125,7 @@ Section utils.
   Proof.
     intros Heq Hcontains (pw1&Hacc1&<-%join_map_id_is_Some_identical)%bind_Some
                          (pw2&Hacc2&<-%join_map_id_is_Some_identical)%bind_Some.
-    by eapply (@tree_equal_preserved_by_memory_access_nonchildren_only tr1 tr2).
+    by eapply (@tree_equal_preserved_by_memory_access tr1 tr2).
   Qed.
 
   Lemma exists_node_to_tree_lookup tr itm
@@ -1173,8 +1173,8 @@ Section utils.
   Proof.
     intros Heq Hunq (tr1'&(pw1&Hpw1&Htrr%mk_is_Some)%bind_Some).
     pose proof Hpw1 as HH.
-    eapply mk_is_Some, tree_equal_allows_same_access_nonchildren_only in HH as (pw2&Hpw2). 2-4: done.
-    opose proof (tree_equal_preserved_by_memory_access_nonchildren_only _ _ _ _ Hpw1 Hpw2) as Heqpw.
+    eapply mk_is_Some, tree_equal_allows_same_access in HH as (pw2&Hpw2). 2-4: done.
+    opose proof (tree_equal_preserved_by_memory_access _ _ _ _ Hpw1 Hpw2) as Heqpw.
     1-3: done. 1: by eapply unique_exists.
     rewrite /memory_deallocate Hpw2 /option_bind //.
     eapply join_success_condition, every_node_map, every_node_eqv_universal.

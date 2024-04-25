@@ -552,13 +552,13 @@ Lemma memory_deallocate_compat_nexts tr tr' cids tg range nxtp nxtc :
   tree_items_compat_nexts tr' nxtp nxtc.
 Proof.
   intros WF Dealloc.
-  rewrite /memory_deallocate /memory_access_nonchildren_only /memory_access_maybe_nonchildren_only /= in Dealloc.
+  rewrite /memory_deallocate /memory_access /memory_access_maybe_nonchildren_only /= in Dealloc.
   remember (tree_apply_access _ _ _ _ _) as tr''.
   destruct tr'' as [tr''|]; simpl in Dealloc; [|discriminate].
   assert (tree_items_compat_nexts tr'' nxtp nxtc) as WF''. {
     unshelve eapply (tree_apply_access_compat_nexts _ _ _ _ _ _ _ _ _ _ WF ltac:(symmetry; eassumption)).
-    1: intros ??; eapply (apply_access_perm_maybe_wf true).
-    1: intros ??; eapply (apply_access_perm_maybe_reach true).
+    1: intros ??; eapply (apply_access_perm_maybe_wf false).
+    1: intros ??; eapply (apply_access_perm_maybe_reach false).
   }
   erewrite <- (join_map_id_is_Some_identical _ tr'' tr').
   - assumption.
