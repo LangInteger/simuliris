@@ -561,6 +561,8 @@ Definition memory_access_nonchildren_only := memory_access_maybe_nonchildren_onl
 Definition memory_deallocate cids t range
   : app (tree item) := fun tr =>
   (* Implicit write on deallocation. *)
+  (* FIXME: This is a bug. We should be doing a *write* access, visible to everyone.
+            Should we make this a completely new event that combines the write and the protector check that ensues ? *)
   let post_write := memory_access_nonchildren_only AccessRead cids t range tr in
   (* Then strong protector UB. *)
   let find_strong_prot : item -> option item := fun it => (
