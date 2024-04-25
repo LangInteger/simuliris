@@ -508,8 +508,9 @@ Definition init_perms perm off sz
   : permissions := mem_apply_range'_defined (fun _ => mkPerm PermInit perm) (off, sz) ∅.
 
 (* Initial tree is a single root whose default permission is [Active]. *)
+Definition initial_item t off sz := (mkItem t None Disabled (init_perms Active off sz)).
 Definition init_tree t off sz
-  : tree item := branch (mkItem t None Disabled (init_perms Active off sz)) empty empty.
+  : tree item := branch (initial_item t off sz) empty empty.
 
 (* Create a new allocation. *)
 Definition extend_trees t blk off sz

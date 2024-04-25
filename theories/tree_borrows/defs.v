@@ -69,6 +69,21 @@ Arguments same_blocks / _ _.
 (* FIXME: map fst (dom hp) === dom trs *)
 (* FIXME: forall blk, (exists l, is_Some (hp !! (blk, l))) <-> is_Some (trs !! blk). *)
 
+Definition root_invariant blk it (shp : mem) :=
+  it.(iprot) = None ∧
+  ∀ off, match item_lookup it off with
+    mkPerm PermInit Active => is_Some (shp !! (blk, off))
+  | mkPerm PermLazy Disabled => shp !! (blk, off) = None
+  | _ => False end.
+
+
+Definition tree_root_compatible (tr : tree item) blk shp := 
+  match tr with empty => False | branch it sib _ => root_invariant blk it shp ∧ sib = empty end.
+
+Definition tree_roots_compatible (trs : trees) shp := 
+  ∀ blk tr, trs !! blk = Some tr → tree_root_compatible tr blk shp.
+
+
 Record state_wf (s: state) := {
   (*state_wf_dom : dom s.(shp) ≡ dom s.(strs); Do we care ? After all TB is very permissive about the range, so out-of-bounds UB is *always* triggered at the level of the heap, not the trees *)
   state_wf_dom : same_blocks s.(shp) s.(strs);
@@ -76,7 +91,8 @@ Record state_wf (s: state) := {
   state_wf_tree_unq : wf_trees s.(strs);
   state_wf_tree_more_init : each_tree_parents_more_init s.(strs);
   state_wf_tree_compat : trees_compat_nexts s.(strs) s.(snp) s.(snc);
-  state_wf_non_empty : wf_non_empty s.(strs);
+  (* state_wf_non_empty : wf_non_empty s.(strs); *)
+  state_wf_roots_active : tree_roots_compatible s.(strs) s.(shp);
   (*state_wf_cid_no_dup : NoDup s.(scs) ;*) (* FIXME: call ids are unique, include this *)
   state_wf_cid_agree: wf_cid_incl s.(scs) s.(snc);
   (* state_wf_cid_non_empty : s.(scs) ≠ []; *)

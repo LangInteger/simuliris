@@ -675,6 +675,45 @@ Proof.
   intros _ l. done.
 Qed.
 
+Lemma init_perms_lookup perm off sz i :
+  match ((init_perms perm off sz) !! i) with
+    Some p => p = mkPerm PermInit perm ∧ off ≤ i ∧ i < off + sz
+  | None => ¬ (off ≤ i ∧ i < off + sz) end.
+Proof.
+  opose proof (mem_apply_range'_defined_spec (λ _, mkPerm PermInit perm) (off, sz) i ∅ _ eq_refl) as HH.
+  rewrite /init_perms.
+  destruct (decide (range'_contains (off, sz) i)) as [(Hin1&Hin2)|Hnin].
+  - destruct HH as (v&Hv&HH). rewrite Hv. simpl in *. done.
+  - rewrite HH lookup_empty /=. done.
+Qed.
+
+Lemma initial_item_init_mem h tg sz :
+  let blk := fresh_block h in
+  root_invariant blk (initial_item tg 0 sz) (init_mem (blk, 0) sz h).
+Proof.
+  split; first done. intros off.
+  rewrite /item_lookup /=.
+  opose proof (init_perms_lookup Active 0 sz off) as H.
+  edestruct (init_mem_lookup (fresh_block h, 0) sz h) as (H1&H2).
+  destruct (init_perms Active 0 sz !! off) as [p'|].
+  * destruct H as (->&Hin). simpl.
+    assert (∃ (offi:nat), Z.of_nat offi = off) as (offi&<-) by (exists (Z.to_nat off); lia).
+    rewrite (H1 offi); first done. lia.
+  * simpl. rewrite H2.
+    -- eapply not_elem_of_dom, is_fresh_block.
+    -- intros i Hi. rewrite /shift_loc /=. intros [= Heq]. lia.
+Qed.
+
+Lemma init_mem_only_only_one_block h l sz l2 :
+  l.1 ≠ l2.1 →
+  (init_mem l sz h) !! l2 = h !! l2.
+Proof.
+  intros H2.
+  opose proof (init_mem_lookup _ _ _) as (_&H3).
+  erewrite H3; first done.
+  intros i Hi. destruct l, l2. rewrite /shift_loc /=. intros [= H4 H5]. by simpl in *.
+Qed.
+
 Lemma alloc_step_wf (σ σ': state) e e' l bor ptr efs:
   mem_expr_step σ.(shp) e (AllocEvt l bor ptr) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -701,9 +740,15 @@ Proof.
     * eapply trees_compat_nexts_mono; last eapply WF.
       all: simpl; lia.
     * eapply init_tree_compat_nexts; lia. 
-  - rewrite /extend_trees. intros blk tr' [(<-&<-)|(Hne1&Hin)]%lookup_insert_Some.
-    2: by eapply (state_wf_non_empty _ WF).
-    by eapply init_tree_nonempty.
+  - intros blk tr. rewrite /extend_trees.
+    intros [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
+    + simpl. split; last done. eapply initial_item_init_mem.
+    + specialize (state_wf_roots_active _ WF blk tr Hin) as Hact. simpl.
+      destruct tr as [|it ??]; first done. destruct Hact as (Hact&->).
+      rewrite /root_invariant /= in Hact|-*. rewrite /root_invariant.
+      destruct Hact as (Hprot&Hact); split_and!; try done.
+      intros off. specialize (Hact off).
+      rewrite !init_mem_only_only_one_block //.
   - apply WF.
 Qed.
 
@@ -849,6 +894,16 @@ Proof.
   set_solver.
 Qed.
 
+Lemma free_mem_only_only_one_block h l sz l2 :
+  l.1 ≠ l2.1 →
+  (free_mem l sz h) !! l2 = h !! l2.
+Proof.
+  intros H2.
+  opose proof (free_mem_lookup _ _ _) as (_&H3).
+  erewrite H3; first done.
+  intros i Hi. destruct l, l2. rewrite /shift_loc /=. intros [= H4 H5]. by simpl in *.
+Qed.
+
 Lemma apply_within_trees_access_compat_parents_more_init b blk trs trs' acc cids tg range :
   wf_trees trs →
   trees_contain tg trs blk →
@@ -879,6 +934,71 @@ Proof.
   1: by eapply Hwf.
   2: by eapply H1. 2: done.
   by rewrite /trees_contain /trees_at_block Htr1 in Hcont.
+Qed.
+
+Lemma root_node_IsParentChild it tr2 tg :
+  let tr := branch it empty tr2 in
+  wf_tree tr →
+  tree_contains tg tr →
+  ParentChildIn it.(itag) tg tr.
+Proof.
+  intros tr WF Hin.
+  destruct Hin as [Hl|[[]|Hr]].
+  1: by left.
+  eapply exists_node_is_root_child.
+  1: apply WF. done.
+Qed.
+
+Lemma memory_access_root_unaffected b k cids tg_acc off sz tr tr' blk hp :
+  wf_tree tr →
+  memory_access_maybe_nonchildren_only b k cids tg_acc (off, sz) tr = Some tr' →
+  tree_contains tg_acc tr →
+  tree_root_compatible tr blk hp →
+  tree_root_compatible tr' blk hp.
+Proof.
+  intros Hwf Haccess Hcont.
+  rewrite /tree_root_compatible.
+  destruct tr as [|it tr1 tr2]; first done.
+  intros (Hroot&->).
+  rewrite /memory_access_maybe_nonchildren_only /tree_apply_access /= in Haccess.
+  eapply bind_Some in Haccess as (it'&Hit'&(data&Hdata&[= <-])%bind_Some).
+  split; last done.
+  clear data Hdata.
+  eapply bind_Some in Hit' as (p'&Hp'&[= <-]).
+  destruct Hroot as (Hprot&Hroot); split; first done.
+  rewrite Hprot /= in Hp'.
+  rewrite /rel_dec decide_True in Hp'.
+  2: eapply root_node_IsParentChild; done.
+  intros offi. specialize (Hroot offi).
+  eapply (mem_apply_range'_spec _ _ offi) in Hp'.
+  destruct decide; last first.
+  { rewrite /item_lookup /= in Hroot|-*.
+    rewrite Hp'. apply Hroot. }
+  destruct Hp' as (vn&H1&H2).
+  rewrite /item_lookup H1. simpl.
+  odestruct maybe_non_children_only_effect_or_nop as [Heq|Heq];
+    erewrite Heq in H2; clear Heq.
+  2: { injection H2 as <-. apply Hroot. }
+  rewrite /apply_access_perm /= most_init_comm /= in H2.
+  rewrite /apply_access_perm_inner /= in H2.
+  rewrite /item_lookup in Hroot.
+  destruct (default {| initialized := PermLazy; perm := initp it |} (iperm it !! offi)) as [ini prm] eqn:Heqd.
+  rewrite Heqd in H2. simpl in Hroot, H2.
+  destruct ini, prm, k; simpl in *; try done; simplify_eq. all: done.
+Qed.
+
+Lemma memory_access_roots_unaffected b k cids tg_acc off sz trs trs' blk hp :
+  wf_trees trs →
+  apply_within_trees (memory_access_maybe_nonchildren_only b k cids tg_acc (off, sz)) blk trs = Some trs' →
+  trees_contain tg_acc trs blk →
+  tree_roots_compatible trs hp →
+  tree_roots_compatible trs' hp.
+Proof.
+  intros (Hwf&_) (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some Hcont Hcompat.
+  rewrite /trees_contain /trees_at_block  Htr /= in Hcont.
+  intros blkX trX [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
+  - eapply memory_access_root_unaffected; try done. 1: by eapply Hwf. 1: by eapply Hcompat.
+  - by eapply Hcompat.
 Qed.
 
 Lemma free_mem_remove_loc h blk n (sz:nat) m :
@@ -974,10 +1094,15 @@ Proof.
     eapply apply_within_trees_compat; first exact ACC.
     3: eapply WF. 1: done. all: simpl.
     intros ??. eapply memory_deallocate_compat_nexts.
-  - intros blk tr' (Hin&Hne)%lookup_delete_Some.
-    eapply apply_within_trees_lookup in ACC as (_&ACC).
-    erewrite <- ACC in Hne; last done.
-    eapply (state_wf_non_empty _ WF), Hne.
+  - intros blk tr' (Hne&Hin)%lookup_delete_Some.
+    eapply bind_Some in ACC as (tr1&_&(tr2&_&[= <-])%bind_Some).
+    rewrite lookup_insert_ne // in Hin.
+    specialize (state_wf_roots_active _ WF blk tr' Hin) as Hact. simpl in Hact.
+    destruct tr' as [|it ??]; first done.
+    rewrite /root_invariant /= in Hact|-*. destruct Hact as ((Hprot&Hact)&->); split; last done.
+    split; first done.
+    intros off. specialize (Hact off).
+    rewrite !free_mem_only_only_one_block //.
   - apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -1005,8 +1130,7 @@ Proof.
     * done.
     * intros ??. eapply memory_access_compat_nexts.
     * apply WF.
-  - eapply apply_within_trees_compat_nonempty. 1: apply WF. 2: exact ACC.
-    intros tr1 tr2. eapply preserve_tag_count_nonempty, memory_access_tag_count.
+  - eapply memory_access_roots_unaffected. 2: done. 2: done. 1-2: eapply WF.
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -1129,6 +1253,43 @@ Proof.
     split; [done|]. by apply EQ2.
 Qed.
 
+Lemma root_invariant_dom blk itm h1 h2 :
+  dom h1 = dom h2 →
+  root_invariant blk itm h1 ↔
+  root_invariant blk itm h2.
+Proof.
+  unfold mem.
+  intros H. rewrite /root_invariant.
+  split; intros [H1 H2]; split; try done.
+  all: intros z; specialize (H2 z) as H0; repeat case_match; try done.
+  1,3: eapply elem_of_dom; eapply elem_of_dom in H0.
+  3,4: eapply not_elem_of_dom; eapply not_elem_of_dom in H0. all: simpl.
+  1,3: rewrite <- H. 3,4: rewrite H.
+  all: done.
+Qed.
+
+Lemma tree_root_compatible_dom tr blk h1 h2 :
+  dom h1 = dom h2 →
+  tree_root_compatible tr blk h1 ↔
+  tree_root_compatible tr blk h2.
+Proof.
+  destruct tr; first done.
+  eintros H%root_invariant_dom.
+  rewrite /tree_root_compatible.
+  setoid_rewrite H. done.
+Qed.
+
+Lemma tree_roots_compatible_dom trs h1 h2 :
+  dom h1 = dom h2 →
+  tree_roots_compatible trs h1 ↔
+  tree_roots_compatible trs h2.
+Proof.
+  intros H.
+  split; intros Hc blk tr Htr; specialize (Hc blk tr Htr).
+  all: setoid_rewrite tree_root_compatible_dom; first done; done.
+Qed.
+
+
 Lemma write_step_wf σ σ' e e' l bor ptr vl efs :
   mem_expr_step σ.(shp) e (WriteEvt l bor ptr vl) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -1161,8 +1322,10 @@ Proof.
     * done.
     * intros ??. eapply memory_access_compat_nexts.
     * apply WF.
-  - eapply apply_within_trees_compat_nonempty. 1: apply WF. 2: exact ACC.
-    intros tr1 tr2. eapply preserve_tag_count_nonempty, memory_access_tag_count.
+  - eapply memory_access_roots_unaffected. 2: done. 2: done. 1: eapply WF.
+    eapply tree_roots_compatible_dom; last eapply WF.
+    simpl. eapply write_mem_dom_sane.
+    done.
   - (* cids *) apply (WF.(state_wf_cid_agree _)).
 Qed.
 
@@ -1223,6 +1386,42 @@ Proof.
   intros S. revert S tr'. rewrite /set_fold /=. clear cid.
   intros H tr'.
   eapply tree_read_many_helper_1.
+Qed.
+
+Lemma tree_read_many_root_compat_helper_2 C tg (L : list Z) blk hp tr tr' :
+  tree_contains tg tr → wf_tree tr →
+  tree_root_compatible tr blk hp →
+  foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr) L = Some tr' →
+  tree_root_compatible tr' blk hp.
+Proof.
+  induction L as [|z L IH] in tr,tr'|-*; simpl; intros Hcont Hwf Hcompat.
+  1: intros [= ->]; done.
+  intros (trm&H1&H2)%bind_Some.
+  ospecialize (IH _ _ _ _ Hcompat H1). 1-2: done.
+  eapply memory_access_root_unaffected. 2: done. 3: done.
+  1: eapply preserve_tag_count_wf.
+  4: eapply preserve_tag_count_contains.
+  1,4: eapply tree_read_many_helper_2.
+  2,4: exact H1. all: done.
+Qed.
+
+Lemma tree_read_many_root_compat_helper_1 C (E : list (tag * gset Z)) blk hp tr tr' :
+  (∀ tg x, (tg, x) ∈ E → tree_contains tg tr) → wf_tree tr →
+  tree_root_compatible tr blk hp →
+  foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E = Some tr' →
+  tree_root_compatible tr' blk hp.
+Proof.
+  induction E as [|(tg'&L) E IH] in tr,tr'|-*; simpl; intros Hcont Hwf Hcompat.
+  1: intros [= ->]; done.
+  intros (trm&H1&H2)%bind_Some.
+  ospecialize (IH _ _ _ _ Hcompat H1). 2: done.
+  { intros tg x H; eapply Hcont; by right. }
+  eapply tree_read_many_root_compat_helper_2. 4: done. 3: done.
+  2: eapply preserve_tag_count_wf.
+  1: eapply preserve_tag_count_contains.
+  1,4: eapply tree_read_many_helper_1.
+  2,4: exact H1. 2: done.
+  eapply Hcont. by left.
 Qed.
 
 Lemma tree_read_many_more_init_helper_2 C tg (L : list Z) tr tr' :
@@ -1335,6 +1534,23 @@ Proof.
   rewrite /tree_read_all_protected_initialized /=.
   rewrite /set_fold /=. eapply tree_read_many_more_init_helper_1.
   1: done. 2: done.
+  intros tg S H%elem_of_elements%tree_all_protected_initialized_exists_node.
+  eapply exists_node_increasing; first exact H.
+  eapply every_node_eqv_universal.
+  intros n _ (?&_); done.
+Qed.
+
+
+Lemma tree_read_all_protected_initialized_root_compat C cid tr tr' blk hp :
+  wf_tree tr →
+  tree_root_compatible tr blk hp →
+  tree_read_all_protected_initialized C cid tr = Some tr' →
+  tree_root_compatible tr' blk hp.
+Proof.
+  intros Hwf Hmi.
+  rewrite /tree_read_all_protected_initialized /=.
+  rewrite /set_fold /=. eapply tree_read_many_root_compat_helper_1.
+  3: done. 2: done.
   intros tg S H%elem_of_elements%tree_all_protected_initialized_exists_node.
   eapply exists_node_increasing; first exact H.
   eapply every_node_eqv_universal.
@@ -1486,9 +1702,8 @@ Proof.
     2: done. eapply tree_read_all_protected_initialized_compat_nexts; last done.
     eapply WF. done.
   - eintros k tr' (tr&Htr&Hread)%trees_read_all_protected_initialized_backwards; last done.
-    eapply preserve_tag_count_nonempty.
-    1: by eapply tree_read_all_protected_initialized_tag_count.
-    1: eapply WF, Htr.
+    eapply tree_read_all_protected_initialized_root_compat.
+    1,2: eapply WF, Htr.
     1: done.
   - intros c' IN. apply WF.
     apply elem_of_difference in IN. apply IN.
@@ -1665,6 +1880,28 @@ Proof.
   + intros _. eapply map_Forall_empty.
 Qed.
 
+Lemma create_child_root_compat (ni:item) fn D tr tr' blk hp :
+  tree_root_compatible tr blk hp →
+  @insert_child_at _ tr ni fn D = tr' →
+  tree_root_compatible tr' blk hp.
+Proof.
+  rewrite /tree_root_compatible.
+  destruct tr as [|it tr1 tr2]; first done.
+  intros (Hroot&->) Hc.
+  simpl in Hc. destruct (decide (fn it)); subst tr'; simpl; done.
+Qed.
+
+Lemma create_child_roots_compat C ot nt pk rk cid trs trs' blk hp :
+  tree_roots_compatible trs hp →
+  apply_within_trees (create_child C ot nt pk rk cid) blk trs = Some trs' →
+  tree_roots_compatible trs' hp.
+Proof.
+  intros Hroot (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some.
+  intros blkX trX [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
+  - eapply create_child_root_compat. 1: by eapply Hroot.
+    by injection Htr'.
+  - by eapply Hroot.
+Qed.
 
 Lemma retag_step_wf_inner σ blk ot pk rk cid trsmid :
   state_wf σ →
@@ -1694,9 +1931,7 @@ Proof.
   - done.
   - eapply apply_within_trees_insert_child_parents_more_init. 1: done. 1-2: apply WF. 1-3: done.
   - done.
-  - eapply apply_within_trees_compat_nonempty; last done.
-    1: apply WF.
-    + intros ????; by eapply create_child_preserve_nonempty.
+  - eapply create_child_roots_compat. 2: done. apply WF.
   - apply WF.
   - eapply bind_Some in RETAG_EFFECT as (x1&Hx1&(x2&Hx2&[= <-])%bind_Some).
     rewrite /trees_contain /trees_at_block lookup_insert. eapply insertion_contains; last done.

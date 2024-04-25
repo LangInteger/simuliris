@@ -211,7 +211,7 @@ Proof.
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
   specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & trs1 & trs2 & [= <- <-] & [= <-] & Hcin & Hotin & Hntnin & Happly1_s & Happly2_s).
-  iPoseProof "Hscrel" as "(-> & _ & Hotpub)".
+  iPoseProof "Hscrel" as "(-> & _ & Hotpub)". iClear "Hscrel".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
@@ -227,37 +227,25 @@ Proof.
   1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
   clear Hstrs1_eq Hwf_mid_s Hwf_mid_t Hntinmid. (* TODO refactor the above into a separate lemma, maybe? *)
 
-(* Stuff from here on is old and crude
-  have Hretag_some_t : is_Some (retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l_s ot Default pk T).
-  { destruct Hp as (<- & <- & _ & <- & _). done. }
-  iModIntro. iSplitR.
-  { iPureIntro.
-    destruct Hretag_some_t as ([[] ] & Hretag_some_t).
-    do 3 eexists. eapply retag_base_step'; last done.
-    destruct Hp as (_ & _ & _ & <- & _). done.
-  }
+  iModIntro. iSplit.
+  { iPureIntro. do 3 eexists. econstructor; econstructor.
+    1,3-5: repeat rewrite -?Hscs_eq -?Hsnp_eq //.
+    all: setoid_rewrite <- trees_equal_same_tags; last done; done. }
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_retag_inv _ _ _ _ _ _ _ _ _ _ _ Hhead_t) as (nt & α' & nxtp' & Hretag_t & -> & -> & -> & Hc).
-  have Hretag_s : retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l_s ot Default pk T = Some (nt, α', nxtp').
-  { destruct Hp as (-> & -> & _ & -> & _). done. }
-  assert (Hhead_s : base_step P_s (Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default) σ_s #[ScPtr l_s nt]%E (mkState (shp σ_s) α' (scs σ_s) nxtp' (snc σ_s)) []).
-  { eapply retag_base_step'; done. }
-  specialize (retag_change_ref_NZST _ _ _ _ _ _ _ _ _ _ _ _ Hsize Hretag_s) as [-> ->].
+  destruct (head_retag_inv _ _ _ _ _ _ _ _ _ _ _ Hhead_t) as (trsX1&trsX2&->&->&Hσ_t'&Hcin_t&Hotin_t&Hntnin_t&HX1&HX2).
+  assert (trsX1 = trs1_t) as -> by congruence. clear HX1.
+  assert (trsX2 = trs2_t) as -> by congruence. clear HX2.
+  iModIntro. iExists _, _, _. iSplit.
+  { iPureIntro. simpl. econstructor; econstructor. all: done. }
 
-  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %Hwf_s]".
-  iMod (bor_interp_retag_default _ _ _ _ _ _ _ _ Hretag_s ltac:(done) with "Hscrel Hbor") as
-    (v_t v_s) "(%Hlen_t & %Hlen_s & Hval & Htag & Ht & Hs & Hpub & Hbor)"; first done.
-  { destruct Hp as (_ & <- & _). eapply base_step_wf; eauto. }
-  { eapply base_step_wf; eauto. }
-  iModIntro.
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  (*
+  iDestruct 
 
-  iExists #[ScPtr l_s (Tagged σ_s.(snp))]%E, [], (mkState σ_s.(shp) α' σ_s.(scs) (S σ_s.(snp)) σ_s.(snc)).
-  iSplitR; first done.
-  destruct Hp as (_ & -> & _).
-  iFrame "Hbor HP_t HP_s".
-  iSplitL; last done.
-  iApply ("Hsim" with "[] [] Hval Htag Ht Hs Hpub"); [done | done | ..].
-*)
+
+  rewrite -Hsnp_eq.
+  iFrame "HP_t HP_s". iSplitR "Hsim"; last first.
+  { iSplit; last done. iApply "Hsim". *)
 Admitted.
 (*
 
