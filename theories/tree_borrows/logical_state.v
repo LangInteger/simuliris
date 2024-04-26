@@ -126,7 +126,7 @@ Section state_bijection.
       ∃ tk, M_tag !! t = Some (tk, tt) ∧ is_Some (heaplet_lookup M_t (t, l)) ∧
         (* local *)
         (tk = tk_local ∨
-        (* unique active with strong protector *)
+        (* unique active with any protector *)
         (∃ c, tk = tk_unq tk_act ∧ call_set_in' Mcall_t c t l ProtStrong)).
     (* This definition enforces quite strict requirements on the state:
       - the domains of the heaps shp are the same: dom σ_s.(shp) = dom σ_t.(shp)

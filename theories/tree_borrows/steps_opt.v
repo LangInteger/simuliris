@@ -5,7 +5,7 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
-From simuliris.tree_borrows Require Import steps_progress steps_retag steps_inv.
+From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From simuliris.tree_borrows Require Import wishlist trees_equal.
 From iris.prelude Require Import options.
@@ -309,7 +309,7 @@ Proof.
           eapply list_to_heaplet_lookup_None in Hhl. lia. }
         rewrite /loc_controlled.
         eapply loc_controlled_write_invalidates_others.
-        1: done. 1: subst σ_s'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
+        1: done. 1: subst σ_s'; by destruct l. 1: done. 1-2: apply Hin.
         1: done. 2: done. done.
       - intros lw sc. rewrite (heaplet_lookup_raw_insert_ne (t,l) (t',lw)) //. 2: simpl; congruence.
         intros HM_s. specialize (Hlc1 _ _ HM_s).
@@ -321,7 +321,7 @@ Proof.
           eapply list_to_heaplet_lookup_None in Hhl. lia. }
         intros Hpre. exfalso. revert Hpre.
         eapply loc_controlled_write_invalidates_others. 
-        1: by rewrite Hscs_eq in Htree_t. 1: subst σ_t'; by destruct l. 1: done. 1: done. 1-2: apply Hin.
+        1: by rewrite Hscs_eq in Htree_t. 1: subst σ_t'; by destruct l. 1: done. 1-2: apply Hin.
         1: done. 2: done. done.
     }
   - (* source state wf *)

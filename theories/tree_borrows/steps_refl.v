@@ -5,7 +5,7 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
-From simuliris.tree_borrows Require Import trees_equal wishlist steps_progress steps_retag steps_inv.
+From simuliris.tree_borrows Require Import trees_equal wishlist steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From iris.prelude Require Import options.
 
@@ -507,7 +507,7 @@ Proof.
         eapply loc_controlled_write_invalidates_pub'; last done.
         all: done.
       * rewrite /loc_controlled. eapply loc_controlled_write_invalidates_others; last done.
-        all: try done. by destruct l_s.
+        all: done.
       * eapply loc_controlled_access_outside; first done. all: try done.
         rewrite /= write_mem_lookup_outside // Hlen_t' Hlen //.
     + intros l sc_s Hcontrol%Hcontrolled_s.
@@ -517,7 +517,7 @@ Proof.
         eapply loc_controlled_write_invalidates_pub'; last done.
         all: try done. by rewrite Hlen.
       * rewrite /loc_controlled. eapply loc_controlled_write_invalidates_others; last done.
-        all: try done. 1: by destruct l_s. by rewrite Hlen.
+        all: try done. by rewrite Hlen.
       * eapply loc_controlled_access_outside; first done. all: try done.
         2: by rewrite Hlen.
         rewrite /= write_mem_lookup_outside // Hlen //.

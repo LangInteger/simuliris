@@ -639,9 +639,8 @@ Proof.
     repeat (simpl; try simpl in Hperm1; try simpl in Holdothers; simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
 Qed.
 
-Lemma loc_controlled_write_invalidates_others l sc σ σ' blk off1 sz tg_acc tg_lu vls tk Mcall A:
+Lemma loc_controlled_write_invalidates_others l sc σ σ' blk off1 sz tg_acc tg_lu tk Mcall A:
   apply_within_trees (memory_access AccessWrite σ.(scs) tg_acc (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
-  (write_mem (blk, off1) vls (shp σ)) = shp σ' →
   scs σ = scs σ' →
   state_wf σ →
   l.1 = blk →
@@ -652,7 +651,7 @@ Lemma loc_controlled_write_invalidates_others l sc σ σ' blk off1 sz tg_acc tg_
   bor_state_pre l tg_lu tk σ' →
   A. (* false *)
 Proof.
-  intros Happly Heq_shp Heq_scs Hwf Hblk Hsz Htgne Htgin Hcontrol Hpre.
+  intros Happly Heq_scs Hwf Hblk Hsz Htgne Htgin Hcontrol Hpre.
   subst blk. exfalso.
   pose proof Happly as (trold&Htrold&(trnew&Haccess&[= Hstrs])%bind_Some)%bind_Some.
   assert (strs σ' !! l.1 = Some trnew) as Htrnew.

@@ -918,7 +918,7 @@ Section lemmas.
     apply_within_trees (memory_deallocate σ.(scs) acc_tg (l.2, sz)) l.1 σ.(strs)  = Some α' →
     state_wf σ →
     trees_contain acc_tg σ.(strs) l.1 →
-    (acc_tg = lu_tg → l.1 = l'.1 → tk = tk_pub) →
+    (acc_tg = lu_tg → l.1 = l'.1 → tk ≠ tk_local) →
     loc_controlled Mcall l' lu_tg tk sc σ →
     loc_controlled Mcall l' lu_tg tk sc (mkState (free_mem l sz σ.(shp)) (delete l.1 α') σ.(scs) σ.(snp) σ.(snc)).
   Proof.
