@@ -239,6 +239,7 @@ Proof.
   { iPureIntro. simpl. econstructor; econstructor. all: done. }
 
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iFrame "HP_t HP_s".
   (*
   iDestruct 
 

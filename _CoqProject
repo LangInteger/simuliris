@@ -165,6 +165,10 @@ theories/tree_borrows/steps_opt.v # in progress
 theories/tree_borrows/primitive_laws.v # needs steps_opt, for now commented out
 theories/tree_borrows/proofmode.v
 theories/tree_borrows/wishlist.v
+theories/tree_borrows/tree_access_laws.v
+theories/tree_borrows/tag_protected_laws.v
+theories/tree_borrows/loc_controlled_laws.v
+theories/tree_borrows/trees_equal_endcall_law.v
 theories/tree_borrows/trees_equal.v
 
 theories/tree_borrows/wf.v 
