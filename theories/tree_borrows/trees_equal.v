@@ -1514,7 +1514,70 @@ Section utils.
       + (* Outside of access range, this was a noop. *)
         rewrite /item_lookup /= PerLoc.
         constructor.
-    Qed.
+  Qed.
+
+  (* A portion of the preconditions come from well-formedness *)
+  Lemma tree_equal_wf_asymetric_read
+    {tr tr' acc_tg range it}
+    (WF : wf_tree tr)
+    (MoreInit : parents_more_init tr)
+    :
+    tree_lookup tr acc_tg it ->
+    protector_is_active it.(iprot) C ->
+    (forall tg' it' loc,
+       tree_lookup tr tg' it' ->
+       range'_contains range loc ->
+       match rel_dec tr acc_tg tg', (item_lookup it' loc).(initialized), (item_lookup it' loc).(perm)  with
+       | Foreign (Parent _), _, (Reserved _ _ | Active) => False (* No Reserved/Active children *)
+       | Foreign Cousin, _, Active => False (* No Active cousins *)
+       | Child This, PermLazy, _ => False (* Tag itself is initialized *)
+       | Child This, _, Disabled => False (* The tag itself is not Disabled *)
+       | _, _, _ => True
+       end
+    ) ->
+    (* Under the above conditions if we do a spurious read and it succeeds
+       we get a [tree_equal] on the outcome. *)
+    memory_access AccessRead C acc_tg range tr = Some tr' ->
+    tree_equal tr tr'.
+  Proof.
+    intros Lookup Protected Relations Access.
+    eapply tree_equal_asymetric_read.
+    + intros tg Ex. apply WF. assumption.
+    + eassumption.
+    + eassumption.
+    + intros tg' it' loc Lookup' Range'.
+      assert (initialized (item_lookup it loc) = PermInit) as acc_tg_is_init. {
+        specialize (Relations acc_tg it loc Lookup Range').
+        rewrite rel_dec_refl in Relations.
+        destruct (initialized _); first reflexivity.
+        tauto.
+      }
+      specialize (Relations tg' it' loc Lookup' Range').
+      destruct (rel_dec _ _ _) as [[]|[]] eqn:Rel.
+      - assumption.
+      - assumption.
+      - destruct (initialized (item_lookup it' loc)) eqn:Init; first done.
+        (* Impossible: parents of the accessed tag must be more initialized. *)
+        assert (ParentChildIn tg' acc_tg tr) as Parent. {
+          rewrite /rel_dec in Rel.
+          destruct (decide (ParentChildIn tg' acc_tg tr)); first assumption.
+          destruct (decide _); discriminate.
+        }
+        pose proof (proj1 (every_child_ParentChildIn tg' _ tr WF (WF _ (proj1 Lookup')))
+          (MoreInit tg')) as EveryInit.
+        specialize (EveryInit it' (proj2 Lookup') acc_tg (WF _ (proj1 Lookup)) Parent).
+        rewrite every_node_eqv_universal in EveryInit.
+        specialize (EveryInit it).
+        assert (itag it = acc_tg). { eapply tree_determined_specifies_tag; apply Lookup. }
+        subst acc_tg.
+        specialize (EveryInit (tree_lookup_to_exists_node _ _ Lookup) ltac:(reflexivity)).
+        (* Now we finally have our contradiction: it' is lazy, it is init, and it' is more init than it *)
+        specialize (EveryInit loc acc_tg_is_init).
+        congruence.
+      - assumption.
+    + eassumption.
+  Qed.
+
 
   Lemma trees_equal_read_all_protected_initialized trs1 trs1' trs2 cid
     (Hwf1 : wf_trees trs1)
