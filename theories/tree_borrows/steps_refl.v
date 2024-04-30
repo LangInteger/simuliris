@@ -184,14 +184,16 @@ Proof.
     { simpl. intros tr tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
       - (* new tag: as these are public, the locations under this tag are not directly controlled *)
         split_and!; [ rewrite /tag_valid; lia | rewrite /tag_valid; lia | | |].
-        + intros l' sc_t Hsc_t. exfalso. specialize (Hdom_t nt l' ltac:(eauto)) as (? &?). subst nt. congruence.
-        + intros l' sc_t Hsc_t. exfalso. specialize (Hdom_s nt l' ltac:(eauto)) as (? &?). subst nt. congruence.
-        + apply dom_agree_on_tag_not_elem. 
+        + intros l' sc_t (?&?&?)%bind_Some. exfalso. specialize (Hdom_t nt l'.1 ltac:(eauto)) as (? &?). subst nt. congruence.
+        + intros l' sc_t (?&?&?)%bind_Some. exfalso. specialize (Hdom_s nt l'.1 ltac:(eauto)) as (? &?). subst nt. congruence.
+        + apply dom_agree_on_tag_not_elem.
           * intros l'. destruct heaplet_lookup eqn:Hs; last done.
-            destruct (Hdom_t nt l' ltac:(eauto)) as (? & ?).
+            eapply bind_Some in Hs as (?&?&?).
+            destruct (Hdom_t nt l'.1 ltac:(eauto)) as (? & ?).
             subst nt. congruence.
           * intros l'. destruct heaplet_lookup eqn:Hs; last done.
-            destruct (Hdom_s nt l' ltac:(eauto)) as (? & ?).
+            eapply bind_Some in Hs as (?&?&?).
+            destruct (Hdom_s nt l'.1 ltac:(eauto)) as (? & ?).
             subst nt. congruence.
       - (* old tag *)
         specialize (Htag_interp _ _ Hsome) as (Hv1 & Hv2 & Hcontrol_t & Hcontrol_s & Hag).

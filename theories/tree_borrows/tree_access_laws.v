@@ -567,3 +567,151 @@ Proof.
   intros Hfgn. destruct fp; first by eexists.
   eapply cousins_have_disjoint_children in Hfgn. 5-6: done. 1: done. all: by eapply Hwf.
 Qed.
+
+Lemma priv_loc_access_must_use_same_tag M_call M_t M_s M_tag σ_t σ_s l t_prv t_acc ak (off1 : Z) (sz : nat) :
+  state_wf σ_s → state_wf σ_t →
+  call_set_interp M_call σ_t →
+  tag_interp M_call M_tag M_t M_s σ_t σ_s →
+  priv_loc M_tag M_t M_call t_prv l →
+  trees_contain t_acc σ_t.(strs) l.1 →
+  off1 ≤ l.2 < off1 + sz →
+  is_Some (apply_within_trees (memory_access ak σ_t.(scs) t_acc (off1, sz)) l.1 σ_t.(strs)) →
+  t_prv = t_acc.
+Proof.
+  intros Hwf_s Hwf_t Hcall Htag Hpriv Hcontain Hinside [trs' Happly].
+  destruct Htag as (Htag&Htag_t & Htag_s &Htagdom_t & Htagdom_s).
+  odestruct (trees_contain_trees_lookup_1 _ _ _ _ Hcontain) as (it_acc & Hitacc).
+  1: eapply Hwf_t.
+  destruct Hpriv as (tk&Htk&[vls Hhl]&[->|(cc&->&Hcc)]).
+  all: specialize (Htag _ _ Htk) as (Hv1&Hv2&Hcontrol_t&Hcontrol_s&Htagree).
+  { odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv&tr_prv&Htrprv&Hitprv&Hinit&Hactive&Hothers)&Hvls); first done.
+    destruct Hitacc as (tr_acc&Htracc&Hitacc). assert (tr_prv = tr_acc) as -> by congruence.
+    eapply Hothers. done. }
+  destruct (call_set_interp_access _ _ _ _ _ _ Hcall Hcc) as (Hccv&Htv&it_prv&Hitprv&Hprotcc&Hstrong&Hnondis).
+  specialize (Hstrong eq_refl).
+  odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv'&tr_prv&Htrprv'&Hitprv'&Hinit&Hactive&Hothers)&Hvls).
+  { exists it_prv. split; first done. split; first eapply Hnondis.
+    intros _ _. exists cc. split; first done. apply Hccv. }
+  destruct Hitprv as (tr_prv'&Htrprv&Hitprv).
+  assert (tr_prv = tr_prv') as <- by congruence.
+  assert (it_prv = it_prv') as <- by by eapply tree_lookup_unique. clear Hitprv' Htrprv'.
+  assert (perm (item_lookup it_prv l.2) = Active) as Hactive2.
+  { destruct (perm (item_lookup it_prv l.2)) as [[] ?| | |]; try done. by destruct Hactive. }
+  rewrite Hactive2 in Hactive. clear Hactive. rename Hactive2 into Hactive.
+  edestruct (apply_trees_access_lookup_general false) as (it_prv' & Hitprv' & Hinitprv & Hpermprv & Haccprv).
+  1: exact Happly. 1: apply Hwf_t. 1: apply Hinside. 1: exists tr_prv; split; first done; apply Hitprv.
+  rewrite /maybe_non_children_only /= /trees_rel_dec Htrprv -Hpermprv bool_decide_true in Haccprv.
+  2: { exists cc. split; first done. eapply Hccv. }
+  assert (item_lookup it_prv l.2 = mkPerm PermInit Active) as Hinitactive.
+  { destruct (item_lookup it_prv l.2) as [pp aa]. simpl in Hactive, Hinit. by rewrite Hactive Hinit. }
+  rewrite Hinitactive in Haccprv.
+  eapply bind_Some in Haccprv as (perm1prv&Hperm1prv&(perm2prv&Hperm2prv&[= Hresprv])%bind_Some). simpl in Hperm2prv, Hresprv.
+  rewrite /apply_access_perm_inner /= in Hperm1prv.
+  destruct (rel_dec tr_prv t_acc t_prv) as [ii|ii] eqn:Hreldec.
+  { destruct ak; simpl in Hperm1prv; injection Hperm1prv as <-; done. }
+  destruct Hitacc as (tr_acc&Htracc&Hitacc).
+  assert (tr_acc = tr_prv) as -> by congruence.
+  destruct ii as [ii|]; last first.
+  { symmetry. eapply rel_this_antisym. 3: done.
+    all: by eapply lookup_implies_contains. }
+  rewrite /rel_dec in Hreldec.
+  destruct (decide (ParentChildIn t_prv t_acc tr_prv)) as [HPC|HPC]; last done.
+  destruct (decide (ParentChildIn t_acc t_prv tr_prv)) as [HPC2|HPC2]; first done.
+  destruct HPC as [Heq|HPC]; first done.
+
+  odestruct (immediate_sandwich _ _ _ _ _ HPC) as (t_sw&Hsw1&Hsw2).
+  1: eapply Hwf_t; done. 1: eapply Hwf_t; first done; by eapply lookup_implies_contains.
+  assert (tree_contains t_sw tr_prv) as Hswcont.
+  { eapply contains_child. 1: right; by eapply Immediate_is_StrictParentChild. by eapply lookup_implies_contains. }
+  odestruct (wf_tree_tree_item_determined _ _ _ Hswcont) as (it_sw&Hsw_det).
+  1: by eapply Hwf_t.
+  assert (tree_lookup tr_prv t_sw it_sw) as Hswlu by by split.
+  edestruct (apply_trees_access_lookup_general false) as (it_sw' & Hitsw' & Hinitsw & Hpermsw & Haccsw).
+  1: exact Happly. 1: apply Hwf_t. 1: apply Hinside. 1: eexists tr_prv; split; first done; apply Hswlu.
+  rewrite /maybe_non_children_only /= /trees_rel_dec Htrprv in Haccsw.
+  specialize (Hothers _ _ Hswlu) as Hothers_sw.
+  rewrite /rel_dec decide_True // in Haccsw.
+  rewrite /rel_dec decide_True in Hothers_sw.
+  2: right; by eapply Immediate_is_StrictParentChild.
+  rewrite decide_False in Hothers_sw.
+  2: { intros H. eapply strict_parent_self_impossible. 1: exact Hswcont.
+       eapply ParentChild_StrictParentChild. 1: exact H.
+       by eapply Immediate_is_StrictParentChild. }
+  rewrite decide_True // in Hothers_sw.
+  eapply bind_Some in Haccsw as (perm1sw&Hperm1sw&(perm2sw&Hperm2sw&[= Hressw])%bind_Some).
+  rewrite /apply_access_perm_inner Hothers_sw in Hperm1sw. by destruct ak.
+Qed.
+
+Definition rel_pos_shallow_eq rp1 rp2 := 
+  match rp1, rp2 with
+    Child _, Child _ => True
+  | Foreign _, Foreign _ => True
+  | _, _ => False end.
+
+Lemma apply_access_perm_shallow ak rp1 rp2 b lp :
+  rel_pos_shallow_eq rp1 rp2 →
+  apply_access_perm ak rp1 b lp = apply_access_perm ak rp2 b lp.
+Proof.
+  intros H1.
+  destruct rp1 as [i1|i1], rp2 as [i2|i2]; done.
+Qed.
+
+Lemma create_then_access_implies_earlier_access tr ak cc cids tg_par tg_cld pk rk off sz tr' tr'' :
+  wf_tree tr → tree_contains tg_par tr → ¬ tree_contains tg_cld tr →
+  create_child cids tg_par tg_cld pk rk cc tr = Some tr' →
+  memory_access ak cids tg_cld (off, sz) tr' = Some tr'' →
+  is_Some (memory_access ak cids tg_par (off, sz) tr).
+Proof.
+  intros Hwf Hcont Hncont Hchild Hread.
+  eapply apply_access_success_condition.
+  eapply every_node_eqv_universal. intros it Hit.
+  pose it.(itag) as tg_it.
+  assert (tree_contains tg_it tr) as Hcont_it.
+  { eapply exists_node_eqv_existential. exists it; done. }
+  opose proof (exists_node_to_tree_lookup _ _ _ _) as Hluit.
+  1: apply Hwf. 1: apply Hit.
+  eapply option_bind_always_some; last done.
+  eapply mem_apply_range'_success_condition.
+  intros offi Hoffi. rewrite /range'_contains /= in Hoffi.
+  injection Hchild as Hchild.
+  eapply mk_is_Some in Hread.
+  eapply apply_access_success_condition in Hread.
+  eapply every_node_eqv_universal in Hread.
+  2: subst tr'; eapply insert_preserves_exists, Hit.
+  destruct Hread as [x (p&Hp&Hpp)%bind_Some]. clear x Hpp.
+  eapply mk_is_Some, mem_apply_range'_success_condition in Hp.
+  2: apply Hoffi.
+  simpl in Hp|-*.
+  erewrite apply_access_perm_shallow. 1: exact Hp.
+  rewrite /rel_dec. destruct (decide (ParentChildIn (itag it) tg_par tr)) as [HPC|HnPC].
+  - simpl. rewrite decide_True //. subst tr'.
+    eapply ParentChild_transitive; last first.
+    { eapply insert_produces_ParentChild; first done.
+      by intros ->. }
+    setoid_rewrite <- insert_eqv_rel. 1: done. all: simpl. 2: by intros ->.
+    intros ->. eapply Hncont, exists_node_eqv_existential. by exists it.
+  - simpl. rewrite decide_False //. subst tr'.
+    intros [<-|HSPC].
+    { eapply Hncont, exists_node_eqv_existential. by exists it. }
+    eapply HnPC. destruct (decide (itag it = tg_par)) as [Heq|Hne]. 1: by left.
+    right. eapply insert_produces_minimal_ParentChild. 5: exact HSPC.
+    all: simpl. 4: done. 3: done. 2: by intros ->.
+    intros ->. eapply Hncont, exists_node_eqv_existential. by exists it.
+Qed.
+
+Lemma create_then_access_implies_earlier_access_trees trs blk ak cc cids tg_par tg_cld pk rk off sz trs' trs'' :
+  wf_trees trs → trees_contain tg_par trs blk → ¬ trees_contain tg_cld trs blk →
+  apply_within_trees (create_child cids tg_par tg_cld pk rk cc) blk trs = Some trs' →
+  apply_within_trees (memory_access ak cids tg_cld (off, sz)) blk trs' = Some trs'' →
+  is_Some (apply_within_trees (memory_access ak cids tg_par (off, sz)) blk trs).
+Proof.
+  intros Hwf Hcont Hncont Hchild Hread.
+  eapply bind_Some in Hchild as (tr&Htr&(tr'&Hchild&[= <-])%bind_Some).
+  rewrite /apply_within_trees lookup_insert /= in Hread.
+  eapply bind_Some in Hread as (tr''&Hread&Htr'').
+  rewrite /apply_within_trees Htr /=. eapply option_bind_always_some; last done.
+  rewrite /trees_contain /trees_at_block !Htr in Hcont, Hncont.
+  eapply create_then_access_implies_earlier_access. 5: done. 4: done. 3: done. 2: done.
+  eapply Hwf, Htr.
+Qed.
+

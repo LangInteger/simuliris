@@ -126,7 +126,52 @@ Proof.
     rewrite -Heq lookup_insert_ne // in Hin.
 Qed.
 
-
+Lemma tag_protected_preserved_by_create_strong tg_par tg_cld pk rk C c trs trs' blk l tg_prs:
+  wf_trees trs → tg_cld ≠ tg_prs →
+  apply_within_trees (create_child C tg_par tg_cld pk rk c) blk trs = Some trs' →
+  tag_protected_for c trs  l tg_prs ProtStrong →
+  tag_protected_for c trs' l tg_prs ProtStrong.
+Proof.
+  intros Hwf Hncontain (tr&Htr&(tr'&Hcreate&[= <-])%bind_Some)%bind_Some (it & Hlu & Hprot & Hstrong & Hinit).
+  exists it. split; last done. destruct Hlu as (tt&Htt&Hit).
+  destruct (decide (l.1 = blk)%Z) as [<-|Hdiffblk]; last first.
+  { exists tt. split; last done. by rewrite lookup_insert_ne. }
+  assert (tt = tr) as <- by congruence.
+  exists tr'. split; first by rewrite lookup_insert.
+  destruct Hit as (Hin&Hlu). split.
+  - eapply insertion_preserves_tags. 2: done. done.
+  - eapply create_child_preserves_determined. 2: apply Hlu. 2: eapply Hcreate.
+    by intros ->.
+Qed.
+Lemma tag_protected_preserved_by_create_weak tg_par tg_cld pk rk C c trs trs' blk l tg_prs:
+  wf_trees trs → tg_cld ≠ tg_prs →
+  apply_within_trees (create_child C tg_par tg_cld pk rk c) blk trs = Some trs' →
+  tag_protected_for c trs  l tg_prs ProtWeak →
+  tag_protected_for c trs' l tg_prs ProtWeak.
+Proof.
+  intros Hwf Hncontain (tr&Htr&(tr'&Hcreate&[= <-])%bind_Some)%bind_Some Hprot it Hlu.
+  eapply Hprot. destruct Hlu as (tt&Htt&Hit).
+  destruct (decide (l.1 = blk)%Z) as [<-|Hdiffblk]; last first.
+  { exists tt. split; last done. by rewrite lookup_insert_ne in Htt. }
+  rewrite lookup_insert in Htt.
+  assert (tt = tr') as -> by congruence.
+  exists tr. split; first done.
+  destruct Hit as (Hin&Hlu). split.
+  - eapply insertion_minimal_tags. 3: done. 2: done. by intros ->.
+  - injection Hcreate as <-. clear Htt.
+    eapply insert_true_preserves_every. 2: apply Hlu.
+    simpl. intros ->; done.
+Qed.
+Lemma tag_protected_preserved_by_create ps tg_par tg_cld pk rk C c trs trs' blk l tg_prs:
+  wf_trees trs → tg_cld ≠ tg_prs →
+  apply_within_trees (create_child C tg_par tg_cld pk rk c) blk trs = Some trs' →
+  tag_protected_for c trs  l tg_prs ps →
+  tag_protected_for c trs' l tg_prs ps.
+Proof.
+  destruct ps.
+  - eapply tag_protected_preserved_by_create_strong.
+  - eapply tag_protected_preserved_by_create_weak.
+Qed.
 
 
 
@@ -265,3 +310,4 @@ Proof.
   3: done. 3: by eapply Hlookup. 1: by eapply state_wf_tree_unq.
   by eapply Hin.
 Qed.
+

@@ -425,11 +425,18 @@ Section heap_defs.
   Qed.
 *)
 
+  Definition effectively_disabled_or_im tr t' t (l:loc) :=
+    ∃ tg_real it_real cp, 
+     tree_lookup tr tg_real it_real ∧
+      rel_dec tr tg_real t = Foreign Cousin ∧
+      rel_dec tr t' tg_real = Child cp ∧
+      match (item_lookup it_real l.2).(perm) with Disabled | Reserved InteriorMut _ => True | _ => False end.
+
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
       (match (item_lookup it l.2).(perm) with
            | Active => tkk = tk_act
            | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs) ∧ prot_in_call_set it.(iprot) t l
-           | Reserved TyFrz _ => tkk = tk_res (* say something about protectors here *)
+           | Reserved TyFrz _ => tkk = tk_res
            | _ => False end) ∧
           ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
               (* all immediate children of t must be disabled *)
@@ -438,12 +445,11 @@ Section heap_defs.
             | Foreign (Parent _) => match (item_lookup it' l.2).(perm) with
               (* all parents of t must be active (or at least not be disabled for tk_res) *)
                 Active => True | Disabled => False | _ => tkk = tk_res end
-            | Foreign Cousin => match (item_lookup it' l.2).(perm) with
-              (* all cousins of t must be disabled or interiormut
-                 (for tk_res they must just not be active) *)
-                       Disabled | Reserved InteriorMut _ => True | Active => False | _ => tkk = tk_res end end.
+            | Foreign Cousin => let lp := item_lookup it' l.2 in lp.(initialized) = PermLazy ∨ match lp.(perm) with
+                       (* If active, the others are either uninitialized, or Disabled, or Reserved IM unprotected (i.e. surive foreign writes and don't cause UB) *)
+                       (* Otherwise, the others must not be initialized active (i.e. survive foreign reads) *)
+                       Active => False | Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) σ.(scs) ∨ tkk = tk_res | _ => tkk = tk_res end end.
 
-(* TODO check that rel_dec is used the right way around *)
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧ (item_lookup it l.2).(initialized) = PermInit ∧
     match tk with
@@ -697,8 +703,8 @@ Section heap_defs.
       (∀ l sc_t, heaplet_lookup M_t (t, l) = Some sc_t → loc_controlled l t tk sc_t σ_t) ∧
       (∀ l sc_s, heaplet_lookup M_s (t, l) = Some sc_s → loc_controlled l t tk sc_s σ_s) ∧
       dom_agree_on_tag M_t M_s t) ∧
-    (∀ (t : tag) (l : loc), is_Some (heaplet_lookup M_t (t, l)) → is_Some (M !! t)) ∧
-    (∀ (t : tag) (l : loc), is_Some (heaplet_lookup M_s (t, l)) → is_Some (M !! t)) ∧
+    (∀ (t : tag) blk, is_Some (M_t !! (t, blk)) → is_Some (M !! t)) ∧
+    (∀ (t : tag) blk, is_Some (M_s !! (t, blk)) → is_Some (M !! t)) ∧
     dom_unique_per_tag M_t ∧ dom_unique_per_tag M_s.
 End heap_defs.
 
@@ -1224,6 +1230,20 @@ Proof.
   iMod (ghost_map_update with "Hauth Helems") as "(Hauth&Helems)".
   iModIntro. iFrame.
 Qed.
+
+Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (tag * block) (gmap Z scalar)) (v : list scalar) (t : tag) (l : loc) tk :
+  M !! (t, l.1) = None →
+  ghost_map_auth γh 1 M ==∗
+  array_tag γh t l (tk_to_frac tk) v ∗
+  ghost_map_auth γh 1 (array_tag_map l t v ∪ M).
+Proof.
+  iIntros (Hnotin) "Hauth".
+  iMod (ghost_map_insert with "Hauth") as "(Hauth&Helems)". 1: done.
+  erewrite insert_union_singleton_l. iFrame "Hauth".
+  destruct tk as [| |]. 1: iMod (ghost_map_elem_persist with "Helems") as "Helems".
+  all: by iFrame.
+Qed.
+
 (*
 Lemma ghost_map_array_tag_insert `{!bor_stateGS Σ} (γh : gname) (M : gmap (tag * block) (gmap Z scalar)) (v : list scalar) (t : tag) (l : loc) :
   (∀ i : nat, (i < length v)%nat → M !! (t, l +ₗ i) = None) →

@@ -242,16 +242,14 @@ Proof.
   - (* tag invariant *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | | | | ]; first last.
     1-2: rewrite /dom_unique_per_tag !dom_insert_lookup_L //.
-    { intros t' l' (x&(x1&Hx1%lookup_insert_Some&Hx2)%bind_Some). simpl in Hx1.
+    { intros t' l' (x1&Hx1%lookup_insert_Some). simpl in Hx1.
       destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert.
-      rewrite lookup_insert_ne; first eapply (Hs_dom _ l').
-      1: eexists; rewrite /heaplet_lookup /= Hx1 /= Hx2 //.
+      rewrite lookup_insert_ne; first eapply (Hs_dom _ l'). 1: by eexists.
       intros ->. eapply Hne1. f_equal. eapply Hunq2; eapply elem_of_dom_2; done.
     }
-    { intros t' l' (x&(x1&Hx1%lookup_insert_Some&Hx2)%bind_Some). simpl in Hx1.
+    { intros t' l' (x1&Hx1%lookup_insert_Some). simpl in Hx1.
       destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert.
-      rewrite lookup_insert_ne; first eapply (Ht_dom _ l').
-      1: eexists; rewrite /heaplet_lookup /= Hx1 /= Hx2 //.
+      rewrite lookup_insert_ne; first eapply (Ht_dom _ l'). 1: by eexists.
       intros ->. eapply Hne1. f_equal. eapply Hunq1; eapply elem_of_dom_2; done.
     }
     simpl.
@@ -276,7 +274,7 @@ Proof.
         destruct (list_to_heaplet v_t l.2 !! lac.2) eqn:Heq; first by eexists.
         exfalso. eapply list_to_heaplet_lookup_Some in H2. eapply list_to_heaplet_lookup_None in Heq.
         lia. }
-      eapply loc_controlled_write_becomes_active.
+      rewrite Hscs_eq in Htree_t. eapply loc_controlled_write_becomes_active.
       1: exact Htree_t. 1-2: rewrite /=; by destruct l.
       1: done. 1: done. 1: congruence. 1: done. 1: done.
       destruct (Htag_interp _ _ Htk) as (_ & _ & Hcontrol_t' & _). by eapply Hcontrol_t'. }
