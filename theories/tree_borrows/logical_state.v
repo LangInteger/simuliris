@@ -425,13 +425,6 @@ Section heap_defs.
   Qed.
 *)
 
-  Definition effectively_disabled_or_im tr t' t (l:loc) :=
-    ∃ tg_real it_real cp, 
-     tree_lookup tr tg_real it_real ∧
-      rel_dec tr tg_real t = Foreign Cousin ∧
-      rel_dec tr t' tg_real = Child cp ∧
-      match (item_lookup it_real l.2).(perm) with Disabled | Reserved InteriorMut _ => True | _ => False end.
-
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
       (match (item_lookup it l.2).(perm) with
            | Active => tkk = tk_act

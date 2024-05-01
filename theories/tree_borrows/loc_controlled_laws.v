@@ -338,19 +338,26 @@ Definition pointer_kind_to_tag_unprotected (pk : pointer_kind) : option tag_kind
   Box im | MutRef im => match im with TyFrz => Some (tk_unq tk_res) | _ => None end (* can not have unprotected IM pointers around *)
 | ShrRef => Some tk_pub end.
 
-Lemma pointer_kind_to_tag_unprotected_spec pk tk :
-  pointer_kind_to_tag_unprotected pk = Some tk →
-  (pk = ShrRef ∧ tk = tk_pub ∨ (pk = Box TyFrz ∨ pk = MutRef TyFrz) ∧ tk = tk_unq tk_res).
-Proof.
-  destruct pk as [[]|[]|]; simpl; intros H; simplify_eq; tauto.
-Qed.
-
 Definition pointer_kind_to_tag_protected (pk : pointer_kind) : tag_kind := match pk with
   Box _ | MutRef _ => tk_unq tk_res (* for protected, IM is not an issue *)
 | ShrRef => tk_pub end.
 
-Lemma loc_controlled_read_after_reborrow_creates Mcall cids l sc tg_cld tg_par tk σ σ' pk trs1 cc blk off1 sz:
-  apply_within_trees (create_child cids tg_par tg_cld pk Default cc) blk σ.(strs) = Some trs1 →
+Definition pointer_kind_to_tag_maybe_protected (rk : retag_kind) (pk : pointer_kind) : option tag_kind := match rk with
+  Default => pointer_kind_to_tag_unprotected pk
+| FnEntry => Some (pointer_kind_to_tag_protected pk) end.
+
+
+Lemma pointer_kind_to_tag_maybe_protected_spec rk pk tk :
+  pointer_kind_to_tag_maybe_protected rk pk = Some tk →
+  (pk = ShrRef ∧ tk = tk_pub ∨ (∃ im, (pk = Box im ∨ pk = MutRef im) ∧ tk = tk_unq tk_res ∧ (rk = Default → im = TyFrz))).
+Proof.
+  assert (FnEntry = Default → InteriorMut = TyFrz) as HH by done.
+  destruct rk, pk as [[]|[]|]; simpl; intros H; simplify_eq; eauto 10.
+Qed.
+
+
+Lemma loc_controlled_read_after_reborrow_creates Mcall cids l sc tg_cld tg_par tk σ σ' pk rk trs1 cc blk off1 sz:
+  apply_within_trees (create_child cids tg_par tg_cld pk rk cc) blk σ.(strs) = Some trs1 →
   apply_within_trees (memory_access AccessRead cids tg_cld (off1, sz)) blk trs1 = Some σ'.(strs) →
   state_wf σ → wf_trees trs1 →
   l.1 = blk →
@@ -358,10 +365,12 @@ Lemma loc_controlled_read_after_reborrow_creates Mcall cids l sc tg_cld tg_par t
   ¬ trees_contain tg_cld (strs σ) blk →
   shp σ' !! l = Some sc →
   off1 ≤ l.2 < off1 + sz →
-  pointer_kind_to_tag_unprotected pk = Some tk →
+  cc ∈ σ'.(scs) →
+  (rk = FnEntry → call_set_in' Mcall cc tg_cld l (pointer_kind_to_strength pk)) →
+  pointer_kind_to_tag_maybe_protected rk pk = Some tk →
   loc_controlled Mcall l tg_cld tk sc σ'.
 Proof.
-  intros Hcreate Happly Hwf Hwf1 Hblk Hcont Hncont Hhp Hbound Htk.
+  intros Hcreate Happly Hwf Hwf1 Hblk Hcont Hncont Hhp Hbound Hscs Hcallset Htk.
   intros _. split; last done.
   eapply bind_Some in Hcreate as (tr&Htr&(tr1&Hcreate&[= Htr1])%bind_Some).
   eassert (trees_lookup trs1 blk tg_cld _) as Hlucld1.
@@ -378,7 +387,7 @@ Proof.
   rewrite Hmatch1 /= in Haccesscld. clear Hmatch1.
   injection Haccesscld as Haccesscld.
   destruct Hitcld' as (tr'&Htr'&Hitcld').
-  destruct (pointer_kind_to_tag_unprotected_spec _ _ Htk) as [(->&->)|(H&->)].
+  destruct (pointer_kind_to_tag_maybe_protected_spec _ _ _ Htk) as [(->&->)|(im&H&->&Him)].
   - eexists itcld', tr'. split; first done. split; first by congruence.
     rewrite -Haccesscld; simpl. do 2 (split; first done).
     intros ito' to Hito'.
@@ -400,7 +409,14 @@ Proof.
     all: try done. all: rewrite -HH; simpl; done.
   - eexists itcld', tr'. split; first done. split; first by congruence.
     rewrite /bor_state_post_unq -Haccesscld; simpl. split; first done. split.
-    { destruct H as [-> | ->]; done. }
+    { destruct im.
+      2: destruct H as [-> | ->]; done.
+      assert (protector_is_active (iprot itcld') (scs σ') ∧ prot_in_call_set Mcall (iprot itcld') tg_cld l).
+      2: destruct H as [-> | ->]; done.
+      destruct rk; last by (specialize (Him eq_refl)).
+      rewrite -Hiprotcld. split.
+      - exists cc; split; done.
+      - eapply Hcallset. done. }
     intros ito' to Hito'.
     eapply apply_trees_access_lookup_general_rev in Happly as Happlyself.
     2: done. 3: exists tr'; split; first congruence; exact Hito'. 2: exact Hbound.
@@ -1053,6 +1069,52 @@ Proof.
       destruct Hothers as [Hothers|?]; last by right. left.
       simpl. intros Hc; eapply Hothers. eapply HHscs. 2: done.
       exists tr. split; last done. done.
+Qed.
+
+
+Lemma loc_controlled_extend_protected l tg tk sc σ σ' Mcall c_ext M_ext tg_ext L_ext:
+  shp σ = shp σ' →
+  strs σ = strs σ' →
+  scs σ = scs σ' →
+  state_wf σ →
+  Mcall !! c_ext = Some M_ext →
+  M_ext !! tg_ext = None →
+  loc_controlled Mcall l tg tk sc σ →
+  loc_controlled (<[c_ext := <[tg_ext := L_ext]> M_ext]> Mcall) l tg tk sc σ'.
+Proof.
+  intros Hhp Htrs Hscs Hwf Hold Hfresh Hlc Hpre.
+  rewrite -Hhp.
+  destruct tk as [|acc|].
+  all: rewrite /loc_controlled /bor_state_pre /bor_state_own in Hlc,Hpre|-*.
+  1,3: rewrite Htrs in Hlc; apply Hlc, Hpre.
+  destruct Hlc as ((it&tr&Htr&Hit&Hinit&Hsame&Hothers)&Hhpc).
+  - destruct Hpre as (itp&Hitp&HH).
+    rewrite <- Hscs in HH.
+    exists itp. by rewrite Htrs.
+  - split; last done.
+    exists it, tr. rewrite -Htrs. split_and!; try done.
+    split.
+    + clear Hothers.
+      case_match; try done.
+      case_match; try done. destruct Hsame as (->&Hprot&Hcs).
+      split_and!; first done.
+      * rewrite <- Hscs; first done.
+      * destruct (iprot it) as [itprot|] eqn:Hitprot; last done.
+        rewrite /prot_in_call_set /= /call_set_in'.
+        destruct Hcs as (M&HM&HHM). destruct (decide (call itprot = c_ext)) as [<-|Hne].
+        2: rewrite lookup_insert_ne //; by eexists.
+        rewrite lookup_insert. eexists. split; first done.
+        rewrite Hold in HM. assert (M_ext = M) as -> by congruence.
+        destruct HHM as (L&pk&HL&HHL&Hpk).
+        destruct (decide (tg = tg_ext)) as [->|Hne2].
+        2: exists L, pk; rewrite lookup_insert_ne; done.
+        exfalso. rewrite Hfresh in HL. done.
+    + intros it' t' H. specialize (Hothers it' t' H).
+      destruct (rel_dec tr t' tg) as [[]|]. 1,3: eapply Hothers.
+      destruct Hothers as [?|Hothers]; first by left. right.
+      destruct (perm (item_lookup it' l.2)) as [[]| | |]. 2-5: by eapply Hothers.
+      destruct Hothers as [Hothers|?]; last by right. left.
+      simpl. intros Hc; eapply Hothers. by rewrite Hscs.
 Qed.
 
 
