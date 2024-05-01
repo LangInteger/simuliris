@@ -207,11 +207,11 @@ Section safe_reach.
       apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2)
     P (Retag v v' pk sz rk) σ.
   Proof. prove_safe_implies. Qed.
-  (* Doesn't build because `retag` has been renamed and changed
-  Global Instance safe_implies_retag_result P σ r r' pk T rk :
-    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c] ∧ c ∈ σ.(scs) ∧
-      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag r r' pk T rk) σ.
+  Global Instance safe_implies_retag_result_weak P σ r r' pk sz rk :
+    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c])
+    P (Retag r r' pk sz rk) σ.
   Proof. prove_safe_implies. Qed.
+  (* Doesn't build because `retag` has been renamed and changed
   Global Instance safe_implies_retag_place_l P σ l t T T' v pk rk :
     SafeImplies False P (Retag (Place l t T) (Val v) pk T' rk) σ.
   Proof. prove_safe_implies. Qed.

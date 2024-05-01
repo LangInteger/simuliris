@@ -126,9 +126,9 @@ Proof.
     rewrite -Heq lookup_insert_ne // in Hin.
 Qed.
 
-Lemma tag_protected_preserved_by_create_strong tg_par tg_cld pk rk C c trs trs' blk l tg_prs:
+Lemma tag_protected_preserved_by_create_strong tg_par tg_cld pk rk C cc c trs trs' blk l tg_prs:
   wf_trees trs → tg_cld ≠ tg_prs →
-  apply_within_trees (create_child C tg_par tg_cld pk rk c) blk trs = Some trs' →
+  apply_within_trees (create_child C tg_par tg_cld pk rk cc) blk trs = Some trs' →
   tag_protected_for c trs  l tg_prs ProtStrong →
   tag_protected_for c trs' l tg_prs ProtStrong.
 Proof.
@@ -143,9 +143,9 @@ Proof.
   - eapply create_child_preserves_determined. 2: apply Hlu. 2: eapply Hcreate.
     by intros ->.
 Qed.
-Lemma tag_protected_preserved_by_create_weak tg_par tg_cld pk rk C c trs trs' blk l tg_prs:
+Lemma tag_protected_preserved_by_create_weak tg_par tg_cld pk rk C cc c trs trs' blk l tg_prs:
   wf_trees trs → tg_cld ≠ tg_prs →
-  apply_within_trees (create_child C tg_par tg_cld pk rk c) blk trs = Some trs' →
+  apply_within_trees (create_child C tg_par tg_cld pk rk cc) blk trs = Some trs' →
   tag_protected_for c trs  l tg_prs ProtWeak →
   tag_protected_for c trs' l tg_prs ProtWeak.
 Proof.
@@ -162,9 +162,9 @@ Proof.
     eapply insert_true_preserves_every. 2: apply Hlu.
     simpl. intros ->; done.
 Qed.
-Lemma tag_protected_preserved_by_create ps tg_par tg_cld pk rk C c trs trs' blk l tg_prs:
+Lemma tag_protected_preserved_by_create ps tg_par tg_cld pk rk C cc c trs trs' blk l tg_prs:
   wf_trees trs → tg_cld ≠ tg_prs →
-  apply_within_trees (create_child C tg_par tg_cld pk rk c) blk trs = Some trs' →
+  apply_within_trees (create_child C tg_par tg_cld pk rk cc) blk trs = Some trs' →
   tag_protected_for c trs  l tg_prs ps →
   tag_protected_for c trs' l tg_prs ps.
 Proof.

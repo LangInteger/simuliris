@@ -350,7 +350,7 @@ Section log_rel.
     iApply (sim_write_public with "[Hv1] Hv2"). { by iApply rrel_place. }
     solve_rrel_refl.
   Qed.
-  (*
+  
   Lemma log_rel_retag e1_t e1_s e2_t e2_s pk T k :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
@@ -367,7 +367,7 @@ Section log_rel.
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
     iApply (sim_retag_public with "[-]"). { by iApply value_rel_ptr. }
     iIntros (t) "Hv". sim_val. eauto.
-  Qed. *)
+  Qed.
 
   (* TODO: this can be useful elsewhere. It's here because I'm relying on the
     several useful tactics defined here. *)
@@ -506,7 +506,7 @@ Section refl.
     - (* Free *)
       by iApply log_rel_free.
     - (* Retag *)
-      admit; by iApply (log_rel_retag with "IH IH1").
+      by iApply (log_rel_retag with "IH IH1").
     - (* Let *)
       by iApply (log_rel_let with "IH IH1").
     - (* Case *)
@@ -515,7 +515,7 @@ Section refl.
       by iApply (log_rel_fork with "IH").
     - (* While *)
       by iApply (log_rel_while with "IH IH1").
-  Admitted.
+  Qed.
 
   Corollary log_rel_refl e :
     expr_wf e →
