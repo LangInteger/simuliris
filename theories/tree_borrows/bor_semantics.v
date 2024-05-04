@@ -458,7 +458,9 @@ Definition apply_access_perm kind rel (isprot:bool)
   : app lazy_permission := fun operm =>
   let old := operm.(perm) in
   new ← apply_access_perm_inner kind rel isprot old;
-  validated ← if operm.(initialized) then (
+  (* can only become more initialized *)
+  let new_init := (most_init operm.(initialized) (requires_init rel)) in
+  validated ← if new_init then (
     (* only if the permission is initialized do we possibly trigger protector UB *)
     if isprot then (
       if new is Disabled then (
@@ -467,7 +469,7 @@ Definition apply_access_perm kind rel (isprot:bool)
     ) else Some new
   ) else Some new;
   Some $ mkPerm
-    (most_init operm.(initialized) (requires_init rel)) (* can only become more initialized *)
+    new_init
     validated.
 
 (* The effect of an access on an item is to apply it to the permissions while

@@ -318,7 +318,7 @@ Proof.
   destruct Hsafe as [Hpool Hsafe].
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss))|(Hcontain_s&Hnotrees)];
+  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss))|(Hcontain_s&Hnotrees&Hisval)];
   pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done; last first.
   { (* We get poison *)
     assert (apply_within_trees (memory_access AccessRead (scs σ_s) bor_s (l_s.2, sz)) l_s.1 (strs σ_t) = None) as Hnotrees_t.
@@ -327,10 +327,11 @@ Proof.
       1: by eapply trees_equal_sym. 1: by eapply Hwf_t. 1: by eapply Hwf_s. 1: done. }
     iSplit. 
     { iPureIntro. do 3 eexists. eapply failed_copy_base_step'; try done.
-      rewrite -Hscs_eq //.
+      1: rewrite -Hscs_eq //.
+      eapply read_mem_is_Some'. rewrite -Hdom_eq. by eapply read_mem_is_Some'.
     }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
-    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (Hcontain'&->&[(Hnotree&->&Hpoison)|(trs'&Htrs'&->&Hσ_t'&Hreadmem&Hsometree)]); last congruence.
+    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (Hcontain'&->&[(Hnotree&->&Hpoison&Hheapsome)|(trs'&Htrs'&->&Hσ_t'&Hreadmem&Hsometree)]); last congruence.
     iModIntro. iExists e_t', [], σ_s. iSplit.
     { iPureIntro. subst e_t'. destruct σ_s, l_s. simpl. do 2 econstructor; by eauto. }
     simpl. iFrame. iSplit; last done. subst e_t'.

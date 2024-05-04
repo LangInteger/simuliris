@@ -33,9 +33,10 @@ Proof.
     rewrite -Heqperm /= in Hperminit |- *.
     rewrite (bool_decide_eq_true_2 _ Hactive) /= in Hacc, Htrigger.
     rewrite /apply_access_perm_inner in Hacc.
-    destruct (initialized (item_lookup it l.2));
-      [ specialize (Hinit eq_refl) | injection Htrigger as -> ].
-    all: destruct trees_rel_dec eqn:Hreldec; destruct acc; destruct (perm (item_lookup it l.2)) as [[] []| | |] eqn:Hpermold; simplify_eq; try done;
+    
+    destruct (initialized (item_lookup it l.2)); simpl in *;
+      [ specialize (Hinit eq_refl) | ].
+    all: destruct trees_rel_dec eqn:Hreldec; destruct acc; destruct (perm (item_lookup it l.2)) as [[] []| | |] eqn:Hpermold; simpl in *; simplify_eq; try done;
          repeat (simplify_eq; try done; (try simpl in Htrigger); simplify_eq; try done).
   - eapply apply_trees_access_lookup_outside in Hlu as (itnew & Hlunew & Heqinit & Heqprot & Hacc); [|done..].
     exists itnew. split; first done. rewrite /item_protected_for -Heqprot.
@@ -65,14 +66,8 @@ Proof.
     apply bind_Some in Hacc as (perm1 & Hacc & (perm2 & Htrigger & [= Heqperm])%bind_Some).
     rewrite -Heqperm /= in Hperminit |- *.
     rewrite (bool_decide_eq_true_2 _ Hactive) /= in Hacc, Htrigger.
-    intros ->.
-    destruct (initialized (item_lookup itold l.2)) eqn:Holdinit.
-    1: by destruct perm1.
-    injection Htrigger as ->.
-    rewrite /= /most_init in Heqperm Hperminit.
-    rewrite /apply_access_perm_inner in Hacc.
-    destruct trees_rel_dec eqn:Hreldec; first done.
-    destruct (perm (item_lookup itold l.2)) as [[][]| | |], acc;  done.
+    rewrite Hperminit in Htrigger.
+    intros ->. by destruct perm1.
   - eapply apply_trees_access_lookup_outside_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
     specialize (Hold itold Hluold) as (Hprot & Hstrong & Hinit).
     rewrite /item_protected_for -Heqprot.

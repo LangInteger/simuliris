@@ -487,8 +487,8 @@ Lemma apply_access_perm_read_initialized b rel isprot itmo itmn :
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
   - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
-    simpl in Hdis,H1,H2|-*.
-    repeat (case_match; simplify_eq; try done).
+    simpl in Hdis,H1,H2|-*. rewrite Hdis in H2|-*.
+    repeat (case_match; simpl in *; simplify_eq; try done).
   - congruence.
 Qed.
 

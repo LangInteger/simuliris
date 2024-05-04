@@ -11,9 +11,9 @@ Definition preserves_lazy_perm_wf fn := âˆ€ perm1 perm2, fn perm1 = Some perm2 â
 Lemma apply_access_perm_wf kind pos isprot :
   preserves_lazy_perm_wf (apply_access_perm kind pos isprot).
 Proof.
-  rewrite /apply_access_perm /apply_access_perm_inner /lazy_perm_wf /=.
+  rewrite /apply_access_perm /apply_access_perm_inner /lazy_perm_wf /most_init /=.
   intros perm1 perm2 (p1&H1&(p2&H2&[= <-])%bind_Some)%bind_Some Hwf. simpl.
-  repeat (case_match; simpl in *; simplify_eq; try done).
+  repeat (case_match; simpl in *; simplify_eq; try done). 
 Qed.
 
 Lemma apply_access_perm_maybe_wf b kind pos isprot :

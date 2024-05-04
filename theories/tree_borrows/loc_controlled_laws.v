@@ -203,9 +203,10 @@ Proof.
        rewrite -Hrev /=. assert (prm = pv) as ->. { clear -Hperm2. repeat case_match; by simplify_eq. }
        right. destruct (perm (item_lookup itold' l.2)) as [[]| | |]; simplify_eq; try done.
        rewrite bool_decide_decide in Hperm1. rewrite -Heq_scs. destruct (decide (protector_is_active (iprot itmod) (scs σ))).
-       all: simplify_eq. 1: done. by left. }
+       all: simplify_eq. 1: done. by left. } 
   all: rewrite -?Hrev; destruct (perm (item_lookup itold' l.2)) as [[] []| | |], (initialized (item_lookup itold' l.2)) as [];
-    repeat (simpl; try simpl in Hperm1; try simpl in Holdothers; simplify_eq; try done; try simpl in Hperm2; destruct bool_decide).
+    repeat (simpl; try simpl in Hperm1; try simpl in Holdothers; simplify_eq; try simpl in Hperm2; try done; destruct bool_decide).
+  simpl in *. congruence.
 Qed.
 
 Lemma loc_controlled_write_invalidates_others l sc σ σ' blk off1 sz tg_acc tg_lu tk Mcall A:
@@ -237,7 +238,7 @@ Proof.
       intros Hdis. eapply Hnondis.
       pose proof Hpermit as (x1&Hx1&(x2&Hx2&[=Hx3])%bind_Some)%bind_Some.
       rewrite -Hx3. rewrite !Hdis in Hx1. simpl.
-      assert (x1 = x2) as ->. 1: destruct (initialized _), bool_decide; simplify_eq; try done; destruct x1; by simplify_eq.
+      assert (x1 = x2) as ->. 1: destruct (most_init _ _), bool_decide; simplify_eq; try done; destruct x1; by simplify_eq.
       clear Hx2.
       rewrite /apply_access_perm_inner in Hx1. destruct trees_rel_dec; by simplify_eq. }
     destruct Hcontrol as (itold' & trold' & Hitold' & Htrold' & Hisinit & Hfrozen & Hothers).
@@ -247,7 +248,7 @@ Proof.
     pose proof Hpermit as (x1&Hx1&(x2&Hx2&[=Hx3])%bind_Some)%bind_Some.
     rewrite Hfrozen /= in Hx1. destruct (trees_rel_dec (strs σ) l.1 tg_acc tg_lu); try done.
     pose proof Hx1 as [= <-].
-    assert (x2 = Disabled) as -> by (destruct (initialized _), bool_decide; simplify_eq; done).
+    assert (x2 = Disabled) as -> by (destruct (most_init _ _), bool_decide; simplify_eq; done).
     rewrite -Hx3 in Hnondis. done.
   - destruct Hpre as (itnew&(trnew'&Htrnew'&Hitnew)&Hnondis & Hfreezeprot). 
     assert (trnew' = trnew) as -> by congruence. clear Htrnew'.
@@ -261,7 +262,7 @@ Proof.
       rewrite /apply_access_perm_inner in Hx1.
       rewrite -Hx3 /most_init /= in Hnondis Hfreezeprot.
       rewrite bool_decide_decide in Hx1,Hx2.
-      destruct trees_rel_dec as [[]|[]], (perm (item_lookup itold l.2)), (initialized (item_lookup itold l.2)) as []; simplify_eq; try done.
+      destruct trees_rel_dec as [[]|[]], (perm (item_lookup itold l.2)), (initialized (item_lookup itold l.2)) as []; simpl in Hx2; simplify_eq; try done.
       all: try specialize (Hnondis eq_refl).
       all: (try destruct decide); try by simplify_eq. }
     destruct Hcontrol as (itold' & trold' & Hitold' & Htrold' & Hisinit & Hsame & Hothers).
@@ -355,6 +356,8 @@ Proof.
   destruct rk, pk as [[]|[]|]; simpl; intros H; simplify_eq; eauto 10.
 Qed.
 
+Lemma if_both_sides_same {T} (b:bool) (t:T) : (if b then t else t) = t.
+Proof. by destruct b. Qed.
 
 Lemma loc_controlled_read_after_reborrow_creates Mcall cids l sc tg_cld tg_par tk σ σ' pk rk trs1 cc blk off1 sz:
   apply_within_trees (create_child cids tg_par tg_cld pk rk cc) blk σ.(strs) = Some trs1 →
@@ -384,7 +387,7 @@ Proof.
   rewrite /apply_access_perm /= in Haccesscld.
   assert (∀ T (k:option T), match pointer_kind_to_perm pk with Disabled => None | _ => k end = k) as Hmatch1.
   1: by destruct pk.
-  rewrite Hmatch1 /= in Haccesscld. clear Hmatch1.
+  rewrite Hmatch1 /= Hmatch1 /= if_both_sides_same /= in Haccesscld. clear Hmatch1.
   injection Haccesscld as Haccesscld.
   destruct Hitcld' as (tr'&Htr'&Hitcld').
   destruct (pointer_kind_to_tag_maybe_protected_spec _ _ _ Htk) as [(->&->)|(im&H&->&Him)].
@@ -756,7 +759,8 @@ Proof.
         1: by eapply Hcompat. eapply wf_tree_tree_item_determined. by eapply Hwf. }
       rewrite /lazy_perm_wf in Hwitold'.
       clear Heqc. rewrite /apply_access_perm /apply_access_perm_inner /= in Hperm2.
-      repeat (case_match; simpl in Hperm2; simplify_eq; try rewrite <- Hperm2; try (specialize (Hwitold' eq_refl)); try done).
+      destruct (most_init (initialized (item_lookup itold' l.2)) (requires_init (rel_dec trold tg_acc t'))) as [] eqn:Hmostinit.
+      all: repeat (case_match; simpl in Hperm2; simplify_eq; try rewrite <- Hperm2; try (rewrite (Hwitold' eq_refl) /= in Hmostinit); simpl in Hperm2; try done).
   - intros (it & Htrlu & Hndis & Hfrzprot).
     pose proof Htrlu as Htrlu2.
     eapply apply_trees_access_lookup_general_rev in Htrlu2; [|eapply Happly|eapply Hwf|done].
@@ -791,9 +795,11 @@ Proof.
         pose proof Heq3 as (x1&Hx1&(x2&Hx2&[= HH])%bind_Some)%bind_Some.
         rewrite -HH -?Heq_scs /= in Hfrzprot|-*.
         rewrite /apply_access_perm_inner in Hx1.
-        repeat (case_match; simplify_eq; (try specialize (Hwfitold eq_refl)); (try (destruct Hsame; [ idtac ])); try done; try (split; [done | (try by left); by right ])).
+        assert (perm (item_lookup itold l.2) = Active → most_init (initialized (item_lookup itold l.2)) (requires_init (trees_rel_dec (strs σ) l.1 tg_acc tg_lu)) = PermInit) as HHH.
+        { intros H; by rewrite Hwfitold. }
+        repeat (case_match; simplify_eq; (try specialize (HHH eq_refl)); (try (destruct Hsame; [ idtac ])); try done; try (split; [done | (try by left); by right ])).
         all: exfalso; eapply bool_decide_eq_false_1; last apply (Hfrzprot eq_refl eq_refl). all: done.
-         }
+        }
       split; first done.
       intros itnew' t' Hit'.
       rewrite /lazy_perm_wf in Hwfitold.
@@ -838,7 +844,7 @@ Proof.
              1-3: eapply Hwf; first done. 1: eapply Hitoldlu'. 1: eapply Hluold. 1: eapply Htgin.
              right. rewrite Hcousin in Hactres. subst act. destruct (perm (item_lookup itold' l.2)) as [[]| | |] eqn:Hactive; simplify_eq; try tauto.
              specialize (Hwfitold' eq_refl). rewrite Hwfitold' in Hothers. by destruct Hothers. }
-      all: repeat (case_match; simplify_eq; (try specialize (Hwfitold' eq_refl)); 
+      all: repeat (case_match; simplify_eq; (try specialize (Hwfitold' eq_refl)); unfold most_init in *;
           (try edestruct (HtransiF _ _ eq_refl eq_refl) as (Htra1&Htra2)); simplify_eq; try done).
       all: destruct Hactres as [?| ->]; first done; destruct Hne as [?|Hne]; first done; exfalso.
       all: erewrite Hreldec_strong in Hreldec;

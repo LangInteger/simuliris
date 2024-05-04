@@ -272,7 +272,7 @@ Proof.
 Qed.
 
 Lemma sim_retag_fnentry sz l_t l_s ot c pk tk M π Φ :
-  pointer_kind_to_tag_protected pk = tk → (* forbid interior mutability  *)
+  pointer_kind_to_tag_protected pk = tk →
   sc_rel (ScPtr l_t ot) (ScPtr l_s ot) -∗
   c @@ M -∗
   (∀ nt v_t v_s,
