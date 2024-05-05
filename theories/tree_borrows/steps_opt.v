@@ -237,8 +237,19 @@ Proof.
     specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
     split; first done. intros t' L [Ht HL]%Hprot. split; first done.
     intros l' b HlL. specialize (HL l' b HlL).
-    eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| |done].
-    rewrite Hscs_eq. apply Hin.
+    eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| | ].
+    1: rewrite Hscs_eq; apply Hin.
+    eapply tag_protected_for_mono. 2: done.
+    intros l0 it Hit1 Hit2 Hit3 (tk&Htk'&Hhl).
+    destruct (decide (itag it = t)) as [<-|]; last first.
+    + exists tk. rewrite /heaplet_lookup !lookup_insert_ne /= //. congruence.
+    + rewrite /tag_is_unq lookup_insert. exists tk_act. split; first done.
+      rewrite /heaplet_lookup /=. destruct (decide (l0.1 = l.1)) as [Heq|?].
+      * rewrite Heq lookup_insert // /=.
+        rewrite /heaplet_lookup /= Heq Hheaplet_t /= in Hhl. eapply elem_of_dom.
+        eapply elem_of_dom in Hhl.
+        erewrite list_to_heaplet_dom_1. 1: exact Hhl. lia.
+      * rewrite lookup_insert_ne. 2: congruence. apply Hhl.
   - (* tag invariant *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | | | | ]; first last.
     1-2: rewrite /dom_unique_per_tag !dom_insert_lookup_L //.

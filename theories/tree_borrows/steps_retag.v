@@ -132,7 +132,7 @@ Proof.
       5: done. 3-4: done. 1-2: done. all: simpl. 3: exact Hvirtual_t.
       1: setoid_rewrite <- trees_equal_same_tags; first done; done.
       1: split; first lia. 1: rewrite -Hlen_v_t. 1: eapply lookup_lt_Some in Hvt; lia.
-      subst t. destruct Hpriv as (tk'&Htk'&[vls Hhl]&[->|(cc&->&Hcc)]). all: congruence. }
+      subst t. destruct Hpriv as (tk'&Htk'&[vls Hhl]&[->|(cc&ae&->&Hcc)]). all: congruence. }
   iSpecialize ("Hsim" with "Hvalrel Htk").
   assert (M_t !! (snp σ_s, l_s.1) = None) as Hhl_t_None.
   { destruct Htag_interp as (_&H1&H2&_). destruct (M_t !! (snp σ_s, l_s.1)) eqn:Heq; last done.
@@ -176,7 +176,14 @@ Proof.
     eapply (tag_protected_preserved_by_create ps ot (snp σ_s) pk Default (scs σ_s)) in Hc4.
     4: exact Happly1_t. 2: eapply Hwf_t. 2: { intros <-. rewrite /tag_valid in Hc3. lia. }
     eapply tag_protected_preserved_by_access.
-    2: exact Happly2_t. 2: rewrite Hscs_eq; apply Hc1. 2: done. 1: eapply Hwf_trs1_t.
+    2: exact Happly2_t. 2: rewrite Hscs_eq; apply Hc1. 1: eapply Hwf_trs1_t.
+    eapply tag_protected_for_mono; last exact Hc4.
+    intros l'' it ? ? ? (tk'&Htk'&Hhl'). exists tk'. split.
+    + rewrite lookup_insert_ne //; intros Heq.
+      by rewrite -Heq Htagfresh in Htk'.
+    + rewrite /heaplet_lookup /= /array_tag_map /= lookup_union_r //.
+      eapply not_elem_of_dom. rewrite dom_singleton_L. intros HH%elem_of_singleton.
+      rewrite /heaplet_lookup /= HH /= Hhl_t_None /= in Hhl'. by destruct Hhl'.
   - iPureIntro. destruct Htag_interp as (Ht1&Ht2&Ht3&Ht4&Ht5).
     split_and!.
     2-5: rewrite /array_tag_map -!insert_union_singleton_l.
@@ -270,6 +277,11 @@ Proof.
     rewrite lookup_insert_ne. 1: apply IH; exists i; split; try done.
     1: lia. rewrite /shift_loc. intros [= H]. lia.
 Qed.
+Definition pointer_kind_to_access_ensuring (pk : pointer_kind) : access_ensuring := 
+  match pk with
+    Box _ => WeaklyNoChildren
+  | _ => Strongly
+  end.
 
 Lemma sim_retag_fnentry sz l_t l_s ot c pk tk M π Φ :
   pointer_kind_to_tag_protected pk = tk →
@@ -277,7 +289,7 @@ Lemma sim_retag_fnentry sz l_t l_s ot c pk tk M π Φ :
   c @@ M -∗
   (∀ nt v_t v_s,
     ⌜l_t = l_s⌝ -∗
-    c @@ <[nt := seq_loc_map l_t sz (pointer_kind_to_strength pk) ]> M -∗
+    c @@ <[nt := seq_loc_map l_t sz (EnsuringAccess (pointer_kind_to_access_ensuring pk)) ]> M -∗
     ⌜length v_t = sz⌝ -∗ ⌜length v_s = sz⌝ -∗
     value_rel v_t v_s -∗  (* as the pointers were public before *)
     nt $$ tk -∗
@@ -354,7 +366,7 @@ Proof.
       5: done. 3-4: done. 1-2: done. all: simpl. 3: exact Hvirtual_t.
       1: setoid_rewrite <- trees_equal_same_tags; first done; done.
       1: split; first lia. 1: rewrite -Hlen_v_t. 1: eapply lookup_lt_Some in Hvt; lia.
-      subst t. destruct Hpriv as (tk'&Htk'&[vls Hhl]&[->|(cc&->&Hcc)]). all: congruence. }
+      subst t. destruct Hpriv as (tk'&Htk'&[vls Hhl]&[->|(cc&ae&->&Hcc)]). all: congruence. }
   iSpecialize ("Hsim" with "Hvalrel Htk").
   assert (M_t !! (snp σ_s, l_s.1) = None) as Hhl_t_None.
   { destruct Htag_interp as (_&H1&H2&_). destruct (M_t !! (snp σ_s, l_s.1)) eqn:Heq; last done.
@@ -390,13 +402,13 @@ Proof.
     + iRight. iExists t. iPureIntro. destruct Hpriv as (tk'&Htk'&Hhl&Htag).
       exists tk'. split. 1: rewrite lookup_insert_ne //. 1: intros <-; congruence.
       split. 1: rewrite /heaplet_lookup /= -?insert_union_singleton_l in Hhl|-*; rewrite lookup_insert_ne //; congruence.
-      destruct Htag as [->|(cc&->&Hin)]; first by left.
-      right; exists cc; split; first done.
+      destruct Htag as [->|(cc&ae&->&Hin)]; first by left.
+      right; exists cc, ae; split; first done.
       destruct Hin as (MM&HMM&Hin). destruct (decide (c = cc)) as [->|Hne].
       2: exists MM; by rewrite lookup_insert_ne.
       eexists. rewrite lookup_insert; split; first done.
       assert (MM = M) as -> by congruence.
-      destruct Hin as (L&p&HML&HL&Hp). exists L, p. split_and!; try done.
+      destruct Hin as (L&HML&HL). exists L. split_and!; try done.
       rewrite lookup_insert_ne //. intros <-. congruence.
   - iPureIntro. subst σ_t'. intros cc M' [(<-&<-)|(Hne&HM')]%lookup_insert_Some.
     1: specialize (Hcall_interp _ _ HM_call) as (Hc1&Hc2).
@@ -408,28 +420,31 @@ Proof.
       intros l ps (i&Hi&->&->)%seq_loc_set_elem.
       eapply tag_protected_preserved_by_access.
       2: exact Happly2_t. 2: rewrite Hscs_eq; apply Hc1. 1:eapply Hwf_trs1_t.
-      assert (item_protected_for c (create_new_item (snp σ_s) pk FnEntry c) (l_s +ₗ i).2 (pointer_kind_to_strength pk)) as Hprot.
-      { split; first done. split.
-        + intros H. apply H.
-        + rewrite /item_lookup /= lookup_empty /= //. }
-      destruct (pointer_kind_to_strength pk) as [] eqn:Hpks.
-      - eexists. split; last exact Hprot.
-        eapply bind_Some in Happly1_t as (tr&Htr&(tr2&Happ&[= <-])%bind_Some).
-        exists tr2. rewrite /= lookup_insert. split; first done.
-        eapply create_child_determined. 3: done.
-        all: rewrite /trees_contain /trees_at_block Htr // -Hsnp_eq // in Hotin_t, Hntnin_t.
-      - intros it (tr'&Htr'&Hit). 
-        eapply bind_Some in Happly1_t as (tr&Htr&(tr2&Happ&[= <-])%bind_Some).
-        assert (tr2 = tr') as <-. 1: rewrite /= lookup_insert // in Htr'; congruence.
-        erewrite (create_child_tree_lookup_new  _ _ _ _ _ _ _ _ it). 1: exact Hprot. 3: exact Happ. 3: done.
-        all: rewrite /trees_contain /trees_at_block Htr // -Hsnp_eq // in Hotin_t, Hntnin_t. }
+      assert (item_protected_for (tag_is_unq (<[snp σ_s:=(tk, ())]> M_tag) (array_tag_map l_s (snp σ_s) v_t ∪ M_t)) c (create_new_item (snp σ_s) pk FnEntry c) (l_s +ₗ i).1 (l_s +ₗ i).2 (EnsuringAccess (pointer_kind_to_access_ensuring pk))) as Hprot.
+      { split; first done. split; last first.
+        1: rewrite /item_lookup /= lookup_empty /= //.
+        destruct pk; try done. simpl. exists tk_res.
+        subst tk. rewrite lookup_insert /=. split; first done.
+        rewrite /= /heaplet_lookup /= lookup_union /= /array_tag_map /= lookup_singleton /= union_Some_l /= list_to_heaplet_nth.
+        eapply lookup_lt_is_Some_2; by lia. }
+      eexists. split; last exact Hprot.
+      eapply bind_Some in Happly1_t as (tr&Htr&(tr2&Happ&[= <-])%bind_Some).
+      exists tr2. rewrite /= lookup_insert. split; first done.
+      eapply create_child_determined. 3: done.
+      all: rewrite /trees_contain /trees_at_block Htr // -Hsnp_eq // in Hotin_t, Hntnin_t. }
     all: specialize (Hc2 tt L HL) as (Hc3&Hc4).
     all: split; [ simpl; eapply tag_valid_mono; first done; lia | ].
     all: intros l ps Hps; specialize (Hc4 l ps Hps).
     all: eapply (tag_protected_preserved_by_create ps ot (snp σ_s) pk _ (scs σ_s)) in Hc4;
          [| | | exact Happly1_t]; [| eapply Hwf_t | intros <-; rewrite /tag_valid in Hc3; lia ].
     all: eapply tag_protected_preserved_by_access;
-         [| exact Happly2_t | rewrite Hscs_eq; apply Hc1 | done]; eapply Hwf_trs1_t.
+         [| exact Happly2_t | rewrite Hscs_eq; apply Hc1 | ]; first eapply Hwf_trs1_t.
+    all: eapply tag_protected_for_mono; last exact Hc4.
+    all: intros l'' it ? ? ? (tk'&Htk'&Hhl'); exists tk'; split; 
+         [ rewrite lookup_insert_ne //; intros Heq; by rewrite -Heq Htagfresh in Htk' | ].
+    all: rewrite /heaplet_lookup /= /array_tag_map /= lookup_union_r //.
+    all: eapply not_elem_of_dom; rewrite dom_singleton_L; intros HH%elem_of_singleton.
+    all: rewrite /heaplet_lookup /= HH /= Hhl_t_None /= in Hhl'; by destruct Hhl'.
   - iPureIntro. destruct Htag_interp as (Ht1&Ht2&Ht3&Ht4&Ht5).
     split_and!.
     2-5: rewrite /array_tag_map -!insert_union_singleton_l.
@@ -489,9 +504,10 @@ Proof.
          1: exact Happly1_t. 1: exact Happly2_t. 1-4,8: done.
          1: by rewrite Hsnp_eq. 2: lia. 1: destruct l as [l1 l2]; simpl in *; subst l1; done.
          2: by rewrite -Htk. intros _.
-         eexists. rewrite lookup_insert; split; first done.
-         eexists _, _. rewrite lookup_insert; split; first done.
-         split; last by eapply prot_le_refl. rewrite Hlen_v_t in H2'.
+         eexists (EnsuringAccess (pointer_kind_to_access_ensuring pk)), _. split; first done. split; last first.
+         1: destruct pk; done.
+         eexists. rewrite /= lookup_insert; split; first done.
+         rewrite Hlen_v_t in H2'. eexists. rewrite lookup_insert. split; first done.
          eapply seq_loc_set_elem. exists off. split_and!; last done.
          1: lia. destruct l, l_s; rewrite /shift_loc; simpl in *; f_equal; lia.
        * eapply mk_is_Some, Ht2 in Hlu. rewrite Htagfresh in Hlu. by destruct Hlu.
@@ -502,9 +518,10 @@ Proof.
          1: exact Happly1_s. 1: exact Happly2_s. 1-5,8: done.
          2: lia. 1: destruct l as [l1 l2]; simpl in *; subst l1; done.
          2: by rewrite -Htk. intros _.
-         eexists. rewrite lookup_insert; split; first done.
-         eexists _, _. rewrite lookup_insert; split; first done.
-         split; last by eapply prot_le_refl. rewrite Hlen_v_s in H2'.
+         eexists (EnsuringAccess (pointer_kind_to_access_ensuring pk)), _. split; first done. split; last first.
+         1: destruct pk; done.
+         eexists. rewrite /= lookup_insert; split; first done.
+         rewrite Hlen_v_s in H2'. eexists. rewrite lookup_insert. split; first done.
          eapply seq_loc_set_elem. exists off. split_and!; last done.
          1: lia. destruct l, l_s; rewrite /shift_loc; simpl in *; f_equal; lia.
        * eapply mk_is_Some, Ht3 in Hlu. rewrite Htagfresh in Hlu. by destruct Hlu.
@@ -654,8 +671,8 @@ Proof.
       opose proof* priv_loc_access_must_use_same_tag as Heq.
       5: done. 3-4: done. 1-2: done. all: simpl. 3: exact Hvirtual_t.
       1: setoid_rewrite <- trees_equal_same_tags; first done; done.
-      1: split; first lia. 1: rewrite -Hlen_v_t. 1: eapply lookup_lt_Some in Hvt; lia.
-      subst t. destruct Hpriv as (tk'&Htk'&[vls Hhl]&[->|(cc&->&Hcc)]). all: congruence. }
+      1: split; first lia. 1: rewrite -Hlen_v_t. 1: eapply lookup_lt_Some in Hvt; lia. 
+      subst t. destruct Hpriv as (tk'&Htk'&[vls Hhl]&[->|(cc&ae&->&Hcc)]). all: congruence. }
 
   assert (M_t !! (snp σ_s, l_s.1) = None) as Hhl_t_None.
   { destruct Htag_interp as (_&H1&H2&_). destruct (M_t !! (snp σ_s, l_s.1)) eqn:Heq; last done.
@@ -696,7 +713,11 @@ Proof.
     eapply (tag_protected_preserved_by_create ps ot (snp σ_s) pk rk (scs σ_s)) in Hc4.
     4: exact Happly1_t. 2: eapply Hwf_t. 2: { intros <-. rewrite /tag_valid in Hc3. lia. }
     eapply tag_protected_preserved_by_access.
-    2: exact Happly2_t. 2: rewrite Hscs_eq; apply Hc1. 2: done. 1: eapply Hwf_trs1_t.
+    2: exact Happly2_t. 2: rewrite Hscs_eq; apply Hc1. 1: eapply Hwf_trs1_t.
+    eapply tag_protected_for_mono. 2: exact Hc4.
+    intros l'' it ? ? ? (tk&Htk&Hhl). exists tk. split; last done.
+    rewrite lookup_insert_ne //. intros Heq.
+    by rewrite -Heq Htagfresh in Htk.
   - iPureIntro. destruct Htag_interp as (Ht1&Ht2&Ht3&Ht4&Ht5).
     split_and!.
     4-5: done.
