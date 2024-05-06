@@ -428,7 +428,7 @@ Proof.
   intros l. specialize (Hutc l) as (Hproteq&Hutc).
   split; first done.
 
-  inversion Hutc as [x1 x2 Hlu|ini im confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2|ini im confl1 confl2 Hnprot]; simplify_eq.
+  inversion Hutc as [x1 x2 Hlu|ini im confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2|ini im confl1 confl2 Hnprot|]; simplify_eq.
   - econstructor 1.
   - destruct (decide (cc = cid)) as [<-|Hne].
     + econstructor 3. intros (cc'&Hcc'&Hccact').
@@ -478,7 +478,12 @@ Proof.
         eapply tree_read_many_equally_initialized. 3: exact Hrai2. all: done.
   - econstructor 3.
     intros (cc&Hcc&Hccact). eapply Hnprot. eexists. split; first done. by eapply elem_of_difference in Hccact as (H1&H2).
-Qed.
+  - econstructor 4.
+    + admit.
+    + admit.
+    + assumption.
+    + admit.
+Admitted.
 
 Lemma trees_equal_remove_call C trs1' trs2' trs1 trs2 cid :
   wf_trees trs1 → wf_trees trs2 → each_tree_parents_more_init trs1 → each_tree_parents_more_init trs2 →
