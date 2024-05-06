@@ -86,6 +86,21 @@ Section utils.
         pseudo_conflicted tr tg l ResActivable
     .
 
+  Inductive disabled_in_practice (tr : tree item) (tg : tag) (witness : tag) (l : Z)
+    : Prop :=
+    | disabled_parent it_witness imm :
+      (* Doesn't have to be immediate, just any parent is Disabled *)
+      rel_dec tr witness tg = Foreign (Parent imm) ->
+      tree_lookup tr witness it_witness ->
+      (item_lookup it_witness l).(perm) = Disabled ->
+      (* FIXME: is the hypothesis of not being protected necessary here ?
+           We certainly need it somewhere, but does it have to be here or can we
+           deduce it from some other invariant ? *)
+      ~protector_is_active it_witness.(iprot) C ->
+      disabled_in_practice tr tg witness l
+    (* FIXME: consider relaxing this to include true Disabled *)
+    .
+
   Inductive perm_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (l : Z) cid
     : lazy_permission -> lazy_permission -> Prop :=
     | perm_eq_up_to_C_refl p :
@@ -108,6 +123,15 @@ Section utils.
         perm_eq_up_to_C tr1 tr2 tg l cid
           {| initialized := ini; perm := Reserved im confl1 |}
           {| initialized := ini; perm := Reserved im confl2 |}
+    | perm_eq_up_to_C_disabled_parent witness_tg p p' :
+        (* Finally if they have a Disabled parent we allow anything (unprotected) since
+           nothing is possible through this tag anyway *)
+        (* FIXME: this seems to cause problems later because we are not restricting
+           [initialized]. See the lemma [perm_eq_up_to_C_same_init]. *)
+        disabled_in_practice tr1 tg witness_tg l ->
+        disabled_in_practice tr2 tg witness_tg l ->
+        ~protector_is_active cid C ->
+        perm_eq_up_to_C tr1 tr2 tg l cid p p'
     .
 
   Definition loc_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (it1 it2 : item) (l : Z) :=
@@ -223,6 +247,7 @@ Section utils.
     intro EqC.
     inversion EqC.
     + econstructor.
+    + econstructor; eassumption.
     + econstructor; eassumption.
     + econstructor; eassumption.
   Qed.
@@ -637,6 +662,11 @@ Section utils.
     all: subst; simpl; try auto.
   Qed.
 
+  (* FIXME: move this elsewhere *)
+  Lemma if_fun_absorb_args {X Y} {b : bool} {x : X} {f g : X -> Y} :
+    (if b then f else g) x = if b then f x else g x.
+  Proof. destruct b; reflexivity. Qed.
+
   Lemma loc_eq_up_to_C_allows_same_access
     {tr1 tr2 tg it1 it2 l kind acc_tg range b}
     (Tg1 : itag it1 = tg)
@@ -659,7 +689,12 @@ Section utils.
   Proof.
     intros EqC Acc1.
     inversion EqC as [EqProt EqCLookup].
-    inversion EqCLookup as [perm Lookup EqLookup|???? Prot Confl1 Confl2 Lookup1 Lookup2|???? Prot Lookup1 Lookup2].
+    inversion EqCLookup as
+      [perm Lookup EqLookup
+      |???? Prot Confl1 Confl2 Lookup1 Lookup2
+      |???? Prot Lookup1 Lookup2
+      |witness_tg ?? Dis1 Dis2 Lookup1 Lookup2
+    ].
     - rewrite Tg2 -Tg1.
       rewrite -SameRel.
       rewrite -EqProt.
@@ -687,6 +722,63 @@ Section utils.
       + symmetry. apply Lookup1.
       + exact InRange.
       + rewrite Tg1 -Tg2 SameRel EqProt Heq // in Acc1.
+    - (* This has to be a foreign access *)
+      destruct (rel_dec tr1 acc_tg (itag it1)) eqn:AccRel.
+      + rewrite <- EqProt.
+        rewrite bool_decide_eq_false_2; last assumption.
+        rewrite Tg2 -Tg1 -SameRel AccRel.
+        rewrite /maybe_non_children_only /nonchildren_only.
+        repeat rewrite if_fun_absorb_args.
+        repeat case_match; first done.
+        all: rewrite /apply_access_perm /apply_access_perm_inner //=.
+        all: repeat case_match; done.
+      + (* If it's a child access we then it's also a child access for the Disabled parent. *)
+        inversion Dis1 as [? ? RelWitness LookupWitness DisWitness UnprotWitness].
+        rewrite <- apply_access_success_condition in GlobalSuccess.
+        rewrite every_node_iff_every_lookup in GlobalSuccess. 2: {
+          intros tg0 Ex0. apply unique_lookup. apply GloballyUnique1. assumption.
+        }
+        specialize (GlobalSuccess _ _ LookupWitness).
+        pose proof (tree_determined_specifies_tag _ _ _ (proj1 LookupWitness) (proj2 LookupWitness))
+          as WitnessTg.
+        subst witness_tg.
+        subst tg.
+        assert (match rel_dec tr1 acc_tg (itag it_witness) with
+          | Child _ => True
+          | Foreign _ => False
+          end
+        ). {
+          pose proof (rel_dec_compat3 UnqAcc (GloballyUnique1 _ (proj1 LookupWitness)) Ex1)  as Rel3.
+          rewrite RelWitness in Rel3.
+          rewrite (rel_dec_flip _ _ _ _ AccRel) in Rel3; simpl in Rel3.
+          case_match; last done.
+          case_match; case_match; try contradiction.
+          all: case_match; try congruence.
+          all: case_match; try congruence.
+        }
+        destruct (rel_dec _ acc_tg (itag it_witness)); first contradiction.
+        (* Finally we have all the ingredients of the contradiction *)
+        rewrite /item_apply_access in GlobalSuccess.
+        destruct GlobalSuccess as [? GlobalSuccess].
+        rewrite bind_Some in GlobalSuccess.
+        destruct GlobalSuccess as [tmp_perms [PermissionsApply Wrapper]].
+        injection Wrapper; clear Wrapper; intros; subst.
+        rewrite /permissions_apply_range' in PermissionsApply.
+        pose proof (proj2 (mem_apply_range'_success_condition _ _ _) (mk_is_Some _ _ PermissionsApply))
+          as PermissionApply.
+        specialize (PermissionApply l InRange).
+        unfold item_lookup in DisWitness.
+        rewrite /maybe_non_children_only in PermissionApply.
+        rewrite /nonchildren_only /= in PermissionApply.
+        repeat rewrite if_fun_absorb_args in PermissionApply.
+        rewrite Tauto.if_same in PermissionApply.
+        rewrite /apply_access_perm /= in PermissionApply.
+        destruct PermissionApply as [tmp_lazy PermissionApply].
+        rewrite bind_Some in PermissionApply.
+        destruct PermissionApply as [tmp_perm [ApplyAccessInner ValidateProt]].
+        rewrite DisWitness in ApplyAccessInner.
+        rewrite /apply_access_perm_inner in ApplyAccessInner.
+        case_match; discriminate.
   Qed.
 
   Lemma item_eq_up_to_C_allows_same_access (b:bool)
@@ -854,6 +946,65 @@ Section utils.
     inversion Hpc; by econstructor.
   Qed.
 
+  Lemma tree_apply_access_preserves_protector
+    {tr tr' tg acc_tg kind range b it it'}
+    (Lookup : tree_lookup tr tg it)
+    (Lookup' : tree_lookup tr' tg it')
+    (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
+    : iprot it' = iprot it.
+  Proof.
+    destruct (apply_access_spec_per_node (proj1 Lookup) (proj2 Lookup) Acc) as [it'' [Spec'' [Ex'' Det'']]].
+    symmetry in Spec''.
+    destruct (item_apply_access_preserves_metadata it it'' Spec'') as [?[]].
+    rewrite (tree_determined_unify (proj1 Lookup') (proj2 Lookup') Det'').
+    done.
+  Qed.
+
+  Lemma disabled_tree_apply_access_irreversible
+    {tr tr' tg acc_tg kind range loc b it}
+    (Lookup : tree_lookup tr tg it)
+    (Dis : perm (item_lookup it loc) = Disabled)
+    (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
+    : exists it',
+        tree_lookup tr' tg it'
+        /\ perm (item_lookup it' loc) = Disabled.
+  Proof.
+    destruct (apply_access_spec_per_node (proj1 Lookup) (proj2 Lookup) Acc) as [it' [Spec' [Ex' Det']]].
+    exists it'.
+    split; first done.
+    symmetry in Spec'.
+    rewrite bind_Some in Spec'. destruct Spec' as [tmp [PermsApp Build]].
+    injection Build; intros; subst; clear Build.
+    pose proof (mem_apply_range'_spec _ _ loc _ _ PermsApp) as LocSpec.
+    destruct (decide _).
+    + destruct LocSpec as [val [LookupVal SpecVal]].
+      rewrite /item_lookup LookupVal /=.
+      rewrite /maybe_non_children_only /nonchildren_only in SpecVal.
+      repeat case_match.
+      1: { injection SpecVal; intros; subst; done. }
+      all: rewrite /apply_access_perm /apply_access_perm_inner /= in SpecVal.
+      all: rewrite Dis /= in SpecVal.
+      all: repeat case_match; simpl in *; try congruence.
+      all: injection SpecVal; intros; subst; simpl; done.
+    + rewrite /item_lookup /= LocSpec Dis //.
+  Qed.
+
+
+  Lemma disabled_in_practice_tree_apply_access_irreversible
+    {tr tr' tg acc_tg kind range witness loc b}
+    (Dis : disabled_in_practice tr tg witness loc)
+    (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
+    : disabled_in_practice tr' tg witness loc.
+  Proof.
+    inversion Dis as [?? Rel Lookup Perm NoProt].
+    destruct (disabled_tree_apply_access_irreversible Lookup Perm Acc) as [it' [Lookup' Perm']].
+    econstructor.
+    + erewrite <- access_same_rel_dec; eassumption.
+    + apply Lookup'.
+    + apply Perm'.
+    + erewrite tree_apply_access_preserves_protector; first eassumption.
+      all: eassumption.
+  Qed.
 
   Lemma perm_eq_up_to_C_preserved_by_access (b:bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
@@ -865,13 +1016,15 @@ Section utils.
     tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr1 = Some tr1' ->
     tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr2 = Some tr2' ->
     tree_lookup tr1 tg it1 ->
+    tree_lookup tr1' tg it1' ->
     tree_lookup tr2 tg it2 ->
+    tree_lookup tr2' tg it2' ->
     item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C (rel_dec tr1 acc_tg (itag it1)) range it1 = Some it1' ->
     item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C (rel_dec tr2 acc_tg (itag it2)) range it2 = Some it2' ->
     perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
   Proof.
-    intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
-    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2].
+    intros EqC Acc1 Acc2 Lookup1 Lookup1' Lookup2 Lookup2' ItAcc1 ItAcc2.
+    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2|].
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
@@ -1004,6 +1157,12 @@ Section utils.
       all: try (injection perm2Spec; intros; subst); clear perm2Spec.
       all: try by econstructor 1.
       all: try by econstructor 3.
+    - econstructor.
+      + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption.
+        eassumption.
+      + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption.
+        eassumption.
+      + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
   Qed.
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
@@ -1015,12 +1174,14 @@ Section utils.
     tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr1 = Some tr1' ->
     tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr2 = Some tr2' ->
     tree_lookup tr1 tg it1 ->
+    tree_lookup tr1' tg it1' ->
     tree_lookup tr2 tg it2 ->
+    tree_lookup tr2' tg it2' ->
     item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C (rel_dec tr1 acc_tg (itag it1)) range it1 = Some it1' ->
     item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C (rel_dec tr2 acc_tg (itag it2)) range it2 = Some it2' ->
     item_eq_up_to_C tr1' tr2' tg it1' it2'.
   Proof.
-    intros EqC Acc1 Acc2 Lookup1 Lookup2 ItAcc1 ItAcc2.
+    intros EqC Acc1 Acc2 Lookup1 Lookup1' Lookup2 Lookup2' ItAcc1 ItAcc2.
     econstructor.
     - rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata _ _ ItAcc1))).
       rewrite <- (proj1 (proj2 (item_apply_access_preserves_metadata _ _ ItAcc2))).
@@ -1030,6 +1191,8 @@ Section utils.
       + apply SameTg.
       + apply SameRel.
       + apply EqC.
+      + eassumption.
+      + eassumption.
       + eassumption.
       + eassumption.
       + eassumption.
@@ -1079,7 +1242,9 @@ Section utils.
         * eassumption.
         * eassumption.
         * eassumption.
+        * split; eassumption.
         * eassumption.
+        * split; eassumption.
         * symmetry; assumption.
         * symmetry; assumption.
   Qed.
@@ -1267,7 +1432,7 @@ Section utils.
       by eapply tree_lookup_to_exists_node.
   Qed.
 
-  Lemma item_eq_up_to_C_same_iprop tr1 tr2 tg it1 it2 : 
+  Lemma item_eq_up_to_C_same_iprot tr1 tr2 tg it1 it2 : 
     item_eq_up_to_C tr1 tr2 tg it1 it2 →
     it1.(iprot) = it2.(iprot).
   Proof.
@@ -1278,6 +1443,7 @@ Section utils.
     perm_eq_up_to_C tr1 tr2 tg off prot lp1 lp2 →
     initialized lp1 = initialized lp2.
   Proof.
+    (* FIXME: fails because the equality does not hold in the case [disabled_parent]. *)
     intros H. by inversion H.
   Qed.
 
