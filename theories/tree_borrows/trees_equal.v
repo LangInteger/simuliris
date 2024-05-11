@@ -126,10 +126,10 @@ Section utils.
     | perm_eq_up_to_C_disabled_parent witness_tg p p' :
         (* Finally if they have a Disabled parent we allow anything (unprotected) since
            nothing is possible through this tag anyway *)
-        (* FIXME: this seems to cause problems later because we are not restricting
-           [initialized]. See the lemma [perm_eq_up_to_C_same_init]. *)
         disabled_in_practice tr1 tg witness_tg l ->
         disabled_in_practice tr2 tg witness_tg l ->
+        (* Added initialization requirement to help with the lemma [perm_eq_up_to_C_same_init] *)
+        (initialized p = initialized p') ->
         ~protector_is_active cid C ->
         perm_eq_up_to_C tr1 tr2 tg l cid p p'
     .
@@ -249,7 +249,8 @@ Section utils.
     + econstructor.
     + econstructor; eassumption.
     + econstructor; eassumption.
-    + econstructor; eassumption.
+    + econstructor; try eassumption.
+      done.
   Qed.
 
   Lemma loc_eq_up_to_C_sym
@@ -989,6 +990,18 @@ Section utils.
     + rewrite /item_lookup /= LocSpec Dis //.
   Qed.
 
+  Lemma disabled_create_child_irreversible
+    {tr tr' tg tg_old tg_new loc it pk rk cid}
+    (Lookup : tree_lookup tr tg it)
+    (Dis : perm (item_lookup it loc) = Disabled)
+    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    : exists it',
+        tree_lookup tr' tg it'
+        /\ perm (item_lookup it' loc) = Disabled.
+  Proof.
+    Admitted.
+
+
 
   Lemma disabled_in_practice_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range witness loc b}
@@ -1005,6 +1018,22 @@ Section utils.
     + erewrite tree_apply_access_preserves_protector; first eassumption.
       all: eassumption.
   Qed.
+
+  Lemma disabled_in_practice_create_child_irreversible
+    {tr tr' tg tg_old tg_new pk rk cid witness loc}
+    (Dis : disabled_in_practice tr tg witness loc)
+    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    : disabled_in_practice tr' tg witness loc.
+  Proof.
+    inversion Dis as [?? Rel Lookup Perm NoProt].
+    destruct (disabled_create_child_irreversible Lookup Perm Ins) as [it' [Lookup' Perm']].
+    econstructor.
+    + admit. (* Do we have reasoning about create_child and rel_dec anywhere ? *)
+    + apply Lookup'.
+    + apply Perm'.
+    + admit. (* What about create_child and protectors ? *)
+  Admitted.
+
 
   Lemma perm_eq_up_to_C_preserved_by_access (b:bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
@@ -1162,8 +1191,9 @@ Section utils.
         eassumption.
       + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption.
         eassumption.
+      + admit. (* We need to reason about initialized. *)
       + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
-  Qed.
+  Admitted.
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
@@ -1444,7 +1474,7 @@ Section utils.
     initialized lp1 = initialized lp2.
   Proof.
     (* FIXME: fails because the equality does not hold in the case [disabled_parent]. *)
-    intros H. by inversion H.
+    intros H. try by inversion H.
   Qed.
 
   Lemma tree_equals_protected_initialized tr1 tr2 cid
@@ -1459,12 +1489,12 @@ Section utils.
     all: eapply tree_all_protected_initialized_elem_of; first done.
     - edestruct (tree_equal_transfer_lookup_1 Heq Hlu) as (it'&Hit'&Heqit').
       exists it'. split; first done.
-      split; first by erewrite <- item_eq_up_to_C_same_iprop.
+      split; first by erewrite <- item_eq_up_to_C_same_iprot.
       intros z. specialize (Hinit z). destruct (Heqit' z) as (_&Heqlu).
       by erewrite <- perm_eq_up_to_C_same_init.
     - edestruct (tree_equal_transfer_lookup_2 Heq Hlu) as (it'&Hit'&Heqit').
       exists it'. split; first done.
-      split; first by erewrite item_eq_up_to_C_same_iprop.
+      split; first by erewrite item_eq_up_to_C_same_iprot.
       intros z. specialize (Hinit z). destruct (Heqit' z) as (_&Heqlu).
       by erewrite perm_eq_up_to_C_same_init.
   Qed.
@@ -1901,7 +1931,7 @@ Section utils.
       1-2: setoid_rewrite <- insert_true_preserves_every; done.
       intros l. specialize (Hequptoc l) as (Heq1&Heq2).
       split; first done.
-      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5|]; simplify_eq.
+      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |]; simplify_eq.
       + by econstructor 1.
       + destruct Hlu1 as (Hlu1A&Hlu1B), Hlu2 as (Hlu2A&Hlu2B).
         pose proof Hcont as Hcont2. setoid_rewrite H1 in Hcont2. econstructor 2. 1: done.
@@ -1938,6 +1968,13 @@ Section utils.
              eapply insert_eqv_strict_rel; last exact Hc.
              1-2: by intros <-.
       + by econstructor 3.
+      + econstructor 4.
+        * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
+          eassumption.
+        * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
+          eassumption.
+        * auto.
+        * auto.
   Qed.
 
   Lemma trees_equal_create_child trs1 trs2 trs1' blk tg_new tg_old pk rk cid nxtc :
@@ -2003,20 +2040,36 @@ Section call_set.
     + econstructor 2; by eauto using protector_is_active_mono.
   Qed.
 
+  Lemma protector_not_active_extend
+    {p c C}
+    (Hwf : ∀ c' : nat, protector_is_for_call c' p → (c' < c)%nat)
+    (NoProt : ¬ protector_is_active p C)
+    : ¬ protector_is_active p (C ∪ {[ c ]}).
+  Proof.
+    intros (cc&Hcc&[Hact|<-%elem_of_singleton]%elem_of_union).
+    1: eapply NoProt; by eexists.
+    apply Hwf in Hcc. lia.
+  Qed.
+
   Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat) tr1 tr2 tg l cid lp1 lp2 :
     (∀ cc, protector_is_for_call cc cid → (cc < nxtc)%nat) →
     perm_eq_up_to_C C1 tr1 tr2 tg l cid lp1 lp2 →
     perm_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg l cid lp1 lp2.
   Proof.
     intros Hwf.
-    induction 1 as [| |???? H].
+    induction 1 as [| |???? H|??? H1 H2 ? H].
     1: by econstructor.
     1: econstructor; try done. 1: eapply protector_is_active_mono; last done; set_solver.
     1-2: eapply pseudo_conflicted_mono; last done; set_solver.
-    econstructor 3; try done. intros (cc&Hcc&[Hact|<-%elem_of_singleton]%elem_of_union).
-    1: eapply H; by eexists.
-    apply Hwf in Hcc. lia.
-  Qed.
+    - econstructor 3; try done.
+      apply protector_not_active_extend; assumption.
+    - econstructor 4; try done.
+      3: apply protector_not_active_extend; assumption.
+      all: inversion H1; inversion H2.
+      all: econstructor; try done.
+      all: apply protector_not_active_extend.
+      all: admit. (* Bug here: we need more assumptions about the well-formedness of the witness' protector *)
+  Admitted.
 
   Lemma loc_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp l :
     item_wf it1 nxtp nxtc →
