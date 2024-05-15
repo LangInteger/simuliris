@@ -54,7 +54,7 @@ Section utils.
     rewrite /item_lookup. edestruct (iperm it !! l) as [pp|] eqn:H5.
     - simpl. eapply map_Forall_lookup_1 in H4; done.
     - simpl. intros Hne. exfalso. apply H3, Hne.
-  Qed.
+Qed.
 
   Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
 
@@ -734,7 +734,7 @@ Section utils.
         all: rewrite /apply_access_perm /apply_access_perm_inner //=.
         all: repeat case_match; done.
       + (* If it's a child access we then it's also a child access for the Disabled parent. *)
-        inversion Dis1 as [? ? RelWitness LookupWitness DisWitness UnprotWitness].
+        inversion Dis1 as [it_witness ? RelWitness LookupWitness DisWitness UnprotWitness].
         rewrite <- apply_access_success_condition in GlobalSuccess.
         rewrite every_node_iff_every_lookup in GlobalSuccess. 2: {
           intros tg0 Ex0. apply unique_lookup. apply GloballyUnique1. assumption.
@@ -749,13 +749,17 @@ Section utils.
           | Foreign _ => False
           end
         ). {
-          pose proof (rel_dec_compat3 UnqAcc (GloballyUnique1 _ (proj1 LookupWitness)) Ex1)  as Rel3.
-          rewrite RelWitness in Rel3.
-          rewrite (rel_dec_flip _ _ _ _ AccRel) in Rel3; simpl in Rel3.
-          case_match; last done.
-          case_match; case_match; try contradiction.
-          all: case_match; try congruence.
-          all: case_match; try congruence.
+          unfold rel_dec in RelWitness.
+          destruct (decide _); first discriminate.
+          destruct (decide _); last discriminate.
+          unfold rel_dec in AccRel.
+          destruct (decide _); last discriminate.
+          unfold rel_dec.
+          destruct (decide (ParentChildIn (itag it_witness) acc_tg tr1)) as [|WitnessAccRel]; first done.
+          apply WitnessAccRel.
+          eapply ParentChild_transitive.
+          + eassumption.
+          + eassumption.
         }
         destruct (rel_dec _ acc_tg (itag it_witness)); first contradiction.
         (* Finally we have all the ingredients of the contradiction *)

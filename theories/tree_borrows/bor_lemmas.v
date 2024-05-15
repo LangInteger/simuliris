@@ -1970,5 +1970,3 @@ Lemma prot_join_is_weak ps1 ps2 :
   prot_join ps1 ps2 = ProtWeak ↔ (ps1 = ProtWeak ∧ ps2 = ProtWeak).
 Proof. destruct ps1, ps2; simpl; tauto. Qed.
 
-
-
