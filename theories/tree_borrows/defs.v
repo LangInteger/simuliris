@@ -26,6 +26,11 @@ Record item_wf (it:item) (nxtp:tag) (nxtc:call_id) := {
 
 Definition item_all_more_init itp itc := ∀ l, initialized (item_lookup itc l) = PermInit → initialized (item_lookup itp l) = PermInit.
 Definition parents_more_init (tr : tree item) := ∀ tg, every_child tg item_all_more_init tr.
+Definition item_all_more_active itp itc := ∀ l, perm (item_lookup itc l) = Active → perm (item_lookup itp l) = Active.
+Definition parents_more_active (tr : tree item) := ∀ tg, every_child tg item_all_more_active tr.
+
+Definition item_protected_all_parents_not_disabled C itp itc := ∀ l, initialized (item_lookup itc l) = PermInit → protector_is_active (iprot itc) C → perm (item_lookup itp l) ≠ Disabled.
+Definition protected_parents_not_disabled C (tr : tree item) := ∀ tg, every_child tg (item_protected_all_parents_not_disabled C) tr.
 
 Definition tree_items_unique (tr:tree item) :=
   forall tg,
@@ -42,6 +47,10 @@ Definition each_tree_wf (trs:trees) :=
   ∀ blk tr, trs !! blk = Some tr → wf_tree tr.
 Definition each_tree_parents_more_init (trs:trees) :=
   ∀ blk tr, trs !! blk = Some tr → parents_more_init tr.
+Definition each_tree_parents_more_active (trs:trees) :=
+  ∀ blk tr, trs !! blk = Some tr → parents_more_active tr.
+Definition each_tree_protected_parents_not_disabled C (trs:trees) :=
+  ∀ blk tr, trs !! blk = Some tr → protected_parents_not_disabled C tr.
 Definition tags_unique_per_location (trs:trees) :=
   ∀ blk1 blk2 tr1 tr2 tg, trs !! blk1 = Some tr1 → trs !! blk2 = Some tr2 →
           tree_contains tg tr1 → tree_contains tg tr2 → blk1 = blk2.
@@ -90,6 +99,8 @@ Record state_wf (s: state) := {
   (*state_wf_mem_tag : wf_mem_tag s.(shp) s.(snp);*) (* FIXME: this seems to state that all pointers are wf, it should be included *)
   state_wf_tree_unq : wf_trees s.(strs);
   state_wf_tree_more_init : each_tree_parents_more_init s.(strs);
+  state_wf_tree_more_active : each_tree_parents_more_active s.(strs);
+  state_wf_tree_not_disabled :  each_tree_protected_parents_not_disabled s.(scs) s.(strs);
   state_wf_tree_compat : trees_compat_nexts s.(strs) s.(snp) s.(snc);
   (* state_wf_non_empty : wf_non_empty s.(strs); *)
   state_wf_roots_active : tree_roots_compatible s.(strs) s.(shp);

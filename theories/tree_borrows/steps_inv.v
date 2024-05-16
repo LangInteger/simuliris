@@ -20,7 +20,8 @@ Lemma head_copy_inv (P : prog) l bor sz σ σ' e' efs :
   efs = [] ∧
 ((apply_within_trees (memory_access AccessRead (scs σ) bor (l.2, sz)) l.1 σ.(strs) = None ∧
   σ = σ' ∧
-  e' = ValR (replicate sz ScPoison)%V) ∨
+  e' = ValR (replicate sz ScPoison)%V ∧
+  is_Some (read_mem l sz σ.(shp))) ∨
   ∃ trs' (v':value),
   e' = (v')%E ∧
   σ' = mkState σ.(shp) trs' σ.(scs) σ.(snp) σ.(snc) ∧

@@ -338,12 +338,15 @@ Qed.
    This is a roundabout of proving these, but we started with the lemmas above and this way there is the least refactoring effort. *)
 
 
-Lemma wf_tree_wf_singleton tr : wf_tree tr → wf_trees (singletonM xH tr).
+Lemma wf_tree_wf_singleton_any z tr : wf_tree tr → wf_trees (singletonM z tr).
 Proof.
   split.
   - intros blk ? (<-&<-)%lookup_singleton_Some. done.
   - intros ???? tg (<-&<-)%lookup_singleton_Some (<-&<-)%lookup_singleton_Some. done.
 Qed.
+
+Lemma wf_tree_wf_singleton tr : wf_tree tr → wf_trees (singletonM xH tr).
+Proof. by eapply wf_tree_wf_singleton_any. Qed.
 
 Lemma tree_access_lookup_general offi cids tr kind off1 sz acc_tg lu_tg tr' itold b :
   memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz) tr = Some tr' →
@@ -487,8 +490,8 @@ Lemma apply_access_perm_read_initialized b rel isprot itmo itmn :
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
   - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
-    simpl in Hdis,H1,H2|-*.
-    repeat (case_match; simplify_eq; try done).
+    simpl in Hdis,H1,H2|-*. rewrite Hdis in H2|-*.
+    repeat (case_match; simpl in *; simplify_eq; try done).
   - congruence.
 Qed.
 
@@ -570,7 +573,7 @@ Qed.
 
 Lemma priv_loc_access_must_use_same_tag M_call M_t M_s M_tag σ_t σ_s l t_prv t_acc ak (off1 : Z) (sz : nat) :
   state_wf σ_s → state_wf σ_t →
-  call_set_interp M_call σ_t →
+  call_set_interp (tag_is_unq M_tag M_t) M_call σ_t →
   tag_interp M_call M_tag M_t M_s σ_t σ_s →
   priv_loc M_tag M_t M_call t_prv l →
   trees_contain t_acc σ_t.(strs) l.1 →
@@ -582,13 +585,12 @@ Proof.
   destruct Htag as (Htag&Htag_t & Htag_s &Htagdom_t & Htagdom_s).
   odestruct (trees_contain_trees_lookup_1 _ _ _ _ Hcontain) as (it_acc & Hitacc).
   1: eapply Hwf_t.
-  destruct Hpriv as (tk&Htk&[vls Hhl]&[->|(cc&->&Hcc)]).
+  destruct Hpriv as (tk&Htk&[vls Hhl]&[->|(cc&ae&->&Hcc)]).
   all: specialize (Htag _ _ Htk) as (Hv1&Hv2&Hcontrol_t&Hcontrol_s&Htagree).
   { odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv&tr_prv&Htrprv&Hitprv&Hinit&Hactive&Hothers)&Hvls); first done.
     destruct Hitacc as (tr_acc&Htracc&Hitacc). assert (tr_prv = tr_acc) as -> by congruence.
     eapply Hothers. done. }
-  destruct (call_set_interp_access _ _ _ _ _ _ Hcall Hcc) as (Hccv&Htv&it_prv&Hitprv&Hprotcc&Hstrong&Hnondis).
-  specialize (Hstrong eq_refl).
+  destruct (call_set_interp_access _ _ _ _ _ _ _ Hcall Hcc) as (Hccv&Htv&it_prv&Hitprv&Hprotcc&_&Hnondis).
   odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv'&tr_prv&Htrprv'&Hitprv'&Hinit&Hactive&Hothers)&Hvls).
   { exists it_prv. split; first done. split; first eapply Hnondis.
     intros _ _. exists cc. split; first done. apply Hccv. }

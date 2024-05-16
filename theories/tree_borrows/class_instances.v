@@ -227,7 +227,7 @@ Section safe_reach.
     SafeImplies (∃ l t sz, r = PlaceR l t sz) P (Copy r) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_copy_place P σ l tg sz :
-    SafeImplies ((∃ v, read_mem l sz σ.(shp) = Some v ∧ trees_contain tg σ.(strs) l.1 ∧ is_Some (apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs))) ∨ (trees_contain tg σ.(strs) l.1 ∧ apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None)) P (Copy (Place l tg sz)) σ.
+    SafeImplies ((∃ v, read_mem l sz σ.(shp) = Some v ∧ trees_contain tg σ.(strs) l.1 ∧ is_Some (apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs))) ∨ (trees_contain tg σ.(strs) l.1 ∧ apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None ∧ is_Some (read_mem l sz σ.(shp)))) P (Copy (Place l tg sz)) σ.
   Proof. prove_safe_implies. Qed.
 
   Global Instance safe_implies_write_val_left1 P σ v v' :

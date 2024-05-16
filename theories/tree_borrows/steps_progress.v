@@ -97,9 +97,10 @@ Definition is_access_compatible (tr : tree item) (cids : call_id_set) (tg : tag)
   forall l, range'_contains range l ->
     let initial := item_lookup it l in
     let protected := bool_decide (protector_is_active (iprot it) cids) in
+    let rd := (rel_dec tr tg (itag it)) in
     exists post,
-      apply_access_perm_inner kind (rel_dec tr tg (itag it)) protected (perm initial) = Some post
-      /\ (post = Disabled -> (initialized initial = PermLazy \/ protected = false)).
+      apply_access_perm_inner kind rd protected (perm initial) = Some post
+      /\ (post = Disabled -> (most_init (initialized initial) (requires_init rd) = PermLazy \/ protected = false)).
 
 Lemma option_bind_always_some {X Y} (o : option X) (fn : X -> option Y) :
   is_Some o ->
@@ -135,15 +136,16 @@ Proof.
   rewrite /apply_access_perm.
   intros l Range. specialize (CompatIt l Range).
   rewrite <- option_bind_assoc.
-  apply option_bind_always_some; auto.
+  apply option_bind_always_some; auto. 
   destruct CompatIt as [post [PostSpec ProtVulnerable]].
-  rewrite PostSpec //=. clear PostSpec.
-  destruct (initialized _); [|done].
+  rewrite PostSpec //=.
+  change (default _ _) with (item_lookup it l).
+  destruct (most_init _ _) eqn:Heq; last done.
   destruct (bool_decide (protector_is_active _ _)); [|done].
-  destruct (decide (post = Disabled)).
-  - subst; auto.
-    destruct (ProtVulnerable ltac:(reflexivity)); discriminate.
-  - destruct post; auto. contradiction.
+  destruct (decide (post = Disabled)); last first.
+  1: { destruct post; auto. contradiction. }
+  subst; auto.
+  destruct (ProtVulnerable ltac:(reflexivity)); discriminate.
 Qed.
 
 
@@ -501,6 +503,7 @@ Qed. *)
 Lemma failed_copy_base_step' P (σ: state) l tg sz (WF: state_wf σ) :
   trees_contain tg σ.(strs) l.1 →
   apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None →
+  is_Some (read_mem l sz σ.(shp)) →
   base_step P (Copy (Place l tg sz)) σ (Val $ replicate sz ScPoison) σ [].
 Proof.
   intros TC Happly. destruct l, σ. do 2 econstructor; by eauto.
