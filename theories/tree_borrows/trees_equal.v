@@ -1127,7 +1127,7 @@ Qed.
       injection perm2'Spec; simpl; intros; subst; clear perm2'Spec.
       simpl in *.
       (* We can finally start the big case analysis at the level of the state machine *)
-      destruct ini, perm1, perm2; try congruence.
+      destruct (most_init _), perm1, perm2; try congruence.
       all: injection tmp1Spec; intros; subst; clear tmp1Spec.
       all: injection tmp2Spec; intros; subst; clear tmp2Spec.
       all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.
@@ -1181,7 +1181,7 @@ Qed.
       injection perm2'Spec; simpl; intros; subst; clear perm2'Spec.
       simpl in *.
       (* We can finally start the big case analysis at the level of the state machine *)
-      destruct ini, perm1, perm2; try congruence.
+      edestruct (most_init ini _), perm1, perm2; try congruence.
       all: injection tmp1Spec; intros; subst; clear tmp1Spec.
       all: injection tmp2Spec; intros; subst; clear tmp2Spec.
       all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.

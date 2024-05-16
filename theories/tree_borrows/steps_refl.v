@@ -166,19 +166,23 @@ Proof.
     { eapply tag_valid_mono; try done; lia. }
     intros l' b' Hl'. specialize (Hc4 l' b' Hl').
     destruct b'.
-    + destruct Hc4 as (it & Hit & Hperm).
-      exists it; split; last done.
+    + intros it (tr&Htr&Hit). simpl. eapply Hc4.
+      exists tr; split; last done. rewrite /extend_trees in Htr.
+      eapply lookup_insert_Some in Htr as [(Htr1&Htr2)|(Htr1&Htr2)]; last done.
+      subst tr. destruct Hit as (H1&H2). eapply init_tree_contains_only in H1. subst t.
+      rewrite /tag_valid in Hc3. lia.
+    + eapply tag_protected_for_mono in Hc4.
+      1: destruct Hc4 as (it & Hit & Hperm).
+      1: exists it; split; last done.
+      2: { intros l'' it ? ? ? (tk&Htk&Hhl). exists tk. split; last done.
+           rewrite lookup_insert_ne //. subst nt. intros Heq.
+           by rewrite -Heq HNone in Htk. }
       destruct Hit as (trr&Hit1&Hit2); eexists; split; last done.
       rewrite /extend_trees lookup_insert_ne //.
       intros Heq. rewrite -Heq in Hit1.
       eapply elem_of_dom_2 in Hit1.
       rewrite state_wf_dom // in Hit1.
       by eapply is_fresh_block_fst in Hit1.
-    + intros it (tr&Htr&Hit). simpl. eapply Hc4.
-      exists tr; split; last done. rewrite /extend_trees in Htr.
-      eapply lookup_insert_Some in Htr as [(Htr1&Htr2)|(Htr1&Htr2)]; last done.
-      subst tr. destruct Hit as (H1&H2). eapply init_tree_contains_only in H1. subst t.
-      rewrite /tag_valid in Hc3. lia.
   - (* tag interp *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2). split_and!.
     { simpl. intros tr tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
@@ -284,12 +288,32 @@ Proof.
       rewrite Hfrees Hsc_s. done.
     + iRight. done.
   - (* re-establish the call set interpretation *)
-    iPureIntro.
+    iPureIntro. pose proof Hcall_interp as Hcall_interp_old.
     iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
     intros t L HL. specialize (HM' _ _ HL) as (Hvalid & HM'). split; first done.
     intros l b Hl. specialize (HM' l b Hl).
-    eapply tag_protected_preserved_by_delete. 4: apply HM'.
+    eapply tag_protected_preserved_by_delete. 5: apply HM'.
     1: apply Hwf_t. 1: eassumption. 1: apply Hcs.
+    intros it -> Hll Hlu (ak&Hak&(vx&Hhl)) Hprot Hinit.
+    rewrite /memory_deallocate in Happly_t.
+    rewrite apply_within_trees_bind in Happly_t. eapply bind_Some in Happly_t as (trsmid&Haccess_t&Hcheck_t).
+    rewrite Hscs_eq in Haccess_t.
+    destruct Htag_interp as (Ht1&_). destruct (Ht1 _ _ Hak) as (Ht1'&Ht2&Ht3&Ht4&Ht5).
+    specialize (Ht3 _ _ Hhl) as Ht3'.
+    eapply (protected_active_loc_does_not_survive_write_access _ (mkState σ_t.(shp) trsmid σ_s.(scs) σ_t.(snp) σ_t.(snc))); simpl.
+    1: exact Haccess_t. 1: done. 1: by rewrite Hscs_eq. 1: done. 1: done.
+    2: done. 2: done. 2: exact Hpub.
+    + destruct Ht3' as (_&Hhp).
+      2: { destruct l as [lp1 lp2]. simpl in Hll|-*. subst lp1. assert (exists m, l_s.2 + m = lp2) as (m&Hm).
+           { exists (lp2 - l_s.2). lia. }
+           specialize (Hdealloc' m). rewrite /= /shift_loc /= Hm in Hdealloc'.
+           eapply mk_is_Some, Hdealloc' in Hhp. lia. }
+      exists it. rewrite Hll. split; first eapply Hlu. split; first done.
+      intros _ _. exists c. split; first done. done.
+    + eexists. split; first exact Hak. split; first eapply mk_is_Some, Hhl.
+      do 3 eexists. split. 1: done.
+      eexists. split; first exact Hc. eexists. split; first done. done.
+    + intros ??? HH1 HH2. destruct (Ht1 _ _ HH1) as (_&_&HHt1&_&_). by eapply HHt1.
   - (* re-establish the tag interpretation *)
     destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2).
     iPureIntro. split_and!; [ | done..].
@@ -318,7 +342,7 @@ Proof.
   destruct Hsafe as [Hpool Hsafe].
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss))|(Hcontain_s&Hnotrees)];
+  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss))|(Hcontain_s&Hnotrees&Hisval)];
   pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done; last first.
   { (* We get poison *)
     assert (apply_within_trees (memory_access AccessRead (scs σ_s) bor_s (l_s.2, sz)) l_s.1 (strs σ_t) = None) as Hnotrees_t.
@@ -327,10 +351,11 @@ Proof.
       1: by eapply trees_equal_sym. 1: by eapply Hwf_t. 1: by eapply Hwf_s. 1: done. }
     iSplit. 
     { iPureIntro. do 3 eexists. eapply failed_copy_base_step'; try done.
-      rewrite -Hscs_eq //.
+      1: rewrite -Hscs_eq //.
+      eapply read_mem_is_Some'. rewrite -Hdom_eq. by eapply read_mem_is_Some'.
     }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
-    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (Hcontain'&->&[(Hnotree&->&Hpoison)|(trs'&Htrs'&->&Hσ_t'&Hreadmem&Hsometree)]); last congruence.
+    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (Hcontain'&->&[(Hnotree&->&Hpoison&Hheapsome)|(trs'&Htrs'&->&Hσ_t'&Hreadmem&Hsometree)]); last congruence.
     iModIntro. iExists e_t', [], σ_s. iSplit.
     { iPureIntro. subst e_t'. destruct σ_s, l_s. simpl. do 2 econstructor; by eauto. }
     simpl. iFrame. iSplit; last done. subst e_t'.
@@ -529,167 +554,6 @@ Proof.
     iPureIntro. eapply base_step_wf; done.
 Qed.
 
-(*
-
-(** Retag *)
-Lemma bor_interp_retag_public σ_s σ_t c l ot rkind kind T nt α' nxtp' :
-  retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l ot rkind kind T = Some (nt, α', nxtp') →
-  state_wf (mkState σ_t.(shp) α' σ_t.(scs) nxtp' σ_t.(snc)) →   (* could remove that assumption *)
-  state_wf (mkState σ_s.(shp) α' σ_s.(scs) nxtp' σ_s.(snc)) →   (* could remove that assumption *)
-  sc_rel (ScPtr l ot) (ScPtr l ot) -∗
-  bor_interp sc_rel σ_t σ_s ==∗
-  sc_rel (ScPtr l nt) (ScPtr l nt) ∗
-  bor_interp sc_rel (mkState σ_t.(shp) α' σ_t.(scs) nxtp' σ_t.(snc)) (mkState σ_s.(shp) α' σ_s.(scs) nxtp' σ_s.(snc)).
-Proof.
-  intros Hretag Hwf_t' Hwf_s'.
-  iIntros "Hscrel Hbor". iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
-
-  iDestruct "Hscrel" as "[_ #Hrel]".
-  iAssert (⌜untagged_or_public M_tag ot⌝)%I as %Hpub.
-  { iDestruct "Hrel" as "[[-> _] | (%t1 & %t2 & -> & -> & <- & Hpub)]"; first done.
-    iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%". done.
-  }
-
-  (* allocate resources *)
-  set (M_tag' := if decide (ot = nt) then M_tag else if nt is Tagged nt then <[nt := (tk_pub, ())]> M_tag else M_tag).
-  specialize (retag_change_nxtp _ _ _ _ _ _ _ _ _ _ _ _ Hretag) as Hle.
-  specialize (retag_change_tag _ _ _ _ _ _ _ _ _ _ _ _ Hretag) as Hnt.
-  iAssert (|==> (if decide (ot = nt) then True%I else if nt is Tagged nt then nt $$ tk_pub else True%I) ∗ tkmap_auth tag_name 1 M_tag')%I with "[Htag_auth]" as "Hnt".
-  { destruct (decide (ot = nt)) as [ | Hneq]; first by eauto.
-    destruct Hnt as [ -> | Hnt]; first done.
-    destruct nt as [ nt | ]; last by eauto. destruct Hnt as [-> ->].
-    iMod (tkmap_insert tk_pub σ_s.(snp) tt with "Htag_auth") as "[$ $]"; last done.
-    destruct (M_tag !! snp σ_s) as [ [? []] | ]eqn:Htag; last done.
-    apply Htag_interp in Htag as (? & ? & _). lia.
-  }
-  iMod "Hnt" as "[Hnt Htag_auth]". iModIntro.
-  iSplitL "Hnt Hrel".
-  { destruct (decide (ot = nt)) as [-> | Hneq]. { iSplit; done. }
-    destruct nt. {  iSplit; first done. eauto 10. }
-    iSplit; first done. by iLeft.
-  }
-
-  iAssert (⌜retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l ot rkind kind T = Some (nt, α', nxtp')⌝)%I as "%Hretag_t".
-  { iPoseProof (state_rel_calls_eq with "Hsrel") as "<-".
-    iPoseProof (state_rel_stacks_eq with "Hsrel") as "<-".
-    iPoseProof (state_rel_snp_eq with "Hsrel") as "<-". done. }
-
-  (* re-establishing the interpretation *)
-  iPoseProof (state_rel_get_pure with "Hsrel") as "%Hp".
-  iExists M_call, M_tag', M_t, M_s.
-  iFrame "Htag_t_auth Hc Htag_auth Htag_s_auth". iSplitL "Htainted".
-  { (* tainted *) iApply (tag_tainted_interp_retag with "Htainted"). done. }
-  iSplitL "Hpub_cid". { iFrame "Hpub_cid". }
-  iSplitL.
-  { (* state relation *)
-    rewrite /state_rel. simpl. iDestruct "Hsrel" as "(-> & %Hs_eq & %Hsnp_eq & -> & -> & Hsrel)".
-    do 5 (iSplitL; first done). iIntros (l' Hsl').
-    iDestruct ("Hsrel" $! l' with "[//]") as "[Hpub | [%t' %Hpriv]]"; first (iLeft; iApply "Hpub").
-    iRight. iPureIntro. exists t'.
-    (* private locations are preserved: t' cannot be part of the range affected by the retag, because that is public *)
-    destruct Hpriv as (tk' & Hsome_tk' & Ht_l' & Htk'). exists tk'.
-    split_and!; [ | done | done].
-    subst M_tag'. destruct (decide (ot = nt)) as [ | Hneq]; first done.
-    destruct nt as [ nt | ]; last done.
-    destruct (decide (t' = nt)) as [-> | Hneq']; first last.
-    { rewrite lookup_insert_ne; done. }
-    exfalso. (* contradiction with Hsome_tk' *)
-    destruct Hnt as [<- | [-> ->]]; first congruence.
-    apply Htag_interp in Hsome_tk' as (? & _). lia.
-  }
-  iSplitL.
-  { (* call interpretation. *)
-    iPureIntro. intros c' M' [Hc' HM']%Hcall_interp. simpl. split; first done.
-    specialize (retag_change_nxtp _ _ _ _ _ _ _ _ _ _ _ _ Hretag) as Hnxtp'.
-    intros t' S HS. simpl. specialize (HM' t' S HS) as (Ht' & Hprot).
-    split; first lia. intros l' Hl'.
-    specialize (Hprot l' Hl') as (s & pm' & Hs & Hit & Hpm').
-    specialize (retag_item_active_preserving _ _ _ _ _ _ _ _ _ _ _ _ Hretag_t l' s (Tagged t') c' pm' Hs Hc' Hit) as (s' & -> & Hin'). eauto.
-  }
-  iSplitL.
-  { (* tag interpretation. *)
-    destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom).
-    destruct Hp as (Hsst & Hsnp & Hsnc & Hscs).
-    iPureIntro. split_and!.
-    { intros t tk' Hsome.
-      assert ((nt = Tagged σ_t.(snp) ∧ t = σ_t.(snp) ∧ tk' = tk_pub ∧ nxtp' = S σ_t.(snp)) ∨ M_tag !! t = Some (tk', ())) as [(-> & -> & -> & ->) | Hsome'].
-      { subst M_tag'. destruct (decide (ot = nt)) as [<- | Hneq]; first by eauto.
-        destruct nt as [ nt | ]; last by eauto.
-        destruct Hnt as [<- | [-> ?]]; first congruence.
-        destruct (decide (t = σ_s.(snp))) as [-> | Hneq'].
-        - rewrite lookup_insert in Hsome. injection Hsome as [= <-]. left; naive_solver.
-        - rewrite lookup_insert_ne in Hsome; last done. by right.
-      }
-      - (* the new tag: nothing to show, since we don't put the tagged locations under control *)
-        simpl. set (nt := σ_t.(snp)).
-        assert (∀ l', M_t !! (nt, l') = None) as Mt_nt.
-        { intros l'. destruct (M_t !! (nt, l')) eqn:Heq; last done.
-          specialize (Ht_dom σ_t.(snp) l' ltac:(eauto)) as ([? []] & [? _]%Htag_interp). lia. }
-        assert (∀ l', M_s !! (nt, l') = None) as Ms_nt.
-        { intros l'. destruct (M_s !! (nt, l')) eqn:Heq; last done.
-          specialize (Hs_dom σ_t.(snp) l' ltac:(eauto)) as ([? []] & [? _]%Htag_interp). lia. }
-        split_and!; [lia | lia | | | ].
-        + intros l' sc_t HM_t. congruence.
-        + intros l' sc_s HM_s. congruence.
-        + apply dom_agree_on_tag_not_elem; done.
-      - (* old tags are preserved *)
-        simpl. specialize (Htag_interp _ _ Hsome') as (? & ? & Hcontrolled_t & Hcontrolled_s & Hdom).
-        split_and!; [lia | lia | | | ].
-        + intros. eapply loc_controlled_retag_update; [ done | done | | done | by apply Hcontrolled_t].
-          intros <-. move : Hpub. rewrite /untagged_or_public. congruence.
-        + intros. eapply loc_controlled_retag_update; [ done | done | | done | by apply Hcontrolled_s].
-          intros <-. move : Hpub. rewrite /untagged_or_public. congruence.
-        + done.
-    }
-    { subst M_tag'. destruct (decide (ot = nt)); first done. destruct nt as [nt | ]; last done.
-      intros. rewrite lookup_insert_is_Some'. right; eauto.
-    }
-    { subst M_tag'. destruct (decide (ot = nt)); first done. destruct nt as [nt | ]; last done.
-      intros. rewrite lookup_insert_is_Some'. right; eauto.
-    }
-  }
-  iSplit; done.
-Qed.
-
-Lemma sim_retag_public l_t l_s ot os c kind T rkind π Φ :
-  value_rel [ScPtr l_t ot] [ScPtr l_s os] -∗
-  (∀ nt, value_rel [ScPtr l_t nt] [ScPtr l_s nt] -∗
-    #[ScPtr l_t nt] ⪯{π} #[ScPtr l_s nt] [{ Φ }]) -∗
-  Retag #[ScPtr l_t ot] #[ScCallId c] kind T rkind ⪯{π} Retag #[ScPtr l_s os] #[ScCallId c] kind T rkind [{ Φ }].
-Proof.
-  rewrite {1}/value_rel big_sepL2_singleton.
-  iIntros "#Hscrel Hsim".
-  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> <-].
-  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
-  (* exploit source to gain knowledge about stacks & that c is a valid id *)
-  specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
-  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
-  have Hretag_some_t : is_Some (retag σ_t.(sst) σ_t.(snp) σ_t.(scs) c l_s ot rkind kind T).
-  { destruct Hp as (<- & <- & _ & <- & _). done. }
-  iModIntro. iSplitR.
-  { iPureIntro.
-    destruct Hretag_some_t as ([[] ] & Hretag_some_t).
-    do 3 eexists. eapply retag_base_step'; last done.
-    destruct Hp as (_ & _ & _ & <- & _). done.
-  }
-  iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_retag_inv _ _ _ _ _ _ _ _ _ _ _ Hhead_t) as (nt & α' & nxtp' & Hretag_t & -> & -> & -> & Hc).
-  have Hretag_s : retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l_s ot rkind kind T = Some (nt, α', nxtp').
-  { destruct Hp as (-> & -> & _ & -> & _). done. }
-  assert (Hhead_s : base_step P_s (Retag #[ScPtr l_s ot] #[ScCallId c] kind T rkind) σ_s #[ScPtr l_s nt]%E (mkState (shp σ_s) α' (scs σ_s) nxtp' (snc σ_s)) []).
-  { eapply retag_base_step'; done. }
-
-  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %Hwf_s]".
-  iMod (bor_interp_retag_public _ _ _ _ _ _ _ _ _ _ _ Hretag_s with "Hscrel Hbor") as "[Hscrel' Hbor]".
-  { by eapply base_step_wf. }
-  { by eapply base_step_wf. }
-  iModIntro.
-
-  iExists #[ScPtr l_s nt]%E, [], (mkState σ_s.(shp) α' σ_s.(scs) nxtp' σ_s.(snc)).
-  iSplitR; first done.
-  iFrame "Hbor HP_t HP_s".
-  iSplitL; last done. iApply "Hsim". iApply big_sepL2_singleton. done.
-Qed. *)
 
 (** InitCall *)
 
@@ -719,9 +583,9 @@ Proof.
     iIntros (l Hl). iDestruct ("H6" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
     - iLeft. iApply "Hpub".
     - iRight. iPureIntro. exists t.
-      destruct Hpriv as (tk & Htk & Hs & [-> | (c' & -> & Hin)]).
+      destruct Hpriv as (tk & Htk & Hs & [-> | (c' & ae & -> & Hin)]).
       { exists tk_local. split_and!; eauto. }
-      exists (tk_unq tk_act). split_and!; [done.. | ]. right. exists c'. split; first done.
+      exists (tk_unq tk_act). split_and!; [done.. | ]. right. exists c', ae. split; first done.
       destruct Hin as (M' & HM' & Hin). exists M'.
       split; last done. apply lookup_insert_Some. right. split; last done.
       apply Hcall_interp in HM' as (Hwf_tag & _).
@@ -827,11 +691,11 @@ Proof.
     iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
     { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
     { iRight. iPureIntro. destruct Hpriv as (t&tk&Htk&Hlu&Ht). exists t, tk. do 2 (split; first done).
-      destruct Ht as [->|(c'&->&M&HM&Hin)]; first by left. right.
-      exists c'; split; first done. exists M. split; last done.
+      destruct Ht as [->|(c'&ae&->&M&HM&Hin)]; first by left. right.
+      exists c', ae; split; first done. exists M. split; last done.
       rewrite lookup_delete_ne //. intros <-.
       rewrite Hlookup in HM. injection HM as <-.
-      destruct Hin as (x&b&Hx&_). by rewrite lookup_empty in Hx. }
+      destruct Hin as (x&Hx&_). by rewrite lookup_empty in Hx. }
   }
   iSplit.
   { iPureIntro. eapply call_set_interp_remove; simpl. 5: exact Hwf_t. 1-4,6: done.
@@ -891,11 +755,11 @@ Proof.
     iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
     { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
     { iRight. iPureIntro. destruct Hpriv as (t&tk&Htk&Hlu&Ht). exists t, tk. do 2 (split; first done).
-      destruct Ht as [->|(c'&->&M&HM&Hin)]; first by left. right.
-      exists c'; split; first done. exists M. split; last done.
+      destruct Ht as [->|(c'&ae&->&M&HM&Hin)]; first by left. right.
+      exists c', ae; split; first done. exists M. split; last done.
       rewrite lookup_delete_ne //. intros <-.
       rewrite Hlookup in HM. injection HM as <-.
-      destruct Hin as (x&b&Hx&_). by rewrite lookup_empty in Hx. }
+      destruct Hin as (x&Hx&_). by rewrite lookup_empty in Hx. }
   }
   iSplit.
   { iPureIntro. eapply call_set_interp_remove; simpl. 5: exact Hwf_t. 1-4,6: done.

@@ -87,8 +87,9 @@ Qed.
 
 (** ** Write lemmas *)
 
-
-Lemma sim_write_unique_unprotected π l t sz tkk v_t v_s v_t' v_s' Φ :
+(* TODO we can even strengthen this to learn that the old values were related if tkk = tk_res *)
+(* This lemma is kind-of unusable, since b, and maybe c and M need to be specified manually *)
+Lemma sim_write_activate_general (b:bool) c M π l t sz tkk v_t v_s v_t' v_s' Φ :
   length v_t = sz →
   length v_s = sz →
   t $$ tk_unq tkk -∗
@@ -96,12 +97,12 @@ Lemma sim_write_unique_unprotected π l t sz tkk v_t v_s v_t' v_s' Φ :
   l ↦s∗[tk_unq tkk]{t} v_s -∗
   (* crucial: without protectors, we need to write related values, as the locations
     will need to be public in the state_rel -- after all, there is no protector, so it can't be private! *)
-  value_rel v_t' v_s' -∗
-  (t $$ tk_unq tk_act -∗ l ↦t∗[tk_unq tk_act]{t} v_t' -∗ l ↦s∗[tk_unq tk_act]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  (if b then value_rel v_t' v_s' else (⌜length v_t' = length v_s'⌝ ∗ c @@ M ∗ ⌜(∀ i: nat, (i < sz)%nat → ∃ ae, call_set_in M t (l +ₗ i) (EnsuringAccess ae))⌝)) -∗
+  (t $$ tk_unq tk_act -∗ l ↦t∗[tk_unq tk_act]{t} v_t' -∗ l ↦s∗[tk_unq tk_act]{t} v_s' -∗ (if b then True else c @@ M) -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
   Write (Place l t sz) #v_t' ⪯{π} Write (Place l t sz) #v_s' [{ Φ }].
 Proof.
   (* get the loc controlled things. exploit source UB. update the ghost state. *)
-  iIntros (Hsz1 Hsz2) "Htag Ht Hs #Hvrel Hsim".
+  iIntros (Hsz1 Hsz2) "Htag Ht Hs Hvrel Hsim".
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
   iPoseProof (bor_interp_readN_target with "Hbor Ht Htag") as "%Hcontrol_t".
@@ -110,7 +111,9 @@ Proof.
   iModIntro.
   destruct Hsafe as [Hpool Hsafe]. 
   specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & Hcontain & (trs_s' & Htree_s) & Hlen_s').
-  iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
+  iAssert (⌜length v_t' = length v_s'⌝)%I as "%Hlen_t'".
+  { destruct b. 1: iPoseProof (value_rel_length with "Hvrel") as "$".
+    by iDestruct "Hvrel" as "($&_)". }
 
   iPoseProof (bor_interp_get_pure with "[Hbor]") as "%Hp".
   1: by do 4 iExists _.
@@ -177,6 +180,11 @@ Proof.
   iMod (ghost_map_array_tag_update _ _ _ v_s' with "Htag_s_auth Hs") as "[Hs Htag_s_auth]"; first lia.
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htk".
   iMod (tkmap_update_strong (tk_unq tk_act) () with "Htag_auth Htag") as "(Htag_auth & Htag)"; first done.
+  iAssert ((□ if b then value_rel v_t' v_s' else ⌜M_call !! c = Some M ∧ (∀ i: nat, (i < sz)%nat → ∃ ae, call_set_in M t (l +ₗ i) (EnsuringAccess ae))⌝))%I as "#HvrelP".
+  { destruct b. 1: by iPoseProof "Hvrel" as "#$". iDestruct "Hvrel" as "(_&H2&%H3)".
+    iPoseProof (ghost_map_lookup with "Hc H2") as "%HH2". iModIntro. iPureIntro. done. }
+  iAssert (if b then True else c @@ M)%I with "[Hvrel]" as "Hcs".
+  { destruct b; first done. iDestruct "Hvrel" as "(_&$&_)". }
 
   iModIntro.
   pose (σ_s' := (mkState (write_mem l v_s' σ_s.(shp)) trs_s' σ_s.(scs) σ_s.(snp) σ_s.(snc))).
@@ -184,8 +192,8 @@ Proof.
   { rewrite Hlen_s' in Htree_s. eapply write_base_step'; eauto. intros. rewrite Hdom_eq. apply Hin_dom. lia. }
   iExists (#[☠])%E, [], σ_s'. iSplitR; first done.
   iFrame "HP_t HP_s".
-  iSplitR "Hsim Hs Ht Htag"; first last.
-  { iSplitL; last done. iApply ("Hsim" with "Htag Ht Hs"). }
+  iSplitR "Hsim Hs Ht Htag Hcs"; first last.
+  { iSplitL; last done. iApply ("Hsim" with "Htag Ht Hs Hcs"). }
 
   (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
   (* re-establish the invariants *)
@@ -204,12 +212,19 @@ Proof.
     iIntros (l') "%Hs".
     specialize (write_mem_lookup l v_s' σ_s.(shp)) as (Heqwm & Heq').
     specialize (write_mem_lookup_case l v_t' σ_t.(shp) l') as [(i & Hi & -> & Hwrite) | (Hi & Hwrite)].
-    + (* we wrote to the location, and the written values must be related *)
-      iLeft. iIntros (sc_t Hsc_t). simpl in Hsc_t. rewrite Heqwm; last lia.
-      iExists (v_s' !!! i). rewrite Hwrite in Hsc_t.
-      rewrite -(list_lookup_total_correct _ _ _ Hsc_t).
-      iSplitR. { iPureIntro. apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
-      iApply (value_rel_lookup_total with "Hvrel"). lia.
+    + destruct b.
+      * (* we wrote to the location, and the written values must be related *)
+        iLeft. iIntros (sc_t Hsc_t). simpl in Hsc_t. rewrite Heqwm; last lia.
+        iExists (v_s' !!! i). rewrite Hwrite in Hsc_t.
+        rewrite -(list_lookup_total_correct _ _ _ Hsc_t).
+        iSplitR. { iPureIntro. apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
+        iApply (value_rel_lookup_total with "HvrelP"). lia.
+      * (* the location is protected, we can write different values *)
+        iRight. iPure "HvrelP" as (Hc&Hcs). iPureIntro. exists t. eexists. split; first by rewrite lookup_insert. split.
+        2: { right. edestruct Hcs as (ae&Hae). 1: rewrite -Hlen_s' -Hlen_t' //.
+             do 2 eexists. split; first done. exists M. done. }
+        rewrite /heaplet_lookup /= lookup_insert /= list_to_heaplet_nth.
+        by eapply lookup_lt_is_Some_2.
     + (* unaffected location (it can not be the same block) *)
       simpl. rewrite Hwrite in Hs.
       iDestruct ("Hsrel" $! l' with "[//]") as "[Hpubl | (%t' & %Hprivl)]".
@@ -233,12 +248,23 @@ Proof.
           rewrite /heaplet_lookup /= lookup_insert_ne //.
           congruence. }
   - (* call invariant *)
-    iPureIntro. intros c M' HM'_some. simpl.
-    specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
+    iPureIntro. intros c' M' HM'_some. simpl.
+    specialize (Hcall_interp c' M' HM'_some) as (Hin & Hprot).
     split; first done. intros t' L [Ht HL]%Hprot. split; first done.
-    intros l' b HlL. specialize (HL l' b HlL).
-    eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| |done].
-    rewrite Hscs_eq. apply Hin.
+    intros l' b' HlL. specialize (HL l' b' HlL).
+    eapply tag_protected_preserved_by_access; [eapply Hwf_t|done| | ].
+    1: rewrite Hscs_eq; apply Hin.
+    eapply tag_protected_for_mono. 2: done.
+    intros l0 it Hit1 Hit2 Hit3 (tk&Htk'&Hhl).
+    destruct (decide (itag it = t)) as [<-|]; last first.
+    + exists tk. rewrite /heaplet_lookup !lookup_insert_ne /= //. congruence.
+    + rewrite /tag_is_unq lookup_insert. exists tk_act. split; first done.
+      rewrite /heaplet_lookup /=. destruct (decide (l0.1 = l.1)) as [Heq|?].
+      * rewrite Heq lookup_insert // /=.
+        rewrite /heaplet_lookup /= Heq Hheaplet_t /= in Hhl. eapply elem_of_dom.
+        eapply elem_of_dom in Hhl.
+        erewrite list_to_heaplet_dom_1. 1: exact Hhl. lia.
+      * rewrite lookup_insert_ne. 2: congruence. apply Hhl.
   - (* tag invariant *)
     iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | | | | ]; first last.
     1-2: rewrite /dom_unique_per_tag !dom_insert_lookup_L //.
@@ -326,6 +352,44 @@ Proof.
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
     iPureIntro. eapply base_step_wf; done.
+Qed.
+
+Lemma sim_write_activate_unprotected π l t sz tkk v_t v_s v_t' v_s' Φ :
+  length v_t = sz →
+  length v_s = sz →
+  t $$ tk_unq tkk -∗
+  l ↦t∗[tk_unq tkk]{t} v_t -∗
+  l ↦s∗[tk_unq tkk]{t} v_s -∗
+  (* crucial: without protectors, we need to write related values, as the locations
+    will need to be public in the state_rel -- after all, there is no protector, so it can't be private! *)
+  value_rel v_t' v_s' -∗
+  (t $$ tk_unq tk_act -∗ l ↦t∗[tk_unq tk_act]{t} v_t' -∗ l ↦s∗[tk_unq tk_act]{t} v_s' -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  Write (Place l t sz) #v_t' ⪯{π} Write (Place l t sz) #v_s' [{ Φ }].
+Proof.
+  iIntros (H1 H2) "H3 H4 H5 H6 H7".
+  (* pick dummy values since these are unused if b=true *)
+  iApply (sim_write_activate_general true 0%nat ∅ with "H3 H4 H5 [H6] [H7]").
+  1: exact H1. 1: exact H2. 1: by simpl.
+  simpl. iIntros "H8 H9 H10 _". iApply ("H7" with "H8 H9 H10").
+Qed.
+
+Lemma sim_write_activate_protected π l t sz tkk v_t v_s v_t' v_s' Φ c M:
+  length v_t = sz →
+  length v_s = sz →
+  length v_t' = length v_s' →
+  (∀ i: nat, (i < sz)%nat → ∃ ae, call_set_in M t (l +ₗ i) (EnsuringAccess ae)) →
+  t $$ tk_unq tkk -∗
+  l ↦t∗[tk_unq tkk]{t} v_t -∗
+  l ↦s∗[tk_unq tkk]{t} v_s -∗
+  (* with a protector, we don't need to write related values *)
+  c @@ M -∗
+  (t $$ tk_unq tk_act -∗ l ↦t∗[tk_unq tk_act]{t} v_t' -∗ l ↦s∗[tk_unq tk_act]{t} v_s' -∗ c @@ M -∗ #[☠] ⪯{π} #[☠] [{ Φ }]) -∗
+  Write (Place l t sz) #v_t' ⪯{π} Write (Place l t sz) #v_s' [{ Φ }].
+Proof.
+  iIntros (H1 H2 H3 H4) "H5 H6 H7 H8 H9".
+  iApply (sim_write_activate_general false c M with "H5 H6 H7 [H8] H9").
+  1: exact H1. 1: exact H2.
+  simpl. iFrame. iPureIntro. done.
 Qed.
 
 (*
@@ -1027,7 +1091,7 @@ Qed.
 Lemma target_red_call f arg body v Ψ :
   f @t (arg, body) -∗
   target_red (subst arg #v body) Ψ -∗
-  target_red (Call #[ScFnPtr f] #v) Ψ.
+  target_red (Call #[ScFnPtr f] #v) Ψ. 
 Proof.
   iIntros "Hf Hred". iApply target_red_lift_base_step.
   iIntros (?????) "(HP_t & HP_s & ?) !>".
