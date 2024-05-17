@@ -931,10 +931,10 @@ Proof.
   - destruct Hcc as (Mcc&HMcc&Lcc&HLcc&Hlincc).
     specialize (Hcs _ _ HMcc) as (Hccact&Hcs).
     specialize (Hcs _ _ HLcc) as (Htgluvalid&Hcs). 
-    specialize (Hcs l _ Hlincc) as (itlu&(tr'&Htr'&Hitlu)&Hprot1&Hprot2&Hcs).
+    specialize (Hcs l _ Hlincc) as (itlu&(tr'&Htr'&Hitlu)&Hprot1&HprotSM&Hprot2&Hcs).
     assert (tr' = tr) as -> by congruence.
     destruct Hlc as (Hlc&_).
-    { eexists. split; first by eexists. split; first done.
+    { eexists. split; first by eexists. simpl in Hprot2. split; first done.
       intros _ _. by eexists. }
     destruct Hlc as (itlu'&tr'&Hitlu'&Htr''&Hisinit&Hsame&Hothers).
     assert (tr' = tr) as -> by congruence.
@@ -1006,7 +1006,7 @@ Proof.
   destruct Hcc as (Mcc&HMcc&Lcc&HLcc&Hlincc).
   specialize (Hcs _ _ HMcc) as (Hccact&Hcs).
   specialize (Hcs _ _ HLcc) as (Htgluvalid&Hcs). 
-  specialize (Hcs l _ Hlincc) as (itlu&(tr'&Htr'&Hitlu)&Hprot1&Hprot2&Hcs).
+  specialize (Hcs l _ Hlincc) as (itlu&(tr'&Htr'&Hitlu)&Hprot1&HprotSM&Hprot2&Hcs).
   assert (tr' = tr) as -> by congruence.
   destruct Hlc as (Hlc&_).
   { eexists. split; first by eexists. split; first done.

@@ -322,12 +322,16 @@ Section call_defs.
   Definition call_set_is (c : call_id) (M : gmap tag (gmap loc logical_protector)) :=
     ghost_map_elem call_gname c (DfracOwn 1) M.
 
+  Definition protector_matches_strength (ps: logical_protector) (oprot: option protector) :=
+    match ps, oprot with
+      EnsuringAccess Strongly, Some prot => prot.(strong) = ProtStrong
+    | _, Some prot => prot.(strong) = ProtWeak
+    | _, None => False end.
+
   Definition item_protected_for c it blk off (ps:logical_protector) :=
           protector_is_for_call c it.(iprot)
-        ∧ (match ps with
-             Deallocable => True
-           | EnsuringAccess Strongly => protector_is_strong it.(iprot)
-           | EnsuringAccess WeaklyNoChildren => no_children_pred_on it.(itag) (blk, off) end)
+        ∧ protector_matches_strength ps it.(iprot)
+        ∧ (ps = EnsuringAccess WeaklyNoChildren → no_children_pred_on it.(itag) (blk, off))
         ∧ (((item_lookup it off).(initialized) = PermInit  
           → (item_lookup it off).(perm) ≠ Disabled)).
 

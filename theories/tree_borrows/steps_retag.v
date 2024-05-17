@@ -421,9 +421,8 @@ Proof.
       eapply tag_protected_preserved_by_access.
       2: exact Happly2_t. 2: rewrite Hscs_eq; apply Hc1. 1:eapply Hwf_trs1_t.
       assert (item_protected_for (tag_is_unq (<[snp σ_s:=(tk, ())]> M_tag) (array_tag_map l_s (snp σ_s) v_t ∪ M_t)) c (create_new_item (snp σ_s) pk FnEntry c) (l_s +ₗ i).1 (l_s +ₗ i).2 (EnsuringAccess (pointer_kind_to_access_ensuring pk))) as Hprot.
-      { split; first done. split; last first.
-        1: rewrite /item_lookup /= lookup_empty /= //.
-        destruct pk; try done. simpl. exists tk_res.
+      { split; first done. split; last first. 1: split; last done.
+        all: destruct pk; try done. simpl. intros _. exists tk_res.
         subst tk. rewrite lookup_insert /=. split; first done.
         rewrite /= /heaplet_lookup /= lookup_union /= /array_tag_map /= lookup_singleton /= union_Some_l /= list_to_heaplet_nth.
         eapply lookup_lt_is_Some_2; by lia. }
