@@ -1023,21 +1023,74 @@ Qed.
       all: eassumption.
   Qed.
 
+  Lemma if_same_guard_equal
+    {P Q : Prop} {T} {x y x' y' : T} `{Decision P} `{Decision Q}
+    (Iff : P <-> Q)
+    (Ex : x = x')
+    (Ey : y = y')
+    : (if decide P then x else y) = (if decide Q then x' else y').
+  Proof.
+    repeat destruct (decide _); tauto.
+  Qed.
+
+  (* FIXME: move this lemma elsewhere *)
+  Lemma create_child_same_rel_dec
+    {tr tr' tg tg' tg_old tg_new pk rk cid}
+    (Ne : tg_new ≠ tg)
+    (Ne' : tg_new ≠ tg')
+    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    : rel_dec tr tg tg' = rel_dec tr' tg tg'.
+  Proof.
+    injection Ins; intro New.
+    unfold rel_dec.
+    apply if_same_guard_equal.
+    - erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+    - f_equal.
+      apply if_same_guard_equal.
+      + erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+      + reflexivity.
+      + f_equal.
+        apply if_same_guard_equal.
+        * erewrite insert_eqv_imm_rel; first (erewrite New; reflexivity); assumption.
+        * reflexivity.
+        * reflexivity.
+    - f_equal.
+      apply if_same_guard_equal.
+      + erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+      + f_equal.
+        apply if_same_guard_equal.
+        * erewrite insert_eqv_imm_rel; first (erewrite New; reflexivity); assumption.
+        * reflexivity.
+        * reflexivity.
+      + reflexivity.
+  Qed.
+
   Lemma disabled_in_practice_create_child_irreversible
     {tr tr' tg tg_old tg_new pk rk cid witness loc}
+    (Ne : tg_new ≠ tg)
+    (Ne' : tg_new ≠ witness)
     (Dis : disabled_in_practice tr tg witness loc)
     (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
     : disabled_in_practice tr' tg witness loc.
   Proof.
-    inversion Dis as [?? Rel Lookup Perm NoProt].
+    inversion Dis as [it_witness ? Rel Lookup Perm NoProt].
     destruct (disabled_create_child_irreversible Lookup Perm Ins) as [it' [Lookup' Perm']].
     econstructor.
-    + admit. (* Do we have reasoning about create_child and rel_dec anywhere ? *)
+    + erewrite <- create_child_same_rel_dec; first eassumption.
+      - eassumption.
+      - eassumption.
+      - eassumption.
     + apply Lookup'.
     + apply Perm'.
-    + admit. (* What about create_child and protectors ? *)
-  Admitted.
-
+    + assert (it' = it_witness); last (subst; assumption).
+      eapply tree_determined_unify.
+      - eapply Lookup'.
+      - eapply Lookup'.
+      - eapply create_child_preserves_determined.
+        * symmetry. eassumption.
+        * eapply Lookup.
+        * eassumption.
+  Qed.
 
   Lemma perm_eq_up_to_C_preserved_by_access (b:bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
@@ -1974,12 +2027,16 @@ Qed.
       + by econstructor 3.
       + econstructor 4.
         * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
-          eassumption.
+          -- lia.
+          -- admit.
+          -- eassumption.
         * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
-          eassumption.
+          -- lia.
+          -- admit.
+          -- eassumption.
         * auto.
         * auto.
-  Qed.
+  Admitted.
 
   Lemma trees_equal_create_child trs1 trs2 trs1' blk tg_new tg_old pk rk cid nxtc :
     wf_trees trs1 → wf_trees trs2 →
