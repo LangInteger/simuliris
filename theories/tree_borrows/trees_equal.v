@@ -1988,7 +1988,7 @@ Qed.
       1-2: setoid_rewrite <- insert_true_preserves_every; done.
       intros l. specialize (Hequptoc l) as (Heq1&Heq2).
       split; first done.
-      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |]; simplify_eq.
+      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |witness_tg ? ? Dis1 Dis2]; simplify_eq.
       + by econstructor 1.
       + destruct Hlu1 as (Hlu1A&Hlu1B), Hlu2 as (Hlu2A&Hlu2B).
         pose proof Hcont as Hcont2. setoid_rewrite H1 in Hcont2. econstructor 2. 1: done.
@@ -2028,15 +2028,23 @@ Qed.
       + econstructor 4.
         * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
           -- lia.
-          -- admit.
+          -- inversion Dis1 as [it_witness ?? LuWitness].
+             pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
+             pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
+             enough (tg_new ≠ witness_tg) by eassumption.
+             lia.
           -- eassumption.
         * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
           -- lia.
-          -- admit.
+          -- inversion Dis1 as [it_witness ?? LuWitness].
+             pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
+             pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
+             enough (tg_new ≠ witness_tg) by eassumption.
+             lia.
           -- eassumption.
         * auto.
         * auto.
-  Admitted.
+  Qed.
 
   Lemma trees_equal_create_child trs1 trs2 trs1' blk tg_new tg_old pk rk cid nxtc :
     wf_trees trs1 → wf_trees trs2 →
