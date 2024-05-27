@@ -1092,6 +1092,67 @@ Qed.
         * eassumption.
   Qed.
 
+  Lemma most_init_comm {i i'} :
+    most_init i i' = most_init i' i.
+  Proof.
+    unfold most_init.
+    repeat case_match; reflexivity.
+  Qed.
+
+  Lemma most_init_noop {i} :
+    most_init i PermLazy = i.
+  Proof.
+    unfold most_init.
+    case_match; reflexivity.
+  Qed.
+
+  Lemma most_init_absorb {i} :
+    most_init i PermInit = PermInit.
+  Proof.
+    unfold most_init.
+    case_match; reflexivity.
+  Qed.
+
+  Lemma item_apply_access_effect_on_initialized
+    {it it' l b kind rel range}
+    (Acc : item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C rel range it = Some it')
+    : initialized (item_lookup it' l)
+    = if decide (range'_contains range l)
+      then most_init (initialized (item_lookup it l)) (requires_init rel) 
+      else initialized (item_lookup it l).
+  Proof.
+    unfold item_apply_access, permissions_apply_range' in Acc.
+    rewrite bind_Some in Acc; destruct Acc as [iperm' [iperm'Spec Inj]].
+    injection Inj; clear Inj; intros; subst.
+    pose proof (mem_apply_range'_spec _ _ l _ _ iperm'Spec) as LocalSpec.
+    case_match.
+    2: { rewrite /item_lookup /=. f_equal. f_equal. assumption. }
+    destruct LocalSpec as [val [valSpec MaybeApply]].
+    unfold item_lookup; simpl.
+    rewrite valSpec; clear valSpec; simpl.
+    (* Now it's time to actually unfold [maybe_non_children_only] and [apply_access_perm] where
+       [initialized] *might* be modified. *)
+    unfold maybe_non_children_only in MaybeApply. rewrite most_init_comm. case_match.
+    - unfold nonchildren_only in MaybeApply. case_match.
+      + simpl. case_match.
+        * injection MaybeApply; intros; subst; reflexivity.
+        * unfold apply_access_perm in MaybeApply.
+          destruct (apply_access_perm_inner _ _ _ _); simpl in *; last congruence.
+          destruct (if most_init _ _ then _ else _); simpl in MaybeApply; last congruence.
+          injection MaybeApply; clear MaybeApply; intros; subst.
+          simpl. rewrite most_init_noop. reflexivity.
+      + unfold apply_access_perm in MaybeApply.
+        destruct (apply_access_perm_inner _ _ _ _); simpl in *; last congruence.
+        destruct (if most_init _ _ then _ else _); simpl in MaybeApply; last congruence.
+        injection MaybeApply; clear MaybeApply; intros; subst.
+        simpl. rewrite most_init_absorb. reflexivity.
+    - unfold apply_access_perm in MaybeApply.
+      destruct (apply_access_perm_inner _ _ _ _); simpl in *; last congruence.
+      destruct (if most_init _ _ then _ else _); simpl in MaybeApply; last congruence.
+      injection MaybeApply; clear MaybeApply; intros; subst.
+      simpl. rewrite most_init_comm. reflexivity.
+  Qed.
+
   Lemma perm_eq_up_to_C_preserved_by_access (b:bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
     (SameProt : iprot it1 = iprot it2)
@@ -1110,7 +1171,7 @@ Qed.
     perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
   Proof.
     intros EqC Acc1 Acc2 Lookup1 Lookup1' Lookup2 Lookup2' ItAcc1 ItAcc2.
-    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2|].
+    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2|????? SameInit].
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
@@ -1248,9 +1309,13 @@ Qed.
         eassumption.
       + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption.
         eassumption.
-      + admit. (* We need to reason about initialized. *)
+      + rewrite (item_apply_access_effect_on_initialized ItAcc1).
+        rewrite (item_apply_access_effect_on_initialized ItAcc2).
+        rewrite SameInit.
+        case_match; last reflexivity.
+        f_equal. f_equal. rewrite SameTg. apply SameRel.
       + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
-  Admitted.
+  Qed.
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
