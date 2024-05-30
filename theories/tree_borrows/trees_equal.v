@@ -2151,7 +2151,31 @@ Qed.
     - by rewrite /trees_contain /trees_at_block Htr1 in Hncont.
     - done.
   Qed.
-    
+
+  Lemma trees_equal_find_equal_tag_protected_initialized_not_disabled trs1 trs2 it1 tg blk off:
+    trees_equal trs1 trs2 →
+    trees_lookup trs1 blk tg it1 →
+    (initialized (item_lookup it1 off) = PermInit → perm (item_lookup it1 off) ≠ Disabled) →
+    protector_is_active it1.(iprot) C →
+    ∃ it2, trees_lookup trs2 blk tg it2 ∧
+      (initialized (item_lookup it2 off) = PermInit → perm (item_lookup it2 off) ≠ Disabled) ∧
+      protector_is_active it2.(iprot) C.
+  Proof.
+    intros Heq (tr1&Htr1&Hit) Hperm Hactive.
+    specialize (Heq blk). rewrite Htr1 in Heq. inversion Heq as [x tr2 Heq' Hx Htr2|]. subst x.
+    destruct Heq' as (Heq1&Heq2&Heq3).
+    pose proof Hit as (Hitin&Hitdet).
+    specialize (Heq3 _ Hitin) as (it1'&it2&Hit1'&Hit2&Heqit).
+    assert (it1 = it1') as <-.
+    { eapply tree_determined_unify. 2: done. 1: done. apply Hit1'. }
+    exists it2. specialize (Heqit off) as (Hprotit&Hlocit).
+    split. 1: exists tr2; done.
+    rewrite -Hprotit. inversion Hlocit as [|e m c1 c2 H H1 H2 H3 H4| |]; simplify_eq.
+    - done.
+    - rewrite -!H3 /= in Hperm. simpl. done.
+    - exfalso. done.
+    - exfalso. done.
+  Qed.
 
 End utils.
 

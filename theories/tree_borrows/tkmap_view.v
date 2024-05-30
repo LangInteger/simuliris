@@ -429,10 +429,10 @@ Section lemmas.
       rewrite lookup_delete_ne //.
   Qed.
 
-  Lemma tkmap_view_update m k tk v v' :
+  Lemma tkmap_view_update m k tk tk' v v' :
     tk ≠ tk_pub →
     tkmap_view_auth 1 m ⋅ tkmap_view_frag k tk v ~~>
-      tkmap_view_auth 1 (<[k := (tk, v')]> m) ⋅ tkmap_view_frag k tk v'.
+      tkmap_view_auth 1 (<[k := (tk', v')]> m) ⋅ tkmap_view_frag k tk' v'.
   Proof.
     intros Htk_eq; apply view_update=>n bf Hrel j [tkr va] /=.
     rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].
@@ -445,7 +445,7 @@ Section lemmas.
         move=>[/= /to_tgkR_not_pub_excl] //. }
       rewrite Hbf right_id lookup_singleton. clear Hbf.
       intros [= <- <-].
-      eexists; exists tk. split_and!; [done | done | ].
+      eexists; exists tk'. split_and!; [done | done | ].
       rewrite lookup_insert. done.
     - rewrite lookup_singleton_ne; last done.
       rewrite left_id=>Hbf.
@@ -790,11 +790,8 @@ Section lemmas.
     tk ≠ tk_pub →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk', w)]> m) ∗ k ↪[γ]{tk'} w.
   Proof.
-    iIntros (Hne) "Hauth Helem".
-    iMod (tkmap_delete Hne with "Hauth Helem") as "Hauth".
-    iMod (tkmap_insert tk' k w with "Hauth") as "(Hauth&$)".
-    1: apply lookup_delete.
-    iModIntro. rewrite insert_delete_insert //.
+    unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -!own_op.
+    apply own_update. by apply: tkmap_view_update.
   Qed.
 
   (** Big-op versions of above lemmas *)

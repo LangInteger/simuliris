@@ -121,7 +121,11 @@ Definition init_state := (mkState ∅ ∅ {[O]} O 1).
       `tk_unq tk_act`.
     - `tk_local`: locally owned tag without any references (not even local reborrows). *)
 Inductive tk_activation_kind := tk_res | tk_act.
+Global Instance tk_activation_kind_eq_dec : EqDecision tk_activation_kind.
+Proof. solve_decision. Defined.
 Inductive tag_kind := tk_pub | tk_unq (act : tk_activation_kind) | tk_local.
+Global Instance tk_kind_eq_dec : EqDecision tag_kind.
+Proof. solve_decision. Defined.
 
 Definition state_upd_mem (f : mem → mem) σ :=
   mkState (f σ.(shp)) σ.(strs) σ.(scs) σ.(snp) σ.(snc).
