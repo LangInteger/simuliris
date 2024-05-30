@@ -17,13 +17,13 @@ Lemma tag_protected_preserved_by_access_strong tg_acc tg_prs l C c trs trs' acc 
   tag_protected_for P c trs  l tg_prs (EnsuringAccess ae) →
   tag_protected_for P c trs' l tg_prs (EnsuringAccess ae).
 Proof.
-  intros Hwf Hwithin Hcall (it & Hlu & Hprot & Hstrong & Hinit).
+  intros Hwf Hwithin Hcall (it & Hlu & Hprot & Hstrong & Hweak & Hinit).
   destruct (decide (l.1 = blk ∧ (off ≤ l.2 < off + sz))%Z) as [(<- & Hin)|Hout].
   - pose proof Hlu as Hlu2. eapply apply_trees_access_lookup_general in Hlu2 as (itnew & Hlunew & Heqinit & Heqprot & Hacc); [|done..].
     exists itnew. split; first done. rewrite /item_protected_for -Heqprot.
     assert (itag it = itag itnew) as Heqitag by by repeat erewrite trees_lookup_correct_tag.
     rewrite -Heqitag. 
-    do 2 (split; first done).
+    do 3 (split; first done).
     intros Hperminit.
     assert (protector_is_active (iprot itnew) C) as Hactive.
     { exists c. rewrite -Heqprot. done. }
@@ -60,7 +60,7 @@ Proof.
   - eapply apply_trees_access_lookup_general_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
     specialize (Hold itold Hluold) as (Hprot & Hstrong & Hinit).
     rewrite /item_protected_for -Heqprot.
-    do 2 (split; first done).
+    do 3 (split; first done).
     intros Hperminit.
     assert (protector_is_active (iprot it) C) as Hactive.
     { exists c. rewrite -Heqprot. done. }
@@ -74,9 +74,9 @@ Proof.
     rewrite Hperminit in Htrigger.
     intros ->. by destruct perm1.
   - eapply apply_trees_access_lookup_outside_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
-    specialize (Hold itold Hluold) as (Hprot & Hstrong & Hinit).
+    specialize (Hold itold Hluold) as (Hprot & Hstrong & Hweak & Hinit).
     rewrite /item_protected_for -Heqprot.
-    do 2 (split; first done).
+    do 3 (split; first done).
     by rewrite -Hacc.
 Qed.
 Lemma tag_protected_preserved_by_access tg_acc tg_prs l C c trs trs' acc blk off sz b ps P:
@@ -106,11 +106,11 @@ Proof.
   eapply tag_protected_preserved_by_access in Hread as HH. 2-4: done.
   destruct (decide (l.1 = blk)) as [<-|Hout], ps as [|ae].
   - clear HH. intros it (tr&Htr&Hit). by rewrite lookup_delete in Htr.
-  - exfalso. destruct HH as (it & (tr & Htr & Hlu) & Hprot & Hstrong & Hinit).
+  - exfalso. destruct HH as (it & (tr & Htr & Hlu) & Hprot & Hstrong & Hweak & Hinit).
     destruct ae; last first.
-    { destruct Hpreprot as (it' & (tr' & Htr' & Hlu') & Hprot' & Hstrong' & Hinit'). destruct l.
-      erewrite tree_lookup_correct_tag in Hstrong'; last done. 
-      eapply HPprotect. 1: done. 3: exact Hstrong'. 1: done. 1: eexists; split; first done. 2: eapply Hprot'. 1: eapply Hlu'. done.
+    { destruct Hpreprot as (it' & (tr' & Htr' & Hlu') & Hprot' & Hstrong' & Hweak' & Hinit'). destruct l.
+      erewrite tree_lookup_correct_tag in Hweak'; last done. 
+      eapply HPprotect. 1: done. 3: by eapply Hweak'. 1: done. 1: eexists; split; first done. 2: eapply Hprot'. 1: eapply Hlu'. done.
     }
     rewrite /apply_within_trees Htr /= in Hdealloc.
     pose proof Hdealloc as (okcheck&Hcheck%mk_is_Some&[= <-])%bind_Some. clear Hdealloc.
@@ -118,7 +118,9 @@ Proof.
     pose proof (tree_lookup_correct_tag Hlu) as <-.
     ospecialize (Hcheck it _); first by eapply tree_lookup_to_exists_node.
     eapply is_Some_if_neg in Hcheck.
-    rewrite (bool_decide_eq_true_2 _ Hstrong) /=bool_decide_eq_false in Hcheck.
+    rewrite (bool_decide_eq_true_2) /= in Hcheck.
+    2: by destruct (iprot it) as [[]|].
+    rewrite /=bool_decide_eq_false in Hcheck.
     eapply Hcheck.
     exists c. done.
   - intros it (tr&(Hne&Hin)%lookup_delete_Some&Hit).
@@ -322,10 +324,13 @@ Lemma tag_protected_for_mono P1 P2 c trs l tg ps :
   tag_protected_for P2 c trs l tg ps.
 Proof.
   intros Hweak H. destruct ps as [|[]].
-  1,2: rewrite /= /item_protected_for in H|-*; apply H.
-  destruct H as (it&Hit&Hprot&HP1&Hrst).
-  exists it. split; first done. split_and!; try done.
-  by eapply Hweak.
+  - intros ??. split_and!; try by eapply H. done.
+  - destruct H as (?&?&H). eexists; split; first done.
+    split_and!; try eapply H. done. 
+  - destruct H as (it&Hit&Hprot&Hstrong&HP1&Hrst).
+    exists it. split; first done. split_and!; try done.
+    intros ?; eapply Hweak; try done. by eapply HP1.
+  
 Qed.
 
 Lemma call_set_interp_mono M σ P1 P2 :

@@ -166,11 +166,13 @@ Proof.
     { eapply tag_valid_mono; try done; lia. }
     intros l' b' Hl'. specialize (Hc4 l' b' Hl').
     destruct b'.
-    + intros it (tr&Htr&Hit). simpl. eapply Hc4.
-      exists tr; split; last done. rewrite /extend_trees in Htr.
-      eapply lookup_insert_Some in Htr as [(Htr1&Htr2)|(Htr1&Htr2)]; last done.
-      subst tr. destruct Hit as (H1&H2). eapply init_tree_contains_only in H1. subst t.
-      rewrite /tag_valid in Hc3. lia.
+    + intros it (tr&Htr&Hit). simpl. rewrite /tag_protected_for in Hc4.
+      assert (trees_lookup (strs σ_t) l'.1 t it) as Hlu.
+      { exists tr; split; last done. rewrite /extend_trees in Htr.
+        eapply lookup_insert_Some in Htr as [(Htr1&Htr2)|(Htr1&Htr2)]; last done.
+        subst tr. destruct Hit as (H1&H2). eapply init_tree_contains_only in H1. subst t.
+        rewrite /tag_valid in Hc3. lia. }
+      specialize (Hc4 _ Hlu). split_and!; try by eapply Hc4. done.
     + eapply tag_protected_for_mono in Hc4.
       1: destruct Hc4 as (it & Hit & Hperm).
       1: exists it; split; last done.

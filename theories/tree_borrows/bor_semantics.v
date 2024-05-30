@@ -331,7 +331,7 @@ Proof. eapply rel_dec_flip. Qed.
 
 Implicit Type (kind:access_kind) (rel:rel_pos).
 Implicit Type (it:item).
-Implicit Type (prot:option protector).
+Implicit Type (p1rot:option protector).
 
 (* Tells if an access requires you to initialize the permission afterwards.
    This is exactly child accesses. *)

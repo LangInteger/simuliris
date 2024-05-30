@@ -1023,12 +1023,62 @@ Qed.
       all: eassumption.
   Qed.
 
+<<<<<<< HEAD
   Lemma disabled_in_practice_create_child_irreversible
     {tr tr' tg tg_old tg_new pk rk cid witness loc}
+=======
+  Lemma if_same_guard_equal
+    {P Q : Prop} {T} {x y x' y' : T} `{Decision P} `{Decision Q}
+    (Iff : P <-> Q)
+    (Ex : x = x')
+    (Ey : y = y')
+    : (if decide P then x else y) = (if decide Q then x' else y').
+  Proof.
+    repeat destruct (decide _); tauto.
+  Qed.
+
+  (* FIXME: move this lemma elsewhere *)
+  Lemma create_child_same_rel_dec
+    {tr tr' tg tg' tg_old tg_new pk rk cid}
+    (Ne : tg_new ≠ tg)
+    (Ne' : tg_new ≠ tg')
+    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    : rel_dec tr tg tg' = rel_dec tr' tg tg'.
+  Proof.
+    injection Ins; intro New.
+    unfold rel_dec.
+    apply if_same_guard_equal.
+    - erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+    - f_equal.
+      apply if_same_guard_equal.
+      + erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+      + reflexivity.
+      + f_equal.
+        apply if_same_guard_equal.
+        * erewrite insert_eqv_imm_rel; first (erewrite New; reflexivity); assumption.
+        * reflexivity.
+        * reflexivity.
+    - f_equal.
+      apply if_same_guard_equal.
+      + erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+      + f_equal.
+        apply if_same_guard_equal.
+        * erewrite insert_eqv_imm_rel; first (erewrite New; reflexivity); assumption.
+        * reflexivity.
+        * reflexivity.
+      + reflexivity.
+  Qed.
+
+  Lemma disabled_in_practice_create_child_irreversible
+    {tr tr' tg tg_old tg_new pk rk cid witness loc}
+    (Ne : tg_new ≠ tg)
+    (Ne' : tg_new ≠ witness)
+>>>>>>> ci/tree-borrows
     (Dis : disabled_in_practice tr tg witness loc)
     (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
     : disabled_in_practice tr' tg witness loc.
   Proof.
+<<<<<<< HEAD
     inversion Dis as [?? Rel Lookup Perm NoProt].
     destruct (disabled_create_child_irreversible Lookup Perm Ins) as [it' [Lookup' Perm']].
     econstructor.
@@ -1038,6 +1088,87 @@ Qed.
     + admit. (* What about create_child and protectors ? *)
   Admitted.
 
+=======
+    inversion Dis as [it_witness ? Rel Lookup Perm NoProt].
+    destruct (disabled_create_child_irreversible Lookup Perm Ins) as [it' [Lookup' Perm']].
+    econstructor.
+    + erewrite <- create_child_same_rel_dec; first eassumption.
+      - eassumption.
+      - eassumption.
+      - eassumption.
+    + apply Lookup'.
+    + apply Perm'.
+    + assert (it' = it_witness); last (subst; assumption).
+      eapply tree_determined_unify.
+      - eapply Lookup'.
+      - eapply Lookup'.
+      - eapply create_child_preserves_determined.
+        * symmetry. eassumption.
+        * eapply Lookup.
+        * eassumption.
+  Qed.
+
+  Lemma most_init_comm {i i'} :
+    most_init i i' = most_init i' i.
+  Proof.
+    unfold most_init.
+    repeat case_match; reflexivity.
+  Qed.
+
+  Lemma most_init_noop {i} :
+    most_init i PermLazy = i.
+  Proof.
+    unfold most_init.
+    case_match; reflexivity.
+  Qed.
+
+  Lemma most_init_absorb {i} :
+    most_init i PermInit = PermInit.
+  Proof.
+    unfold most_init.
+    case_match; reflexivity.
+  Qed.
+
+  Lemma item_apply_access_effect_on_initialized
+    {it it' l b kind rel range}
+    (Acc : item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C rel range it = Some it')
+    : initialized (item_lookup it' l)
+    = if decide (range'_contains range l)
+      then most_init (initialized (item_lookup it l)) (requires_init rel) 
+      else initialized (item_lookup it l).
+  Proof.
+    unfold item_apply_access, permissions_apply_range' in Acc.
+    rewrite bind_Some in Acc; destruct Acc as [iperm' [iperm'Spec Inj]].
+    injection Inj; clear Inj; intros; subst.
+    pose proof (mem_apply_range'_spec _ _ l _ _ iperm'Spec) as LocalSpec.
+    case_match.
+    2: { rewrite /item_lookup /=. f_equal. f_equal. assumption. }
+    destruct LocalSpec as [val [valSpec MaybeApply]].
+    unfold item_lookup; simpl.
+    rewrite valSpec; clear valSpec; simpl.
+    (* Now it's time to actually unfold [maybe_non_children_only] and [apply_access_perm] where
+       [initialized] *might* be modified. *)
+    unfold maybe_non_children_only in MaybeApply. rewrite most_init_comm. case_match.
+    - unfold nonchildren_only in MaybeApply. case_match.
+      + simpl. case_match.
+        * injection MaybeApply; intros; subst; reflexivity.
+        * unfold apply_access_perm in MaybeApply.
+          destruct (apply_access_perm_inner _ _ _ _); simpl in *; last congruence.
+          destruct (if most_init _ _ then _ else _); simpl in MaybeApply; last congruence.
+          injection MaybeApply; clear MaybeApply; intros; subst.
+          simpl. rewrite most_init_noop. reflexivity.
+      + unfold apply_access_perm in MaybeApply.
+        destruct (apply_access_perm_inner _ _ _ _); simpl in *; last congruence.
+        destruct (if most_init _ _ then _ else _); simpl in MaybeApply; last congruence.
+        injection MaybeApply; clear MaybeApply; intros; subst.
+        simpl. rewrite most_init_absorb. reflexivity.
+    - unfold apply_access_perm in MaybeApply.
+      destruct (apply_access_perm_inner _ _ _ _); simpl in *; last congruence.
+      destruct (if most_init _ _ then _ else _); simpl in MaybeApply; last congruence.
+      injection MaybeApply; clear MaybeApply; intros; subst.
+      simpl. rewrite most_init_comm. reflexivity.
+  Qed.
+>>>>>>> ci/tree-borrows
 
   Lemma perm_eq_up_to_C_preserved_by_access (b:bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg l acc_tg kind range}
@@ -1057,7 +1188,11 @@ Qed.
     perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
   Proof.
     intros EqC Acc1 Acc2 Lookup1 Lookup1' Lookup2 Lookup2' ItAcc1 ItAcc2.
+<<<<<<< HEAD
     inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2|].
+=======
+    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2|????? SameInit].
+>>>>>>> ci/tree-borrows
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
@@ -1195,9 +1330,19 @@ Qed.
         eassumption.
       + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption.
         eassumption.
+<<<<<<< HEAD
       + admit. (* We need to reason about initialized. *)
       + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
   Admitted.
+=======
+      + rewrite (item_apply_access_effect_on_initialized ItAcc1).
+        rewrite (item_apply_access_effect_on_initialized ItAcc2).
+        rewrite SameInit.
+        case_match; last reflexivity.
+        f_equal. f_equal. rewrite SameTg. apply SameRel.
+      + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
+  Qed.
+>>>>>>> ci/tree-borrows
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
@@ -1935,7 +2080,11 @@ Qed.
       1-2: setoid_rewrite <- insert_true_preserves_every; done.
       intros l. specialize (Hequptoc l) as (Heq1&Heq2).
       split; first done.
+<<<<<<< HEAD
       inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |]; simplify_eq.
+=======
+      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |witness_tg ? ? Dis1 Dis2]; simplify_eq.
+>>>>>>> ci/tree-borrows
       + by econstructor 1.
       + destruct Hlu1 as (Hlu1A&Hlu1B), Hlu2 as (Hlu2A&Hlu2B).
         pose proof Hcont as Hcont2. setoid_rewrite H1 in Hcont2. econstructor 2. 1: done.
@@ -1974,9 +2123,27 @@ Qed.
       + by econstructor 3.
       + econstructor 4.
         * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
+<<<<<<< HEAD
           eassumption.
         * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
           eassumption.
+=======
+          -- lia.
+          -- inversion Dis1 as [it_witness ?? LuWitness].
+             pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
+             pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
+             enough (tg_new ≠ witness_tg) by eassumption.
+             lia.
+          -- eassumption.
+        * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
+          -- lia.
+          -- inversion Dis1 as [it_witness ?? LuWitness].
+             pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
+             pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
+             enough (tg_new ≠ witness_tg) by eassumption.
+             lia.
+          -- eassumption.
+>>>>>>> ci/tree-borrows
         * auto.
         * auto.
   Qed.
@@ -2055,12 +2222,25 @@ Section call_set.
     apply Hwf in Hcc. lia.
   Qed.
 
+<<<<<<< HEAD
   Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat) tr1 tr2 tg l cid lp1 lp2 :
+=======
+  Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat)
+    tr1 tr2 tg l cid lp1 lp2 {nxtp} :
+>>>>>>> ci/tree-borrows
     (∀ cc, protector_is_for_call cc cid → (cc < nxtc)%nat) →
+    tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     perm_eq_up_to_C C1 tr1 tr2 tg l cid lp1 lp2 →
     perm_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg l cid lp1 lp2.
   Proof.
+<<<<<<< HEAD
     intros Hwf.
+=======
+    intros Hwf Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2.
+>>>>>>> ci/tree-borrows
     induction 1 as [| |???? H|??? H1 H2 ? H].
     1: by econstructor.
     1: econstructor; try done. 1: eapply protector_is_active_mono; last done; set_solver.
@@ -2072,35 +2252,65 @@ Section call_set.
       all: inversion H1; inversion H2.
       all: econstructor; try done.
       all: apply protector_not_active_extend.
+<<<<<<< HEAD
       all: admit. (* Bug here: we need more assumptions about the well-formedness of the witness' protector *)
   Admitted.
+=======
+      + unfold tree_items_compat_nexts in Hwf_all1.
+        rewrite every_node_iff_every_lookup in Hwf_all1.
+        * eapply Hwf_all1; eassumption.
+        * unfold wf_tree, tree_items_unique in Hwf_tr1.
+          intros tg0 Ex. specialize (Hwf_tr1 tg0 Ex).
+          apply unique_lookup; assumption.
+      + assumption.
+      + unfold tree_items_compat_nexts in Hwf_all2.
+        rewrite every_node_iff_every_lookup in Hwf_all2.
+        * eapply Hwf_all2; eassumption.
+        * unfold wf_tree, tree_items_unique in Hwf_tr2.
+          intros tg0 Ex. specialize (Hwf_tr2 tg0 Ex).
+          apply unique_lookup; assumption.
+      + assumption.
+  Qed.
+>>>>>>> ci/tree-borrows
 
   Lemma loc_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp l :
     item_wf it1 nxtp nxtc →
+    tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     loc_eq_up_to_C C1 tr1 tr2 tg it1 it2 l →
     loc_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg it1 it2 l.
   Proof.
-    intros Hwf1.
+    intros Hwf1 Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2.
     induction 1; econstructor; try done.
     eapply perm_eq_up_to_C_mono; last done.
-    apply Hwf1.
+    1: apply Hwf1.
+    all: eassumption.
   Qed.
 
   Lemma item_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp :
     item_wf it1 nxtp nxtc →
+    tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     item_eq_up_to_C C1 tr1 tr2 tg it1 it2 →
     item_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg it1 it2.
   Proof.
-    intros Hss H1 l.
+    intros Hss Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2 H1 l.
     specialize (H1 l). by eapply loc_eq_up_to_C_mono.
   Qed.
 
   Lemma tree_equal_mono C1 tr1 tr2 nxtc nxtp :
     tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     tree_equal C1 tr1 tr2 →
     tree_equal (C1 ∪ {[ nxtc ]}) tr1 tr2.
   Proof.
-    intros Hss (H1&H2&H3). do 2 (split; first done).
+    intros Hss Hss2 Hwf_tr1 Hwf_tr2 (H1&H2&H3). do 2 (split; first done).
     intros tg (it1&it2&H4&H5&H6)%H3.
     exists it1, it2. split_and!; try done.
     eapply item_eq_up_to_C_mono; try done.
@@ -2111,13 +2321,19 @@ Section call_set.
 
   Lemma trees_equal_mono C1 trs1 trs2 nxtc nxtp :
     trees_compat_nexts trs1 nxtp nxtc →
+    trees_compat_nexts trs2 nxtp nxtc →
+    wf_trees trs1 →
+    wf_trees trs2 ->
     trees_equal C1 trs1 trs2 →
     trees_equal (C1 ∪ {[ nxtc ]}) trs1 trs2.
   Proof.
-    intros Hss Heq blk. specialize (Heq blk). inversion Heq; simplify_eq.
+    intros Hss Hss2 Hwf_trs1 Hwf_trs2 Heq blk. specialize (Heq blk). inversion Heq; simplify_eq.
     all: econstructor; try done.
     eapply tree_equal_mono; try done.
-    eapply Hss. done.
+    + eapply Hss. done.
+    + eapply Hss2. done.
+    + eapply Hwf_trs1. done.
+    + eapply Hwf_trs2. done.
   Qed.
 
 End call_set.
