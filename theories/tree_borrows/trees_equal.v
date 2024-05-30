@@ -2185,12 +2185,17 @@ Section call_set.
     apply Hwf in Hcc. lia.
   Qed.
 
-  Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat) tr1 tr2 tg l cid lp1 lp2 :
+  Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat)
+    tr1 tr2 tg l cid lp1 lp2 {nxtp} :
     (∀ cc, protector_is_for_call cc cid → (cc < nxtc)%nat) →
+    tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     perm_eq_up_to_C C1 tr1 tr2 tg l cid lp1 lp2 →
     perm_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg l cid lp1 lp2.
   Proof.
-    intros Hwf.
+    intros Hwf Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2.
     induction 1 as [| |???? H|??? H1 H2 ? H].
     1: by econstructor.
     1: econstructor; try done. 1: eapply protector_is_active_mono; last done; set_solver.
@@ -2202,35 +2207,60 @@ Section call_set.
       all: inversion H1; inversion H2.
       all: econstructor; try done.
       all: apply protector_not_active_extend.
-      all: admit. (* Bug here: we need more assumptions about the well-formedness of the witness' protector *)
-  Admitted.
+      + unfold tree_items_compat_nexts in Hwf_all1.
+        rewrite every_node_iff_every_lookup in Hwf_all1.
+        * eapply Hwf_all1; eassumption.
+        * unfold wf_tree, tree_items_unique in Hwf_tr1.
+          intros tg0 Ex. specialize (Hwf_tr1 tg0 Ex).
+          apply unique_lookup; assumption.
+      + assumption.
+      + unfold tree_items_compat_nexts in Hwf_all2.
+        rewrite every_node_iff_every_lookup in Hwf_all2.
+        * eapply Hwf_all2; eassumption.
+        * unfold wf_tree, tree_items_unique in Hwf_tr2.
+          intros tg0 Ex. specialize (Hwf_tr2 tg0 Ex).
+          apply unique_lookup; assumption.
+      + assumption.
+  Qed.
 
   Lemma loc_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp l :
     item_wf it1 nxtp nxtc →
+    tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     loc_eq_up_to_C C1 tr1 tr2 tg it1 it2 l →
     loc_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg it1 it2 l.
   Proof.
-    intros Hwf1.
+    intros Hwf1 Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2.
     induction 1; econstructor; try done.
     eapply perm_eq_up_to_C_mono; last done.
-    apply Hwf1.
+    1: apply Hwf1.
+    all: eassumption.
   Qed.
 
   Lemma item_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp :
     item_wf it1 nxtp nxtc →
+    tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     item_eq_up_to_C C1 tr1 tr2 tg it1 it2 →
     item_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg it1 it2.
   Proof.
-    intros Hss H1 l.
+    intros Hss Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2 H1 l.
     specialize (H1 l). by eapply loc_eq_up_to_C_mono.
   Qed.
 
   Lemma tree_equal_mono C1 tr1 tr2 nxtc nxtp :
     tree_items_compat_nexts tr1 nxtp nxtc →
+    tree_items_compat_nexts tr2 nxtp nxtc →
+    wf_tree tr1 →
+    wf_tree tr2 →
     tree_equal C1 tr1 tr2 →
     tree_equal (C1 ∪ {[ nxtc ]}) tr1 tr2.
   Proof.
-    intros Hss (H1&H2&H3). do 2 (split; first done).
+    intros Hss Hss2 Hwf_tr1 Hwf_tr2 (H1&H2&H3). do 2 (split; first done).
     intros tg (it1&it2&H4&H5&H6)%H3.
     exists it1, it2. split_and!; try done.
     eapply item_eq_up_to_C_mono; try done.
@@ -2241,13 +2271,19 @@ Section call_set.
 
   Lemma trees_equal_mono C1 trs1 trs2 nxtc nxtp :
     trees_compat_nexts trs1 nxtp nxtc →
+    trees_compat_nexts trs2 nxtp nxtc →
+    wf_trees trs1 →
+    wf_trees trs2 ->
     trees_equal C1 trs1 trs2 →
     trees_equal (C1 ∪ {[ nxtc ]}) trs1 trs2.
   Proof.
-    intros Hss Heq blk. specialize (Heq blk). inversion Heq; simplify_eq.
+    intros Hss Hss2 Hwf_trs1 Hwf_trs2 Heq blk. specialize (Heq blk). inversion Heq; simplify_eq.
     all: econstructor; try done.
     eapply tree_equal_mono; try done.
-    eapply Hss. done.
+    + eapply Hss. done.
+    + eapply Hss2. done.
+    + eapply Hwf_trs1. done.
+    + eapply Hwf_trs2. done.
   Qed.
 
 End call_set.
