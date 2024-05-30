@@ -577,11 +577,14 @@ Proof.
   iSplitL "Hpub_cid".
   { (* pub cid *) iApply (pub_cid_interp_preserve_initcall with "Hpub_cid"); done. }
   iSplitL.
-  { iDestruct "Hsrel" as "(H1 & %H2 & H3 & %H4 & %H5 & H6)". rewrite /state_rel. simpl.
-    iFrame "H1 H3".
-    iSplit. { iPureIntro. rewrite union_comm_L. eapply trees_equal_mono; last done. apply Hwf_s. }
+  { iDestruct "Hsrel" as "(H1 & %H2 & %H3 & %H4 & %H5 & H6)". rewrite /state_rel. simpl.
+    iFrame "H1".
+    iSplit. { iPureIntro. rewrite union_comm_L. eapply trees_equal_mono; last done.
+              + apply Hwf_s. + rewrite H3. rewrite H4. apply Hwf_t.
+              + apply Hwf_s. + apply Hwf_t. }
     iSplit. { iPureIntro. lia. }
-    iSplit. { rewrite H5 Hsnc_eq. done. }
+    iSplit. { rewrite Hsnc_eq. done. }
+    iSplit. { iPureIntro. rewrite H4. rewrite H5. reflexivity. }
     iIntros (l Hl). iDestruct ("H6" $! l with "[//]") as "[Hpub | (%t & %Hpriv)]".
     - iLeft. iApply "Hpub".
     - iRight. iPureIntro. exists t.
