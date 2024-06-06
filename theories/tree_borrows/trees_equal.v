@@ -88,9 +88,9 @@ Qed.
 
   Inductive disabled_in_practice (tr : tree item) (tg : tag) (witness : tag) (l : Z)
     : Prop :=
-    | disabled_parent it_witness imm :
+    | disabled_parent it_witness inclusive :
       (* Doesn't have to be immediate, just any parent is Disabled *)
-      rel_dec tr witness tg = Foreign (Parent imm) ->
+      rel_dec tr tg witness = Child inclusive ->
       tree_lookup tr witness it_witness ->
       (item_lookup it_witness l).(perm) = Disabled ->
       (* FIXME: is the hypothesis of not being protected necessary here ?
@@ -750,7 +750,6 @@ Qed.
           end
         ). {
           unfold rel_dec in RelWitness.
-          destruct (decide _); first discriminate.
           destruct (decide _); last discriminate.
           unfold rel_dec in AccRel.
           destruct (decide _); last discriminate.
