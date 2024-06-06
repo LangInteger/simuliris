@@ -411,6 +411,32 @@ Proof.
     eapply tree_determined_unify. 3: eapply Hlu'. 1-2: eapply Hit.
 Qed.
 
+Lemma protector_is_inactive_cids_mono
+  {prot C C'}
+  (Decr : C' ⊆ C)
+  (Dis : ~protector_is_active prot C)
+  : ~protector_is_active prot C'.
+Proof.
+  intro H.
+  apply Dis.
+  destruct H as [x [H H']].
+  exists x.
+  split; first assumption.
+  unfold call_is_active in *.
+  set_solver.
+Qed.
+
+Lemma disabled_in_practice_cids_mono
+  {tr tg witness l C C'}
+  (Decr : C' ⊆ C)
+  (Dis : disabled_in_practice C tr tg witness l)
+  : disabled_in_practice C' tr tg witness l.
+Proof.
+  inversion Dis.
+  econstructor; try eassumption.
+  eapply protector_is_inactive_cids_mono; eassumption.
+Qed.
+
 Lemma tree_equal_remove_call C tr1' tr2' tr1 tr2 cid :
   wf_tree tr1 → wf_tree tr2 → parents_more_init tr1 → parents_more_init tr2 →
   tree_read_all_protected_initialized C cid tr1 = Some tr1' →
@@ -479,11 +505,11 @@ Proof.
   - econstructor 3.
     intros (cc&Hcc&Hccact). eapply Hnprot. eexists. split; first done. by eapply elem_of_difference in Hccact as (H1&H2).
   - econstructor 4.
-    + admit.
-    + admit.
+    + eapply disabled_in_practice_cids_mono; last eassumption. set_solver.
+    + eapply disabled_in_practice_cids_mono; last eassumption. set_solver.
     + assumption.
-    + admit.
-Admitted.
+    + eapply protector_is_inactive_cids_mono; last eassumption. set_solver.
+Qed.
 
 Lemma trees_equal_remove_call C trs1' trs2' trs1 trs2 cid :
   wf_trees trs1 → wf_trees trs2 → each_tree_parents_more_init trs1 → each_tree_parents_more_init trs2 →

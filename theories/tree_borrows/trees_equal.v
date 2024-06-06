@@ -997,6 +997,7 @@ Qed.
     {tr tr' tg tg_old tg_new loc it pk rk cid}
     (Lookup : tree_lookup tr tg it)
     (Dis : perm (item_lookup it loc) = Disabled)
+    (Fresh : tg_new ≠ tg)
     (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
     : exists it',
         tree_lookup tr' tg it'
@@ -1010,9 +1011,10 @@ Qed.
     split; [split|].
     - apply insert_preserves_exists; assumption.
     - apply insert_true_preserves_every; last assumption.
-      admit. (* Need wf of tags *)
+      intro SameTg.
+      rewrite /create_new_item //= in SameTg.
     - assumption.
-  Admitted.
+  Qed.
 
   Lemma disabled_in_practice_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range witness loc b}
@@ -1081,7 +1083,7 @@ Qed.
     : disabled_in_practice tr' tg witness loc.
   Proof.
     inversion Dis as [it_witness ? Rel Lookup Perm NoProt].
-    destruct (disabled_create_child_irreversible Lookup Perm Ins) as [it' [Lookup' Perm']].
+    destruct (disabled_create_child_irreversible Lookup Perm Ne' Ins) as [it' [Lookup' Perm']].
     econstructor.
     + erewrite <- create_child_same_rel_dec; first eassumption.
       - eassumption.
