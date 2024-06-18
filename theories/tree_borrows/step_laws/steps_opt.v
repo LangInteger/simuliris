@@ -155,7 +155,7 @@ Proof.
       by eapply H4.
     + intros tg blk1 blk2. rewrite !dom_insert_lookup_L. 2: by eexists.
       by eapply H5.
-Admitted.
+Qed.
 *)
 
 Lemma sim_make_local_public l t (sc_s sc_t : list scalar) π Φ e_t e_s:
@@ -177,13 +177,13 @@ Proof.
   { iMod (tkmap_update_strong tk_pub tt with "Htag_auth Htk") as "($&$)"; done. }
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hhl_t".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hhl_s".
-  iMod (ghost_map_update ∅ with "Htag_t_auth Ht") as "(Htag_t_auth&_)".
-  iMod (ghost_map_update ∅ with "Htag_s_auth Hs") as "(Htag_s_auth&_)".
+  iMod (ghost_map_delete with "Htag_t_auth Ht") as "Htag_t_auth".
+  iMod (ghost_map_delete with "Htag_s_auth Hs") as "Htag_s_auth".
   iAssert (⌜length sc_t = length sc_s⌝)%I as "%Hlen". 1: by iApply big_sepL2_length.
 
   iModIntro. iSplitR "Hres Htk".
   2: by iApply "Hres".
-  iFrame "HP_s HP_t". iExists M_call, _, (<[(t, l.1):=∅]> M_t), (<[(t, l.1):=∅]> M_s).
+  iFrame "HP_s HP_t". iExists M_call, _, (delete (t, l.1) M_t), (delete (t, l.1) M_s).
   iFrame "Hc Htag_t_auth Htag_s_auth Hpub_cid Htag_auth".
   iSplit; last (iPureIntro; split; last (split; last done)).
   - repeat (iSplit; first done). iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
@@ -192,7 +192,7 @@ Proof.
     destruct (decide (t = tt)) as [->|Hne].
     2: { iRight. iPureIntro. exists tt.
          rewrite /priv_loc lookup_insert_ne //.
-         rewrite /heaplet_lookup lookup_insert_ne //. simpl. by congruence. }
+         rewrite /heaplet_lookup lookup_delete_ne //. simpl. by congruence. }
     iLeft. rewrite /pub_loc. iIntros (sc_t' Hsc_t').
     destruct Hpriv as (x&Htk'&Hheaplet&Hx). assert (x = tk_local) as -> by congruence.
     destruct Htag_interp as (Ht1&Ht2&Ht3&Ht4&Ht5).
@@ -201,7 +201,7 @@ Proof.
     assert (l.1 = ll.1) as Hlleq.
     { eapply Ht4. all: by eapply elem_of_dom_2. } rewrite /= -Hlleq Hhl_t in Hheaplet_t1.
     injection Hheaplet_t1 as <-. simpl in Hheaplet_t2.
-    specialize (Ht1 _ _ Htk') as (HHt1&HHt2&HHt3&HHt4&HHt5).
+    specialize (Ht1 _ _ Htk') as (HHt1&HHt2&HHt_local&HHt3&HHt4&HHt5).
     ospecialize (HHt3 ll _ _).
     1: rewrite /heaplet_lookup /= -Hlleq Hhl_t /= Hheaplet_t2 //.
     assert (∃ sc_ll_s, list_to_heaplet sc_s l.2 !! ll.2 = Some sc_ll_s) as (sc_ll_s&Hsc_ll_s).
@@ -229,37 +229,40 @@ Proof.
     exists tkp. assert (itag it ≠ t) as Hne.
     { intros <-. congruence. }
     rewrite lookup_insert_ne //. split; first done.
-    rewrite /heaplet_lookup lookup_insert_ne /= //.
+    rewrite /heaplet_lookup lookup_delete_ne /= //.
     intros [= ??]; done.
   - destruct Htag_interp as (H1&H2&H3&H4&H5). split_and!.
     + intros tg tk' [(->&[= <-])|(Hne&Hin)]%lookup_insert_Some; last first.
-      * specialize (H1 _ _ Hin) as (HH1&HH2&HH3&HH4&HH5). split_and!.
+      * specialize (H1 _ _ Hin) as (HH1&HH2&HHlocal&HH3&HH4&HH5). split_and!.
         1-2: done.
+        1: { intros ->; destruct HHlocal as (HHl1&HHl2); split; intros ?? (?&H)%lookup_delete_Some.
+             1: by eapply HHl1. by eapply HHl2. }
+        (* 1: rewrite !dom_delete_L; intros ?; split; intros ? (?&?)%elem_of_difference; by eapply HHlocal. *)
         3: { rewrite /dom_agree_on_tag /heaplet_lookup /= //.
-             split; intros ?; rewrite !lookup_insert_ne; try congruence.
+             split; intros ?; rewrite !lookup_delete_ne; try congruence.
              all: eapply HH5. }
-        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_insert_ne // in H. 2: congruence. 
+        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_delete_ne // in H. 2: congruence. 
           by eapply HH3. }
-        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_insert_ne // in H. 2: congruence. 
+        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_delete_ne // in H. 2: congruence. 
           by eapply HH4. }
-      * specialize (H1 _ _ Ht_tk) as (HH1&HH2&HH3&HH4&HH5). split_and!.
+      * specialize (H1 _ _ Ht_tk) as (HH1&HH2&HHlocal&HH3&HH4&HH5). split_and!.
         1-2: done.
-        3: { eapply dom_agree_on_tag_update_same. all: done. }
+        1: done.
+        3: { eapply dom_agree_on_tag_update_same_delete. all: done. }
         all: intros ??; rewrite /= /heaplet_lookup /=.
-        all: intros (x&[(?&<-)|(Hne&Hin)]%lookup_insert_Some&Hy)%bind_Some;
-          [rewrite lookup_empty // in Hy| ].
+        all: intros (x&(Hne&Hin)%lookup_delete_Some&Hy)%bind_Some.
         all: exfalso.
         { ospecialize* H4. 1-2: eapply elem_of_dom_2. 1: exact Hin. 1: exact Hhl_t. congruence. }
         { ospecialize* H5. 1-2: eapply elem_of_dom_2. 1: exact Hin. 1: exact Hhl_s. congruence. }
-    + intros t' blk H%elem_of_dom. rewrite dom_insert_lookup_L in H. 2: by eexists.
+    + intros t' blk H%elem_of_dom. rewrite dom_delete_L in H. eapply elem_of_difference in H as (H&?).
       eapply elem_of_dom. rewrite dom_insert_lookup_L. 2: by eexists.
       by eapply elem_of_dom, H2, elem_of_dom.
-    + intros t' blk H%elem_of_dom. rewrite dom_insert_lookup_L in H. 2: by eexists.
+    + intros t' blk H%elem_of_dom. rewrite dom_delete_L in H. eapply elem_of_difference in H as (H&?).
       eapply elem_of_dom. rewrite dom_insert_lookup_L. 2: by eexists.
       by eapply elem_of_dom, H3, elem_of_dom.
-    + intros tg blk1 blk2. rewrite !dom_insert_lookup_L. 2: by eexists.
+    + intros tg blk1 blk2. rewrite !dom_delete_L. do 2 intros (?&?)%elem_of_difference.
       by eapply H4.
-    + intros tg blk1 blk2. rewrite !dom_insert_lookup_L. 2: by eexists.
+    + intros tg blk1 blk2. rewrite !dom_delete_L. do 2 intros (?&?)%elem_of_difference.
       by eapply H5.
 Qed.
   

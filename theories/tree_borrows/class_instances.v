@@ -226,8 +226,10 @@ Section safe_reach.
   Global Instance safe_implies_copy_val P σ r :
     SafeImplies (∃ l t sz, r = PlaceR l t sz) P (Copy r) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_copy_place P σ l tg sz :
-    SafeImplies ((∃ v, read_mem l sz σ.(shp) = Some v ∧ trees_contain tg σ.(strs) l.1 ∧ is_Some (apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs))) ∨ (trees_contain tg σ.(strs) l.1 ∧ apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None ∧ is_Some (read_mem l sz σ.(shp)))) P (Copy (Place l tg sz)) σ.
+  Global Instance safe_implies_copy_place P σ l tg (sz:nat) :
+    SafeImplies (  (∃ v, read_mem l sz σ.(shp) = Some v ∧ trees_contain tg σ.(strs) l.1 ∧ is_Some (apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs)) ∧ sz ≠ 0%nat)
+                 ∨ (∃ v, read_mem l sz σ.(shp) = Some v ∧ sz = 0%nat)
+                 ∨ (trees_contain tg σ.(strs) l.1 ∧ apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None ∧ is_Some (read_mem l sz σ.(shp)))) P (Copy (Place l tg sz)) σ.
   Proof. prove_safe_implies. Qed.
 
   Global Instance safe_implies_write_val_left1 P σ v v' :
@@ -240,7 +242,14 @@ Section safe_reach.
     SafeImplies False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_write P σ l t sz v :
-    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ trees_contain t (strs σ) l.1 ∧ is_Some (apply_within_trees (memory_access AccessWrite (scs σ) t (l.2, length v)) l.1 (strs σ)) ∧ length v = sz) P (Write (Place l t sz) (Val v)) σ.
+    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ 
+                  (trees_contain t (strs σ) l.1 ∧ is_Some (apply_within_trees (memory_access AccessWrite (scs σ) t (l.2, length v)) l.1 (strs σ)) ∨ sz = 0%nat) ∧ length v = sz)
+       P (Write (Place l t sz) (Val v)) σ | 1.
+  Proof. prove_safe_implies. Qed.
+  (* Higher precedence, should only be found when safe_implies_write can not be used (because e.g. P may not depend on σ) *)
+  Global Instance safe_implies_write_length P σ l t sz v :
+    SafeImplies (length v = sz)
+       P (Write (Place l t sz) (Val v)) σ | 10.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_write_result P σ r r' :
     SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.

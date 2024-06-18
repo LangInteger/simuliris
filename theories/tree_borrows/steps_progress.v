@@ -472,6 +472,16 @@ Proof.
 Qed.
  *)
 
+Lemma apply_within_trees_unchanged fn blk trs trs' :
+      (∀ tr, trs !! blk = Some tr → fn tr = Some tr) →
+      apply_within_trees fn blk trs = Some trs' →
+      trs' = trs.
+Proof.
+  intros Hsame (x&Hx&(y&Hy&[= <-])%bind_Some)%bind_Some.
+  specialize (Hsame _ Hx). assert (y = x) as -> by congruence.
+  rewrite insert_id //.
+Qed.
+
 Lemma copy_base_step' P (σ: state) l tg sz v trs' (WF: state_wf σ) :
   trees_contain tg σ.(strs) l.1 →
   read_mem l sz σ.(shp) = Some v →
@@ -479,7 +489,12 @@ Lemma copy_base_step' P (σ: state) l tg sz v trs' (WF: state_wf σ) :
   let σ' := mkState σ.(shp) trs' σ.(scs) σ.(snp) σ.(snc) in
   base_step P (Copy (Place l tg sz)) σ (Val v) σ' [].
 Proof.
-  intros TC RM Happly. destruct l. do 2 econstructor. all: eauto.
+  intros TC RM Happly. destruct l. destruct sz.
+  - simpl. econstructor. 1: by econstructor. assert (trs' = σ.(strs)) as ->.
+    2: by eapply ZeroCopyIS.
+    eapply apply_within_trees_unchanged in Happly; first done.
+    intros tr Htr. simpl in Htr|-*. eapply (zero_sized_memory_access_unchanged false).
+  - do 2 econstructor. all: eauto.
 Qed.
 (* TODO remove?
 Lemma copy_base_step P (σ: state) l bor T
@@ -541,7 +556,14 @@ Lemma write_base_step' P (σ: state) l bor sz v trs'
   (APPLY: apply_within_trees (memory_access AccessWrite (scs σ) bor (l.2, sz)) l.1 σ.(strs) = Some trs') :
   let σ' := mkState (write_mem l v σ.(shp)) trs' σ.(scs) σ.(snp) σ.(snc) in
   base_step P (Write (Place l bor sz) (Val v)) σ #[☠] σ' [].
-Proof. intros σ'. destruct l. econstructor 2; econstructor; eauto. by rewrite LEN. Qed.
+Proof.
+  intros σ'. destruct l. destruct sz.
+  - destruct v; last done. econstructor; first econstructor. 1-2: done.
+    assert (trs' = σ.(strs)) as ->. 2: by econstructor.
+    eapply apply_within_trees_unchanged. 2: eassumption.
+    intros tr Htr. eapply (zero_sized_memory_access_unchanged false).
+  - econstructor 2; econstructor; eauto. by rewrite LEN.
+Qed.
 
 (*
 Lemma write_base_step P (σ: state) l bor T v

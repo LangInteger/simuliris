@@ -586,7 +586,7 @@ Proof.
   odestruct (trees_contain_trees_lookup_1 _ _ _ _ Hcontain) as (it_acc & Hitacc).
   1: eapply Hwf_t.
   destruct Hpriv as (tk&Htk&[vls Hhl]&[->|(cc&ae&->&Hcc)]).
-  all: specialize (Htag _ _ Htk) as (Hv1&Hv2&Hcontrol_t&Hcontrol_s&Htagree).
+  all: specialize (Htag _ _ Htk) as (Hv1&Hv2&Hlocal&Hcontrol_t&Hcontrol_s&Htagree).
   { odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv&tr_prv&Htrprv&Hitprv&Hinit&Hactive&Hothers)&Hvls); first done.
     destruct Hitacc as (tr_acc&Htracc&Hitacc). assert (tr_prv = tr_acc) as -> by congruence.
     eapply Hothers. done. }
@@ -717,3 +717,48 @@ Proof.
   eapply Hwf, Htr.
 Qed.
 
+Lemma local_access_preserves_unchanged_one_tree σ t blk off sc sz tr :
+  state_wf σ → wf_tree tr →
+  length sc = sz →
+  (∀ i : nat, (i < sz)%nat → σ.(shp) !! ((blk, off) +ₗ i) = sc !! i) →
+  (sz = 0%nat ∨ ∃ it, tr = branch it empty empty ∧ root_invariant blk it σ.(shp) ∧ t = it.(itag)) →
+  memory_access AccessRead σ.(scs) t (off, sz) tr = Some tr.
+Proof.
+  rewrite /memory_access /= /memory_access_maybe_nonchildren_only /= /tree_apply_access /=.
+  intros Hwf Hwftree Hlen Hhp [->|(it&->&Hit&Htg)].
+  { eapply join_map_id_identical.
+    intros it _. rewrite /item_apply_access /permissions_apply_range' /=.
+    by destruct it. }
+  simpl. rewrite /item_apply_access /permissions_apply_range' /= /mem_apply_range' /=.
+  rewrite mem_apply_locs_id. 1: by destruct it.
+  intros offi Hoffi. assert (∃ (n:nat), offi = off + n) as (n&->).
+  { exists (Z.to_nat (offi - off)). lia. }
+  ospecialize (Hhp n _). 1: lia.
+  destruct (lookup_lt_is_Some_2 sc n) as [scn Hscn]. 1: lia.
+  rewrite Hscn /shift_loc /= in Hhp.
+  destruct Hit as (Hr1&Hr2&Hr3).
+  specialize (Hr3 (off + n)). assert (iperm it !! (off + n) = Some (mkPerm PermInit Active)) as Hoffn.
+  { repeat (case_match; try done; try congruence). all: rewrite Hr3 // in Hhp. }
+  eexists; split; first done.
+  rewrite Hr1 /=. rewrite /rel_dec decide_True //.
+  rewrite /ParentChildIn.
+  by left.
+Qed. 
+
+Lemma local_access_preserves_unchanged σ t blk off sc sz :
+  state_wf σ →
+  length sc = sz →
+  is_Some (σ.(strs) !! blk) →
+  (∀ i : nat, (i < sz)%nat → σ.(shp) !! ((blk, off) +ₗ i) = sc !! i) →
+  (sz = 0%nat ∨ ∃ it, σ.(strs) !! blk = Some (branch it empty empty) ∧ root_invariant blk it σ.(shp) ∧ t = it.(itag)) →
+  apply_within_trees (memory_access AccessRead σ.(scs) t (off, sz)) blk σ.(strs) = Some σ.(strs).
+Proof.
+  intros Hwf Hlen [tr Htr] H1 H2.
+  rewrite /apply_within_trees /= Htr /=.
+  rewrite (local_access_preserves_unchanged_one_tree _ _ blk _ sc).
+  2: done. 2: by eapply Hwf. 2: done. 2: done.
+  - rewrite /= insert_id //.
+  - destruct H2 as [?|(it&Hit&HHi)]; first by left.
+    right. exists it; split; last done.
+    rewrite Htr in Hit. by injection Hit as ->.
+Qed.

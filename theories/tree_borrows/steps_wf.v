@@ -536,20 +536,39 @@ Proof.
   - eapply map_Forall_lookup_1 in Hreach; done.
 Qed.
 
+Lemma join_map_id_identical (fn : item -> option item) tr :
+  (∀ it, exists_node (eq it) tr → fn it = Some it) →
+  join_nodes (map_nodes fn tr) = Some tr.
+Proof.
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros Hfoo; simpl in *.
+  - done.
+  - rewrite (Hfoo data) /= //. 2: by left.
+    rewrite IHtr1. 1: rewrite IHtr2 //.
+    all: intros ??; eapply Hfoo; tauto.
+Qed.
+
+Lemma join_map_id_identical_or_fail (fn : item -> option item) tr tr' :
+  (∀ it r, exists_node (eq it) tr → fn it = Some r → r = it) →
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  tr = tr'.
+Proof.
+  revert tr'.
+  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Hfoo; simpl in *.
+  - by intros [= <-].
+  - destruct (fn data) as [i|] eqn:Hfn; last done. 
+    rewrite (Hfoo data i) /= //. 2: by left.
+    intros (tr1'&Htr1&(tr2'&Htr2&[= <-])%bind_Some)%bind_Some.
+    f_equal.
+    + eapply IHtr1. 2: done. intros ????; eapply Hfoo; tauto.
+    + eapply IHtr2. 2: done. intros ????; eapply Hfoo; tauto.
+Qed.
+
 Lemma join_map_id_is_Some_identical (P : item -> bool) tr tr' :
   join_nodes (map_nodes (fun it => if P it then None else Some it) tr) = Some tr' ->
   tr = tr'.
 Proof.
-  revert tr'.
-  induction tr as [|data ? IHtr1 ? IHtr2]; intros tr' Success; simpl in *.
-  - injection Success; tauto.
-  - destruct (P data); simpl in *; [discriminate|].
-    destruct (join_nodes _) as [tr1'|]; simpl in *; [|discriminate].
-    destruct (join_nodes _) as [tr2'|]; simpl in *; [|discriminate].
-    injection Success.
-    erewrite IHtr1; [|reflexivity].
-    erewrite IHtr2; [|reflexivity].
-    tauto.
+  eapply join_map_id_identical_or_fail.
+  intros it r _ . destruct (P it); try done. congruence.
 Qed.
 
 Lemma memory_deallocate_wf tr tr' cids tg range :
@@ -734,7 +753,7 @@ Lemma initial_item_init_mem h tg sz :
   let blk := fresh_block h in
   root_invariant blk (initial_item tg 0 sz) (init_mem (blk, 0) sz h).
 Proof.
-  split; first done. intros off.
+  split; first done. split; first done. intros off.
   rewrite /item_lookup /=.
   opose proof (init_perms_lookup Active 0 sz off) as H.
   edestruct (init_mem_lookup (fresh_block h, 0) sz h) as (H1&H2).
@@ -767,7 +786,7 @@ Proof.
   destruct σ as [h trs cids nxtp nxtc].
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
-  inversion IS as [x| | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
+  inversion IS as [x| | | | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
   - apply same_blocks_init_extend; [lia|].
     apply WF.
   - apply extend_trees_wf.
@@ -789,7 +808,7 @@ Proof.
     intros [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
     + simpl. split; last done. eapply initial_item_init_mem.
     + specialize (state_wf_roots_active _ WF blk tr Hin) as Hact. simpl.
-      destruct tr as [|it ??]; first done. destruct Hact as (Hact&->).
+      destruct tr as [|it ??]; first done. destruct Hact as ((Hinit&Hact)&->).
       rewrite /root_invariant /= in Hact|-*. rewrite /root_invariant.
       destruct Hact as (Hprot&Hact); split_and!; try done.
       intros off. specialize (Hact off).
@@ -1354,26 +1373,28 @@ Proof.
   split; last done.
   clear data Hdata.
   eapply bind_Some in Hit' as (p'&Hp'&[= <-]).
-  destruct Hroot as (Hprot&Hroot); split; first done.
+  destruct Hroot as (Hprot&(Hindis&Hroot)); split; first done.
   rewrite Hprot /= in Hp'.
   rewrite /rel_dec decide_True in Hp'.
   2: eapply root_node_IsParentChild; done.
+  split; first by rewrite Hindis.
   intros offi. specialize (Hroot offi).
   eapply (mem_apply_range'_spec _ _ offi) in Hp'.
   destruct decide; last first.
   { rewrite /item_lookup /= in Hroot|-*.
     rewrite Hp'. apply Hroot. }
   destruct Hp' as (vn&H1&H2).
-  rewrite /item_lookup H1. simpl.
   odestruct maybe_non_children_only_effect_or_nop as [Heq|Heq];
     erewrite Heq in H2; clear Heq.
-  2: { injection H2 as <-. apply Hroot. }
+  2: { injection H2 as <-. rewrite H1. destruct (iperm it !! offi) eqn:Heq; rewrite !Heq /= ?Hindis; apply Hroot. }
   rewrite /apply_access_perm /= most_init_comm /= in H2.
   rewrite /apply_access_perm_inner /= in H2.
   rewrite /item_lookup in Hroot.
   destruct (default {| initialized := PermLazy; perm := initp it |} (iperm it !! offi)) as [ini prm] eqn:Heqd.
-  rewrite Heqd in H2. simpl in Hroot, H2.
-  destruct ini, prm, k; simpl in *; try done; simplify_eq. all: done.
+  rewrite Heqd in H2. simpl in Hroot, H2. 
+  destruct k, (iperm it !! offi) as [[[][]]|]; simpl in *; try done; rewrite /= in H2; simplify_eq.
+  all: try rewrite Hindis in H2.
+  all: rewrite H1; cbv in H2; simplify_eq; done.
 Qed.
 
 Lemma memory_access_roots_unaffected b k cids tg_acc off sz trs trs' blk hp :
@@ -1463,7 +1484,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ | | | | |trs'' ???? ACC | | ]; clear IS; simplify_eq.
+  inversion IS as [ | | | | | | |trs'' ???? ACC | | ]; clear IS; simplify_eq.
   destruct (trees_deallocate_isSome _ _ _ _ _ _ (mk_is_Some _ _ ACC)) as [x [Lookup Update]].
   assert (each_tree_parents_more_init trs'') as HH1.
   { eapply apply_within_trees_deallocate_compat_parents_more_init; try done.
@@ -1495,8 +1516,8 @@ Proof.
     rewrite lookup_insert_ne // in Hin.
     specialize (state_wf_roots_active _ WF blk tr' Hin) as Hact. simpl in Hact.
     destruct tr' as [|it ??]; first done.
-    rewrite /root_invariant /= in Hact|-*. destruct Hact as ((Hprot&Hact)&->); split; last done.
-    split; first done.
+    rewrite /root_invariant /= in Hact|-*. destruct Hact as ((Hprot&Hinit&Hact)&->); split; last done.
+    split; first done. split; first done.
     intros off. specialize (Hact off).
     rewrite !free_mem_only_only_one_block //.
   - apply (WF.(state_wf_cid_agree _)).
@@ -1545,8 +1566,9 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ |?????? ACC| | | | | | ]; clear IS; simplify_eq.
-  eapply (read_step_wf_inner σ false); done.
+  inversion IS as [ |?????? ACC| | | | | | | | ]; clear IS; simplify_eq.
+  - eapply (read_step_wf_inner σ false); done.
+  - by destruct σ.
 Qed.
 
 Lemma failed_copy_step_wf σ σ' e e' l bor T efs :
@@ -1661,12 +1683,14 @@ Lemma root_invariant_dom blk itm h1 h2 :
 Proof.
   unfold mem.
   intros H. rewrite /root_invariant.
-  split; intros [H1 H2]; split; try done.
+  split; intros (H1&H3&H2); split. 1: done. 2: done.
+  all: split; first done.
   all: intros z; specialize (H2 z) as H0; repeat case_match; try done.
-  1,3: eapply elem_of_dom; eapply elem_of_dom in H0.
-  3,4: eapply not_elem_of_dom; eapply not_elem_of_dom in H0. all: simpl.
-  1,3: rewrite <- H. 3,4: rewrite H.
-  all: done.
+  1,4: eapply elem_of_dom; eapply elem_of_dom in H0.
+  5,6: eapply not_elem_of_dom; eapply not_elem_of_dom in H0. all: simpl.
+  all: try by rewrite <- H. all: try by rewrite H.
+  all: eapply not_elem_of_dom. all: eapply not_elem_of_dom in H0.
+  all: congruence.
 Qed.
 
 Lemma tree_root_compatible_dom tr blk h1 h2 :
@@ -1690,7 +1714,6 @@ Proof.
   all: setoid_rewrite tree_root_compatible_dom; first done; done.
 Qed.
 
-
 Lemma write_step_wf σ σ' e e' l bor ptr vl efs :
   mem_expr_step σ.(shp) e (WriteEvt l bor ptr vl) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -1702,7 +1725,8 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ | | |?????? ACC | | | | ]; clear IS; simplify_eq.
+  inversion IS as [ | | | |?????? ACC |???? RANGE_SIZE| | | | ]; clear IS; simplify_eq.
+  2: { simpl in RANGE_SIZE. destruct vl; last done. simpl. done. }
   constructor; simpl.
   - rewrite /same_blocks.
     pose proof (WF.(state_wf_dom _)) as Same; simpl in Same.
@@ -2221,6 +2245,20 @@ Proof.
     rewrite HNone in Htr'; done.
 Qed.
 
+Lemma trees_read_all_protected_initialized_contains C n trs trs' tg blk :
+  trees_contain tg trs blk →
+  trees_read_all_protected_initialized C n trs = Some trs' →
+  trees_contain tg trs' blk.
+Proof.
+  intros Hcont Hread. rewrite /trees_contain /trees_at_block in Hcont|-*.
+  destruct (trs !! blk) as [tr|] eqn:Htr. 2: done. 
+  eapply trees_read_all_protected_initialized_pointwise_1 in Hread as Hread1.
+  destruct Hread1 as (HH&_). specialize (HH _ Htr) as (tr' & HH1&HH2).
+  rewrite HH1. eapply preserve_tag_count_contains.
+  1: eapply tree_read_all_protected_initialized_tag_count.
+  1: exact Hcont. 1: done.
+Qed.
+
 Lemma each_tree_protected_parents_not_disabled_shrink trs cids cidsnew :
   wf_trees trs →
   cidsnew ⊆ cids →
@@ -2652,6 +2690,20 @@ Proof.
   - by eapply Hroot.
 Qed.
 
+Lemma create_child_tree_contains C ot nt pk rk cid trs trs' blk blk' tg :
+  trees_contain tg trs blk' →
+  apply_within_trees (create_child C ot nt pk rk cid) blk trs = Some trs' →
+  trees_contain tg trs' blk'.
+Proof.
+  intros Hroot (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some.
+  rewrite /trees_contain /trees_at_block in Hroot|-*.
+  destruct (trs !! blk') as [tr1|] eqn:Heq. 2: done.
+  destruct (decide (blk = blk')) as [->|Hne].
+  - rewrite lookup_insert. assert (tr = tr1) as -> by congruence.
+    by eapply insertion_preserves_tags.
+  - rewrite lookup_insert_ne // Heq //.
+Qed.
+
 Lemma retag_step_wf_inner σ blk ot pk rk cid trsmid :
   state_wf σ →
   trees_contain ot σ.(strs) blk →
@@ -2700,7 +2752,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
-  inversion IS as [| | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
+  inversion IS as [| | | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
   eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-5: done.
   eapply read_step_wf_inner in WF. all: done.
 Qed.
@@ -2724,4 +2776,25 @@ Qed.
 
 
 
+Lemma mem_apply_locs_id X (fn : option X → option X) z (sz:nat) M :
+  (∀ off, z ≤ off < z + sz → ∃ k, M !! off = Some k ∧ fn (Some k) = Some k) →
+  mem_apply_locs fn z sz M = Some M.
+Proof.
+  induction sz as [|sz IH] in z,M|-*; first done.
+  intros H. rewrite /= /mem_apply_loc /=.
+  destruct (H z) as (k&HMk&Hfnk). 1: lia.
+  rewrite HMk Hfnk /= insert_id //. eapply IH.
+  intros ??; eapply H. lia.
+Qed.
+
+Lemma zero_sized_memory_access_unchanged b acc scs t off tr :
+  memory_access_maybe_nonchildren_only b acc scs t (off, 0%nat) tr = Some tr.
+Proof.
+  rewrite /memory_access_maybe_nonchildren_only /tree_apply_access.
+  eapply join_map_id_identical.
+  intros it Hit.
+  rewrite /item_apply_access /permissions_apply_range' /mem_apply_range'.
+  rewrite mem_apply_locs_id. 1: by destruct it.
+  intros ? HH; simpl in HH. lia.
+Qed.
 

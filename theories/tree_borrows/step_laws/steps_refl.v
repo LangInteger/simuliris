@@ -18,18 +18,6 @@ Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
 Implicit Types f : fname.
 
-Lemma sim_value_result v_t v_s (Φ : result → result → iProp Σ) π :
-  Φ (ValR v_t) (ValR v_s) -∗ #v_t ⪯{π} #v_s {{ Φ }}.
-Proof. iIntros "H". iApply sim_expr_base. iExists (ValR v_t), (ValR v_s). eauto. Qed.
-
-Lemma sim_place_result l_t t_t T_t l_s t_s T_s (Φ : result → result → iProp Σ) π :
-  Φ (PlaceR l_t t_t T_t) (PlaceR l_s t_s T_s) -∗ Place l_t t_t T_t ⪯{π} Place l_s t_s T_s {{ Φ }}.
-Proof. iIntros "H". iApply sim_expr_base. iExists (PlaceR _ _ _), (PlaceR _ _ _); eauto. Qed.
-
-Lemma sim_result r_t r_s (Φ : result → result → iProp Σ) π :
-  Φ r_t r_s -∗ of_result r_t ⪯{π} of_result r_s {{ Φ }}.
-Proof. iIntros "H". iApply sim_expr_base. by iApply lift_post_val. Qed.
-
 Lemma init_mem_lookup_fresh_poison blk off (n:nat) h :
   0 ≤ off ∧ off < n →
   init_mem (blk, 0) n h !! (blk, off) = Some ScPoison.
@@ -189,7 +177,8 @@ Proof.
     iPureIntro. destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2). split_and!.
     { simpl. intros tr tk. rewrite lookup_insert_Some. intros [[<- [= <-]] | [Hneq Hsome]].
       - (* new tag: as these are public, the locations under this tag are not directly controlled *)
-        split_and!; [ rewrite /tag_valid; lia | rewrite /tag_valid; lia | | |].
+        split_and!; [ rewrite /tag_valid; lia | rewrite /tag_valid; lia | | | |].
+        + intros ?; done.
         + intros l' sc_t (?&?&?)%bind_Some. exfalso. specialize (Hdom_t nt l'.1 ltac:(eauto)) as (? &?). subst nt. congruence.
         + intros l' sc_t (?&?&?)%bind_Some. exfalso. specialize (Hdom_s nt l'.1 ltac:(eauto)) as (? &?). subst nt. congruence.
         + apply dom_agree_on_tag_not_elem.
@@ -202,8 +191,17 @@ Proof.
             destruct (Hdom_s nt l'.1 ltac:(eauto)) as (? & ?).
             subst nt. congruence.
       - (* old tag *)
-        specialize (Htag_interp _ _ Hsome) as (Hv1 & Hv2 & Hcontrol_t & Hcontrol_s & Hag).
+        specialize (Htag_interp _ _ Hsome) as (Hv1 & Hv2 & Hlocal & Hcontrol_t & Hcontrol_s & Hag).
         split_and!; [inversion Hv1; simplify_eq; econstructor; lia | inversion Hv1; simplify_eq; econstructor; lia | .. | done].
+        + intros ->. split; intros bblk MM Hbblk.
+          all: specialize (Hlocal eq_refl) as (HH1&HH2).
+          * by eapply HH1. (* specialize (HH1 _ _ Hbblk). rewrite /trees_contain /trees_at_block in HH1|-*.
+            destruct (strs σ_t !! bblk) as [tt|] eqn:HH; last done.
+            erewrite extend_trees_preserve. 1: eapply HH1. all: done. *)
+          * by eapply HH2. (* specialize (HH2 _ Hbblk). rewrite /trees_contain /trees_at_block in HH2|-*.
+            destruct (strs σ_s !! bblk) as [tt|] eqn:HH; last done. subst α_s'.
+            subst blk. erewrite fresh_block_equiv. 2: by rewrite -Hdom_eq.
+            erewrite extend_trees_preserve. 1: eapply HH2. all: done. *)
         + intros l' sc_t Hcontrol%Hcontrol_t. clear Hhead_s. eapply loc_controlled_alloc_update; done.
         + intros l' sc_s Hcontrol%Hcontrol_s. clear α_t' σ_t' Hhead_s. subst σ_s' α_s' l blk.
           erewrite fresh_block_det; last done.
@@ -300,7 +298,7 @@ Proof.
     rewrite /memory_deallocate in Happly_t.
     rewrite apply_within_trees_bind in Happly_t. eapply bind_Some in Happly_t as (trsmid&Haccess_t&Hcheck_t).
     rewrite Hscs_eq in Haccess_t.
-    destruct Htag_interp as (Ht1&_). destruct (Ht1 _ _ Hak) as (Ht1'&Ht2&Ht3&Ht4&Ht5).
+    destruct Htag_interp as (Ht1&_). destruct (Ht1 _ _ Hak) as (Ht1'&Ht2&Htlocal&Ht3&Ht4&Ht5).
     specialize (Ht3 _ _ Hhl) as Ht3'.
     eapply (protected_active_loc_does_not_survive_write_access _ (mkState σ_t.(shp) trsmid σ_s.(scs) σ_t.(snp) σ_t.(snc))); simpl.
     1: exact Haccess_t. 1: done. 1: by rewrite Hscs_eq. 1: done. 1: done.
@@ -315,12 +313,13 @@ Proof.
     + eexists. split; first exact Hak. split; first eapply mk_is_Some, Hhl.
       do 3 eexists. split. 1: done.
       eexists. split; first exact Hc. eexists. split; first done. done.
-    + intros ??? HH1 HH2. destruct (Ht1 _ _ HH1) as (_&_&HHt1&_&_). by eapply HHt1.
+    + intros ??? HH1 HH2. destruct (Ht1 _ _ HH1) as (_&_&_&HHt1&_&_). by eapply HHt1.
   - (* re-establish the tag interpretation *)
     destruct Htag_interp as (Htag_interp & Hdom_t & Hdom_s & Hunq1 & Hunq2).
     iPureIntro. split_and!; [ | done..].
-    intros t tk Ht. simpl. specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrol_t & Hcontrol_s & Hag).
-    split_and!; [done | done | | | done].
+    intros t tk Ht. simpl. specialize (Htag_interp _ _ Ht) as (? & ? & Hlocal & Hcontrol_t & Hcontrol_s & Hag).
+    split_and!; [done | done | | | | done].
+    + done.
     + intros l sc_t Hsc_t%Hcontrol_t. rewrite Hscs_eq in Happly_t.
       eapply loc_controlled_dealloc_update; [ apply Happly_t | done | done | | done ].
       intros -> _. rewrite Hpub in Ht. congruence.
@@ -330,232 +329,6 @@ Proof.
   - iPureIntro. by eapply base_step_wf.
   - iPureIntro. by eapply base_step_wf.
 Qed.
-
-Lemma sim_copy_public Φ π l_t bor_t sz l_s bor_s sz_t :
-  rrel (PlaceR l_t bor_t sz_t) (PlaceR l_s bor_s sz) -∗
-  (∀ v_t v_s, value_rel v_t v_s -∗ v_t ⪯{π} ValR v_s [{ Φ }]) -∗
-  Copy (PlaceR l_t bor_t sz_t) ⪯{π} Copy (PlaceR l_s bor_s sz) [{ Φ }].
-Proof.
-  iIntros "[#Hscrel ->] Hsim".
-  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> ->].
-  iClear "Hscrel".
-  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
-  iModIntro.
-  destruct Hsafe as [Hpool Hsafe].
-  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
-  destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss))|(Hcontain_s&Hnotrees&Hisval)];
-  pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done; last first.
-  { (* We get poison *)
-    assert (apply_within_trees (memory_access AccessRead (scs σ_s) bor_s (l_s.2, sz)) l_s.1 (strs σ_t) = None) as Hnotrees_t.
-    { destruct apply_within_trees eqn:HSome in |-*; try done.
-      eapply mk_is_Some, trees_equal_allows_same_access in HSome as (x&Hx); first by erewrite Hnotrees in Hx.
-      1: by eapply trees_equal_sym. 1: by eapply Hwf_t. 1: by eapply Hwf_s. 1: done. }
-    iSplit. 
-    { iPureIntro. do 3 eexists. eapply failed_copy_base_step'; try done.
-      1: rewrite -Hscs_eq //.
-      eapply read_mem_is_Some'. rewrite -Hdom_eq. by eapply read_mem_is_Some'.
-    }
-    iIntros (e_t' efs_t σ_t') "%Hhead_t".
-    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (Hcontain'&->&[(Hnotree&->&Hpoison&Hheapsome)|(trs'&Htrs'&->&Hσ_t'&Hreadmem&Hsometree)]); last congruence.
-    iModIntro. iExists e_t', [], σ_s. iSplit.
-    { iPureIntro. subst e_t'. destruct σ_s, l_s. simpl. do 2 econstructor; by eauto. }
-    simpl. iFrame. iSplit; last done. subst e_t'.
-    iApply "Hsim". iApply big_sepL_sepL2_diag. iApply big_sepL_forall. by iIntros (k v (->&_)%lookup_replicate_1).
-  }
-  edestruct trees_equal_allows_same_access as (trs_t'&Htrst).
-  1: done. 1: eapply Hwf_s. 1: eapply Hwf_t. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
-  1: eapply Hwf_s. 1: eapply Hwf_t. 1: done.
-  assert (is_Some (read_mem l_s sz (shp σ_t))) as (vr_t&Hreadmem_t).
-  { eapply read_mem_is_Some'. eapply mk_is_Some in Hreadmem. rewrite -read_mem_is_Some' Hdom_eq in Hreadmem. done. }
-  iSplit.
-  { iPureIntro. do 3 eexists. eapply copy_base_step'. 1-3: done. rewrite -Hscs_eq. done. }
-  (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
-  iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (Hcontain'&->&[(Hnotree&->&Hpoison)|(tr'&vr_t'&->&Hσ_t'&H3&H4)]); first congruence.
-  assert (vr_t' = vr_t) as -> by congruence.
-  assert (tr' = trs_t') as -> by congruence.
-  clear H3 H4.
-  iModIntro.
-  pose (σ_s' := (mkState (shp σ_s) trs_s' (scs σ_s) (snp σ_s) (snc σ_s))).
-  assert (Hhead_s : base_step P_s (Copy (Place l_s bor_s sz)) σ_s (ValR vr_s) σ_s' []).
-  { eapply copy_base_step'; eauto. }
-  iExists (Val vr_s), [], σ_s'. iSplitR; first done.
-  iFrame "HP_t HP_s".
-
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
-  iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%Hpub".
-
-  iSplitR "Hsim".
-  {
-    (* re-establish the invariants *)
-    iExists M_call, M_tag, M_t, M_s.
-    iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-    subst σ_s' σ_t'.
-    iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
-    - (* pub cid *)
-      iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
-    - repeat (iSplit; first done).
-      simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
-    - (* call invariant *)
-      iPureIntro. intros c M' HM'_some.
-      specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
-      split; first by apply Hin. intros pid L HL_some. specialize (Hprot pid L HL_some) as [Hpid Hprot].
-      split; first by apply Hpid. intros l b Hin_l.
-      specialize (Hprot l b Hin_l).
-      eapply (tag_protected_preserved_by_access). 2: apply Htrst. 1: apply Hwf_t.
-      1: by rewrite Hscs_eq. done.
-    - (* tag invariant *)
-      iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | done..].
-      intros t tk Htk_some. destruct (Htag_interp t tk Htk_some) as (Hsnp_lt_t & Hsnp_lt_s & Hctrl_t & Hctrl_s & Hag).
-      split_and!; [ done | done | | | done ].
-      + intros l sc_t Hsc_t. eapply loc_controlled_read_preserved_everywhere.
-        1: rewrite Hscs_eq in Htrst; eapply Htrst. 1: done. 1: by rewrite -Hscs_eq. 1-2: done.
-        by eapply Hctrl_t.
-      + intros l sc_s Hsc_s. eapply loc_controlled_read_preserved_everywhere.
-        1: eapply Htrss. 1-4: done.
-        by eapply Hctrl_s.
-    - (* source state wf *)
-      iPureIntro. eapply base_step_wf; done.
-    - (* target state wf *)
-      iPureIntro. eapply base_step_wf; done.
-  }
-  iSplitL; last done.
-
-  iApply "Hsim".
-  (* proving the value relation *)
-  specialize (read_mem_values _ _ _ _ Hreadmem_t) as [Hlen_t Hvr_t].
-  specialize (read_mem_values _ _ _ _ Hreadmem) as [Hlen_s Hvr_s].
-
-  iApply big_sepL2_forall; iSplit; first (iPureIntro;lia).
-  iIntros (i sc_t sc_s) "%Hs_t %Hs_s".
-  assert (i < sz)%nat as Hi. { rewrite -Hlen_t. eapply lookup_lt_is_Some_1. eauto. }
-  assert (is_Some (shp σ_t !! (l_s +ₗ i))) as Htloc.
-  { exists sc_t. rewrite -Hs_t. by eapply Hvr_t. }
-  iPoseProof (state_rel_pub_if_not_priv _ _ _ _ _ _ (l_s +ₗ i) with "[] Hsrel []") as "Hpubloc".
-  1: done. 
-  { iPureIntro. intros t Hpriv.
-    eapply (protected_priv_loc_does_not_survive_access σ_t σ_t'). 10: exact Hpriv.
-    1: rewrite Hscs_eq in Htrst. 1-3: by rewrite Hσ_t'. 1: done. 1: done. 1: simpl; lia.
-    1: done. 1: done. 1: done.
-    intros tg tk sc HH1 HH2.
-    destruct (Htag_interp) as (H1&H2&H3&H4&H5).
-    destruct (H1 tg tk HH1) as (_&_&HH3&HH4).
-    apply HH3. done.
-  }
-  iPoseProof (pub_loc_lookup with "[] Hpubloc") as "(%sc_t' & %sc_s' & %Hread_both & Hsc_rel)"; first by eauto.
-  enough (sc_t = sc_t' ∧ sc_s = sc_s') by naive_solver.
-  move : Hread_both (Hvr_t i Hi) (Hvr_s i Hi) Hs_t Hs_s.
-  by move => [-> ->] <- <- [= ->] [= ->].
-Qed.
-
-(** Write *)
-Lemma sim_write_public Φ π l_t tg_t sz_t l_s tg_s sz_s v_t' v_s' :
-  rrel (PlaceR l_t tg_t sz_t) (PlaceR l_s tg_s sz_s) -∗
-  value_rel v_t' v_s' -∗
-  (#[☠] ⪯{π} #[☠] [{ Φ }]) -∗
-  Write (Place l_t tg_t sz_t) v_t' ⪯{π} Write (Place l_s tg_s sz_s) v_s' [{ Φ }].
-Proof.
-  iIntros "[#Hscrel ->] #Hvrel Hsim".
-  iPoseProof (sc_rel_ptr_source with "Hscrel") as "[%Heq Hpub]". injection Heq as [= -> ->].
-  iClear "Hscrel".
-  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
-  iModIntro.
-  destruct Hsafe as [Hpool Hsafe].
-  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
-  destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  specialize (pool_safe_implies Hsafe Hpool) as (Hread_s & Hcontain_s & (trs_s' & Htrss) & Hlen).
-  pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done.
-  iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
-
-  assert (∃ xx, apply_within_trees (memory_access AccessWrite (scs σ_t) tg_s (l_s.2, sz_s)) l_s.1 (strs σ_t) = Some xx) as (trs_t' & Htrst).
-  { eapply trees_equal_allows_same_access. 1: by rewrite -Hscs_eq. 1: by apply Hwf_s. 1: by apply Hwf_t. 1: done. rewrite -Hscs_eq -Hlen. by eexists. }
-  eassert (trees_equal _ trs_s' trs_t') as Htrseq.
-  { eapply trees_equal_preserved_by_access. 3: done. 1: eapply Hwf_s. 1: eapply Hwf_t. 2: exact Htrss. 2: rewrite Hscs_eq Hlen //. done. }
-  iSplitR.
-  { iPureIntro. do 3 eexists. eapply write_base_step'; [lia | | |].
-    - rewrite -Hdom_eq. intros n Hn. apply Hread_s. lia.
-    - done.
-    - apply Htrst.
-  }
-  iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_write_inv _ _ _ _ _ _ _ _ _ Hhead_t) as (trst_2 & -> & -> & -> & _ & Hin_dom & _ & Htrst').
-  assert (trst_2 = trs_t') as -> by congruence.
-  iModIntro.
-  pose (σ_s' := (mkState (write_mem l_s v_s' σ_s.(shp)) trs_s' σ_s.(scs) σ_s.(snp) σ_s.(snc))).
-  assert (Hhead_s : base_step P_s (Write (Place l_s tg_s sz_s) v_s') σ_s (ValR [☠]%S) σ_s' []).
-  { eapply write_base_step'; eauto. 2: by rewrite -Hlen. intros. rewrite Hdom_eq. apply Hin_dom. lia. }
-  iExists (#[☠])%E, [], σ_s'. iSplitR; first done.
-  iFrame "HP_t HP_s".
-  iSplitR "Hsim"; first last. { iSplitL; done. }
-
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
-  iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%"; try done.
-
-  (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
-  (* re-establish the invariants *)
-  iExists M_call, M_tag, M_t, M_s.
-  iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
-  - (* pub cid *)
-    iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
-  - (* state rel *)
-    rewrite /state_rel; simpl. iSplitL.
-    { iPureIntro. erewrite !write_mem_dom_sane; first done. all: eauto. }
-    do 4 (iSplitL; first done). iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hsrel)".
-    iIntros (l) "%Hs".
-    specialize (write_mem_lookup l_s v_s' σ_s.(shp)) as (Heq & Heq').
-    specialize (write_mem_lookup_case l_s v_t' σ_t.(shp) l) as [(i & Hi & -> & Hwrite) | (Hi & Hwrite)].
-    + (* we wrote to the location, and the written values must be related *)
-      iLeft. iIntros (sc_t Hsc_t). simpl in Hsc_t. rewrite Heq; last lia.
-      iExists (v_s' !!! i). rewrite Hwrite in Hsc_t.
-      rewrite -(list_lookup_total_correct _ _ _ Hsc_t).
-      iSplitR. { iPureIntro. apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
-      iApply (value_rel_lookup_total with "Hvrel"). lia.
-    + (* unaffected location *)
-      simpl. rewrite Hwrite in Hs.
-      iDestruct ("Hsrel" $! l with "[//]") as "[Hpubl | Hprivl]"; last by iRight.
-      iLeft. rewrite /pub_loc Hwrite Heq'; first done. intros. apply Hi. lia.
-  - (* call invariant *)
-    iPureIntro. intros c M' HM'_some. simpl.
-    specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
-    split; first done. intros t L [Ht HL]%Hprot. split; first done.
-    intros l b Hprotl%HL.
-    eapply tag_protected_preserved_by_access; last done.
-    1: by eapply Hwf_t. 1: done. apply Hin.
-  - (* tag invariant *)
-    iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | done..].
-    intros t tk Ht.
-    specialize (Htag_interp _ _ Ht) as (? & ? & Hcontrolled_t & Hcontrolled_s & Hdom).
-    split_and!; [ done | done | | | done ].
-    + intros l sc_t Hcontrol%Hcontrolled_t.
-      destruct (decide (l.1 = l_s.1 ∧ l_s.2 ≤ l.2 < l_s.2 + sz_s)) as [(Hin1&Hin2)|Hout]; first 
-      destruct (decide (t = tg_s)) as [->|Htgne].
-      * assert (tk = tk_pub) as -> by congruence.
-        eapply loc_controlled_write_invalidates_pub'; last done.
-        all: done.
-      * rewrite /loc_controlled. eapply loc_controlled_write_invalidates_others; last done.
-        all: done.
-      * eapply loc_controlled_access_outside; first done. all: try done.
-        rewrite /= write_mem_lookup_outside // Hlen_t' Hlen //.
-    + intros l sc_s Hcontrol%Hcontrolled_s.
-      destruct (decide (l.1 = l_s.1 ∧ l_s.2 ≤ l.2 < l_s.2 + sz_s)) as [(Hin1&Hin2)|Hout]; first 
-      destruct (decide (t = tg_s)) as [->|Htgne].
-      * assert (tk = tk_pub) as -> by congruence.
-        eapply loc_controlled_write_invalidates_pub'; last done.
-        all: try done. by rewrite Hlen.
-      * rewrite /loc_controlled. eapply loc_controlled_write_invalidates_others; last done.
-        all: try done. by rewrite Hlen.
-      * eapply loc_controlled_access_outside; first done. all: try done.
-        2: by rewrite Hlen.
-        rewrite /= write_mem_lookup_outside // Hlen //.
-  - (* source state wf *)
-    iPureIntro. eapply base_step_wf; done.
-  - (* target state wf *)
-    iPureIntro. eapply base_step_wf; done.
-Qed.
-
 
 (** InitCall *)
 
@@ -603,7 +376,7 @@ Proof.
   }
   iSplitL.
   { iPureIntro. destruct Htag_interp as (H1&H2&H3&H4&H5). split; last done.
-    intros t tk (H6&H7&Hl&Hr&H8)%H1. split_and!; try done.
+    intros t tk (H6&H7&Hlocal&Hl&Hr&H8)%H1. split_and!; try done.
     - intros l sc H%Hl. eapply loc_controlled_add_protected; last done; try done.
       intros blk tg it c (tr&Htr1&Htr2) Hpp. simpl.
       rewrite /call_is_active. split; first set_solver.
@@ -708,8 +481,10 @@ Proof.
   iSplit.
   { iPureIntro. split_and!. 2-5: by eapply Htag_interp.
     destruct Htag_interp as (H1&H2&H3&H4&H5).
-    intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlu1&Hlu2&Hagree).
-    split_and!; try done.
+    intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlocal&Hlu1&Hlu2&Hagree).
+    split_and!; try done. (*
+    - intros ->. split; intros ??; eapply trees_read_all_protected_initialized_contains.
+      2, 4: done.  all: by eapply Hlocal. *)
     - intros l sc Hlusc.
       specialize (Hlu1 l sc Hlusc).
       eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu1.
@@ -772,8 +547,10 @@ Proof.
   iSplit.
   { iPureIntro. split_and!. 2-5: by eapply Htag_interp.
     destruct Htag_interp as (H1&H2&H3&H4&H5).
-    intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlu1&Hlu2&Hagree).
+    intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlocal&Hlu1&Hlu2&Hagree).
     split_and!; try done.
+    (* - intros ->. split; intros ??; eapply trees_read_all_protected_initialized_contains.
+      2, 4: done.  all: by eapply Hlocal. *)
     - intros l sc Hlusc.
       specialize (Hlu1 l sc Hlusc).
       eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu1.

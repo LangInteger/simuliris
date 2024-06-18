@@ -935,11 +935,19 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | CopyIS trs' (alloc : block) range tg val
     (* Successful read access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
-    (ACC: apply_within_trees (memory_access AccessRead cids tg range) alloc trs = Some trs') :
+    (ACC: apply_within_trees (memory_access AccessRead cids tg range) alloc trs = Some trs')
+    (RANGE_SIZE: range.2 ≠ 0) :
     bor_step
       trs cids nxtp nxtc
       (CopyEvt alloc tg range val)
       trs' cids nxtp nxtc
+  | ZeroCopyIS (alloc : block) range tg val
+    (* zero-sized read *)
+    (RANGE_SIZE: range.2 = 0) :
+    bor_step
+      trs cids nxtp nxtc
+      (CopyEvt alloc tg range val)
+      trs cids nxtp nxtc
   | FailedCopyIS (alloc : block) range tg
     (* Unsuccessful read access just returns poison instead of causing UB *)
     (EXISTS_TAG : trees_contain tg trs alloc)
@@ -951,11 +959,19 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | WriteIS trs' (alloc : block) range tg val
     (* Successful write access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
-    (ACC: apply_within_trees (memory_access AccessWrite cids tg range) alloc trs = Some trs') :
+    (ACC: apply_within_trees (memory_access AccessWrite cids tg range) alloc trs = Some trs')
+    (RANGE_SIZE: range.2 ≠ 0) :
     bor_step
       trs cids nxtp nxtc
       (WriteEvt alloc tg range val)
       trs' cids nxtp nxtc
+  | ZeroWriteIS (alloc : block) range tg val
+    (* Zero-sized write access *)
+    (RANGE_SIZE: range.2 = 0) :
+    bor_step
+      trs cids nxtp nxtc
+      (WriteEvt alloc tg range val)
+      trs cids nxtp nxtc
   | RetagIS trs' trs'' parentt (alloc : block) range pk cid rk
       (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
          NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.

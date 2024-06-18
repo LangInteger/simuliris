@@ -88,13 +88,14 @@ Proof.
       destruct Hothers as [Heff|?]; last by right. by left.
   - destruct Hlc as (Hownold & Hscold); first done.
     split; last by rewrite -Heq_shp.
-    destruct Hownold as (itold & trold & Hluold & Htrold & Hisinit & Hsame & Hothers).
+    destruct Hownold as (itold & trold & Hluold & Htrold & Hisinit & Hsame & Hnoprot & Hothers).
     assert (trees_lookup σ.(strs) l.1 lu_tg itold) as Hsluold by by exists trold.
     eapply apply_trees_access_lookup_outside in Hsluold; [|eapply Happly|eapply Hwf|done].
     destruct Hsluold as (itnew & (trnew & Htrnew & Hlunew) & (Hinitold & Hprotold & Hpermold)).
     exists itnew, trnew. do 2 (split; first done).
     split; first by rewrite -Hpermold.
     split; first by rewrite -Hpermold.
+    split; first by rewrite -Hprotold.
     intros it' t' Hluit'.
     assert (wf_tree trnew) as Hwfnew.
     { destruct (decide (l.1 = blk)) as [<-|Hne].
@@ -851,7 +852,7 @@ Proof.
            edestruct rel_dec_parent_parent_is_parent as (p&Hp); [exact Hwfold| | | | |exact Hreldec|..]; [| | | |done|]; [done|eapply Hitoldlu'|eapply Hluold|..]; [done|]; subst; exfalso; by eapply Hne.
   - destruct Hlc as (Hownold & Hscold); first done.
     split; last by rewrite -Heq_shp.
-    destruct Hownold as (itold & trold' & Hluold & Htrold' & Hisinit & Hsame & Hothers).
+    destruct Hownold as (itold & trold' & Hluold & Htrold' & Hisinit & Hsame & Hnoprot & Hothers).
     assert (trold' = trold) as -> by congruence.
     assert (trees_lookup σ.(strs) l.1 tg_lu itold) as Hsluold by by exists trold.
     eapply apply_trees_access_lookup_general in Hsluold; [|eapply Happly|eapply Hwf|done].
@@ -868,6 +869,7 @@ Proof.
     rewrite /apply_access_perm Hsame /= in Hpermold.
     split.
     { repeat (case_match; simpl in *; simplify_eq; try done). all: by rewrite -Hpermold. }
+    split; first by rewrite -Hprotold.
     intros it' t' Hluit'.
     assert (wf_tree trnew) as Hwfnew.
     { rewrite /apply_within_trees Htrold /= in Happly.

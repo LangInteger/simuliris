@@ -79,10 +79,10 @@ Arguments same_blocks / _ _.
 (* FIXME: forall blk, (exists l, is_Some (hp !! (blk, l))) <-> is_Some (trs !! blk). *)
 
 Definition root_invariant blk it (shp : mem) :=
-  it.(iprot) = None ∧
-  ∀ off, match item_lookup it off with
-    mkPerm PermInit Active => is_Some (shp !! (blk, off))
-  | mkPerm PermLazy Disabled => shp !! (blk, off) = None
+  it.(iprot) = None ∧ it.(initp) = Disabled ∧
+  ∀ off, match it.(iperm) !! off with
+    Some (mkPerm PermInit Active) => is_Some (shp !! (blk, off))
+  | Some (mkPerm PermLazy Disabled) | None => shp !! (blk, off) = None
   | _ => False end.
 
 

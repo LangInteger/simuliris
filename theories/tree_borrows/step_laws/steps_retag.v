@@ -34,9 +34,14 @@ Proof.
   intros m Hm.
   pose proof (state_wf_roots_active _ Hwf _ _ Htr) as Hcompat.
   destruct tr as [|it tr1 tr2]; first done. simpl in Hcompat.
-  destruct Hcompat as ((Hprot&Hroot)&->).
+  destruct Hcompat as ((Hprot&Hdis&Hroot)&->).
   specialize (Hroot (off + m)). rewrite /shift_loc /=.
-  eapply elem_of_dom. destruct (item_lookup it (off + m)) as [[] [| | |]] eqn:Hlookup; simplify_eq; try done.
+  eapply elem_of_dom.
+  assert (item_lookup it (off+m) = mkPerm PermInit Active ∧ is_Some (shp σ !! (blk, off+m)) 
+        ∨ item_lookup it (off+m) = mkPerm PermLazy Disabled ∧ shp σ !! (blk, off+m) = None) as [(H1&H2)|(H1&H2)].
+  { rewrite /item_lookup. destruct (iperm it !! (off + m)) as [[[] [| | |]]|] eqn:Hlookup; simplify_eq; try done.
+    all: simpl. 1: by left. all: right. 1: done. by rewrite Hdis. }
+  1: done.
   exfalso.
   rewrite /memory_access_maybe_nonchildren_only /tree_apply_access /= in Htr'.
   eapply bind_Some in Htr' as (it'&Hit'&_).
@@ -47,7 +52,7 @@ Proof.
   unshelve eapply mk_is_Some, mem_apply_range'_success_condition in Hperm' as (pp'&Hpp').
   1: exact (off + m).
   2: { rewrite /range'_contains. simpl. lia. }
-  rewrite /item_lookup in Hlookup. rewrite Hlookup in Hpp'. simpl in Hpp'.
+  rewrite /item_lookup in H1. rewrite H1 in Hpp'. simpl in Hpp'.
   rewrite /rel_dec /= decide_True in Hpp'; last first.
   { eapply root_node_IsParentChild. 1: by eapply Hwf. done. }
   edestruct maybe_non_children_only_effect_or_nop_strong as [(Heq&Hsc)|(Heq&Hb&(ii&Hii))].
@@ -199,8 +204,18 @@ Proof.
          2,3: eapply Ht2 in H1. 4,5: eapply Ht3 in H1.
          2-5: rewrite Htagfresh in H1; by destruct H1.
     intros t tk' [(<-&[= <-])|(Hne&Hin)]%lookup_insert_Some; last first.
-    + subst σ_t'. specialize (Ht1 _ _ Hin) as (Htt1&Htt2&Htt3&Htt4&Htt5).
+    + subst σ_t'. specialize (Ht1 _ _ Hin) as (Htt1&Htt2&Httlocal&Htt3&Htt4&Htt5).
       split_and!.
+      3: { intros ->. rewrite /array_tag_map. destruct Httlocal as (Httl1&Httl2); first done.
+           split;
+           (intros bblk MM [([= <- <-]&<-)%lookup_singleton_Some|(_&H)]%lookup_union_Some_raw;
+            [ done | (try by eapply Httl1); by eapply Httl2]). }
+      (* 3: { intros ->. rewrite !dom_union_L /array_tag_map !dom_singleton_L. split;
+            (intros bblk [[= ??]%elem_of_singleton|H]%elem_of_union; first done).
+           all: simpl; eapply apply_within_trees_tag_count_preserves_exists.
+           1,4: done. 1,3: eapply memory_access_tag_count.
+           all: eapply create_child_tree_contains.
+           2, 4: done. all: by eapply Httlocal. } *)
       1-2: simpl; eapply tag_valid_mono; last reflexivity.
       1,3: done. 1,2: lia.
       all: rewrite /array_tag_map -!insert_union_singleton_l.
@@ -226,6 +241,7 @@ Proof.
         1: intros ->; rewrite /tag_valid in Htt1,Htt2; lia.
         1: intros ->; congruence. done.
     + subst σ_t'; simpl. split_and!.
+      3: { intros ->. destruct pk as [[]|[]|]; done. }
       1-2: rewrite !Hsnp_eq /tag_valid; lia.
       all: rewrite /array_tag_map -!insert_union_singleton_l /=.
       3: { eapply dom_agree_on_tag_update_same. 2: eapply list_to_heaplet_dom_1; congruence.
@@ -459,8 +475,12 @@ Proof.
          2,3: eapply Ht2 in H1. 4,5: eapply Ht3 in H1.
          2-5: rewrite Htagfresh in H1; by destruct H1.
     intros t tk' [(<-&[= <-])|(Hne&Hin)]%lookup_insert_Some; last first.
-    + subst σ_t'. specialize (Ht1 _ _ Hin) as (Htt1&Htt2&Htt3&Htt4&Htt5).
+    + subst σ_t'. specialize (Ht1 _ _ Hin) as (Htt1&Htt2&Httlocal&Htt3&Htt4&Htt5).
       split_and!.
+      3: { intros ->. rewrite /array_tag_map. destruct Httlocal as (Httl1&Httl2); first done.
+           split;
+           (intros bblk MM [([= <- <-]&<-)%lookup_singleton_Some|(_&H)]%lookup_union_Some_raw;
+            [ done | (try by eapply Httl1); by eapply Httl2]). }
       1-2: simpl; eapply tag_valid_mono; last reflexivity.
       1,3: done. 1,2: lia.
       all: rewrite /array_tag_map -!insert_union_singleton_l.
@@ -488,6 +508,7 @@ Proof.
         1: intros ->; congruence.
         eapply loc_controlled_extend_protected. 5-7: done. all: done.
     + subst σ_t'; simpl. split_and!.
+      3: { intros ->. destruct pk as [[]|[]|]; done. }
       1-2: rewrite !Hsnp_eq /tag_valid; lia.
       all: rewrite /array_tag_map -!insert_union_singleton_l /=.
       3: { eapply dom_agree_on_tag_update_same. 2: eapply list_to_heaplet_dom_1; congruence.
@@ -723,8 +744,13 @@ Proof.
     2-3: intros t blk Hin; eapply lookup_insert_is_Some'; right.
          2: by eapply Ht2. 2: by eapply Ht3.
     intros t tk' [(<-&[= <-])|(Hne&Hin)]%lookup_insert_Some; last first.
-    + subst σ_t'. specialize (Ht1 _ _ Hin) as (Htt1&Htt2&Htt3&Htt4&Htt5).
+    + subst σ_t'. specialize (Ht1 _ _ Hin) as (Htt1&Htt2&Httlocal&Htt3&Htt4&Htt5).
       split_and!.
+      3: done. (* intros ->. split; intros bblk H.
+           all: simpl; eapply apply_within_trees_tag_count_preserves_exists.
+           1,4: done. 1,3: eapply memory_access_tag_count.
+           all: eapply create_child_tree_contains.
+           2, 4: done. all: by eapply Httlocal. } *)
       1-2: simpl; eapply tag_valid_mono; last reflexivity.
       1,3: done. 1,2: lia. 3: done.
       1-2: intros l sc Hhl.
@@ -743,6 +769,7 @@ Proof.
         1: intros ->; rewrite /tag_valid in Htt1,Htt2; lia.
         1: intros ->; congruence. done.
     + subst σ_t'; simpl. split_and!.
+      3: done.
       1-2: rewrite !Hsnp_eq /tag_valid; lia.
       3: { split; intros l [x (M&HM%mk_is_Some&HHM)%bind_Some]; simpl in HM.
            1: eapply Ht2 in HM. 2: eapply Ht3 in HM.

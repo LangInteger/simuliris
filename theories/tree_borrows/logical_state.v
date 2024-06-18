@@ -463,6 +463,7 @@ Section heap_defs.
     ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧ (item_lookup it l.2).(initialized) = PermInit ∧
     match tk with
     | tk_local => (item_lookup it l.2).(perm) = Active ∧
+            it.(iprot) = None ∧ (* it is not protected *)
             (* The item is the only one in the tree *)
             ∀ it' t', tree_lookup tr t' it' -> t = t'
     | tk_unq tkk
@@ -631,6 +632,19 @@ Section heap_defs.
     all: rewrite /heaplet_lookup /= H1 /= H2 //.
   Qed.
 
+  Lemma dom_agree_on_tag_update_same_delete M_t M_s t blk :
+    dom_agree_on_tag M_t M_s t →
+    dom_agree_on_tag (delete (t, blk) M_t) (delete (t, blk) M_s) t.
+  Proof.
+    intros [H1a H1b]. split; intros l (x&(x1&H1&H2)%bind_Some);
+     (destruct (decide (l.1 = blk)) as [<-|Hne];
+      first (rewrite /= lookup_delete /= in H1; try done)).
+    all: simpl in H1.
+    all: rewrite /heaplet_lookup /= !lookup_delete_ne // in H1|-*; try congruence.
+    1: eapply H1a. 2: eapply H1b.
+    all: rewrite /heaplet_lookup /= H1 /= H2 //.
+  Qed.
+
   Lemma dom_agree_on_tag_upd_ne M_t M_s t t' blk nm1 nm2 :
     t ≠ t' →
     dom_agree_on_tag M_t M_s t' →
@@ -708,6 +722,7 @@ Section heap_defs.
     (∀ (t : tag) tk, M !! t = Some (tk, ()) →
       (* tags are valid *)
       tag_valid σ_t.(snp) t ∧ tag_valid σ_s.(snp) t ∧
+      (tk = tk_local → (∀ blk M, M_t !! (t, blk) = Some M → M ≠ ∅) ∧ (∀ blk M, M_s !! (t, blk) = Some M → M ≠ ∅)) ∧
       (* at all locations, the values agree, and match the physical state assuming the tag currently has control over the location *)
       (∀ l sc_t, heaplet_lookup M_t (t, l) = Some sc_t → loc_controlled l t tk sc_t σ_t) ∧
       (∀ l sc_s, heaplet_lookup M_s (t, l) = Some sc_s → loc_controlled l t tk sc_s σ_s) ∧
@@ -1072,6 +1087,14 @@ Notation "l '↦s∗[' tk ']{' t } scs" := (array_tag heap_view_source_name t l 
   the stored memory fragment. *)
 Definition array_tag_map (l : loc) (t : tag) (v : list scalar) : gmap (tag * block) (gmap Z scalar) :=
   {[ (t, l.1) := list_to_heaplet v l.2 ]}.
+
+Lemma list_to_heaplet_empty_length {A} (lst : list A) idx :
+  list_to_heaplet lst idx = ∅ ↔ length lst = 0%nat.
+Proof.
+  destruct lst as [|a?]; split; intros H; try done.
+  exfalso. enough ((∅ : gmap _ _) !! idx = Some a) as Hc by done.
+  rewrite -H lookup_insert //.
+Qed.
 
 Lemma list_to_heaplet_lookup_Some {A} (lst : list A) idx lu r :
   list_to_heaplet lst idx !! lu = Some r →
