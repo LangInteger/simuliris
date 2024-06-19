@@ -664,6 +664,39 @@ Section heap_defs.
     intros Ht Hs. split.
     all: intros l (x&H1); by rewrite ?Ht ?Hs in H1.
   Qed.
+
+  Lemma dom_agree_on_tag_target_insert_same_dom M_s M_t t blk t' M_old M_new :
+    M_t !! (t, blk) = Some M_old →
+    dom M_old = dom M_new →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag (<[ (t, blk) := M_new ]> M_t) M_s t'.
+  Proof.
+    intros H1 H2 (H3l&H3r); split; intros l [x Hx].
+    - eapply bind_Some in Hx as (Mo&[([= -> ->]&<-)|(Hne&HMo)]%lookup_insert_Some&HH); simpl in *.
+      + eapply H3l. rewrite /heaplet_lookup H1 /=. eapply elem_of_dom. rewrite H2. by eapply elem_of_dom_2.
+      + eapply H3l. rewrite /heaplet_lookup HMo /= HH //.
+    - rewrite /heaplet_lookup /=. destruct (decide ((t, blk) = (t', l.1))) as [[= -> ->]|Hne].
+      + rewrite lookup_insert /=. eapply elem_of_dom. rewrite -H2.
+        eapply mk_is_Some, H3r in Hx. rewrite /heaplet_lookup /= H1 /= in Hx. by eapply elem_of_dom.
+      + rewrite lookup_insert_ne //. by eapply H3r.
+  Qed.
+
+  Lemma dom_agree_on_tag_source_insert_same_dom M_s M_t t blk t' M_old M_new :
+    M_s !! (t, blk) = Some M_old →
+    dom M_old = dom M_new →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag M_t (<[ (t, blk) := M_new ]> M_s) t'.
+  Proof.
+    intros H1 H2 (H3l&H3r); split; intros l [x Hx].
+    - rewrite /heaplet_lookup /=. destruct (decide ((t, blk) = (t', l.1))) as [[= -> ->]|Hne].
+      + rewrite lookup_insert /=. eapply elem_of_dom. rewrite -H2.
+        eapply mk_is_Some, H3l in Hx. rewrite /heaplet_lookup /= H1 /= in Hx. by eapply elem_of_dom.
+      + rewrite lookup_insert_ne //. by eapply H3l.
+    - eapply bind_Some in Hx as (Mo&[([= -> ->]&<-)|(Hne&HMo)]%lookup_insert_Some&HH); simpl in *.
+      + eapply H3r. rewrite /heaplet_lookup H1 /=. eapply elem_of_dom. rewrite H2. by eapply elem_of_dom_2.
+      + eapply H3r. rewrite /heaplet_lookup HMo /= HH //.
+  Qed.
+
 (*
   Lemma dom_agree_on_tag_upd_ne_source M_t M_s t t' l sc :
     t ≠ t' →
@@ -1149,10 +1182,6 @@ Fixpoint read_range {T} (base : Z) (sz : nat) (M : gmap Z T) : option (list T) :
   O => Some nil
 | S sz => hd ← M !! base; tl ← read_range (1 + base) sz M; Some (hd :: tl) end.
 
-Fixpoint write_range {T} (base : Z) (vals : list T) (M : gmap Z T) : option (gmap Z T) := match vals with
-  nil => Some M
-| hd :: tl => _ ← M !! base; M ← (write_range (1 + base) tl M); Some (<[ base := hd ]> M) end.
-
 Lemma read_range_length T base (sz : nat) (M : gmap _ T) vs :
   read_range base sz M = Some vs → length vs = sz.
 Proof.
@@ -1226,67 +1255,82 @@ Proof.
   rewrite -Z.add_assoc -Nat2Z.inj_add list_to_heaplet_nth in Hx. done.
 Qed.
 
-Lemma write_range_same_dom T base (vs : list T) (M M' : gmap _ T) :
-  write_range base vs M = Some M' → dom M = dom M'.
+Fixpoint write_range_to_list {T} (base : nat) (vals : list T) (into : list T) : list T := match vals with
+  nil => into
+| hd :: tl => <[ base := hd ]> (write_range_to_list (S base) tl into) end.
+
+Definition write_range {T} (hl_base start : Z) (vals : list T) (into : list T) : option (list T) :=
+  if bool_decide (hl_base ≤ start ∧ start + length vals ≤ hl_base + length into)
+  then Some (write_range_to_list (Z.to_nat (start - hl_base)) vals into)
+  else None.
+
+Lemma write_range_valid_iff {T} hl_base start (vals into : list T) :
+  (hl_base ≤ start ∧ start + length vals ≤ hl_base + length into) ↔ is_Some (write_range hl_base start vals into).
 Proof.
-  induction vs as [|v0 vS IH] in M,M',base|-*.
-  1: by intros [= ->].
-  simpl. intros (vO&HvO&(MS&HMS&[= <-])%bind_Some)%bind_Some.
-  eapply IH in HMS. assert (is_Some (MS !! base)) as [vO' HvO'].
-  { eapply elem_of_dom. rewrite -HMS. by eapply elem_of_dom_2. }
-  rewrite dom_insert_lookup_L. 2: by eexists. done.
+  split.
+  - intros H. rewrite /write_range bool_decide_true //.
+  - intros [x Hx]. rewrite /write_range bool_decide_decide in Hx. destruct decide; done.
 Qed.
 
-Lemma write_range_valid_iff T base (vs : list T) (M : gmap _ T) :
-  (∀ i, base ≤ i < base + length vs → i ∈ dom M)
-↔ is_Some (write_range base vs M).
+Lemma write_range_to_list_is_Some {T} hl_base start (vals into out : list T) :
+  write_range hl_base start vals into = Some out →
+  ∃ base, write_range_to_list base vals into = out ∧ start = hl_base + base ∧ base + length vals ≤ length into.
 Proof.
-  induction vs as [|v0 vS IH] in base|-*.
-  1: simpl; split; try done; lia.
-  simpl. destruct (IH (1 + base)) as [IHl IHr]. simpl. split.
-  - intros H. pose proof (H base (ltac:(lia))) as [el0 Hel0]%elem_of_dom.
-    rewrite Hel0 /=. destruct IHl as [M' HM']. 1: intros ??; eapply H; lia.
-    rewrite HM' /= //.
-  - intros [? (el0&Hel0&(M'&HM'&[= <-])%bind_Some)%bind_Some].
-    intros i Hi. destruct (decide (base = i)) as [->|Hne].
-    + by eapply elem_of_dom_2.
-    + eapply IHr. 1: by eexists. lia.
+  intros H. rewrite /write_range bool_decide_decide in H. destruct decide as [Hb|?]; last done.
+  exists (Z.to_nat (start - hl_base)). split; last lia.
+  by injection H.
 Qed.
 
-Lemma write_range_lookup_nth T base (M M': gmap _ T) vs :
-  write_range base vs M = Some M' →
-  ∀ (k:nat) v, vs !! k = Some v → M' !! (base + k) = Some v.
+Lemma write_range_to_list_same_length {T} base (vals into out : list T) :
+  write_range_to_list base vals into = out →
+  length into = length out.
 Proof.
-  intros H1 k. induction k as [|k IH] in H1,base,M',vs|-*; intros v Hv.
-  - destruct vs as [|el0 vs]; first done. simpl in Hv. injection Hv as ->.
-    rewrite Z.add_0_r. simpl in H1. eapply bind_Some in H1 as (x&Hx&(?&Hv&[= <-])%bind_Some). by rewrite lookup_insert.
-  - destruct vs as [|el0 vs]; first done. simpl in Hv. simpl in H1.
-    eapply bind_Some in H1 as (x&Hx&(v2&Hv2&[= <-])%bind_Some). rewrite lookup_insert_ne. 2: lia.
-    eapply IH in Hv2. 2: eassumption. by assert (1 + base + k = base + S k) as <- by lia.
+  intros <-.
+  induction vals as [|v vals IH] in base,into|-*.
+  1: done.
+  rewrite /= insert_length -IH //.
 Qed.
 
-Lemma write_range_lookup_nth_inverse T base (M M' : gmap _ T) vs :
-  write_range base vs M = Some M' →
-  ∀ (k:nat) v, M' !! (base + k) = Some v → (k < length vs)%nat → vs !! k = Some v.
+Lemma write_range_same_length {T} hl_base start (vals into out : list T) :
+  write_range hl_base start vals into = Some out →
+  length into = length out.
 Proof.
-  intros H1 k. induction k as [|k IH] in H1,base,M',vs|-*; intros v Hv1 Hv2.
-  - destruct vs as [|el0 vs]; first (simpl in Hv2; lia). simpl in *.
-    eapply bind_Some in H1 as (x&Hx&(M''&HM''&[= <-])%bind_Some).
-    rewrite Z.add_0_r lookup_insert in Hv1. done.
-  - destruct vs as [|el0 vs]; first (simpl in Hv2; lia). simpl in H1|-*.
-    eapply bind_Some in H1 as (x&Hx&(M''&HM''&[= <-])%bind_Some).
-    rewrite lookup_insert_ne in Hv1. 2: lia. assert (1 + base + k = base + S k) as Hnums by lia.
-    rewrite -Hnums in Hv1. eapply IH. 1: eassumption. 1: done. simpl in Hv2. lia.
+  intros (base&H1&_&H2)%write_range_to_list_is_Some.
+  by eapply write_range_to_list_same_length.
 Qed.
 
-Lemma write_range_lookup_outside T base (M M' : gmap _ T) vs :
-  write_range base vs M = Some M' →
-  ∀ i, ¬ (base ≤ i < base + length vs) → M !! i = M' !! i.
+Lemma write_mem_insert l vs hp li vi :
+  (l.1 = li.1 → li.2 < l.2) →
+  write_mem l vs (<[ li := vi ]> hp) = <[ li := vi]> (write_mem l vs hp).
 Proof.
-  simpl. induction vs as [|v0 vs IH] in base,M,M'|-*; intros H1 i Hi.
-  - injection H1 as ->. done.
-  - simpl in H1. eapply bind_Some in H1 as (vo&Hvo&(M1&HM1&[= <-])%bind_Some).
-    simpl in Hi. rewrite lookup_insert_ne. 2: lia. eapply IH. 1: apply HM1. lia.
+  induction vs as [|v vs IH] in hp,l|-*; first done.
+  intros Hli. simpl. rewrite -IH. 2: simpl; lia.
+  f_equal. eapply insert_commute. intros H. subst l. lia.
+Qed.
+
+Lemma write_range_write_memory l_hl l_wr v_t v_wr v_t' hp :
+  write_range l_hl.2 l_wr.2 v_wr v_t = Some v_t' →
+  l_hl.1 = l_wr.1 →
+  (∀ i : nat, (i < length v_t)%nat → hp !! (l_hl +ₗ i) = v_t !! i) →
+  ∃ hp', write_mem l_wr v_wr hp = hp' ∧
+    (∀ i : nat, (i < length v_t)%nat → hp' !! (l_hl +ₗ i) = v_t' !! i).
+Proof.
+  intros (base&Hwrite&Hbase&Hlen)%write_range_to_list_is_Some Heq Hi.
+  destruct l_hl as [blk off_hl], l_wr as [b off_wr]; simpl in *; subst b.
+  induction v_wr as [|v v_wr IH] in v_t',base,off_wr,Hlen,Hbase,Hwrite|-*.
+  1: { eexists; split; first done. simpl. simpl in Hwrite. subst v_t'. apply Hi. }
+  simpl. rewrite /shift_loc /= in Hi|-*.
+  remember (write_range_to_list (S base) v_wr v_t) as v_t1 eqn:Hvt1. rewrite /= -Hvt1 in Hwrite.
+  symmetry in Hvt1.
+  odestruct (IH (off_wr + 1) _ (S base) Hvt1) as (hp'&Hhp'&Hi').
+  1-2: simpl in Hlen; lia.
+  rewrite write_mem_insert. 2: simpl; lia.
+  erewrite Hhp'. eexists; split; first done.
+  intros idx Hidx. destruct (decide (idx = base)) as [<-|Hne].
+  + rewrite Hbase lookup_insert -Hwrite list_lookup_insert //.
+    eapply write_range_to_list_same_length in Hvt1. lia.
+  + rewrite lookup_insert_ne. 2: injection; lia.
+    rewrite (Hi' idx). 2: lia. subst v_t'. by rewrite list_lookup_insert_ne.
 Qed.
 
 (*
