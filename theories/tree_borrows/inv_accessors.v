@@ -380,6 +380,28 @@ Section lemmas.
     rewrite Hsc.
     destruct (Ht (l +ₗ i) sc). 2: done. 1: rewrite /heaplet_lookup /= Ht_lookup /= list_to_heaplet_nth //. done.
   Qed.
+
+
+    Lemma bor_interp_readN_source_local σ_t σ_s M_call M_tag M_t M_s t l scs :
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+    l ↦s∗[tk_local]{t} scs -∗
+    t $$ tk_local -∗
+    ⌜∀ i : nat, (i < length scs)%nat → σ_s.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
+    ⌜∃ it, σ_s.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_s.(shp) ∧ t = itag it⌝.
+  Proof.
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hp Htag".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
+    iPoseProof (bor_interp_local_shapes_tree_source with "[-Hp Htag] Hp Htag") as "%Htree".
+    1: iFrame; iFrame "#"; iPureIntro; done.
+    iPureIntro. split; last done.
+    intros i Hi. edestruct (lookup_lt_is_Some_2 scs i) as [sc Hsc]; first done.
+    rewrite Hsc.
+    destruct (Hs (l +ₗ i) sc). 2: done. 1: rewrite /heaplet_lookup /= Ht_lookup /= list_to_heaplet_nth //. done.
+  Qed.
 (*
   Lemma bor_interp_readN_target_protected σ_t σ_s (t : ptr_id) tk l v_t c M :
     (∀ i: nat, (i < length v_t)%nat → call_set_in M t (l +ₗ i)) →

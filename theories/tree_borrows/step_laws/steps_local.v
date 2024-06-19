@@ -65,7 +65,7 @@ Proof.
 Qed.
 
 
-(*
+
 Lemma source_copy_local v_s v_rd sz l_hl l_rd t π Ψ :
   read_range l_rd.2 sz (list_to_heaplet v_s l_hl.2) = Some v_rd →
   l_hl.1 = l_rd.1 →
@@ -75,42 +75,33 @@ Lemma source_copy_local v_s v_rd sz l_hl l_rd t π Ψ :
   source_red (Copy (Place l_rd t sz)) π Ψ.
 Proof.
   iIntros (Hread Hsameblk) "Htag Ht Hsim". eapply read_range_length in Hread as HH. subst sz.
-  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor)&%HT_s&%Hpool_safe)".
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %]".
   iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
-  iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %it & %Hit & %Hitinv & %Hittag)".
+  iPoseProof (bor_interp_readN_source_local with "Hbor Ht Htag") as "(%Hd & %it & %Hit & %Hitinv & %Hittag)".
   opose proof* (read_range_list_to_heaplet_read_memory) as READ_MEM. 1: exact Hread. 1: done. 1: exact Hd.
   destruct l_hl as [blk off_hl], l_rd as [blk2 off_rd]; simpl in *; subst blk2.
   eapply mk_is_Some in Hread as Hrangebounds. rewrite -read_range_valid_iff in Hrangebounds.
   setoid_rewrite <- list_to_heaplet_dom in Hrangebounds.
-  opose proof* (local_access_preserves_unchanged _ _ _ _ off_hl off_rd v_t (length v_rd)) as TREES_NOCHANGE. 3: exact Hd.
+  opose proof* (local_access_preserves_unchanged _ _ _ _ off_hl off_rd v_s (length v_rd)) as TREES_NOCHANGE. 3: exact Hd.
   3: exists it; split; first done; split; first done; exact Hittag. 1: done.
-  { destruct v_rd; first by left. simpl in *. right. split. 1: ospecialize (Hrangebounds off_rd _); try lia.
+  { destruct v_rd as [|? v_rd]; first by left. simpl in *. right. split. 1: ospecialize (Hrangebounds off_rd _); try lia.
     ospecialize (Hrangebounds (off_rd + (length v_rd)) _); lia. }
+  do 2 iExists _.
   iSplit.
-  { iPureIntro. do 3 eexists. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact TREES_NOCHANGE.
+  { iPureIntro. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact TREES_NOCHANGE.
     rewrite /trees_contain /trees_at_block /= Hit. subst t. cbv. tauto. }
-  iIntros (??? Hstep).
-  eapply head_copy_inv in Hstep as (->&[((HNone&_&_&_)&_)|(trs'&v'&->&->&Hreadv'&[(_&Happly&Hnon)|(Hzero&->&->)])]).
-  1: rewrite /= TREES_NOCHANGE // in HNone.
-  - iModIntro. iSplitR; first done.
-    assert (v_rd = v') as -> by congruence.
-    iSplitR "Htag Ht Hsim"; last first.
-    1: iApply ("Hsim" with "Ht Htag").
-    iFrame. simpl in Happly. assert (trs' = strs σ_t) as -> by congruence.
-    iExists _, _, _, _. destruct σ_t. iApply "Hbor".
-  - iModIntro. iSplitR; first done.
-    assert (v_rd = []) as -> by by destruct v_rd.
-    iSplitR "Htag Ht Hsim"; last first.
-    1: iApply ("Hsim" with "Ht Htag").
-    iFrame.
-    iExists _, _, _, _. destruct σ_t. iApply "Hbor".
+  iModIntro.
+  iSplitR "Htag Ht Hsim"; last first.
+  1: iApply ("Hsim" with "Ht Htag").
+  iFrame. destruct σ_s; simpl.
+  iExists _, _, _, _. iApply "Hbor".
 Qed.
 
 (** ** Write *)
 
 
-
+(*
 Lemma target_write_local v_t v_t' sz l t Ψ :
   length v_t = sz →
   length v_t' = sz →
