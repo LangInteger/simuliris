@@ -213,73 +213,108 @@ Proof.
   - subst hp'. eapply base_step_wf. 1: done. done.
 Qed.
 
-(*
-Lemma target_write_local v_t v_t' sz l t Ψ :
-  length v_t = sz →
-  length v_t' = sz →
+Lemma source_write_local v_s v_wr sz l_hl l_rd v_s' t π Ψ :
+  write_range l_hl.2 l_rd.2 v_wr v_s = Some v_s' →
+  l_hl.1 = l_rd.1 →
+  sz = length v_wr →
   t $$ tk_local -∗
-  l ↦t∗[tk_local]{t} v_t -∗
-  (l ↦t∗[tk_local]{t} v_t' -∗ t $$ tk_local -∗ target_red #[☠] Ψ)%E -∗
-  target_red (Write (Place l t sz) #v_t') Ψ.
+  l_hl ↦s∗[tk_local]{t} v_s -∗
+  (l_hl ↦s∗[tk_local]{t} v_s' -∗ t $$ tk_local -∗ source_red #[☠] π Ψ)%E -∗
+  source_red (Write (Place l_rd t sz) #v_wr) π Ψ.
 Proof.
-  iIntros (Hlen Hlen') "Htag Ht Hsim".
-  iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
-  
-  
-
-
-  iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %Hstack)".
-  iMod (bor_interp_writeN_target_local _ _ _ _ _ v_t' with "Hbor Ht Htag []") as "(Hbor & Ht & Htag)";
-    first (iPureIntro; lia).
-  iModIntro.
-  rewrite Hlen in Hd Hstack.
-  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %]".
-  have Eq_stk : memory_written σ_t.(sst) σ_t.(scs) l (Tagged t) (tsize T) = Some σ_t.(sst).
-  { apply memory_written_access1. intros i Hi.
-    specialize (Hstack i Hi). eexists; split; first done.
-    eapply bor_state_own_access1_write; [ by left | done..]. }
-  iSplitR.
-  { iPureIntro. do 3 eexists; eapply write_base_step'; [done | | eauto ].
-    intros i Hi. apply elem_of_dom. rewrite Hd; last done. apply lookup_lt_is_Some_2. lia.
-  }
-  iIntros (e_t' efs_t σ_t') "%Hhead".
-  specialize (head_write_inv _ _ _ _ _ _ _ _ _ Hhead) as (α' & -> & -> & -> & ? & Hin & Hwritten).
-  simplify_eq.
-  iModIntro. iSplitR; first done.
-  iFrame "HP_t HP_s".
-  iSplitL "Hbor"; last iApply ("Hsim" with "Ht Htag").
-  done.
-Qed.
-
-Lemma source_write_local v_s v_s' T l t Ψ π :
-  length v_s = tsize T →
-  length v_s' = tsize T →
-  t $$ tk_local -∗
-  l ↦s∗[tk_local]{t} v_s -∗
-  (l ↦s∗[tk_local]{t} v_s' -∗ t $$ tk_local -∗ source_red #[☠] π Ψ)%E -∗
-  source_red (Write (Place l (Tagged t) T) #v_s') π Ψ.
-Proof.
-  iIntros (Hlen Hlen') "Htag Hs Hsim".
-  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
-  iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %Hstack)".
-  iMod (bor_interp_writeN_source_local _ _ _ _ _ v_s' with "Hbor Hs Htag []") as "(Hbor & Hs & Htag)";
-    first (iPureIntro; lia).
-  iModIntro.
-  rewrite Hlen in Hd Hstack.
-  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
-  have Eq_stk : memory_written σ_s.(sst) σ_s.(scs) l (Tagged t) (tsize T) = Some σ_s.(sst).
-  { apply memory_written_access1. intros i Hi.
-    specialize (Hstack i Hi). eexists; split; first done.
-    eapply bor_state_own_access1_write; [ by left | done..]. }
-  iExists _, _. iSplitR.
-  { iPureIntro. eapply write_base_step'; [done | | eauto ].
-    intros i Hi. apply elem_of_dom. rewrite Hd; last done. apply lookup_lt_is_Some_2. lia.
-  }
+  iIntros (Hwrite Hsameblk Hlen) "Htag Hs Hsim". eapply write_range_same_length in Hwrite as Hlength. subst sz.
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor)&%HT_s&%Hpool_safe)".
+  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
+  iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
+  iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %it & %Hit & %Hitinv & %Hittag)".
+  opose proof* (write_range_write_memory) as (hp'&WRITE_MEM&Hd'). 1: exact Hwrite. 1: done. 1: exact Hd.
+  destruct l_hl as [blk off_hl], l_rd as [blk2 off_rd]; simpl in *; subst blk2.
+  eapply mk_is_Some in Hwrite as Hrangebounds. rewrite -write_range_valid_iff in Hrangebounds.
+  opose proof* (local_access_preserves_unchanged _ _ _ _ off_hl off_rd v_s (length v_wr)) as TREES_NOCHANGE. 3: exact Hd.
+  3: exists it; split; first done; split; first done; exact Hittag. 1: done.
+  { destruct v_wr as [|x v_wr]; first by left. simpl in *. right. split; lia. }
+  assert (∀ n : nat, (n < length v_wr)%nat → (blk, off_rd) +ₗ n ∈ dom (shp σ_s)) as WRITE_PRE.
+  { intros n Hn. assert (∃ k, off_rd + n = off_hl + (k + n)%nat) as [k Hk].
+    { eexists (Z.to_nat (off_rd - off_hl)). simpl. lia. }
+    rewrite /shift_loc /= Hk. eapply elem_of_dom. rewrite (Hd (k+n)%nat). 2: lia.
+    eapply lookup_lt_is_Some. lia. }
+  assert (trees_contain t (strs σ_s) blk) as Hcontain.
+  { rewrite /trees_contain /trees_at_block /= Hit. subst t. cbv. tauto. }
+  iExists _, _. iSplit.
+  { iPureIntro. eapply write_base_step'. 1: done. 3: exact TREES_NOCHANGE. all: done. }
+  rewrite WRITE_MEM.
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
+  iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hhl".
+  iMod (ghost_map_update (list_to_heaplet v_s' off_hl) with "Htag_s_auth Hs") as "(Htag_s_auth&Hs)". simpl.
   iModIntro. iFrame "HP_t HP_s".
-  iSplitL "Hbor"; last iApply ("Hsim" with "Hs Htag").
-  done.
+  iSplitR "Hsim Htag Hs".
+  2: iApply ("Hsim" with "Hs Htag"). 
+  iExists M_call, M_tag, M_t, (<[(t, blk):=list_to_heaplet v_s' off_hl]> M_s).
+  iFrame. simpl. iSplit.
+  { iSplit; last iSplit; last iSplit; last iSplit; last iSplit; try iPureIntro.
+    { simpl. rewrite -Hdom_eq. subst hp'. erewrite write_mem_dom_sane; first done. done. }
+    1-4: done.
+    simpl. iIntros (l Hl%elem_of_dom). simpl.
+    iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
+    destruct (decide (l.1 = blk ∧ off_hl ≤ l.2 < off_hl + length v_s')) as [(<-&Hrange)|Hout].
+    { iRight. iExists t. iPureIntro. exists tk_local. split; first done. split; last by left.
+      destruct Htag_interp as (Hti&_). specialize (Hti _ _ Htag).
+      destruct Hti as (_&_&_&_&_&_&Hti). eapply Hti. simpl in Hhl.
+      rewrite /heaplet_lookup Hhl /=. destruct (list_to_heaplet v_s off_hl !! l.2) eqn:HH; first done.
+      eapply list_to_heaplet_lookup_None in HH. lia. }
+    { eapply elem_of_dom in Hl. iDestruct ("Hsrel" $! l Hl) as "[H|%Hpriv]".
+      - iLeft. iIntros (sc Hsc). iDestruct ("H" $! sc Hsc) as "(%sc2&%HH&HH)".
+        iExists sc2. iSplit; last done. iPureIntro. simpl.
+        rewrite /= -WRITE_MEM write_mem_lookup_outside //. simpl; lia.
+      - iRight. iPureIntro. destruct Hpriv as (t'&tk&Htk&Htkhl&Hrst). exists t', tk.
+        split; first done. split; last done. done. } }
+  iPureIntro. split_and!.
+  - done.
+  - destruct Htag_interp as (Ht1&Ht2&Ht3&Ht4&Ht5). split_and!.
+    + intros t' tk' Htk'. destruct (Ht1 t' tk' Htk') as (HHt1&HHt2&HHtlocal&HHt3&HHt4&HHt5). split_and!.
+      * done.
+      * done.
+      * intros ->. destruct (HHtlocal) as (Htl1&Htl2); first done. split.
+        -- done.
+        -- intros ? M [([= -> ->]&H2)|(H1&H2)]%lookup_insert_Some.
+           2: by eapply Htl2. subst M. intros H%list_to_heaplet_empty_length.
+           eapply Htl2. 1: eapply Hhl. simpl. eapply list_to_heaplet_empty_length. lia.
+      * done.
+      * intros l sc (M&HM%lookup_insert_Some&HinM)%bind_Some. simpl in HM.
+        destruct HM as [([= -> ->]&HM)|(Hne&HM)].
+        -- assert (tk' = tk_local) as -> by congruence. simpl. subst M. 
+           assert (∃ sc_old, heaplet_lookup M_s (t', l) = Some sc_old) as [sc_old Hscold].
+           { rewrite /heaplet_lookup /= Hhl /=. eapply elem_of_dom_2 in HinM. simpl in HinM.
+             erewrite list_to_heaplet_dom_1 in HinM. 2: symmetry; exact Hlength.
+             by eapply elem_of_dom in HinM. }
+           specialize (HHt4 _ _ Hscold) as (HH1&HH2). 1: done. intros _.
+           split.
+           1: done.
+           eapply list_to_heaplet_lookup_Some in HinM as HinM2. simpl in HinM2. simpl.
+           assert (∃ (i:nat), l.2 = off_hl + i) as [i Hi].
+           1: exists (Z.to_nat (l.2-off_hl)); lia.
+           ospecialize (Hd' i _). 1: lia. destruct l as [l1 l2]. rewrite /= /shift_loc /= -Hi /= in Hd'. 
+           rewrite Hd'. rewrite Hi /= list_to_heaplet_nth // in HinM.
+        -- simpl. intros H. destruct (HHt4 l sc) as [HH1 HH2].
+           1: rewrite /heaplet_lookup HM /= HinM //. 1: apply H. split; first exact HH1.
+           simpl. subst hp'. rewrite -HH2. eapply write_mem_lookup_outside. simpl.
+           intros (Hx1&Hx2). eapply loc_controlled_write_invalidates_others.
+           9: exact H. 8: { split; done. } 1: exact TREES_NOCHANGE. 2-4: done. 1: done. 1: congruence.
+           subst t. rewrite /trees_contain /trees_at_block Hit. cbv. tauto.
+      * eapply dom_agree_on_tag_source_insert_same_dom. 3: done. 1: done.
+        eapply list_to_heaplet_dom_1. lia.
+    + done.
+    + intros ?? H%elem_of_dom. rewrite dom_insert_lookup_L in H. 2: done. by eapply Ht3, elem_of_dom.
+    + done.  
+    + intros ??? H H2. rewrite !dom_insert_lookup_L in H,H2; last done. by eapply Ht5.
+  - subst hp'. eapply (base_step_wf P_s). 2: exact Hwf_s.
+    eapply write_base_step'. 1: done. 3: exact TREES_NOCHANGE. all: done.
+  - done.
 Qed.
+
+(*
 
 
 (** ** Alloc *)
