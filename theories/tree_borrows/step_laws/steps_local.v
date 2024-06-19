@@ -23,65 +23,88 @@ Implicit Types f : fname.
 
 
 (** ** Copy lemmas *)
-Lemma target_copy_local v_t sz l t Ψ :
-  length v_t = sz →
+Lemma target_copy_local v_t v_rd sz l_hl l_rd t Ψ :
+  read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd →
+  l_hl.1 = l_rd.1 →
   t $$ tk_local -∗
-  l ↦t∗[tk_local]{t} v_t -∗
-  (l ↦t∗[tk_local]{t} v_t -∗ t $$ tk_local -∗ target_red #v_t Ψ)%E -∗
-  target_red (Copy (Place l t sz)) Ψ.
+  l_hl ↦t∗[tk_local]{t} v_t -∗
+  (l_hl ↦t∗[tk_local]{t} v_t -∗ t $$ tk_local -∗ target_red #v_rd Ψ)%E -∗
+  target_red (Copy (Place l_rd t sz)) Ψ.
 Proof.
-  iIntros (Hlen) "Htag Ht Hsim".
+  iIntros (Hread Hsameblk) "Htag Ht Hsim". eapply read_range_length in Hread as HH. subst sz.
   iApply target_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
   iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %]".
   iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
-  iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %Hstack)".
-  rewrite Hlen in Hd Hstack.
-  have READ_t : read_mem l sz σ_t.(shp) = Some v_t.
-  { apply read_mem_values'; done. }
-  eapply read_mem_values in READ_t as HX. destruct HX as (Hv_t_len & _).
-  have Eq_trs : apply_within_trees (memory_access AccessRead σ_t.(scs) t (l.2, sz)) l.1 σ_t.(strs) = Some σ_t.(strs).
-  { eapply local_access_preserves_unchanged. 1: done. 1: exact Hv_t_len. 2: apply Hd. 2: done.
-  (*
-  have Eq_stk : memory_read σ_t.(sst) σ_t.(scs) l (Tagged t) (tsize T) = Some σ_t.(sst).
-  { apply memory_read_access1. intros i Hi.
-    specialize (Hstack i Hi). eexists; split; first done. eapply bor_state_own_access1_read; done. }
-  iSplitR.
-  { iPureIntro. do 3 eexists; eapply copy_base_step'; [done | done | eauto ]. }
-  iIntros (e_t' efs_t σ_t') "%Hhead".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
-  rewrite READ in READ_t. simplify_eq.
-  iModIntro. iSplitR; first done.
-  iFrame "HP_t HP_s".
-  iSplitL "Hbor"; last iApply ("Hsim" with "Ht Htag").
-  destruct σ_t; done.
-Qed. *) Admitted.
+  iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %it & %Hit & %Hitinv & %Hittag)".
+  opose proof* (read_range_list_to_heaplet_read_memory) as READ_MEM. 1: exact Hread. 1: done. 1: exact Hd.
+  destruct l_hl as [blk off_hl], l_rd as [blk2 off_rd]; simpl in *; subst blk2.
+  eapply mk_is_Some in Hread as Hrangebounds. rewrite -read_range_valid_iff in Hrangebounds.
+  setoid_rewrite <- list_to_heaplet_dom in Hrangebounds.
+  opose proof* (local_access_preserves_unchanged _ _ _ _ off_hl off_rd v_t (length v_rd)) as TREES_NOCHANGE. 3: exact Hd.
+  3: exists it; split; first done; split; first done; exact Hittag. 1: done.
+  { destruct v_rd as [|x v_rd]; first by left. simpl in *. right. split. 1: ospecialize (Hrangebounds off_rd _); try lia.
+    ospecialize (Hrangebounds (off_rd + (length v_rd)) _); lia. }
+  iSplit.
+  { iPureIntro. do 3 eexists. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact TREES_NOCHANGE.
+    rewrite /trees_contain /trees_at_block /= Hit. subst t. cbv. tauto. }
+  iIntros (??? Hstep).
+  eapply head_copy_inv in Hstep as (->&[((HNone&_&_&_)&_)|(trs'&v'&->&->&Hreadv'&[(_&Happly&Hnon)|(Hzero&->&->)])]).
+  1: rewrite /= TREES_NOCHANGE // in HNone.
+  - iModIntro. iSplitR; first done.
+    assert (v_rd = v') as -> by congruence.
+    iSplitR "Htag Ht Hsim"; last first.
+    1: iApply ("Hsim" with "Ht Htag").
+    iFrame. simpl in Happly. assert (trs' = strs σ_t) as -> by congruence.
+    iExists _, _, _, _. destruct σ_t. iApply "Hbor".
+  - iModIntro. iSplitR; first done.
+    assert (v_rd = []) as -> by by destruct v_rd.
+    iSplitR "Htag Ht Hsim"; last first.
+    1: iApply ("Hsim" with "Ht Htag").
+    iFrame.
+    iExists _, _, _, _. destruct σ_t. iApply "Hbor".
+Qed.
+
+
 (*
-Lemma source_copy_local v_s T l t Ψ π :
-  length v_s = tsize T →
+Lemma source_copy_local v_s v_rd sz l_hl l_rd t π Ψ :
+  read_range l_rd.2 sz (list_to_heaplet v_s l_hl.2) = Some v_rd →
+  l_hl.1 = l_rd.1 →
   t $$ tk_local -∗
-  l ↦s∗[tk_local]{t} v_s -∗
-  (l ↦s∗[tk_local]{t} v_s -∗ t $$ tk_local -∗ source_red #v_s π Ψ)%E -∗
-  source_red (Copy (Place l (Tagged t) T)) π Ψ.
+  l_hl ↦s∗[tk_local]{t} v_s -∗
+  (l_hl ↦s∗[tk_local]{t} v_s -∗ t $$ tk_local -∗ source_red #v_rd π Ψ)%E -∗
+  source_red (Copy (Place l_rd t sz)) π Ψ.
 Proof.
-  iIntros (Hlen) "Htag Hs Hsim".
-  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ??) "[(HP_t & HP_s & Hbor) _]".
-  iModIntro.
-  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[% %Hwf_s]".
-  iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%Hd & %Hstack)".
-  rewrite Hlen in Hd Hstack.
-  have READ_s : read_mem l (tsize T) σ_s.(shp) = Some v_s.
-  { apply read_mem_values'; done. }
-  have Eq_stk : memory_read σ_s.(sst) σ_s.(scs) l (Tagged t) (tsize T) = Some σ_s.(sst).
-  { apply memory_read_access1. intros i Hi.
-    specialize (Hstack i Hi). eexists; split; first done. eapply bor_state_own_access1_read; done. }
-  assert (base_reducible P_s (Copy (Place l (Tagged t) T)) σ_s) as (e_s' & σ_s' & efs & Hhead).
-  { do 3 eexists; eapply copy_base_step'; [done | done | eauto ]. }
-  iExists e_s', σ_s'.
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead) as [-> [(v_t' & α' & READ & ACC & -> & ->) | (_ & Hfail & _)]]; last congruence.
-  rewrite READ in READ_s. simplify_eq.
-  iFrame "HP_t HP_s". iSplitR; first done.
-  iSplitL "Hbor"; last by iApply ("Hsim" with "Hs Htag"). iModIntro.
-  by destruct σ_s.
+  iIntros (Hread Hsameblk) "Htag Ht Hsim". eapply read_range_length in Hread as HH. subst sz.
+  iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s ?) "(HP_t & HP_s & Hbor)".
+  iPoseProof (bor_interp_get_state_wf with "Hbor") as "[%Hwf_t %]".
+  iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
+  iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%Hd & %it & %Hit & %Hitinv & %Hittag)".
+  opose proof* (read_range_list_to_heaplet_read_memory) as READ_MEM. 1: exact Hread. 1: done. 1: exact Hd.
+  destruct l_hl as [blk off_hl], l_rd as [blk2 off_rd]; simpl in *; subst blk2.
+  eapply mk_is_Some in Hread as Hrangebounds. rewrite -read_range_valid_iff in Hrangebounds.
+  setoid_rewrite <- list_to_heaplet_dom in Hrangebounds.
+  opose proof* (local_access_preserves_unchanged _ _ _ _ off_hl off_rd v_t (length v_rd)) as TREES_NOCHANGE. 3: exact Hd.
+  3: exists it; split; first done; split; first done; exact Hittag. 1: done.
+  { destruct v_rd; first by left. simpl in *. right. split. 1: ospecialize (Hrangebounds off_rd _); try lia.
+    ospecialize (Hrangebounds (off_rd + (length v_rd)) _); lia. }
+  iSplit.
+  { iPureIntro. do 3 eexists. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact TREES_NOCHANGE.
+    rewrite /trees_contain /trees_at_block /= Hit. subst t. cbv. tauto. }
+  iIntros (??? Hstep).
+  eapply head_copy_inv in Hstep as (->&[((HNone&_&_&_)&_)|(trs'&v'&->&->&Hreadv'&[(_&Happly&Hnon)|(Hzero&->&->)])]).
+  1: rewrite /= TREES_NOCHANGE // in HNone.
+  - iModIntro. iSplitR; first done.
+    assert (v_rd = v') as -> by congruence.
+    iSplitR "Htag Ht Hsim"; last first.
+    1: iApply ("Hsim" with "Ht Htag").
+    iFrame. simpl in Happly. assert (trs' = strs σ_t) as -> by congruence.
+    iExists _, _, _, _. destruct σ_t. iApply "Hbor".
+  - iModIntro. iSplitR; first done.
+    assert (v_rd = []) as -> by by destruct v_rd.
+    iSplitR "Htag Ht Hsim"; last first.
+    1: iApply ("Hsim" with "Ht Htag").
+    iFrame.
+    iExists _, _, _, _. destruct σ_t. iApply "Hbor".
 Qed.
 
 (** ** Write *)

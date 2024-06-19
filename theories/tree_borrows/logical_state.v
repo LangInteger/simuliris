@@ -1125,6 +1125,16 @@ Proof.
       rewrite -(IH (idx + 1)). f_equal. lia.
 Qed.
 
+Lemma list_to_heaplet_dom {A} (lst : list A) base i :
+  base ≤ i < base + length lst ↔ i ∈ dom (list_to_heaplet lst base).
+Proof.
+  split; intros H.
+  - eapply elem_of_dom. destruct (list_to_heaplet lst base !! i) eqn:HH; first done.
+    eapply list_to_heaplet_lookup_None in HH. done.
+  - eapply elem_of_dom in H. destruct H as [x H].
+    by eapply list_to_heaplet_lookup_Some.
+Qed.
+
 Lemma list_to_heaplet_dom_1 {A} (lst1 lst2 : list A) idx :
   length lst1 = length lst2 →
   dom (list_to_heaplet lst1 idx) = dom (list_to_heaplet lst2 idx).
@@ -1133,6 +1143,150 @@ Proof.
   all: intros (y&Hy%list_to_heaplet_lookup_Some)%elem_of_dom;
     eapply elem_of_dom; destruct lookup eqn:Heq; try done;
     eapply list_to_heaplet_lookup_None in Heq; lia.
+Qed.
+
+Fixpoint read_range {T} (base : Z) (sz : nat) (M : gmap Z T) : option (list T) := match sz with
+  O => Some nil
+| S sz => hd ← M !! base; tl ← read_range (1 + base) sz M; Some (hd :: tl) end.
+
+Fixpoint write_range {T} (base : Z) (vals : list T) (M : gmap Z T) : option (gmap Z T) := match vals with
+  nil => Some M
+| hd :: tl => _ ← M !! base; M ← (write_range (1 + base) tl M); Some (<[ base := hd ]> M) end.
+
+Lemma read_range_length T base (sz : nat) (M : gmap _ T) vs :
+  read_range base sz M = Some vs → length vs = sz.
+Proof.
+  induction sz as [|sz IH] in vs,base|-*.
+  1: by intros [= <-].
+  simpl. intros (v0&Hv0&(vS&HvS&[= <-])%bind_Some)%bind_Some.
+  simpl. f_equal. by eapply IH.
+Qed.
+
+Lemma read_range_valid_iff T base (sz : nat) (M : gmap _ T) :
+  (∀ i, base ≤ i < base + sz → i ∈ dom M)
+↔ is_Some (read_range base sz M).
+Proof.
+  induction sz as [|sz IH] in base|-*.
+  1: split; try done; lia.
+  simpl. destruct (IH (1 + base)) as [IHl IHr]. split.
+  - intros H. pose proof (H base (ltac:(lia))) as [v0 Hv0]%elem_of_dom.
+    rewrite Hv0 /=. destruct IHl as [vS HvS]. 1: intros ??; eapply H; lia.
+    rewrite HvS /= //.
+  - intros [? (v0&Hv0&(vS&HvS&[= <-])%bind_Some)%bind_Some].
+    intros i Hi. destruct (decide (base = i)) as [->|Hne].
+    + by eapply elem_of_dom_2.
+    + eapply IHr. 1: by eexists. lia.
+Qed.
+
+Lemma read_range_lookup_nth T base (sz : nat) (M : gmap _ T) vs :
+  read_range base sz M = Some vs →
+  ∀ (k:nat) v, vs !! k = Some v → M !! (base + k) = Some v.
+Proof.
+  intros H1 k. induction k as [|k IH] in H1,base,sz,vs|-*; intros v Hv.
+  - destruct vs as [|el0 vs]; first done. simpl in Hv. injection Hv as ->.
+    rewrite Z.add_0_r. destruct sz; first done.
+    by pose proof H1 as (v'&Hv'&(?&_&[= <- <-])%bind_Some)%bind_Some.
+  - destruct vs as [|el0 vs]; first done. simpl in Hv. destruct sz as [|sz]; first done. simpl in H1.
+    pose proof H1 as (v'&Hv'&(vs'&Hvs'&[= <- <-])%bind_Some)%bind_Some.
+    eapply IH in Hvs'. 2: eassumption. by assert (1 + base + k = base + S k) as <- by lia.
+Qed.
+
+Lemma read_range_lookup_nth_inverse T base (sz : nat) (M : gmap _ T) vs :
+  read_range base sz M = Some vs →
+  ∀ (k:nat) v, M !! (base + k) = Some v → (k < sz)%nat → vs !! k = Some v.
+Proof.
+  intros H1 k v H2 H3.
+  rewrite - (read_range_length _ base sz M vs) // -lookup_lt_is_Some in H3.
+  destruct H3 as [x H4]. rewrite H4.
+  eapply read_range_lookup_nth in H4. 2: exact H1. congruence.
+Qed.
+
+Lemma read_range_list_to_heaplet_read_memory l_hl l_rd sz v_t v_rd hp : 
+  read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd →
+  l_hl.1 = l_rd.1 →
+  (∀ i : nat, (i < length v_t)%nat → hp !! (l_hl +ₗ i) = v_t !! i) →
+  read_mem l_rd sz hp = Some v_rd.
+Proof.
+  destruct l_hl as [blk off_hl], l_rd as [? off_rd]. simpl.
+  intros Hrange <- Hhp.
+  eapply read_range_length in Hrange as Hlen.
+  eapply read_mem_values'. 1: done.
+  intros i Hi.
+  eapply mk_is_Some in Hrange as Hrangebounds. rewrite -read_range_valid_iff in Hrangebounds.
+  setoid_rewrite <- list_to_heaplet_dom in Hrangebounds.
+  assert (∃ (os:nat), off_hl + os = off_rd) as [os Hos].
+  { ospecialize (Hrangebounds off_rd  _). 1: lia.
+    exists (Z.to_nat (off_rd - off_hl)). lia. }
+  subst off_rd. rewrite /shift_loc /= in Hhp|-*. rewrite -Z.add_assoc -Nat2Z.inj_add.
+  rewrite Hhp; last first.
+  { ospecialize (Hrangebounds (off_hl + (os + i)%nat) _). 1: lia. lia. }
+  symmetry. destruct (v_rd !! i) as [x|] eqn:Hx.
+  2: { eapply lookup_ge_None in Hx. lia. }
+  eapply read_range_lookup_nth in Hx. 2: done.
+  rewrite -Z.add_assoc -Nat2Z.inj_add list_to_heaplet_nth in Hx. done.
+Qed.
+
+Lemma write_range_same_dom T base (vs : list T) (M M' : gmap _ T) :
+  write_range base vs M = Some M' → dom M = dom M'.
+Proof.
+  induction vs as [|v0 vS IH] in M,M',base|-*.
+  1: by intros [= ->].
+  simpl. intros (vO&HvO&(MS&HMS&[= <-])%bind_Some)%bind_Some.
+  eapply IH in HMS. assert (is_Some (MS !! base)) as [vO' HvO'].
+  { eapply elem_of_dom. rewrite -HMS. by eapply elem_of_dom_2. }
+  rewrite dom_insert_lookup_L. 2: by eexists. done.
+Qed.
+
+Lemma write_range_valid_iff T base (vs : list T) (M : gmap _ T) :
+  (∀ i, base ≤ i < base + length vs → i ∈ dom M)
+↔ is_Some (write_range base vs M).
+Proof.
+  induction vs as [|v0 vS IH] in base|-*.
+  1: simpl; split; try done; lia.
+  simpl. destruct (IH (1 + base)) as [IHl IHr]. simpl. split.
+  - intros H. pose proof (H base (ltac:(lia))) as [el0 Hel0]%elem_of_dom.
+    rewrite Hel0 /=. destruct IHl as [M' HM']. 1: intros ??; eapply H; lia.
+    rewrite HM' /= //.
+  - intros [? (el0&Hel0&(M'&HM'&[= <-])%bind_Some)%bind_Some].
+    intros i Hi. destruct (decide (base = i)) as [->|Hne].
+    + by eapply elem_of_dom_2.
+    + eapply IHr. 1: by eexists. lia.
+Qed.
+
+Lemma write_range_lookup_nth T base (M M': gmap _ T) vs :
+  write_range base vs M = Some M' →
+  ∀ (k:nat) v, vs !! k = Some v → M' !! (base + k) = Some v.
+Proof.
+  intros H1 k. induction k as [|k IH] in H1,base,M',vs|-*; intros v Hv.
+  - destruct vs as [|el0 vs]; first done. simpl in Hv. injection Hv as ->.
+    rewrite Z.add_0_r. simpl in H1. eapply bind_Some in H1 as (x&Hx&(?&Hv&[= <-])%bind_Some). by rewrite lookup_insert.
+  - destruct vs as [|el0 vs]; first done. simpl in Hv. simpl in H1.
+    eapply bind_Some in H1 as (x&Hx&(v2&Hv2&[= <-])%bind_Some). rewrite lookup_insert_ne. 2: lia.
+    eapply IH in Hv2. 2: eassumption. by assert (1 + base + k = base + S k) as <- by lia.
+Qed.
+
+Lemma write_range_lookup_nth_inverse T base (M M' : gmap _ T) vs :
+  write_range base vs M = Some M' →
+  ∀ (k:nat) v, M' !! (base + k) = Some v → (k < length vs)%nat → vs !! k = Some v.
+Proof.
+  intros H1 k. induction k as [|k IH] in H1,base,M',vs|-*; intros v Hv1 Hv2.
+  - destruct vs as [|el0 vs]; first (simpl in Hv2; lia). simpl in *.
+    eapply bind_Some in H1 as (x&Hx&(M''&HM''&[= <-])%bind_Some).
+    rewrite Z.add_0_r lookup_insert in Hv1. done.
+  - destruct vs as [|el0 vs]; first (simpl in Hv2; lia). simpl in H1|-*.
+    eapply bind_Some in H1 as (x&Hx&(M''&HM''&[= <-])%bind_Some).
+    rewrite lookup_insert_ne in Hv1. 2: lia. assert (1 + base + k = base + S k) as Hnums by lia.
+    rewrite -Hnums in Hv1. eapply IH. 1: eassumption. 1: done. simpl in Hv2. lia.
+Qed.
+
+Lemma write_range_lookup_outside T base (M M' : gmap _ T) vs :
+  write_range base vs M = Some M' →
+  ∀ i, ¬ (base ≤ i < base + length vs) → M !! i = M' !! i.
+Proof.
+  simpl. induction vs as [|v0 vs IH] in base,M,M'|-*; intros H1 i Hi.
+  - injection H1 as ->. done.
+  - simpl in H1. eapply bind_Some in H1 as (vo&Hvo&(M1&HM1&[= <-])%bind_Some).
+    simpl in Hi. rewrite lookup_insert_ne. 2: lia. eapply IH. 1: apply HM1. lia.
 Qed.
 
 (*

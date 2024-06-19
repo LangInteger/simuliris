@@ -296,16 +296,16 @@ Section lemmas.
       bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
       l ↦t∗[tk_local]{t} scs -∗
       t $$ tk_local -∗
-      ⌜length scs ≠ 0%nat⌝ -∗
       ⌜∃ it, σ_t.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_t.(shp) ∧ t = itag it⌝.
     Proof.
     iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
-    iIntros "Hp Htag %Hnonzero".
+    iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _).
     destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
     iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
-    iPureIntro.
+    iPureIntro. destruct Hlocal as (Hl1&Hl2). 1: done.
+    specialize (Hl1 _ _ Ht_lookup) as Hne. rewrite list_to_heaplet_empty_length in Hne.
     specialize (Ht l). rewrite /heaplet_lookup /= Ht_lookup /= in Ht.
     assert (l.2 + (0%nat) = l.2) as Hzero by lia.
     pose proof (list_to_heaplet_nth scs l.2 0) as Hnth. rewrite Hzero in Hnth. rewrite Hnth in Ht.
@@ -329,16 +329,16 @@ Section lemmas.
       bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
       l ↦s∗[tk_local]{t} scs -∗
       t $$ tk_local -∗
-      ⌜length scs ≠ 0%nat⌝ -∗
       ⌜∃ it, σ_s.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_s.(shp) ∧ t = itag it⌝.
     Proof.
     iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
-    iIntros "Hp Htag %Hnonzero".
+    iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _).
     destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
     iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
-    iPureIntro.
+    iPureIntro. destruct Hlocal as (Hl1&Hl2). 1: done.
+    specialize (Hl2 _ _ Ht_lookup) as Hne. rewrite list_to_heaplet_empty_length in Hne.
     specialize (Hs l). rewrite /heaplet_lookup /= Ht_lookup /= in Hs.
     assert (l.2 + (0%nat) = l.2) as Hzero by lia.
     pose proof (list_to_heaplet_nth scs l.2 0) as Hnth. rewrite Hzero in Hnth. rewrite Hnth in Hs.
@@ -365,7 +365,7 @@ Section lemmas.
     l ↦t∗[tk_local]{t} scs -∗
     t $$ tk_local -∗
     ⌜∀ i : nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
-    ⌜length scs = 0%nat ∨ ∃ it, σ_t.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_t.(shp) ∧ t = itag it⌝.
+    ⌜∃ it, σ_t.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_t.(shp) ∧ t = itag it⌝.
   Proof.
     iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
@@ -373,12 +373,9 @@ Section lemmas.
     pose proof Htag_interp as (Htag_interp2 & _).
     destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
     iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
-    destruct (length scs) as [|len] eqn:Hlen.
-    1: iPureIntro; split; first (intros ??; lia); by left.
-    rewrite -Hlen. clear Hs.
-    iPoseProof (bor_interp_local_shapes_tree_target with "[-Hp Htag] Hp Htag []") as "%Htree".
-    1: iFrame; iFrame "#"; iPureIntro; done. 1: iPureIntro; lia.
-    iPureIntro. split; last by right.
+    iPoseProof (bor_interp_local_shapes_tree_target with "[-Hp Htag] Hp Htag") as "%Htree".
+    1: iFrame; iFrame "#"; iPureIntro; done.
+    iPureIntro. split; last done.
     intros i Hi. edestruct (lookup_lt_is_Some_2 scs i) as [sc Hsc]; first done.
     rewrite Hsc.
     destruct (Ht (l +ₗ i) sc). 2: done. 1: rewrite /heaplet_lookup /= Ht_lookup /= list_to_heaplet_nth //. done.
@@ -449,7 +446,7 @@ Section lemmas.
     iPureIntro. intros i Hi. eapply Hs.
     rewrite /heaplet_lookup Hs_lookup /= list_to_heaplet_nth list_lookup_lookup_total //.
     by apply lookup_lt_is_Some_2.
-  Qed. 
+  Qed.
 
 (*
   Lemma bor_interp_readN_source_protected σ_t σ_s (t : ptr_id) tk l v_s c M :
