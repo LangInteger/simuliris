@@ -1386,7 +1386,32 @@ Proof.
     eapply call_is_active_mono. 2: done. set_solver.
 Qed.
 
-
+Lemma loc_controlled_alloc_creates_local l σ σ' blk Mcall nt sz :
+  init_mem (fresh_block (shp σ), 0) sz (shp σ) = shp σ' →
+  extend_trees nt blk 0 sz (strs σ) = strs σ' →
+  scs σ = scs σ' →
+  state_wf σ →
+  blk = fresh_block (shp σ) →
+  l.1 = blk →
+  0 ≤ l.2 < sz →
+  loc_controlled Mcall l nt tk_local ☠%S σ'.
+Proof.
+  intros Heq_shp Hnewtrees Heq_scs Hwf Hblk Hblk2 Hsz _.
+  subst blk. destruct l as [blk off]. pose (blk, off) as l. simpl in *. subst blk.
+  assert (shp σ' !! l = Some ☠%S) as Hheap.
+  { rewrite -Heq_shp /=. eapply init_mem_lookup_fresh_poison. lia. }
+  split; last done.
+  epose proof (init_perms_lookup Active 0 sz off) as H.
+  eexists _, _. split_and!.
+  2: rewrite -Hnewtrees /= /extend_trees lookup_insert //.
+  - by eapply tree_lookup_init_tree.
+  - rewrite /item_lookup /=. destruct (init_perms _ _ _ !! off). 2: lia.
+    destruct H as [-> _]. done.
+  - rewrite /item_lookup /=. destruct (init_perms _ _ _ !! off). 2: lia.
+    destruct H as [-> _]. done.
+  - done.
+  - intros ? t' (Ht'&_). cbv in Ht'. tauto.
+Qed.
 
 
 

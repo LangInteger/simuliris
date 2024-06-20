@@ -36,7 +36,7 @@ Section lemmas.
     intros Hdom. induction n as [ | n IH] in l |-*; first done.
     simpl. rewrite !dom_delete_L IH. done.
   Qed.
-
+  
   Lemma extend_trees_preserve off sz σ :
     let blk := fresh_block σ.(shp) in
     let nt := σ.(snp) in
@@ -81,6 +81,13 @@ Section lemmas.
     P (mkItem tg None Disabled (init_perms Active off sz)).
   Proof.
     cbv -[init_perms]. tauto.
+  Qed.
+
+  Lemma tree_lookup_init_tree t off sz : tree_lookup (init_tree t off sz) t (initial_item t off sz).
+  Proof.
+    split.
+    - by eapply exists_node_init_tree.
+    - by eapply every_node_init_tree.
   Qed.
 
   Lemma extend_trees_find_item_rev σ t it off sz (loc : loc) :

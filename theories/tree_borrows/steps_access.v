@@ -228,3 +228,55 @@ Qed.
 
 
 
+Lemma init_mem_lookup_fresh_poison blk off (n:nat) h :
+  0 ≤ off ∧ off < n →
+  init_mem (blk, 0) n h !! (blk, off) = Some ScPoison.
+Proof.
+  intros (Hpos & Hlt).
+  pose proof (init_mem_lookup (blk, 0) n h) as (Hinit1&_).
+  ospecialize (Hinit1 (Z.to_nat off) _); first lia.
+  rewrite /= /shift_loc /= Z.add_0_l Z2Nat.id // in Hinit1.
+Qed.
+
+Lemma init_mem_lookup_fresh_None blk off (n:nat) h :
+  (forall off, (blk, off) ∉ dom h) →
+  (off < 0 ∨ n ≤ off) →
+  init_mem (blk, 0) n h !! (blk, off) = None.
+Proof.
+  intros Hfresh Hout.
+  pose proof (init_mem_lookup (blk, 0) n h) as (_&Hinit2).
+  rewrite (Hinit2 (blk, off)).
+  + eapply not_elem_of_dom, Hfresh.
+  + intros i Hlt.
+    rewrite /= /shift_loc /= Z.add_0_l.
+    intros [= ->]. destruct Hout as [Hout|Hout]; lia.
+Qed.
+
+Lemma init_mem_lookup_fresh_old blk blk' off (n:nat) h :
+  blk ≠ blk' →
+  init_mem (blk, 0) n h !! (blk', off) = h !! (blk', off).
+Proof.
+  intros Hfresh.
+  pose proof (init_mem_lookup (blk, 0) n h) as (_&Hinit2).
+  apply Hinit2.
+  intros ? _ [=]. done.
+Qed.
+
+
+Lemma init_mem_lookup_fresh_inv blk blk' off (n:nat) h k :
+  (forall off, (blk, off) ∉ dom h) →
+  init_mem (blk, 0) n h !! (blk', off) = k →
+  (k = Some ScPoison ∧ blk = blk' ∧ 0 ≤ off ∧ off < n)
+∨ (k = None ∧ blk = blk' ∧ (off < 0 ∨ n ≤ off))
+∨ (k = h !! (blk', off) ∧ blk ≠ blk').
+Proof.
+  intros Hfresh Hinit.
+  destruct (decide (blk = blk')) as [Heqblk|Hne].
+  1: subst blk'; destruct (decide (0 ≤ off)) as [Hpos|Hneg].
+  1: destruct (decide (off < n)) as [Hlt|Hge].
+  { left. subst k. split_and!; try done. by rewrite init_mem_lookup_fresh_poison. }
+  1-2: right; left; split_and!; try done; last lia.
+  1-2: subst k; rewrite init_mem_lookup_fresh_None; try done; lia.
+  { right. right. split; last done. subst k. by apply init_mem_lookup_fresh_old. }
+Qed.
+
