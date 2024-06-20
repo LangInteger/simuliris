@@ -58,7 +58,7 @@ Qed.
                                    ^^^^^^ computation may trigger UB.
                        ^^^^^^ location may be uninitialized *)
 Definition mem_apply_loc {X} (fn : option X -> option X) z
-  : app (gmap loc' X) := fun map =>
+  : gmap loc' X -> option (gmap loc' X) := fun map =>
     new ← fn (map !! z);
     Some (<[z := new]> map).
 
@@ -67,7 +67,7 @@ Definition mem_apply_loc {X} (fn : option X -> option X) z
    If the set of locations you want to access cannot be expressed as a range,
    see [mem_fold_apply]. *)
 Fixpoint mem_apply_locs {X} (fn:option X -> option X) z sz
-  {struct sz} : app (gmap loc' X) := fun map =>
+  {struct sz} : gmap loc' X -> option (gmap loc' X) := fun map =>
   match sz with
   | O => Some map
   | S sz' =>
@@ -89,7 +89,7 @@ Definition mem_enumerate_sat {X} (fn : X -> bool)
    If the set of locations you want to access can be expressed as a range,
    see [mem_apply_loc] which might be easier to reason about. *)
 Fixpoint mem_fold_apply {X} (fn : option X -> option X) locs
-  : app (gmap loc' X) := fun map =>
+  : gmap loc' X -> option (gmap loc' X) := fun map =>
   match locs with
   | [] => Some map
   | z::locs' =>
@@ -102,7 +102,7 @@ Fixpoint mem_fold_apply {X} (fn : option X -> option X) locs
    (optionally uninitialized) permissions to Parentpermissions lifted to the entire
    memory by means of [mem_apply_range']. *)
 Definition mem_apply_range' {X} (fn:option X -> option X) (r:range')
-  : app (gmap loc' X) := mem_apply_locs fn r.1 r.2.
+  : gmap loc' X -> option (gmap loc' X) := mem_apply_locs fn r.1 r.2.
 
 (* The behavior of [mem_apply_range'] is completely specified by
    [mem_apply_range'_spec] and [mem_apply_range'_success_condition].
@@ -166,8 +166,9 @@ Qed.
    In practice we prefer expressing the state machine as [lazy_permission -> option lazy_permission].
    The second can easily be lifted to the first when given the default permission
    (stored in [item]'s [initp] field). *)
-Definition permissions_apply_range' (pdefault:lazy_permission) (range:range') (f:app lazy_permission)
-  : app permissions := fun ps =>
+Definition permissions_apply_range' (pdefault:lazy_permission) (range:range')
+  (f:lazy_permission -> option lazy_permission)
+  : permissions -> option permissions := fun ps =>
   mem_apply_range'
     (fun oldp => f (default pdefault oldp))
     range ps.
@@ -232,15 +233,15 @@ Qed.
 
 Notation IsTag t := (fun it => it.(itag) = t) (only parsing).
 
-Definition HasRootTag t : Tprop (tbranch item) := fun br => IsTag t (root br).
+Definition HasRootTag t : tbranch item -> Prop := fun br => IsTag t (root br).
 Global Instance HasRootTag_dec t it : Decision (HasRootTag t it).
 Proof. rewrite /HasRootTag. solve_decision. Defined.
 
-Definition HasStrictChildTag t' : Tprop (tbranch item) := exists_strict_child (IsTag t').
+Definition HasStrictChildTag t' : tbranch item -> Prop := exists_strict_child (IsTag t').
 Global Instance HasStrictChildTag_dec t' tr : Decision (HasStrictChildTag t' tr).
 Proof. rewrite /HasStrictChildTag. solve_decision. Defined.
 
-Definition HasImmediateChildTag t' : Tprop (tbranch item) := exists_immediate_child (IsTag t').
+Definition HasImmediateChildTag t' : tbranch item -> Prop := exists_immediate_child (IsTag t').
 Global Instance HasImmediateChildTag_dec t' tr : Decision (HasImmediateChildTag t' tr).
 Proof. rewrite /HasImmediateChildTag. solve_decision. Defined.
 
@@ -263,18 +264,18 @@ Proof. rewrite /HasImmediateChildTag. solve_decision. Defined.
    - [tree_contains t' tr]
    - [WF : forall tg, tree_contains tg tr -> tree_unique tg tr]
    which is obviously sufficient. *)
-Definition StrictParentChildIn t t' : Tprop (tree item)
+Definition StrictParentChildIn t t' : tree item -> Prop
   := every_subtree (fun br => (IsTag t (root br)) -> (HasStrictChildTag t' br)).
 Global Instance StrictParentChildIn_dec t t' tr : Decision (StrictParentChildIn t t' tr).
 Proof. rewrite /StrictParentChildIn. solve_decision. Defined.
 
 (* Reflexive closure of [StrictParentChildIn]. *)
-Definition ParentChildIn t t' : Tprop (tree item)
+Definition ParentChildIn t t' : tree item -> Prop
   := fun tr => t = t' \/ StrictParentChildIn t t' tr.
 Global Instance ParentChildIn_dec t t' tr : Decision (ParentChildIn t t' tr).
 Proof. rewrite /ParentChildIn. solve_decision. Defined.
 
-Definition ImmediateParentChildIn t t' : Tprop (tree item)
+Definition ImmediateParentChildIn t t' : tree item -> Prop
   := every_subtree (fun br => (IsTag t (root br)) -> (HasImmediateChildTag t' br)).
 Global Instance ImmediateParentChildIn_dec t t' tr : Decision (ImmediateParentChildIn t t' tr).
 Proof. rewrite /ImmediateParentChildIn. solve_decision. Defined.
@@ -345,7 +346,7 @@ Definition requires_init (rel:rel_pos)
 (* State machine without protector UB.
    Protector UB is handled later in [apply_access_perm]. *)
 Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool)
-  : app permission := fun perm =>
+  : permission -> option permission := fun perm =>
   match kind, rel with
   | AccessRead, Foreign _ =>
       (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
@@ -455,7 +456,7 @@ Proof. rewrite /protector_is_strong. try repeat case_match; solve_decision. Defi
    - trigger the protector if it is active and if the transition performed [_ -> Disabled]
    - update the [initialized] status of the permission. *)
 Definition apply_access_perm kind rel (isprot:bool)
-  : app lazy_permission := fun operm =>
+  : lazy_permission -> option lazy_permission := fun operm =>
   let old := operm.(perm) in
   new ← apply_access_perm_inner kind rel isprot old;
   (* can only become more initialized *)
@@ -474,8 +475,8 @@ Definition apply_access_perm kind rel (isprot:bool)
 
 (* The effect of an access on an item is to apply it to the permissions while
    keeping the metadata (tag, protector, default permission) unchanged. *)
-Definition item_apply_access (fn : rel_pos -> bool -> app lazy_permission) cids rel range
-  : app item := fun it =>
+Definition item_apply_access (fn : rel_pos -> bool -> lazy_permission -> option lazy_permission) cids rel range
+  : item -> option item := fun it =>
   let oldps := it.(iperm) in
   let protected := bool_decide (protector_is_active it.(iprot) cids) in
   newps ← permissions_apply_range' (mkPerm PermLazy it.(initp)) range
@@ -486,8 +487,8 @@ Definition item_apply_access (fn : rel_pos -> bool -> app lazy_permission) cids 
    This function filters out strict children to turn any function into a function
    that operates only on nonchildren. *)
 Definition nonchildren_only
-  (fn : rel_pos -> bool -> app lazy_permission)
-  : rel_pos -> bool -> app lazy_permission := fun rel isprot perm =>
+  (fn : rel_pos -> bool -> lazy_permission -> option lazy_permission)
+  : rel_pos -> bool -> lazy_permission -> option lazy_permission := fun rel isprot perm =>
   match rel with
   | Foreign (Parent _) => Some perm
   | _ => fn rel isprot perm
@@ -496,7 +497,7 @@ Definition nonchildren_only
 (* Lift a function on nodes to a function on trees.
    Returns [None] if and only if the image by at least one of the nodes returns [None]. *)
 Definition tree_apply_access
-  (fn:rel_pos -> bool -> app lazy_permission)
+  (fn:rel_pos -> bool -> lazy_permission -> option lazy_permission)
   cids (access_tag:tag) range (tr:tree item)
   : option (tree item) :=
   let app : item -> option item := fun it => (
@@ -551,7 +552,7 @@ Proof.
 Qed.
 
 Definition memory_access_maybe_nonchildren_only b kind cids tg range
-  : app (tree item) := fun tr =>
+  : tree item -> option (tree item) := fun tr =>
   tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) cids tg range tr.
 
 Definition memory_access := memory_access_maybe_nonchildren_only false.
@@ -562,7 +563,7 @@ Definition memory_access_nonchildren_only := memory_access_maybe_nonchildren_onl
    except trigger UB if there is still a protector, but it's simpler to express it
    in terms of functions that we already have. *)
 Definition memory_deallocate cids t range
-  : app (tree item) := fun tr =>
+  : tree item -> option (tree item) := fun tr =>
   (* Implicit write on deallocation. *)
   let post_write := memory_access AccessWrite cids t range tr in
   (* Then strong protector UB. *)
@@ -797,7 +798,7 @@ Definition create_new_item tg pk rk (cid : call_id) :=
   {| itag:=tg; iprot:=prot; initp:=perm; iperm:=∅ |}.
 
 Definition create_child cids (oldt:tag) (newt:tag) pk rk (cid : call_id)
-  : app (tree item) := fun tr =>
+  : tree item -> option (tree item) := fun tr =>
   let it := create_new_item newt pk rk cid in
   Some $ insert_child_at tr it (IsTag oldt).
 
@@ -808,13 +809,13 @@ Definition item_perm_at_loc it z
   : permission :=
   perm (item_lazy_perm_at_loc it z).
 
-Definition every_tagged t (P:Tprop item) tr
+Definition every_tagged t (P:item -> Prop) tr
   : Prop :=
   every_node (fun it => IsTag t it -> P it) tr.
 
 (* FIXME: gmap::partial_alter ? *)
-Definition apply_within_trees (fn:app (tree item)) blk
-  : app trees := fun trs =>
+Definition apply_within_trees (fn:tree item -> option (tree item)) blk
+  : trees -> option trees := fun trs =>
   oldtr ← trs !! blk;
   newtr ← fn oldtr;
   Some $ <[blk := newtr]> trs.
@@ -899,12 +900,12 @@ Definition tree_get_all_protected_tags_initialized_locs (cid : nat) (tr : tree i
   ) tr.
 
 Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
-    : app (tree item) := fun tr =>
+  : tree item -> option (tree item) := fun tr =>
     (* read one loc by doing a memory_access *)
-    let reader_loc (tg : tag) (loc : Z) : app (tree item) := fun tr =>
+    let reader_loc (tg : tag) (loc : Z) : tree item -> option (tree item) := fun tr =>
       memory_access_nonchildren_only AccessRead cids tg (loc, 1) tr in
     (* read several locs of the same tag, propagate failures *)
-    let reader_locs (tg : tag) (locs : gset Z) : app (tree item) := fun tr =>
+    let reader_locs (tg : tag) (locs : gset Z) : tree item -> option (tree item) := fun tr =>
       set_fold (fun loc (tr:option (tree item)) => tr ← tr; reader_loc tg loc tr) (Some tr) locs in
     (* get all initialized locs as defined above, these are what we need to read *)
     let init_locs := tree_get_all_protected_tags_initialized_locs cid tr in

@@ -111,10 +111,10 @@ Proof.
   lia.
 Qed.
 
-Definition preserve_tree_compat_nexts (fn:app (tree item)) nxtp nxtp' nxtc nxtc' :=
+Definition preserve_tree_compat_nexts (fn:tree item -> option (tree item)) nxtp nxtp' nxtc nxtc' :=
   forall tr tr', tree_items_compat_nexts tr nxtp nxtc -> fn tr = Some tr' -> tree_items_compat_nexts tr' nxtp' nxtc'.
 
-Definition preserve_tree_tag_count (fn:app (tree item)) :=
+Definition preserve_tree_tag_count (fn:tree item -> option (tree item)) :=
   forall tr tr' tg, fn tr = Some tr' -> tree_count_tg tg tr = tree_count_tg tg tr'.
 
 Lemma preserve_tag_count_wf fn tr tr' :

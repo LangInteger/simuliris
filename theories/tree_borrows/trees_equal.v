@@ -98,8 +98,20 @@ Qed.
            deduce it from some other invariant ? *)
       ~protector_is_active it_witness.(iprot) C ->
       disabled_in_practice tr tg witness l
-    (* FIXME: consider relaxing this to include true Disabled *)
     .
+
+  Inductive frozen_in_practice (tr : tree item) (tg : tag) (witness : tag) (l : Z)
+    : Prop :=
+    (* This means being Reserved and having a parent that is exactly Frozen.
+       [frozen_in_practice] behaves indistinguishably from Frozen.
+       We could probably make [Frozen] and [frozen_in_practice] equivalent, but
+       this shouldn't turn up in practice. *)
+    | frozen_parent it_witness inclusive :
+        rel_dec tr tg witness = Child inclusive ->
+        tree_lookup tr witness it_witness ->
+        (item_lookup it_witness l).(perm) = Frozen ->
+        frozen_in_practice tr tg witness l
+     .
 
   Inductive perm_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (l : Z) cid
     : lazy_permission -> lazy_permission -> Prop :=
@@ -132,6 +144,14 @@ Qed.
         (initialized p = initialized p') ->
         ~protector_is_active cid C ->
         perm_eq_up_to_C tr1 tr2 tg l cid p p'
+    | perm_eq_up_to_C_frozen_parent ini im confl1 confl2 witness_tg :
+        (* Important: they need the same interior mutability so that the protectors
+           trigger under exactly the same conditions *)
+        frozen_in_practice tr1 tg witness_tg l ->
+        frozen_in_practice tr2 tg witness_tg l ->
+        perm_eq_up_to_C tr1 tr2 tg l cid
+          {| initialized := ini; perm := Reserved im confl1 |}
+          {| initialized := ini; perm := Reserved im confl2 |}
     .
 
   Definition loc_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (it1 it2 : item) (l : Z) :=
@@ -246,11 +266,12 @@ Qed.
   Proof.
     intro EqC.
     inversion EqC.
-    + econstructor.
-    + econstructor; eassumption.
-    + econstructor; eassumption.
-    + econstructor; try eassumption.
+    + econstructor 1.
+    + econstructor 2; eassumption.
+    + econstructor 3; eassumption.
+    + econstructor 4; try eassumption.
       done.
+    + econstructor 5; try eassumption.
   Qed.
 
   Lemma loc_eq_up_to_C_sym
@@ -668,6 +689,65 @@ Qed.
     (if b then f else g) x = if b then f x else g x.
   Proof. destruct b; reflexivity. Qed.
 
+  Lemma rel_dec_child_transitive
+    {tr tg1 tg2 tg3 incl1 incl2}
+    : rel_dec tr tg1 tg2 = Child incl1 ->
+      rel_dec tr tg2 tg3 = Child incl2 ->
+      exists incl3, rel_dec tr tg1 tg3 = Child incl3.
+  Proof.
+    intros Rel12 Rel23.
+    unfold rel_dec in *.
+    destruct (decide (ParentChildIn tg2 tg1 tr)); last congruence.
+    destruct (decide (ParentChildIn tg3 tg2 tr)); last congruence.
+    assert (ParentChildIn tg3 tg1 tr) by (eapply ParentChild_transitive; eassumption).
+    eexists.
+    destruct (decide (ParentChildIn tg3 tg1 tr)); last contradiction.
+    f_equal.
+  Qed.
+
+  Lemma frozen_in_practice_rejects_child_write
+    {tr tg witness l b acc_tg range}
+    (InRange : range'_contains range l)
+    (GloballyUnique : forall tg, tree_contains tg tr -> tree_unique tg tr)
+    (Frz : frozen_in_practice tr tg witness l)
+    (Acc : is_Some (tree_apply_access (maybe_non_children_only b (apply_access_perm AccessWrite)) C acc_tg range tr))
+    (Rel : exists x, rel_dec tr acc_tg tg = Child x)
+    : False.
+  Proof.
+    inversion Frz as [it_witness ? Rel' Lkup Perm].
+    rewrite -apply_access_success_condition in Acc.
+    rewrite every_node_iff_every_lookup in Acc. 2: {
+      intros tg0 Ex0. apply unique_lookup. apply GloballyUnique. assumption.
+    }
+    specialize (Acc _ _ Lkup).
+    assert (exists x, rel_dec tr acc_tg witness = Child x) as FullRel. 1: {
+      destruct Rel as [? Rel].
+      eapply rel_dec_child_transitive; eassumption.
+    }
+    destruct FullRel as [? FullRel].
+    assert (itag it_witness = witness) as WitnessTg. {
+      eapply tree_determined_specifies_tag; apply Lkup.
+    }
+    rewrite WitnessTg FullRel in Acc.
+    unfold item_apply_access, maybe_non_children_only in Acc.
+    unfold is_Some in Acc.
+    destruct Acc as [? Acc].
+    rewrite bind_Some in Acc.
+    destruct Acc as [? [Acc Res]].
+    injection Res; clear Res; intros; subst.
+    unfold permissions_apply_range' in Acc.
+    pose proof (mk_is_Some _ _ Acc) as AccSome; clear Acc.
+    rewrite -mem_apply_range'_success_condition in AccSome.
+    specialize (AccSome l InRange).
+    do 4 rewrite if_fun_absorb_args in AccSome.
+    unfold nonchildren_only in AccSome.
+    rewrite Tauto.if_same in AccSome.
+    unfold apply_access_perm, apply_access_perm_inner in AccSome.
+    rewrite Perm in AccSome.
+    simpl in AccSome.
+    inversion AccSome; congruence.
+  Qed.
+
   Lemma loc_eq_up_to_C_allows_same_access
     {tr1 tr2 tg it1 it2 l kind acc_tg range b}
     (Tg1 : itag it1 = tg)
@@ -695,6 +775,7 @@ Qed.
       |???? Prot Confl1 Confl2 Lookup1 Lookup2
       |???? Prot Lookup1 Lookup2
       |witness_tg ?? Dis1 Dis2 Lookup1 Lookup2
+      |ini ??? witness_tg Frz1 Frz2 Lookup1 Lookup2
     ].
     - rewrite Tg2 -Tg1.
       rewrite -SameRel.
@@ -723,7 +804,8 @@ Qed.
       + symmetry. apply Lookup1.
       + exact InRange.
       + rewrite Tg1 -Tg2 SameRel EqProt Heq // in Acc1.
-    - (* This has to be a foreign access *)
+    - (* FIXME: there has to be a shorter proof *)
+      (* This has to be a foreign access *)
       destruct (rel_dec tr1 acc_tg (itag it1)) eqn:AccRel.
       + rewrite <- EqProt.
         rewrite bool_decide_eq_false_2; last assumption.
@@ -783,6 +865,55 @@ Qed.
         rewrite DisWitness in ApplyAccessInner.
         rewrite /apply_access_perm_inner in ApplyAccessInner.
         case_match; discriminate.
+    - (* Frozen in practice case.
+         Before we do the usual manipulations we make both the left and right access use
+         the same [rel_dec] so that the [maybe_non_children_only] case distinction works
+         on both simultaneously. *)
+      rewrite SameRel in Acc1.
+      edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq].
+      2: by erewrite Heq. (* Noop case, easy. *)
+      rewrite Heq.
+      rewrite Tg1 -Tg2 Heq in Acc1.
+      destruct kind, (rel_dec tr2 _ _) eqn:Rel.
+      + (* Foreign read is allowed *)
+        unfold apply_access_perm, apply_access_perm_inner.
+        repeat (case_match; simpl; try auto).
+      + (* Child read is allowed *)
+        unfold apply_access_perm, apply_access_perm_inner.
+        repeat (case_match; simpl; try auto).
+      + (* Foreign write is allowed, except when there is a protector.
+           Once we eliminate all other cases we'll have to prove that the protector is inactive by
+           using the left tree in which the access suceeded. *)
+        unfold apply_access_perm, apply_access_perm_inner.
+        repeat (case_match; simpl; try auto).
+        (* Now we have a goal that is definitely not provable, but we have gained
+           a hypothesis [protector_is_active] in the context. We can derive a contradiction. *)
+        all: exfalso.
+        all: unfold apply_access_perm, apply_access_perm_inner in Acc1.
+        all: repeat (case_match; simpl in Acc1; try auto).
+        all: try (inversion Acc1; congruence).
+        (* We have all the elements of the contradiction, but a bit of rewriting is necessary
+           to get them in a shape that is obviously conflicting.
+           At that point there are two kinds of goals
+           - some where the protector is active only on one side, solve them using [EqProt],
+           - others whene [initialized] returns inconsistent results, solve them by
+             unifying the same [ini] everywhere. *)
+        all: repeat multimatch goal with
+        | H : bool_decide _ = true |- _ => pose proof (bool_decide_eq_true_1 _ H); clear H
+        | H : bool_decide _ = false |- _ => pose proof (bool_decide_eq_false_1 _ H); clear H
+        | H : context [ iprot _ ] |- _ => rewrite EqProt in H
+        | |- _ => try contradiction
+        end.
+        all: assert (initialized (item_lookup it1 l) = ini) as Ini1 by (rewrite -Lookup1; done).
+        all: simpl in *; congruence.
+      + (* Child write is necessarily UB due to the Frozen parent *)
+        exfalso.
+        eapply frozen_in_practice_rejects_child_write.
+        * eassumption.
+        * eassumption.
+        * eassumption.
+        * eassumption.
+        * eexists. rewrite SameRel. rewrite -Tg2. apply Rel.
   Qed.
 
   Lemma item_eq_up_to_C_allows_same_access (b:bool)
@@ -1016,6 +1147,18 @@ Qed.
     - assumption.
   Qed.
 
+  Lemma frozen_tree_apply_access_irreversible
+    {tr tr' tg acc_tg kind range loc b it}
+    (Lookup : tree_lookup tr tg it)
+    (Dis : reach Frozen (item_lookup it loc).(perm))
+    (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
+    : exists it',
+        tree_lookup tr' tg it'
+        /\ reach Frozen (item_lookup it' loc).(perm).
+  Proof.
+    admit.
+  Admitted.
+
   Lemma disabled_in_practice_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range witness loc b}
     (Dis : disabled_in_practice tr tg witness loc)
@@ -1031,6 +1174,15 @@ Qed.
     + erewrite tree_apply_access_preserves_protector; first eassumption.
       all: eassumption.
   Qed.
+
+  Lemma frozen_in_practice_tree_apply_access_irreversible
+    {tr tr' tg acc_tg kind range witness loc b}
+    (Dis : frozen_in_practice tr tg witness loc)
+    (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
+    : frozen_in_practice tr' tg witness loc.
+  Proof.
+    admit.
+  Admitted.
 
   Lemma if_same_guard_equal
     {P Q : Prop} {T} {x y x' y' : T} `{Decision P} `{Decision Q}
@@ -1100,6 +1252,17 @@ Qed.
         * eapply Lookup.
         * eassumption.
   Qed.
+
+  Lemma frozen_in_practice_create_child_irreversible
+    {tr tr' tg tg_old tg_new pk rk cid witness loc}
+    (Ne : tg_new ≠ tg)
+    (Ne' : tg_new ≠ witness)
+    (Dis : frozen_in_practice tr tg witness loc)
+    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    : frozen_in_practice tr' tg witness loc.
+  Proof.
+    admit.
+  Admitted.
 
   Lemma most_init_comm {i i'} :
     most_init i i' = most_init i' i.
@@ -1180,7 +1343,13 @@ Qed.
     perm_eq_up_to_C tr1' tr2' tg l (iprot it1') (item_lookup it1' l) (item_lookup it2' l).
   Proof.
     intros EqC Acc1 Acc2 Lookup1 Lookup1' Lookup2 Lookup2' ItAcc1 ItAcc2.
-    inversion EqC as [p pSpec Equal|ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2|ini im confl1 confl2 NoProt itLookup1 itLookup2|????? SameInit].
+    inversion EqC as [
+        p pSpec Equal
+        |ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2
+        |ini im confl1 confl2 NoProt itLookup1 itLookup2
+        |????? SameInit
+        |
+    ].
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
@@ -1324,7 +1493,8 @@ Qed.
         case_match; last reflexivity.
         f_equal. f_equal. rewrite SameTg. apply SameRel.
       + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
     {tr1 tr1' tr2 tr2' it1 it1' it2 it2' tg acc_tg kind range}
@@ -2062,7 +2232,7 @@ Qed.
       1-2: setoid_rewrite <- insert_true_preserves_every; done.
       intros l. specialize (Hequptoc l) as (Heq1&Heq2).
       split; first done.
-      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |witness_tg ? ? Dis1 Dis2]; simplify_eq.
+      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |witness_tg ? ? Dis1 Dis2|]; simplify_eq.
       + by econstructor 1.
       + destruct Hlu1 as (Hlu1A&Hlu1B), Hlu2 as (Hlu2A&Hlu2B).
         pose proof Hcont as Hcont2. setoid_rewrite H1 in Hcont2. econstructor 2. 1: done.
@@ -2118,7 +2288,8 @@ Qed.
           -- eassumption.
         * auto.
         * auto.
-  Qed.
+      + admit.
+  Admitted.
 
   Lemma trees_equal_create_child trs1 trs2 trs1' blk tg_new tg_old pk rk cid nxtc :
     wf_trees trs1 → wf_trees trs2 →
@@ -2170,12 +2341,13 @@ Qed.
     { eapply tree_determined_unify. 2: done. 1: done. apply Hit1'. }
     exists it2. specialize (Heqit off) as (Hprotit&Hlocit).
     split. 1: exists tr2; done.
-    rewrite -Hprotit. inversion Hlocit as [|e m c1 c2 H H1 H2 H3 H4| |]; simplify_eq.
+    rewrite -Hprotit. inversion Hlocit as [|e m c1 c2 H H1 H2 H3 H4| | |]; simplify_eq.
     - done.
     - rewrite -!H3 /= in Hperm. simpl. done.
     - exfalso. done.
     - exfalso. done.
-  Qed.
+    - admit. (* FIXME: I don't understand the statement yet, check that this is true. *)
+  Admitted.
 
 End utils.
 
@@ -2229,7 +2401,7 @@ Section call_set.
     perm_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg l cid lp1 lp2.
   Proof.
     intros Hwf Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2.
-    induction 1 as [| |???? H|??? H1 H2 ? H].
+    induction 1 as [| |???? H|??? H1 H2 ? H|].
     1: by econstructor.
     1: econstructor; try done. 1: eapply protector_is_active_mono; last done; set_solver.
     1-2: eapply pseudo_conflicted_mono; last done; set_solver.
@@ -2254,7 +2426,8 @@ Section call_set.
           intros tg0 Ex. specialize (Hwf_tr2 tg0 Ex).
           apply unique_lookup; assumption.
       + assumption.
-  Qed.
+    - admit.
+  Admitted.
 
   Lemma loc_eq_up_to_C_mono C1 tr1 tr2 tg it1 it2 nxtc nxtp l :
     item_wf it1 nxtp nxtc →

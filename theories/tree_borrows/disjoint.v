@@ -1696,7 +1696,7 @@ Proof.
 Qed.
 
 Lemma join_map_commutes
-  {fn1 fn2 : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag1 access_tag2 range1 range2}
+  {fn1 fn2 : call_id_set -> rel_pos -> Z * nat -> item -> option item} {cids access_tag1 access_tag2 range1 range2}
   (Fn1PreservesTag : forall it it' cids rel range, fn1 cids rel range it = Some it' -> itag it = itag it')
   (Fn2PreservesTag : forall it it' cids rel range, fn2 cids rel range it = Some it' -> itag it = itag it')
   (Commutes : forall rel1 rel2, commutes
@@ -1738,7 +1738,7 @@ Proof.
 Qed.
 
 Lemma tree_apply_access_only_cares_about_rel
-  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
+  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> item -> option item} {cids access_tag range}
   {tr1 tr2}
   (Agree : forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
   (RAgree : forall tg tg', ImmediateParentChildIn tg tg' tr1 <-> ImmediateParentChildIn tg tg' tr2)

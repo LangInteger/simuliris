@@ -5,7 +5,7 @@ From iris.prelude Require Import options.
 (* Any function that operates only on permissions (which is all transitions steps)
    leaves the tag and protector unchanged which means that most of the preservation lemmas
    are trivial once we get to the level of items *)
-Definition preserve_item_metadata (fn:app item) :=
+Definition preserve_item_metadata (fn:item -> option item) :=
   forall it it', fn it = Some it' -> it.(itag) = it'.(itag) /\ it.(iprot) = it'.(iprot) /\ it.(initp) = it'.(initp).
 
 Lemma item_apply_access_preserves_metadata_dep

@@ -148,7 +148,7 @@ Proof.
   - right; right; auto.
 Qed.
 
-Lemma insert_eqv_strict_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
+Lemma insert_eqv_strict_rel t t' (ins:item) (tr:tree item) (search:item -> Prop)
   {search_dec:forall it, Decision (search it)} :
   ~IsTag t ins ->
   ~IsTag t' ins ->
@@ -180,7 +180,7 @@ Proof.
   eapply insert_false_infer_exists; eauto.
 Qed.
 
-Lemma insert_eqv_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
+Lemma insert_eqv_rel t t' (ins:item) (tr:tree item) (search:item -> Prop)
   {search_dec:forall it, Decision (search it)} :
   ~IsTag t ins ->
   ~IsTag t' ins ->
@@ -193,7 +193,7 @@ Proof.
   - erewrite <- insert_eqv_strict_rel in Strict; assumption.
 Qed.
 
-Lemma insert_eqv_imm_rel t t' (ins:item) (tr:tree item) (search:Tprop item)
+Lemma insert_eqv_imm_rel t t' (ins:item) (tr:tree item) (search:item -> Prop)
   {search_dec:forall it, Decision (search it)} :
   ~IsTag t ins ->
   ~IsTag t' ins ->
@@ -780,7 +780,7 @@ Proof.
 Qed.
 
 Lemma tree_apply_access_only_cares_about_rel
-  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
+  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> item -> option item} {cids access_tag range}
   {rel1 rel2 : tag -> tag -> rel_pos}
   (Agree : forall tg tg', rel1 tg tg' = rel2 tg tg')
   : join_nodes (map_nodes (fun it => fn cids (rel1 access_tag it.(itag)) range it) tr)

@@ -212,7 +212,7 @@ Proof.
   tauto.
 Qed.
 
-Lemma every_not_eqv_not_exists {X} (prop:Tprop X) (tr:tree X) :
+Lemma every_not_eqv_not_exists {X} (prop:X -> Prop) (tr:tree X) :
   every_node (compose not prop) tr
   <-> ~exists_node prop tr.
 Proof.
@@ -268,7 +268,7 @@ Proof.
 Qed.
 *)
 
-Lemma insert_true_preserves_every {X} (tr:tree X) (ins:X) (search prop:Tprop X)
+Lemma insert_true_preserves_every {X} (tr:tree X) (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   prop ins ->
   every_node prop tr <-> every_node prop (insert_child_at tr ins search).
@@ -287,7 +287,7 @@ Proof.
   inversion H2 as [HIns [H2' HE]]; auto.
 Qed.
 
-Lemma insert_never_unchanged {X} (tr:tree X) (ins:X) (search prop:Tprop X)
+Lemma insert_never_unchanged {X} (tr:tree X) (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   every_node (compose not search) tr ->
   insert_child_at tr ins search = tr.
@@ -300,7 +300,7 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma insert_preserves_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma insert_preserves_exists {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   exists_node prop tr -> exists_node prop (insert_child_at tr ins search).
 Proof.
@@ -313,7 +313,7 @@ Proof.
   right; right; right; left; auto.
 Qed.
 
-Lemma exists_sibling_insert {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma exists_sibling_insert {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   exists_sibling prop tr ↔ exists_sibling prop (insert_child_at tr ins search).
 Proof.
@@ -322,7 +322,7 @@ Proof.
   all: rewrite IHtr1 //.
 Qed.
 
-Lemma insert_false_infer_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma insert_false_infer_exists {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   ~prop ins ->
   exists_node prop (insert_child_at tr ins search) ->
@@ -340,7 +340,7 @@ Proof.
   - contradiction Ex22.
 Qed.
 
-Lemma insert_true_produces_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma insert_true_produces_exists {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   prop ins ->
   exists_node search tr ->
@@ -371,7 +371,7 @@ Proof.
 Qed.
 *)
 
-Lemma exists_insert_requires_parent {X} (ins:X) (search prop:Tprop X)
+Lemma exists_insert_requires_parent {X} (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   forall tr,
   every_node (compose not prop) tr ->
@@ -387,7 +387,7 @@ Proof.
   contradiction.
 Qed.
 
-Lemma remove_false_preserves_exists {X} (ins:X) (search prop:Tprop X)
+Lemma remove_false_preserves_exists {X} (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   ~prop ins ->
   forall tr,
@@ -505,7 +505,7 @@ Proof.
   try repeat split; eassumption.
 Qed.
 
-Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
+Lemma exists_node_increasing {X} (prop prop':X -> Prop) tr :
   exists_node prop tr ->
   every_node (fun x => prop x -> prop' x) tr ->
   exists_node prop' tr.
@@ -517,7 +517,7 @@ Proof.
   - right; right; apply IHtr2; auto.
 Qed.
 
-Lemma every_node_increasing {X} (prop prop':Tprop X) tr :
+Lemma every_node_increasing {X} (prop prop':X -> Prop) tr :
   every_node prop tr ->
   every_node (fun x => prop x -> prop' x) tr ->
   every_node prop' tr.
@@ -529,7 +529,7 @@ Proof.
   exact Ex.
 Qed.
 
-Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:Tprop X) :
+Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:X -> Prop) :
   forall fn,
   (forall x y, fn x = Some y -> prop x <-> prop y) ->
   join_nodes (map_nodes fn tr) = Some tr' ->
@@ -547,7 +547,7 @@ Proof.
   tauto.
 Qed.
 
-Lemma join_map_preserves_exists_sibling {X} (tr tr':tree X) (prop:Tprop X) :
+Lemma join_map_preserves_exists_sibling {X} (tr tr':tree X) (prop:X -> Prop) :
   forall fn,
   (forall x y, fn x = Some y -> prop x <-> prop y) ->
   join_nodes (map_nodes fn tr) = Some tr' ->
