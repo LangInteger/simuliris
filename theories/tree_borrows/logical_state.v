@@ -657,6 +657,27 @@ Section heap_defs.
     all: rewrite /heaplet_lookup /= H1 /= H2 //.
   Qed.
 
+  Lemma dom_agree_on_tag_upd_ne_delete M_t M_s t t' blk :
+    t ≠ t' →
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag (delete (t, blk) M_t) (delete (t, blk) M_s) t'.
+  Proof.
+    intros Hneq [H1a H1b]. split; intros l (x&(x1&H1&H2)%bind_Some).
+    all: rewrite lookup_delete_ne /= in H1; simpl; try congruence.
+    all: rewrite /heaplet_lookup /= lookup_delete_ne //; try congruence.
+    1: apply H1a. 2: apply H1b.
+    all: rewrite /heaplet_lookup /= H1 /= H2 //.
+  Qed.
+
+  Lemma dom_agree_on_tag_upd_delete M_t M_s t t' blk :
+    dom_agree_on_tag M_t M_s t' →
+    dom_agree_on_tag (delete (t, blk) M_t) (delete (t, blk) M_s) t'.
+  Proof.
+    destruct (decide (t = t')).
+    - subst t. by eapply dom_agree_on_tag_update_same_delete.
+    - by eapply dom_agree_on_tag_upd_ne_delete.
+  Qed.
+
   Lemma dom_agree_on_tag_not_elem M_t M_s t :
     (∀ l, heaplet_lookup M_t (t, l) = None) → (∀ l, heaplet_lookup M_s (t, l) = None) →
     dom_agree_on_tag M_t M_s t.
