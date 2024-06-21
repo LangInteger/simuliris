@@ -256,8 +256,7 @@ Proof.
            { exists (lp2 - l_s.2). lia. }
            specialize (Hdealloc' m). rewrite /= /shift_loc /= Hm in Hdealloc'.
            eapply mk_is_Some, Hdealloc' in Hhp. lia. }
-      exists it. rewrite Hll. split; first eapply Hlu. split; first done.
-      intros _ _. exists c. split; first done. done.
+      exists it. rewrite Hll. split; first eapply Hlu. done.
     + eexists. split; first exact Hak. split; first eapply mk_is_Some, Hhl.
       do 3 eexists. split. 1: done.
       eexists. split; first exact Hc. eexists. split; first done. done.

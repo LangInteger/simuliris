@@ -413,10 +413,11 @@ Section heap_defs.
       that needs to be able to remove stacks from the state without updating all the ghost state that may still make assumptions about it.
   *)
 
+
+
   Definition bor_state_pre_unq (l : loc) (t : tag) (σ : state) :=
       ∃ it, trees_lookup σ.(strs) l.1 t it
-       ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled)
-       ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)).
+       ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled).
 
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
@@ -431,17 +432,8 @@ Section heap_defs.
     bor_state_pre l t tk σ = bor_state_pre_unq l t σ.
   Proof. intros [-> | ->]; done. Qed.
 
-(*
-  Lemma loc_protected_bor_state_pre l t c σ tk :
-    loc_protected_by σ t l c → bor_state_pre l t tk σ.
-  Proof.
-    intros (Hc & Ht & (it & Hlu & Hdis)). destruct tk; last done.
-    - unfold bor_state_pre.
-    intros (_ & _ & (stk & pm & ?)). destruct tk; [| | done]; rewrite /bor_state_pre; eauto.
-  Qed.
-*)
-
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
+      ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)) →
       (match (item_lookup it l.2).(perm) with
            | Active => tkk = tk_act
            | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs) ∧ prot_in_call_set it.(iprot) t l

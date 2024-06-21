@@ -143,8 +143,8 @@ Section lemmas.
     intros blk l nt h' α' σ' Hnt Hwf Hcontrolled Hpre.
     assert (bor_state_pre l' t tk σ) as [Hown Hmem]%Hcontrolled.
     (* FIXME: very ugly *)
-    { destruct tk as [|[]|]; unfold bor_state_pre in Hpre|-*.
-      4: done.
+    { destruct tk as [| |]; unfold bor_state_pre in Hpre|-*.
+      3: done.
       all: destruct Hpre as (it & [Ha Hb]); exists it.
       all: split; auto; destruct (extend_trees_find_item_rev _ _ _ _ _ _ Hwf Ha) as [|[]]; [assumption|].
       all: subst it nt; pose proof (trees_lookup_correct_tag Ha) as SameTg.
