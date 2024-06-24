@@ -110,6 +110,8 @@ Qed.
         rel_dec tr tg witness = Child inclusive ->
         tree_lookup tr witness it_witness ->
         (item_lookup it_witness l).(perm) = Frozen ->
+        (* be initialized so that protectors trigger if applicable *)
+        (item_lookup it_witness l).(initialized) = PermInit ->
         frozen_in_practice tr tg witness l
      .
 
@@ -1124,15 +1126,15 @@ Qed.
     + rewrite /item_lookup /= LocSpec Dis //.
   Qed.
 
-  Lemma disabled_create_child_irreversible
-    {tr tr' tg tg_old tg_new loc it pk rk cid}
+  Lemma create_child_irreversible
+    {tr tr' tg tg_old tg_new loc it pk rk cid pp}
     (Lookup : tree_lookup tr tg it)
-    (Dis : perm (item_lookup it loc) = Disabled)
+    (Dis : perm (item_lookup it loc) = pp)
     (Fresh : tg_new ≠ tg)
     (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
     : exists it',
         tree_lookup tr' tg it'
-        /\ perm (item_lookup it' loc) = Disabled.
+        /\ perm (item_lookup it' loc) = pp.
   Proof.
     unfold create_child in Ins.
     injection Ins; clear Ins; intro Ins.
@@ -1147,17 +1149,44 @@ Qed.
     - assumption.
   Qed.
 
+  Definition becomes_frozen (kind : access_kind) (range : Z * nat) (loc : Z) (b:bool) tr acc_tg it_tg: Prop :=
+    if decide (range'_contains range loc) then kind = AccessRead ∨ (∃ k, b = true ∧ rel_dec tr acc_tg it_tg = Foreign (Parent k)) else True.
+
   Lemma frozen_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range loc b it}
     (Lookup : tree_lookup tr tg it)
-    (Dis : reach Frozen (item_lookup it loc).(perm))
+    (Frz : (item_lookup it loc).(perm) = Frozen)
+    (Ini : (item_lookup it loc).(initialized) = PermInit)
     (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
     : exists it',
         tree_lookup tr' tg it'
-        /\ reach Frozen (item_lookup it' loc).(perm).
+        /\ let k := (item_lookup it' loc) in let bf := becomes_frozen kind range loc b tr acc_tg (itag it) in
+            k.(initialized) = PermInit
+           /\ (k.(perm) = Frozen ∧ bf ∨ (k.(perm) = Disabled ∧ ¬ bf ∧ ¬ protector_is_active it'.(iprot) C)).
   Proof.
-    admit.
-  Admitted.
+    destruct (apply_access_spec_per_node (proj1 Lookup) (proj2 Lookup) Acc) as [it' [Spec' [Ex' Det']]].
+    exists it'.
+    split; first done.
+    symmetry in Spec'.
+    rewrite bind_Some in Spec'. destruct Spec' as [tmp [PermsApp Build]].
+    intros k bf.
+    injection Build; intros; subst; clear Build.
+    pose proof (mem_apply_range'_spec _ _ loc _ _ PermsApp) as LocSpec. subst bf. rewrite /becomes_frozen.
+    destruct (decide _); last first.
+    + subst k. rewrite /item_lookup /= LocSpec Frz Ini //. split; first done. by left.
+    + destruct LocSpec as [val [LookupVal SpecVal]]. subst k.
+      rewrite /item_lookup LookupVal /=.
+      rewrite /maybe_non_children_only /nonchildren_only in SpecVal.
+      repeat case_match.
+      1: { injection SpecVal; intros; subst; split; first done. left. split; first done. eauto. }
+      all: rewrite /apply_access_perm /apply_access_perm_inner /= in SpecVal.
+      all: rewrite Frz /= Ini /= in SpecVal.
+      all: repeat case_match; simpl in *; try congruence.
+      all: injection SpecVal; intros; subst; simpl; split; first done.
+      all: first [ left; split; first done; eauto | right; split; first done; split ].
+      2, 4: by eapply bool_decide_eq_false_1.
+      all: intros [[=]|(k&Hb&Hk)]; congruence. 
+  Qed.
 
   Lemma disabled_in_practice_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range witness loc b}
@@ -1177,12 +1206,25 @@ Qed.
 
   Lemma frozen_in_practice_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range witness loc b}
-    (Dis : frozen_in_practice tr tg witness loc)
+    (Frz : frozen_in_practice tr tg witness loc)
     (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
-    : frozen_in_practice tr' tg witness loc.
+    : let bf := becomes_frozen kind range loc b tr acc_tg witness in
+      (frozen_in_practice tr' tg witness loc ∧ bf) ∨ (disabled_in_practice tr' tg witness loc ∧ ¬ bf).
   Proof.
-    admit.
-  Admitted.
+    inversion Frz as [it_witness incl Rel Lookup Perm Init].
+    assert (itag it_witness = witness) as <- by by eapply tree_lookup_correct_tag.
+    destruct (frozen_tree_apply_access_irreversible Lookup Perm Init Acc) as [it' [Lookup' [Init' [[Perm' BF]|[Perm' [BF NoProt]]]]]].
+    - left. split; last done. econstructor.
+      + erewrite <- access_same_rel_dec; eassumption.
+      + apply Lookup'.
+      + apply Perm'.
+      + apply Init'.
+    - right. split; last done. econstructor.
+      + erewrite <- access_same_rel_dec; eassumption.
+      + apply Lookup'.
+      + apply Perm'.
+      + eapply NoProt.
+  Qed.
 
   Lemma if_same_guard_equal
     {P Q : Prop} {T} {x y x' y' : T} `{Decision P} `{Decision Q}
@@ -1235,7 +1277,7 @@ Qed.
     : disabled_in_practice tr' tg witness loc.
   Proof.
     inversion Dis as [it_witness ? Rel Lookup Perm NoProt].
-    destruct (disabled_create_child_irreversible Lookup Perm Ne' Ins) as [it' [Lookup' Perm']].
+    destruct (create_child_irreversible Lookup Perm Ne' Ins) as [it' [Lookup' Perm']].
     econstructor.
     + erewrite <- create_child_same_rel_dec; first eassumption.
       - eassumption.
@@ -1257,12 +1299,28 @@ Qed.
     {tr tr' tg tg_old tg_new pk rk cid witness loc}
     (Ne : tg_new ≠ tg)
     (Ne' : tg_new ≠ witness)
-    (Dis : frozen_in_practice tr tg witness loc)
+    (Frz : frozen_in_practice tr tg witness loc)
     (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
     : frozen_in_practice tr' tg witness loc.
   Proof.
-    admit.
-  Admitted.
+    inversion Frz as [it_witness ? Rel Lookup Perm Ini].
+    destruct (create_child_irreversible Lookup Perm Ne' Ins) as [it' [Lookup' Perm']].
+    econstructor.
+    + erewrite <- create_child_same_rel_dec; first eassumption.
+      - eassumption.
+      - eassumption.
+      - eassumption.
+    + apply Lookup'.
+    + apply Perm'.
+    + assert (it' = it_witness); last (subst; assumption).
+      eapply tree_determined_unify.
+      - eapply Lookup'.
+      - eapply Lookup'.
+      - eapply create_child_preserves_determined.
+        * symmetry. eassumption.
+        * eapply Lookup.
+        * eassumption.
+  Qed.
 
   Lemma most_init_comm {i i'} :
     most_init i i' = most_init i' i.
@@ -1493,7 +1551,7 @@ Qed.
         case_match; last reflexivity.
         f_equal. f_equal. rewrite SameTg. apply SameRel.
       + erewrite tree_apply_access_preserves_protector; first eassumption; eassumption.
-    - admit.
+    -  admit.
   Admitted.
 
   Lemma item_eq_up_to_C_preserved_by_access (b : bool)
@@ -2346,8 +2404,8 @@ Qed.
     - rewrite -!H3 /= in Hperm. simpl. done.
     - exfalso. done.
     - exfalso. done.
-    - admit. (* FIXME: I don't understand the statement yet, check that this is true. *)
-  Admitted.
+    - split; last done. simpl. done.
+  Qed.
 
 End utils.
 
@@ -2490,6 +2548,6 @@ Section call_set.
     + eapply Hss2. done.
     + eapply Hwf_trs1. done.
     + eapply Hwf_trs2. done.
-  Qed.
+  Qed. 
 
 End call_set.
