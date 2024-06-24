@@ -104,7 +104,7 @@ Proof.
 
   eapply mk_is_Some in Htree_s as Htree_t.
   eapply trees_equal_allows_same_access in Htree_t as (trs_t' & Htree_t);
-    [|done|eapply Hwf_s|eapply Hwf_t|done].
+    [|done|eapply Hwf_s|eapply Hwf_t|rewrite Hscs_eq; by eapply Hwf_t|done].
 
   edestruct (trees_equal_same_tags) as [HL _]; first done.
   eapply HL in Hcontain as Hcontain_t; clear HL.

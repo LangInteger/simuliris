@@ -182,7 +182,8 @@ Proof.
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains bor_s ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
     edestruct tree_equal_allows_same_deallocation as (ttr2'&Httr2').
-    5: eapply mk_is_Some, H1. 3: done.
+    6: eapply mk_is_Some, H1. 4: done.
+    3: rewrite Hscs_eq; by eapply Hwf_t.
     1-3: eapply wf_tree_tree_unique.
     1,3: by eapply Hwf_s. 1: by eapply Hwf_t.
     1: done.
@@ -392,7 +393,7 @@ Proof.
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
   edestruct trees_equal_read_all_protected_initialized as (trst' & Htrst & Htrseq').
-  3: exact Hstrs_eq. 3: exact Htrss. 1: by eapply Hwf_s. 1: by eapply Hwf_t.
+  5: exact Hstrs_eq.  4: rewrite Hscs_eq. 5: exact Htrss. 1: by eapply Hwf_s. 1-3: by eapply Hwf_t.
   iSplit.
   { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -458,7 +459,7 @@ Proof.
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
   edestruct trees_equal_read_all_protected_initialized as (trst' & Htrst & Htrseq').
-  3: exact Hstrs_eq. 3: exact Htrss. 1: by eapply Hwf_s. 1: by eapply Hwf_t.
+  5: exact Hstrs_eq. 5: exact Htrss. 1: by eapply Hwf_s. 3: rewrite Hscs_eq. 1-3: by eapply Hwf_t.
   iSplit.
   { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".

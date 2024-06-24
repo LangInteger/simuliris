@@ -106,7 +106,7 @@ Proof.
     assert (apply_within_trees (memory_access AccessRead (scs σ_s) bor_s (l_s.2, sz)) l_s.1 (strs σ_t) = None) as Hnotrees_t.
     { destruct apply_within_trees eqn:HSome in |-*; try done.
       eapply mk_is_Some, trees_equal_allows_same_access in HSome as (x&Hx); first by erewrite Hnotrees in Hx.
-      1: by eapply trees_equal_sym. 1: by eapply Hwf_t. 1: by eapply Hwf_s. 1: done. }
+      1: by eapply trees_equal_sym. 1: by eapply Hwf_t. 1, 2: by eapply Hwf_s. 1: done. }
     iSplit. 
     { iPureIntro. do 3 eexists. eapply failed_copy_base_step'; try done.
       1: rewrite -Hscs_eq //.
@@ -120,7 +120,7 @@ Proof.
     iApply "Hsim". iApply big_sepL_sepL2_diag. iApply big_sepL_forall. by iIntros (k v (->&_)%lookup_replicate_1).
   }
   edestruct trees_equal_allows_same_access as (trs_t'&Htrst).
-  1: done. 1: eapply Hwf_s. 1: eapply Hwf_t. 1: done. 1: by eapply mk_is_Some.
+  1: done. 1: eapply Hwf_s. 2: rewrite Hscs_eq. 1,2: eapply Hwf_t. 1: done. 1: by eapply mk_is_Some.
   opose proof (trees_equal_preserved_by_access _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
   1: eapply Hwf_s. 1: eapply Hwf_t. 1: done.
   assert (is_Some (read_mem l_s sz (shp σ_t))) as (vr_t&Hreadmem_t).
@@ -235,7 +235,7 @@ Proof.
   iPoseProof (value_rel_length with "Hvrel") as "%Hlen_t'".
 
   assert (∃ xx, apply_within_trees (memory_access AccessWrite (scs σ_t) tg_s (l_s.2, sz_s)) l_s.1 (strs σ_t) = Some xx) as (trs_t' & Htrst).
-  { eapply trees_equal_allows_same_access. 1: by rewrite -Hscs_eq. 1: by apply Hwf_s. 1: by apply Hwf_t. 1: done. rewrite -Hscs_eq -Hlen. by eexists. }
+  { eapply trees_equal_allows_same_access. 1: by rewrite -Hscs_eq. 1: by apply Hwf_s. 1,2: by apply Hwf_t. 1: done. rewrite -Hscs_eq -Hlen. by eexists. }
   eassert (trees_equal _ trs_s' trs_t') as Htrseq.
   { eapply trees_equal_preserved_by_access. 3: done. 1: eapply Hwf_s. 1: eapply Hwf_t. 2: exact Htrss. 2: rewrite Hscs_eq Hlen //. done. }
   iSplitR.
@@ -321,7 +321,7 @@ Proof.
   - (* source state wf *)
     iPureIntro. eapply base_step_wf; done.
   - (* target state wf *)
-    iPureIntro. eapply base_step_wf; done.
+    iPureIntro. eapply base_step_wf; done. 
 Qed.
 
 
