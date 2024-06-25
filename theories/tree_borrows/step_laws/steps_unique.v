@@ -263,7 +263,7 @@ Proof.
     }
     simpl.
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_s' l.2 !! lac.2 = Some sc →
-          loc_controlled M_call lac t (tk_unq tk_act) sc σ_s' ∧ bor_state_pre lac t (tk_unq tk_act) σ_s') as Hlct_s.
+          loc_controlled M_call lac t (tk_unq tk_act) sc σ_s') as Hlct_s.
     { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_s /=.
@@ -276,7 +276,7 @@ Proof.
       destruct (Htag_interp _ _ Htk) as (_ & _ & _ & _ & Hcontrol_s' & _). by eapply Hcontrol_s'. }
     pose (σ_t' := (mkState (write_mem l v_t' (shp σ_t)) trs_t' (scs σ_t) (snp σ_t) (snc σ_t))).
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_t' l.2 !! lac.2 = Some sc →
-          loc_controlled M_call lac t (tk_unq tk_act) sc σ_t' ∧ bor_state_pre lac t (tk_unq tk_act) σ_t') as Hlct_t.
+          loc_controlled M_call lac t (tk_unq tk_act) sc σ_t') as Hlct_t.
     { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_t /=.

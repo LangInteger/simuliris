@@ -422,9 +422,8 @@ Section heap_defs.
   Definition bor_state_pre (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     match tk with
     | tk_local => True
-    | tk_unq _ => bor_state_pre_unq l t σ
-    | tk_pub => ∃ it, trees_lookup σ.(strs) l.1 t it
-                   ∧ (item_lookup it l.2).(perm) ≠ Disabled
+    | _        => ∃ it, trees_lookup σ.(strs) l.1 t it
+                   ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled)
     end.
 
   (* FIXME: merge the two tk_unq ? *)
@@ -432,24 +431,26 @@ Section heap_defs.
     bor_state_pre l t tk σ = bor_state_pre_unq l t σ.
   Proof. intros [-> | ->]; done. Qed.
 
+
+  (* TODO: we still want that the children are disabled and the cousins are not active even when this tag is frozen !protected. So perhaps we need 2 case distinctions here? *)
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
-      ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)) →
-      (match (item_lookup it l.2).(perm) with
-           | Active => tkk = tk_act
-           | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs) ∧ prot_in_call_set it.(iprot) t l
-           | Reserved TyFrz _ => tkk = tk_res
-           | _ => False end) ∧
-          ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
-              (* all immediate children of t must be disabled *)
-            | Child (Strict Immediate) => (item_lookup it' l.2).(perm) = Disabled
-            | Child _ => True
-            | Foreign (Parent _) => match (item_lookup it' l.2).(perm) with
-              (* all parents of t must be active (or at least not be disabled for tk_res) *)
-                Active => True | Disabled => False | _ => tkk = tk_res end
-            | Foreign Cousin => let lp := item_lookup it' l.2 in lp.(initialized) = PermLazy ∨ match lp.(perm) with
-                       (* If active, the others are either uninitialized, or Disabled, or Reserved IM unprotected (i.e. surive foreign writes and don't cause UB) *)
-                       (* Otherwise, the others must not be initialized active (i.e. survive foreign reads) *)
-                       Active => False | Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) σ.(scs) ∨ tkk = tk_res | _ => tkk = tk_res end end.
+      let P := ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)) in
+      ( P →
+        match (item_lookup it l.2).(perm) with
+             | Active => tkk = tk_act
+             | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs) ∧ prot_in_call_set it.(iprot) t l
+             | Reserved TyFrz _ => tkk = tk_res
+             | _ => False end) ∧
+        ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
+            (* all immediate children of t must be disabled *)
+          | Child (Strict Immediate) => (item_lookup it' l.2).(perm) = Disabled
+          | Child _ => True
+            (* Parents must not be disabled. If This is active, then we can also conclude the parents are active by state_wf. *)
+          | Foreign (Parent _) => (item_lookup it' l.2).(perm) ≠ Disabled
+          | Foreign Cousin => let lp := item_lookup it' l.2 in lp.(initialized) = PermLazy ∨ match lp.(perm) with
+                     (* If active, the others are either uninitialized, or Disabled, or Reserved IM unprotected (i.e. surive foreign writes and don't cause UB) *)
+                     (* Otherwise, the others must not be initialized active (i.e. survive foreign reads) *)
+                     Active => False | Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) σ.(scs) ∨ tkk = tk_res ∨ ¬ P | _ => tkk = tk_res ∨ ¬ P end end.
 
   Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
     ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧ (item_lookup it l.2).(initialized) = PermInit ∧

@@ -594,13 +594,13 @@ Proof.
     destruct Hitacc as (tr_acc&Htracc&Hitacc). assert (tr_prv = tr_acc) as -> by congruence.
     eapply Hothers. done. }
   destruct (call_set_interp_access _ _ _ _ _ _ _ Hcall Hcc) as (Hccv&Htv&it_prv&Hitprv&Hprotcc&_&Hnondis).
-  odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv'&tr_prv&Htrprv'&Hitprv'&Hinit&Hrst)&Hvls).
+  odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv'&tr_prv&Htrprv'&Hitprv'&Hinit&Hactive&Hothers)&Hvls).
   { exists it_prv. split; first done. eapply Hnondis. }
   destruct Hitprv as (tr_prv'&Htrprv&Hitprv).
   assert (tr_prv = tr_prv') as <- by congruence.
   assert (it_prv = it_prv') as <- by by eapply tree_lookup_unique. clear Hitprv' Htrprv'.
-  destruct Hrst as (Hactive&Hothers).
-  { intros _ _. exists cc. split; first done. apply Hccv. }
+  ospecialize (Hactive _).
+  { intros _. exists cc. split; first done. apply Hccv. }
   assert (perm (item_lookup it_prv l.2) = Active) as Hactive2.
   { destruct (perm (item_lookup it_prv l.2)) as [[] ?| | |]; try done. by destruct Hactive. }
   rewrite Hactive2 in Hactive. clear Hactive. rename Hactive2 into Hactive.
