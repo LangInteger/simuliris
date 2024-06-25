@@ -2040,9 +2040,9 @@ Qed.
 
      Because we have nice properties of transitivity and reflexivity of [tree_equal]
      already, the proof can be simplified by only considering the case where
-     before the asymetric read the trees are identical. In other words we're going
+     before the asymmetric read the trees are identical. In other words we're going
      to check that a tree is [tree_equal] to itself after a read. *)
-  Lemma tree_equal_asymetric_read
+  Lemma tree_equal_asymmetric_read
     {tr tr' acc_tg range it}
     (GloballyUnique : forall tg, tree_contains tg tr -> tree_unique tg tr)
     :
@@ -2170,7 +2170,7 @@ Qed.
   Qed.
 
   (* A portion of the preconditions come from well-formedness *)
-  Lemma tree_equal_wf_asymetric_read
+  Lemma tree_equal_wf_asymmetric_read
     {tr tr' acc_tg range it}
     (WF : wf_tree tr)
     (MoreInit : parents_more_init tr)
@@ -2194,7 +2194,7 @@ Qed.
     tree_equal tr tr'.
   Proof.
     intros Lookup Protected Relations Access.
-    eapply tree_equal_asymetric_read.
+    eapply tree_equal_asymmetric_read.
     + intros tg Ex. apply WF. assumption.
     + eassumption.
     + eassumption.
