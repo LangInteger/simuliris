@@ -8,6 +8,6 @@ From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From simuliris.tree_borrows Require Import wishlist trees_equal.
-From simuliris.tree_borrows.step_laws Require Export steps_refl steps_read_write_simple steps_retag steps_opt steps_unique steps_local.
+From simuliris.tree_borrows.step_laws Require Export steps_refl steps_read_write_simple steps_retag steps_opt steps_unique steps_local steps_prot.
 From iris.prelude Require Import options.
 

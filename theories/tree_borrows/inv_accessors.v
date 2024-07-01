@@ -409,6 +409,54 @@ Section lemmas.
     rewrite Hsc.
     destruct (Hs (l +ₗ i) sc). 2: done. 1: rewrite /heaplet_lookup /= Ht_lookup /= list_to_heaplet_nth //. done.
   Qed.
+
+  Lemma protected_tags_bor_state_pre P c σ l tg ae tk :
+    tag_protected_for P c σ.(strs) l tg (EnsuringAccess ae) →
+    bor_state_pre l tg tk σ.
+  Proof.
+    intros (it&Hit&Hforcall&Hstrength&HP&Hndis).
+    destruct tk.
+    - by exists it.
+    - by exists it.
+    - done.
+  Qed.
+
+  Lemma bor_interp_readN_target_protected σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd L M c :
+    read_range l_rd.2 sz (list_to_heaplet scs_hl l_hl.2) = Some scs_rd →
+    l_hl.1 = l_rd.1 →
+    (∀ off, range'_contains (l_rd.2, sz) off → ∃ ae, L !! (l_rd.1, off) = Some (EnsuringAccess ae)) →
+    M !! t = Some L →
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+  c @@ M -∗
+    l_hl ↦t∗[tk]{t} scs_hl -∗
+    t $$ tk -∗
+    ⌜∀ i : nat, (i < length scs_rd)%nat → bor_state_own M_call (l_rd +ₗ i) t tk σ_t ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
+  Proof.
+    iIntros (Hrr Hsameblk Hprot1 Hprot2) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hprot3 Hp Htag".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    specialize (Hcall_interp _ _ Hprot_lookup) as (Hprot4&Hcall_interp).
+    specialize (Hcall_interp _ _ Hprot2) as (Hvalid&Hcall_interp).
+    iIntros (i Hi).
+    eapply read_range_length in Hrr as Hsz.
+    eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
+    eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
+    eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
+    assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
+    { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
+    iPureIntro. ospecialize (Ht (l_rd +ₗ i) sc _).
+    1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct Ht as (Ht1&Ht2).
+    { destruct (Hprot1 (l_rd.2 + i)) as (ae&Hae). 1: subst sz; split; simpl; lia.
+      eapply protected_tags_bor_state_pre. eapply Hcall_interp. done. }
+    split; first done.
+    rewrite Ht2. done.
+  Qed.
+
 (*
   Lemma bor_interp_readN_target_protected σ_t σ_s (t : ptr_id) tk l v_t c M :
     (∀ i: nat, (i < length v_t)%nat → call_set_in M t (l +ₗ i)) →

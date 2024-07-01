@@ -1244,6 +1244,32 @@ Proof.
   eapply read_range_lookup_nth in H4. 2: exact H1. congruence.
 Qed.
 
+
+Lemma read_range_list_to_heaplet_read_memory_strict l_hl l_rd sz v_t v_rd hp : 
+  read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd →
+  l_hl.1 = l_rd.1 →
+  (∀ i : nat, (i < length v_rd)%nat → hp !! (l_rd +ₗ i) = v_rd !! i) →
+  read_mem l_rd sz hp = Some v_rd.
+Proof.
+  destruct l_hl as [blk off_hl], l_rd as [? off_rd]. simpl.
+  intros Hrange <- Hhp.
+  eapply read_range_length in Hrange as Hlen.
+  eapply read_mem_values'. 1: done.
+  intros i Hi.
+  eapply mk_is_Some in Hrange as Hrangebounds. rewrite -read_range_valid_iff in Hrangebounds.
+  setoid_rewrite <- list_to_heaplet_dom in Hrangebounds.
+  assert (∃ (os:nat), off_hl + os = off_rd) as [os Hos].
+  { ospecialize (Hrangebounds off_rd  _). 1: lia.
+    exists (Z.to_nat (off_rd - off_hl)). lia. }
+  subst off_rd. rewrite /shift_loc /= in Hhp|-*.
+  rewrite Hhp; last first.
+  { ospecialize (Hrangebounds (off_hl + (os + i)%nat) _). 1: lia. lia. }
+  symmetry. destruct (v_rd !! i) as [x|] eqn:Hx.
+  2: { eapply lookup_ge_None in Hx. lia. }
+  eapply read_range_lookup_nth in Hx. 2: done.
+  rewrite -Z.add_assoc -Nat2Z.inj_add list_to_heaplet_nth in Hx. done.
+Qed.
+
 Lemma read_range_list_to_heaplet_read_memory l_hl l_rd sz v_t v_rd hp : 
   read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd →
   l_hl.1 = l_rd.1 →

@@ -231,23 +231,6 @@ Proof.
   apply newSpec.
 Qed.
 
-Lemma tree_lookup_IsTag tr tg it : tree_lookup tr tg it → IsTag tg it.
-Proof.
-  intros (H1 & H2).
-  eapply exists_node_eqv_existential in H1 as (it2 & Hit2 & Histag).
-  eapply every_node_eqv_universal in H2; last done.
-  by rewrite -H2.
-Qed.
-
-Lemma tree_lookup_unique tr tg it1 it2 : tree_lookup tr tg it1 → tree_lookup tr tg it2 → it1 = it2.
-Proof.
-  intros Hlu (H1 & H2).
-  eapply every_node_eqv_universal in H2; first apply H2.
-  1: by eapply tree_lookup_IsTag.
-  eapply exists_determined_exists; first done.
-  apply Hlu.
-Qed.
-
 Lemma apply_trees_access_lookup_general_rev offi cids trs kind blk off1 sz acc_tg lu_tg trs' itnew b :
   apply_within_trees (memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz)) blk trs = Some trs' →
   wf_trees trs →

@@ -1938,6 +1938,76 @@ Proof.
         exfalso. eapply count_0_not_exists. 2: exact Hcbr. done.
 Qed.
 
+Lemma find_highest_parent_with_property (P : item → Prop) (d : ∀ x, Decision (P x)) tr :
+  (∀ k, tree_contains k tr → tree_unique k tr) →
+  exists_node P tr →
+  ∃ tg, exists_node (λ it, P it ∧ itag it = tg) tr ∧
+      ∀ tg', exists_node (λ it, P it ∧ itag it = tg') tr →
+             StrictParentChildIn tg' tg tr → False.
+Proof.
+  induction tr as [|it tr1 IH1 tr2 IH2].
+  1: by intros _ [].
+  intros Hunq H.
+  pose proof (tree_all_unique_structural_l _ _ _ Hunq) as Hunql.
+  pose proof (tree_all_unique_structural_r _ _ _ Hunq) as Hunqr.
+  destruct (decide (P it)) as [HP|HnP].
+  2: destruct H as [Hf|[Htr1|Htr2]]; first done.
+  - exists (itag it). split.
+    1: by left.
+    ospecialize (Hunq (itag it) _). 1: by left.
+    intros tg' [(HP1&HP2)|[Hcld|Hcld]] (HSPCI&HSPCI1&HSPCI2).
+    + specialize (HSPCI HP2).
+      ospecialize (Hunqr (itag it) _).
+      1: by eapply HSPCI.
+      rewrite /tree_unique /= Hunqr bool_decide_true // in Hunq. lia.
+    + ospecialize (Hunql (itag it) _).
+      { eapply contains_child. 1: right; exact HSPCI1.
+        eapply exists_node_eqv_existential. eapply exists_node_eqv_existential in Hcld as (ii&Hii&Hcld).
+        exists ii; split; first done. eapply Hcld. }
+      rewrite /tree_unique /= Hunql bool_decide_true // in Hunq.
+    + ospecialize (Hunqr (itag it) _).
+      { eapply contains_child. 1: right; exact HSPCI2.
+        eapply exists_node_eqv_existential. eapply exists_node_eqv_existential in Hcld as (ii&Hii&Hcld).
+        exists ii; split; first done. eapply Hcld. }
+      rewrite /tree_unique /= Hunqr bool_decide_true // in Hunq. lia.
+  - destruct IH1 as (tg&Htg&Hnopar).
+    1-2: done.
+    exists tg. split; first (right; by left).
+    intros tg' [(HP1&HP2)|[Hcld|Hcld]] (HSPCI&HSPCI1&HSPCI2).
+    + done.
+    + simpl in *. eapply Hnopar; last done. exact Hcld.
+    + assert (tree_contains tg tr1) as Htgtr1.
+      { eapply exists_node_eqv_existential. eapply exists_node_eqv_existential in Htg as (ii&Hii&Htg).
+        exists ii; split; first done. eapply Htg. }
+      ospecialize (Hunq tg _).
+      { right. left. done. }
+      ospecialize (Hunql tg Htgtr1).
+      ospecialize (Hunqr tg _).
+      { eapply contains_child. 1: right; exact HSPCI2.
+        eapply exists_node_eqv_existential. eapply exists_node_eqv_existential in Hcld as (ii&Hii&Hcld).
+        exists ii; split; first done. eapply Hcld. }
+      unfold tree_unique in *.
+      rewrite /= Hunql Hunqr in Hunq. lia.
+  - destruct IH2 as (tg&Htg&Hnopar).
+    1-2: done.
+    exists tg. split; first (right; by right).
+    intros tg' [(HP1&HP2)|[Hcld|Hcld]] (HSPCI&HSPCI1&HSPCI2).
+    + done.
+    + assert (tree_contains tg tr2) as Htgtr2.
+      { eapply exists_node_eqv_existential. eapply exists_node_eqv_existential in Htg as (ii&Hii&Htg).
+        exists ii; split; first done. eapply Htg. }
+      ospecialize (Hunq tg _).
+      { right. right. done. }
+      ospecialize (Hunqr tg Htgtr2).
+      ospecialize (Hunql tg _).
+      { eapply contains_child. 1: right; exact HSPCI1.
+        eapply exists_node_eqv_existential. eapply exists_node_eqv_existential in Hcld as (ii&Hii&Hcld).
+        exists ii; split; first done. eapply Hcld. }
+      unfold tree_unique in *.
+      rewrite /= Hunql Hunqr in Hunq. lia.
+    + simpl in *. eapply Hnopar; last done. exact Hcld.
+Qed.
+
 
 Definition prot_join (ps1 ps2 : prot_strong) : prot_strong := match ps1 with
   ProtStrong => ProtStrong

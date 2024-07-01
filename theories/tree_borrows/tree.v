@@ -38,6 +38,7 @@ Inductive tree X :=
    |- y4
 
    branch x
+    empty
     (branch y1
       (branch y2
         (branch y3
@@ -45,7 +46,6 @@ Inductive tree X :=
           empty
         empty
       empty
-    empty
  *)
 
 Arguments empty {X}.
@@ -143,5 +143,4 @@ Definition exists_immediate_child {X} (prop:X -> Prop)
 Global Instance exists_immediate_child_dec {X} prop (tr:tbranch X) :
   (forall u, Decision (prop u)) -> Decision (exists_immediate_child prop tr).
 Proof. intro. solve_decision. Defined.
-
 

@@ -162,9 +162,10 @@ theories/tree_borrows/inv_accessors.v # needs stuff
 theories/tree_borrows/step_laws/steps_refl.v
 theories/tree_borrows/step_laws/steps_read_write_simple.v
 theories/tree_borrows/step_laws/steps_retag.v
-theories/tree_borrows/step_laws/steps_opt.v # in progress
+theories/tree_borrows/step_laws/steps_opt.v 
 theories/tree_borrows/step_laws/steps_local.v
 theories/tree_borrows/step_laws/steps_unique.v
+theories/tree_borrows/step_laws/steps_prot.v
 theories/tree_borrows/steps_all.v
 theories/tree_borrows/primitive_laws.v # needs steps_opt, for now commented out
 theories/tree_borrows/proofmode.v

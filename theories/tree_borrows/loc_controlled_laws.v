@@ -1444,6 +1444,131 @@ Proof.
   - intros ? t' (Ht'&_). cbv in Ht'. tauto.
 Qed.
 
+Lemma bor_state_own_enables_read b range Mcall σ blk tk tg :
+  state_wf σ →
+  (∀ l, range'_contains range l → bor_state_own Mcall (blk, l) tg tk σ) →
+  range.2 ≠ 0%nat →
+  trees_contain tg σ.(strs) blk ∧
+  ∃ trs', apply_within_trees (memory_access_maybe_nonchildren_only b AccessRead σ.(scs) tg range) blk σ.(strs) = Some trs'.
+Proof.
+  intros Hwf Hhl Hnn.
+  assert (∃ tr, σ.(strs) !! blk = Some tr ∧ tree_contains tg tr) as (tr&Htr&Hcont).
+  { ospecialize (Hhl range.1 _).
+    1: rewrite /range'_contains; lia.
+    destruct Hhl as (it&tr&Hit&Htr&_). eexists. split; first done. eapply Hit. }
+  split.
+  1: rewrite /trees_contain /trees_at_block Htr //.
+  rewrite /apply_within_trees Htr /=. eapply is_Some_ignore_bind.
+  rewrite /memory_access_maybe_nonchildren_only. eapply apply_access_success_condition.
+  eapply every_node_eqv_universal.
+  intros it Hitin%exists_node_to_tree_lookup.
+  2: eapply Hwf, Htr.
+  rewrite /item_apply_access /permissions_apply_range'. eapply is_Some_ignore_bind.
+  eapply mem_apply_range'_success_condition. intros off Hinrange.
+  specialize (Hhl off Hinrange) as Hown.
+  destruct Hown as (it_tg&tr'&Hittg&Htr'&Hinit&Htk). simpl in *.
+  assert (tr = tr') as <- by congruence.
+  edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq; clear Heq.
+  2: done.
+  rewrite rel_dec_flip2.
+  assert (tg = itag it → rel_dec tr (itag it) tg = Child This) as Hlocalfalse.
+  { intros ->. by rewrite rel_dec_refl. }
+  rewrite /apply_access_perm /apply_access_perm_inner.
+  change (default _ _) with (item_lookup it off).
+  destruct (rel_dec tr (itag it) tg) as [[]|[]] eqn:Hreldec.
+  - simpl. rewrite /apply_access_perm /apply_access_perm_inner.
+    assert (perm (item_lookup it off) ≠ Disabled) as Hndis.
+    { destruct tk; destruct Htk as (Hsame&Hothers). 3: destruct Hothers as (_&Hothers).
+      all: specialize (Hothers it _ Hitin). 3: exfalso; by ospecialize (Hlocalfalse _).
+      all: rewrite Hreldec // in Hothers. }
+    destruct (item_lookup it off) as [ii [| | |]]; try done.
+    all: rewrite /= most_init_comm /= if_both_sides_same /= //.
+  - simpl. rewrite /apply_access_perm /apply_access_perm_inner.
+    assert (perm (item_lookup it off) ≠ Active) as Hnact.
+    { destruct tk; destruct Htk as (Hsame&Hothers). 3: destruct Hothers as (_&Hothers).
+      all: specialize (Hothers it _ Hitin). 3: exfalso; by ospecialize (Hlocalfalse _).
+      all: rewrite Hreldec //= in Hothers.
+      intros Hactive. rewrite Hactive in Hothers.
+      destruct Hothers as [Hlazy|[]].
+      opose proof (state_wf_tree_compat _ Hwf _ _ Htr) as Hnlazy.
+      eapply every_node_eqv_universal in Hnlazy.
+      2: { eapply tree_lookup_to_exists_node. exact Hitin. }
+      rewrite /item_lookup /= in Hactive,Hlazy.
+      destruct (iperm it !! off) as [pp|] eqn:Heq; simpl in *.
+      - opose proof (item_perms_valid _ _ _ Hnlazy) as Hforall.
+        eapply map_Forall_lookup_1 in Hforall. 2: exact Heq. eapply Hforall in Hactive. congruence.
+      - by eapply item_default_perm_valid in Hactive. }
+    destruct (item_lookup it off) as [ii [im []| | |]] eqn:Heq; simpl.
+    1,2,4: destruct ii, bool_decide; simpl in *; done.
+    1: done.
+    destruct ii, bool_decide eqn:Hprot. all: simpl; try done.
+    opose proof (state_wf_tree_not_disabled _ Hwf _ _ Htr (itag it)) as Hndis.
+    eapply every_child_ParentChildIn with (tg' := itag it) in Hndis.
+    2: by eapply Hwf. 2,4: eapply Hwf; first done; eapply Hitin. 2: eapply Hitin. 2: by left.
+    eapply every_node_eqv_universal in Hndis.
+    2: { eapply tree_lookup_to_exists_node. exact Hitin. }
+    eapply bool_decide_eq_true_1 in Hprot.
+    ospecialize (Hndis _ off _ _ _).
+    1: done. 1,3: by rewrite Heq. 1: done. done.
+  - simpl. rewrite /apply_access_perm /apply_access_perm_inner.
+    assert (perm (item_lookup it off) ≠ Active) as Hnact.
+    { destruct tk; destruct Htk as (Hsame&Hothers). 3: destruct Hothers as (_&Hothers).
+      all: specialize (Hothers it _ Hitin) as Ho2. 3: exfalso; by ospecialize (Hlocalfalse _).
+      all: rewrite Hreldec //= in Ho2.
+      clear Ho2. rewrite /rel_dec in Hreldec.
+      destruct (decide (ParentChildIn _ _ tr)) as [HPC|]; last done.
+      destruct (decide (ParentChildIn _ _ tr)) as [|HnPC]; first done. clear Hreldec.
+      destruct HPC as [?|HSPC]. 1: exfalso; eapply HnPC; by left.
+      eapply immediate_sandwich in HSPC as HIPC.
+      2: by eapply Hwf. 2: eapply Hwf; first done; eapply Hittg.
+      destruct HIPC as (tsw&HIPC&HPC).
+      assert (tree_contains tsw tr) as Htswin1.
+      { eapply contains_child. 1: right; by eapply Immediate_is_StrictParentChild. eapply Hittg. }
+      assert (tree_unique tsw tr) as Htswin2 by by eapply Hwf.
+      eapply unique_implies_lookup in Htswin2 as (itsw&Hitsw).
+      specialize (Hothers _ _ Hitsw).
+      rewrite /rel_dec decide_True in Hothers.
+      2: right; by eapply Immediate_is_StrictParentChild.
+      rewrite decide_False in Hothers.
+      2: { intros Hc. eapply immediate_parent_not_child. 3: done. 3: done. all: eapply Hwf; first done. 2: done. 1: eapply Hittg. }
+      rewrite decide_True // in Hothers.
+      intros Hactive.
+      opose proof (state_wf_tree_more_active _ Hwf _ _ Htr tsw) as Hndis.
+      eapply every_child_ParentChildIn with (tg' := itag it) in Hndis.
+      2: by eapply Hwf. 2,4: eapply Hwf; first done. 2: done. 2: eapply Hitin. 2: eapply Hitsw. 2: done.
+      eapply every_node_eqv_universal in Hndis.
+      2: { eapply tree_lookup_to_exists_node. exact Hitin. }
+      ospecialize (Hndis _ off _). 1,2: done. by rewrite /= Hndis in Hothers. }
+    destruct (item_lookup it off) as [ii [im []| | |]] eqn:Heq; simpl.
+    1,2,4: destruct ii, bool_decide; simpl in *; done.
+    1: done.
+    destruct ii, bool_decide eqn:Hprot. all: simpl; try done.
+    opose proof (state_wf_tree_not_disabled _ Hwf _ _ Htr (itag it)) as Hndis.
+    eapply every_child_ParentChildIn with (tg' := itag it) in Hndis.
+    2: by eapply Hwf. 2,4: eapply Hwf; first done; eapply Hitin. 2: eapply Hitin. 2: by left.
+    eapply every_node_eqv_universal in Hndis.
+    2: { eapply tree_lookup_to_exists_node. exact Hitin. }
+    eapply bool_decide_eq_true_1 in Hprot.
+    ospecialize (Hndis _ off _ _ _).
+    1: done. 1,3: by rewrite Heq. 1: done. done.
+  - rewrite /rel_dec in Hreldec.
+    do 2 (edestruct (decide (ParentChildIn _ _ _)); try done).
+    assert (tg = itag it) as ->.
+    { eapply mutual_parent_child_implies_equal. 3,4: done. 2: eapply Hittg. 1: eapply Hitin. }
+    assert (it = it_tg) as <-.
+    { eapply tree_lookup_unique; done. }
+    rewrite /apply_access_perm /apply_access_perm_inner /=.
+    assert (perm (item_lookup it off) ≠ Disabled) as Hndis.
+    { destruct tk; destruct Htk as (Hsame&_).
+      1, 3: by rewrite Hsame.
+      intros Hdis. rewrite !Hdis in Hsame.
+      eapply Hsame. by intros [=]. }
+    destruct (item_lookup it off) as [ii [| | |]]; try done.
+    all: rewrite /= most_init_comm /= if_both_sides_same /= //.
+Qed.
+
+
+
 
 
 
