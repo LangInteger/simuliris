@@ -32,7 +32,7 @@ Lemma target_copy_protected v_t v_rd sz l_hl l_rd t Ψ c tk M L :
   c @@ M -∗
   t $$ tk -∗
   l_hl ↦t∗[tk]{t} v_t -∗
-  (l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ target_red #v_rd Ψ)%E -∗
+  (l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ c @@ M -∗ target_red #v_rd Ψ)%E -∗
   target_red (Copy (Place l_rd t sz)) Ψ.
 Proof.
   iIntros (Hnz Hread Hsameblk Hprot1 Hprot2) "Hprot3 Htag Ht Hsim". eapply read_range_length in Hread as HH. subst sz.
@@ -40,26 +40,66 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
-  iPoseProof (bor_interp_readN_target_protected with "Hbor Hprot3 Ht Htag") as "%Hown".
-  1: exact Hread. 1: done. 1: done. 1: done.
+  iPoseProof (bor_interp_readN_target_protected with "Hbor Hprot3 Ht Htag") as "(%it&%tr&%Hit&%Htr&%Hprot&%Hown)".
+  1: exact Hread. 1: done. 1: done. 1: done. 1: done.
   opose proof* (read_range_list_to_heaplet_read_memory_strict) as READ_MEM. 1: exact Hread. 1: done.
   { intros i Hi. by eapply Hown. }
   destruct l_hl as [blk off_hl], l_rd as [blk2 off_rd]; simpl in *; subst blk2.
   odestruct (bor_state_own_enables_read false (off_rd, length v_rd)) as (Hcontain&trs'&Htrs').
   1: exact Hwf_t.
-  { intros l (Hl1&Hl2); simpl in *. assert (∃ (i:nat), l = off_rd + i) as (ii&Hii).
+  { intros l (Hl1&Hl2); simpl in *. exists it, tr. do 2 (split; first done). assert (∃ (i:nat), l = off_rd + i) as (ii&Hii).
     1: exists (Z.to_nat (l - off_rd)); lia. subst l. eapply Hown. lia. } 1: simpl; lia.
   iSplit.
   { iPureIntro. do 3 eexists. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact Htrs'. done. }
-  iIntros (??? Hstep).
-  eapply head_copy_inv in Hstep as (->&[((HNone&_&_&_)&_)|(trs''&v'&->&->&Hreadv'&[(_&Htrs''&Hnon)|(Hzero&->&->)])]).
+  iIntros (??? Hstep). pose proof Hstep as Hstep2.
+  eapply head_copy_inv in Hstep2 as (->&[((HNone&_&_&_)&_)|(trs''&v'&->&->&Hreadv'&[(_&Htrs''&Hnon)|(Hzero&->&->)])]).
   1: rewrite /= Htrs' // in HNone. 2: done.
   assert (trs'' = trs') as ->.
   { rewrite /memory_access Htrs' in Htrs''. congruence. }
   assert (v_rd = v') as -> by congruence.
   assert (trees_equal (scs σ_s) (strs σ_s) trs') as Hstrs_eq'.
-  {
-Admitted.
+  { eapply trees_equal_trans. 3: eassumption. 1: rewrite Hscs_eq. 1-2: by eapply Hwf_t.
+    eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_t. simpl.
+    intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
+    eapply tree_equal_asymmetric_read_protected.
+    5: rewrite Hscs_eq; eapply HH3. 2: done. 1: by eapply Hwf_t. 1: by rewrite Hscs_eq.
+    eapply asymmetric_read_prot_pre_from_bor_state_own. 3: done. 2: done. 1: done. intros off (Ho1&Ho2); simpl in *.
+    assert (∃ (i:nat), off = off_rd + i) as (i&->) by (exists (Z.to_nat (off - off_rd)); lia).
+    eapply Hown. 1: lia. }
+
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
+  iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Ht".
+  iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot3".
+
+  iModIntro. iSplit; first done.
+  iSplitR "Ht Htag Hprot3 Hsim".
+  2: iApply ("Hsim" with "Ht Htag Hprot3").
+  iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s.
+  iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
+  iSplitL "Hpub_cid". 2: iSplit; last iSplit; last (iPureIntro; split_and!).
+  - iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
+  - repeat (iSplit; first done).
+    simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
+  - (* call invariant *)
+    iPureIntro. intros c' M' HM'_some.
+    specialize (Hcall_interp _ M' HM'_some) as (Hin & Hprot').
+    split; first by apply Hin. intros pid L' HL_some. specialize (Hprot' _ _ HL_some) as [Hpid Hprot'].
+    split; first by apply Hpid. intros l b Hin_l.
+    specialize (Hprot' l b Hin_l).
+    eapply (tag_protected_preserved_by_access). 2: apply Htrs'. 1: apply Hwf_t. all: done.
+  - (* tag invariant *)
+    destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | done..].
+    intros t' tk' Htk_some. destruct (Htag_interp _ _ Htk_some) as (Hsnp_lt_t & Hsnp_lt_s & Hlocal & Hctrl_t & Hctrl_s & Hag).
+    split_and!; [ done | done | | | | done ].
+    + done.
+    + intros l sc_t Hsc_t. eapply loc_controlled_read_preserved_everywhere.
+      1: eapply Htrs'. 1: done. 1: by rewrite -Hscs_eq. 1-2: done.
+      by eapply Hctrl_t.
+    + eapply Hctrl_s.
+  - done.
+  - eapply base_step_wf; done.
+Qed.
 
 (*
 

@@ -2026,6 +2026,22 @@ Qed.
       by eapply lookup_implies_contains. }
   Qed.
 
+    (* A bunch of extra conditions on the structure.
+       They are put in the same clause to simplify this theorem, but we will want
+       a higher-level lemma that derives these assumptions from their actual justification. *)
+  Definition tree_equal_asymmetric_read_pre_protected tr range it acc_tg (mode:bool) := 
+    (∀ off, range'_contains range off → 
+            let pp_acc := item_lookup it off in
+            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
+            ∀ tg' it', tree_lookup tr tg' it' → 
+            let pp := item_lookup it' off in
+            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
+            match rd with
+              Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
+            | Foreign Cousin => pp.(perm) ≠ Active | _ => True end ∧
+            if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
+             (pp_acc.(perm) = Frozen ∧ (∀ i, rd = Child (Strict i) → pp.(perm) ≠ Active))).
+
   (* Remember that the entire reason we have [trees_equal] in the first place
      is to enable spurious reads. This is the lemma that verifies that after we
      do a spurious read we get a [tree_equal]. A companion lemma (stating
@@ -2049,20 +2065,7 @@ Qed.
     (* Accessed tag must be in the tree and protected*)
     tree_lookup tr acc_tg it ->
     protector_is_active it.(iprot) C ->
-    (* A bunch of extra conditions on the structure.
-       They are put in the same clause to simplify this theorem, but we will want
-       a higher-level lemma that derives these assumptions from their actual justification. *)
-    (∀ off, range'_contains range off → 
-            let pp_acc := item_lookup it off in
-            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
-            ∀ tg' it', tree_lookup tr tg' it' → 
-            let pp := item_lookup it' off in
-            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
-            match rd with
-              Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
-            | Foreign Cousin => pp.(perm) ≠ Active | _ => True end ∧
-            if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
-             (pp_acc.(perm) = Frozen ∧ (∀ i, rd = Child (Strict i) → pp.(perm) ≠ Active))) ->
+    tree_equal_asymmetric_read_pre_protected tr range it acc_tg mode ->
     (* Under the above conditions if we do a spurious read and it succeeds
        we get a [tree_equal] on the outcome. *)
     memory_access AccessRead C acc_tg range tr = Some tr' ->
@@ -2198,6 +2201,18 @@ Qed.
       destruct pp; try done. all: repeat (simpl in *; simplify_eq); by econstructor 1.
   Qed.
 
+  Lemma apply_within_trees_lift trs fn blk trs' :
+    wf_trees trs →
+    apply_within_trees fn blk trs = Some trs' →
+    (∀ tr tr', trs !! blk = Some tr → trs' !! blk = Some tr' → fn tr = Some tr' → tree_equal tr tr') →
+    trees_equal trs trs'.
+  Proof.
+    intros Hwf (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some Heq.
+    intros bb. destruct (decide (bb = blk)) as [<-|Hne].
+    - rewrite lookup_insert Htr. econstructor. eapply Heq. 1,3: done. by rewrite lookup_insert.
+    - rewrite lookup_insert_ne //. destruct (trs !! bb) eqn:HHeq. all: rewrite !HHeq. all: econstructor.
+      eapply tree_equal_reflexive. eapply wf_tree_tree_item_determined, Hwf, HHeq.
+  Qed.
 
   Lemma trees_equal_read_all_protected_initialized trs1 trs1' trs2 cid
     (Hwf1 : wf_trees trs1)
@@ -2697,7 +2712,6 @@ Qed.
         + rewrite -HeqX1 // in Hperm.
         + rewrite -HeqX1 // in Hperm.
         + inversion Hdip1 as [itw1' incl1 Hrel1 Hlu1 Hperm1].
-          inversion Hdip2 as [itw2' incl2 Hrel2 Hlu2 Hperm2].
           rewrite /rel_dec in Hrel1. destruct decide as [HPC1|?] in Hrel1; last done.
           eapply HR in Hperm1. 1: done. 1: done.
           eapply ParentChild_transitive. 2: eassumption. done.
@@ -2747,6 +2761,7 @@ Qed.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
       1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
     + by econstructor 3.
+    (* case 4: perm1 and perm2 are disabled in practice *)
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
       1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
@@ -2757,6 +2772,7 @@ Qed.
       1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. congruence.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
       1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+    (* case 5: perm1 and perm2 are frozen in practice. *)
     + eapply trees_equal_transfer_frozen_in_practice_many in HF2 as (tr&[(Hfip&Hfip2)|(Hdi9p&Hdip2)]); last eassumption.
       * econstructor 5. all: eapply Hfip2. 2: done. 1: by eapply tree_equal_sym.
       * econstructor 4; last done. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.

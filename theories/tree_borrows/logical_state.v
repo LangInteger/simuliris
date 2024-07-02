@@ -452,8 +452,8 @@ Section heap_defs.
                      (* Otherwise, the others must not be initialized active (i.e. survive foreign reads) *)
                      Active => False | Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) σ.(scs) ∨ tkk = tk_res ∨ ¬ P | _ => tkk = tk_res ∨ ¬ P end end.
 
-  Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
-    ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧ (item_lookup it l.2).(initialized) = PermInit ∧
+  Definition bor_state_own_on (l : loc) (t : tag) (tk : tag_kind) (σ : state) it tr :=
+    (item_lookup it l.2).(initialized) = PermInit ∧
     match tk with
     | tk_local => (item_lookup it l.2).(perm) = Active ∧
             it.(iprot) = None ∧ (* it is not protected *)
@@ -470,6 +470,9 @@ Section heap_defs.
             | Foreign (Parent _) => (item_lookup it' l.2).(perm) ≠ Disabled
             | Foreign Cousin => (item_lookup it' l.2).(perm) ≠ Active end
     end.
+
+  Definition bor_state_own (l : loc) (t : tag) (tk : tag_kind) (σ : state) :=
+    ∃ it tr, tree_lookup tr t it ∧ σ.(strs) !! l.1 = Some tr ∧ bor_state_own_on l t tk σ it tr.
 
   Lemma bor_state_own_some_tree l t tk σ :
     bor_state_own l t tk σ → ∃ tr, σ.(strs) !! l.1 = Some tr.

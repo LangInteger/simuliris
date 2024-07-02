@@ -408,6 +408,7 @@ Proof.
   destruct Hitcld' as (tr'&Htr'&Hitcld').
   destruct (pointer_kind_to_tag_maybe_protected_spec _ _ _ Htk) as [(->&->)|(im&H&->&Him)].
   - eexists itcld', tr'. split; first done. split; first by congruence.
+    rewrite /bor_state_own_on.
     rewrite -Haccesscld; simpl. do 2 (split; first done).
     intros ito' to Hito'.
     eapply apply_trees_access_lookup_general_rev in Happly as Happlyself.
@@ -427,7 +428,7 @@ Proof.
     all: destruct (initialized (item_lookup ito l.2)); simpl in Hp2; try discriminate Hp2; injection Hp2 as <-.
     all: try done. all: rewrite -HH; simpl; done.
   - eexists itcld', tr'. split; first done. split; first by congruence.
-    rewrite /bor_state_post_unq -Haccesscld; simpl. split; first done. split.
+    rewrite /bor_state_own_on /bor_state_post_unq -Haccesscld; simpl. split; first done. split.
     { destruct im.
       2: destruct H as [-> | ->]; done.
       assert (protector_is_active (iprot itcld') (scs σ') ∧ prot_in_call_set Mcall (iprot itcld') tg_cld l).
@@ -1158,8 +1159,7 @@ Proof.
   - destruct Hpre as (itp&Hitp&HH).
     exists itp. by rewrite Htrs.
   - split; last done.
-    exists it, tr. rewrite -Htrs. split_and!; try done.
-    split.
+    exists it, tr. rewrite -Htrs. rewrite /bor_state_own_on. split_and!; try done. split.
     + clear Hothers. intros HH. ospecialize (Hsame _).
       { setoid_rewrite <- HHscs in HH. 2: by eexists. done. } 
       case_match; try done.
@@ -1205,9 +1205,9 @@ Proof.
   - destruct Hpre as (itp&Hitp&HH).
     exists itp. by rewrite Htrs.
   - split; last done.
-    exists it, tr. rewrite -Htrs. split_and!; try done.
+    exists it, tr. rewrite -Htrs. rewrite /bor_state_own_on. split_and!; try done.
     split.
-    + clear Hothers.
+    + clear Hothers. 
       intros H3. ospecialize (Hsame _).
       1: rewrite Hscs //.
       case_match; try done.
@@ -1359,7 +1359,7 @@ Proof.
   revert σ'.
   eapply (set_fold_ind_L (λ r M, ∀ σ', r = Some (strs σ') → _ → _ → _ → _ → _ → _ → loc_controlled Mcall l tg_lu tk sc σ' ∧ _)).
   { intros σ' [= H1] H2 H3 H4 H5 Hwf.
-    rewrite /loc_controlled /bor_state_pre /bor_state_own /bor_state_pre_unq /bor_state_post_unq.
+    rewrite /loc_controlled /bor_state_pre /bor_state_own /bor_state_own_on /bor_state_pre_unq /bor_state_post_unq.
     rewrite !H1 !H2 !H3. intros H. split; first exact H.
     clear H. destruct σ, σ'; simpl in *; subst; done. }
   intros blk S [trs2|] Hblk IH σ'; last done. simpl.
@@ -1433,7 +1433,7 @@ Proof.
   { rewrite -Heq_shp /=. eapply init_mem_lookup_fresh_poison. lia. }
   split; last done.
   epose proof (init_perms_lookup Active 0 sz off) as H.
-  eexists _, _. split_and!.
+  eexists _, _. rewrite /bor_state_own_on. split_and!.
   2: rewrite -Hnewtrees /= /extend_trees lookup_insert //.
   - by eapply tree_lookup_init_tree.
   - rewrite /item_lookup /=. destruct (init_perms _ _ _ !! off). 2: lia.
@@ -1567,7 +1567,58 @@ Proof.
     all: rewrite /= most_init_comm /= if_both_sides_same /= //.
 Qed.
 
-
+Lemma asymmetric_read_prot_pre_from_bor_state_own Mcall σ blk tr acc_tg range it tk :
+  state_wf σ →
+  σ.(strs) !! blk = Some tr →
+  tree_lookup tr acc_tg it →
+  (∀ off, range'_contains range off → bor_state_own_on Mcall (blk, off) acc_tg tk σ it tr) →
+  tree_equal_asymmetric_read_pre_protected tr range it acc_tg (match tk with tk_pub => false | _ => true end).
+Proof.
+  intros Hwf Htr Hit Hhl.
+  intros off Hoff. specialize (Hhl off Hoff) as (Hini&Hhl).
+  simpl. rewrite Hini. split; first done.
+  assert (∀ tg' it' pp, tree_lookup tr tg' it' → rel_dec tr tg' acc_tg = Foreign (Parent pp) → initialized (item_lookup it' off) = PermInit) as Hinit.
+  { intros tg' it' pp H1 H2. opose proof (state_wf_tree_more_init _ Hwf _ _ Htr tg') as Hpmi.
+    rewrite /rel_dec in H2. destruct decide as [HP1|HnP1]; first done. destruct decide as [HP2|HnP2]; last done.
+    eapply every_child_ParentChildIn in Hpmi.
+    2,3: eapply Hwf; try done. 2,3: eapply H1. 2: eapply Hwf; try done; eapply Hit. 2: done.
+    eapply tree_lookup_correct_tag in Hit as Htg; subst acc_tg.
+    eapply every_node_eqv_universal in Hpmi.
+    2: eapply tree_lookup_to_exists_node, Hit. eapply Hpmi. 1: done. done. }
+  destruct tk as [|uk|].
+  - destruct Hhl as (Hfrz&Hothers).
+    rewrite Hfrz. split; first done.
+    intros tg' it' Hit'. specialize (Hothers _ _ Hit'). specialize (Hinit tg' it').
+    destruct (rel_dec tr tg' acc_tg) as [[]|[]]; (split; [|split; [done|intros ? [=]]]).
+    + split; last done. by eapply Hinit.
+    + done.
+    + done.
+    + done.
+    + done.
+  - destruct Hhl as (Hnd&Hothers).
+    split. { intros Hdis. rewrite /= Hdis in Hnd. by eapply Hnd. }
+    intros tg' it' Hit'. specialize (Hothers _ _ Hit'). specialize (Hinit tg' it').
+    destruct (rel_dec tr tg' acc_tg) as [[]|[[]|]]; (split; [|intros [=]]).
+    + split; last done. by eapply Hinit.
+    + intros Hactive. rewrite /= Hactive in Hothers.
+      destruct Hothers as [Hothers|[]].
+      opose proof (state_wf_tree_compat _ Hwf _ _ Htr) as Hda.
+      eapply tree_lookup_correct_tag in Hit' as Htg'; subst tg'.
+      eapply every_node_eqv_universal in Hda.
+      2: eapply tree_lookup_to_exists_node, Hit'.
+      rewrite /item_lookup in Hactive,Hothers. destruct (iperm it' !! off) as [lp|] eqn:Heq; simpl in *.
+      * opose proof (item_perms_valid _ _ _ Hda) as Hpwf. eapply map_Forall_lookup_1 in Hpwf. 2: exact Heq.
+        rewrite Hpwf // in Hothers.
+      * eapply item_default_perm_valid. 1: exact Hda. done.
+    + done.
+    + done.
+    + done.
+    + done.
+  - destruct Hhl as (Hact&Hnoprot&Hothers).
+    rewrite Hact. split; first done.
+    intros tg' it' Hit'. specialize (Hothers _ _ Hit'). subst tg'.
+    rewrite rel_dec_refl. done.
+Qed.
 
 
 

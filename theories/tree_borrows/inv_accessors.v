@@ -426,13 +426,15 @@ Section lemmas.
     l_hl.1 = l_rd.1 →
     (∀ off, range'_contains (l_rd.2, sz) off → ∃ ae, L !! (l_rd.1, off) = Some (EnsuringAccess ae)) →
     M !! t = Some L →
+    length scs_rd ≠ 0%nat →
     bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
   c @@ M -∗
     l_hl ↦t∗[tk]{t} scs_hl -∗
     t $$ tk -∗
-    ⌜∀ i : nat, (i < length scs_rd)%nat → bor_state_own M_call (l_rd +ₗ i) t tk σ_t ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
+    ∃ it tr, ⌜σ_t.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧ protector_is_active (iprot it) σ_t.(scs) ∧
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on M_call (l_rd +ₗ i) t tk σ_t it tr ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
   Proof.
-    iIntros (Hrr Hsameblk Hprot1 Hprot2) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hrr Hsameblk Hprot1 Hprot2 Hnn) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hprot3 Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
@@ -441,19 +443,31 @@ Section lemmas.
     destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
     specialize (Hcall_interp _ _ Hprot_lookup) as (Hprot4&Hcall_interp).
     specialize (Hcall_interp _ _ Hprot2) as (Hvalid&Hcall_interp).
-    iIntros (i Hi).
     eapply read_range_length in Hrr as Hsz.
+    assert (sz ≠ 0%nat) as Hnnsz by lia.
+    opose proof (Hprot1 l_rd.2 _) as (ae1&Hae1). 1: split; simpl in *; lia.
+    opose proof (Hcall_interp _ _ Hae1) as (it1&(tr1&Htr1&Hit11)&Hforcall&_).
+    iExists it1, tr1. iPureIntro. do 2 (split; first done).
+    split. 1: by eexists.
+    intros i Hi.
     eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
     eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
     eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
     assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
     { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
-    iPureIntro. ospecialize (Ht (l_rd +ₗ i) sc _).
+    ospecialize (Ht (l_rd +ₗ i) sc _).
     1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct (Hprot1 (l_rd.2 + i)) as (ae&Hae). 1: subst sz; split; simpl; lia.
+    specialize (Hcall_interp _ _ Hae).
     destruct Ht as (Ht1&Ht2).
-    { destruct (Hprot1 (l_rd.2 + i)) as (ae&Hae). 1: subst sz; split; simpl; lia.
-      eapply protected_tags_bor_state_pre. eapply Hcall_interp. done. }
-    split; first done.
+    1: by eapply protected_tags_bor_state_pre.
+    destruct Hcall_interp as (it&(tr&Htr&Hit)&Hpc&_). simpl in Htr,Htr1.
+    assert (tr = tr1) as <- by congruence.
+    assert (it = it1) as <- by by eapply tree_lookup_unique.
+    destruct Ht1 as (it'&tr'&Hit'&Htr'&HH).
+    simpl in *.
+    assert (tr = tr') as <- by congruence.
+    assert (it = it') as <- by by eapply tree_lookup_unique.
     rewrite Ht2. done.
   Qed.
 
