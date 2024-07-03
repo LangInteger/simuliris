@@ -223,7 +223,7 @@ Lemma source_write_local v_s v_wr sz l_hl l_rd v_s' t π Ψ :
 Proof.
   iIntros (Hwrite Hsameblk) "Htag Hs Hsim". eapply write_range_same_length in Hwrite as Hlength.
   iApply source_red_lift_base_step. iIntros (P_t σ_t P_s σ_s T_s K_s) "((HP_t & HP_s & Hbor)&%HT_s&%Hpool_safe)".
-  eapply @pool_safe_implies in Hpool_safe. 2: eapply safe_implies_write_length. 2: done.
+  eapply @pool_safe_implies in Hpool_safe. 2: eapply safe_implies_write_weak. 2: done.
   subst sz.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
@@ -406,6 +406,8 @@ Proof.
            intros <-. by rewrite HNone in HtagSome.
   - (* call interp *) 
     iPureIntro.
+    destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first.
+    1: done.
     intros c M Hc. simpl. specialize (Hcall_interp c M Hc) as (Hc1 & Hc2).
     split; first done. intros t L Ht.
     specialize (Hc2 t L Ht) as (Hc3 & Hc4).
@@ -501,6 +503,7 @@ Qed.
 
 
 (** ** Free *)
+(* TODO: make it become public? *)
 Lemma sim_free_local l t sz v_t v_s Φ π :
   length v_t = sz →
   length v_s = sz →
@@ -590,7 +593,10 @@ Proof.
       subst lp. eapply mk_is_Some, Hdealloc' in Hsome. assert (∃ (n:nat), m = n) as [n ->].
       { exists (Z.to_nat m). lia. } ospecialize (Hi n _). 1: lia. done.
   - (* re-establish the call set interpretation *)
-    iPureIntro. pose proof Hcall_interp as Hcall_interp_old.
+    iPureIntro. 
+    destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first.
+    1: done.
+    pose proof Hcall_interp as Hcall_interp_old.
     iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
     intros t' L HL. specialize (HM' _ _ HL) as (Hvalid & HM'). split; first done.
     intros l' b Hl. specialize (HM' _ _ Hl).

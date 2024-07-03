@@ -182,16 +182,16 @@ theories/tree_borrows/parallel_subst.v
 theories/tree_borrows/log_rel_structural.v
 theories/tree_borrows/refl.v
 theories/tree_borrows/behavior.v 
-#theories/tree_borrows/adequacy.v # needs stuff, I guess?
+theories/tree_borrows/adequacy.v
 
 # Examples
 # These were copied directly from SB.
 # Some of them we still want, but other are known to be no longer
 # provable or even valid.
-#theories/tree_borrows/examples/lib.v
-#theories/tree_borrows/examples/pure.v
+theories/tree_borrows/examples/lib.v
+theories/tree_borrows/examples/pure.v
 #theories/tree_borrows/examples/opt1.v
-#theories/tree_borrows/examples/opt1_down.v
+theories/tree_borrows/examples/opt1_down.v
 #theories/tree_borrows/examples/opt2.v
 #theories/tree_borrows/examples/opt2_down.v
 #theories/tree_borrows/examples/opt3.v

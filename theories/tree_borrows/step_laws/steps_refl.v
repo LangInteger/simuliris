@@ -95,6 +95,8 @@ Proof.
            intros <-. by rewrite HNone in HtagSome.
   - (* call interp *) 
     iPureIntro.
+    destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first.
+    1: done.
     intros c M Hc. simpl. specialize (Hcall_interp c M Hc) as (Hc1 & Hc2).
     split; first done. intros t L Ht.
     specialize (Hc2 t L Ht) as (Hc3 & Hc4).
@@ -237,8 +239,11 @@ Proof.
       rewrite Hfrees Hsc_s. done.
     + iRight. done.
   - (* re-establish the call set interpretation *)
-    iPureIntro. pose proof Hcall_interp as Hcall_interp_old.
-    iIntros (c M' Hc). simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
+    iPureIntro.
+    destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first.
+    1: done.
+    pose proof Hcall_interp as Hcall_interp_old.
+    intros c M' Hc. simpl. specialize (Hcall_interp _ _ Hc) as (Hcs & HM'). split; first done.
     intros t L HL. specialize (HM' _ _ HL) as (Hvalid & HM'). split; first done.
     intros l b Hl. specialize (HM' l b Hl).
     eapply tag_protected_preserved_by_delete. 5: apply HM'.
@@ -318,7 +323,11 @@ Proof.
       specialize (state_wf_cid_agree _ Hwf_t _ Hwf_tag). lia.
   }
   iSplitL.
-  { iPureIntro. intros c M'. simpl. rewrite lookup_insert_Some. intros [(<- & <-) | [Hneq Hsome]].
+  { iPureIntro.
+    destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first.
+    { intros ????? [(?&?)|(?&?)]%lookup_insert_Some [(?&?)|(?&?)]%lookup_insert_Some; simplify_eq.
+      4: by eapply Hcc2. all: rewrite dom_empty_L. all: intros ??; exfalso; unshelve eapply elem_of_empty. 25-27: done. all: done. }
+    intros c M'. simpl. rewrite lookup_insert_Some. intros [(<- & <-) | [Hneq Hsome]].
     - split; first set_solver. intros ? ?. rewrite lookup_empty. congruence.
     - rewrite elem_of_union. apply Hcall_interp in Hsome as [Hin Ha]. split; [by eauto | done].
   }

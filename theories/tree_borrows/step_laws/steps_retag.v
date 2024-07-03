@@ -174,7 +174,8 @@ Proof.
       exists tk'. split. 1: rewrite lookup_insert_ne //. 1: intros <-; congruence.
       split. 1: rewrite /heaplet_lookup /= -?insert_union_singleton_l in Hhl|-*; rewrite lookup_insert_ne //; congruence.
       apply Htag.
-  - iPureIntro. subst σ_t'. intros cc M' HM'. specialize (Hcall_interp cc M' HM') as (Hc1&Hc2). simpl.
+  - iPureIntro. subst σ_t'. destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first. 1: done.
+    intros cc M' HM'. specialize (Hcall_interp cc M' HM') as (Hc1&Hc2). simpl.
     split; first done. intros tt L HL. specialize (Hc2 tt L HL) as (Hc3&Hc4).
     split. 1: eapply tag_valid_mono; first done; lia.
     intros l ps Hps. specialize (Hc4 l ps Hps).
@@ -305,8 +306,8 @@ Lemma sim_retag_fnentry sz l_t l_s ot c pk tk M π Φ :
   c @@ M -∗
   (∀ nt v_t v_s,
     ⌜l_t = l_s⌝ -∗
-    c @@ <[nt := seq_loc_map l_t sz (EnsuringAccess (pointer_kind_to_access_ensuring pk)) ]> M -∗
     ⌜length v_t = sz⌝ -∗ ⌜length v_s = sz⌝ -∗
+    c @@ <[nt := seq_loc_map l_t sz (EnsuringAccess (pointer_kind_to_access_ensuring pk)) ]> M -∗
     value_rel v_t v_s -∗  (* as the pointers were public before *)
     nt $$ tk -∗
     l_t ↦t∗[tk]{nt} v_t -∗
@@ -352,18 +353,17 @@ Proof.
     rewrite /tag_valid in Hv. lia. }
   iMod (tkmap_insert tk σ_s.(snp) tt with "Htag_auth") as "(Htag_auth&Htk)". 1: done.
   iDestruct (ghost_map_lookup with "Hc Hprot") as "%HM_call".
+  destruct Hcall_interp as (Hcall_interp&Hcc2).
   assert (M !!  σ_s.(snp) = None) as HMfresh.
   { destruct (M !! σ_s.(snp)) eqn:HeqM; last done.
     destruct (Hcall_interp _ _ HM_call) as (_&H1).
     destruct (H1 _ _ HeqM) as (H2&_).
     rewrite Hsnp_eq /tag_valid /= in H2. lia. }
   iMod (ghost_map_update with "Hc Hprot") as "(Hc&Hprot)".
-  unshelve iSpecialize ("Hsim" $! σ_s.(snp) v_t v_s _ with "Hprot"). 1: done.
   iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
   eapply read_mem_values in Hv_s as (Hlen_v_s&Hhpv_v_s).
   eapply read_mem_values in Hv_t as (Hlen_v_t&Hhpv_v_t). rewrite /shift_loc /= in Hhpv_v_t, Hhpv_v_s.
-  unshelve iSpecialize ("Hsim" $! _ _).
-  1-2: done.
+  unshelve iSpecialize ("Hsim" $! σ_s.(snp) v_t v_s _ _ _ with "Hprot"). 1: done. 1-2: congruence.
 
   opose proof* create_then_access_implies_earlier_access_trees as Hvirtual_t.
   5: exact Happly2_t. 4: exact Happly1_t. 2-3: setoid_rewrite <- trees_equal_same_tags; first done; done. 1: apply Hwf_t.
@@ -426,7 +426,20 @@ Proof.
       assert (MM = M) as -> by congruence.
       destruct Hin as (L&HML&HL). exists L. split_and!; try done.
       rewrite lookup_insert_ne //. intros <-. congruence.
-  - iPureIntro. subst σ_t'. intros cc M' [(<-&<-)|(Hne&HM')]%lookup_insert_Some.
+  - iPureIntro. subst σ_t'. split; last first.
+    { intros ????? [(?&?)|(H1&H2)]%lookup_insert_Some [(?&?)|(H1'&H2')]%lookup_insert_Some; simplify_eq.
+      1-3: rewrite !dom_insert_L.
+      * done.
+      * intros [->%elem_of_singleton|?]%elem_of_union HH.
+        2: by eapply Hcc2. eapply elem_of_dom in HH as (Lx&HLx).
+        specialize (Hcall_interp _ _ H2') as (_&Hx). specialize (Hx _ _ HLx) as (Hx&_).
+        rewrite /tag_valid in Hx. lia.
+      * intros HH [->%elem_of_singleton|?]%elem_of_union.
+        2: by eapply Hcc2. eapply elem_of_dom in HH as (Lx&HLx).
+        specialize (Hcall_interp _ _ H2) as (_&Hx). specialize (Hx _ _ HLx) as (Hx&_).
+        rewrite /tag_valid in Hx. lia.
+      * by eapply Hcc2. }
+    intros cc M' [(<-&<-)|(Hne&HM')]%lookup_insert_Some.
     1: specialize (Hcall_interp _ _ HM_call) as (Hc1&Hc2).
     2: specialize (Hcall_interp _ _ HM') as (Hc1&Hc2).
     all: split; first done.
@@ -726,7 +739,8 @@ Proof.
       exists tk'. split. 1: rewrite lookup_insert_ne //. 1: intros <-; congruence.
       split; first done.
       apply Htag.
-  - iPureIntro. subst σ_t'. intros cc M' HM'. specialize (Hcall_interp cc M' HM') as (Hc1&Hc2). simpl.
+  - iPureIntro. subst σ_t'. destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first. 1: done.
+    intros cc M' HM'. specialize (Hcall_interp cc M' HM') as (Hc1&Hc2). simpl.
     split; first done. intros tt L HL. specialize (Hc2 tt L HL) as (Hc3&Hc4).
     split. 1: eapply tag_valid_mono; first done; lia.
     intros l ps Hps. specialize (Hc4 l ps Hps).

@@ -441,6 +441,7 @@ Section lemmas.
     iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot_lookup".
     pose proof Htag_interp as (Htag_interp2 & _).
     destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    destruct Hcall_interp as (Hcall_interp&_).
     specialize (Hcall_interp _ _ Hprot_lookup) as (Hprot4&Hcall_interp).
     specialize (Hcall_interp _ _ Hprot2) as (Hvalid&Hcall_interp).
     eapply read_range_length in Hrr as Hsz.
@@ -548,6 +549,7 @@ Section lemmas.
     iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot_lookup".
     pose proof Htag_interp as (Htag_interp2 & _).
     destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    destruct Hcall_interp as (Hcall_interp&_).
     specialize (Hcall_interp _ _ Hprot_lookup) as (Hprot4&Hcall_interp).
     specialize (Hcall_interp _ _ Hprot2) as (Hvalid&Hcall_interp).
     eapply read_range_length in Hrr as Hsz.

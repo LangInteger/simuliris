@@ -13,7 +13,7 @@ Lemma loc_controlled_access_outside l tk sc cids σ σ' kind blk off1 sz acc_tg 
   apply_within_trees (memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz)) blk σ.(strs) = Some σ'.(strs) →
   shp σ !! l = shp σ' !! l →
   scs σ = scs σ' →
-  state_wf σ →
+  state_wf σ → 
   ¬ (l.1 = blk ∧ off1 ≤ l.2 < off1 + sz) →
   loc_controlled Mcall l lu_tg tk sc σ →
   loc_controlled Mcall l lu_tg tk sc σ'.
@@ -962,6 +962,7 @@ Proof.
     enough (tg_lu = tg_acc) as -> by congruence.
     eapply Hunq. done.
   - destruct Hcc as (Mcc&HMcc&Lcc&HLcc&Hlincc).
+    destruct Hcs as (Hcs&_).
     specialize (Hcs _ _ HMcc) as (Hccact&Hcs).
     specialize (Hcs _ _ HLcc) as (Htgluvalid&Hcs).
     specialize (Hcs l _ Hlincc) as (itlu&(tr'&Htr'&Hitlu)&Hprot1&HprotSM&Hprot2&Hcs).
@@ -1038,6 +1039,7 @@ Proof.
   specialize (Hlc tg_lu tk sc Htk Hsc).
   destruct Hpriv as (cc&ae&ak&->&Hcc).
   destruct Hcc as (Mcc&HMcc&Lcc&HLcc&Hlincc).
+  destruct Hcs as (Hcs&_).
   specialize (Hcs _ _ HMcc) as (Hccact&Hcs).
   specialize (Hcs _ _ HLcc) as (Htgluvalid&Hcs). 
   specialize (Hcs l _ Hlincc) as (itlu&(tr'&Htr'&Hitlu)&Hprot1&HprotSM&Hprot2&Hcs).
@@ -1618,6 +1620,40 @@ Proof.
     rewrite Hact. split; first done.
     intros tg' it' Hit'. specialize (Hothers _ _ Hit'). subst tg'.
     rewrite rel_dec_refl. done.
+Qed.
+
+Definition filter_unq_weak lp := match lp with 
+    Deallocable => Deallocable
+  | EnsuringAccess Strongly => EnsuringAccess Strongly
+  | EnsuringAccess WeaklyNoChildren => Deallocable end.
+
+Lemma loc_controlled_filter_unq_weak Mcall c t M L l tg_lu tk sc σ:
+  Mcall !! c = Some M → M !! t = Some L →
+  loc_controlled Mcall l tg_lu tk sc σ →
+  loc_controlled (<[ c := <[ t := filter_unq_weak <$> L ]> M ]> Mcall) l tg_lu tk sc σ.
+Proof.
+  intros HM HL H1 Hpre. destruct (H1 Hpre) as (Hown&Hhp). split; last done.
+  destruct Hown as (it&tr&Hit&Htr&Hinit&Hown).
+  exists it, tr. do 3 (split; first done).
+  destruct tk; simpl. 1,3: done. destruct Hown as (Hself&Hothers).
+  split. 2: done.
+  intros Hfrz. specialize (Hself Hfrz).
+  do 2 (case_match; try done).
+  destruct Hself as (Hs1&Hs2&Hs3). split_and!. 1-2: done.
+  destruct Hs3 as (lp&pp&Hpp&(M'&HM'&L'&HL'&Hlp)&Hstrong).
+  destruct (decide (call pp = c)) as [<-|Hnecc].
+  2: { exists lp, pp. split; first done. split; last done.
+       exists M'. rewrite lookup_insert_ne. 2: done. repeat first [split; first done | eexists | done]. }
+  assert (M = M') as -> by congruence.
+  destruct (decide (tg_lu = t)) as [<-|Hnet].
+  2: { exists lp, pp. split_and!; try done.
+       eexists. rewrite lookup_insert. split; first done. exists L'. rewrite lookup_insert_ne; done. }
+  assert (L = L') as -> by congruence.
+  exists (filter_unq_weak lp), pp. split; first done. split.
+  - eexists. rewrite lookup_insert. split; first done.
+    eexists. rewrite lookup_insert. split; first done.
+    rewrite lookup_fmap Hlp /=. done.
+  - intros Hstr. specialize (Hstrong Hstr). subst lp. simpl. done.
 Qed.
 
 

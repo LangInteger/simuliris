@@ -304,7 +304,10 @@ Lemma call_set_interp_remove c M σ σ' P :
   call_set_interp P M σ →
   call_set_interp P (delete c M) σ'.
 Proof.
-  intros Heq1 Heq2 Heq3 Heq4 Heq5 Hwf Hinterp c' M' Hsome. destruct (decide (c' = c)) as [-> | Hneq].
+  intros Heq1 Heq2 Heq3 Heq4 Heq5 Hwf (Hinterp&Hinj).
+  split; last first.
+  { intros c1 M1 c2 M2 t (?&?)%lookup_delete_Some (?&?)%lookup_delete_Some. by eapply Hinj. }
+  intros c' M' Hsome. destruct (decide (c' = c)) as [-> | Hneq].
   { rewrite lookup_delete in Hsome. done. }
   rewrite lookup_delete_ne in Hsome; last done.
   apply Hinterp in Hsome as (Hin & Hpid).
@@ -338,7 +341,7 @@ Lemma call_set_interp_mono M σ P1 P2 :
   call_set_interp P1 M σ →
   call_set_interp P2 M σ.
 Proof.
-  intros Hweak H1 c S HS.
+  intros Hweak (H1&Hinj). split; last done. intros c S HS.
   specialize (H1 c S HS) as (Hc&H1). split; first done.
   intros t L HL. specialize (H1 t L HL) as (Ht&H2). split; first done.
   intros l ps Hl. eapply tag_protected_for_mono; last by eapply H2.

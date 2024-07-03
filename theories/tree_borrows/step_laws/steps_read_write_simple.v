@@ -155,7 +155,7 @@ Proof.
     - repeat (iSplit; first done).
       simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
     - (* call invariant *)
-      iPureIntro. intros c M' HM'_some.
+      iPureIntro. destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first. 1: done. intros c M' HM'_some.
       specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
       split; first by apply Hin. intros pid L HL_some. specialize (Hprot pid L HL_some) as [Hpid Hprot].
       split; first by apply Hpid. intros l b Hin_l.
@@ -283,7 +283,7 @@ Proof.
       iDestruct ("Hsrel" $! l with "[//]") as "[Hpubl | Hprivl]"; last by iRight.
       iLeft. rewrite /pub_loc Hwrite Heq'; first done. intros. apply Hi. lia.
   - (* call invariant *)
-    iPureIntro. intros c M' HM'_some. simpl.
+    iPureIntro. destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first. 1: done. intros c M' HM'_some. simpl.
     specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
     split; first done. intros t L [Ht HL]%Hprot. split; first done.
     intros l b Hprotl%HL.

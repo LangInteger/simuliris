@@ -342,12 +342,13 @@ Section call_defs.
 
   (* This does not assert ownership of the authoritative part. Instead, this is owned by bor_interp below. *)
   Definition call_set_interp (M : gmap call_id (gmap tag (gmap loc logical_protector))) (σ : state) : Prop :=
-    ∀ c (M' : gmap tag (gmap loc logical_protector)), M !! c = Some M' →
+    (∀ c (M' : gmap tag (gmap loc logical_protector)), M !! c = Some M' →
       c ∈ σ.(scs) ∧
       (* for every tag *)
       ∀ t (L : gmap loc logical_protector), M' !! t = Some L →
         tag_valid σ.(snp) t ∧
-        ∀ (l : loc) ps, L !! l = Some ps → tag_protected_for c σ.(strs) l t ps.
+        ∀ (l : loc) ps, L !! l = Some ps → tag_protected_for c σ.(strs) l t ps) ∧
+    (∀ c1 M1 c2 M2 t, M !! c1 = Some M1 → M !! c2 = Some M2 → t ∈ dom M1 → t ∈ dom M2 → c1 = c2).
 
   Definition loc_protected_by σ t l c ps :=
     c ∈ σ.(scs) ∧ tag_valid σ.(snp) t ∧ tag_protected_for c σ.(strs) l t ps.
@@ -357,7 +358,7 @@ Section call_defs.
     call_set_in' M c t l ps →
     loc_protected_by σ t l c ps.
   Proof.
-    intros Hinterp (M' & HM_some & L & HM'_some & Hin).
+    intros (Hinterp&_) (M' & HM_some & L & HM'_some & Hin).
     specialize (Hinterp _ _ HM_some) as (? & Hinterp).
     specialize (Hinterp _ _ HM'_some) as (? & Hinterp).
     specialize (Hinterp _ _ Hin). done.
@@ -1334,6 +1335,12 @@ Proof.
   rewrite /= insert_length -IH //.
 Qed.
 
+Lemma write_range_to_list_length {T} base (vals into : list T) :
+  length (write_range_to_list base vals into) = length into.
+Proof.
+  symmetry. by eapply write_range_to_list_same_length.
+Qed.
+
 Lemma write_range_same_length {T} hl_base start (vals into out : list T) :
   write_range hl_base start vals into = Some out →
   length into = length out.
@@ -1375,6 +1382,61 @@ Proof.
   + rewrite lookup_insert_ne. 2: injection; lia.
     rewrite (Hi' idx). 2: lia. subst v_t'. by rewrite list_lookup_insert_ne.
 Qed.
+
+Lemma write_range_to_list_lookup_inv {T} b (vnew vold : list T) (i:nat) r :
+  write_range_to_list b vnew vold !! i = r →
+ ((  b ≤ i ∧ i < b + length vnew ∧ i < length vold  → r = vnew !! (i - b)) ∧
+  (¬(b ≤ i ∧ i < b + length vnew ∧ i < length vold) → r = vold !! i))%nat.
+Proof.
+  induction vnew as [|v vs IH] in b,vold,i,r|-*; simpl.
+  1: intros H; split_and!; try done; lia.
+  destruct (decide (i = b ∧ i < length vold)) as [(->&Hlt)|Hne].
+  - rewrite list_lookup_insert. 2: rewrite write_range_to_list_length; lia.
+    intros <-. split; last lia.
+    intros _. rewrite Nat.sub_diag /= //.
+  - assert (<[ b := v ]> (write_range_to_list (S b) vs vold) !! i = write_range_to_list (S b) vs vold !! i) as ->.
+    { destruct (decide (i = b)) as [->|Hne2]. 2: by rewrite list_lookup_insert_ne.
+      rewrite !lookup_ge_None_2. 1: done. 2: rewrite insert_length. all: rewrite write_range_to_list_length. all: lia. }
+    intros (H1&H2)%IH. split.
+    + intros (Hi1&Hi2&Hi3). assert (i-b = S (i - S b))%nat as -> by lia. simpl. eapply H1. lia.
+    + intros Hn. eapply H2. lia.
+Qed.
+
+Lemma write_range_to_list_lookup {T} b (vnew vold : list T) (i:nat) r :
+ ((  b ≤ i ∧ i < b + length vnew ∧ i < length vold  → r = vnew !! (i - b)) ∧
+  (¬(b ≤ i ∧ i < b + length vnew ∧ i < length vold) → r = vold !! i))%nat →
+  write_range_to_list b vnew vold !! i = r.
+Proof.
+  induction vnew as [|v vs IH] in b,vold,i,r|-*; simpl; intros (H1&H2); symmetry.
+  1: eapply H2; lia.
+  destruct (decide (i = b ∧ i < length vold)) as [(->&Hlt)|Hne].
+  - rewrite list_lookup_insert. 2: rewrite write_range_to_list_length; lia.
+    rewrite Nat.sub_diag /= in H1. eapply H1. lia.
+  - assert (<[ b := v ]> (write_range_to_list (S b) vs vold) !! i = write_range_to_list (S b) vs vold !! i) as ->.
+    { destruct (decide (i = b)) as [->|Hne2]. 2: by rewrite list_lookup_insert_ne.
+      rewrite !lookup_ge_None_2. 1: done. 2: rewrite insert_length. all: rewrite write_range_to_list_length. all: lia. }
+    symmetry. eapply IH. split.
+    + intros (Hi1&Hi2&Hi3). assert (i-b = S (i - S b))%nat as HH by lia. rewrite HH in H1. simpl in H1. eapply H1. lia.
+    + intros Hn. eapply H2. lia.
+Qed.
+
+Fixpoint read_list_range {T} (base:nat) (size:nat) (lst : list T) : option (list T) := match size with
+         O => Some nil
+  | S size => v0 ← lst !! base ; vs ← read_list_range (S base) size lst ; Some (v0 :: vs) end.
+
+Lemma read_range_heaplet_to_list {T} (base1 base2 : Z) size (lst : list T) :
+  base1 ≤ base2 →
+  read_range base2 size (list_to_heaplet lst base1) = read_list_range (Z.to_nat (base2 - base1)) size lst.
+Proof.
+  induction size as [|sz IH] in base1,base2|-*; first done.
+  intros Hbase. simpl. assert (∃ (idx:nat), base2 = base1 + idx)%Z as (idx&->).
+  1: exists (Z.to_nat (base2 - base1)); lia.
+  rewrite list_to_heaplet_nth. eassert (Z.to_nat (_ + _ - _) = idx) as ->. 1: lia.
+  destruct (lst !! idx) as [?|]; last done. simpl.
+  rewrite IH. 2: lia. f_equal. f_equal. lia.
+Qed.
+  
+
 
 (*
 
@@ -1856,7 +1918,7 @@ Proof.
     { do 5 (iSplit; first (done || (iPureIntro; apply trees_equal_empty))). iIntros (l Hl). exfalso.
       move : Hl. rewrite lookup_empty. intros [? [=]]. }
     iSplitL.
-    { iPureIntro. intros c M'. rewrite lookup_empty. congruence. }
+    { iPureIntro. split; setoid_rewrite lookup_empty; intros *; done. }
     iSplitL.
     { iPureIntro. split_and!.
       - intros t tk. rewrite lookup_empty. congruence.
