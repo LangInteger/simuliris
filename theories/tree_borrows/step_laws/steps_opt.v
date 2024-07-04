@@ -32,7 +32,7 @@ Lemma sim_make_unique_public l t ac (sc_s sc_t : list scalar) π Φ e_t e_s c M 
   l ↦s∗[tk_unq ac]{t} sc_s -∗
   t $$ tk_unq ac -∗
   c @@ M -∗
-  value_rel sc_t sc_s -∗
+  (⌜ac = tk_act⌝ -∗ value_rel sc_t sc_s) -∗
   (t $$ tk_pub -∗ c @@ <[t := fmap filter_unq_weak L]> M -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
   e_t ⪯{π} e_s [{ Φ }] .
 Proof.
@@ -51,8 +51,19 @@ Proof.
   iMod (ghost_map_delete with "Htag_s_auth Hs") as "Htag_s_auth".
   iPoseProof (ghost_map_lookup with "Hc Hprot") as "%Hprot".
   iMod (ghost_map_update (<[t:=filter_unq_weak <$> L]> M) with "Hc Hprot") as "(Hc&Hprot)".
-  iAssert (⌜length sc_t = length sc_s⌝)%I as "%Hlen". 1: by iApply big_sepL2_length.
-
+  iAssert (⌜length sc_t = length sc_s⌝)%I as "%Hlen".
+  { iPureIntro. destruct Htag_interp as (Ht1&_).
+    specialize (Ht1 _ _ Ht_tk).
+    destruct Ht1 as (_&_&_&_&_&(Htt1&Htt2)). eapply list_to_heaplet_dom_2.
+    eapply gset_leibniz. intros x.
+    setoid_rewrite elem_of_dom.
+    split; intros [k Hk].
+    - ospecialize (Htt1 (l.1, x) _).
+      1: rewrite /heaplet_lookup /= Hhl_t /=; eapply mk_is_Some, Hk.
+      1: rewrite /heaplet_lookup /= Hhl_s /= // in Htt1.
+    - ospecialize (Htt2 (l.1, x) _).
+      1: rewrite /heaplet_lookup /= Hhl_s /=; eapply mk_is_Some, Hk.
+      1: rewrite /heaplet_lookup /= Hhl_t /= // in Htt2. }
   iModIntro. iSplitR "Hres Htk Hprot".
   2: by iApply ("Hres" with "Htk Hprot").
   iFrame "HP_s HP_t". iExists (<[c := _ ]> M_call), _, (delete (t, l.1) M_t), (delete (t, l.1) M_s).
@@ -91,17 +102,15 @@ Proof.
     assert (∃ (i:nat), ll.2 = l.2 + i) as (i&Hoff).
     { eapply list_to_heaplet_lookup_Some in Hsc_ll_s. exists (Z.to_nat (ll.2 - l.2)). lia. }
     rewrite Hoff in Hsc_ll_s Hheaplet_t2.
-
+    destruct Hx as [[=]|(c'&ae&[= ->]&Hcs)].
     destruct HHt3 as (_&HHt3).
-    { destruct Hx as [->|(c'&ae&->&Hcs)]. 1: done.
-      opose proof* (call_set_interp_access) as Hacc. 1: done. 1: exact Hcs.
+    { opose proof* (call_set_interp_access) as Hacc. 1: done. 1: exact Hcs.
       destruct Hacc as (Hc&Hv&it&Hit&Hprot1&Hprot2&Hprot3&Hprot4).
       exists it. done. }
     specialize (HHt4 ll sc_ll_s).
     destruct HHt4 as (_&HHt4).
     1: rewrite /heaplet_lookup /= -Hlleq Hhl_s /= Hoff //.
-    { destruct Hx as [->|(c'&ae&->&Hcs)]. 1: done.
-      opose proof* (call_set_interp_access) as Hacc. 1: done. 1: exact Hcs.
+    { opose proof* (call_set_interp_access) as Hacc. 1: done. 1: exact Hcs.
       destruct Hacc as (Hc&Hv&it&Hit&Hprot1&Hprot2&Hprot3&Hprot4).
       odestruct trees_equal_find_equal_tag_protected_initialized_not_disabled as (it2&HH1&HH2&HH3).
       3: by eapply trees_equal_sym. 1-2: by eapply Hwf_s. 2: exact Hprot4. 2: exists c'; by rewrite Hscs_eq.
@@ -110,6 +119,7 @@ Proof.
     iExists sc_ll_s. iSplit; first done.
     assert (sc_ll = sc_t') as <- by congruence.
     rewrite !list_to_heaplet_nth in Hsc_ll_s Hheaplet_t2.
+    iSpecialize ("Hrel" $! eq_refl).
     iPoseProof (big_sepL2_lookup_acc with "Hrel") as "($&_)".
     all: done.
   - destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first.

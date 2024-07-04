@@ -111,7 +111,7 @@ Proof.
 
   (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  iApply (sim_make_unique_public with "Hi_t Hi_s Htag_i Hcall Hvrel"). 1: by rewrite lookup_insert.
+  iApply (sim_make_unique_public with "Hi_t Hi_s Htag_i Hcall []"). 1: by rewrite lookup_insert. 1: iIntros ([=]).
   iIntros  "Htag_i Hcall". iEval (rewrite !fmap_insert !fmap_empty !insert_insert /=) in "Hcall".
   iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert.
   iIntros "Hc". iEval (rewrite delete_insert) in "Hc".

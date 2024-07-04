@@ -244,6 +244,20 @@ Proof. solve_decision. Qed.
 Global Instance rel_pos_eq_dec : EqDecision rel_pos.
 Proof. solve_decision. Qed.
 
+Global Instance access_kind_countable : Countable access_kind.
+Proof.
+  refine (inj_countable
+    (λ m, match m with
+           | AccessRead => true
+           | AccessWrite => false
+           end)
+    (λ b, Some match b with
+           | true => AccessRead
+           | false => AccessWrite
+           end)
+    _); by intros [].
+Qed.
+
 Inductive pointer_kind := Box (im : interior_mut) | MutRef (im : interior_mut) | ShrRef .
 Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.
 Proof. solve_decision. Defined.
