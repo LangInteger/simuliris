@@ -417,7 +417,7 @@ Proof.
   rewrite (_: list_find (matched_grant kind bor) stk = Some (i, it)); last first.
   { apply list_find_Some_not_earlier. split; last split; [done|..].
     - split; [|done].
-      destruct kind; [by apply grants_read_all|by apply grants_write_all, IW].
+      destruct kind; [by apply grants_access_all|by apply grants_write_all, IW].
     - intros ?? Lt Eq GR. destruct (Lti _ _ Lt Eq) as [[Eq1|NEq1] NEq2].
       { move : GR. rewrite /matched_grant Eq1 /=. naive_solver. }
       destruct kind; [by apply NEq1, GR|]. destruct NEq1 as [OR|OR].
@@ -599,7 +599,7 @@ Proof. by econstructor; econstructor. Qed.
 
 Lemma end_call_base_step P (σ: state) trs' c :
   c ∈ σ.(scs) →
-  trees_read_all_protected_initialized (scs σ) c (strs σ) = Some trs' →
+  trees_access_all_protected_initialized (scs σ) c (strs σ) = Some trs' →
   let σ' := mkState σ.(shp) trs' (σ.(scs) ∖ {[c]}) σ.(snp) σ.(snc) in
   base_step P (EndCall #[ScCallId c]) σ #[☠] σ' [].
 Proof. intros ??. by econstructor; econstructor. Qed.

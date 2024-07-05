@@ -2040,3 +2040,97 @@ Lemma prot_join_is_weak ps1 ps2 :
   prot_join ps1 ps2 = ProtWeak ↔ (ps1 = ProtWeak ∧ ps2 = ProtWeak).
 Proof. destruct ps1, ps2; simpl; tauto. Qed.
 
+Definition tree_lookup (tr : tree item) (tg : tag) (it : item) := tree_contains tg tr ∧ tree_item_determined tg it tr.
+Definition trees_lookup (trs : trees) blk tg it :=
+  exists tr,
+    trs !! blk = Some tr
+    /\ tree_lookup tr tg it.
+
+Lemma lookup_implies_contains
+  {tr tg it} :
+  tree_lookup tr tg it -> tree_contains tg tr.
+Proof. intro H. apply H. Qed.
+
+Lemma unique_implies_lookup {tr tg} :
+  tree_unique tr tg -> ∃ it, tree_lookup tg tr it.
+Proof.
+  intros Hunq.
+  pose proof Hunq as (it&Hdet)%unique_lookup.
+  exists it; split; last done.
+  by eapply unique_exists.
+Qed.
+
+Lemma tree_lookup_correct_tag {tr tg it} :
+  tree_lookup tr tg it ->
+  it.(itag) = tg.
+Proof. intros [? ?]. eapply tree_determined_specifies_tag; eassumption. Qed.
+
+Lemma trees_lookup_correct_tag {trs blk tg it} :
+  trees_lookup trs blk tg it ->
+  it.(itag) = tg.
+Proof. intros [?[??]]. eapply tree_lookup_correct_tag; eassumption. Qed.
+
+Lemma tree_lookup_IsTag tr tg it : tree_lookup tr tg it → IsTag tg it.
+Proof.
+  intros (H1 & H2).
+  eapply exists_node_eqv_existential in H1 as (it2 & Hit2 & Histag).
+  eapply every_node_eqv_universal in H2; last done.
+  by rewrite -H2.
+Qed.
+
+Lemma tree_lookup_unique tr tg it1 it2 : tree_lookup tr tg it1 → tree_lookup tr tg it2 → it1 = it2.
+Proof.
+  intros Hlu (H1 & H2).
+  eapply every_node_eqv_universal in H2; first apply H2.
+  1: by eapply tree_lookup_IsTag.
+  eapply exists_determined_exists; first done.
+  apply Hlu.
+Qed.
+
+Lemma tree_lookup_to_exists_node tr tg itm :
+  tree_lookup tr tg itm →
+  exists_node (eq itm) tr.
+Proof.
+  intros (Hcont&Hitm). by eapply exists_determined_exists.
+Qed.
+
+Lemma if_same_guard_equal
+  {P Q : Prop} {T} {x y x' y' : T} `{Decision P} `{Decision Q}
+  (Iff : P <-> Q)
+  (Ex : x = x')
+  (Ey : y = y')
+  : (if decide P then x else y) = (if decide Q then x' else y').
+Proof.
+  repeat destruct (decide _); tauto.
+Qed.
+
+Lemma create_child_same_rel_dec
+  {tr tr' tg tg' tg_old tg_new pk rk cid C}
+  (Ne : tg_new ≠ tg)
+  (Ne' : tg_new ≠ tg')
+  (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+  : rel_dec tr tg tg' = rel_dec tr' tg tg'.
+Proof.
+  injection Ins; intro New.
+  unfold rel_dec.
+  apply if_same_guard_equal.
+  - erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+  - f_equal.
+    apply if_same_guard_equal.
+    + erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+    + reflexivity.
+    + f_equal.
+      apply if_same_guard_equal.
+      * erewrite insert_eqv_imm_rel; first (erewrite New; reflexivity); assumption.
+      * reflexivity.
+      * reflexivity.
+  - f_equal.
+    apply if_same_guard_equal.
+    + erewrite insert_eqv_rel; first (erewrite New; reflexivity); assumption.
+    + f_equal.
+      apply if_same_guard_equal.
+      * erewrite insert_eqv_imm_rel; first (erewrite New; reflexivity); assumption.
+      * reflexivity.
+      * reflexivity.
+    + reflexivity.
+Qed.

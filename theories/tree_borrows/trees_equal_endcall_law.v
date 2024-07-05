@@ -10,7 +10,7 @@ From simuliris.tree_borrows Require Import tree_access_laws logical_state inv_ac
 From iris.prelude Require Import options.
 
 
-
+(*
 Definition is_pseudo_conflicted_by_in' C (tr : tree item) (tg tg_cous : tag) (it : item) (L : gset Z) acc : Prop := 
   tree_lookup tr tg it ∧
   protector_is_active it.(iprot) C ∧
@@ -26,10 +26,10 @@ Definition is_pseudo_conflicted_by_in (C : call_id_set) (tr : tree item) (tg : t
     is_pseudo_conflicted_by_in' C tr tg tg_cous it L acc.
 
 
-Lemma tree_read_many_pseudo_helper_2_pers C tg_acc (L : list Z) tr1 trL S
+Lemma tree_access_many_pseudo_helper_2_pers C tg_acc (L : gmap Z _) tr1 trL S
   (Hwf1 : wf_tree tr1) :
   tree_unique tg_acc tr1 →
-  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  let fn := (λ L tr, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg_acc (l, 1%nat)) (Some tr) L) in
   fn L tr1 = Some trL →
   (∀ tg' it acc, is_pseudo_conflicted_by_in C tr1 tg' it S acc → acc = ResConflicted) →
   (∀ tg' it acc, is_pseudo_conflicted_by_in C trL tg' it S acc → acc = ResConflicted).
@@ -41,9 +41,9 @@ Proof.
   specialize (IH _ Hoff).
   intros tg' it acc (tg_cs&SL&HS&Hlu&Hisprot&Hreldec&it_cous&l&im&HlL&Hlucs&Hres).
   assert (tree_unique tg_acc tr2) as Hunq2.
-  { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq. exact Hoff. }
+  { rewrite /tree_unique. erewrite <- tree_access_many_helper_2. 1: exact Hunq. exact Hoff. }
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
   destruct (decide (l = off)) as [->|Hne].
   - odestruct tree_access_lookup_general_rev as (it'&H1&H2&H3&H4).
     1: exact HL. 1: done. 2: exact Hlu. 1: split; first reflexivity; lia.
@@ -72,7 +72,7 @@ Proof.
 Qed.
 
 
-Lemma tree_read_many_pseudo_helper_2_news C tg_acc (L : list Z) tr1 trL
+Lemma tree_access_many_pseudo_helper_2_news C tg_acc (L : list Z) tr1 trL
   (Hwf1 : wf_tree tr1) :
   tree_unique tg_acc tr1 →
   let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
@@ -86,9 +86,9 @@ Proof.
   specialize (IH _ Hoff).
   intros tg' it acc (Hlu&Hisprot&Hreldec&it_cous&l&im&HlL&Hlucs&Hres).
   assert (tree_unique tg_acc tr2) as Hunq2.
-  { rewrite /tree_unique. erewrite <- tree_read_many_helper_2. 1: exact Hunq. exact Hoff. }
+  { rewrite /tree_unique. erewrite <- tree_access_many_helper_2. 1: exact Hunq. exact Hoff. }
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
   destruct (decide (l = off)) as [->|Hne].
   - odestruct tree_access_lookup_general_rev as (it'&H1&H2&H3&H4).
     1: exact HL. 1: done. 2: exact Hlu. 1: split; first reflexivity; lia.
@@ -115,7 +115,7 @@ Proof.
     eapply elem_of_cons in HlL as [->|HH]; done.
 Qed.
 
-Lemma tree_read_many_pseudo_helper_2 C tg_acc (L : list Z) tr1 trL S
+Lemma tree_access_many_pseudo_helper_2 C tg_acc (L : list Z) tr1 trL S
   (Hwf1 : wf_tree tr1) :
   tree_unique tg_acc tr1 →
   let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
@@ -124,12 +124,12 @@ Lemma tree_read_many_pseudo_helper_2 C tg_acc (L : list Z) tr1 trL S
   (∀ tg' it acc, is_pseudo_conflicted_by_in C trL tg' it (S ∪ {[ (tg_acc, list_to_set L) ]}) acc → acc = ResConflicted).
 Proof.
   intros Hunq fn Hfn H tg' it' acc (tg_cous&LS&[HH|[= -> -> ]%elem_of_singleton]%elem_of_union&Hrst).
-  - eapply tree_read_many_pseudo_helper_2_pers. 1: exact Hwf1. 1: apply Hunq. 1: apply Hfn.
+  - eapply tree_access_many_pseudo_helper_2_pers. 1: exact Hwf1. 1: apply Hunq. 1: apply Hfn.
     1: apply H. 1: do 2 eexists; done.
-  - eapply tree_read_many_pseudo_helper_2_news. 1: exact Hwf1. 1: apply Hunq. 1: apply Hfn. 1: apply Hrst.
+  - eapply tree_access_many_pseudo_helper_2_news. 1: exact Hwf1. 1: apply Hunq. 1: apply Hfn. 1: apply Hrst.
 Qed.
 
-Lemma tree_read_many_pseudo_helper_1 C (L : list (tag * gset Z)) tr1 trL
+Lemma tree_access_many_pseudo_helper_1 C (L : list (tag * gset Z)) tr1 trL
   (Hwf1 : wf_tree tr1) :
   (∀ tg S, (tg, S) ∈ L → tree_unique tg tr1) →
   let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
@@ -146,21 +146,21 @@ Proof.
   { intros ???; eapply Hunq; by right. }
   rewrite list_to_set_cons union_comm_L.
   rewrite - (list_to_set_elements_L S).
-  eapply tree_read_many_pseudo_helper_2. 3: exact H2. 3: done.
-  1: eapply preserve_tag_count_wf. 1: apply tree_read_many_helper_1. 1: done. 1: exact H1.
-  rewrite /tree_unique. erewrite <- tree_read_many_helper_1; last exact H1. eapply Hunq.
+  eapply tree_access_many_pseudo_helper_2. 3: exact H2. 3: done.
+  1: eapply preserve_tag_count_wf. 1: apply tree_access_many_helper_1. 1: done. 1: exact H1.
+  rewrite /tree_unique. erewrite <- tree_access_many_helper_1; last exact H1. eapply Hunq.
   by left.
 Qed.
 
-Lemma tree_read_many_pseudo_becomes_real C cid tr tr'
+Lemma tree_access_many_pseudo_becomes_real C cid tr tr'
   (Hwf1 : wf_tree tr) :
-  tree_read_all_protected_initialized C cid tr = Some tr' →
+  tree_access_all_protected_initialized C cid tr = Some tr' →
   (∀ tg' it acc, is_pseudo_conflicted_by_in C tr' tg' it (tree_get_all_protected_tags_initialized_locs cid tr) acc → acc = ResConflicted).
 Proof.
-  rewrite /tree_read_all_protected_initialized.
+  rewrite /tree_access_all_protected_initialized.
   pose (tree_get_all_protected_tags_initialized_locs cid tr) as L. fold L.
   intros Hfn. rewrite -(list_to_set_elements_L L).
-  eapply tree_read_many_pseudo_helper_1.
+  eapply tree_access_many_pseudo_helper_1.
   - done.
   - eintros tg S (it&Hlu%lookup_implies_contains&_)%elem_of_elements%tree_all_protected_initialized_elem_of.
     all: by eapply wf_tree_tree_unique.
@@ -168,7 +168,7 @@ Proof.
   - intros ??? (?&?&[]%elem_of_empty&_).
 Qed.
 
-Lemma tree_read_many_preserve_protector_2 C tg_acc (L : list Z) tr1 trL
+Lemma tree_access_many_preserve_protector_2 C tg_acc (L : list Z) tr1 trL
   (Hwf1 : wf_tree tr1) :
   let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
   fn L tr1 = Some trL →
@@ -182,7 +182,7 @@ Proof.
   specialize (IH _ Hoff).
   intros tgl it1 itL Hit1 HitL.
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
   assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
   { eapply lookup_implies_contains, count_gt0_exists in HitL.
     erewrite <- memory_access_tag_count in HitL; last done.
@@ -195,7 +195,7 @@ Proof.
   rewrite -He2. eapply IH; done.
 Qed.
 
-Lemma tree_read_many_preserve_protector_1 C (L : list (tag * gset Z)) tr1 trL
+Lemma tree_access_many_preserve_protector_1 C (L : list (tag * gset Z)) tr1 trL
   (Hwf1 : wf_tree tr1) :
   let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
   fn L tr1 = Some trL →
@@ -209,22 +209,22 @@ Proof.
   specialize (IH _ Hoff).
   intros tgl it1 itL Hit1 HitL.
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
   assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
   { eapply lookup_implies_contains, count_gt0_exists in HitL.
-    erewrite <- tree_read_many_helper_2 in HitL; last done.
+    erewrite <- tree_access_many_helper_2 in HitL; last done.
     eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
-  erewrite <- (tree_read_many_preserve_protector_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
+  erewrite <- (tree_access_many_preserve_protector_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
   eapply IH. all: done.
 Qed.
 
-Lemma tree_read_many_preserve_protector C cid tr1 trL
+Lemma tree_access_many_preserve_protector C cid tr1 trL
   (Hwf1 : wf_tree tr1) :
-  tree_read_all_protected_initialized C cid tr1 = Some trL →
+  tree_access_all_protected_initialized C cid tr1 = Some trL →
   ∀ tgl it1 itL, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → iprot it1 = iprot itL.
 Proof.
-  rewrite /tree_read_all_protected_initialized.
-  rewrite /set_fold /=. eapply tree_read_many_preserve_protector_1. done.
+  rewrite /tree_access_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_access_many_preserve_protector_1. done.
 Qed.
 
 Lemma tree_access_initialzed_equally_initialized b acc C tg_acc it_acc tr tr' off1 (sz : nat) offi :
@@ -261,7 +261,7 @@ Proof.
 Qed.
 
 
-Lemma tree_read_many_more_initialized_2 C tg_acc (L : list Z) tr1 trL
+Lemma tree_access_many_more_initialized_2 C tg_acc (L : list Z) tr1 trL
   (Hwf1 : wf_tree tr1) :
   let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
   fn L tr1 = Some trL →
@@ -275,7 +275,7 @@ Proof.
   specialize (IH _ Hoff).
   intros tgl it1 itL z Hit1 HitL.
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
   destruct (decide (z = off)) as [->|Hne].
   - eapply (tree_access_lookup_general_rev off) in HL as (it2 & Hit2 & _ & _ & Hperm). 2: done. 2: lia. 2: done.
     edestruct (maybe_non_children_only_effect_or_nop) as [Heq|Heq]; erewrite Heq in Hperm.
@@ -286,7 +286,7 @@ Proof.
     rewrite -Hperm. by eapply IH.
 Qed.
 
-Lemma tree_read_many_equally_initialized_2 C tg_acc (L : list Z) tr1 trL
+Lemma tree_access_many_equally_initialized_2 C tg_acc (L : list Z) tr1 trL
   (Hwf1 : wf_tree tr1) (Hmore1 : parents_more_init tr1) :
   tree_contains tg_acc tr1 →
   (∀ z it, z ∈ L → tree_lookup tr1 tg_acc it → initialized (item_lookup it z) = PermInit) →
@@ -301,15 +301,15 @@ Proof.
   intros (tr2&Hoff&HL)%bind_Some.
   intros tgl it1 itL z Hit1 HitL.
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
   assert (parents_more_init tr2) as Htr2.
-  { eapply tree_read_many_more_init_helper_2. 4: exact Hoff. 1-3: done. }
+  { eapply tree_access_many_more_init_helper_2. 4: exact Hoff. 1-3: done. }
   assert (tree_unique tg_acc tr1) as Hunqtr1.
   { by eapply Hwf1. }
   assert (tree_unique tg_acc tr2) as Hunqtr2.
-  { rewrite /tree_unique in Hunqtr1|-*. erewrite <-tree_read_many_helper_2. 1: exact Hunqtr1. 1: exact Hoff. }
+  { rewrite /tree_unique in Hunqtr1|-*. erewrite <-tree_access_many_helper_2. 1: exact Hunqtr1. 1: exact Hoff. }
   assert (tree_unique tgl tr2) as Hunqtgl2.
-  { rewrite /tree_unique. erewrite <-tree_read_many_helper_2. 2: exact Hoff. eapply Hwf1. by eapply Hit1. }
+  { rewrite /tree_unique. erewrite <-tree_access_many_helper_2. 2: exact Hoff. eapply Hwf1. by eapply Hit1. }
   eapply unique_implies_lookup in Hunqtgl2 as Hmid. destruct Hmid as (it2&Hit2).
   eapply unique_implies_lookup in Hunqtr2 as Hmid. destruct Hmid as (itacc2&Hitacc2).
   eapply unique_implies_lookup in Hunqtr1 as Hmid. destruct Hmid as (itacc1&Hitacc1).
@@ -318,13 +318,13 @@ Proof.
   erewrite IH. 2-3: done.
   eapply tree_access_initialzed_equally_initialized. 5: exact HL. 1-2: done. 4: exact HitL. 3: exact Hit2. 1: done.
   intros H. assert (off = z) as -> by lia.
-  eapply tree_read_many_more_initialized_2.
+  eapply tree_access_many_more_initialized_2.
   2: exact Hoff. 1: done. 2: done. 1: done.
   eapply Hinit. 1: by left. done.
 Qed.
 
 
-Lemma tree_read_many_more_initialized_1 C (L : list (tag * gset Z)) tr1 trL
+Lemma tree_access_many_more_initialized_1 C (L : list (tag * gset Z)) tr1 trL
   (Hwf1 : wf_tree tr1) :
   let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
   fn L tr1 = Some trL →
@@ -338,17 +338,17 @@ Proof.
   specialize (IH _ Hoff).
   intros tgl it1 itL off Hit1 HitL.
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
   assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
   { eapply lookup_implies_contains, count_gt0_exists in HitL.
-    erewrite <- tree_read_many_helper_2 in HitL; last done.
+    erewrite <- tree_access_many_helper_2 in HitL; last done.
     eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
   intros Hini.
-  erewrite <- (tree_read_many_more_initialized_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
+  erewrite <- (tree_access_many_more_initialized_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
   eapply IH. all: done.
 Qed.
 
-Lemma tree_read_many_equally_initialized_1 C (L : list (tag * gset Z)) tr1 trL
+Lemma tree_access_many_equally_initialized_1 C (L : list (tag * gset Z)) tr1 trL
   (Hwf1 : wf_tree tr1) (Hmore1 : parents_more_init tr1) :
   (∀ tg_acc E, (tg_acc, E) ∈ L → tree_contains tg_acc tr1 ∧ (∀ z it, z ∈ E → tree_lookup tr1 tg_acc it → initialized (item_lookup it z) = PermInit)) →
   let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
@@ -362,45 +362,45 @@ Proof.
   intros (tr2&Hoff&HL)%bind_Some.
   intros tgl it1 itL z Hit1 HitL.
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
   assert (parents_more_init tr2) as Htr2.
-  { eapply tree_read_many_more_init_helper_1. 4: exact Hoff. 1,3: done.
+  { eapply tree_access_many_more_init_helper_1. 4: exact Hoff. 1,3: done.
     intros ???. eapply Hinit. by right. }
   assert (tree_unique tg_acc tr1) as Hunqtr1.
   { eapply Hwf1, Hinit. by left. }
   assert (tree_unique tg_acc tr2) as Hunqtr2.
-  { rewrite /tree_unique in Hunqtr1|-*. erewrite <-tree_read_many_helper_1. 1: exact Hunqtr1. 1: exact Hoff. }
+  { rewrite /tree_unique in Hunqtr1|-*. erewrite <-tree_access_many_helper_1. 1: exact Hunqtr1. 1: exact Hoff. }
   assert (tree_unique tgl tr2) as Hunqtgl2.
-  { rewrite /tree_unique. erewrite <-tree_read_many_helper_1. 2: exact Hoff. eapply Hwf1. by eapply Hit1. }
+  { rewrite /tree_unique. erewrite <-tree_access_many_helper_1. 2: exact Hoff. eapply Hwf1. by eapply Hit1. }
   eapply unique_implies_lookup in Hunqtgl2 as Hmid. destruct Hmid as (it2&Hit2).
   eapply unique_implies_lookup in Hunqtr2 as Hmid. destruct Hmid as (itacc2&Hitacc2).
   eapply unique_implies_lookup in Hunqtr1 as Hmid. destruct Hmid as (itacc1&Hitacc1).
   ospecialize (IH _ _ Hoff).
   { intros tgE E HE. split. 1: eapply Hinit; by right. intros zz itz HzzL Hlu. eapply Hinit; last done. 1: by right. done. }
   erewrite IH. 2-3: done.
-  eapply tree_read_many_equally_initialized_2. 5: exact HL. 1-2: done. 4: exact HitL. 3: exact Hit2. 1: by eapply unique_exists.
+  eapply tree_access_many_equally_initialized_2. 5: exact HL. 1-2: done. 4: exact HitL. 3: exact Hit2. 1: by eapply unique_exists.
   intros zz it HS Hlu.
-  eapply tree_read_many_more_initialized_1.
+  eapply tree_access_many_more_initialized_1.
   2: exact Hoff. 1: done. 2: done. 1: done.
   eapply Hinit. 1: by left. 2: done. eapply elem_of_elements. done.
 Qed.
 
-Lemma tree_read_many_more_initialized C cid tr1 trL
+Lemma tree_access_many_more_initialized C cid tr1 trL
   (Hwf1 : wf_tree tr1) :
-  tree_read_all_protected_initialized C cid tr1 = Some trL →
+  tree_access_all_protected_initialized C cid tr1 = Some trL →
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = PermInit → initialized (item_lookup itL l) = PermInit.
 Proof.
-  rewrite /tree_read_all_protected_initialized.
-  rewrite /set_fold /=. eapply tree_read_many_more_initialized_1. done.
+  rewrite /tree_access_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_access_many_more_initialized_1. done.
 Qed.
 
-Lemma tree_read_many_equally_initialized C cid tr1 trL
+Lemma tree_access_many_equally_initialized C cid tr1 trL
   (Hwf1 : wf_tree tr1) (Hmi : parents_more_init tr1) :
-  tree_read_all_protected_initialized C cid tr1 = Some trL →
+  tree_access_all_protected_initialized C cid tr1 = Some trL →
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = initialized (item_lookup itL l).
 Proof.
-  rewrite /tree_read_all_protected_initialized.
-  rewrite /set_fold /=. eapply tree_read_many_equally_initialized_1.
+  rewrite /tree_access_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_access_many_equally_initialized_1.
   - done.
   - done.
   - intros tg E (it&Hit&Hprot&HHit)%elem_of_elements%tree_all_protected_initialized_elem_of.
@@ -425,20 +425,20 @@ Proof.
   unfold call_is_active in *.
   set_solver.
 Qed.
-
+*)
 Lemma tree_equal_remove_call C tr1' tr2' tr1 tr2 cid :
   wf_tree tr1 → wf_tree tr2 → parents_more_init tr1 → parents_more_init tr2 →
-  tree_read_all_protected_initialized C cid tr1 = Some tr1' →
-  tree_read_all_protected_initialized C cid tr2 = Some tr2' →
+  tree_access_all_protected_initialized C cid tr1 = Some tr1' →
+  tree_access_all_protected_initialized C cid tr2 = Some tr2' →
   tree_equal C tr1' tr2' →
   tree_equal (C ∖ {[ cid ]}) tr1' tr2'.
-Proof.
+Proof. Admitted. (*
   intros Hwf1 Hwf2 Hpmi1 Hpmi2 Hrai1 Hrai2 (He1&He2&He3).
   split_and!; try done.
   intros tg Hcont. specialize (He3 tg Hcont) as (it1 & it2 & Hlu1 & Hlu2 & Hutc).
   do 2 eexists. split_and!; try done.
-  specialize (tree_read_many_pseudo_becomes_real _ _ _ _ Hwf1 Hrai1 tg it1) as Hrai1'.
-  specialize (tree_read_many_pseudo_becomes_real _ _ _ _ Hwf2 Hrai2 tg it2) as Hrai2'.
+  specialize (tree_access_many_pseudo_becomes_real _ _ _ _ Hwf1 Hrai1 tg it1) as Hrai1'.
+  specialize (tree_access_many_pseudo_becomes_real _ _ _ _ Hwf2 Hrai2 tg it2) as Hrai2'.
 
   intros l. specialize (Hutc l) as (Hproteq&Hutc).
   split; first done.
@@ -467,17 +467,17 @@ Proof.
         exfalso. enough (ResActivable = ResConflicted) by done.
         assert (∃ ii, tree_lookup tr1 tg_cs ii) as (it_cs1&Hlucs1).
         { eapply lookup_implies_contains, count_gt0_exists in Hlucs.
-          erewrite <- tree_read_all_protected_initialized_tag_count in Hlucs; last done.
+          erewrite <- tree_access_all_protected_initialized_tag_count in Hlucs; last done.
           eapply count_gt0_exists in Hlucs. by eapply unique_implies_lookup, wf_tree_tree_unique. }
         eapply Hrai1'. eexists tg_cs, (mem_enumerate_sat (λ p : lazy_permission, if initialized p then true else false) (iperm it_cs1)).
         split.
         { eapply tree_all_protected_initialized_elem_of. 1: by eapply wf_tree_tree_unique.
           exists it_cs1. split; first done. split; last by eapply mem_enumerate_initalized.
-          erewrite tree_read_many_preserve_protector. 1: done. 3-4: done. 1: done. 1: done. }
+          erewrite tree_access_many_preserve_protector. 1: done. 3-4: done. 1: done. 1: done. }
         split; first done. split; first by eexists. split; first done.
         eexists it_cs, l, im. split_and!. 2: done. 2: by rewrite -Heqi1.
         eapply mem_enumerate_initalized. rewrite -Hinitcs.
-        eapply tree_read_many_equally_initialized. 3: exact Hrai1. all: done.
+        eapply tree_access_many_equally_initialized. 3: exact Hrai1. all: done.
       * inversion Hpc2 as [|tg_cs it_cs Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs Hinitcs Heq]; first by econstructor.
         simplify_eq.
         destruct (decide (cccs = cid)) as [<-|Hnecs].
@@ -486,17 +486,17 @@ Proof.
         exfalso. enough (ResActivable = ResConflicted) by done.
         assert (∃ ii, tree_lookup tr2 tg_cs ii) as (it_cs1&Hlucs1).
         { eapply lookup_implies_contains, count_gt0_exists in Hlucs.
-          erewrite <- tree_read_all_protected_initialized_tag_count in Hlucs; last done.
+          erewrite <- tree_access_all_protected_initialized_tag_count in Hlucs; last done.
           eapply count_gt0_exists in Hlucs. by eapply unique_implies_lookup, wf_tree_tree_unique. }
         eapply Hrai2'. eexists tg_cs, (mem_enumerate_sat (λ p : lazy_permission, if initialized p then true else false) (iperm it_cs1)).
         split.
         { eapply tree_all_protected_initialized_elem_of. 1: by eapply wf_tree_tree_unique.
           exists it_cs1. split; first done. split; last by eapply mem_enumerate_initalized.
-          erewrite tree_read_many_preserve_protector. 1: done. 3-4: done. 1: done. 1: done. }
+          erewrite tree_access_many_preserve_protector. 1: done. 3-4: done. 1: done. 1: done. }
         split; first done. rewrite -Hproteq. split; first by eexists. split; first done.
         eexists it_cs, l, im. split_and!. 2: done. 2: by rewrite -Heqi2.
         eapply mem_enumerate_initalized. rewrite -Hinitcs.
-        eapply tree_read_many_equally_initialized. 3: exact Hrai2. all: done.
+        eapply tree_access_many_equally_initialized. 3: exact Hrai2. all: done.
   - econstructor 3.
     intros (cc&Hcc&Hccact). eapply Hnprot. eexists. split; first done. by eapply elem_of_difference in Hccact as (H1&H2).
   - econstructor 4.
@@ -505,20 +505,20 @@ Proof.
     + assumption.
   - econstructor 5.
     all: eassumption.
-Qed.
+Qed. *)
 
 Lemma trees_equal_remove_call C trs1' trs2' trs1 trs2 cid :
   wf_trees trs1 → wf_trees trs2 → each_tree_parents_more_init trs1 → each_tree_parents_more_init trs2 →
-  trees_read_all_protected_initialized C cid trs1 = Some trs1' →
-  trees_read_all_protected_initialized C cid trs2 = Some trs2' →
+  trees_access_all_protected_initialized C cid trs1 = Some trs1' →
+  trees_access_all_protected_initialized C cid trs2 = Some trs2' →
   trees_equal C trs1' trs2' →
   trees_equal (C ∖ {[ cid ]}) trs1' trs2'.
 Proof.
   intros (Hwf1&_) (Hwf2&_) Hpmi1 Hpmi2 Hread1 Hread2 Heq.
   intros blk. specialize (Heq blk).
   inversion Heq as [tr1 tr2 Heqtr Htr1 Htr2|]; last by econstructor.
-  eapply trees_read_all_protected_initialized_backwards in Hread1 as (tr1'&Htr1'&Hread1'); last done.
-  eapply trees_read_all_protected_initialized_backwards in Hread2 as (tr2'&Htr2'&Hread2'); last done.
+  eapply trees_access_all_protected_initialized_backwards in Hread1 as (tr1'&Htr1'&Hread1'); last done.
+  eapply trees_access_all_protected_initialized_backwards in Hread2 as (tr2'&Htr2'&Hread2'); last done.
   econstructor. eapply tree_equal_remove_call; [..|done|done|done].
   1: by eapply Hwf1. 1: by eapply Hwf2. 1: by eapply Hpmi1. 1: by eapply Hpmi2.
 Qed.

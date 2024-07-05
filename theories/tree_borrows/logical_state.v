@@ -1196,6 +1196,23 @@ Proof.
     eapply list_to_heaplet_lookup_None in Heq; lia.
 Qed.
 
+Local Opaque list_to_heaplet.
+Lemma list_to_heaplet_dom_2 {A} (lst1 lst2 : list A) idx :
+  dom (list_to_heaplet lst1 idx) = dom (list_to_heaplet lst2 idx) →
+  length lst1 = length lst2.
+Proof.
+  destruct lst1 as [|x1 lst1], lst2 as [|x2 lst2]; simpl in *.
+  1: done. 1,2: rewrite !dom_empty_L !dom_insert_L; intros H; exfalso; set_solver.
+  intros Hdom. eapply Nat.le_antisymm.
+  - enough (idx + length (x1::lst1) ≤ idx + length (x2::lst2)) by (simpl in *; lia).
+    destruct (list_to_heaplet_dom (x2::lst2) idx (idx + length lst1)) as [_ (_&Hl)].
+    2: simpl in *; lia. rewrite -Hdom. eapply list_to_heaplet_dom. simpl; lia.
+  - enough (idx + length (x2::lst2) ≤ idx + length (x1::lst1)) by (simpl in *; lia).
+    destruct (list_to_heaplet_dom (x1::lst1) idx (idx + length lst2)) as [_ (_&Hl)].
+    2: simpl in *; lia. rewrite Hdom. eapply list_to_heaplet_dom. simpl; lia.
+Qed.
+Local Transparent list_to_heaplet.
+
 Fixpoint read_range {T} (base : Z) (sz : nat) (M : gmap Z T) : option (list T) := match sz with
   O => Some nil
 | S sz => hd ← M !! base; tl ← read_range (1 + base) sz M; Some (hd :: tl) end.

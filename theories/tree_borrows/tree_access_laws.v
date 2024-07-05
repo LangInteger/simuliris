@@ -115,6 +115,64 @@ Proof.
     (match goal with [ H : each_tree_wf _ |- _] => by eapply H end).
 Qed.
 
+Lemma apply_trees_access_lookup_inout b cids trs kind blk off1 sz acc_tg lu_tg trs' itold :
+  apply_within_trees (memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz)) blk trs = Some trs' →
+  wf_trees trs →
+  trees_lookup trs blk lu_tg itold →
+  ∃       itnew, trees_lookup trs' blk lu_tg itnew ∧
+                 initp itold = initp itnew ∧
+                 iprot itold = iprot itnew ∧ ∀ offi, 
+                 let permold := item_lookup itold offi in let permnew := item_lookup itnew offi in
+                 (off1 ≤ offi < off1 + sz → maybe_non_children_only b (apply_access_perm kind) (trees_rel_dec trs blk acc_tg lu_tg) (bool_decide (protector_is_active itnew.(iprot) cids)) permold = Some permnew) ∧
+                 (¬ (off1 ≤ offi < off1 + sz) → permold = permnew).
+Proof.
+  intros App (wf&_) Lookup.
+  rewrite /apply_within_trees in App.
+  rewrite bind_Some in App.
+  destruct App as [tr [trSome Acc]].
+  rewrite bind_Some in Acc.
+  destruct Acc as [tr' [Acc Out]].
+  injection Out; intros; subst; clear Out.
+  assert (tree_contains lu_tg tr) as Ex. {
+    eapply trees_at_block_projection; [|eassumption].
+    eapply trees_contain_trees_lookup_2.
+    eassumption.
+  }
+  assert (tree_item_determined lu_tg itold tr) as Det. {
+    destruct Lookup as [trbis [trsLookup trLookup]].
+    assert (trbis = tr) by congruence. subst.
+    apply trLookup.
+  }
+  destruct (apply_access_spec_per_node Ex Det Acc) as [it' [itAcc [Ex' Det']]].
+  exists it'.
+  split; [|split; [|split]].
+  - exists tr'. split; [apply lookup_insert|]. split; assumption.
+  - eapply item_apply_access_preserves_metadata.
+    symmetry. eassumption.
+  - eapply item_apply_access_preserves_metadata.
+    symmetry. eassumption.
+  - intros offi. rewrite /item_apply_access in itAcc.
+    symmetry in itAcc. rewrite bind_Some in itAcc.
+    destruct itAcc as [perms' [perms'Spec Same]].
+    injection Same; intros x; subst; clear Same.
+    pose proof (mem_apply_range'_spec _ _ offi _ _ perms'Spec) as ThisLocation.
+    intros permold permnew.
+    split.
+    + intros InBounds.
+      destruct (decide _); [|unfold range'_contains in *; simpl in *; lia].
+      destruct ThisLocation as [perm [permSome permAcc]].
+      simpl.
+      rewrite /trees_rel_dec trSome.
+      assert (itag itold = lu_tg). { eapply tree_determined_specifies_tag; [|eassumption]; assumption. }
+      subst. subst permnew.
+      rewrite permAcc.
+      rewrite /item_lookup /= permSome //=.
+    + intros OutOfBounds.
+      destruct (decide (range'_contains _ _)) as [Hr|Hr].
+      all: rewrite /range'_contains /= in Hr. 1: lia.
+      subst permold permnew. rewrite /item_lookup /= ThisLocation //.
+Qed.
+
 Lemma apply_trees_access_lookup_general b offi cids trs kind blk off1 sz acc_tg lu_tg trs' itold :
   apply_within_trees (memory_access_maybe_nonchildren_only b kind cids acc_tg (off1, sz)) blk trs = Some trs' →
   wf_trees trs →
@@ -421,14 +479,15 @@ Qed.
 
 (* Some more facts about trees. These could be refactored, maybe? *)
 
-Lemma apply_access_perm_read_not_disabled b rel isprot itmo itmn :
-  maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
+Lemma apply_access_perm_access_remains_disabled b acc rel isprot itmo itmn :
+  maybe_non_children_only b (apply_access_perm acc) rel isprot itmo = Some itmn →
   perm itmo = Disabled →
   perm itmn = Disabled.
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
   - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
     simpl in Hdis,H1,H2|-*.
+    rewrite /apply_access_perm_inner /= in H1.
     repeat (case_match; simplify_eq; try done).
   - congruence.
 Qed.
@@ -469,8 +528,8 @@ Proof.
   - intros [= ->] ->. by eexists.
 Qed.
 
-Lemma apply_access_perm_read_initialized b rel isprot itmo itmn :
-  maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
+Lemma apply_access_perm_initialized b acc rel isprot itmo itmn :
+  maybe_non_children_only b (apply_access_perm acc) rel isprot itmo = Some itmn →
   initialized itmo = PermInit →
   initialized itmn = PermInit.
 Proof.

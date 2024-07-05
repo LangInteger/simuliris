@@ -267,11 +267,11 @@ Proof.
        * eapply mk_is_Some, Ht3 in Hlu. rewrite Htagfresh in Hlu. by destruct Hlu.
   - (* source state wf *)
     iPureIntro. eapply retag_step_wf_inner in Hwf_s as (Hwf_s&Hccc). 2-5: done.
-    eapply read_step_wf_inner in Hwf_s; done.
+    eapply access_step_wf_inner in Hwf_s; done.
   - (* target state wf *)
     iPureIntro. subst σ_t'. eapply retag_step_wf_inner in Hwf_t as (Hwf_t&Hccc). 2-5: try done.
     2: by rewrite -Hscs_eq -Hsnp_eq. simpl in Hwf_t.
-    eapply read_step_wf_inner in Hwf_t. 1: done. all: simpl.
+    eapply access_step_wf_inner in Hwf_t. 1: done. all: simpl.
     2: by rewrite -Hscs_eq. by rewrite Hsnp_eq.
 Qed.
 
@@ -560,11 +560,11 @@ Proof.
        * eapply mk_is_Some, Ht3 in Hlu. rewrite Htagfresh in Hlu. by destruct Hlu.
   - (* source state wf *)
     iPureIntro. eapply retag_step_wf_inner in Hwf_s as (Hwf_s&Hccc). 2-5: done.
-    eapply read_step_wf_inner in Hwf_s; done.
+    eapply access_step_wf_inner in Hwf_s; done.
   - (* target state wf *)
     iPureIntro. subst σ_t'. eapply retag_step_wf_inner in Hwf_t as (Hwf_t&Hccc). 2-5: try done.
     2: by rewrite -Hscs_eq -Hsnp_eq. simpl in Hwf_t.
-    eapply read_step_wf_inner in Hwf_t. 1: done. all: simpl.
+    eapply access_step_wf_inner in Hwf_t. 1: done. all: simpl.
     2: by rewrite -Hscs_eq. by rewrite Hsnp_eq.
 Qed.
 
@@ -793,11 +793,11 @@ Proof.
        * specialize (Ht3 _ _ H1). rewrite Htagfresh in Ht3; by destruct Ht3.
   - (* source state wf *)
     iPureIntro. eapply retag_step_wf_inner in Hwf_s as (Hwf_s&Hccc). 2-5: done.
-    eapply read_step_wf_inner in Hwf_s; done.
+    eapply access_step_wf_inner in Hwf_s; done.
   - (* target state wf *)
     iPureIntro. subst σ_t'. eapply retag_step_wf_inner in Hwf_t as (Hwf_t&Hccc). 2-5: try done.
     2: by rewrite -Hscs_eq -Hsnp_eq. simpl in Hwf_t.
-    eapply read_step_wf_inner in Hwf_t. 1: done. all: simpl.
+    eapply access_step_wf_inner in Hwf_t. 1: done. all: simpl.
     2: by rewrite -Hscs_eq. by rewrite Hsnp_eq.
 Qed.
 

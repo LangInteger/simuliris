@@ -216,30 +216,30 @@ Proof.
   - eapply tag_protected_for_tree_spec; done.
 Qed.
 
-Lemma tree_read_many_preserve_tag_protected_for_2 C tg_acc (L : list Z) tr1 trL c offp tg_prs ps P
+Lemma tree_access_many_preserve_tag_protected_for_2 C tg_acc (L : gmap Z _) tr1 trL c offp tg_prs ps P
   (Hwf1 : wf_tree tr1) :
   call_is_active c C →
-  let fn := (λ L tr, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg_acc (l, 1%nat)) (Some tr) L) in
+  let fn := (λ L tr, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg_acc (l, 1%nat)) (Some tr) L) in
   fn L tr1 = Some trL →
   tag_protected_for_tree P c tr1 offp tg_prs ps →
   tag_protected_for_tree P c trL offp tg_prs ps.
 Proof.
-  intros Hact fn.
-  induction L as [|off L IH] in trL|-*; simpl.
+  intros Hact fn. subst fn. simpl.
+  map_fold_ind L as off v L _ _ IH in trL.
   { intros [= ->]. done. }
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
   intros Hprot. eapply tag_protected_preserved_by_access_tree.
   3: exact Hact. 2: exact HL. 1: done.
   by eapply IH.
 Qed.
 
-Lemma tree_read_many_preserve_tag_protected_for_1 C (L : list (tag * gset Z)) tr1 trL c offp tg_prs ps P
+Lemma tree_access_many_preserve_tag_protected_for_1 C (L : list (tag * gmap Z _)) tr1 trL c offp tg_prs ps P
   (Hwf1 : wf_tree tr1) :
   call_is_active c C →
-  let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, foldr (λ l tr2, tr2 ≫= memory_access_nonchildren_only AccessRead C tg (l, 1%nat)) (Some tr1) (elements L)) (Some tr) E) in
+  let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg (l, 1%nat)) (Some tr1) (L)) (Some tr) E) in
   fn L tr1 = Some trL →
   tag_protected_for_tree P c tr1 offp tg_prs ps →
   tag_protected_for_tree P c trL offp tg_prs ps.
@@ -250,47 +250,47 @@ Proof.
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
   assert (wf_tree tr2) as Hwf2.
-  { eapply preserve_tag_count_wf. 1: eapply tree_read_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
-  intros Hprot. eapply tree_read_many_preserve_tag_protected_for_2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  intros Hprot. eapply tree_access_many_preserve_tag_protected_for_2.
   2: exact Hact. 2: exact HL. 1: done.
   by eapply IH.
 Qed.
 
-Lemma tree_read_many_preserve_tag_protected_for C cid tr1 trL c offp tg_prs ps P
+Lemma tree_access_many_preserve_tag_protected_for C cid tr1 trL c offp tg_prs ps P
   (Hwf1 : wf_tree tr1) :
   call_is_active c C →
-  tree_read_all_protected_initialized C cid tr1 = Some trL →
+  tree_access_all_protected_initialized C cid tr1 = Some trL →
   tag_protected_for_tree P c tr1 offp tg_prs ps →
   tag_protected_for_tree P c trL offp tg_prs ps.
 Proof.
-  rewrite /tree_read_all_protected_initialized.
-  rewrite /set_fold /=. eapply tree_read_many_preserve_tag_protected_for_1. done.
+  rewrite /tree_access_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_access_many_preserve_tag_protected_for_1. done.
 Qed.
 
-Lemma trees_read_many_preserve_tag_protected_for C cid trs1 trsL c l tg_prs ps P
+Lemma trees_access_many_preserve_tag_protected_for C cid trs1 trsL c l tg_prs ps P
   (Hwf1 : wf_trees trs1) :
   call_is_active c C →
-  trees_read_all_protected_initialized C cid trs1 = Some trsL →
+  trees_access_all_protected_initialized C cid trs1 = Some trsL →
   tag_protected_for P c trs1 l tg_prs ps →
   tag_protected_for P c trsL l tg_prs ps.
 Proof.
   intros H1 H2 H3. destruct l as [blk offl], ps.
   - intros itL (trL&HtrL&HitL). simpl in HtrL.
     assert (∃ tr, trs1 !! blk = Some tr) as (tr&Htr).
-    { eapply trees_read_all_protected_initialized_pointwise_1 in H2 as (_&H2B).
+    { eapply trees_access_all_protected_initialized_pointwise_1 in H2 as (_&H2B).
       destruct (trs1 !! blk) eqn:Heq; first by eexists.
       specialize (H2B Heq). congruence. }
-    eapply trees_read_all_protected_initialized_pointwise_1 in H2 as (H2&_).
+    eapply trees_access_all_protected_initialized_pointwise_1 in H2 as (H2&_).
     specialize (H2 _ Htr) as (tr'&Htr'&Hread). assert (trL = tr') as -> by congruence. simpl.
-    eapply tree_read_many_preserve_tag_protected_for in Hread; first last. 3: by eapply Hwf1. 2: done.
+    eapply tree_access_many_preserve_tag_protected_for in Hread; first last. 3: by eapply Hwf1. 2: done.
     1: eapply tag_protected_for_tree_spec; last exact H3. 1: by rewrite /=.
     eapply Hread. done.
   - assert (∃ tr, trs1 !! blk = Some tr) as (tr&Htr).
     { destruct H3 as (x&(tr&Htr&_)&_). by eexists. }
-    eapply trees_read_all_protected_initialized_pointwise_1 in H2 as (H2&_).
+    eapply trees_access_all_protected_initialized_pointwise_1 in H2 as (H2&_).
     specialize (H2 _ Htr) as (tr'&Htr'&Hread).
     eapply tag_protected_for_tree_spec. 1: done.
-    eapply tree_read_many_preserve_tag_protected_for. 1: by eapply Hwf1. 1: done. 1: done.
+    eapply tree_access_many_preserve_tag_protected_for. 1: by eapply Hwf1. 1: done. 1: done.
     eapply tag_protected_for_tree_spec. all: done.
 Qed.
 
@@ -300,7 +300,7 @@ Lemma call_set_interp_remove c M σ σ' P :
   scs σ ∖ {[c]} = scs σ' →
   shp σ = shp σ' →
   state_wf σ →
-  trees_read_all_protected_initialized (scs σ) c (strs σ) = Some (strs σ') →
+  trees_access_all_protected_initialized (scs σ) c (strs σ) = Some (strs σ') →
   call_set_interp P M σ →
   call_set_interp P (delete c M) σ'.
 Proof.
@@ -316,7 +316,7 @@ Proof.
   intros t S HS.
   apply Hpid in HS as (Ht & Hlookup). split; first by rewrite -Heq2.
   intros l b Hl.
-  eapply trees_read_many_preserve_tag_protected_for.
+  eapply trees_access_many_preserve_tag_protected_for.
   3: done. 3: by eapply Hlookup. 1: by eapply state_wf_tree_unq.
   by eapply Hin.
 Qed.

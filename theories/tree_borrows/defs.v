@@ -32,6 +32,12 @@ Definition parents_more_active (tr : tree item) := ∀ tg, every_child tg item_a
 Definition item_protected_all_parents_not_disabled C itp itc := ∀ l, initialized (item_lookup itc l) = PermInit → protector_is_active (iprot itc) C → perm (item_lookup itp l) ≠ Disabled.
 Definition protected_parents_not_disabled C (tr : tree item) := ∀ tg, every_child tg (item_protected_all_parents_not_disabled C) tr.
 
+Definition active_or_prot_init C it off := 
+  perm (item_lookup it off) = Active ∨
+  (protector_is_active it.(iprot) C) ∧ initialized (item_lookup it off) = PermInit.
+(* the definition is asymmetric: an active tag can not have a protected nor an active tag as cousin *)
+Definition no_active_cousins C tr := ∀ tg1 it1 tg2 it2 off, tree_lookup tr tg1 it1 → tree_lookup tr tg2 it2 → rel_dec tr tg1 tg2 = Foreign Cousin → active_or_prot_init C it1 off → perm (item_lookup it2 off) = Active → False.
+
 Definition tree_items_unique (tr:tree item) :=
   forall tg,
   tree_contains tg tr -> tree_unique tg tr.
@@ -51,6 +57,8 @@ Definition each_tree_parents_more_active (trs:trees) :=
   ∀ blk tr, trs !! blk = Some tr → parents_more_active tr.
 Definition each_tree_protected_parents_not_disabled C (trs:trees) :=
   ∀ blk tr, trs !! blk = Some tr → protected_parents_not_disabled C tr.
+Definition each_tree_no_active_cousins C (trs:trees) :=
+  ∀ blk tr, trs !! blk = Some tr → no_active_cousins C tr.
 Definition tags_unique_per_location (trs:trees) :=
   ∀ blk1 blk2 tr1 tr2 tg, trs !! blk1 = Some tr1 → trs !! blk2 = Some tr2 →
           tree_contains tg tr1 → tree_contains tg tr2 → blk1 = blk2.
@@ -101,6 +109,7 @@ Record state_wf (s: state) := {
   state_wf_tree_more_init : each_tree_parents_more_init s.(strs);
   state_wf_tree_more_active : each_tree_parents_more_active s.(strs);
   state_wf_tree_not_disabled :  each_tree_protected_parents_not_disabled s.(scs) s.(strs);
+  state_wf_tree_no_active_cousins : each_tree_no_active_cousins s.(scs) s.(strs);
   state_wf_tree_compat : trees_compat_nexts s.(strs) s.(snp) s.(snc);
   (* state_wf_non_empty : wf_non_empty s.(strs); *)
   state_wf_roots_active : tree_roots_compatible s.(strs) s.(shp);

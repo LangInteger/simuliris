@@ -401,8 +401,8 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
-  edestruct trees_equal_read_all_protected_initialized as (trst' & Htrst & Htrseq').
-  5: exact Hstrs_eq.  4: rewrite Hscs_eq. 5: exact Htrss. 1: by eapply Hwf_s. 1-3: by eapply Hwf_t.
+  edestruct trees_equal_access_all_protected_initialized as (trst' & Htrst & Htrseq').
+  7: exact Hstrs_eq.  6: rewrite Hscs_eq. 7: exact Htrss. 1,4: by eapply Hwf_s. 1-4: by eapply Hwf_t.
   iSplit.
   { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -440,16 +440,16 @@ Proof.
     destruct Htag_interp as (H1&H2&H3&H4&H5).
     intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlocal&Hlu1&Hlu2&Hagree).
     split_and!; try done. (*
-    - intros ->. split; intros ??; eapply trees_read_all_protected_initialized_contains.
+    - intros ->. split; intros ??; eapply trees_access_all_protected_initialized_contains.
       2, 4: done.  all: by eapply Hlocal. *)
     - intros l sc Hlusc.
       specialize (Hlu1 l sc Hlusc).
-      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu1.
-      1: rewrite -Hscs_eq; exact Htrst. 1-4: done. 1-2: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu1.
+      2: rewrite -Hscs_eq; exact Htrst. 2-5: done. 2-3: done. 1: done.
     - intros l sc Hlusc.
       specialize (Hlu2 l sc Hlusc).
-      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu2.
-      1: exact Htrss. 1-4: done. 1-2: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu2.
+      2: exact Htrss. 2-5: done. 2-3: done. 1: done.
  }
   iSplit; iPureIntro.
   all: eapply endcall_step_wf_inner.
@@ -467,8 +467,8 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
-  edestruct trees_equal_read_all_protected_initialized as (trst' & Htrst & Htrseq').
-  5: exact Hstrs_eq. 5: exact Htrss. 1: by eapply Hwf_s. 3: rewrite Hscs_eq. 1-3: by eapply Hwf_t.
+  edestruct trees_equal_access_all_protected_initialized as (trst' & Htrst & Htrseq').
+  7: exact Hstrs_eq.  6: rewrite Hscs_eq. 7: exact Htrss. 1,4: by eapply Hwf_s. 1-4: by eapply Hwf_t.
   iSplit.
   { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -506,16 +506,16 @@ Proof.
     destruct Htag_interp as (H1&H2&H3&H4&H5).
     intros t tk Htk. simpl. destruct (H1 t tk Htk) as (Hval1&Hval2&Hlocal&Hlu1&Hlu2&Hagree).
     split_and!; try done.
-    (* - intros ->. split; intros ??; eapply trees_read_all_protected_initialized_contains.
+    (* - intros ->. split; intros ??; eapply trees_access_all_protected_initialized_contains.
       2, 4: done.  all: by eapply Hlocal. *)
     - intros l sc Hlusc.
       specialize (Hlu1 l sc Hlusc).
-      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu1.
-      1: rewrite -Hscs_eq; exact Htrst. 1-4: done. 1-2: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu1.
+      2: rewrite -Hscs_eq; exact Htrst. 2-5: done. 2-3: done. 1: done.
     - intros l sc Hlusc.
       specialize (Hlu2 l sc Hlusc).
-      eapply loc_controlled_trees_read_all_protected_initialized. 8: exact Hlu2.
-      1: exact Htrss. 1-4: done. 1-2: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu2.
+      2: exact Htrss. 2-5: done. 2-3: done. 1: done.
  }
   iSplit; iPureIntro.
   all: eapply endcall_step_wf_inner.

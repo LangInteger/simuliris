@@ -70,7 +70,7 @@ Proof. intros Hhead. inv_base_step. eauto. Qed.
 Lemma head_end_call_inv (P : prog) e' σ σ' efs c :
   base_step P (EndCall #[ScCallId c]) σ e' σ' efs →
   ∃ trs',
-    trees_read_all_protected_initialized (scs σ) c (strs σ) = Some trs' ∧
+    trees_access_all_protected_initialized (scs σ) c (strs σ) = Some trs' ∧
     c ∈ σ.(scs) ∧
     efs = [] ∧
     e' = (#[☠])%E ∧

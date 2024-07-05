@@ -78,10 +78,10 @@ Fixpoint mem_apply_locs {X} (fn:option X -> option X) z sz
 (* Collect the set of locations that satisfy a predicate.
    This is useful when we exit a function and need to perform an implicit
    access to all initialized locations. *)
-Definition mem_enumerate_sat {X} (fn : X -> bool)
-  : gmap loc' X -> gset Z :=
+Definition mem_enumerate_sat {X Y} (fn : X -> option Y)
+  : gmap loc' X -> gmap Z Y :=
   map_fold (fun k v acc =>
-    (if fn v then {[k]} else ∅) ∪ acc
+    (match fn v with Some vv => <[ k := vv ]> acc | _ => acc end)
   ) ∅ .
 
 (* Apply a function to all the locations passed as a list.
@@ -886,27 +886,27 @@ Inductive bor_local_seq (invariant : seq_invariant) tr cids
       tr'' cids''.
 
 (* Traverse the entire tree and get for each tag protected by cid its currently initialized locations.
-   Those are all the locations that we'll do a read access through *)
+   Those are all the locations that we'll do a read access through, or even a write access if it is Active *)
 Definition tree_get_all_protected_tags_initialized_locs (cid : nat) (tr : tree item)
-  : gset (tag * gset Z) :=
+  : gset (tag * gmap Z access_kind) :=
   fold_nodes ∅ (fun it lacc racc =>
     (if decide (Some cid = option_map call it.(iprot)) then
       {[(it.(itag), mem_enumerate_sat (fun (p:lazy_permission) =>
         (* filter out the uninitialized *)
-        if initialized p then true
-        else false) it.(iperm))]} else ∅)
+        if initialized p then Some (match perm p with Active => AccessWrite | _ => AccessRead end)
+        else None) it.(iperm))]} else ∅)
     ∪ lacc
     ∪ racc
   ) tr.
 
-Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
+Definition tree_access_all_protected_initialized (cids : call_id_set) (cid : nat)
   : tree item -> option (tree item) := fun tr =>
     (* read one loc by doing a memory_access *)
-    let reader_loc (tg : tag) (loc : Z) : tree item -> option (tree item) := fun tr =>
-      memory_access_nonchildren_only AccessRead cids tg (loc, 1) tr in
+    let reader_loc (tg : tag) (loc : Z) acc : tree item -> option (tree item) := fun tr =>
+      memory_access_nonchildren_only acc cids tg (loc, 1) tr in
     (* read several locs of the same tag, propagate failures *)
-    let reader_locs (tg : tag) (locs : gset Z) : tree item -> option (tree item) := fun tr =>
-      set_fold (fun loc (tr:option (tree item)) => tr ← tr; reader_loc tg loc tr) (Some tr) locs in
+    let reader_locs (tg : tag) (locs : gmap Z access_kind) : tree item -> option (tree item) := fun tr =>
+     map_fold (fun loc acc (tr:option (tree item)) => tr ← tr; reader_loc tg loc acc tr) (Some tr) locs in
     (* get all initialized locs as defined above, these are what we need to read *)
     let init_locs := tree_get_all_protected_tags_initialized_locs cid tr in
     (* finally we can combine this all *)
@@ -918,10 +918,10 @@ Definition tree_read_all_protected_initialized (cids : call_id_set) (cid : nat)
    NOTE: be careful about how other properties assume the uniqueness of tags intra- and inter- trees,
    because this may have a weird behavior if you have the same tag across two trees and e.g. only one
    of them is protected, which shouldn't happen but isn't impossible by construction. *)
-Definition trees_read_all_protected_initialized (cids : call_id_set) (cid : nat) (trs : trees) : option trees :=
+Definition trees_access_all_protected_initialized (cids : call_id_set) (cid : nat) (trs : trees) : option trees :=
   set_fold (fun k (trs : option trees) =>
     trs ← trs;
-    apply_within_trees (tree_read_all_protected_initialized cids cid) k trs
+    apply_within_trees (tree_access_all_protected_initialized cids cid) k trs
   ) (Some trs) (dom trs).
 
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
@@ -1004,7 +1004,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   | EndCallIS c trs'
     (EL: c ∈ cids)
     (* Don't forget the implicit read on function exit through all initialized locations *)
-    (READ_ON_UNPROT : trees_read_all_protected_initialized cids c trs = Some trs') :
+    (READ_ON_UNPROT : trees_access_all_protected_initialized cids c trs = Some trs') :
     bor_step
       trs cids nxtp nxtc
       (EndCallEvt c)

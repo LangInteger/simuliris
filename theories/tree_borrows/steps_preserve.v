@@ -1,5 +1,5 @@
 From iris.prelude Require Import prelude options.
-From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas.
+From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas defs.
 From iris.prelude Require Import options.
 
 (* Any function that operates only on permissions (which is all transitions steps)
@@ -57,6 +57,21 @@ Proof.
   unfold ParentChildIn.
   rewrite access_eqv_strict_rel; [|exact Access].
   tauto.
+Qed.
+
+Lemma access_same_rel_dec
+  {tr tr' fn cids acc_tg range}
+  : tree_apply_access fn cids acc_tg range tr = Some tr' ->
+  forall tg tg', rel_dec tr tg tg' = rel_dec tr' tg tg'.
+Proof.
+  intros Acc tg tg'.
+  rewrite /rel_dec.
+  pose proof (@access_eqv_rel tg tg' _ _ _ _ _ _ Acc).
+  pose proof (@access_eqv_rel tg' tg _ _ _ _ _ _ Acc).
+  pose proof (@access_eqv_immediate_rel tg tg' _ _ _ _ _ _ Acc).
+  pose proof (@access_eqv_immediate_rel tg' tg _ _ _ _ _ _ Acc).
+  repeat destruct (decide _).
+  all: try tauto.
 Qed.
 
 Lemma access_preserves_tags
