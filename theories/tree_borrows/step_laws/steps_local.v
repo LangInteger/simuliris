@@ -527,9 +527,9 @@ Proof.
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains t ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
     edestruct tree_equal_allows_same_deallocation as (ttr2'&Httr2').
-    6: eapply mk_is_Some, H1. 4: done.
-    1,2,4: eapply wf_tree_tree_unique. 5: rewrite Hscs_eq.
-    1,3: by eapply Hwf_s. 1,3: by eapply Hwf_t.
+    7: eapply mk_is_Some, H1. 5: done.
+    1,2,5: eapply wf_tree_tree_unique. 5: rewrite Hscs_eq.
+    1,3: by eapply Hwf_s. 1,3,4: by eapply Hwf_t.
     1: done.
     exists ttr2'; split; first done.
     eapply tree_equal_memory_deallocate. 5,6,4,3: done.

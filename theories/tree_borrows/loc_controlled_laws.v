@@ -2113,7 +2113,7 @@ Proof.
     rewrite rel_dec_refl. done.
 Qed.
 
-(*
+
 Lemma asymmetric_write_prot_pre_from_bor_state_own_unq Mcall σ blk tr acc_tg range it :
   state_wf σ →
   σ.(strs) !! blk = Some tr →
@@ -2146,25 +2146,19 @@ Proof.
     2: eapply tree_lookup_to_exists_node, Hit.
     split.
     1: by eapply Hpmi. by eapply Hpma.
-  + intros Hactive. rewrite /= Hactive in Hothers.
-    destruct Hothers as [Hothers|[]].
-    opose proof (state_wf_tree_compat _ Hwf _ _ Htr) as Hda.
-    eapply tree_lookup_correct_tag in Hit' as Htg'; subst tg'.
-    eapply every_node_eqv_universal in Hda.
-    2: eapply tree_lookup_to_exists_node, Hit'.
-    rewrite /item_lookup in Hactive,Hothers. destruct (iperm it' !! off) as [lp|] eqn:Heq; simpl in *.
-    * opose proof (item_perms_valid _ _ _ Hda) as Hpwf. eapply map_Forall_lookup_1 in Hpwf. 2: exact Heq.
-      rewrite Hpwf // in Hothers.
-    * eapply item_default_perm_valid. 1: exact Hda. done.
+  + destruct (item_lookup it' off) as [ini [[] ?| | |]] eqn:Hlu; simpl in Hothers|-*.
+    * destruct Hothers as [->|[Hn1|[[=]|Hc]]]. 1: by right. 1: by left.
+      1: exfalso. by eapply Hc.
+    * destruct Hothers as [->|[[=]|Hc]]. 1: done.
+      1: exfalso. by eapply Hc.
+    * destruct Hothers as [->|[]]. 1: done.
+    * destruct Hothers as [->|[[=]|Hc]]. 1: done.
+      1: exfalso. by eapply Hc.
+    * done.
   + done.
   + done.
   + done.
-  + done.
-  - destruct Hhl as (Hact&Hnoprot&Hothers).
-    rewrite Hact. split; first done.
-    intros tg' it' Hit'. specialize (Hothers _ _ Hit'). subst tg'.
-    rewrite rel_dec_refl. done.
-Qed. *)
+Qed.
 
 Definition filter_unq_weak lp := match lp with 
     Deallocable => Deallocable

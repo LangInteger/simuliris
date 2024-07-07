@@ -58,7 +58,7 @@ Proof.
   { rewrite /memory_access Htrs' in Htrs''. congruence. }
   assert (v_rd = v') as -> by congruence.
   assert (trees_equal (scs σ_s) (strs σ_s) trs') as Hstrs_eq'.
-  { eapply trees_equal_trans. 3: eassumption. 1: rewrite Hscs_eq. 1-2: by eapply Hwf_t.
+  { eapply trees_equal_trans. 5: eassumption. 1,4: rewrite Hscs_eq. 1-4: by eapply Hwf_t.
     eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_t. simpl.
     intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
     eapply tree_equal_asymmetric_read_protected.
@@ -132,7 +132,7 @@ Proof.
   iSplit.
   { iPureIntro.  eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact Htrs'. done. }
   assert (trees_equal (scs σ_s) trs' (strs σ_t)) as Hstrs_eq'.
-  { eapply trees_equal_sym, trees_equal_trans. 3: eapply trees_equal_sym; eassumption. 1-2: by eapply Hwf_s.
+  { eapply trees_equal_sym, trees_equal_trans. 5: eapply trees_equal_sym; eassumption. 1-4: by eapply Hwf_s.
     eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_s. simpl.
     intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
     eapply tree_equal_asymmetric_read_protected.

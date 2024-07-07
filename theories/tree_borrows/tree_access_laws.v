@@ -70,11 +70,12 @@ Lemma trees_equal_allows_same_access C tr1 tr2 blk kind acc_tg range :
   wf_trees tr1 →
   wf_trees tr2 →
   each_tree_protected_parents_not_disabled C tr2 →
+  each_tree_parents_more_init tr2 →
   trees_contain acc_tg tr1 blk →
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
 Proof.
-  intros Heq Hwf1 Hwf2 HCCC Hcont [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
+  intros Heq Hwf1 Hwf2 HCCC HPMI Hcont [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
   specialize (Heq blk).
   rewrite H1 in Heq. inversion Heq as [? trr2 Heqr q H2'|]; simplify_eq.
   eapply mk_is_Some, tree_equal_allows_same_access in H2 as (trr2'&Htrr2').
@@ -82,6 +83,7 @@ Proof.
   * intros tg. eapply wf_tree_tree_unique. eapply Hwf1, H1.
   * intros tg. eapply wf_tree_tree_unique. eapply Hwf2. done.
   * by eapply HCCC.
+  * by eapply HPMI.
   * apply Heqr.
   * eapply wf_tree_tree_unique. 1: eapply Hwf1, H1.
     rewrite /trees_contain /trees_at_block H1 // in Hcont.
