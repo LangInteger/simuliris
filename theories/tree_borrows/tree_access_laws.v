@@ -506,25 +506,29 @@ Proof.
   - congruence.
 Qed.
 
-Lemma apply_access_perm_read_conflicted b rel isprot itmo itmn im :
-  maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
+Lemma apply_access_perm_access_conflicted b kk rel isprot itmo itmn im cc :
+  maybe_non_children_only b (apply_access_perm kk) rel isprot itmo = Some itmn →
   perm itmo = Reserved im ResConflicted →
-  perm itmn = Reserved im ResConflicted.
+  perm itmn = Reserved im cc →
+  cc = ResConflicted.
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
   - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
+    rewrite /apply_access_perm_inner in H1.
     simpl in Hdis,H1,H2|-*.
     repeat (case_match; simplify_eq; try done).
+    all: intros [= <-]; done.
   - congruence.
 Qed.
 
-Lemma apply_access_perm_read_reserved_backwards b rel isprot itmo itmn im acc :
-  maybe_non_children_only b (apply_access_perm AccessRead) rel isprot itmo = Some itmn →
+Lemma apply_access_perm_access_reserved_backwards b kk rel isprot itmo itmn im acc :
+  maybe_non_children_only b (apply_access_perm kk) rel isprot itmo = Some itmn →
   perm itmn = Reserved im acc → ∃ acc,
   perm itmo = Reserved im acc.
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
   - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
+    rewrite /apply_access_perm_inner in H1.
     simpl in Hdis,H1,H2|-*.
     repeat (case_match; simplify_eq; try done; try by eexists).
   - intros [= ->] ->. by eexists.

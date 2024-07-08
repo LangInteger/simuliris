@@ -365,6 +365,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Foreign _ =>
       (* Foreign write. Disables everything except interior mutable [Reserved]. *)
       match perm with
+      (* TODO: remove -- this can never happen, but having it simplifies theorems. *)
       | Reserved InteriorMut ra => if isprot then Some Disabled else Some $ Reserved InteriorMut ra
       | Disabled => Some Disabled
       | _ => Some Disabled
@@ -924,6 +925,10 @@ Definition trees_access_all_protected_initialized (cids : call_id_set) (cid : na
     apply_within_trees (tree_access_all_protected_initialized cids cid) k trs
   ) (Some trs) (dom trs).
 
+Definition no_protected_reserved_interiormut pk rk := match pk, rk with
+  (Box InteriorMut | MutRef InteriorMut), FnEntry => False | _, _ => True end.
+
+
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (blk : block) (off : Z) (sz : nat)
@@ -983,7 +988,8 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
     (* TODO get rid of fresh_child assumption here *)
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk rk cid) alloc trs = Some trs')
-    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :
+    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') 
+    (HACK_ALERT: no_protected_reserved_interiormut pk rk) :
     bor_step
       trs cids nxtp nxtc
       (RetagEvt alloc range parentt nxtp pk cid rk)

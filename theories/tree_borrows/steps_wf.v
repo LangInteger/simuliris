@@ -68,7 +68,7 @@ Lemma item_wf_lookup it l ev1 ev2 :
   item_wf it ev1 ev2 →
   lazy_perm_wf (item_lookup it l).
 Proof.
-  intros [H1 H2 H3 H4].
+  intros [H1 H2 H3 _ H4].
   rewrite /item_lookup. edestruct (iperm it !! l) as [pp|] eqn:H5.
   - simpl. eapply map_Forall_lookup_1 in H4; done.
   - simpl. intros Hne. exfalso. apply H3, Hne.
@@ -145,11 +145,12 @@ Qed.
 Lemma wf_item_mono it :
   Proper ((≤)%nat==> (≤)%nat ==> impl) (item_wf it).
 Proof.
-  move=> ?? Le1 ?? Le2 [WFle WFprot WFdef WFperms WFreach].
+  move=> ?? Le1 ?? Le2 [WFle WFprot WFdef WFprotIM WFperms WFreach].
   split.
   - intros tg tgit. specialize (WFle tg tgit). lia.
   - intros cid protit. specialize (WFprot cid protit). lia.
   - apply WFdef.
+  - apply WFprotIM.
   - apply WFperms.
   - apply WFreach.
 Qed.
@@ -590,17 +591,27 @@ Proof.
   eapply tree_joinmap_preserve_prop.
   intros it1 it2 Hacc.
   pose proof Hacc as (H1&H2&H3)%item_apply_access_preserves_metadata.
-  intros [Htag Hcid Hdef Hperms Hreach]. split.
+  intros [Htag Hcid Hdef HIM Hperms Hreach]. split.
   1-3: rewrite /= -?H1 -?H2 -?H3 //.
   all: pose proof Hacc as (px&Hpx&[= <-])%bind_Some; simpl.
-  2: intros Hndis; specialize (Hreach Hndis).
-  all: apply map_Forall_lookup_2; intros k pnew Hpnew.
+  1: intros Hsome k c Heq; destruct (px !! k) eqn:Hpnew.
+  2: { simpl in Heq. eapply (HIM (ltac:(done)) (fresh (dom (iperm it1)))).
+       rewrite not_elem_of_dom_1. 1: done. eapply is_fresh. }
+  3: intros Hndis; specialize (Hreach Hndis).
+  2,3: apply map_Forall_lookup_2; intros k pnew Hpnew.
   all: eapply (mem_apply_range'_spec _ _ k) in Hpx.
   all: destruct decide.
-  2,4: rewrite Hpnew in Hpx; symmetry in Hpx;
+  2: { rewrite Hpx in Hpnew. eapply HIM. 1: done.
+       rewrite -Hpnew // in Heq. apply Heq. }
+  3,5: rewrite Hpnew in Hpx; symmetry in Hpx;
        eapply map_Forall_lookup_1 in Hperms; try done.
-  1,3: destruct Hpx as (p'&Hp'&Hfn);
+  2,4: destruct Hpx as (p'&Hp'&Hfn);
        rewrite Hpnew in Hp'; injection Hp' as <-.
+  - destruct Hpx as (?&Hkk&Hpx).
+    rewrite Hpnew in Hkk. injection Hkk as <-.
+    eapply Hpreach in Hpx. rewrite Heq in Hpx.
+    destruct perm as [[] c'| | |] eqn:Hperm in Hpx. 2-5: cbv in Hpx; by repeat case_match.
+    eapply HIM; first done. done.
   - eapply Hlazy; first exact Hfn.
     rewrite /default. destruct (iperm it1 !! k) as [pold|] eqn:Hpold.
     + rewrite Hpold. simpl. eapply map_Forall_lookup_1 in Hperms; done.
@@ -751,6 +762,7 @@ Proof.
   - intros ? ->. lia.
   - done.
   - done.
+  - intros [? [=]].
   - eapply map_Forall_lookup_2.
     intros k p [(Hr&Heq)|(Hr&Heq)]%mem_apply_range'_defined_lookup_Some.
     + subst p. done.
@@ -2466,25 +2478,35 @@ Proof.
   intros n _ (?&_); done.
 Qed.
 
+
+Lemma tree_access_many_compat_nexts_helper_2 C tg (L : gmap Z _) a b :
+  preserve_tree_compat_nexts (λ tr, map_fold (λ l acc tr2, tr2 ≫= memory_access_nonchildren_only acc C tg (l, 1%nat)) (Some tr) L) a a b b.
+Proof.
+  intros tr tr' Hcompat.
+  map_fold_ind L as z acc L Hne _ IH in tr'; simpl.
+  1: intros [= ->]; done.
+  intros (trm&H1&H2)%bind_Some.
+  eapply memory_access_compat_nexts. 2: done.
+  eapply IH. done.
+Qed.
+
+Lemma tree_access_many_compat_nexts_helper_1 C (E : list (tag * gmap Z _)) a b :
+  preserve_tree_compat_nexts (λ tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, map_fold (λ l acc tr2, tr2 ≫= memory_access_nonchildren_only acc C tg (l, 1%nat)) (Some tr1) L) (Some tr) E) a a b b.
+Proof.
+  intros tr tr' HH.
+  induction E as [|(tg'&L) E IH] in tr'|-*; simpl.
+  1: intros [= ->]; done.
+  intros (trm&H1&H2)%bind_Some.
+  eapply tree_access_many_compat_nexts_helper_2; last done.
+  by eapply IH.
+Qed.
+
 Lemma tree_access_all_protected_initialized_compat_nexts C cid nxtp nxtc :
   preserve_tree_compat_nexts (tree_access_all_protected_initialized C cid) nxtp nxtp nxtc nxtc.
 Proof.
   intros tr tr' Htrcompat.
   rewrite /tree_access_all_protected_initialized /=.
-  generalize (tree_get_all_protected_tags_initialized_locs cid tr).
-  intros S. revert S tr'.
-  refine (set_fold_ind_L (λ b S, ∀ tr', b = Some tr' → tree_items_compat_nexts tr' _ _) _ _ _ _).
-  1: congruence.
-  intros (l&offs) S [tr1|] Hnin IH tr' Htr1; last done.
-  rewrite /= in Htr1.
-  specialize (IH _ eq_refl) as Htr1compat.
-  clear IH Hnin S tr Htrcompat. revert tr' Htr1.
-  map_fold_ind offs as off acc S Hnin _ IH in; intros tr' Htr2.
-  1: congruence.
-  rewrite /= in Htr2.
-  eapply bind_Some in Htr2 as (tt&Htt&HHtt).
-  eapply memory_access_compat_nexts. 2: apply HHtt.
-  eapply IH. done.
+  eapply tree_access_many_compat_nexts_helper_1. done.
 Qed.
 
 Lemma trees_access_all_protected_initialized_pointwise_1 C trs cid trs' :
@@ -3068,15 +3090,20 @@ Qed.
 
 Lemma create_new_item_wf nt pk rk (cid nxtc' : nat) : 
   (cid < nxtc')%nat →
+  no_protected_reserved_interiormut pk rk →
   item_wf (create_new_item nt pk rk cid) (S nt) nxtc'.
 Proof.
-  intros H.
+  intros H Hnot.
   split; rewrite /create_new_item /=.
   + rewrite /=. intros ? <-; lia.
   + destruct rk; last done.
     rewrite /= /protector_is_for_call /=.
     intros ? [= <-]. by eapply H.
   + clear. cbv. by case_match.
+  + destruct rk. 2: intros [? [=]].
+    destruct pk as [[]|[]|].
+    all: intros _ off c; rewrite lookup_empty /=; intros [=].
+    all: eapply Hnot.
   + done.
   + intros _. eapply map_Forall_empty.
 Qed.
@@ -3124,9 +3151,10 @@ Lemma retag_step_wf_inner σ blk ot pk rk cid trsmid :
   ¬ trees_contain σ.(snp) σ.(strs) blk →
   cid ∈ σ.(scs) →
   apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk cid) blk σ.(strs) = Some trsmid →
+  no_protected_reserved_interiormut pk rk →
   state_wf (mkState σ.(shp) trsmid σ.(scs) (S σ.(snp)) σ.(snc)) ∧ trees_contain σ.(snp) trsmid blk.
 Proof.
-  intros WF EXISTS_TAG FRESH_CHILD CALL_ACTIVE RETAG_EFFECT.
+  intros WF EXISTS_TAG FRESH_CHILD CALL_ACTIVE RETAG_EFFECT HACK_BAN.
   destruct σ as [h' trs cids' nt nxtc']. simpl in *.
   assert (trees_compat_nexts trsmid (S nt) nxtc' ∧ wf_trees trsmid) as (Hwfmid1 & Hwfmid2).
   { eapply apply_within_trees_compat_both; first done; last first.
@@ -3137,7 +3165,7 @@ Proof.
       1: left; eapply insertion_minimal_tags; last done; try done.
     - simpl. intros ?????.
       eapply insert_child_wf; try done.
-      eapply create_new_item_wf. by eapply WF.
+      eapply create_new_item_wf. 1: by eapply WF. 1: done.
     - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
   split; first constructor; simpl.
   - rewrite /same_blocks /=
@@ -3167,8 +3195,8 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
-  inversion IS as [| | | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | |]. clear IS. simplify_eq.
-  eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-5: done.
+  inversion IS as [| | | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR HACK_BAN| | |]. clear IS. simplify_eq.
+  eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-6: done.
   eapply access_step_wf_inner in WF. all: done.
 Qed.
 

@@ -204,7 +204,8 @@ Section safe_reach.
     SafeImplies (∃ c ot l trs1 trs2, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧ 
       trees_contain ot σ.(strs) l.1 ∧ ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
       apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk c) l.1 σ.(strs) = Some trs1 ∧
-      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2)
+      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2 ∧
+      no_protected_reserved_interiormut pk rk)
     P (Retag v v' pk sz rk) σ.
   Proof. prove_safe_implies. Qed.
   Global Instance safe_implies_retag_place_l P σ l t sz sz' v pk rk :

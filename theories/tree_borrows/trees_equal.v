@@ -54,9 +54,8 @@ Section utils.
         tree_lookup tr tg_cous it_cous ->
         protector_is_active it_cous.(iprot) C ->
         (item_lookup it_cous l) = mkPerm PermInit Active ->
-        (* this must be protected. note that this protector does not cause UB as we're not initialized.
-           but without it this does not become disabled on write *)
-        (∀ c, lp = Reserved InteriorMut c -> protector_is_active prot C) ->
+        (* This is not allowed, since it actually survives foreign writes. *)
+        (∀ c, lp ≠ Reserved InteriorMut c) ->
         pseudo_disabled _ _ _ lp prot
     .
 
@@ -2689,7 +2688,7 @@ Section utils.
             | Child (Strict Immediate) => pp.(perm) = Disabled
             | Child _ => True
             | Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) = Active (* this follows from state_wf *)
-            | Foreign Cousin => match pp.(perm) with Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) C ∨ pp.(initialized) = PermLazy| _ => pp.(initialized) = PermLazy end end).
+            | Foreign Cousin => match pp.(perm) with Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
 
   Lemma disabled_is_disabled x1 x2 x3 x4 pp : perm pp = Disabled → is_disabled x1 x2 x3 pp x4.
   Proof.
@@ -2872,6 +2871,7 @@ Section utils.
     (cid < ev2)%nat →
     tree_contains tg_old tr1 →
     ¬ tree_contains tg_new tr1 →
+    no_protected_reserved_interiormut pk rk →
     tree_equal tr1 tr2 →
     create_child C tg_old tg_new pk rk cid tr1 = Some tr1' →
     ∃ tr2', create_child C tg_old tg_new pk rk cid tr2 = Some tr2' ∧
@@ -2881,11 +2881,11 @@ Section utils.
     rewrite /create_child.
     pose (create_new_item tg_new pk rk cid) as it_new. fold it_new.
     assert (itag it_new = tg_new) as Htgnew by done.
-    intros Hcontains1 Hnotcont1 (H1&H2&H3) [= <-].
+    intros Hcontains1 Hnotcont1 Hhack (H1&H2&H3) [= <-].
     assert (tg_old ≠ tg_new) as Htgsne by (intros ->; firstorder).
     pose proof Hcontains1 as Hcontains2. setoid_rewrite H1 in Hcontains2.
     pose proof Hnotcont1 as Hnotcont2. setoid_rewrite H1 in Hnotcont2.
-    epose proof create_new_item_wf _ _ _ _ _ Hcidwf as Hitemwf.
+    epose proof create_new_item_wf _ _ _ _ _ Hcidwf Hhack as Hitemwf.
     epose proof insert_child_wf C _ _ _ _ _ _ _ _ Hitemwf eq_refl Hiwf1 Hwf1 as (_&Hwf1').
     epose proof insert_child_wf C _ _ _ _ _ _ _ _ Hitemwf eq_refl Hiwf2 Hwf2 as (_&Hwf2').
     eexists. split; first done.
@@ -3056,12 +3056,13 @@ Section utils.
     (cid < nxtc)%nat →
     trees_contain tg_old trs1 blk →
     ¬ trees_contain tg_new trs1 blk →
+    no_protected_reserved_interiormut pk rk →
     trees_equal trs1 trs2 →
     apply_within_trees (create_child C tg_old tg_new pk rk cid) blk trs1 = Some trs1' →
     ∃ trs2', apply_within_trees (create_child C tg_old tg_new pk rk cid) blk trs2 = Some trs2' ∧
       trees_equal trs1' trs2'.
   Proof.
-    intros Hwf1 Hwf2 Hiwf1 Hiwf2 Hcidwf Hcont Hncont Heq.
+    intros Hwf1 Hwf2 Hiwf1 Hiwf2 Hcidwf Hcont Hncont Hhack Heq.
     intros (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
     epose proof (Heq blk) as HeqblkI.
     inversion HeqblkI as [t1x tr2 Heqblk Heq1x Htr2|]; simplify_eq; last congruence.
@@ -3079,6 +3080,7 @@ Section utils.
     - done.
     - by rewrite /trees_contain /trees_at_block Htr1 in Hcont.
     - by rewrite /trees_contain /trees_at_block Htr1 in Hncont.
+    - done.
     - done.
   Qed.
 
@@ -3203,7 +3205,7 @@ Section utils.
                      tree_item_determined tg_cs it_cs tr ∧
                      protector_is_active (iprot it_cs) C ∧
                      item_lookup it_cs off = mkPerm PermInit Active ∧
-                     match pp with Reserved InteriorMut _ => protector_is_active oprot C | _ => True end).
+                     match pp with Reserved InteriorMut _ => False | _ => True end).
     assert (∀ it, Decision (P it)) as DecP.
     { intros it.
       rewrite /P.
@@ -3656,7 +3658,7 @@ Section call_set.
     induction 1 as [|???????? HH]. 1: by econstructor 1.
     econstructor 2. 1,2,4: done.
     1: eapply protector_is_active_mono; last done; set_solver.
-    intros ? Hc1. eapply protector_is_active_mono. 2: by eapply HH. set_solver.
+    intros ? Hc1. by eapply HH.
   Qed.
 
   Lemma is_disabled_mono C1 nxtc tr1 tg l p1 cid :
@@ -3762,3 +3764,5 @@ Section call_set.
   Qed. 
 
 End call_set.
+
+

@@ -2147,8 +2147,15 @@ Proof.
     split.
     1: by eapply Hpmi. by eapply Hpma.
   + destruct (item_lookup it' off) as [ini [[] ?| | |]] eqn:Hlu; simpl in Hothers|-*.
-    * destruct Hothers as [->|[Hn1|[[=]|Hc]]]. 1: by right. 1: by left.
-      1: exfalso. by eapply Hc.
+    * destruct Hothers as [->|[Hn1|[[=]|Hc]]]. 2: done.
+      2: exfalso; by eapply Hc.
+      intros (cc&HH1&HH2).
+      opose proof (state_wf_tree_compat _ Hwf _ _ Htr) as HH.
+      eapply every_node_eqv_universal in HH.
+      2: eapply tree_lookup_to_exists_node; exact Hit'.
+      rewrite /item_lookup in Hlu.
+      unshelve eapply (item_perms_reserved_im_protected _ _ _ _ _ off). 4: exact HH.
+      3: rewrite Hlu //. destruct (iprot it'); done.
     * destruct Hothers as [->|[[=]|Hc]]. 1: done.
       1: exfalso. by eapply Hc.
     * destruct Hothers as [->|[]]. 1: done.

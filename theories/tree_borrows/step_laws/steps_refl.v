@@ -421,7 +421,7 @@ Proof.
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
     iSplit; first done. iSplit.
-    { iPureIntro. eapply trees_equal_remove_call. 7: done. 5-6: done. 1,3: by eapply Hwf_s. 1,2: by eapply Hwf_t. }
+    { iPureIntro. eapply trees_equal_remove_call. 7: done. 7-8: done. 1,3,5: by eapply Hwf_s. 1,2: by eapply Hwf_t. rewrite Hsnc_eq Hsnp_eq; by eapply Hwf_t. }
     do 3 (iSplit; first (iPureIntro; try done; by f_equal)).
     iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
     { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
@@ -487,7 +487,7 @@ Proof.
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
     iSplit; first done. iSplit.
-    { iPureIntro. eapply trees_equal_remove_call. 7: done. 5-6: done. 1,3: by eapply Hwf_s. 1,2: by eapply Hwf_t. }
+    { iPureIntro. eapply trees_equal_remove_call. 7: done. 7-8: done. 1,3,5: by eapply Hwf_s. 1,2: by eapply Hwf_t. rewrite Hsnc_eq Hsnp_eq; by eapply Hwf_t. }
     do 3 (iSplit; first (iPureIntro; try done; by f_equal)).
     iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
     { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
