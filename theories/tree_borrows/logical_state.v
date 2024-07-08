@@ -1333,6 +1333,16 @@ Proof.
   - intros [x Hx]. rewrite /write_range bool_decide_decide in Hx. destruct decide; done.
 Qed.
 
+Lemma write_range_is_Some_read_range {T} hl_base start (vals into : list T) :
+  is_Some (write_range hl_base start vals into) →
+  is_Some (read_range start (length vals) (list_to_heaplet into hl_base)).
+Proof.
+  intros H%write_range_valid_iff.
+  eapply read_range_valid_iff.
+  intros i Hi.
+  eapply list_to_heaplet_dom. lia.
+Qed.
+
 Lemma write_range_to_list_is_Some {T} hl_base start (vals into out : list T) :
   write_range hl_base start vals into = Some out →
   ∃ base, write_range_to_list base vals into = out ∧ start = hl_base + base ∧ base + length vals ≤ length into.
@@ -1398,6 +1408,31 @@ Proof.
     eapply write_range_to_list_same_length in Hvt1. lia.
   + rewrite lookup_insert_ne. 2: injection; lia.
     rewrite (Hi' idx). 2: lia. subst v_t'. by rewrite list_lookup_insert_ne.
+Qed.
+
+Lemma write_range_write_memory_smaller l_hl l_wr v_t v_wr v_t' hp :
+  write_range l_hl.2 l_wr.2 v_wr v_t = Some v_t' →
+  l_hl.1 = l_wr.1 →
+  (∀ i : nat, (i < length v_wr)%nat → is_Some (hp !! (l_wr +ₗ i))) →
+  ∃ hp', write_mem l_wr v_wr hp = hp' ∧
+    (∀ i : nat, (i < length v_wr)%nat → hp' !! (l_wr +ₗ i) = v_wr !! i).
+Proof.
+  intros (base&Hwrite&Hbase&Hlen)%write_range_to_list_is_Some Heq.
+  destruct l_hl as [blk off_hl], l_wr as [b off_wr]; simpl in *; subst b.
+  induction v_wr as [|v v_wr IH] in v_t',base,off_wr,Hlen,Hbase,Hwrite|-*; intros Hi.
+  1: { eexists; split; first done. simpl. simpl in Hwrite. subst v_t'. intros ??; lia. }
+  simpl. rewrite /shift_loc /= in Hi|-*.
+  remember (write_range_to_list (S base) v_wr v_t) as v_t1 eqn:Hvt1. rewrite /= -Hvt1 in Hwrite.
+  symmetry in Hvt1.
+  odestruct (IH (off_wr + 1) _ (S base) Hvt1) as (hp'&Hhp'&Hi').
+  1-2: simpl in Hlen; lia.
+  { intros im Him. destruct (Hi (S im)) as [x Hx]. 1: lia. exists x. rewrite -Hx. f_equal. rewrite /shift_loc /=. f_equal. lia. }
+  rewrite write_mem_insert. 2: simpl; lia.
+  erewrite Hhp'. eexists; split; first done.
+  intros idx Hidx. destruct idx as [|idx].
+  + rewrite Z.add_0_r. rewrite lookup_insert. simpl. done.
+  + rewrite lookup_insert_ne. 2: injection; lia. simpl.
+    rewrite -(Hi' idx). 2: lia. rewrite /shift_loc /=. do 2 f_equal. lia. 
 Qed.
 
 Lemma write_range_to_list_lookup_inv {T} b (vnew vold : list T) (i:nat) r :
