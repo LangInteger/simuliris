@@ -22,9 +22,7 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 
 (*
-TODO: this works for our example. But:
-* We want to change the retag laws such that unprotected ones produce an empty list here (urgent)
-* We want to have a version that works with pub_cids (likely never needed in practice)
+TODO: refactor to interiormut no longer needing protectors
 *)
 Lemma sim_make_unique_public l t ac (sc_s sc_t : list scalar) π Φ e_t e_s c M L:
   M !! t = Some L →

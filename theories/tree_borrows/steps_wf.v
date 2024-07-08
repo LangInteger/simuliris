@@ -58,7 +58,8 @@ Proof.
   apply (H2 _ _ (GMap mt)). 1: done.
   intros ???. simpl. rewrite /map_fold /gmap_fold /= -Hk3 -H3 /= Hk1 //.
 Qed.
- 
+
+
 Tactic Notation "map_fold_ind" constr(M) "as" simple_intropattern(k) simple_intropattern(v) simple_intropattern(LL) simple_intropattern(Hnone) simple_intropattern(Hothers) simple_intropattern(IH) "in" hyp_list(hyps)  := 
   match goal with |- context C [map_fold ?f ?b M] => revert hyps; pattern (map_fold f b M); pattern M; 
     (match goal with |- (λ m', (λ b', ?Q) ?B) M => change ((λ b' m', Q) (map_fold f b M) M);

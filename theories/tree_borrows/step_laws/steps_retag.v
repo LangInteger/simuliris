@@ -211,12 +211,6 @@ Proof.
            split;
            (intros bblk MM [([= <- <-]&<-)%lookup_singleton_Some|(_&H)]%lookup_union_Some_raw;
             [ done | (try by eapply Httl1); by eapply Httl2]). }
-      (* 3: { intros ->. rewrite !dom_union_L /array_tag_map !dom_singleton_L. split;
-            (intros bblk [[= ??]%elem_of_singleton|H]%elem_of_union; first done).
-           all: simpl; eapply apply_within_trees_tag_count_preserves_exists.
-           1,4: done. 1,3: eapply memory_access_tag_count.
-           all: eapply create_child_tree_contains.
-           2, 4: done. all: by eapply Httlocal. } *)
       1-2: simpl; eapply tag_valid_mono; last reflexivity.
       1,3: done. 1,2: lia.
       all: rewrite /array_tag_map -!insert_union_singleton_l.
@@ -568,73 +562,6 @@ Proof.
     2: by rewrite -Hscs_eq. by rewrite Hsnp_eq.
 Qed.
 
-
-(** ** Updates for calls sets *)
-(*
-(* TODO: maybe formulate that with [update_si] instead *)
-Lemma sim_protected_unprotectN M L l c t tk v_t v_s  π Φ e_t e_s :
-  (∀ i : nat, (i < length v_t)%nat → (l +ₗ i) ∈ L) →
-  M !! t = Some L →
-  c @@ M -∗
-  t $$ tk -∗
-  l ↦t∗[tk]{t} v_t -∗
-  l ↦s∗[tk]{t} v_s -∗
-  value_rel v_t v_s -∗
-  (c @@ (<[t := L ∖ (seq_loc_set l (length v_t)) ]> M) -∗ t $$ tk -∗ l ↦t∗[tk]{t} v_t -∗ l ↦s∗[tk]{t} v_s -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
-  e_t ⪯{π} e_s [{ Φ }].
-Proof.
-  iIntros (Hl HL) "Hc Htag Ht Hs #Hvrel Hsim".
-  iApply sim_update_si. rewrite /update_si. iIntros (?????) "(HP_t & HP_s & Hbor)".
-  set (L' := L ∖ seq_loc_set l (length v_t)). set (M' := <[ t := L' ]> M).
-  iPoseProof (value_rel_length with "Hvrel") as "%Hlen".
-  iPoseProof (bor_interp_readN_source_protected with "Hbor Hs Htag Hc") as "(%Hv_s & %)".
-  { intros i Hi. exists L. split; first done. apply Hl. lia. }
-  iPoseProof (bor_interp_readN_target_protected with "Hbor Ht Htag Hc") as "(%Hv_t & %)".
-  { intros i Hi. exists L. split; first done. apply Hl. lia. }
-
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hcall_auth & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
-  iPoseProof (ghost_map_lookup with "Hcall_auth Hc") as "%HcM".
-  iMod (ghost_map_update M' with "Hcall_auth Hc") as "[Hcall_auth Hc]".
-  iModIntro. iFrame "HP_t HP_s". iSplitR "Hsim Hc Ht Htag Hs"; last by iApply ("Hsim" with "Hc Htag Ht Hs").
-  iExists (<[ c := M' ]> M_call), M_tag, M_t, M_s. iFrame.
-  iSplitL "Hsrel".
-  { iDestruct "Hsrel" as "(%Hdom_eq & %Hsst_eq & %Hsnp_eq & %Hsnc_eq & %Hscs_eq & Hloc)".
-    do 5 (iSplitR; first done).
-    iIntros (l' Hl'). iDestruct ("Hloc" $! l' with "[//]") as "[Hpub | %Hpriv]"; first by iLeft.
-    destruct (decide (l' ∈ seq_loc_set l (length v_t))) as [(i & Hi & ->)%seq_loc_set_elem | Hnotin].
-    - (* location is made public *)
-      iLeft. iIntros (sc_t' Hsc_t').
-      specialize (Hv_t i Hi) as Heq. rewrite Heq in Hsc_t'.
-      iExists (v_s !!! i). iSplitR.
-      + iPureIntro. rewrite Hv_s; last lia. apply list_lookup_lookup_total, lookup_lt_is_Some_2. lia.
-      + iPoseProof (value_rel_lookup_total v_t v_s i with "Hvrel") as "Hsc"; first lia.
-        rewrite -(list_lookup_total_correct _ _ _ Hsc_t'). done.
-    - (* location is still private *)
-      iRight. iPureIntro. destruct Hpriv as (t' & tk' & Htk' & Hsome & Hpriv).
-      exists t', tk'. split; first done. split; first done.
-      destruct Hpriv as [-> | [-> Hpriv]]; first by left. right; split; first done.
-      destruct Hpriv as (c' & M'' & Hc' & Hin').
-      destruct (decide (c' = c)) as [-> | Hneq]; first last.
-      { exists c', M''. rewrite lookup_insert_ne; done. }
-      exists c, M'. rewrite lookup_insert. split; first done.
-      destruct (decide (t' = t)) as [-> | Hneq']; first last.
-      { destruct Hin' as (L'' & HL'' & Hl''). exists L''. split; last done.
-        simplify_eq. rewrite lookup_insert_ne; done.
-      }
-      destruct Hin' as (L'' & HL'' & Hl''). exists L'. split; first by rewrite lookup_insert.
-      simplify_eq. subst L'. apply elem_of_difference. done.
-  }
-  iSplitL; last done.
-  iPureIntro. intros c' M''. rewrite lookup_insert_Some. intros [[<- <-] | [Hneq Hsome]].
-  - apply Hcall_interp in HcM as [Hc HcM]. split; first done.
-    intros t' L''. subst M'. rewrite lookup_insert_Some. intros [[<- <-] | [Hneq' Hsome']].
-    + specialize (HcM t L HL) as (Ht & HsL). split; first done.
-      intros l'. rewrite elem_of_difference. intros [Hl'%HsL _]. done.
-    + specialize (HcM _ _ Hsome') as (Ht & HsL). done.
-  - apply Hcall_interp in Hsome as [Hc' Hsome]. done.
-Qed.
-
-*)
 
 (** *** General tk_pub retag *)
 
