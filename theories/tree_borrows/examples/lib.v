@@ -3,6 +3,10 @@ From simuliris.tree_borrows Require Import primitive_laws proofmode steps_progre
 From iris.prelude Require Import options.
 
 
+
+(* in our simplified memory model, pointers and integers occupy one memory slot *)
+Definition sizeof_scalar : nat := 1.
+
 (* Allocate a place of size [sz] and initialize it with a value [v] *)
 Definition new_place sz (v: expr) : expr :=
   let: "x" := Alloc sz in "x" <- v ;; "x".

@@ -1472,6 +1472,14 @@ Proof.
     + intros Hn. eapply H2. lia.
 Qed.
 
+Lemma write_range_to_to_list {T} b1 b2 (vnew vold : list T) :
+  b1 ≤ b2 ∧ b2 + length vnew ≤ b1 + length vold →
+  write_range b1 b2 vnew vold = Some (write_range_to_list (Z.to_nat (b2 - b1)) vnew vold).
+Proof.
+  intros HH.
+  rewrite /write_range bool_decide_eq_true_2 //.
+Qed.
+
 Fixpoint read_list_range {T} (base:nat) (size:nat) (lst : list T) : option (list T) := match size with
          O => Some nil
   | S size => v0 ← lst !! base ; vs ← read_list_range (S base) size lst ; Some (v0 :: vs) end.

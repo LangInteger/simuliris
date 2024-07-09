@@ -9,9 +9,6 @@ From iris.prelude Require Import options.
 
 (** Moving a read of a mutable reference down across code that *may* use that ref. *)
 
-(* in our simplified memory model, pointers and integers occupy one memory slot *)
-Definition sizeof_scalar : nat := 1.
-
 (* Assuming x : &mut i32 *)
 Definition ex1_down_unopt : expr :=
     let: "c" := InitCall in

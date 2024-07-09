@@ -245,6 +245,10 @@ Section safe_reach.
   Global Instance safe_implies_write_result P σ r r' :
     SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
   Proof. prove_safe_implies. Qed.
+
+  Global Instance safe_implies_write_place_result P l tg sz σ r' :
+    SafeImplies (∃ v, r' = ValR v ∧ length v = sz) P (Write (Place l tg sz) r') σ.
+  Proof. prove_safe_implies. Qed.
    
 
   Global Instance safe_implies_alloc P σ sz :

@@ -195,6 +195,6 @@ theories/tree_borrows/examples/opt1_down.v
 #theories/tree_borrows/examples/opt2.v
 #theories/tree_borrows/examples/opt2_down.v
 #theories/tree_borrows/examples/opt3.v
-#theories/tree_borrows/examples/opt3_down.v
+theories/tree_borrows/examples/opt3_down.v
 #theories/tree_borrows/examples/coinductive.v
 
