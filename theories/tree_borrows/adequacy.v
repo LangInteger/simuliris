@@ -1,6 +1,6 @@
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls lifting adequacy.
-From simuliris.tree_borrows Require Import proofmode tactics.
+From simuliris.tree_borrows Require Import early_proofmode tactics.
 From simuliris.tree_borrows Require Import parallel_subst primitive_laws
   log_rel_structural wf refl.
 From simuliris.tree_borrows Require Export behavior.
