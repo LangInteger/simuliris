@@ -7,7 +7,8 @@ From simuliris.tree_borrows Require Import proofmode lang adequacy examples.lib.
 From iris.prelude Require Import options.
 
 
-(** Moving a write to a mutable reference down across unknown code. *)
+(** Moving a write to a mutable reference down across unknown code.
+    This requires activating the reference first. *)
 
 (* Assuming x : &mut i32 *)
 Definition ex3_down_unopt : expr :=
@@ -176,3 +177,14 @@ Section closed.
     apply sim_opt3_down.
   Qed.
 End closed.
+
+Check sim_opt3_down_ctx.
+Print Assumptions sim_opt3_down_ctx.
+(* 
+sim_opt3_down_ctx
+     : ctx_ref ex3_down_opt ex3_down_unopt
+Axioms:
+IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
+Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
+
+*)

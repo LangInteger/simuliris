@@ -130,6 +130,8 @@ End closed.
 Check sim_opt1_down_ctx.
 Print Assumptions sim_opt1_down_ctx.
 (* 
+sim_opt1_down_ctx
+     : ctx_ref ex1_down_opt ex1_down_unopt
 Axioms:
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
