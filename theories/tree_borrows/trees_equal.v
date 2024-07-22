@@ -55,7 +55,7 @@ Section utils.
         protector_is_active it_cous.(iprot) C ->
         (item_lookup it_cous l) = mkPerm PermInit Active ->
         (* This is not allowed, since it actually survives foreign writes. *)
-        (∀ c, lp ≠ Reserved InteriorMut c) ->
+        lp ≠ ReservedIM ->
         pseudo_disabled _ _ _ lp prot
     .
 
@@ -98,7 +98,7 @@ Section utils.
     | perm_eq_up_to_C_refl p :
         (* Usually the permissions will be equal *)
         perm_eq_up_to_C tr1 tr2 tg l cid p p
-    | perm_eq_up_to_C_pseudo ini im confl1 confl2 :
+    | perm_eq_up_to_C_pseudo ini confl1 confl2 :
         (* But if they are protected *)
         protector_is_active cid C ->
         (* And both pseudo-conflicted *)
@@ -106,15 +106,15 @@ Section utils.
         pseudo_conflicted tr2 tg l confl2 ->
         (* then we can allow a small difference *)
         perm_eq_up_to_C tr1 tr2 tg l cid
-          {| initialized := ini; perm := Reserved im confl1 |}
-          {| initialized := ini; perm := Reserved im confl2 |}
-    | perm_eq_up_to_C_pseudo_post_prot ini im confl1 confl2 :
+          {| initialized := ini; perm := Reserved confl1 |}
+          {| initialized := ini; perm := Reserved confl2 |}
+    | perm_eq_up_to_C_pseudo_post_prot ini confl1 confl2 :
         (* But if they are not protected *)
         ¬ protector_is_active cid C ->
         (* then we can allow a small difference *)
         perm_eq_up_to_C tr1 tr2 tg l cid
-          {| initialized := ini; perm := Reserved im confl1 |}
-          {| initialized := ini; perm := Reserved im confl2 |}
+          {| initialized := ini; perm := Reserved confl1 |}
+          {| initialized := ini; perm := Reserved confl2 |}
     | perm_eq_up_to_C_pseudo_disabled p1 p2 :
         (* A pseudo-disabled tag is one that's lazy, does not support child accesses due to a protected Active cousin,
            and will become Disabled on protector-end write for that cousin.
@@ -133,14 +133,13 @@ Section utils.
         (* Added initialization requirement to help with the lemma [perm_eq_up_to_C_same_init] *)
         (initialized p = initialized p') ->
         perm_eq_up_to_C tr1 tr2 tg l cid p p'
-    | perm_eq_up_to_C_frozen_parent ini im confl1 confl2 witness_tg :
-        (* Important: they need the same interior mutability so that the protectors
-           trigger under exactly the same conditions *)
+    | perm_eq_up_to_C_frozen_parent ini confl1 confl2 witness_tg :
+        (* not needed for IM, that's already covered by refl *)
         frozen_in_practice tr1 tg witness_tg l ->
         frozen_in_practice tr2 tg witness_tg l ->
         perm_eq_up_to_C tr1 tr2 tg l cid
-          {| initialized := ini; perm := Reserved im confl1 |}
-          {| initialized := ini; perm := Reserved im confl2 |}
+          {| initialized := ini; perm := Reserved confl1 |}
+          {| initialized := ini; perm := Reserved confl2 |}
     .
 
   Definition loc_eq_up_to_C (tr1 tr2 : tree item) (tg : tag) (it1 it2 : item) (l : Z) :=
@@ -586,7 +585,7 @@ Section utils.
     rewrite bool_decide_eq_true_2 in Absurd; [|auto].
     enough (is_Some (apply_access_perm AccessWrite (Foreign Cousin) true (item_lookup it l))) as Absurd'.
     - rewrite /apply_access_perm in Absurd'.
-      destruct (item_lookup _ _) as [[] [[][]| | |]], b; simpl in Absurd'.
+      destruct (item_lookup _ _) as [[] [[]| | | |]], b; simpl in Absurd'.
       all: try inversion Absurd'; discriminate.
     - rewrite /item_lookup. setoid_rewrite maybe_non_children_only_no_effect in Absurd; last done.
       apply Absurd; [|done].
@@ -594,7 +593,7 @@ Section utils.
   Qed.
 
   Lemma pseudo_conflicted_allows_same_access
-    {tr1 tr2 tg l confl1 confl2 kind rel isprot ini im acc_tg range it1 b}
+    {tr1 tr2 tg l confl1 confl2 kind rel isprot ini acc_tg range it1 b}
     (* Main hypotheses *)
     (Confl1 : pseudo_conflicted tr1 tg l confl1)
     (Confl2 : pseudo_conflicted tr2 tg l confl2)
@@ -605,14 +604,14 @@ Section utils.
     (GlobalSuccess : is_Some (tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr1))
     (ProtSpec : isprot = bool_decide (protector_is_active (iprot it1) C))
     (RelSpec : rel = rel_dec tr1 acc_tg tg)
-    (PermSpec : item_lookup it1 l = {| initialized := ini; perm := Reserved im confl1 |})
+    (PermSpec : item_lookup it1 l = {| initialized := ini; perm := Reserved confl1 |})
     (InRange : range'_contains range l)
     : is_Some
          (apply_access_perm kind rel isprot
-            {| initialized := ini; perm := Reserved im confl1 |})
+            {| initialized := ini; perm := Reserved confl1 |})
     -> is_Some
          (apply_access_perm kind rel isprot
-            {| initialized := ini; perm := Reserved im confl2 |}).
+            {| initialized := ini; perm := Reserved confl2 |}).
   Proof.
     rewrite /apply_access_perm /apply_access_perm_inner; simpl.
     (* Most cases are by reflexivity. *)
@@ -620,7 +619,6 @@ Section utils.
     all: destruct ini, isprot; simpl; try auto.
     all: inversion Confl1 as [|?? RelCous LookupCous].
     all: inversion Confl2.
-    all: destruct im.
     all: subst; simpl; try auto.
     (* Once we get reflexivity out of the way we are left with the accesses
        where there is UB in the target because of the conflicted.
@@ -643,7 +641,7 @@ Section utils.
   Qed.
 
   Lemma pseudo_conflicted_post_prot_allows_same_access
-    {tr1 tg l confl1 confl2 kind rel isprot ini im acc_tg range it1 b}
+    {tr1 tg l confl1 confl2 kind rel isprot ini acc_tg range it1 b}
     (* Main hypotheses *)
     (AccEx : tree_unique acc_tg tr1)
     (TgEx : tree_unique tg tr1)
@@ -653,21 +651,20 @@ Section utils.
     (NoProp : ¬ protector_is_active (iprot it1) C)
     (ProtSpec : isprot = bool_decide (protector_is_active (iprot it1) C))
     (RelSpec : rel = rel_dec tr1 acc_tg tg)
-    (PermSpec : item_lookup it1 l = {| initialized := ini; perm := Reserved im confl1 |})
+    (PermSpec : item_lookup it1 l = {| initialized := ini; perm := Reserved confl1 |})
     (InRange : range'_contains range l)
     : is_Some
          (apply_access_perm kind rel isprot
-            {| initialized := ini; perm := Reserved im confl1 |})
+            {| initialized := ini; perm := Reserved confl1 |})
     -> is_Some
          (apply_access_perm kind rel isprot
-            {| initialized := ini; perm := Reserved im confl2 |}).
+            {| initialized := ini; perm := Reserved confl2 |}).
   Proof.
     rewrite /apply_access_perm /apply_access_perm_inner; simpl.
     rewrite bool_decide_false in ProtSpec; last done. subst isprot.
     (* Most cases are by reflexivity. *)
     destruct kind, rel; simpl.
     all: destruct ini; simpl; try auto.
-    all: destruct im.
     all: subst; simpl; try auto.
     all: destruct confl1, confl2.
     all: subst; simpl; try auto.
@@ -723,7 +720,7 @@ Section utils.
       rewrite Hpp bool_decide_true // in GlobalSuccess.
       rewrite maybe_non_children_only_no_effect // in GlobalSuccess.
       destruct kind; destruct GlobalSuccess as [x [=]].
-    - rewrite /=. intros _. destruct kind, isprot, p2 as [[][]| | |]; simpl; done.
+    - rewrite /=. intros _. destruct kind, isprot, p2 as [[]| | | |]; simpl; done.
   Qed.
 
   (* FIXME: move this elsewhere *)
@@ -819,11 +816,11 @@ Section utils.
     inversion EqC as [EqProt EqCLookup].
     inversion EqCLookup as
       [perm Lookup EqLookup
-      |???? Prot Confl1 Confl2 Lookup1 Lookup2
-      |???? Prot Lookup1 Lookup2
+      |??? Prot Confl1 Confl2 Lookup1 Lookup2
+      |??? Prot Lookup1 Lookup2
       |p1 p2 Confl1 Confl2 Lookup1 Lookup2
       |witness_tg ?? Dis1 Dis2 Lookup1 Lookup2
-      |ini ??? witness_tg Frz1 Frz2 Lookup1 Lookup2
+      |ini ?? witness_tg Frz1 Frz2 Lookup1 Lookup2
     ].
     - rewrite Tg2 -Tg1.
       rewrite -SameRel.
@@ -1390,32 +1387,29 @@ Section utils.
            done. }
       rewrite /item_lookup in Hlu. rewrite -Hlu in SpecVal.
       rewrite /apply_access_perm /apply_access_perm_inner most_init_comm /= in SpecVal.
-      destruct kind, bool_decide eqn:Hbdc, lp as [[][]| | |] eqn:Hpm in SpecVal.
+      destruct kind, bool_decide eqn:Hbdc, lp as [[]| | | |] eqn:Hpm in SpecVal.
       all: simpl in SpecVal. all: try discriminate SpecVal.
       all: injection SpecVal as <-.
       all: rewrite /= /item_lookup /= LookupVal /=.
       all: econstructor 2.
       all: eapply access_preserves_pseudo_disabled; last done.
       all: econstructor; [exact Hcs|exact Hlucs|exact Hprotcs|exact Hppcs|].
-      all: intros c [=]; subst c.
+      all: intros [=].
       all: subst lp; eapply Hcsfoo; done.
   Qed.
 
   Lemma create_child_irreversible
-    {tr tr' tg tg_old tg_new it pk rk cid}
+    {tr tr' tg tg_old tg_new it pk im rk cid}
     (Lookup : tree_lookup tr tg it)
     (Fresh : tg_new ≠ tg)
-    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    (Ins : create_child C tg_old tg_new pk im rk cid tr = Some tr')
     : tree_lookup tr' tg it.
   Proof.
-    unfold create_child in Ins.
-    injection Ins; clear Ins; intro Ins.
-    subst tr'.
+    pose proof Ins as (x&<-%new_item_has_tag&[= <-])%bind_Some.
     destruct Lookup as [Ex Det]. split.
     - apply insert_preserves_exists; assumption.
     - apply insert_true_preserves_every; last assumption.
-      intro SameTg.
-      rewrite /create_new_item //= in SameTg.
+      intro SameTg. done.
   Qed.
 
   Definition becomes_frozen (kind : access_kind) (range : Z * nat) (loc : Z) (b:bool) tr acc_tg it_tg: Prop :=
@@ -1507,12 +1501,12 @@ Section utils.
   Qed.
 
   Lemma disabled_in_practice_create_child_irreversible
-    {tr tr' tg tg_old tg_new pk rk cid witness loc}
+    {tr tr' tg tg_old tg_new pk im rk cid witness loc}
     (Ne : tg_new ≠ tg)
     (Ne' : tg_new ≠ witness)
     (Nc : ¬ tree_contains tg_new tr)
     (Dis : disabled_in_practice tr tg witness loc)
-    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    (Ins : create_child C tg_old tg_new pk im rk cid tr = Some tr')
     : disabled_in_practice tr' tg witness loc.
   Proof.
     inversion Dis as [it_witness ? Rel Lookup Perm].
@@ -1533,11 +1527,11 @@ Section utils.
   Qed.
 
   Lemma frozen_in_practice_create_child_irreversible
-    {tr tr' tg tg_old tg_new pk rk cid witness loc}
+    {tr tr' tg tg_old tg_new pk im rk cid witness loc}
     (Ne : tg_new ≠ tg)
     (Ne' : tg_new ≠ witness)
     (Frz : frozen_in_practice tr tg witness loc)
-    (Ins : create_child C tg_old tg_new pk rk cid tr = Some tr')
+    (Ins : create_child C tg_old tg_new pk im rk cid tr = Some tr')
     : frozen_in_practice tr' tg witness loc.
   Proof.
     inversion Frz as [it_witness ? Rel Lookup Perm Ini].
@@ -1637,11 +1631,11 @@ Section utils.
     intros EqC Acc1 Acc2 Lookup1 Lookup1' Lookup2 Lookup2' Hacctg1 Hacctg2 ItAcc1 ItAcc2. 
     inversion EqC as [
         p pSpec Equal
-        |ini im confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2
-        |ini im confl1 confl2 NoProt itLookup1 itLookup2
+        |ini confl1 confl2 Prot Confl1 Confl2 itLookup1 itLookup2
+        |ini confl1 confl2 NoProt itLookup1 itLookup2
         |p1 p2 Confl1 Confl2 itLookup1 itLookup2
         |????? SameInit
-        |ini im confl1 confl2 witness_tg Hfrz1 Hfrz2 itLookup1 itLookup2
+        |ini confl1 confl2 witness_tg Hfrz1 Hfrz2 itLookup1 itLookup2
     ].
     - (* reflexive case *)
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [PermsAcc1 it1'Spec]].
@@ -1715,7 +1709,7 @@ Section utils.
       destruct (most_init _), perm1, perm2; try congruence.
       all: injection tmp1Spec; intros; subst; clear tmp1Spec.
       all: injection tmp2Spec; intros; subst; clear tmp2Spec.
-      all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.
+      all: destruct kind, (rel_dec _ _ _) eqn:relation, confl1; simpl in *; try discriminate.
       all: destruct confl2; simpl in *; try discriminate.
       all: try (injection perm1Spec; intros; subst); clear perm1Spec.
       all: try (injection perm2Spec; intros; subst); clear perm2Spec.
@@ -1769,7 +1763,7 @@ Section utils.
       edestruct (most_init ini _), perm1, perm2; try congruence.
       all: injection tmp1Spec; intros; subst; clear tmp1Spec.
       all: injection tmp2Spec; intros; subst; clear tmp2Spec.
-      all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.
+      all: destruct kind, (rel_dec _ _ _) eqn:relation, confl1; simpl in *; try discriminate.
       all: destruct confl2; simpl in *; try discriminate.
       all: try (injection perm1Spec; intros; subst); clear perm1Spec.
       all: try (injection perm2Spec; intros; subst); clear perm2Spec.
@@ -1849,17 +1843,15 @@ Section utils.
       + inversion Confl1 as [|X1 X2 X3 X4 X5 X6 X7 X8 H]; simplify_eq.
         1: destruct kind, bool_decide in perm1Spec; cbv in perm1Spec; injection perm1Spec as <-; econstructor 1.
         econstructor 2. 1-4: done.
-        intros c ->.
-        destruct (bool_decide (protector_is_active (iprot it1) C)), kind, p1 as [[][]| | |]; try discriminate perm1Spec.
-        all: cbn in perm1Spec; injection perm1Spec as <-.
-        all: by eapply H.
+        intros ->.
+        destruct (bool_decide (protector_is_active (iprot it1) C)), kind, p1 as [[]| | | |]; try discriminate perm1Spec.
+        all: done.
       + inversion Confl2 as [|X1 X2 X3 X4 X5 X6 X7 X8 H]; simplify_eq.
         1: destruct kind, bool_decide in perm1Spec; cbv in perm2Spec; injection perm2Spec as <-; econstructor 1.
         econstructor 2. 1-4: done.
-        intros c ->.
-        destruct (bool_decide (protector_is_active (iprot it2) C)), kind, p2 as [[][]| | |]; try discriminate perm2Spec.
-        all: cbn in perm2Spec; injection perm2Spec as <-.
-        all: by eapply H.
+        intros ->.
+        destruct (bool_decide (protector_is_active (iprot it2) C)), kind, p2 as [[]| | | |]; try discriminate perm2Spec.
+        all: done.
     - econstructor.
       + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption. 2-3: done.
         eassumption.
@@ -1932,7 +1924,7 @@ Section utils.
       edestruct (most_init ini _), perm1, perm2, (bool_decide (protector_is_active (iprot it1) C)); try congruence.
       all: injection tmp1Spec; intros; subst; clear tmp1Spec.
       all: injection tmp2Spec; intros; subst; clear tmp2Spec.
-      all: destruct kind, (rel_dec _ _ _) eqn:relation, im, confl1; simpl in *; try discriminate.
+      all: destruct kind, (rel_dec _ _ _) eqn:relation, confl1; simpl in *; try discriminate.
       all: destruct confl2; simpl in *; try discriminate.
       all: try (injection perm1Spec; intros; subst); clear perm1Spec.
       all: try (injection perm2Spec; intros; subst); clear perm2Spec.
@@ -2627,10 +2619,10 @@ Section utils.
           all: try econstructor 1. all: econstructor 2; econstructor 1.
       + rewrite /apply_access_perm_inner /= in Inner. rewrite /= most_init_comm /=.
         destruct Hspecials as (Hfrz&Hnact).
-        destruct (item_lookup it0 loc) as [ini [imm cfl| | |]] eqn:Hperm.
-        3,4: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
+        destruct (item_lookup it0 loc) as [ini [cfl| | | |]] eqn:Hperm.
+        2,4,5: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
         2: exfalso; by eapply Hnact.
-        simpl in *. assert (∃ cfl', validated = Reserved imm cfl') as (cfl'&->).
+        simpl in *. assert (∃ cfl', validated = Reserved cfl') as (cfl'&->).
         { destruct ini, cfl, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; eexists; simplify_eq; done. }
         destruct (apply_access_spec_per_node (proj1 Lkup) (proj2 Lkup) Acc) as
         (it' & it'Spec & Hit'). symmetry in it'Spec.
@@ -2650,7 +2642,7 @@ Section utils.
           all: rewrite /item_lookup -Hiteq /= HPP /= //.
     - rewrite /= most_init_comm /=.
       rewrite /apply_access_perm_inner /= in Inner.
-      destruct (item_lookup it0 loc) as [[] [? []| | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
+      destruct (item_lookup it0 loc) as [[] [[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
       all: try by (simplify_eq; econstructor 1).
       1-2: simplify_eq; econstructor 2;
             [by eapply bool_decide_eq_true_1| |econstructor 1].
@@ -2688,7 +2680,7 @@ Section utils.
             | Child (Strict Immediate) => pp.(perm) = Disabled
             | Child _ => True
             | Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) = Active (* this follows from state_wf *)
-            | Foreign Cousin => match pp.(perm) with Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
+            | Foreign Cousin => match pp.(perm) with Disabled => True | ReservedIM => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
 
   Lemma disabled_is_disabled x1 x2 x3 x4 pp : perm pp = Disabled → is_disabled x1 x2 x3 pp x4.
   Proof.
@@ -2791,13 +2783,13 @@ Section utils.
     - rewrite /= most_init_comm /=.
       rewrite /apply_access_perm_inner /= in Inner.
       eapply rel_dec_flip in Hreldec.
-      destruct (item_lookup it0 loc) as [[] [[] []| | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
+      destruct (item_lookup it0 loc) as [[] [[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
       all: try by (simplify_eq; first [done | econstructor 1]).
       all: try by eapply bool_decide_eq_true_1 in Hprot.
       all: injection Inner as <-; injection MoreInit as <-. 
       all: econstructor 4; last econstructor 1.
       all: econstructor 2; [exact Hreldec|exact Lkup|done|destruct (item_lookup it loc); simpl in *; congruence| ].
-      all: intros ? [=]. all: by eapply bool_decide_eq_true_1.
+      all: intros [=]. all: by eapply bool_decide_eq_true_1.
     - destruct Hothers as (Hini&Hact).
       rewrite /apply_access_perm_inner /= in Inner.
       destruct (item_lookup it0 loc) as [ini pp] eqn:Hperm.
@@ -2865,69 +2857,68 @@ Section utils.
     - destruct HH2 as [?|HH2]; try done. by right.
   Qed.
 
-  Lemma tree_equal_create_child tr1 tr2 tr1' tg_new tg_old pk rk cid ev2 :
+  Lemma tree_equal_create_child tr1 tr2 tr1' tg_new tg_old pk im rk cid ev2 :
     wf_tree tr1 → wf_tree tr2 →
     tree_items_compat_nexts tr1 tg_new ev2 → tree_items_compat_nexts tr2 tg_new ev2 →
     (cid < ev2)%nat →
     tree_contains tg_old tr1 →
     ¬ tree_contains tg_new tr1 →
-    no_protected_reserved_interiormut pk rk →
     tree_equal tr1 tr2 →
-    create_child C tg_old tg_new pk rk cid tr1 = Some tr1' →
-    ∃ tr2', create_child C tg_old tg_new pk rk cid tr2 = Some tr2' ∧
+    create_child C tg_old tg_new pk im rk cid tr1 = Some tr1' →
+    ∃ tr2', create_child C tg_old tg_new pk im rk cid tr2 = Some tr2' ∧
       tree_equal tr1' tr2'.
   Proof.
     intros Hwf1 Hwf2 Hiwf1 Hiwf2 Hcidwf.
-    rewrite /create_child.
-    pose (create_new_item tg_new pk rk cid) as it_new. fold it_new.
-    assert (itag it_new = tg_new) as Htgnew by done.
-    intros Hcontains1 Hnotcont1 Hhack (H1&H2&H3) [= <-].
+    intros Hcontains1 Hnotcont1 (H1&H2&H3) (it_new&Hit_new&[= <-])%bind_Some.
+    assert (itag it_new = tg_new) as Htgnew by by eapply new_item_has_tag.
     assert (tg_old ≠ tg_new) as Htgsne by (intros ->; firstorder).
     pose proof Hcontains1 as Hcontains2. setoid_rewrite H1 in Hcontains2.
     pose proof Hnotcont1 as Hnotcont2. setoid_rewrite H1 in Hnotcont2.
-    epose proof create_new_item_wf _ _ _ _ _ Hcidwf Hhack as Hitemwf.
-    epose proof insert_child_wf C _ _ _ _ _ _ _ _ Hitemwf eq_refl Hiwf1 Hwf1 as (_&Hwf1').
-    epose proof insert_child_wf C _ _ _ _ _ _ _ _ Hitemwf eq_refl Hiwf2 Hwf2 as (_&Hwf2').
-    eexists. split; first done.
+    epose proof create_new_item_wf _ _ _ _ _ _ _ Hcidwf Hit_new as Hitemwf.
+    opose proof (insert_child_wf C _ _ _ _ _ _ _ _ _ _ Hitemwf Hit_new _ Hiwf1 Hwf1) as (_&Hwf1').
+    1: rewrite /create_child Hit_new //.
+    opose proof (insert_child_wf C _ _ _ _ _ _ _ _ _ _ Hitemwf Hit_new _ Hiwf2 Hwf2) as (_&Hwf2').
+    1: rewrite /create_child Hit_new //.
+    eexists. split.
+    1: rewrite /create_child Hit_new //.
     pose proof (rel_dec_equal_ParentChildIn_equiv_lift _ _ H1 H2) as (H2A&H2B&H2C).
     split_and!. 
     - intros tg. destruct (decide (tg = tg_new)) as [->|Hne].
       + split; (intros _; eapply insert_true_produces_exists; [done|]); assumption.
-      + split; (intros H%insert_false_infer_exists; last done); eapply insert_preserves_exists, H1, H.
+      + split; (intros H%insert_false_infer_exists; last congruence); eapply insert_preserves_exists, H1, H.
     - eapply same_parent_childs_agree; intros tg tg'.
       + destruct (decide (tg = tg_new)) as [->|Hne], (decide (tg' = tg_new)) as [->|Hne'].
         * split; intros _; by left.
-        * split; (intros [|Hc]; first done); exfalso; (eapply inserted_not_strict_parent; [| |exact Hc]; done).
-        * destruct (decide (tg = tg_old)) as [->|Hneold].
+        * subst tg_new. split; (intros [|Hc]; first done); exfalso; (eapply inserted_not_strict_parent; [| |exact Hc]; done).
+        * subst tg_new. destruct (decide (tg = tg_old)) as [->|Hneold].
           1: split; intros _; eapply insert_produces_ParentChild; done.
           split; (intros [|Hc]; first done).
-          all: rewrite -Htgnew in Hc.
-          all: eapply insert_produces_minimal_ParentChild in Hc; [|done..|by rewrite Htgnew].
+          all: eapply insert_produces_minimal_ParentChild in Hc; [|done..].
           all: eapply ParentChild_transitive; last by eapply insert_produces_ParentChild.
           all: right; setoid_rewrite <- insert_eqv_strict_rel; [|done..].
           1: by setoid_rewrite <- H2B. 1: by setoid_rewrite H2B.
-        * split; (intros [->|Hc]; [by left|right]).
+        * subst tg_new. split; (intros [->|Hc]; [by left|right]).
           all: setoid_rewrite <- insert_eqv_strict_rel; [|done..].
           all: eapply H2B.
           all: setoid_rewrite -> insert_eqv_strict_rel; first done; done.
       + destruct (decide (tg = tg_new)) as [->|Hne], (decide (tg' = tg_new)) as [->|Hne'].
-        * split; intros H; exfalso; (eapply immediate_parent_child_not_equal; [..|done|done]).
+        * subst tg_new. split; intros H; exfalso; (eapply immediate_parent_child_not_equal; [..|done|done]).
           1-2: eapply Hwf1'. 3-4: eapply Hwf2'.
           all: eapply insert_true_produces_exists; first done; done.
-        * split; (intros Hc%Immediate_is_StrictParentChild); exfalso; (eapply inserted_not_strict_parent; [| |exact Hc]; done).
-        * destruct (decide (tg = tg_old)) as [->|Hneold].
-          1: split; intros _; rewrite -Htgnew; eapply insert_produces_ImmediateParentChild; done.
+        * subst tg_new. split; (intros Hc%Immediate_is_StrictParentChild); exfalso; (eapply inserted_not_strict_parent; [| |exact Hc]; done).
+        * subst tg_new. destruct (decide (tg = tg_old)) as [->|Hneold].
+          1: split; intros _; eapply insert_produces_ImmediateParentChild; done.
           destruct (decide (tree_contains tg tr1)) as [Htgin|Htgnin]; last first.
           { split; intros _; eapply ImmediateParentChildIn_parent_not_in.
             all: intros Hc%remove_false_preserves_exists; last done. 
             all: eapply Htgnin. 1: eapply H1. all: eapply Hc. }
           split; intros Hc; exfalso.
-          all: rewrite -Htgnew in Hc; eapply ImmediateParentChild_of_insert_is_parent in Hc; [done|done|..|done].
+          all: eapply ImmediateParentChild_of_insert_is_parent in Hc; [done|done|..|done].
           1: done. by eapply H1.
-        * setoid_rewrite <- insert_eqv_imm_rel. 1: apply H2C.
+        * subst tg_new. setoid_rewrite <- insert_eqv_imm_rel. 1: apply H2C.
           all: done.
-    - intros tg Hcont.
-      destruct (decide (tg = tg_new)) as [->|Hne].
+    - intros tg Hcont. subst tg_new.
+      destruct (decide (tg = itag it_new)) as [->|Hne].
       { exists it_new, it_new. split_and!.
         1-2: split; first by eapply insert_true_produces_exists.
         1-2: by eapply inserted_determined.
@@ -2940,7 +2931,7 @@ Section utils.
       1-2: setoid_rewrite <- insert_true_preserves_every; done.
       intros l. specialize (Hequptoc l) as (Heq1&Heq2).
       split; first done.
-      inversion Heq2 as [|pi im c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |p1 p2 Hi2 Hi3 Hi4 Hi5|witness_tg ? ? Dis1 Dis2|???? witness_tg Frz1 Frz2]; simplify_eq.
+      inversion Heq2 as [|pi c1 c2 Hi1 Hi2 Hi3 Hi4 Hi5| |p1 p2 Hi2 Hi3 Hi4 Hi5|witness_tg ? ? Dis1 Dis2|??? witness_tg Frz1 Frz2]; simplify_eq.
       + by econstructor 1.
       + destruct Hlu1 as (Hlu1A&Hlu1B), Hlu2 as (Hlu2A&Hlu2B).
         pose proof Hcont as Hcont2. setoid_rewrite H1 in Hcont2. econstructor 2. 1: done.
@@ -3012,66 +3003,73 @@ Section utils.
              eapply insert_eqv_strict_rel; last exact Hc.
              1-2: by intros <-.
       + econstructor 5.
-        * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
+        * eapply disabled_in_practice_create_child_irreversible.
+          5: rewrite /create_child; erewrite Hit_new; done.
           -- lia.
           -- inversion Dis1 as [it_witness ?? LuWitness].
              pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
              pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
-             enough (tg_new ≠ witness_tg) by eassumption.
+             enough (itag it_new ≠ witness_tg) by eassumption.
              lia.
           -- eassumption.
           -- eassumption.
-        * eapply disabled_in_practice_create_child_irreversible; last reflexivity.
+        * eapply disabled_in_practice_create_child_irreversible.
+          5: rewrite /create_child; erewrite Hit_new; done.
           -- lia.
           -- inversion Dis1 as [it_witness ?? LuWitness].
              pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
              pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
-             enough (tg_new ≠ witness_tg) by eassumption.
+             enough (itag it_new ≠ witness_tg) by eassumption.
              lia.
           -- eassumption.
           -- eassumption.
         * auto.
       + econstructor 6.
-        * eapply frozen_in_practice_create_child_irreversible; last reflexivity.
+        * eapply frozen_in_practice_create_child_irreversible.
+          4: rewrite /create_child; erewrite Hit_new; done.
           -- lia.
           -- inversion Frz1 as [it_witness ?? LuWitness].
              pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
              pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
-             enough (tg_new ≠ witness_tg) by eassumption.
+             enough (itag it_new ≠ witness_tg) by eassumption.
              lia.
           -- eassumption.
-        * eapply frozen_in_practice_create_child_irreversible; last reflexivity.
+        * eapply frozen_in_practice_create_child_irreversible.
+          4: rewrite /create_child; erewrite Hit_new; done.
           -- lia.
           -- inversion Frz1 as [it_witness ?? LuWitness].
              pose proof (tree_determined_specifies_tag _ _ _ (proj1 LuWitness) (proj2 LuWitness)) as itag_witness_spec.
              pose proof ((proj1 (every_node_iff_every_lookup (wf_tree_tree_item_determined _ Hwf1)) Hiwf1 witness_tg it_witness ltac:(assumption)).(item_tag_valid _ _ _) witness_tg itag_witness_spec).
-             enough (tg_new ≠ witness_tg) by eassumption.
+             enough (itag it_new ≠ witness_tg) by eassumption.
              lia.
           -- eassumption.
   Qed.
 
-  Lemma trees_equal_create_child trs1 trs2 trs1' blk tg_new tg_old pk rk cid nxtc :
+  Lemma trees_equal_create_child trs1 trs2 trs1' blk tg_new tg_old pk im rk cid nxtc :
     wf_trees trs1 → wf_trees trs2 →
     trees_compat_nexts trs1 tg_new nxtc → trees_compat_nexts trs2 tg_new nxtc →
     (cid < nxtc)%nat →
     trees_contain tg_old trs1 blk →
     ¬ trees_contain tg_new trs1 blk →
-    no_protected_reserved_interiormut pk rk →
     trees_equal trs1 trs2 →
-    apply_within_trees (create_child C tg_old tg_new pk rk cid) blk trs1 = Some trs1' →
-    ∃ trs2', apply_within_trees (create_child C tg_old tg_new pk rk cid) blk trs2 = Some trs2' ∧
+    apply_within_trees (create_child C tg_old tg_new pk im rk cid) blk trs1 = Some trs1' →
+    ∃ trs2', apply_within_trees (create_child C tg_old tg_new pk im rk cid) blk trs2 = Some trs2' ∧
       trees_equal trs1' trs2'.
   Proof.
-    intros Hwf1 Hwf2 Hiwf1 Hiwf2 Hcidwf Hcont Hncont Hhack Heq.
+    intros Hwf1 Hwf2 Hiwf1 Hiwf2 Hcidwf Hcont Hncont Heq.
     intros (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
+    eapply bind_Some in Htr1' as HH. destruct HH as (it&Hit&[= Htrit]).
     epose proof (Heq blk) as HeqblkI.
     inversion HeqblkI as [t1x tr2 Heqblk Heq1x Htr2|]; simplify_eq; last congruence.
     symmetry in Htr2. assert (t1x = tr1) as -> by congruence. clear Heq1x.
     eapply tree_equal_create_child in Htr1' as (tr2'&Htr2'&Heqtr).
     - eexists. rewrite /apply_within_trees /= Htr2 /=.
-      split; first done.
+      split; first by rewrite /create_child Hit.
       intros blk'. destruct (decide (blk = blk')) as [->|Hne].
-      + rewrite !lookup_insert. econstructor. injection Htr2' as <-. apply Heqtr.
+      + rewrite !lookup_insert. econstructor.
+        eapply bind_Some in Htr2' as HH. destruct HH as (it2&Hit2&[= <-]).
+        enough (it = it2) as -> by by eapply Heqtr.
+        congruence.
       + rewrite !lookup_insert_ne //.
     - by eapply Hwf1.
     - by eapply Hwf2.
@@ -3080,7 +3078,6 @@ Section utils.
     - done.
     - by rewrite /trees_contain /trees_at_block Htr1 in Hcont.
     - by rewrite /trees_contain /trees_at_block Htr1 in Hncont.
-    - done.
     - done.
   Qed.
 
@@ -3104,7 +3101,7 @@ Section utils.
     { eapply tree_determined_unify. 2: done. 1: done. apply Hit1'. }
     exists it2. specialize (Heqit off) as (Hprotit&Hlocit).
     split. 1: exists tr2; done.
-    rewrite -Hprotit. inversion Hlocit as [|e m c1 c2 H H1 H2 H3 H4| | | |]; simplify_eq.
+    rewrite -Hprotit. inversion Hlocit as [|e c1 c2 H H1 H2 H3 H4| | | |]; simplify_eq.
     - done.
     - rewrite -!H3 /= in Hperm. simpl. done.
     - exfalso. done.
@@ -3153,7 +3150,7 @@ Section utils.
     assert (it = it1) as -> by by eapply tree_lookup_unique.
     exists it2. specialize (Heq off) as (Hproteq&Hiteq). split; first done.
     split. 1: by rewrite -Hproteq.
-    inversion Hiteq as [pp1|ini1 im1 confl1 confl2 HprotX HP1 HP2 Heq1 Heq2|ini1 im1 confl1 confl2 HnoProt|p1 p2 HP1 HP2 Heq1 Heq2|wit_tg lp1 lp2 Hdip1 Hdip2 HiniX Heq1 Heq2|ini1 im1 confl1 confl2 wit_tg HF1 HF2 Heq1 Heq2]; simplify_eq.
+    inversion Hiteq as [pp1|ini1 confl1 confl2 HprotX HP1 HP2 Heq1 Heq2|ini1 confl1 confl2 HnoProt|p1 p2 HP1 HP2 Heq1 Heq2|wit_tg lp1 lp2 Hdip1 Hdip2 HiniX Heq1 Heq2|ini1 confl1 confl2 wit_tg HF1 HF2 Heq1 Heq2]; simplify_eq.
     - done.
     - split; first done. rewrite -Heq1 /= in Hini. rewrite /= Hini //.
     - rewrite -Heq1 in Hini. done.
@@ -3205,12 +3202,12 @@ Section utils.
                      tree_item_determined tg_cs it_cs tr ∧
                      protector_is_active (iprot it_cs) C ∧
                      item_lookup it_cs off = mkPerm PermInit Active ∧
-                     match pp with Reserved InteriorMut _ => False | _ => True end).
+                     match pp with ReservedIM => False | _ => True end).
     assert (∀ it, Decision (P it)) as DecP.
     { intros it.
       rewrite /P.
       do 4 (eapply and_dec; first eapply _).
-      destruct pp as [[]?| | |].
+      destruct pp.
       all: eapply _. }
     destruct (decide (exists_node P tr)) as [HP|HnP].
     - left. eapply exists_node_eqv_existential in HP as (it&Htgit&H1&H2&H3&H4&H5).
@@ -3218,7 +3215,7 @@ Section utils.
       1: exact H1. 1: split. 2: exact H2.
       1: eapply exists_node_eqv_existential; exists it; done.
       1: done. 1: done.
-      1: intros ? ->. done.
+      1: intros ->. done.
     - right. intros Hdis.
       induction Hdis as [|tg_cs it_cs lp Hlp H1 H2 H3 H4 H5]; first done.
       eapply HnP. eapply exists_node_eqv_existential.
@@ -3228,8 +3225,7 @@ Section utils.
       split; first eapply H2.
       split; first done.
       split; first done. 
-      destruct lp as [[]?| | |]; try done.
-      eapply H5. done.
+      destruct lp as [| | | |]; try done.
   Defined.
 
   Global Instance is_disabled_dec tr tg off lp oprot : Decision (is_disabled tr tg off lp oprot).
@@ -3299,12 +3295,12 @@ Section utils.
     4: done. 1: done. 3: eassumption. all: done.
   Qed.
 
-  Lemma conflicted_transfer_pseudo_disabled c1 c2 imm tr tg off pp :
-    pseudo_disabled tr tg off (Reserved imm c1) pp →
-    pseudo_disabled tr tg off (Reserved imm c2) pp.
+  Lemma conflicted_transfer_pseudo_disabled c1 c2 tr tg off pp :
+    pseudo_disabled tr tg off (Reserved c1) pp →
+    pseudo_disabled tr tg off (Reserved c2) pp.
   Proof.
     inversion 1 as [|X1 X2 X3 X4 X5 X6 X7 X8 X9]; econstructor.
-    1-4: done. intros ? [= ->]. eapply X9. done.
+    1-4: done. intros [= ->].
   Qed.
 
   Lemma tree_equal_transfer_is_disabled {tr tr2 tgcld off lp pp} :
@@ -3345,7 +3341,7 @@ Section utils.
     1: eapply Hlup.
     assert (itp = itp') as <- by by eapply tree_lookup_unique.
     specialize (Heq off) as (Hprot&Heq).
-    inversion Heq as [pp1 X1 HH|ini1 im1 confl1 confl2 HprotX HP1 HP2 HeqX1 HeqX2|ini1 im1 confl1 confl2 HnoProt HeqX1 HeqX2|p1 p2 HP1 HP2 HeqX1 HeqX2|wit_tg lp1 lp2 Hdip1 Hdip2 HiniX HeqX1 HeqX2|ini1 im1 confl1 confl2 wit_tg HF1 HF2 HeqX1 HeqX2]; simplify_eq.
+    inversion Heq as [pp1 X1 HH|ini1 confl1 confl2 HprotX HP1 HP2 HeqX1 HeqX2|ini1 confl1 confl2 HnoProt HeqX1 HeqX2|p1 p2 HP1 HP2 HeqX1 HeqX2|wit_tg lp1 lp2 Hdip1 Hdip2 HiniX HeqX1 HeqX2|ini1 confl1 confl2 wit_tg HF1 HF2 HeqX1 HeqX2]; simplify_eq.
     - econstructor. 2: exact Hitp2.
       1: rewrite -Heq2 /rel_dec decide_True //.
       rewrite -HH -Hprot.
@@ -3435,7 +3431,7 @@ Section utils.
       assert (itw = itw') as <- by by eapply tree_lookup_unique.
       assert (item_lookup itw2 off = mkPerm PermInit Frozen) as Hitlu.
       { specialize (Heq off) as (HeqL1&HeqL2).
-        inversion HeqL2 as [pp1|ini1 im1 confl1 confl2 HprotX HP1 HP2 HeqX1 HeqX2|ini1 im1 confl1 confl2 HnoProt HeqX1 HeqX2|lp1 lp2 Hdip1 Hdip2 HeqX1 HeqX2|wit_tg lp1 lp2 Hdip1 Hdip2 HiniX HeqX1 HeqX2|ini1 im1 confl1 confl2 wit_tg HF1 HF2 HeqX1 HeqX2]; simplify_eq.
+        inversion HeqL2 as [pp1|ini1 confl1 confl2 HprotX HP1 HP2 HeqX1 HeqX2|ini1 confl1 confl2 HnoProt HeqX1 HeqX2|lp1 lp2 Hdip1 Hdip2 HeqX1 HeqX2|wit_tg lp1 lp2 Hdip1 Hdip2 HiniX HeqX1 HeqX2|ini1 confl1 confl2 wit_tg HF1 HF2 HeqX1 HeqX2]; simplify_eq.
         + destruct item_lookup; simpl in *; simplify_eq. done.
         + rewrite -HeqX1 // in Hperm.
         + rewrite -HeqX1 // in Hperm.
@@ -3462,8 +3458,8 @@ Section utils.
     perm_eq_up_to_C tr1 tr3 tg l cid perm1 perm3.
   Proof.
     intros Hpnd Hunq Hpma Hnac Heq12 Heq23 EqC1 EqC2.
-    inversion EqC1 as [pp1|ini1 im1 confl1 confl2 Hprot HP1 HP2|ini1 im1 confl1 confl2 HnoProt|p1 p2 HP1 HP2|wit_tg lp1 lp2 Hdip1 Hdip2 Hini|ini1 im1 confl1 confl2 wit_tg HF1 HF2]; simplify_eq;
-    inversion EqC2 as [pp1'|ini1' im1' confl1' confl2' Hprot' HP1' HP2'|ini1' im1' confl1' confl2' HnoProt'|p1' p2' HP1' HP2'|wit_tg' lp1 lp2 Hdip1' Hdip2' Hini'|ini1' im1' confl1' confl2' wit_tg' HF1' HF2']; simplify_eq.
+    inversion EqC1 as [pp1|ini1 confl1 confl2 Hprot HP1 HP2|ini1 confl1 confl2 HnoProt|p1 p2 HP1 HP2|wit_tg lp1 lp2 Hdip1 Hdip2 Hini|ini1 confl1 confl2 wit_tg HF1 HF2]; simplify_eq;
+    inversion EqC2 as [pp1'|ini1' confl1' confl2' Hprot' HP1' HP2'|ini1' confl1' confl2' HnoProt'|p1' p2' HP1' HP2'|wit_tg' lp1 lp2 Hdip1' Hdip2' Hini'|ini1' confl1' confl2' wit_tg' HF1' HF2']; simplify_eq.
     (* easy case: perm1 = perm2 *)
     + econstructor 1.
     + econstructor 2. 1: done. 2: done.
@@ -3658,7 +3654,7 @@ Section call_set.
     induction 1 as [|???????? HH]. 1: by econstructor 1.
     econstructor 2. 1,2,4: done.
     1: eapply protector_is_active_mono; last done; set_solver.
-    intros ? Hc1. by eapply HH.
+    done.
   Qed.
 
   Lemma is_disabled_mono C1 nxtc tr1 tg l p1 cid :
@@ -3688,7 +3684,7 @@ Section call_set.
     perm_eq_up_to_C (C1 ∪ {[ nxtc ]}) tr1 tr2 tg l cid lp1 lp2.
   Proof.
     intros Hwf Hwf_all1 Hwf_all2 Hwf_tr1 Hwf_tr2.
-    induction 1 as [| |???? H|?? H1 H2|??? H1 H2 ?|].
+    induction 1 as [| |??? H|?? H1 H2|??? H1 H2 ?|].
     1: by econstructor.
     1: econstructor; try done. 1: eapply protector_is_active_mono; last done; set_solver.
     1-2: eapply pseudo_conflicted_mono; last done; set_solver.

@@ -14,11 +14,11 @@ Definition new_place sz (v: expr) : expr :=
 (* Retag a place [p] that is a pointer of kind [pk] to a region of size [sz],
   with retag [kind] and call_id [c] *)
 Definition retag_place
-  (p: expr) (pk: pointer_kind) (sz : nat) (kind: retag_kind) (c : expr) : expr :=
+  (p: expr) (pk: pointer_kind) im (sz : nat) (kind: retag_kind) (c : expr) : expr :=
   let: "p" := p in
   (* read the current pointer stored in the place [p] *)
   (* retag and update [p] with the pointer with new tag *)
-  "p" <- Retag (Copy "p") c pk sz kind.
+  "p" <- Retag (Copy "p") c pk im sz kind.
 
 Lemma write_entire_range {T} l sz (v v' : list T) :
   length v = sz →

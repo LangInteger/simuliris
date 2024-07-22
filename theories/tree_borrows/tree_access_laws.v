@@ -506,10 +506,10 @@ Proof.
   - congruence.
 Qed.
 
-Lemma apply_access_perm_access_conflicted b kk rel isprot itmo itmn im cc :
+Lemma apply_access_perm_access_conflicted b kk rel isprot itmo itmn cc :
   maybe_non_children_only b (apply_access_perm kk) rel isprot itmo = Some itmn →
-  perm itmo = Reserved im ResConflicted →
-  perm itmn = Reserved im cc →
+  perm itmo = Reserved ResConflicted →
+  perm itmn = Reserved cc →
   cc = ResConflicted.
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
@@ -521,10 +521,10 @@ Proof.
   - congruence.
 Qed.
 
-Lemma apply_access_perm_access_reserved_backwards b kk rel isprot itmo itmn im acc :
+Lemma apply_access_perm_access_reserved_backwards b kk rel isprot itmo itmn acc :
   maybe_non_children_only b (apply_access_perm kk) rel isprot itmo = Some itmn →
-  perm itmn = Reserved im acc → ∃ acc,
-  perm itmo = Reserved im acc.
+  perm itmn = Reserved acc → ∃ acc,
+  perm itmo = Reserved acc.
 Proof.
   edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
   - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
@@ -532,6 +532,19 @@ Proof.
     simpl in Hdis,H1,H2|-*.
     repeat (case_match; simplify_eq; try done; try by eexists).
   - intros [= ->] ->. by eexists.
+Qed.
+
+Lemma apply_access_perm_access_reserved_im_backwards b kk rel isprot itmo itmn :
+  maybe_non_children_only b (apply_access_perm kk) rel isprot itmo = Some itmn →
+  perm itmn = ReservedIM →
+  perm itmo = ReservedIM.
+Proof.
+  edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq.
+  - intros (pin&H1&(pp&H2&[= <-])%bind_Some)%bind_Some Hdis.
+    rewrite /apply_access_perm_inner in H1.
+    simpl in Hdis,H1,H2|-*.
+    repeat (case_match; simplify_eq; try done).
+  - intros [= ->] ->. done.
 Qed.
 
 Lemma apply_access_perm_initialized b acc rel isprot itmo itmn :
@@ -625,7 +638,7 @@ Qed.
 Lemma priv_loc_access_must_use_same_tag M_call M_t M_s M_tag σ_t σ_s l t_prv t_acc ak (off1 : Z) (sz : nat) :
   state_wf σ_s → state_wf σ_t →
   call_set_interp (tag_is_unq M_tag M_t) M_call σ_t →
-  tag_interp M_call M_tag M_t M_s σ_t σ_s →
+  tag_interp M_tag M_t M_s σ_t σ_s →
   priv_loc M_tag M_t M_call t_prv l →
   trees_contain t_acc σ_t.(strs) l.1 →
   off1 ≤ l.2 < off1 + sz →
@@ -650,7 +663,7 @@ Proof.
   ospecialize (Hactive _).
   { intros _. exists cc. split; first done. apply Hccv. }
   assert (perm (item_lookup it_prv l.2) = Active) as Hactive2.
-  { destruct (perm (item_lookup it_prv l.2)) as [[] ?| | |]; try done. by destruct Hactive. }
+  { destruct (perm (item_lookup it_prv l.2)) as [[]| | | |]; try done. }
   rewrite Hactive2 in Hactive. clear Hactive. rename Hactive2 into Hactive.
   edestruct (apply_trees_access_lookup_general false) as (it_prv' & Hitprv' & Hinitprv & Hpermprv & Haccprv).
   1: exact Happly. 1: apply Hwf_t. 1: apply Hinside. 1: exists tr_prv; split; first done; apply Hitprv.
@@ -710,9 +723,9 @@ Proof.
   destruct rp1 as [i1|i1], rp2 as [i2|i2]; done.
 Qed.
 
-Lemma create_then_access_implies_earlier_access tr ak cc cids tg_par tg_cld pk rk off sz tr' tr'' :
+Lemma create_then_access_implies_earlier_access tr ak cc cids tg_par tg_cld pk im rk off sz tr' tr'' :
   wf_tree tr → tree_contains tg_par tr → ¬ tree_contains tg_cld tr →
-  create_child cids tg_par tg_cld pk rk cc tr = Some tr' →
+  create_child cids tg_par tg_cld pk im rk cc tr = Some tr' →
   memory_access ak cids tg_cld (off, sz) tr' = Some tr'' →
   is_Some (memory_access ak cids tg_par (off, sz) tr).
 Proof.
@@ -727,35 +740,35 @@ Proof.
   eapply option_bind_always_some; last done.
   eapply mem_apply_range'_success_condition.
   intros offi Hoffi. rewrite /range'_contains /= in Hoffi.
-  injection Hchild as Hchild.
+  eapply bind_Some in Hchild as (itnew&Hitnew&[= <-]).
   eapply mk_is_Some in Hread.
   eapply apply_access_success_condition in Hread.
   eapply every_node_eqv_universal in Hread.
-  2: subst tr'; eapply insert_preserves_exists, Hit.
+  2: eapply insert_preserves_exists, Hit.
   destruct Hread as [x (p&Hp&Hpp)%bind_Some]. clear x Hpp.
   eapply mk_is_Some, mem_apply_range'_success_condition in Hp.
   2: apply Hoffi.
   simpl in Hp|-*.
   erewrite apply_access_perm_shallow. 1: exact Hp.
+  eapply new_item_has_tag in Hitnew as HH.
   rewrite /rel_dec. destruct (decide (ParentChildIn (itag it) tg_par tr)) as [HPC|HnPC].
-  - simpl. rewrite decide_True //. subst tr'.
+  - simpl. rewrite decide_True //.
     eapply ParentChild_transitive; last first.
-    { eapply insert_produces_ParentChild; first done.
-      by intros ->. }
-    setoid_rewrite <- insert_eqv_rel. 1: done. all: simpl. 2: by intros ->.
+    { eapply insert_produces_ParentChild. 1: done. subst tg_cld. by intros <-. }
+    setoid_rewrite <- insert_eqv_rel. 1: done. all: simpl; rewrite HH. 2: by intros <-.
     intros ->. eapply Hncont, exists_node_eqv_existential. by exists it.
-  - simpl. rewrite decide_False //. subst tr'.
+  - simpl. rewrite decide_False //.
     intros [<-|HSPC].
     { eapply Hncont, exists_node_eqv_existential. by exists it. }
-    eapply HnPC. destruct (decide (itag it = tg_par)) as [Heq|Hne]. 1: by left.
+    eapply HnPC. destruct (decide (itag it = tg_par)) as [Heq|Hne]. 1: by left. subst tg_cld.
     right. eapply insert_produces_minimal_ParentChild. 5: exact HSPC.
-    all: simpl. 4: done. 3: done. 2: by intros ->.
-    intros ->. eapply Hncont, exists_node_eqv_existential. by exists it.
+    all: simpl. 4: done. 3: done. 2: by intros <-.
+    intros Htg. eapply Hncont, exists_node_eqv_existential. by exists it.
 Qed.
 
-Lemma create_then_access_implies_earlier_access_trees trs blk ak cc cids tg_par tg_cld pk rk off sz trs' trs'' :
+Lemma create_then_access_implies_earlier_access_trees trs blk ak cc cids tg_par tg_cld pk im rk off sz trs' trs'' :
   wf_trees trs → trees_contain tg_par trs blk → ¬ trees_contain tg_cld trs blk →
-  apply_within_trees (create_child cids tg_par tg_cld pk rk cc) blk trs = Some trs' →
+  apply_within_trees (create_child cids tg_par tg_cld pk im rk cc) blk trs = Some trs' →
   apply_within_trees (memory_access ak cids tg_cld (off, sz)) blk trs' = Some trs'' →
   is_Some (apply_within_trees (memory_access ak cids tg_par (off, sz)) blk trs).
 Proof.

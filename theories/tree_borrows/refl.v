@@ -351,10 +351,10 @@ Section log_rel.
     solve_rrel_refl.
   Qed.
   
-  Lemma log_rel_retag e1_t e1_s e2_t e2_s pk T k :
+  Lemma log_rel_retag e1_t e1_s e2_t e2_s pk im T k :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
-    log_rel (Retag e1_t e2_t pk T k) (Retag e1_s e2_s pk T k).
+    log_rel (Retag e1_t e2_t pk im T k) (Retag e1_s e2_s pk im T k).
   Proof.
     rewrite /gen_log_rel.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
@@ -365,8 +365,11 @@ Section log_rel.
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
-    iApply (sim_retag_public with "[-]"). { by iApply value_rel_ptr. }
-    iIntros (t) "Hv". sim_val. eauto.
+    destruct (decide (pk = ShrRef ∧ im = InteriorMut)) as [(->&->)|Hnim].
+    - iApply (sim_retag_noop). solve_rrel_refl.
+    - iApply (sim_retag_public with "[-]"). 1: done.
+      { by iApply value_rel_ptr. }
+      iIntros (t) "Hv". sim_val. eauto.
   Qed.
 
   (* TODO: this can be useful elsewhere. It's here because I'm relying on the

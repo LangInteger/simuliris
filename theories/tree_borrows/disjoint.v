@@ -35,6 +35,10 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve.
 From iris.prelude Require Import options.
 
+(*
+(* TODO do not forget *)
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+
 (* Key lemma: converts the entire traversal to a per-node level.
 This is applicable to every permission in the accessed range, all that's needed
 to complement it should be preservation of permissions outside of said range. *)
@@ -213,6 +217,8 @@ Lemma nonchild_write_any_protected_to_disabled
     /\ iprot post = iprot pre
   ).
 Proof. do 11 auto_access_event_within_range. Qed.
+
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
 
 Lemma nonchild_read_active_to_frozen
   {tr affected_tag access_tag pre}
@@ -1234,6 +1240,8 @@ Proof.
   - exact HEAD2.
 Qed.
 
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+
 Lemma llvm_retagx_opaque_writex_writey_disjoint
   {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
@@ -1978,4 +1986,5 @@ Proof.
     all: eapply bor_local_seq_forget; eassumption.
 Qed.
 
-
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+*)

@@ -536,12 +536,12 @@ Proof.
   intros it1 it2 Heq; repeat destruct bool_decide; simpl in Heq; simplify_eq; done.
 Qed.
 
-Lemma create_child_preserve_nonempty cids oldtg newtg pk rk cid tr tr' :
-  create_child cids oldtg newtg pk rk cid tr = Some tr' →
+Lemma create_child_preserve_nonempty cids oldtg newtg pk im rk cid tr tr' :
+  create_child cids oldtg newtg pk im rk cid tr = Some tr' →
   tr ≠ empty →
   tr' ≠ empty.
 Proof.
-  intros [= <-] Hne.
+  intros (x&Hx&[= <-])%bind_Some Hne.
   destruct tr as [|data].
   1: contradiction.
   simpl. destruct (decide (IsTag oldtg data)); intro H; inversion H.
@@ -594,8 +594,8 @@ Proof.
   pose proof Hacc as (H1&H2&H3)%item_apply_access_preserves_metadata.
   intros [Htag Hcid Hdef HIM Hperms Hreach]. split.
   1-3: rewrite /= -?H1 -?H2 -?H3 //.
-  all: pose proof Hacc as (px&Hpx&[= <-])%bind_Some; simpl.
-  1: intros Hsome k c Heq; destruct (px !! k) eqn:Hpnew.
+  all: pose proof Hacc as (px&Hpx&[= <-])%bind_Some; simpl. 
+  1: intros Hsome k Heq; destruct (px !! k) eqn:Hpnew.
   2: { simpl in Heq. eapply (HIM (ltac:(done)) (fresh (dom (iperm it1)))).
        rewrite not_elem_of_dom_1. 1: done. eapply is_fresh. }
   3: intros Hndis; specialize (Hreach Hndis).
@@ -611,7 +611,7 @@ Proof.
   - destruct Hpx as (?&Hkk&Hpx).
     rewrite Hpnew in Hkk. injection Hkk as <-.
     eapply Hpreach in Hpx. rewrite Heq in Hpx.
-    destruct perm as [[] c'| | |] eqn:Hperm in Hpx. 2-5: cbv in Hpx; by repeat case_match.
+    destruct perm as [[]| | | |] eqn:Hperm in Hpx. 1,2,4,5,6: try by cbv in Hpx.
     eapply HIM; first done. done.
   - eapply Hlazy; first exact Hfn.
     rewrite /default. destruct (iperm it1 !! k) as [pold|] eqn:Hpold.
@@ -888,7 +888,7 @@ Proof.
   destruct σ as [h trs cids nxtp nxtc].
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
-  inversion IS as [x| | | | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
+  inversion IS as [x| | | | | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
   - apply same_blocks_init_extend; [lia|].
     apply WF.
   - apply extend_trees_wf.
@@ -1279,7 +1279,7 @@ Proof.
          1-3: done. rewrite /rel_dec decide_False // decide_False //. }
     rewrite Htgitpar /rel_dec decide_False // /apply_access_perm_inner /= in Hx.
     destruct acc.
-    { destruct (perm (default {| initialized := PermLazy; perm := initp itpar |} (iperm itpar !! l))) as [[][]| | |] eqn:HHH,
+    { destruct (perm (default {| initialized := PermLazy; perm := initp itpar |} (iperm itpar !! l))) as [[]| | | |] eqn:HHH,
                (bool_decide (protector_is_active (iprot itpar) cids)); rewrite HHH in Hx; rewrite /= in Hx Hy; try by simplify_eq.
       exfalso. eapply WFpnd. 2-3: done.
       eapply bind_Some in Haccc as (xc&Hxc&(yc&Hyc&[= <-])%bind_Some). simpl in Hisinit.
@@ -1359,10 +1359,10 @@ Proof.
     assert (perm (item_lookup it2 off) = Active) as Ha2old.
     { clear Hlp1'. rewrite maybe_non_children_only_no_effect // /= /apply_access_perm /apply_access_perm_inner /= in Hlp2'.
       rewrite /item_lookup.
-      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [[][]| | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
+      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [[]| | | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
       all: try discriminate Hlp2'. all: injection Hlp2' as <-.
       all: try discriminate Ha2. all: done. }
-    destruct (perm (default _ _)) as [[][]| | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
+    destruct (perm (default _ _)) as [[]| | | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
     all: rewrite most_init_comm /= in Hinit.
     all: destruct (iperm it1 !! off) as [[[] prm]|] eqn:Hlu; rewrite Hlu /= // in Hinit.
     all: eapply WFcs; [exact Hit1|exact Hit2|exact Hreldec| |exact Ha2old].
@@ -1393,10 +1393,10 @@ Proof.
       2: { injection Hlp2' as <-. rewrite /item_lookup Ha2 //. } clear Heq.
       rewrite /= /apply_access_perm /apply_access_perm_inner /= in Hlp2'.
       rewrite /item_lookup.
-      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [[][]| | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
+      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [[]| | | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
       all: try discriminate Hlp2'. all: injection Hlp2' as <-.
       all: try discriminate Ha2. }
-    destruct (perm (default _ _)) as [[][]| | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
+    destruct (perm (default _ _)) as [[]| | | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
     all: rewrite most_init_comm /= in Hinit.
     all: destruct (iperm it1 !! off) as [[[] prm]|] eqn:Hlu; rewrite Hlu /= // in Hinit.
     all: eapply WFcs; [exact Hit1|exact Hit2|exact Hreldec| |exact Ha2old].
@@ -1742,7 +1742,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ | | | | | | |trs'' ???? ACC | | ]; clear IS; simplify_eq.
+  inversion IS as [ | | | | | | | |trs'' ???? ACC | | ]; clear IS; simplify_eq.
   destruct (trees_deallocate_isSome _ _ _ _ _ _ (mk_is_Some _ _ ACC)) as [x [Lookup Update]].
   assert (each_tree_parents_more_init trs'') as HH1.
   { eapply apply_within_trees_deallocate_compat_parents_more_init; try done.
@@ -1829,7 +1829,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ |?????? ACC| | | | | | | | ]; clear IS; simplify_eq.
+  inversion IS as [ |?????? ACC| | | | | | | | | ]; clear IS; simplify_eq.
   - eapply (access_step_wf_inner σ false); done.
   - by destruct σ.
 Qed.
@@ -1988,7 +1988,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ | | | |?????? ACC |???? RANGE_SIZE| | | | ]; clear IS; simplify_eq.
+  inversion IS as [ | | | |?????? ACC |???? RANGE_SIZE| | | | | ]; clear IS; simplify_eq.
   2: { simpl in RANGE_SIZE. destruct vl; last done. simpl. done. }
   constructor; simpl.
   - rewrite /same_blocks.
@@ -2743,16 +2743,19 @@ Proof.
   - by eapply IH2.
 Qed.
 
-Lemma insert_child_wf cids oldt nxtp pk rk cid nxtc tro trn
-  (IT_WF : item_wf (create_new_item nxtp pk rk cid) (S nxtp) nxtc)
+Lemma insert_child_wf cids oldt nxtp pk im rk cid nxtc tro trn itnew
+  (IT_WF : item_wf itnew (S nxtp) nxtc)
   : 
-  create_child cids oldt nxtp pk rk cid tro = Some trn →
+  create_new_item nxtp pk im rk cid = Some itnew →
+  create_child cids oldt nxtp pk im rk cid tro = Some trn →
   tree_items_compat_nexts tro nxtp nxtc →
   wf_tree tro →
   tree_items_compat_nexts trn (S nxtp) nxtc ∧
   wf_tree trn.
 Proof.
-  intros CREATE Hcompat Hwf.
+  intros Hnewchild CREATE Hcompat Hwf.
+  pose proof CREATE as CREATE2.
+  rewrite /create_child Hnewchild /= in CREATE.
   destruct (decide (tree_contains oldt tro)) as [Hin|Hnin]; last first.
   { rewrite /create_child insert_child_notfound in CREATE.
     - injection CREATE as ->. split; last done.
@@ -2761,10 +2764,10 @@ Proof.
   split; last first.
   - intros tg Hcont%count_gt0_exists.
     destruct (decide (tg = nxtp)) as [->|].
-    + eapply create_child_determined in CREATE as H2; try done.
-      * destruct H2 as (_&H2).
+    + eapply create_child_determined in CREATE2 as H2; try done.
+      * destruct H2 as (it&_&_&H2).
         rewrite /create_child in CREATE. injection CREATE as <-.
-        eapply inserted_unique. 1: done.
+        eapply inserted_unique. 1: by eapply new_item_has_tag.
         -- intros H1. eapply tree_items_compat_next_not_containing; [exact H1|done|lia].
         -- by eapply (Hwf _ Hin).
       * intros ?. eapply tree_items_compat_next_not_containing. 1-2: done. lia.
@@ -2778,8 +2781,8 @@ Proof.
     + eapply tree_items_compat_nexts_mono; last done; lia.
 Qed.
 
-Lemma insert_child_parents_more_init cids oldt nxtp pk rk cid tro trn : 
-  create_child cids oldt nxtp pk rk cid tro = Some trn →
+Lemma insert_child_parents_more_init cids oldt nxtp pk im rk cid tro trn : 
+  create_child cids oldt nxtp pk im rk cid tro = Some trn →
   parents_more_init tro →
   wf_tree tro →
   wf_tree trn →
@@ -2788,7 +2791,7 @@ Lemma insert_child_parents_more_init cids oldt nxtp pk rk cid tro trn :
   parents_more_init trn.
 Proof.
   intros H1 H2 Hwfo Hwfn H4 H5 tg.
-  opose proof (insertion_contains _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
+  opose proof (insertion_contains _ _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
   opose proof (insertion_preserves_tags H4 H1) as H4new.
   destruct (decide (tg = nxtp)) as [->|Hne].
   { eapply every_child_ParentChildIn. 1-2: by eapply wf_tree_tree_unique.
@@ -2807,7 +2810,7 @@ Proof.
   intros ittg Hittg tgcld Hitcld HPCI.
   destruct (decide (tgcld = nxtp)) as [<-|Hnotnew].
   - eapply every_node_eqv_universal. intros itcld Hitcld2 Htgcld.
-    edestruct create_child_determined as (_&Hdet). 3: done. 2: done. 1: done.
+    edestruct create_child_determined as (it&(?&_&[= <-])%bind_Some&_&Hdet). 3: done. 2: done. 1: done.
     eapply every_node_eqv_universal in Hdet. 2: exact Hitcld2.
     rewrite Hdet; last done. intros l.
     rewrite /item_lookup /= lookup_empty /=. done.
@@ -2819,9 +2822,9 @@ Proof.
     1: by eapply Hwfo.
     assert (ParentChildIn tg tgcld tro) as HPCo.
     { destruct HPCI as [HPCI|HPCI]; first by left. right.
-      rewrite /create_child in H1. injection H1 as H1. rewrite -H1 in HPCI.
+      eapply bind_Some in H1 as (x&Hx%new_item_has_tag&[= H1]). rewrite -H1 in HPCI.
       eapply insert_eqv_strict_rel in HPCI; first done.
-      all: by simpl. }
+      all: rewrite Hx //. }
     eapply every_child_ParentChildIn in H2.
     2-3: by eapply wf_tree_tree_unique. 2: exact Hittro. 3: apply HPCo.
     2: by eapply Hwfo.
@@ -2840,8 +2843,8 @@ Proof.
     rewrite -Hlucldo //.
 Qed.
 
-Lemma apply_within_trees_insert_child_parents_more_init blk cids oldt nxtp pk rk cid trso trsn : 
-  apply_within_trees (create_child cids oldt nxtp pk rk cid) blk trso = Some trsn →
+Lemma apply_within_trees_insert_child_parents_more_init blk cids oldt nxtp pk im rk cid trso trsn : 
+  apply_within_trees (create_child cids oldt nxtp pk im rk cid) blk trso = Some trsn →
   each_tree_parents_more_init trso →
   wf_trees trso →
   wf_trees trsn →
@@ -2857,8 +2860,8 @@ Proof.
   destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
 Qed.
 
-Lemma insert_child_parents_more_active cids oldt nxtp pk rk cid tro trn : 
-  create_child cids oldt nxtp pk rk cid tro = Some trn →
+Lemma insert_child_parents_more_active cids oldt nxtp pk im rk cid tro trn : 
+  create_child cids oldt nxtp pk im rk cid tro = Some trn →
   parents_more_active tro →
   wf_tree tro →
   wf_tree trn →
@@ -2867,7 +2870,7 @@ Lemma insert_child_parents_more_active cids oldt nxtp pk rk cid tro trn :
   parents_more_active trn.
 Proof.
   intros H1 H2 Hwfo Hwfn H4 H5 tg.
-  opose proof (insertion_contains _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
+  opose proof (insertion_contains _ _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
   opose proof (insertion_preserves_tags H4 H1) as H4new.
   destruct (decide (tg = nxtp)) as [->|Hne].
   { eapply every_child_ParentChildIn. 1-2: by eapply wf_tree_tree_unique.
@@ -2886,11 +2889,11 @@ Proof.
   intros ittg Hittg tgcld Hitcld HPCI.
   destruct (decide (tgcld = nxtp)) as [<-|Hnotnew].
   - eapply every_node_eqv_universal. intros itcld Hitcld2 Htgcld.
-    edestruct create_child_determined as (_&Hdet). 3: done. 2: done. 1: done.
+    edestruct create_child_determined as (it&(x&Hx&[= <-])%bind_Some&_&Hdet). 3: done. 2: done. 1: done.
     eapply every_node_eqv_universal in Hdet. 2: exact Hitcld2.
     rewrite Hdet; last done. intros l.
     rewrite /item_lookup /= lookup_empty /=.
-    by destruct pk as [[]|[]|].
+    destruct pk, im, rk; simpl in Hx; try discriminate Hx; injection Hx as <-; done.
   - eapply every_node_eqv_universal. intros itcld Hitcld2 Htgcld.
     assert (tree_contains tgcld tro) as Hcldino.
     { eapply insertion_minimal_tags. 3: done. 2: by eapply unique_exists. 1: done. }
@@ -2899,9 +2902,9 @@ Proof.
     1: by eapply Hwfo.
     assert (ParentChildIn tg tgcld tro) as HPCo.
     { destruct HPCI as [HPCI|HPCI]; first by left. right.
-      rewrite /create_child in H1. injection H1 as H1. rewrite -H1 in HPCI.
+      eapply bind_Some in H1 as (x&Hx%new_item_has_tag&[= H1]). rewrite -H1 in HPCI.
       eapply insert_eqv_strict_rel in HPCI; first done.
-      all: by simpl. }
+      all: rewrite Hx //. }
     eapply every_child_ParentChildIn in H2.
     2-3: by eapply wf_tree_tree_unique. 2: exact Hittro. 3: apply HPCo.
     2: by eapply Hwfo.
@@ -2920,8 +2923,8 @@ Proof.
     rewrite -Hlucldo //.
 Qed.
 
-Lemma apply_within_trees_insert_child_parents_more_active blk cids oldt nxtp pk rk cid trso trsn : 
-  apply_within_trees (create_child cids oldt nxtp pk rk cid) blk trso = Some trsn →
+Lemma apply_within_trees_insert_child_parents_more_active blk cids oldt nxtp pk im rk cid trso trsn : 
+  apply_within_trees (create_child cids oldt nxtp pk im rk cid) blk trso = Some trsn →
   each_tree_parents_more_active trso →
   wf_trees trso →
   wf_trees trsn →
@@ -2937,8 +2940,8 @@ Proof.
   destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
 Qed.
 
-Lemma insert_child_protected_parents_not_disabled cids oldt nxtp pk rk cid tro trn : 
-  create_child cids oldt nxtp pk rk cid tro = Some trn →
+Lemma insert_child_protected_parents_not_disabled cids oldt nxtp pk im rk cid tro trn : 
+  create_child cids oldt nxtp pk im rk cid tro = Some trn →
   protected_parents_not_disabled cids tro →
   wf_tree tro →
   wf_tree trn →
@@ -2947,12 +2950,12 @@ Lemma insert_child_protected_parents_not_disabled cids oldt nxtp pk rk cid tro t
   protected_parents_not_disabled cids trn.
 Proof.
   intros H1 H2 Hwfo Hwfn H4 H5 tg.
-  opose proof (insertion_contains _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
+  opose proof (insertion_contains _ _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
   opose proof (insertion_preserves_tags H4 H1) as H4new.
   destruct (decide (tg = nxtp)) as [->|Hne].
   { eapply every_child_ParentChildIn. 1-2: by eapply wf_tree_tree_unique.
     intros itp Hitdet tgcld Hunq HPC. eapply every_node_eqv_universal.
-    intros itn Hitn Htg l. eapply create_child_determined in H1 as HH. 1: destruct HH as (HH1&HH2). 2-3: done.
+    intros itn Hitn Htg l. eapply create_child_determined in H1 as HH. 1: destruct HH as (it&(x&Hx&[= <-])%bind_Some&HH1&HH2). 2-3: done.
     opose proof* tree_determined_unify as Heq. 2: exact HH2. 2: exact Hitdet. 1: done.
     enough (itn = itp).
     1: subst itp itn; rewrite /item_lookup /= lookup_empty /= //.
@@ -2969,11 +2972,11 @@ Proof.
   intros ittg Hittg tgcld Hitcld HPCI.
   destruct (decide (tgcld = nxtp)) as [<-|Hnotnew].
   - eapply every_node_eqv_universal. intros itcld Hitcld2 Htgcld.
-    edestruct create_child_determined as (_&Hdet). 3: done. 2: done. 1: done.
+    edestruct create_child_determined as (it&(x&Hx&[= <-])%bind_Some&_&Hdet). 3: done. 2: done. 1: done.
     eapply every_node_eqv_universal in Hdet. 2: exact Hitcld2.
     rewrite Hdet; last done. intros l.
     rewrite /item_lookup /= lookup_empty /=.
-    by destruct pk as [[]|[]|].
+    by destruct pk.
   - eapply every_node_eqv_universal. intros itcld Hitcld2 Htgcld.
     assert (tree_contains tgcld tro) as Hcldino.
     { eapply insertion_minimal_tags. 3: done. 2: by eapply unique_exists. 1: done. }
@@ -2982,9 +2985,9 @@ Proof.
     1: by eapply Hwfo.
     assert (ParentChildIn tg tgcld tro) as HPCo.
     { destruct HPCI as [HPCI|HPCI]; first by left. right.
-      rewrite /create_child in H1. injection H1 as H1. rewrite -H1 in HPCI.
+      eapply bind_Some in H1 as (x&Hx%new_item_has_tag&[= H1]). rewrite -H1 in HPCI.
       eapply insert_eqv_strict_rel in HPCI; first done.
-      all: by simpl. }
+      all: rewrite Hx //. }
     eapply every_child_ParentChildIn in H2.
     2-3: by eapply wf_tree_tree_unique. 2: exact Hittro. 3: apply HPCo.
     2: by eapply Hwfo.
@@ -3003,8 +3006,8 @@ Proof.
     rewrite -Hlucldo //.
 Qed.
 
-Lemma apply_within_trees_insert_child_protected_parents_not_disabled blk cids oldt nxtp pk rk cid trso trsn : 
-  apply_within_trees (create_child cids oldt nxtp pk rk cid) blk trso = Some trsn →
+Lemma apply_within_trees_insert_child_protected_parents_not_disabled blk cids oldt nxtp pk im rk cid trso trsn : 
+  apply_within_trees (create_child cids oldt nxtp pk im rk cid) blk trso = Some trsn →
   each_tree_protected_parents_not_disabled cids trso →
   wf_trees trso →
   wf_trees trsn →
@@ -3020,8 +3023,8 @@ Proof.
   destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
 Qed.
 
-Lemma insert_child_no_active_cousins cids oldt nxtp pk rk cid tro trn : 
-  create_child cids oldt nxtp pk rk cid tro = Some trn →
+Lemma insert_child_no_active_cousins cids oldt nxtp pk im rk cid tro trn : 
+  create_child cids oldt nxtp pk im rk cid tro = Some trn →
   no_active_cousins cids tro →
   wf_tree tro →
   wf_tree trn →
@@ -3030,17 +3033,20 @@ Lemma insert_child_no_active_cousins cids oldt nxtp pk rk cid tro trn :
   no_active_cousins cids trn.
 Proof.
   intros H1 H2 Hwfo Hwfn H4 H5 tg1 it1 tg2 it2.
-  opose proof (insertion_contains _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
+  opose proof (insertion_contains _ _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
   opose proof (insertion_preserves_tags H4 H1) as H4new.
   intros off Hit1 Hit2 Hcs Ha1 Ha2.
   destruct (decide (tg1 = nxtp)) as [->|Hne].
-  { opose proof* tree_lookup_unique as Heq.
-    1: eapply create_child_determined. 3: done. 1,2: done. 1: eapply Hit1.
-    subst it1. rewrite /active_or_prot_init /item_lookup /= lookup_empty /= in Ha1. destruct Ha1 as [Ha1|(?&[=])]. by destruct pk. }
+  { edestruct create_child_determined as (it&(x&Hx&[= Hit])%bind_Some&HHH).
+    4: opose proof* tree_lookup_unique as Heq.
+    4: eapply HHH. 3: done. 1,2: done. 1: eapply Hit1.
+    subst it1. rewrite -Hit /active_or_prot_init /item_lookup /= lookup_empty /= in Ha1.
+    destruct Ha1 as [Ha1|(?&[=])]. destruct pk, im, rk; by simplify_eq. }
   destruct (decide (tg2 = nxtp)) as [->|Hne2].
-  { opose proof* tree_lookup_unique as Heq.
-    1: eapply create_child_determined. 3: done. 1,2: done. 1: eapply Hit2.
-    subst it2. rewrite /item_lookup /= lookup_empty /= in Ha2. by destruct pk. }
+  { edestruct create_child_determined as (it&(x&Hx&[= Hit])%bind_Some&HHH).
+    4: opose proof* tree_lookup_unique as Heq.
+    4: eapply HHH. 3: done. 1,2: done. 1: eapply Hit2.
+    subst it2. rewrite -Hit /item_lookup /= lookup_empty /= in Ha2. destruct pk, im, rk; by simplify_eq. }
   assert (tree_unique tg1 trn) as Hu1.
   1: eapply Hwfn; try done; eapply Hit1.
   assert (tree_unique tg2 trn) as Hu2.
@@ -3059,8 +3065,8 @@ Proof.
   erewrite create_child_same_rel_dec. 4: eassumption. 1: done. 1-2: done.
 Qed.
 
-Lemma apply_within_trees_insert_child_no_active_cousins blk cids oldt nxtp pk rk cid trso trsn : 
-  apply_within_trees (create_child cids oldt nxtp pk rk cid) blk trso = Some trsn →
+Lemma apply_within_trees_insert_child_no_active_cousins blk cids oldt nxtp pk im rk cid trso trsn : 
+  apply_within_trees (create_child cids oldt nxtp pk im rk cid) blk trso = Some trsn →
   each_tree_no_active_cousins cids trso →
   wf_trees trso →
   wf_trees trsn →
@@ -3089,21 +3095,21 @@ Proof.
   eapply item_tag_valid in Htg; last done. lia.
 Qed.
 
-Lemma create_new_item_wf nt pk rk (cid nxtc' : nat) : 
+Lemma create_new_item_wf it nt pk im rk (cid nxtc' : nat) : 
   (cid < nxtc')%nat →
-  no_protected_reserved_interiormut pk rk →
-  item_wf (create_new_item nt pk rk cid) (S nt) nxtc'.
+  create_new_item nt pk im rk cid = Some it →
+  item_wf it (S nt) nxtc'.
 Proof.
-  intros H Hnot.
+  intros H (x&Hx&[= <-])%bind_Some.
   split; rewrite /create_new_item /=.
   + rewrite /=. intros ? <-; lia.
   + destruct rk; last done.
     rewrite /= /protector_is_for_call /=.
     intros ? [= <-]. by eapply H.
-  + clear. cbv. by case_match.
+  + clear -Hx. cbv. unfold retag_perm in Hx. destruct pk, im, rk; by simplify_eq.
   + destruct rk. 2: intros [? [=]].
-    destruct pk as [[]|[]|].
-    all: intros _ off c; rewrite lookup_empty /=; intros [=].
+    destruct pk, im; simpl in Hx; simplify_eq; simpl.
+    all: intros _ off; rewrite lookup_empty /=; intros [=].
     all: eapply Hnot.
   + done.
   + intros _. eapply map_Forall_empty.
@@ -3120,21 +3126,21 @@ Proof.
   simpl in Hc. destruct (decide (fn it)); subst tr'; simpl; done.
 Qed.
 
-Lemma create_child_roots_compat C ot nt pk rk cid trs trs' blk hp :
+Lemma create_child_roots_compat C ot nt pk im rk cid trs trs' blk hp :
   tree_roots_compatible trs hp →
-  apply_within_trees (create_child C ot nt pk rk cid) blk trs = Some trs' →
+  apply_within_trees (create_child C ot nt pk im rk cid) blk trs = Some trs' →
   tree_roots_compatible trs' hp.
 Proof.
-  intros Hroot (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some.
+  intros Hroot (tr&Htr&(tr'&(x&Hx&Htr')%bind_Some&[= <-])%bind_Some)%bind_Some.
   intros blkX trX [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
   - eapply create_child_root_compat. 1: by eapply Hroot.
     by injection Htr'.
   - by eapply Hroot.
 Qed.
 
-Lemma create_child_tree_contains C ot nt pk rk cid trs trs' blk blk' tg :
+Lemma create_child_tree_contains C ot nt pk im rk cid trs trs' blk blk' tg :
   trees_contain tg trs blk' →
-  apply_within_trees (create_child C ot nt pk rk cid) blk trs = Some trs' →
+  apply_within_trees (create_child C ot nt pk im rk cid) blk trs = Some trs' →
   trees_contain tg trs' blk'.
 Proof.
   intros Hroot (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some.
@@ -3146,16 +3152,15 @@ Proof.
   - rewrite lookup_insert_ne // Heq //.
 Qed.
 
-Lemma retag_step_wf_inner σ blk ot pk rk cid trsmid :
+Lemma retag_step_wf_inner σ blk ot pk im rk cid trsmid :
   state_wf σ →
   trees_contain ot σ.(strs) blk →
   ¬ trees_contain σ.(snp) σ.(strs) blk →
   cid ∈ σ.(scs) →
-  apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk cid) blk σ.(strs) = Some trsmid →
-  no_protected_reserved_interiormut pk rk →
+  apply_within_trees (create_child σ.(scs) ot σ.(snp) pk im rk cid) blk σ.(strs) = Some trsmid →
   state_wf (mkState σ.(shp) trsmid σ.(scs) (S σ.(snp)) σ.(snc)) ∧ trees_contain σ.(snp) trsmid blk.
 Proof.
-  intros WF EXISTS_TAG FRESH_CHILD CALL_ACTIVE RETAG_EFFECT HACK_BAN.
+  intros WF EXISTS_TAG FRESH_CHILD CALL_ACTIVE RETAG_EFFECT.
   destruct σ as [h' trs cids' nt nxtc']. simpl in *.
   assert (trees_compat_nexts trsmid (S nt) nxtc' ∧ wf_trees trsmid) as (Hwfmid1 & Hwfmid2).
   { eapply apply_within_trees_compat_both; first done; last first.
@@ -3164,7 +3169,7 @@ Proof.
       destruct (decide (tg = nt)) as [->|Hne].
       1: right; lia.
       1: left; eapply insertion_minimal_tags; last done; try done.
-    - simpl. intros ?????.
+    - simpl. intros ?? Hx ??. pose proof Hx as (it&Hit&[= HH])%bind_Some.
       eapply insert_child_wf; try done.
       eapply create_new_item_wf. 1: by eapply WF. 1: done.
     - simpl. intros ??. eapply tree_items_compat_nexts_mono; last done; lia. }
@@ -3185,10 +3190,10 @@ Proof.
     by rewrite /trees_contain /trees_at_block Hx1 in EXISTS_TAG.
 Qed.
 
-Lemma retag_step_wf σ σ' e e' blk range ot nt pk rk cid efs :
-  mem_expr_step σ.(shp) e (RetagEvt blk range ot nt pk cid rk) σ'.(shp) e' efs →
+Lemma retag_step_wf σ σ' e e' blk range ot nt pk im rk cid efs :
+  mem_expr_step σ.(shp) e (RetagEvt blk range ot nt pk im cid rk) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (RetagEvt blk range ot nt pk cid rk)
+           (RetagEvt blk range ot nt pk im cid rk)
            σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
   state_wf σ → state_wf σ'.
 Proof.
@@ -3196,8 +3201,9 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
-  inversion IS as [| | | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR HACK_BAN| | |]. clear IS. simplify_eq.
-  eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-6: done.
+  inversion IS as [| | | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | | |].
+  2: by simplify_eq. simplify_eq.
+  eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-5: try done.
   eapply access_step_wf_inner in WF. all: done.
 Qed.
 

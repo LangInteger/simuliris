@@ -35,10 +35,10 @@ Ltac reshape_expr e tac :=
     | Write ?e (Place ?l ?t ?T)       => add_item (WriteLEctx (PlaceR l t T)) K e
     | Write ?e1 ?e2                   => add_item (WriteREctx e1) K e2 
     | Free ?e                         => add_item FreeEctx K e
-    | Retag ?e (Val ?v) ?pk ?T ?rk    => add_item (RetagLEctx (ValR v) pk T rk) K e
-    | Retag ?e (of_result ?v) ?pk ?T ?rk   => add_item (RetagLEctx v pk T rk) K e
-    | Retag ?e (Place ?l ?t ?T) ?pk ?T ?rk => add_item (RetagLEctx (PlaceR l t T) pk T rk) K e
-    | Retag ?e1 ?e2 ?pk ?T ?rk        => add_item (RetagREctx e1 pk T rk) K e2
+    | Retag ?e (Val ?v) ?pk ?im ?T ?rk => add_item (RetagLEctx (ValR v) pk im T rk) K e
+    | Retag ?e (of_result ?v) ?pk ?im ?T ?rk => add_item (RetagLEctx v pk im T rk) K e
+    | Retag ?e (Place ?l ?t ?T) ?pk ?im ?T ?rk => add_item (RetagLEctx (PlaceR l t T) pk im T rk) K e
+    | Retag ?e1 ?e2 ?pk ?im ?T ?rk    => add_item (RetagREctx e1 pk im T rk) K e2
     | Let ?x ?e1 ?e2                  => add_item (LetEctx x e2) K e1
     | Case ?e ?el                     => add_item (CaseEctx el) K e 
     end

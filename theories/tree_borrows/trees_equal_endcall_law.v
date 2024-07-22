@@ -15,10 +15,10 @@ Definition is_pseudo_conflicted_by_in' C (tr : tree item) (tg tg_cous : tag) (it
   tree_lookup tr tg it ∧
   protector_is_active it.(iprot) C ∧
   rel_dec tr tg tg_cous = Foreign Cousin ∧
-  ∃ it_cous l im,
+  ∃ it_cous l,
     l ∈ dom L ∧
     tree_lookup tr tg_cous it_cous ∧
-    (item_lookup it l).(perm) = Reserved im acc.
+    (item_lookup it l).(perm) = Reserved acc.
 
 Definition is_pseudo_conflicted_by_in (C : call_id_set) (tr : tree item) (tg : tag) (it : item) (S : gset (tag * gmap Z access_kind)) acc : Prop := 
   ∃ tg_cous L,
@@ -35,7 +35,7 @@ Definition is_pseudo_disabled_by_in' C (tr : tree item) (tg tg_cous : tag) (it :
     protector_is_active it_cous.(iprot) C ∧
     item_lookup it_cous l = mkPerm PermInit Active ∧
     item_lookup it l = mkPerm PermLazy lp ∧
-    (∀ c, lp ≠ Reserved InteriorMut c).
+    lp ≠ ReservedIM.
 
 Definition is_pseudo_disabled_by_in (C : call_id_set) (tr : tree item) (tg : tag) (it : item) (S : gset (tag * gmap Z access_kind)) lp : Prop := 
   ∃ tg_cous L,
@@ -56,7 +56,7 @@ Proof.
   1: by intros [= ->]. simpl.
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
-  intros tg' it acc (tg_cs&SL&HS&Hlu&Hisprot&Hreldec&it_cous&l&im&HlL&Hlucs&Hres).
+  intros tg' it acc (tg_cs&SL&HS&Hlu&Hisprot&Hreldec&it_cous&l&HlL&Hlucs&Hres).
   assert (tree_unique tg_acc tr2) as Hunq2.
   { rewrite /tree_unique. erewrite <- tree_access_many_helper_2. 1: exact Hunq. exact Hoff. }
   assert (wf_tree tr2) as Hwf2.
@@ -76,7 +76,7 @@ Proof.
     split; first eapply H1.
     split; first by rewrite H3. split.
     { erewrite access_same_rel_dec; first done. apply HL. }
-    exists itcs', off, im. do 2 (split; first done). done.
+    exists itcs', off. do 2 (split; first done). done.
   - odestruct (tree_access_lookup_outside_rev l) as (it'&H1&H2&H3&H4).
     1: exact HL. 1: done. 2: exact Hlu. 1: lia.
     odestruct (tree_access_lookup_outside_rev l) as (itcs'&H1cs&H2cs&H3cs&H4cs).
@@ -86,7 +86,7 @@ Proof.
     split; first eapply H1.
     split; first by rewrite H3. split.
     { erewrite access_same_rel_dec; first done. apply HL. }
-    exists itcs', l, im. do 2 (split; first done). done.
+    exists itcs', l. do 2 (split; first done). done.
 Qed.
 
 Lemma tree_access_many_pseudo_dis_helper_2_pers C tg_acc (L : gmap Z _) tr1 trL S nxtp nxtc
@@ -130,15 +130,15 @@ Proof.
       2: right; by injection H4cs.
       destruct HH as [|HH]; first done.
       rewrite /rel_dec in HH.
-      rewrite /rel_dec /apply_access_perm /apply_access_perm_inner in H4cs. 
-      destruct v, (decide (ParentChildIn tg_cs tg_acc tr2)), (item_lookup itcs' off) as [[][[][]| | |]] eqn:HHH.
+      rewrite /rel_dec /apply_access_perm /apply_access_perm_inner in H4cs.
+      destruct v, (decide (ParentChildIn tg_cs tg_acc tr2)), (item_lookup itcs' off) as [[][[]| | | |]] eqn:HHH.
       all: destruct (initialized (item_lookup itcs' off)) eqn:Heqini.
       all: rewrite /= in H4cs.
       all: try discriminate H4cs. 
       all: try (right; reflexivity).
       all: left; split; first eassumption. all: done. }
-    assert (∀ c, protector_is_active (iprot it) C → perm (item_lookup it' off) = Reserved InteriorMut c → False) as HnoPRI.
-    { rewrite -H3. intros c (xx&Hxx&HHxx). eapply every_node_eqv_universal in Hcompat2 as HH.
+    assert (protector_is_active (iprot it) C → perm (item_lookup it' off) = ReservedIM → False) as HnoPRI.
+    { rewrite -H3. intros (xx&Hxx&HHxx). eapply every_node_eqv_universal in Hcompat2 as HH.
       2: eapply tree_lookup_to_exists_node, H1. eapply item_perms_reserved_im_protected. 1: done.
       destruct (iprot it'); done. }
     destruct HPC as [(HPC&->)|Hact].
@@ -158,7 +158,7 @@ Proof.
       rewrite Hrr in H4.
       rewrite Hres maybe_non_children_only_no_effect // in H4.
       rewrite /apply_access_perm /apply_access_perm_inner in H4.
-      destruct (item_lookup it' off) as [[][[][]| | |]] eqn:Hppplu, (bool_decide (protector_is_active (iprot it) C)) eqn:Hprot.
+      destruct (item_lookup it' off) as [[][[]| | | |]] eqn:Hppplu, (bool_decide (protector_is_active (iprot it) C)) eqn:Hprot.
       all: simpl in H4.
       all: try discriminate H4.
       all: injection H4 as <-. all: try reflexivity.
@@ -174,11 +174,11 @@ Proof.
         split; first done.
         split. 1: by rewrite H3cs.
         split; first done. split; first done.
-        intros c ->.
+        intros ->.
         edestruct maybe_non_children_only_effect_or_nop_strong as [(Heff&HH)|(Heff&HH)]; erewrite Heff in H4; clear Heff.
         2: { injection H4 as H4. rewrite -H4 in Hres. injection Hres as <-. by eapply Hlp. }
         rewrite /apply_access_perm /apply_access_perm_inner in H4.
-        destruct c, v, (rel_dec tr2 tg_acc tg'), (bool_decide (protector_is_active (iprot it) C)) eqn:Hppr; simpl in H4.
+        destruct v, (rel_dec tr2 tg_acc tg'), (bool_decide (protector_is_active (iprot it) C)) eqn:Hppr; simpl in H4.
         all: try discriminate H4.
         all: injection H4 as H4. all: rewrite -H4 in Hres.
         all: injection Hres as Hres. all: subst acc. Unshelve.
@@ -213,7 +213,7 @@ Proof.
   { simpl. intros [= ->] tg it acc (?&?&?&?&?&?&HH&_). set_solver. }
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
-  intros tg' it acc (Hlu&Hisprot&Hreldec&it_cous&l&im&HlL&Hlucs&Hres).
+  intros tg' it acc (Hlu&Hisprot&Hreldec&it_cous&l&HlL&Hlucs&Hres).
   assert (tree_unique tg_acc tr2) as Hunq2.
   { rewrite /tree_unique. erewrite <- tree_access_many_helper_2. 1: exact Hunq. exact Hoff. }
   assert (wf_tree tr2) as Hwf2.
@@ -239,7 +239,7 @@ Proof.
     split; first by rewrite H3.
     split.
     { erewrite access_same_rel_dec; first done. apply HL. }
-    exists itcs', l, im. split_and!; try done.
+    exists itcs', l. split_and!; try done.
     rewrite dom_insert_L in HlL. set_solver.
 Qed.
 
@@ -273,7 +273,7 @@ Proof.
     destruct ini.
     { exfalso. eapply bind_Some in H4 as (x&Hx&(y&Hy&[=])%bind_Some). }
     rewrite lookup_insert in HlL. injection HlL as ->.
-    destruct pp as [[][]| | |], (bool_decide (protector_is_active (iprot it) C)).
+    destruct pp as [[]| | | |], (bool_decide (protector_is_active (iprot it) C)).
     all: simpl in H4; try discriminate H4; injection H4 as <-.
     all: try done. all: exfalso; by eapply Hnores.
   - odestruct (tree_access_lookup_outside_rev l) as (it'&H1&H2&H3&H4).
@@ -528,7 +528,7 @@ Proof.
     all: split.
     + intros Hitoff. rewrite Hitoff /= in Hpp,Hpn|-*.
       f_equal.
-      destruct acc, (bool_decide (protector_is_active (iprot it') C)), pp as [[][]| | |]; simpl in Hpn,Hpp.
+      destruct acc, (bool_decide (protector_is_active (iprot it') C)), pp as [[]| | | |]; simpl in Hpn,Hpp.
       all: try discriminate Hpn. all: injection Hpn as <-.
       all: simpl in Hpp; try discriminate Hpp. all: done.
     + rewrite /=. intros [= ->].
@@ -551,7 +551,7 @@ Proof.
       rewrite Hinitacc. done.
     + intros Hwrong. exfalso. rewrite /= in Hwrong. injection Hwrong as Hwinit Hppeq. subst pp.
       all: rewrite Hwinit /= in Hpp.
-      destruct acc, (bool_decide (protector_is_active (iprot it') C)), (perm (item_lookup it offi)) as [[][]| | |]; cbv in Hpn;
+      destruct acc, (bool_decide (protector_is_active (iprot it') C)), (perm (item_lookup it offi)) as [[]| | | |]; cbv in Hpn;
       try discriminate Hpn; injection Hpn as <-.
       all: discriminate Hpp.
 Qed.
@@ -1017,8 +1017,8 @@ Proof.
 
   inversion Hutc as [
     x1 x2 Hlu
-    |ini im confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2
-    |ini im confl1 confl2 Hnprot
+    |ini confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2
+    |ini confl1 confl2 Hnprot
     |lp1 lp2 HH1 HH2 Heqi1 Heqi2
     |wit_tg X1 X2 Hdip1 Hdip2 Hinieq
     |
@@ -1044,7 +1044,7 @@ Proof.
           exists it_cs. split; first done. split; first done.
           eapply mem_enumerate_initalized. }
         split; first done. split; first by eexists. split; first done.
-        eexists it_cs, l, im. split_and!. 2: done. 2: by rewrite -Heqi1.
+        eexists it_cs, l. split_and!. 2: done. 2: by rewrite -Heqi1.
         eapply (elem_of_dom_2 _ _ (match perm (item_lookup it_cs l) with Active => AccessWrite | _ => AccessRead end)), mem_enumerate_initalized.
         rewrite -Hinitcs. split; first done.
         destruct (perm (item_lookup it_cs l)); simpl; split; done.
@@ -1060,7 +1060,7 @@ Proof.
           exists it_cs. split; first done. split; first done.
           eapply mem_enumerate_initalized. }
         split; first done. rewrite Hproteq in Hcc. split; first by eexists. split; first done.
-        eexists it_cs, l, im. split_and!. 2: done. 2: by rewrite -Heqi2.
+        eexists it_cs, l. split_and!. 2: done. 2: by rewrite -Heqi2.
         eapply (elem_of_dom_2 _ _ (match perm (item_lookup it_cs l) with Active => AccessWrite | _ => AccessRead end)), mem_enumerate_initalized.
         rewrite -Hinitcs. split; first done.
         destruct (perm (item_lookup it_cs l)); simpl; split; done.

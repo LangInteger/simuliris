@@ -141,8 +141,8 @@ Fixpoint expr_beq (e : expr) (e' : expr) : bool :=
       bool_decide (l = l') && bool_decide (bor = bor') && bool_decide (T = T')
   | Deref e T, Deref e' T' =>
       bool_decide (T = T') && expr_beq e e'
-  | Retag e1 e2 newp sz kind, Retag e1' e2' newp' sz' kind' =>
-     bool_decide (newp = newp') && bool_decide (sz = sz') && bool_decide (kind = kind')
+  | Retag e1 e2 newp im sz kind, Retag e1' e2' newp' im' sz' kind' =>
+     bool_decide (newp = newp') && bool_decide (im = im') && bool_decide (sz = sz') && bool_decide (kind = kind')
      && expr_beq e1 e1' && expr_beq e2 e2'
   | Copy e, Copy e' => expr_beq e e'
   | Ref e, Ref e'  => expr_beq e e'
@@ -178,7 +178,7 @@ Inductive enc_expr_leaf : Type :=
   | EncString (str:string) | EncValue (val:value)
   | EncOperator (op:bin_op) | EncLoc (l:loc)
   | EncTag (tg:tag) | EncPointer (ptr:nat)
-  | EncRetagKind (rtk:retag_kind)
+  | EncRetagKind (rtk:retag_kind) | EncInteriorMut (im:interior_mut)
   | EncPointerKind (pkk:pointer_kind) | EncBinder (bind:binder)
   .
 Global Instance enc_expr_leaf_dec_eq : EqDecision enc_expr_leaf.
@@ -190,7 +190,8 @@ Proof.
     | EncString str => inl $ inl $ inl str | EncValue val => inl $ inl $ inr val
     | EncOperator op => inl $ inr $ inl op | EncLoc l => inl $ inr $ inr l
     | EncTag tg => inr $ inl $ inl tg | EncPointer ptr => inr $ inl $ inr ptr
-    | EncRetagKind rtk => inr $ inr $ inl rtk
+    | EncRetagKind rtk => inr $ inr $ inl (inl rtk)
+    | EncInteriorMut rtk => inr $ inr $ inl (inr rtk)
     | EncBinder bind => inr $ inr $ inr $ inl bind
     | EncPointerKind pk => inr $ inr $ inr $ inr pk
     end)
@@ -198,7 +199,8 @@ Proof.
     | (inl (inl (inl str))) => EncString str | (inl (inl (inr val))) => EncValue val
     | (inl (inr (inl op))) => EncOperator op | (inl (inr (inr l))) => EncLoc l
     | (inr (inl (inl tg))) => EncTag tg | (inr (inl (inr ptr))) => EncPointer ptr
-    | (inr (inr (inl rtk))) => EncRetagKind rtk
+    | (inr (inr (inl (inl rtk)))) => EncRetagKind rtk
+    | (inr (inr (inl (inr im)))) => EncInteriorMut im
     | (inr (inr (inr (inl bind)))) => EncBinder bind
     | (inr (inr (inr (inr pk)))) => EncPointerKind pk
     end) _); by intros [].
@@ -227,8 +229,9 @@ Proof.
       | Alloc ptr => GenNode 12 [GenLeaf $ EncPointer ptr]
       | Deref e ptr => GenNode 13 [GenLeaf $ EncPointer ptr; go e]
       | Ref e => GenNode 14 [go e]
-      | Retag e1 e2 pk sz kind =>
+      | Retag e1 e2 pk im sz kind =>
           GenNode 15 [GenLeaf $ EncPointerKind pk;
+                      GenLeaf $ EncInteriorMut im;
                       GenLeaf $ EncPointer sz;
                       GenLeaf $ EncRetagKind kind; go e1; go e2]
       | Let x e1 e2 => GenNode 16 [GenLeaf $ EncBinder x; go e1; go e2]
@@ -255,9 +258,10 @@ Proof.
      | GenNode 13 [GenLeaf (EncPointer ptr); e] => Deref (go e) ptr
      | GenNode 14 [e] => Ref (go e)
      | GenNode 15 [GenLeaf (EncPointerKind pk);
+                   GenLeaf (EncInteriorMut im);
                    GenLeaf (EncPointer sz);
                    GenLeaf (EncRetagKind kind); e1; e2] =>
-        Retag (go e1) (go e2) pk sz kind
+        Retag (go e1) (go e2) pk im sz kind
      | GenNode 16 [GenLeaf (EncBinder x); e1; e2] => Let x (go e1) (go e2)
      | GenNode 17 (e :: el) => Case (go e) (go <$> el)
      | GenNode 23 [e] => Fork (go e)

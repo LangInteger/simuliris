@@ -21,8 +21,15 @@ Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
 Implicit Types f : fname.
 
+Definition filter_unq_weak lp := match lp with 
+    Deallocable => Deallocable
+  | EnsuringAccess Strongly => EnsuringAccess Strongly
+  | EnsuringAccess WeaklyNoChildren => Deallocable end.
+
 (*
 TODO: refactor to interiormut no longer needing protectors
+
+TODO: the above todo makes no sense, we also have the "weakly no children" protector
 *)
 Lemma sim_make_unique_public l t ac (sc_s sc_t : list scalar) π Φ e_t e_s c M L:
   M !! t = Some L →
@@ -168,10 +175,10 @@ Proof.
         3: { rewrite /dom_agree_on_tag /heaplet_lookup /= //.
              split; intros ?; rewrite !lookup_delete_ne; try congruence.
              all: eapply HH5. }
-        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_delete_ne // in H. 2: congruence.
-          eapply loc_controlled_filter_unq_weak; last by eapply HH3. 1: done. done. }
-        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_delete_ne // in H. 2: congruence. 
-          eapply loc_controlled_filter_unq_weak; last by eapply HH4. 1: done. done. }
+        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_delete_ne // in H. 2: congruence. eapply HH3.
+          done. }
+        { intros l' sc' H. rewrite /heaplet_lookup /= !lookup_delete_ne // in H. 2: congruence. eapply HH4.
+          done. }
       * specialize (H1 _ _ Ht_tk) as (HH1&HH2&HHlocal&HH3&HH4&HH5). split_and!.
         1-3: done.
         3: { eapply dom_agree_on_tag_upd_delete. all: done. }
@@ -305,14 +312,13 @@ Qed.
 Lemma sim_protected_unprotect M L l c t tk v_t v_s  π Φ e_t e_s :
   (∀ i : nat, (i < length v_t)%nat → (l +ₗ i) ∈ dom L) →
   M !! t = Some L →
-  tk ≠ tk_unq tk_res → (* tk_unq tk_res might have things that are protected and that would not survive removing the protector *)
   c @@ M -∗
   t $$ tk -∗
   (⌜tk = tk_unq tk_act⌝ -∗ l ↦t∗[tk]{t} v_t ∗ l ↦s∗[tk]{t} v_s ∗ value_rel v_t v_s) -∗
   (c @@ (delete t M) -∗ t $$ tk -∗ (⌜tk = tk_unq tk_act⌝ -∗ l ↦t∗[tk]{t} v_t ∗ l ↦s∗[tk]{t} v_s) -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
   e_t ⪯{π} e_s [{ Φ }].
 Proof.
-  iIntros (HL HM Hne) "Hcall Htk Hvrel Hsim".
+  iIntros (HL HM) "Hcall Htk Hvrel Hsim".
   iApply sim_update_si. rewrite /update_si. iIntros (? σ_t ? σ_s ?) "(HP_t & HP_s & Hbor)".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
@@ -397,6 +403,8 @@ Proof.
     split_and!. 2-5: done.
     intros t' tk' Htk'. destruct (H1 _ _ Htk') as (Ht1&Ht2&Htlocal&Ht3&Ht4&Ht5). split_and!.
     1,2,3,6: done.
+    all: done.
+(*
     1: intros l0 vvs Hh1 Hpre; destruct (Ht3 _ _ Hh1 Hpre) as ((it&tr&Htr&Hit&Hini&Hh2)&Hh3).
     2: intros l0 vvs Hh1 Hpre; destruct (Ht4 _ _ Hh1 Hpre) as ((it&tr&Htr&Hit&Hini&Hh2)&Hh3).
     all:  (split; last done);
@@ -409,7 +417,7 @@ Proof.
           destruct HHH as (L'&HL'&HHH); exists (delete t M); rewrite lookup_insert; (split; first done);
           assert (M = M') as -> by congruence;
           (destruct (decide (t = t')) as [->|Hnet]; first congruence);
-          exists L'; by rewrite lookup_delete_ne.
+          exists L'; by rewrite lookup_delete_ne. *)
 Qed.
 
 Lemma sim_protected_unprotect_public M L c t π Φ e_t e_s :
@@ -421,7 +429,20 @@ Lemma sim_protected_unprotect_public M L c t π Φ e_t e_s :
 Proof.
   iIntros (H1) "H2 H3 H4".
   iApply (sim_protected_unprotect M L (xH, 0) c t tk_pub nil nil with "H2 H3").
-  1: simpl; lia. 1: done. 1: done. 1: iIntros ([=]).
+  1: simpl; lia. 1: done. 1: iIntros ([=]).
+  iIntros "H1 H2 _". iApply "H4". done.
+Qed.
+
+Lemma sim_protected_unprotect_unique_reserved M L c t π Φ e_t e_s :
+  M !! t = Some L →
+  c @@ M -∗
+  t $$ tk_unq tk_res -∗
+  (c @@ (delete t M) -∗ e_t ⪯{π} e_s [{ Φ }]) -∗
+  e_t ⪯{π} e_s [{ Φ }].
+Proof.
+  iIntros (H1) "H2 H3 H4".
+  iApply (sim_protected_unprotect M L (xH, 0) c t (tk_unq tk_res) nil nil with "H2 H3").
+  1: simpl; lia. 1: done. 1: iIntros ([=]).
   iIntros "H1 H2 _". iApply "H4". done.
 Qed.
 
@@ -437,7 +458,7 @@ Lemma sim_protected_unprotect_unique_active M L l c t v_t v_s π Φ e_t e_s :
   e_t ⪯{π} e_s [{ Φ }].
 Proof.
   iIntros (H1 H2) "H3 H4 H5 H6 #H7 H8".
-  iApply (sim_protected_unprotect M L l c t _ v_t v_s with "H3 H4 [H5 H6 H7] [H8]"). 1-3: done.
+  iApply (sim_protected_unprotect M L l c t _ v_t v_s with "H3 H4 [H5 H6 H7] [H8]"). 1-2: done.
   - iIntros "_". iFrame. done.
   - iIntros "H1 H2 H3". iDestruct ("H3" $! eq_refl) as "(H5&H6)".
     iApply ("H8" with "H1 H2 H5 H6").

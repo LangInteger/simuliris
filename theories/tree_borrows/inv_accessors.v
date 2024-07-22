@@ -128,7 +128,7 @@ Section lemmas.
     move : Ha. apply is_fresh_block.
   Qed.
 
-  Lemma loc_controlled_alloc_update Mcall σ l' off sz n t (tk : tag_kind) sc :
+  Lemma loc_controlled_alloc_update σ l' off sz n t (tk : tag_kind) sc :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
@@ -137,8 +137,8 @@ Section lemmas.
     let σ' := mkState h' α' σ.(scs) (S σ.(snp)) σ.(snc) in
     t ≠ nt →
     state_wf σ →
-    loc_controlled Mcall l' t tk sc σ →
-    loc_controlled Mcall l' t tk sc σ'.
+    loc_controlled l' t tk sc σ →
+    loc_controlled l' t tk sc σ'.
   Proof.
     intros blk l nt h' α' σ' Hnt Hwf Hcontrolled Hpre.
     assert (bor_state_pre l' t tk σ) as [Hown Hmem]%Hcontrolled.
@@ -432,7 +432,7 @@ Section lemmas.
     l_hl ↦t∗[tk]{t} scs_hl -∗
     t $$ tk -∗
     ∃ it tr, ⌜σ_t.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧ protector_is_active (iprot it) σ_t.(scs) ∧
-    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on M_call (l_rd +ₗ i) t tk σ_t it tr ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_t it tr ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
   Proof.
     iIntros (Hrr Hsameblk Hprot1 Hprot2 Hnn) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hprot3 Hp Htag".
@@ -539,7 +539,7 @@ Section lemmas.
     l_hl ↦s∗[tk]{t} scs_hl -∗
     t $$ tk -∗
     ∃ it tr, ⌜σ_s.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧ protector_is_active (iprot it) σ_s.(scs) ∧
-    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on M_call (l_rd +ₗ i) t tk σ_s it tr ∧ σ_s.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_s it tr ∧ σ_s.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
   Proof.
     iIntros (Hrr Hsameblk Hprot1 Hprot2 Hnn) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hprot3 Hp Htag".
@@ -590,7 +590,7 @@ Section lemmas.
     bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
     l ↦t∗[tk]{t} v_t -∗
     t $$ tk -∗
-    ⌜∀ i:nat, (i < length v_t)%nat → loc_controlled M_call (l +ₗ i) t tk (v_t !!! i) σ_t⌝.
+    ⌜∀ i:nat, (i < length v_t)%nat → loc_controlled (l +ₗ i) t tk (v_t !!! i) σ_t⌝.
   Proof.
     iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
@@ -608,7 +608,7 @@ Section lemmas.
     bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
     l ↦s∗[tk]{t} v_s -∗
     t $$ tk -∗
-      ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled M_call (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
+      ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
   Proof.
     iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
@@ -1092,13 +1092,13 @@ Section lemmas.
   Qed.
   *)
   (** Dealloc lemmas *)
-  Lemma loc_controlled_dealloc_update Mcall σ l l' sz (α' : trees) (acc_tg lu_tg : tag) (tk : tag_kind) sc :
+  Lemma loc_controlled_dealloc_update σ l l' sz (α' : trees) (acc_tg lu_tg : tag) (tk : tag_kind) sc :
     apply_within_trees (memory_deallocate σ.(scs) acc_tg (l.2, sz)) l.1 σ.(strs)  = Some α' →
     state_wf σ →
     trees_contain acc_tg σ.(strs) l.1 →
     (acc_tg = lu_tg → l.1 = l'.1 → tk ≠ tk_local) →
-    loc_controlled Mcall l' lu_tg tk sc σ →
-    loc_controlled Mcall l' lu_tg tk sc (mkState (free_mem l sz σ.(shp)) (delete l.1 α') σ.(scs) σ.(snp) σ.(snc)).
+    loc_controlled l' lu_tg tk sc σ →
+    loc_controlled l' lu_tg tk sc (mkState (free_mem l sz σ.(shp)) (delete l.1 α') σ.(scs) σ.(snp) σ.(snc)).
   Proof.
     intros Hdealloc Hwf Hcontain Hpub Hcontrol Hpre.
     edestruct free_mem_lookup as [_ free_mem_lookup].

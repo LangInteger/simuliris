@@ -200,22 +200,23 @@ Section safe_reach.
     eauto using of_result_value.
   Qed.
 
-  Global Instance safe_implies_retag P σ v v' pk sz rk :
-    SafeImplies (∃ c ot l trs1 trs2, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧ 
-      trees_contain ot σ.(strs) l.1 ∧ ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
-      apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk c) l.1 σ.(strs) = Some trs1 ∧
-      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2 ∧
-      no_protected_reserved_interiormut pk rk)
-    P (Retag v v' pk sz rk) σ.
+  Global Instance safe_implies_retag P σ v v' pk im sz rk :
+    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧ 
+      trees_contain ot σ.(strs) l.1 ∧ 
+      ((retag_perm pk im rk = None) ∨ ( ∃ trs1 trs2,
+      ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
+      apply_within_trees (create_child σ.(scs) ot σ.(snp) pk im rk c) l.1 σ.(strs) = Some trs1 ∧
+      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2)))
+    P (Retag v v' pk im sz rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_place_l P σ l t sz sz' v pk rk :
-    SafeImplies False P (Retag (Place l t sz) (Val v) pk sz' rk) σ.
+  Global Instance safe_implies_retag_place_l P σ l t sz sz' v pk im rk :
+    SafeImplies False P (Retag (Place l t sz) (Val v) pk im sz' rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_place_r P σ l t sz sz' v pk rk :
-    SafeImplies False P (Retag (Val v) (Place l t sz) pk sz' rk) σ.
+  Global Instance safe_implies_retag_place_r P σ l t sz sz' v pk im rk :
+    SafeImplies False P (Retag (Val v) (Place l t sz) pk im sz' rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_place_r2 P σ l t sz sz' l' t' sz'' pk rk :
-    SafeImplies False P (Retag (Place l' t' sz'') (Place l t sz) pk sz' rk) σ.
+  Global Instance safe_implies_retag_place_r2 P σ l t sz sz' l' t' sz'' pk im rk :
+    SafeImplies False P (Retag (Place l' t' sz'') (Place l t sz) pk im sz' rk) σ.
   Proof. prove_safe_implies. Qed.
 
   Global Instance safe_implies_copy_val P σ r :
@@ -271,14 +272,14 @@ Section safe_reach.
   Proof.
     eapply safe_implies_weaken; last apply safe_implies_write. tauto.
   Qed.
-  Global Instance safe_implies_retag_weak P σ v v' pk sz rk :
-    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag v v' pk sz rk) σ | 10.
+  Global Instance safe_implies_retag_weak P σ v v' pk im sz rk :
+    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag v v' pk im sz rk) σ | 10.
   Proof.
     eapply safe_implies_weaken; last apply safe_implies_retag.
-    intros (c & ot & l & ? & ? & -> & -> & _). eauto.
+    intros (c & ot & l  & -> & -> & _). eauto.
   Qed.
-  Global Instance safe_implies_retag_result_weak P σ r r' pk sz rk :
+  Global Instance safe_implies_retag_result_weak P σ r r' pk im sz rk :
     SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c])
-    P (Retag r r' pk sz rk) σ | 10.
+    P (Retag r r' pk im sz rk) σ | 10.
   Proof. prove_safe_implies. Qed.
 End safe_reach.

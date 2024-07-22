@@ -18,7 +18,7 @@ Definition ex1_down_unopt : expr :=
     (* retag_place reborrows the pointer value stored in "x" (which is "i"),
       then updates "x" with the new pointer value. This relies on protectors,
       hence [FnEntry]. *)
-    retag_place "x" (MutRef TyFrz) sizeof_scalar FnEntry "c";;
+    retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c";;
 
     (* Read the value "v" from the cell pointed to by the pointer in "x" *)
     let: "v" := Copy *{sizeof_scalar} "x" in
@@ -37,7 +37,7 @@ Definition ex1_down_unopt : expr :=
 Definition ex1_down_opt : expr :=
     let: "c" := InitCall in
     let: "x" := new_place sizeof_scalar "i" in
-    retag_place "x" (MutRef TyFrz) sizeof_scalar FnEntry "c";;
+    retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c";;
     Call #[ScFnPtr "f"] #[] ;;
     let: "v" := Copy *{sizeof_scalar} "x" in
     (* crucial point: need to know that we retain the permission to read *)
@@ -71,7 +71,7 @@ Proof.
   source_apply (Copy _) (source_copy_local with "Htag Hs") "Hs Htag". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
 
   (* do the retag *)
-  sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
+  sim_bind (Retag _ _ _ _ _ _) (Retag _ _ _ _ _ _).
   iApply sim_safe_implies.
   iIntros ((_ & ot & i & [= ->] & _)).
   iPoseProof (value_rel_singleton_source with "Hv") as (sc_t [= ->]) "Hscrel".

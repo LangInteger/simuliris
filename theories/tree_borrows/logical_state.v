@@ -404,9 +404,10 @@ Notation "c '@@' M" := (call_set_is call_name c M) (at level 50).
     The interpretation of the tag map and the "heap view" fragments are interlinked.
  *)
 Section heap_defs.
+  (*
   Context (Mcall : gmap call_id (gmap tag (gmap loc logical_protector))).
 
-  Definition prot_in_call_set op t l := ∃ ps pp, op = Some pp ∧ call_set_in' Mcall pp.(call) t l ps ∧ (pp.(strong) = ProtStrong → ps = EnsuringAccess Strongly).
+  Definition prot_in_call_set op t l := ∃ ps pp, op = Some pp ∧ call_set_in' Mcall pp.(call) t l ps ∧ (pp.(strong) = ProtStrong → ps = EnsuringAccess Strongly). *)
 
   (** The assumption on the location still being valid for tag [t], i.e., [t] not being disabled. *)
   (* Note: That the stack is still there needs to be part of the precondition [bor_state_pre].
@@ -434,13 +435,13 @@ Section heap_defs.
 
 
   (* TODO: we still want that the children are disabled and the cousins are not active even when this tag is frozen !protected. So perhaps we need 2 case distinctions here? *)
-  Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk :=
+  Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk:=
       let P := ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)) in
       ( P →
         match (item_lookup it l.2).(perm) with
              | Active => tkk = tk_act
-             | Reserved InteriorMut _ => tkk = tk_res ∧ protector_is_active it.(iprot) σ.(scs) ∧ prot_in_call_set it.(iprot) t l
-             | Reserved TyFrz _ => tkk = tk_res
+             | Reserved _ => tkk = tk_res
+               (* ReservedIM is not allowed *)
              | _ => False end) ∧
         ∀ it' t', tree_lookup tr t' it' -> match rel_dec tr t' t with 
             (* all immediate children of t must be disabled *)
@@ -449,9 +450,9 @@ Section heap_defs.
             (* Parents must not be disabled. If This is active, then we can also conclude the parents are active by state_wf. *)
           | Foreign (Parent _) => (item_lookup it' l.2).(perm) ≠ Disabled
           | Foreign Cousin => let lp := item_lookup it' l.2 in lp.(initialized) = PermLazy ∨ match lp.(perm) with
-                     (* If active, the others are either uninitialized, or Disabled, or Reserved IM unprotected (i.e. surive foreign writes and don't cause UB) *)
+                     (* If active, the others are either uninitialized, or Disabled, or Reserved IM (i.e. surive foreign writes and don't cause UB) *)
                      (* Otherwise, the others must not be initialized active (i.e. survive foreign reads) *)
-                     Active => False | Disabled => True | Reserved InteriorMut _ => ¬ protector_is_active it'.(iprot) σ.(scs) ∨ tkk = tk_res ∨ ¬ P | _ => tkk = tk_res ∨ ¬ P end end.
+                     Active => False | Disabled | ReservedIM => True | _ => tkk = tk_res ∨ ¬ P end end.
 
   Definition bor_state_own_on (l : loc) (t : tag) (tk : tag_kind) (σ : state) it tr :=
     (item_lookup it l.2).(initialized) = PermInit ∧
@@ -1092,7 +1093,7 @@ Section state_interp.
     state_rel sc_rel M_tag M_t M_call σ_t σ_s ∗
     (* due to the [state_rel], enforcing this on [σ_t] also does the same for [σ_s] *)
     ⌜call_set_interp (tag_is_unq M_tag M_t) M_call σ_t⌝ ∗
-    ⌜tag_interp M_call M_tag M_t M_s σ_t σ_s⌝ ∗
+    ⌜tag_interp  M_tag M_t M_s σ_t σ_s⌝ ∗
 
     ⌜state_wf σ_s⌝ ∗
     ⌜state_wf σ_t⌝.

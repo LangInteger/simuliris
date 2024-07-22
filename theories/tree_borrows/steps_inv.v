@@ -46,17 +46,19 @@ Lemma head_write_inv (P : prog) l bor sz v σ σ' e' efs :
     (sz = 0%nat ∧ trs' = σ.(strs))).
 Proof. intros Hhead. inv_base_step; eauto 15. Qed.
 
-Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pk sz rk :
-  base_step P (Retag #[ScPtr l ot] #[ScCallId c] pk sz rk) σ e' σ' efs →
-  ∃ trs1 trs2,
-    e' = (#[ScPtr l σ.(snp)])%E ∧
+Lemma head_retag_inv (P : prog) σ σ' e' efs l ot c pk im sz rk :
+  base_step P (Retag #[ScPtr l ot] #[ScCallId c] pk im sz rk) σ e' σ' efs →
     efs = [] ∧
-    σ' = mkState σ.(shp) trs2 σ.(scs) (S σ.(snp)) σ.(snc) ∧
     c ∈ σ.(scs) ∧
-    trees_contain ot σ.(strs) l.1 ∧ ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
-    apply_within_trees (create_child σ.(scs) ot σ.(snp) pk rk c) l.1 σ.(strs) = Some trs1 ∧
-    apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2.
-Proof. intros Hhead. inv_base_step. eauto 10. Qed.
+    trees_contain ot σ.(strs) l.1 ∧
+    ((retag_perm pk im rk = None ∧ σ' = σ ∧ e' = (#[ScPtr l ot])%E) ∨
+    (∃ trs1 trs2,
+      e' = (#[ScPtr l σ.(snp)])%E ∧
+      σ' = mkState σ.(shp) trs2 σ.(scs) (S σ.(snp)) σ.(snc) ∧
+      ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
+      apply_within_trees (create_child σ.(scs) ot σ.(snp) pk im rk c) l.1 σ.(strs) = Some trs1 ∧
+      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2)).
+Proof. intros Hhead. inv_base_step. 2: destruct σ; eauto 13. eauto 13. Qed.
 
 Lemma head_init_call_inv (P : prog) e' σ σ' efs :
   base_step P InitCall σ e' σ' efs →

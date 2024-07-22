@@ -352,21 +352,20 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
       (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
       match perm with
         (* FIXME: refactor *)
-      | Reserved im ResActivable => if isprot then Some $ Reserved im ResConflicted else Some $ Reserved im ResActivable
-      | Reserved _ ResConflicted => Some perm
+      | Reserved ResActivable => Some (Reserved (if isprot then ResConflicted else ResActivable))
       | Active => if isprot then
         (* So that the function is commutative on all states and not just on reachable states,
            we change the transition into [Active -> Disabled] when a protector is present.
            This happens to slightly simplify the protector check. *)
         (* This is also crucial, otherwise concurrent reads make things annoying *)
         Some Disabled else Some Frozen
-      | Frozen | Disabled  => Some perm
+      | Reserved ResConflicted | ReservedIM | Frozen | Disabled  => Some perm
       end
   | AccessWrite, Foreign _ =>
       (* Foreign write. Disables everything except interior mutable [Reserved]. *)
       match perm with
       (* TODO: remove -- this can never happen, but having it simplifies theorems. *)
-      | Reserved InteriorMut ra => if isprot then Some Disabled else Some $ Reserved InteriorMut ra
+      | ReservedIM => if isprot then Some Disabled else Some $ ReservedIM
       | Disabled => Some Disabled
       | _ => Some Disabled
       end
@@ -380,8 +379,8 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Child _ =>
       (* Child write. Activates unconflicted [Reserved]. *)
       match perm with
-      | Reserved _ ResConflicted => if isprot then None else Some Active
-      | Reserved _ ResActivable | Active => Some Active
+      | Reserved ResConflicted => if isprot then None else Some Active
+      | Reserved ResActivable | ReservedIM | Active => Some Active
       | _ => None
       end
   end.
@@ -587,9 +586,9 @@ Definition memory_deallocate cids t range
    The two are provably equivalent. *)
 Definition witness_transition p p' : Prop :=
   match p, p' with
-  | Reserved m ResActivable, Reserved m' ResConflicted
-  => m = m'
-  | Reserved _ _, Active
+  | Reserved ResActivable, Reserved ResConflicted
+  | Reserved _, Active
+  | ReservedIM, Active
   | Active, Frozen
   | Frozen, Disabled
   => True
@@ -604,10 +603,9 @@ Inductive witness_reach p p' : Prop :=
 
 Definition reach p p' : Prop :=
   match p, p' with
-  | Reserved InteriorMut ResActivable, (Reserved InteriorMut ResActivable | Reserved InteriorMut ResConflicted | Active | Frozen | Disabled)
-  | Reserved TyFrz ResActivable, (Reserved TyFrz ResActivable | Reserved TyFrz ResConflicted | Active | Frozen | Disabled)
-  | Reserved InteriorMut ResConflicted, (Reserved InteriorMut ResConflicted | Active | Frozen | Disabled)
-  | Reserved TyFrz ResConflicted, (Reserved TyFrz ResConflicted | Active | Frozen | Disabled)
+  | ReservedIM, (ReservedIM | Active | Frozen | Disabled)
+  | Reserved ResActivable, (Reserved ResActivable | Reserved ResConflicted | Active | Frozen | Disabled)
+  | Reserved ResConflicted, (Reserved ResConflicted | Active | Frozen | Disabled)
   | Active, (Active | Frozen | Disabled)
   | Frozen, (Frozen | Disabled)
   | Disabled, (Disabled)
@@ -616,14 +614,14 @@ Definition reach p p' : Prop :=
   end.
 
 Definition freeze_like p : Prop :=
-  reach Frozen p \/ p = Reserved TyFrz ResConflicted \/ p = Reserved InteriorMut ResConflicted.
+  reach Frozen p \/ p = Reserved ResConflicted.
 
 (* Now we check that the two definitions are equivalent, so that the clean definition
    acts as a witness for the easy-to-do-case-analysis definition *)
 
 Ltac destruct_permission :=
   match goal with
-  | p : permission |- _ => destruct p as [[][]| | |]
+  | p : permission |- _ => destruct p as [[]| | | |]
   end.
 
 Ltac invert_reach :=
@@ -661,8 +659,7 @@ Ltac witness_reach_solve :=
   let p'' := fresh "p''" in
   match goal with
   | |- witness_reach ?p ?p => apply witness_reach_refl; reflexivity
-  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ (Reserved TyFrz ResConflicted)); simpl; [tauto|]
-  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ (Reserved InteriorMut ResConflicted)); simpl; [tauto|]
+  | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ (Reserved ResConflicted)); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Active); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Frozen); simpl; [tauto|]
   | |- witness_reach ?p ?p' => apply (witness_reach_step _ _ Disabled); simpl; [tauto|]
@@ -671,7 +668,7 @@ Ltac witness_reach_solve :=
 Lemma reach_sound p p' :
   reach p p' -> witness_reach p p'.
 Proof.
-  destruct p as [[][]| | |], p' as [[][]| | |]; simpl; intro; try tauto.
+  destruct p as [[]| | | |], p' as [[]| | | |]; simpl; intro; try tauto.
   all: do 10 witness_reach_solve.
 Qed.
 
@@ -721,7 +718,7 @@ Proof.
      upwards of 2000 cases *)
   destruct kind, rel.
   all: destruct isprot.
-  all: destruct init, perm as [[][]| | |]; simpl in *; inversion Acc1; subst.
+  all: destruct init, perm as [[]| | | |]; simpl in *; inversion Acc1; subst.
   all: simpl; try auto.
   all: destruct isprot'; simpl; try auto.
 Qed.
@@ -774,15 +771,18 @@ Definition ParentChildInBlk tg tg' trs blk :=
 
 (** Reborrow *)
 
-Definition pointer_kind_to_perm (pk : pointer_kind) : permission := 
-  match pk with
-    Box im | MutRef im => Reserved im ResActivable
-  | ShrRef => Frozen
+(* None indicates an identity retag *)
+Definition retag_perm (pk : pointer_kind) (im : interior_mut) (rk : retag_kind) : option permission :=
+  match pk, im, rk with
+  | ShrRef, InteriorMut, _ => None
+  | ShrRef, _, _ => Some Frozen
+  | (MutRef | Box), InteriorMut, Default => Some (ReservedIM)
+  | (MutRef | Box), _, _ => Some (Reserved ResActivable)
   end.
 
 Definition pointer_kind_to_strength (pk : pointer_kind) : prot_strong := 
   match pk with
-    Box _ => ProtWeak
+    Box => ProtWeak
   | _ => ProtStrong
   end.
 
@@ -792,15 +792,15 @@ Definition retag_kind_to_prot (cid : call_id) (rk : retag_kind) (s : prot_strong
   | FnEntry => Some (mkProtector s cid)
   end.
 
-Definition create_new_item tg pk rk (cid : call_id) :=
+Definition create_new_item tg pk im rk (cid : call_id) :=
+      perm ← retag_perm pk im rk;
   let s := pointer_kind_to_strength pk in
-  let perm := pointer_kind_to_perm pk in
   let prot := retag_kind_to_prot cid rk s in
-  {| itag:=tg; iprot:=prot; initp:=perm; iperm:=∅ |}.
+  Some {| itag:=tg; iprot:=prot; initp:=perm; iperm:=∅ |}.
 
-Definition create_child cids (oldt:tag) (newt:tag) pk rk (cid : call_id)
+Definition create_child cids (oldt:tag) (newt:tag) pk im rk (cid : call_id)
   : tree item -> option (tree item) := fun tr =>
-  let it := create_new_item newt pk rk cid in
+  it ← create_new_item newt pk im rk cid;
   Some $ insert_child_at tr it (IsTag oldt).
 
 Definition item_lazy_perm_at_loc it (l:loc')
@@ -855,15 +855,16 @@ Inductive bor_local_step tr cids
       tr cids
       (EndCallBLEvt cid)
       tr (cids ∖ {[cid]})
-  | RetagLIS tr' tgp tg pk (cid : call_id) rk
+  | RetagLIS tr' tgp tg pk im (cid : call_id) rk
     (EL: cid ∈ cids)
     (EXISTS_PARENT: tree_contains tgp tr)
     (FRESH_CHILD: ~tree_contains tg tr)
-    (RETAG_EFFECT: create_child cids tgp tg pk rk cid tr = Some tr') :
+    (RETAG_EFFECT: create_child cids tgp tg pk im rk cid tr = Some tr') :
     bor_local_step
       tr cids
-      (RetagBLEvt tgp tg pk cid rk)
+      (RetagBLEvt tgp tg pk im cid rk)
       tr' cids
+    (* TODO: this is missing the no-op retag for shared interiormut. *)
   .
 
 Record seq_invariant := MkRecord {
@@ -925,10 +926,6 @@ Definition trees_access_all_protected_initialized (cids : call_id_set) (cid : na
     apply_within_trees (tree_access_all_protected_initialized cids cid) k trs
   ) (Some trs) (dom trs).
 
-Definition no_protected_reserved_interiormut pk rk := match pk, rk with
-  (Box InteriorMut | MutRef InteriorMut), FnEntry => False | _, _ => True end.
-
-
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (blk : block) (off : Z) (sz : nat)
@@ -978,22 +975,31 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs cids nxtp nxtc
       (WriteEvt alloc tg range val)
       trs cids nxtp nxtc
-  | RetagIS trs' trs'' parentt (alloc : block) range pk cid rk
+  | RetagIS trs' trs'' parentt (alloc : block) range pk im cid rk
       (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
          NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
-               We want to do the read *after* the insertion so that it properly initializes the locations of the range.
-         TODO: make the retag_kind Shared into two kinds, one with interior mutability, and make it so that the shared IM retag is actually a no-op. *)
+               We want to do the read *after* the insertion so that it properly initializes the locations of the range. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
     (* TODO get rid of fresh_child assumption here *)
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
-    (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk rk cid) alloc trs = Some trs')
-    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') 
-    (HACK_ALERT: no_protected_reserved_interiormut pk rk) :
+    (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk im rk cid) alloc trs = Some trs')
+    (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :
     bor_step
       trs cids nxtp nxtc
-      (RetagEvt alloc range parentt nxtp pk cid rk)
+      (RetagEvt alloc range parentt nxtp pk im cid rk)
       trs'' cids (S nxtp) nxtc
+  | RetagNoopIS parentt (alloc : block) range pk im cid rk
+      (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
+         NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
+               We want to do the read *after* the insertion so that it properly initializes the locations of the range.*)
+    (EL: cid ∈ cids)
+    (EXISTS_TAG: trees_contain parentt trs alloc)
+    (IS_NOOP: retag_perm pk im rk = None) :
+    bor_step
+      trs cids nxtp nxtc
+      (RetagEvt alloc range parentt parentt pk im cid rk)
+      trs cids nxtp nxtc
   | DeallocIS trs' (alloc : block) (tg : tag) range
     (EXISTS_TAG: trees_contain tg trs alloc)
     (ACC: apply_within_trees (memory_deallocate cids tg range) alloc trs = Some trs') :
@@ -1024,11 +1030,11 @@ Local Notation unwrap K := (unpack_option K eq_refl).
 
 Local Definition initial_tree := init_tree 1 0 4.
 Local Definition with_one_child :=
-  unwrap (create_child ∅ 1 2 (MutRef TyFrz) Default 0 initial_tree).
+  unwrap (create_child ∅ 1 2 MutRef TyFrz Default 0 initial_tree).
 Local Definition with_two_children :=
-  unwrap (create_child ∅ 1 3 (MutRef TyFrz) Default 0 with_one_child).
+  unwrap (create_child ∅ 1 3 MutRef TyFrz Default 0 with_one_child).
 Local Definition with_three_children :=
-  unwrap (create_child ∅ 2 4 (MutRef TyFrz) Default 0 with_two_children).
+  unwrap (create_child ∅ 2 4 MutRef TyFrz Default 0 with_two_children).
 
 (*
    1

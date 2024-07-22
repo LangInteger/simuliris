@@ -342,7 +342,7 @@ Proof.
       setoid_rewrite every_node_iff_every_lookup in Hitems.
       2: by eapply wf_tree_tree_item_determined, Hwf_t.
       apply Hitems in Htr2. eapply (item_cid_valid _ _ _ Htr2) in Hpp. lia.
-    - intros l sc H%Hr. rewrite -!Hsnc_eq. eapply loc_controlled_add_protected; last done; try done.
+    - intros l sc H%Hr. eapply loc_controlled_add_protected; last done; try done.
       intros blk tg it c (tr&Htr1&Htr2) Hpp. simpl.
       rewrite /call_is_active. split; first set_solver.
       intros [Heq%elem_of_singleton|?]%elem_of_union; last set_solver.
@@ -444,12 +444,12 @@ Proof.
       2, 4: done.  all: by eapply Hlocal. *)
     - intros l sc Hlusc.
       specialize (Hlu1 l sc Hlusc).
-      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu1.
-      2: rewrite -Hscs_eq; exact Htrst. 2-5: done. 2-3: done. 1: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 8: exact Hlu1.
+      2: rewrite -Hscs_eq; exact Htrst. 2-5: done. all: done.
     - intros l sc Hlusc.
       specialize (Hlu2 l sc Hlusc).
-      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu2.
-      2: exact Htrss. 2-5: done. 2-3: done. 1: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 8: exact Hlu2.
+      2: exact Htrss. 2-5: done. 1-2: done.
  }
   iSplit; iPureIntro.
   all: eapply endcall_step_wf_inner.
@@ -510,12 +510,12 @@ Proof.
       2, 4: done.  all: by eapply Hlocal. *)
     - intros l sc Hlusc.
       specialize (Hlu1 l sc Hlusc).
-      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu1.
-      2: rewrite -Hscs_eq; exact Htrst. 2-5: done. 2-3: done. 1: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 8: exact Hlu1.
+      2: rewrite -Hscs_eq; exact Htrst. 2-5: done. 1-2: done.
     - intros l sc Hlusc.
       specialize (Hlu2 l sc Hlusc).
-      eapply loc_controlled_trees_access_all_protected_initialized. 9: exact Hlu2.
-      2: exact Htrss. 2-5: done. 2-3: done. 1: done.
+      eapply loc_controlled_trees_access_all_protected_initialized. 8: exact Hlu2.
+      2: exact Htrss. 2-5: done. 1-2: done.
  }
   iSplit; iPureIntro.
   all: eapply endcall_step_wf_inner.

@@ -114,30 +114,30 @@ Proof.
 Qed.
 
 Lemma insertion_preserves_tags
-  {tr tg tgp tgc cids tr' pk rk cid}
+  {tr tg tgp tgc cids tr' pk im rk cid}
   (Ex : tree_contains tg tr)
-  (Create : create_child cids tgp tgc pk rk cid tr = Some tr')
+  (Create : create_child cids tgp tgc pk im rk cid tr = Some tr')
   : tree_contains tg tr'.
 Proof.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr _ _ _ _ _ _ _ Create) as Insert.
+  pose proof (create_child_isSome tr _ _ _ _ _ _ _ _ Create) as (it&Hit&Insert).
   rewrite Insert.
   apply insert_preserves_exists.
   exact Ex.
 Qed.
 
 Lemma insertion_minimal_tags
-  {tr tg tgp tgc cids tr' pk rk cid}
+  {tr tg tgp tgc cids tr' pk im rk cid}
   (Ne : tgc ≠ tg)
   (Ex : tree_contains tg tr')
-  (Create : create_child cids tgp tgc pk rk cid tr = Some tr')
+  (Create : create_child cids tgp tgc pk im rk cid tr = Some tr')
   : tree_contains tg tr.
 Proof.
   unfold tree_contains in *.
-  pose proof (create_child_isSome tr _ _ _ _ _ _ _ Create) as Insert.
+  pose proof (create_child_isSome tr _ _ _ _ _ _ _ _ Create) as (x&Hx&Insert).
   all: rewrite Insert in Ex.
   eapply insert_false_infer_exists; [|exact Ex].
-  simpl; assumption.
+  erewrite new_item_has_tag; done.
 Qed.
 
 Lemma apply_access_spec_per_node
@@ -201,20 +201,22 @@ Proof.
 Qed.
 
 Lemma bor_local_step_retag_produces_contains_determined
-  {tgp tg tr tr' cids cids' pk rk cid}
+  {tgp tg tr tr' cids cids' pk im rk cid}
   (Step : bor_local_step
     tr cids
-    (RetagBLEvt tgp tg pk cid rk)
+    (RetagBLEvt tgp tg pk im cid rk)
     tr' cids')
-  : tree_contains tg tr'
-  /\ tree_item_determined tg (create_new_item tg pk rk cid) tr'.
+  : ∃ it, create_new_item tg pk im rk cid = Some it ∧ tree_contains tg tr'
+  /\ tree_item_determined tg it tr'.
 Proof.
-  inversion Step as [| | |????????? RETAG_EFFECT]; subst.
+  inversion Step as [| | |?????????? (it&Hit&RETAG_EFFECT)%bind_Some]; subst.
+  exists it. split; first done.
   split.
-  - eapply insertion_contains; eauto.
+  - eapply (insertion_contains) with (cids := cids'); first done.
+    eapply bind_Some. by exists it.
   - injection RETAG_EFFECT; intros; subst.
-    eapply inserted_determined; [apply new_item_has_tag|].
-    assumption.
+    eapply inserted_determined. 2: done.
+    erewrite new_item_has_tag. 2: exact Hit. done.
 Qed.
 
 Lemma bor_local_step_preserves_determined_easy
@@ -228,11 +230,11 @@ Lemma bor_local_step_preserves_determined_easy
   | AccessBLEvt _ _ _ => iprot it = iprot it'
   | InitCallBLEvt _
   | EndCallBLEvt _
-  | RetagBLEvt _ _ _ _ _
+  | RetagBLEvt _ _ _ _ _ _
   | SilentBLEvt => it = it'
   end.
 Proof.
-  inversion Step as [???? EXISTS_TAG ACC| | |???????? FRESH_CHILD RETAG_EFFECT]; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |????????? FRESH_CHILD RETAG_EFFECT]; subst.
   - (* Access *)
     destruct (apply_access_spec_per_node Ex Unq ACC) as [?[Spec[_?]]].
     eexists; split; eauto.
@@ -252,7 +254,7 @@ Lemma bor_local_step_eqv_rel
   (Step : bor_local_step tr cids evt tr' cids')
   : ParentChildIn tg tg' tr <-> ParentChildIn tg tg' tr'.
 Proof.
-  inversion Step as [????? ACC| | |???????? FRESH_CHILD RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |????????? FRESH_CHILD (x&Hx&RETAG_EFFECT)%bind_Some]; subst.
   - (* Access *)
     rewrite access_eqv_rel; [|apply ACC].
     tauto.
@@ -262,8 +264,10 @@ Proof.
     injection RETAG_EFFECT; intros; subst.
     rewrite <- insert_eqv_rel.
     * tauto.
-    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex).
-    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex').
+    * erewrite new_item_has_tag; last done.
+      intro; subst; destruct (FRESH_CHILD Ex).
+    * erewrite new_item_has_tag; last done.
+      intro; subst; destruct (FRESH_CHILD Ex').
 Qed.
 
 Lemma bor_local_step_eqv_imm_rel
@@ -273,7 +277,7 @@ Lemma bor_local_step_eqv_imm_rel
   (Step : bor_local_step tr cids evt tr' cids')
   : ImmediateParentChildIn tg tg' tr <-> ImmediateParentChildIn tg tg' tr'.
 Proof.
-  inversion Step as [????? ACC| | |???????? FRESH_CHILD RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |????????? FRESH_CHILD (x&Hx&RETAG_EFFECT)%bind_Some]; subst.
   - (* Access *)
     rewrite access_eqv_immediate_rel; [|apply ACC].
     tauto.
@@ -283,37 +287,40 @@ Proof.
     injection RETAG_EFFECT; intros; subst.
     rewrite <- insert_eqv_imm_rel.
     * tauto.
-    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex).
-    * rewrite new_item_has_tag; intro; subst; destruct (FRESH_CHILD Ex').
+    * erewrite new_item_has_tag; last done.
+      intro; subst; destruct (FRESH_CHILD Ex).
+    * erewrite new_item_has_tag; last done.
+      intro; subst; destruct (FRESH_CHILD Ex').
 Qed.
 
 Lemma bor_local_step_retag_produces_rel
-  {tgp tg tr tr' cids cids' pk rk cid}
+  {tgp tg tr tr' cids cids' pk im rk cid}
   (Step : bor_local_step
     tr cids
-    (RetagBLEvt tgp tg pk rk cid)
+    (RetagBLEvt tgp tg pk im rk cid)
     tr' cids')
   : ParentChildIn tgp tg tr'.
 Proof.
-  inversion Step as [????? ACC| | |??????? EXISTS_PARENT FRESH_CHILD RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |???????? EXISTS_PARENT FRESH_CHILD (x&Hx&RETAG_EFFECT)%bind_Some]; subst.
   injection RETAG_EFFECT; intros; subst.
   eapply insert_produces_ParentChild.
-  * eapply new_item_has_tag.
+  * eapply new_item_has_tag. done.
   * intro; subst; destruct (FRESH_CHILD EXISTS_PARENT).
 Qed.
 
 Lemma bor_local_step_retag_order_nonparent
-  {tgp tg tg' tr tr' cids cids' pk rk cid}
+  {tgp tg tg' tr tr' cids cids' pk im rk cid}
   (Ex' : tree_contains tg' tr)
   (Step : bor_local_step
     tr cids
-    (RetagBLEvt tgp tg pk rk cid)
+    (RetagBLEvt tgp tg pk im rk cid)
     tr' cids')
   : ~ParentChildIn tg tg' tr'.
 Proof.
-  inversion Step as [????? ACC| | |??????? EXISTS_PARENT FRESH_CHILD RETAG_EFFECT]; subst.
+  inversion Step as [????? ACC| | |???????? EXISTS_PARENT FRESH_CHILD (x&Hx&RETAG_EFFECT)%bind_Some]; subst.
   injection RETAG_EFFECT; intros; subst.
-  eapply insertion_order_nonparent; eassumption.
+  eapply insertion_order_nonparent with (cids:=cids'). 1-3: eassumption.
+  eapply bind_Some; by eexists.
 Qed.
 
 Lemma apply_access_perm_preserves_backward_reach
@@ -323,9 +330,9 @@ Lemma apply_access_perm_preserves_backward_reach
 Proof.
   destruct b, kind, rel.
   (* We have to destructure the permission a bit deep because of the Reserved parameters *)
-  all: destruct pre as [[] [[][]| | |]]; try (inversion Access; done).
-  all: destruct post as [[] [[][]| | |]]; try (inversion Access; done).
-  all: destruct p0 as [[][]| | |]; try (inversion Access; done).
+  all: destruct pre as [[] [[]| | | |]]; try (inversion Access; done).
+  all: destruct post as [[] [[]| | | |]]; try (inversion Access; done).
+  all: destruct p0 as [[]| | | |]; try (inversion Access; done).
 Qed.
 
 Lemma apply_access_perm_preserves_forward_unreach
@@ -334,9 +341,9 @@ Lemma apply_access_perm_preserves_forward_unreach
   : ~reach (perm pre) p0 -> ~reach (perm post) p0.
 Proof.
   destruct b, kind, rel.
-  all: destruct pre as [[][[][]| | |]]; try (inversion Access; done).
-  all: destruct post as [[][[][]| | |]]; try (inversion Access; done).
-  all: destruct p0 as [[][]| | |]; try (inversion Access; done).
+  all: destruct pre as [[][[]| | | |]]; try (inversion Access; done).
+  all: destruct post as [[][[]| | | |]]; try (inversion Access; done).
+  all: destruct p0 as [[]| | | |]; try (inversion Access; done).
 Qed.
 
 Lemma apply_access_perm_preserves_protected_freeze_like
@@ -346,13 +353,12 @@ Lemma apply_access_perm_preserves_protected_freeze_like
 Proof.
   unfold freeze_like.
   destruct kind, rel.
-  all: destruct pre as [[][[][]| | |]].
+  all: destruct pre as [[][[]| | | |]].
   all: inversion Access.
   (* all cases easy *)
-  all: intros [H|[H|H]]; inversion H.
+  all: intros [H|H]; inversion H.
   all: try (left; done).
-  all: try (right; left; done).
-  all: try (right; right; done).
+  all: try (right; done).
 Qed.
 
 (* Preservation of reachability *)
@@ -536,8 +542,8 @@ Lemma bor_local_step_deterministic
   (Step2 : bor_local_step tr cids evt tr2 cids2)
   : tr1 = tr2 /\ cids1 = cids2.
 Proof.
-  destruct evt; inversion Step1 as [????? ACC1| | |????????? RETAG_EFFECT1];
-      inversion Step2 as [????? ACC2| | |????????? RETAG_EFFECT2]; subst.
+  destruct evt; inversion Step1 as [????? ACC1| | |?????????? RETAG_EFFECT1];
+      inversion Step2 as [????? ACC2| | |?????????? RETAG_EFFECT2]; subst.
   - rewrite ACC1 in ACC2; injection ACC2; tauto.
   - tauto.
   - tauto.
@@ -851,7 +857,7 @@ Lemma apply_access_perm_preserves_perminit
   : (initialized pre) = PermInit -> initialized post = PermInit.
 Proof.
   destruct kind, rel.
-  all: destruct pre as [[][[][]| | |]], b.
+  all: destruct pre as [[][[]| | | |]], b.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -895,7 +901,7 @@ Lemma apply_access_perm_child_produces_perminit
   : initialized post = PermInit.
 Proof.
   destruct kind, rel; try inversion CHILD.
-  all: destruct pre as [[][[][]| | |]], b.
+  all: destruct pre as [[][[]| | | |]], b.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -946,7 +952,7 @@ Lemma bor_local_step_preserves_perminit
     initialized (item_lazy_perm_at_loc post z) = PermInit.
 Proof.
   move=> post Unq'.
-  inversion Step as [???? EXISTS_TAG ACC| | |?? tg???? FRESH_CHILD ? RETAG_EFFECT]; subst.
+  inversion Step as [???? EXISTS_TAG ACC| | |?? tg????? FRESH_CHILD ? RETAG_EFFECT]; subst.
   - eapply memory_access_preserves_perminit.
     + exact Ex.
     + exact Unq.
@@ -961,7 +967,7 @@ Proof.
   - pose proof (tree_determined_unify Ex Unq Unq'); subst.
     assumption.
   - assert (affected_tag ≠ tg) as Ne by (intro; subst; contradiction).
-    pose proof (create_child_preserves_determined _ _ _ _ _ _ _ _ _ _ Ne Unq RETAG_EFFECT) as UnqPost.
+    pose proof (create_child_preserves_determined _ _ _ _ _ _ _ _ _ _ _ Ne Unq RETAG_EFFECT) as UnqPost.
     pose proof (insertion_preserves_tags Ex RETAG_EFFECT) as Ex'.
     pose proof (tree_determined_unify Ex' UnqPost Unq'); subst.
     assumption.
@@ -1128,7 +1134,7 @@ Lemma apply_access_perm_protected_initialized_preserves_nondis
   : (initialized pre) = PermInit -> ~reach Disabled (perm pre) -> ~reach Disabled (perm post).
 Proof.
   destruct kind, rel.
-  all: destruct pre as [[][[][]| | |]].
+  all: destruct pre as [[][[]| | | |]].
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.

@@ -38,7 +38,7 @@ Proof.
     
     destruct (initialized (item_lookup it l.2)); simpl in *;
       [ specialize (Hinit eq_refl) | ].
-    all: destruct trees_rel_dec eqn:Hreldec; destruct acc; destruct (perm (item_lookup it l.2)) as [[] []| | |] eqn:Hpermold; simpl in *; simplify_eq; try done;
+    all: destruct trees_rel_dec eqn:Hreldec; destruct acc; destruct (perm (item_lookup it l.2)) as [[]| | | |] eqn:Hpermold; simpl in *; simplify_eq; try done;
          repeat (simplify_eq; try done; (try simpl in Htrigger); simplify_eq; try done).
   - eapply apply_trees_access_lookup_outside in Hlu as Hlu2; [|done..].
     destruct Hlu2 as (itnew & Hlunew & Heqinit & Heqprot & Hacc).
@@ -134,9 +134,9 @@ Proof.
     by rewrite lookup_insert_ne.
 Qed.
 
-Lemma tag_protected_preserved_by_create_strong tg_par tg_cld pk rk C cc c trs trs' blk l tg_prs P ae:
+Lemma tag_protected_preserved_by_create_strong tg_par tg_cld pk im rk C cc c trs trs' blk l tg_prs P ae:
   wf_trees trs → tg_cld ≠ tg_prs →
-  apply_within_trees (create_child C tg_par tg_cld pk rk cc) blk trs = Some trs' →
+  apply_within_trees (create_child C tg_par tg_cld pk im rk cc) blk trs = Some trs' →
   tag_protected_for P c trs  l tg_prs (EnsuringAccess ae) →
   tag_protected_for P c trs' l tg_prs (EnsuringAccess ae).
 Proof.
@@ -151,9 +151,9 @@ Proof.
   - eapply create_child_preserves_determined. 2: apply Hlu. 2: eapply Hcreate.
     by intros ->.
 Qed.
-Lemma tag_protected_preserved_by_create_weak tg_par tg_cld pk rk C cc c trs trs' blk l tg_prs P:
+Lemma tag_protected_preserved_by_create_weak tg_par tg_cld pk im rk C cc c trs trs' blk l tg_prs P:
   wf_trees trs → tg_cld ≠ tg_prs →
-  apply_within_trees (create_child C tg_par tg_cld pk rk cc) blk trs = Some trs' →
+  apply_within_trees (create_child C tg_par tg_cld pk im rk cc) blk trs = Some trs' →
   tag_protected_for P c trs  l tg_prs Deallocable →
   tag_protected_for P c trs' l tg_prs Deallocable.
 Proof.
@@ -166,13 +166,13 @@ Proof.
   exists tr. split; first done.
   destruct Hit as (Hin&Hlu). split.
   - eapply insertion_minimal_tags. 3: done. 2: done. by intros ->.
-  - injection Hcreate as <-. clear Htt.
+  - eapply bind_Some in Hcreate as (ii&Hii&[= <-]).
     eapply insert_true_preserves_every. 2: apply Hlu.
-    simpl. intros ->; done.
+    simpl. intros <-. eapply new_item_has_tag in Hii. congruence.
 Qed.
-Lemma tag_protected_preserved_by_create ps tg_par tg_cld pk rk C cc c trs trs' blk l tg_prs P:
+Lemma tag_protected_preserved_by_create ps tg_par tg_cld pk im rk C cc c trs trs' blk l tg_prs P:
   wf_trees trs → tg_cld ≠ tg_prs →
-  apply_within_trees (create_child C tg_par tg_cld pk rk cc) blk trs = Some trs' →
+  apply_within_trees (create_child C tg_par tg_cld pk im rk cc) blk trs = Some trs' →
   tag_protected_for P c trs  l tg_prs ps →
   tag_protected_for P c trs' l tg_prs ps.
 Proof.

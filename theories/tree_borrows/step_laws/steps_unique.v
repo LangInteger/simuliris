@@ -113,7 +113,7 @@ Proof.
   1: eapply Hwf_s. 1: eapply Hwf_t. 1, 2: done.
 
   (* from source reduction, we get that bor_state_pre is satisfied for the affected locations *)
-  assert (∀ i, (i < length v_s)%nat → bor_state_own M_call (l +ₗ i) t (tk_unq tkk) σ_s ∧ bor_state_own M_call (l +ₗ i) t (tk_unq tkk) σ_t) as Hcontrol_own.
+  assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t (tk_unq tkk) σ_s ∧ bor_state_own (l +ₗ i) t (tk_unq tkk) σ_t) as Hcontrol_own.
   { intros i Hi. 
     destruct (Hcontrol_s i Hi) as [Hown_s _].
     { rewrite bor_state_pre_unq_or; last (destruct tkk; tauto). rewrite /bor_state_pre_unq /=.
@@ -263,7 +263,7 @@ Proof.
     }
     simpl.
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_s' l.2 !! lac.2 = Some sc →
-          loc_controlled M_call lac t (tk_unq tk_act) sc σ_s') as Hlct_s.
+          loc_controlled lac t (tk_unq tk_act) sc σ_s') as Hlct_s.
     { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_s (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_s /=.
@@ -276,7 +276,7 @@ Proof.
       destruct (Htag_interp _ _ Htk) as (_ & _ & _ & _ & Hcontrol_s' & _). by eapply Hcontrol_s'. }
     pose (σ_t' := (mkState (write_mem l v_t' (shp σ_t)) trs_t' (scs σ_t) (snp σ_t) (snc σ_t))).
     assert (∀ (lac:loc) (sc:scalar), l.1 = lac.1 → list_to_heaplet v_t' l.2 !! lac.2 = Some sc →
-          loc_controlled M_call lac t (tk_unq tk_act) sc σ_t') as Hlct_t.
+          loc_controlled lac t (tk_unq tk_act) sc σ_t') as Hlct_t.
     { intros lac sc H1 H2.
       assert (∃ sc_o, heaplet_lookup M_t (t, lac) = Some sc_o) as (sc_o & Hsco).
       { rewrite /heaplet_lookup /= -H1 Hheaplet_t /=.

@@ -81,8 +81,12 @@ Qed.
    We will sometimes call "permission" something that in reality is a
    [lazy_permission]. *)
 Inductive permission :=
-  | Reserved (mut:interior_mut) (confl:res_conflicted)
-  | Active | Frozen | Disabled.
+  | Reserved (confl:res_conflicted)
+  | ReservedIM
+  | Active
+  | Frozen
+  | Disabled.
+
 Global Instance permission_eq_dec : EqDecision permission.
 Proof. solve_decision. Defined.
 Global Instance permission_countable : Countable permission.
@@ -90,12 +94,14 @@ Proof.
   refine (inj_countable
     (λ p,
       match p with
-      | Reserved m c => inr (m, c)
+      | Reserved c => inr c
+      | ReservedIM => inl 3
       | Active => inl 0 | Frozen => inl 1 | Disabled => inl 2
       end)
     (λ s,
       Some match s with
-      | inr (m, c) => Reserved m c
+      | inr c => Reserved c
+      | inl 3 => ReservedIM
       | inl 0 => Active | inl 1 => Frozen | inl _ => Disabled
       end) _); by intros [].
 Qed.
@@ -258,20 +264,20 @@ Proof.
     _); by intros [].
 Qed.
 
-Inductive pointer_kind := Box (im : interior_mut) | MutRef (im : interior_mut) | ShrRef .
+Inductive pointer_kind := Box | MutRef | ShrRef.
 Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.
 Proof. solve_decision. Defined.
 Global Instance pointer_kind_countable : Countable pointer_kind.
 Proof.
   refine (inj_countable
     (λ m, match m with
-           | Box im => inl im
-           | MutRef im => inr (inl im)
+           | Box => inl ()
+           | MutRef => inr (inl ())
            | ShrRef => inr (inr ())
            end)
     (λ b, Some match b with
-           | inl im => Box im
-           | inr (inl im) => MutRef im
+           | inl _ => Box
+           | inr (inl _) => MutRef
            | inr (inr _) => ShrRef
            end)
     _); by intros [].
@@ -315,7 +321,7 @@ Inductive expr :=
 (* | AtomRead (e: expr) *)
 (* retag *) (* Retag the memory pointed to by `e1` with
   retag kind `kind`, for call_id `e2`. The new pointer should have pointer kind pk. *)
-| Retag (e1 : expr) (e2 : expr) (pk : pointer_kind) (sz : nat) (kind : retag_kind)
+| Retag (e1 : expr) (e2 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 (* let binding *)
 | Let (x : binder) (e1 e2: expr)
 (* case *)
@@ -353,7 +359,7 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
   | BinOp _ e1 e2 | Write e1 e2 | While e1 e2 
-      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ => is_closed X e1 && is_closed X e2
+      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
@@ -449,7 +455,7 @@ Inductive bor_local_event :=
   | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
   | InitCallBLEvt (cid : call_id)
   | EndCallBLEvt (cid : call_id)
-  | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
+  | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (im : interior_mut) (c : call_id) (rk : retag_kind)
   | SilentBLEvt.
 
 (* Events in all their generality.
@@ -467,6 +473,6 @@ Inductive event :=
 | WriteEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
-| RetagEvt (alloc : block) (range : Z * nat) (otag ntag : tag) (pk : pointer_kind) (c : call_id) (rk : retag_kind)
+| RetagEvt (alloc : block) (range : Z * nat) (otag ntag : tag) (pk : pointer_kind) (im : interior_mut) (c : call_id) (rk : retag_kind)
 | SilentEvt.
 

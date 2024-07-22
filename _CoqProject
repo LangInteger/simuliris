@@ -194,7 +194,7 @@ theories/tree_borrows/examples/pure.v
 theories/tree_borrows/examples/reorder_read_down_protected.v
 #theories/tree_borrows/examples/opt2.v
 #theories/tree_borrows/examples/opt2_down.v
-#theories/tree_borrows/examples/opt3.v
 theories/tree_borrows/examples/reorder_write_activated_protected_down.v
+theories/tree_borrows/examples/reorder_write_activated_protected_up.v
 #theories/tree_borrows/examples/coinductive.v
 
