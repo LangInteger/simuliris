@@ -57,8 +57,10 @@ Proof.
   assert (trs'' = trs') as ->.
   { rewrite /memory_access Htrs' in Htrs''. congruence. }
   assert (v_rd = v') as -> by congruence.
-  assert (trees_equal (scs σ_s) (strs σ_s) trs') as Hstrs_eq'.
-  { eapply trees_equal_trans. 5: eassumption. 1,4: rewrite Hscs_eq. 1-4: by eapply Hwf_t.
+  assert (trees_equal (scs σ_s) Forwards (strs σ_s) trs') as Hstrs_eq'.
+  { eapply trees_equal_trans. 4: eapply Hstrs_eq.
+    2,3: rewrite Hscs_eq. 1: by eapply state_wf_trees_valid. 1: by eapply state_wf_trees_valid.
+    { eapply base_step_wf in Hwf_t. 2: done. eapply state_wf_trees_valid in Hwf_t; done. }
     eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_t. simpl.
     intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
     eapply tree_equal_asymmetric_read_protected.
@@ -129,10 +131,15 @@ Proof.
   { intros l (Hl1&Hl2); simpl in *. exists it, tr. do 2 (split; first done). assert (∃ (i:nat), l = off_rd + i) as (ii&Hii).
     1: exists (Z.to_nat (l - off_rd)); lia. subst l. eapply Hown. lia. } 1: simpl; lia.
   iExists _, _.
-  iSplit.
-  { iPureIntro.  eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact Htrs'. done. }
-  assert (trees_equal (scs σ_s) trs' (strs σ_t)) as Hstrs_eq'.
-  { eapply trees_equal_sym, trees_equal_trans. 5: eapply trees_equal_sym; eassumption. 1-4: by eapply Hwf_s.
+  eassert (base_step P_s (Copy (Place (blk, off_rd) t (length v_rd))) σ_s _ _ []) as Hstep.
+  { eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact Htrs'. done. }
+  iSplit; first done.
+  assert (trees_equal (scs σ_s) Forwards trs' (strs σ_t)) as Hstrs_eq'.
+  { eapply trees_equal_trans. 5: eapply Hstrs_eq.
+    3: rewrite Hscs_eq. 2: by eapply state_wf_trees_valid. 2: by eapply state_wf_trees_valid.
+    { eapply base_step_wf in Hwf_s. 2: done. 1: eapply state_wf_trees_valid in Hwf_s; done. }
+    change Forwards with (direction_flip Backwards).
+    eapply trees_equal_sym.
     eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_s. simpl.
     intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
     eapply tree_equal_asymmetric_read_protected.
@@ -206,8 +213,13 @@ Proof.
   { intros n Hn. rewrite Holdlen in Hown.
     destruct (Hown n Hn) as (_&HH). eapply elem_of_dom. rewrite HH.
     eapply lookup_lt_is_Some_2. lia. }
-  assert (trees_equal (scs σ_s) (strs σ_s) trs') as Hstrs_eq'.
-  { eapply trees_equal_trans. 5: eassumption. 1,4: rewrite Hscs_eq. 1-4: by eapply Hwf_t.
+  eassert (base_step P_t (Place (blk, off_rd) t (length v_wr) <- #v_wr) σ_t _ _ _) as HstepX.
+  { eapply write_base_step'. 1: done. 3: exact Htrs'.
+    2: { rewrite /trees_contain /trees_at_block /= Hit. apply Htr. } 1: exact WRITE_PRE. } 
+  assert (trees_equal (scs σ_s) Forwards (strs σ_s) trs') as Hstrs_eq'.
+  { eapply trees_equal_trans. 4: eapply Hstrs_eq.
+    2,3: rewrite Hscs_eq. 1: by eapply state_wf_trees_valid. 1: by eapply state_wf_trees_valid.
+    { eapply base_step_wf in Hwf_t. 2: done. eapply state_wf_trees_valid in Hwf_t; done. }
     eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_t. simpl.
     intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
     eapply tree_equal_asymmetric_write_protected.
@@ -217,9 +229,7 @@ Proof.
     intros off (Ho1&Ho2); simpl in *.
     assert (∃ (i:nat), off = off_rd + i) as (i&->) by (exists (Z.to_nat (off - off_rd)); lia).
     eapply Hown. 1: lia. }
-  iSplit.
-  { iPureIntro. do 3 eexists. eapply write_base_step'. 1: done. 3: exact Htrs'.
-    2: { rewrite /trees_contain /trees_at_block /= Hit. apply Htr. } 1: exact WRITE_PRE. } 
+  iSplit. 1: iPureIntro; do 3 eexists; done.
   iIntros (??? Hstep). pose proof Hstep as Hstep2.
   eapply head_write_inv in Hstep2 as (trs''&->&->&->&_&Hiinv&[(Hcont&Happly&Hlen)|(Hlen&->)]); last first.
   { exfalso. lia. }
@@ -370,9 +380,16 @@ Proof.
   assert (∀ n : nat, (n < length v_wr)%nat → (blk, off_rd) +ₗ n ∈ dom (shp σ_s)) as WRITE_PRE.
   { intros n Hn. rewrite Holdlen in Hown.
     destruct (Hown n Hn) as (_&HH). eapply elem_of_dom. rewrite HH.
-    eapply lookup_lt_is_Some_2. lia. }
-  assert (trees_equal (scs σ_s) trs' (strs σ_t)) as Hstrs_eq'.
-  { eapply trees_equal_trans. 6: eassumption. 5: eapply trees_equal_sym. 1,4: rewrite Hscs_eq. 1-4: rewrite -?Hscs_eq; by eapply Hwf_s.
+    eapply lookup_lt_is_Some_2. lia. } 
+  eassert (base_step P_s _ _ _ _ _) as Hstep.
+  { eapply write_base_step' with (l:= (_, _)). 4: exact Htrs'.
+    3: { rewrite /trees_contain /trees_at_block /= Hit. apply Htr. } 2: exact WRITE_PRE. 1: reflexivity. }
+  assert (trees_equal (scs σ_s) Forwards trs' (strs σ_t)) as Hstrs_eq'.
+  { eapply trees_equal_trans. 5: eapply Hstrs_eq.
+    3: rewrite Hscs_eq. 2: by eapply state_wf_trees_valid. 2: by eapply state_wf_trees_valid.
+    { eapply base_step_wf in Hwf_s. 2: done. 1: eapply state_wf_trees_valid in Hwf_s; done. }
+    change Forwards with (direction_flip Backwards).
+    eapply trees_equal_sym.
     eapply apply_within_trees_lift. 2: exact Htrs'. 1: by eapply Hwf_s. simpl.
     intros trX tr' HH1 HH2 HH3. simpl in *. assert (tr = trX) as <- by congruence.
     eapply tree_equal_asymmetric_write_protected.
@@ -381,9 +398,7 @@ Proof.
     intros off (Ho1&Ho2); simpl in *.
     assert (∃ (i:nat), off = off_rd + i) as (i&->) by (exists (Z.to_nat (off - off_rd)); lia).
     eapply Hown. 1: lia. }
-  iExists _, _. eassert (base_step P_s _ _ _ _ _) as Hstep.
-  { eapply write_base_step' with (l:= (_, _)). 4: exact Htrs'.
-    3: { rewrite /trees_contain /trees_at_block /= Hit. apply Htr. } 2: exact WRITE_PRE. 1: reflexivity. }
+  iExists _, _.
   iSplit; first done.
   iDestruct "Hbor" as "((Hca & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".

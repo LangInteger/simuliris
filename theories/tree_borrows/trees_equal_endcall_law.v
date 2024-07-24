@@ -989,15 +989,16 @@ Lemma tree_equal_remove_call C tr1' tr2' tr1 tr2 cid nxtp nxtc :
   tree_items_compat_nexts tr2 nxtp nxtc →
   parents_more_active tr1 → parents_more_active tr2 →
   no_active_cousins C tr1 → no_active_cousins C  tr2 →
+  protected_parents_not_disabled C tr1 → protected_parents_not_disabled C tr2 →
   cid ∈ C →
   tree_access_all_protected_initialized C cid tr1 = Some tr1' →
   tree_access_all_protected_initialized C cid tr2 = Some tr2' →
-  tree_equal C tr1' tr2' →
-  tree_equal (C ∖ {[ cid ]}) tr1' tr2'.
+  tree_equal C Forwards tr1' tr2' →
+  tree_equal (C ∖ {[ cid ]}) Forwards tr1' tr2'.
 Proof.
-  intros Hwf1 Hwf2 Hpmi1 Hpmi2 Hic1 Hic2 Hpma1 Hpma2 Hnac1 Hnac2 Hcid Hrai1 Hrai2 (He1&He2&He3).
+  intros Hwf1 Hwf2 Hpmi1 Hpmi2 Hic1 Hic2 Hpma1 Hpma2 Hnac1 Hnac2 Hpnd1 Hpnd2 Hcid Hrai1 Hrai2 (He1&He2&He3).
   split_and!; try done.
-  intros tg Hcont. specialize (He3 tg Hcont) as (it1 & it2 & Hlu1 & Hlu2 & Hutc).
+  intros tg Hcont. pose proof (He3 tg Hcont) as (it1 & it2 & Hlu1 & Hlu2 & Hutc).
   do 2 eexists. split_and!; try done.
   specialize (tree_access_many_pseudo_confl_becomes_real _ _ _ _ Hwf1 Hrai1 tg it1) as Hrai1'.
   specialize (tree_access_many_pseudo_confl_becomes_real _ _ _ _ Hwf2 Hrai2 tg it2) as Hrai2'.
@@ -1007,10 +1008,19 @@ Proof.
   erewrite tree_get_all_protected_initialized_idemp in Hrai2'. 7: done. 2-6: done.
   erewrite tree_get_all_protected_initialized_idemp in HraiD1'. 7: done. 2-6: done.
   erewrite tree_get_all_protected_initialized_idemp in HraiD2'. 7: done. 2-6: done.
-  assert (wf_tree tr1') as Hwf1'.
-  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf1. 1: apply Hrai1. }
-  assert (wf_tree tr2') as Hwf2'.
-  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf2. 1: apply Hrai2. }
+
+  eapply preserve_tag_count_wf in Hwf1 as Hwf1'. 3: done. 2: eapply tree_access_all_protected_initialized_tag_count.
+  eapply preserve_tag_count_wf in Hwf2 as Hwf2'. 3: done. 2: eapply tree_access_all_protected_initialized_tag_count.
+  eapply tree_access_all_protected_initialized_more_init in Hpmi1 as Hpmi1'. 2-3: done.
+  eapply tree_access_all_protected_initialized_more_init in Hpmi2 as Hpmi2'. 2-3: done.
+  eapply tree_access_all_protected_initialized_more_active in Hpma1 as Hpma1'. 2-3: done.
+  eapply tree_access_all_protected_initialized_more_active in Hpma2 as Hpma2'. 2-3: done.
+  eapply tree_access_all_protected_initialized_no_cousins in Hnac1 as Hnac1'. 2-3: done.
+  eapply tree_access_all_protected_initialized_no_cousins in Hnac2 as Hnac2'. 2-3: done.
+  eapply tree_access_all_protected_initialized_protected_not_disabled in Hpnd1 as Hpnd1'. 2-4: done.
+  eapply tree_access_all_protected_initialized_protected_not_disabled in Hpnd2 as Hpnd2'. 2-4: done.
+  eapply tree_access_all_protected_initialized_compat_nexts in Hic1 as Hic1'. specialize (Hic1' Hrai1).
+  eapply tree_access_all_protected_initialized_compat_nexts in Hic2 as Hic2'. specialize (Hic2' Hrai2).
 
   intros l. specialize (Hutc l) as (Hproteq&Hutc).
   split; first done.
@@ -1020,8 +1030,9 @@ Proof.
     |ini confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2
     |ini confl1 confl2 Hnprot
     |lp1 lp2 HH1 HH2 Heqi1 Heqi2
-    |wit_tg X1 X2 Hdip1 Hdip2 Hinieq
+    |wit_tg X1 X2 Hdip1 Hinieq
     |
+    |p1 p2 ini HH Heq1 Heq2
   ]; simplify_eq.
   - econstructor 1.
   - destruct (decide (cc = cid)) as [<-|Hne].
@@ -1081,7 +1092,8 @@ Proof.
       split; first exact Hlu1. split; first done. exists it_cs, l.
       split. 2: { split; first done. split; first by eexists. done. }
       eapply mem_enumerate_initalized. rewrite Hpermcs. done.
-    + inversion HH2 as [|tg_cs it_cs lpX protX Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs HIMcs Heq1 Heq2]; first by econstructor.
+    + eapply tree_equal_transfer_pseudo_disabled in HH2 as HH2'. 8: eapply tree_equal_sym; done. 2-7: done.
+      inversion HH2 as [|tg_cs it_cs lpX protX Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs HIMcs Heq1 Heq2]; first by econstructor.
       simplify_eq.
       destruct (decide (cccs = cid)) as [<-|Hnecs].
       2: econstructor 2; try done; exists cccs; split; try done.
@@ -1089,12 +1101,30 @@ Proof.
       enough (lp2 = Disabled) as -> by econstructor 1.
       eapply HraiD2'. eexists tg_cs, _.
       split.
-      { eapply tree_all_protected_initialized_elem_of. 1: exact Hwf2'.
+      { erewrite <- tree_equals_protected_initialized. 11: done. 2-9: done. 2: done.
+        eapply tree_all_protected_initialized_elem_of. 1: exact Hwf1'.
         exists it_cs. split; first done. split; first done.
         eapply mem_enumerate_initalized. }
-      split; first exact Hlu2. split; first done. exists it_cs, l.
-      split. 2: { split; first done. split; first by eexists. done. }
-      eapply mem_enumerate_initalized. rewrite Hpermcs. done.
+      split; first exact Hlu2. rewrite -He2. split; first done.
+      destruct (He3 tg_cs) as (itcs1&itcs2&Hitcs1&Hitcs2&Hcseq).
+      1: eapply Hlucs.
+      assert (itcs1 = it_cs) as <- by by eapply tree_lookup_unique.
+      exists itcs2, l. destruct (Hcseq l) as (Hprotcs&Heqcs).
+      eapply every_node_iff_every_lookup in Hic1'. 3: exact Hitcs1.
+      2: intros ??; eapply unique_lookup, Hwf1'; done.
+      eapply every_node_iff_every_lookup in Hic2'. 3: exact Hitcs2.
+      2: intros ??; eapply unique_lookup, Hwf2'; done.
+      eapply perm_eq_up_to_C_same_protected_active in Heqcs as Heqact. 2-13: done.
+      2: by econstructor.
+      rewrite Hpermcs /= in Heqact. destruct Heqact as [Heqact _]. ospecialize (Heqact _). 1: done.
+      eapply item_wf_item_lookup_active in Heqact as Heqini. 2: done.
+      split_and!.
+      * eapply mem_enumerate_initalized. rewrite Hpermcs; done.
+      * done.
+      * rewrite -Hprotcs. exists cccs. done.
+      * destruct (item_lookup itcs2 l); f_equal; simplify_eq; done.
+      * done.
+      * done.
   - econstructor 5.
     + inversion Hdip1 as [wit_it incl Hclid Hlu Hdis].
       econstructor. 1-2: done.
@@ -1113,26 +1143,19 @@ Proof.
       split; first exact Hlu. split; first done. exists it_cs, l.
       split. 2: { split; first done. split; first by eexists. done. }
       eapply mem_enumerate_initalized. rewrite Hpermcs. done.
-    + inversion Hdip2 as [wit_it incl Hclid Hlu Hdis].
-      econstructor. 1-2: done.
-      inversion Hdis as [X1 Hinitdis X2|lp X1 Hpdis Hlulp X2]; simplify_eq.
-      1: econstructor 1. econstructor 2.
-      inversion Hpdis as [|tg_cs it_cs lpX protX Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs HIMcs Heq1 Heq2]; first econstructor 1. simplify_eq.
-      destruct (decide (cccs = cid)) as [<-|Hnecs].
-      2: econstructor 2; try done; exists cccs; split; try done.
-      2: rewrite /call_is_active in Hp2cs|-*; set_solver.
-      enough (lp = Disabled) as -> by econstructor 1.
-      eapply HraiD2'. eexists tg_cs, _.
-      split.
-      { eapply tree_all_protected_initialized_elem_of. 1: exact Hwf2'.
-        exists it_cs. split; first done. split; first done.
-        eapply mem_enumerate_initalized. }
-      split; first exact Hlu. split; first done. exists it_cs, l.
-      split. 2: { split; first done. split; first by eexists. done. }
-      eapply mem_enumerate_initalized. rewrite Hpermcs. done.
     + assumption.
   - econstructor 6.
     all: eassumption.
+  - inversion HH as [x H|x H]; simplify_eq.
+    + econstructor 7. econstructor. intros (c1&Hc1&HHc1). apply H.
+      exists c1. split; try done. rewrite /call_is_active in HHc1|-*. set_solver.
+    + destruct H as (c1&Hc1&HHc1).
+      destruct (decide (c1 = cid)) as [->|Hne].
+      * econstructor 3. intros (c2&Hc2&HHc2). unfold call_is_active in *.
+        enough (cid = c2) as -> by set_solver.
+        destruct it1 as [? [[]|] ??]; simpl in *; cbv in Hc1,Hc2. all: by simplify_eq.
+      * econstructor 7. econstructor.
+        exists c1. split; first done. unfold call_is_active in *. set_solver.
 Qed.
 
 Lemma trees_equal_remove_call C trs1' trs2' trs1 trs2 cid nxtp nxtc :
@@ -1141,18 +1164,19 @@ Lemma trees_equal_remove_call C trs1' trs2' trs1 trs2 cid nxtp nxtc :
   trees_compat_nexts trs2 nxtp nxtc →
   each_tree_parents_more_active trs1 → each_tree_parents_more_active trs2 →
   each_tree_no_active_cousins C trs1 → each_tree_no_active_cousins C  trs2 →
+  each_tree_protected_parents_not_disabled C trs1 → each_tree_protected_parents_not_disabled C trs2 →
   cid ∈ C →
   trees_access_all_protected_initialized C cid trs1 = Some trs1' →
   trees_access_all_protected_initialized C cid trs2 = Some trs2' →
-  trees_equal C trs1' trs2' →
-  trees_equal (C ∖ {[ cid ]}) trs1' trs2'.
+  trees_equal C Forwards trs1' trs2' →
+  trees_equal (C ∖ {[ cid ]}) Forwards trs1' trs2'.
 Proof.
-  intros (Hwf1&_) (Hwf2&_) Hpmi1 Hpmi2 Hc1 Hc2 Hpma1 Hpma2 Hnac1 Hnac2 Hcc Hread1 Hread2 Heq.
+  intros (Hwf1&_) (Hwf2&_) Hpmi1 Hpmi2 Hc1 Hc2 Hpma1 Hpma2 Hnac1 Hnac2 Hpnd1 Hpnd2 Hcc Hread1 Hread2 Heq.
   intros blk. specialize (Heq blk).
   inversion Heq as [tr1 tr2 Heqtr Htr1 Htr2|]; last by econstructor.
   eapply trees_access_all_protected_initialized_backwards in Hread1 as (tr1'&Htr1'&Hread1'); last done.
   eapply trees_access_all_protected_initialized_backwards in Hread2 as (tr2'&Htr2'&Hread2'); last done.
   econstructor. eapply tree_equal_remove_call; [..|done|done|done].
   1: by eapply Hwf1. 1: by eapply Hwf2. 1: by eapply Hpmi1. 1: by eapply Hpmi2. 1: by eapply Hc1. 1: by eapply Hc2.
-  1: by eapply Hpma1. 1: by eapply Hpma2. 1: by eapply Hnac1. 1: by eapply Hnac2. all: done.
+  1: by eapply Hpma1. 1: by eapply Hpma2. 1: by eapply Hnac1. 1: by eapply Hnac2. 1: by eapply Hpnd1. 1: by eapply Hpnd2. all: done.
 Qed.

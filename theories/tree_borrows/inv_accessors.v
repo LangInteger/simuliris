@@ -490,12 +490,12 @@ Section lemmas.
     eapply Hntrs. all: done.
   Qed.
 
-  Lemma tag_protected_for_trees_equal P C c trs1 trs2 l tg ps :
+  Lemma tag_protected_for_trees_equal P C c d trs1 trs2 l tg ps :
     wf_trees trs1 → wf_trees trs2 →
     each_tree_protected_parents_not_disabled C trs1 →
     each_tree_protected_parents_not_disabled C trs2 →
     c ∈ C →
-    trees_equal C trs1 trs2 →
+    trees_equal C d trs1 trs2 →
     tag_protected_for P c trs1 l tg ps →
     tag_protected_for P c trs2 l tg ps.
   Proof.
@@ -560,9 +560,9 @@ Section lemmas.
     assert (is_Some (σ_s.(strs) !! l_rd.1)) as [tr2 Htr2].
     { specialize (Hstrs_eq l_rd.1). rewrite Htr1 /= in Hstrs_eq.
       inversion Hstrs_eq. done. }
-    assert (tree_equal (scs σ_s) tr2 tr1) as Htr12.
+    eassert (tree_equal (scs σ_s) _ tr2 tr1) as Htr12.
     { specialize (Hstrs_eq l_rd.1). rewrite Htr1 Htr2 /= in Hstrs_eq. inversion Hstrs_eq; simplify_eq. done. }
-    unshelve edestruct tree_equal_transfer_lookup_2 as (it2&Hit2&(Hitprot&Hit12)). 1: exact 0. 6: exact Htr12. 3: exact Hit1.
+    unshelve edestruct tree_equal_transfer_lookup_2 as (it2&Hit2&(Hitprot&Hit12)). 1: exact 0. 7: exact Htr12. 3: exact Hit1.
     iExists it2, tr2. iPureIntro. do 2 (split; first done).
     split. { exists c. split; last by rewrite Hscs_eq. by rewrite Hitprot. }
     intros i Hi.

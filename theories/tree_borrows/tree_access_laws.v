@@ -64,26 +64,26 @@ Proof.
   apply rel_dec_refl.
 Qed.
 
-Lemma trees_equal_allows_same_access C tr1 tr2 blk kind acc_tg range :
+Lemma trees_equal_allows_more_access C tr1 tr2 blk kind acc_tg range :
   (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
-  trees_equal C tr1 tr2 →
+  trees_equal C Forwards tr1 tr2 →
   wf_trees tr1 →
   wf_trees tr2 →
-  each_tree_protected_parents_not_disabled C tr2 →
-  each_tree_parents_more_init tr2 →
+  each_tree_protected_parents_not_disabled C tr1 →
+  each_tree_parents_more_init tr1 →
   trees_contain acc_tg tr1 blk →
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
 Proof.
-  intros Heq Hwf1 Hwf2 HCCC HPMI Hcont [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
+  intros Heq Hwf1 Hwf2 HCCC1 HPMI1 Hcont [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
   specialize (Heq blk).
   rewrite H1 in Heq. inversion Heq as [? trr2 Heqr q H2'|]; simplify_eq.
-  eapply mk_is_Some, tree_equal_allows_same_access in H2 as (trr2'&Htrr2').
+  eapply mk_is_Some, tree_equal_allows_more_access in H2 as (trr2'&Htrr2').
   * eexists. rewrite /apply_within_trees -H2' /= Htrr2' /= //.
   * intros tg. eapply wf_tree_tree_unique. eapply Hwf1, H1.
   * intros tg. eapply wf_tree_tree_unique. eapply Hwf2. done.
-  * by eapply HCCC.
-  * by eapply HPMI.
+  * by eapply HCCC1.
+  * by eapply HPMI1.
   * apply Heqr.
   * eapply wf_tree_tree_unique. 1: eapply Hwf1, H1.
     rewrite /trees_contain /trees_at_block H1 // in Hcont.
@@ -91,15 +91,15 @@ Qed.
 
 
 Lemma trees_equal_preserved_by_access
-  {C blk tr1 tr2 tr1' tr2' kind acc_tg range}
+  {C d blk tr1 tr2 tr1' tr2' kind acc_tg range}
   :
   wf_trees tr1 →
   wf_trees tr2 →
-  trees_equal C tr1 tr2 ->
+  trees_equal C d tr1 tr2 ->
   trees_contain acc_tg tr1 blk ->
   apply_within_trees (memory_access kind C acc_tg range) blk tr1 = Some tr1' ->
   apply_within_trees (memory_access kind C acc_tg range) blk tr2 = Some tr2' ->
-  trees_equal C tr1' tr2'.
+  trees_equal C d tr1' tr2'.
 Proof.
   intros (Hwf1&_) (Hwf2&_) Heq Hcont.
   intros ((tr1blk & tr1blk' & Hlutr1 & Hlutr1' & Hacc1) & Htr1nblk)%apply_within_trees_lookup.

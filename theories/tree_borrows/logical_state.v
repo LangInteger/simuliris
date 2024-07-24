@@ -166,7 +166,7 @@ Section state_bijection.
     *)
     Definition state_rel σ_t σ_s : iProp Σ :=
         ⌜dom σ_s.(shp) = dom σ_t.(shp)⌝ ∗
-        ⌜trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs)⌝ ∗
+        ⌜trees_equal σ_s.(scs) Forwards σ_s.(strs) σ_t.(strs)⌝ ∗
         ⌜σ_s.(snp) = σ_t.(snp)⌝ ∗
         ⌜σ_s.(snc) = σ_t.(snc)⌝ ∗
         ⌜σ_s.(scs) = σ_t.(scs)⌝ ∗
@@ -185,14 +185,14 @@ Section bijection_lemmas.
   Local Notation state_rel := (state_rel sc_rel).
 
   Lemma state_rel_get_pure Mtag Mt Mcall σ_t σ_s :
-    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs) ∧
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) Forwards σ_s.(strs) σ_t.(strs) ∧
       σ_s.(snp) = σ_t.(snp) ∧ σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs)⌝.
   Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
   Lemma state_rel_trees_eq Mtag Mt Mcall σ_t σ_s :
-    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs)⌝.
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) Forwards σ_s.(strs) σ_t.(strs)⌝.
   Proof. iIntros "(% & % & % & % & % & ?)". eauto. Qed.
   Lemma state_rel_trees_eq_2 Mtag Mt Mcall σ_t σ_s :
-    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜trees_equal σ_t.(scs) σ_s.(strs) σ_t.(strs)⌝.
+    state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜trees_equal σ_t.(scs) Forwards σ_s.(strs) σ_t.(strs)⌝.
   Proof. iIntros "(% & % & % & % & <- & ?)". eauto. Qed.
   Lemma state_rel_snp_eq Mtag Mt Mcall σ_t σ_s :
     state_rel Mtag Mt Mcall σ_t σ_s -∗ ⌜σ_s.(snp) = σ_t.(snp)⌝.
@@ -1105,7 +1105,7 @@ Section state_interp.
      bor_interp_inner σ_t σ_s M_call M_tag M_t M_s.
 
   Lemma bor_interp_get_pure σ_t σ_s :
-    bor_interp σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) σ_s.(strs) σ_t.(strs) ∧ σ_s.(snp) = σ_t.(snp) ∧
+    bor_interp σ_t σ_s -∗ ⌜trees_equal σ_s.(scs) Forwards σ_s.(strs) σ_t.(strs) ∧ σ_s.(snp) = σ_t.(snp) ∧
     σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧
     dom σ_s.(shp) = dom σ_t.(shp)⌝.
   Proof.

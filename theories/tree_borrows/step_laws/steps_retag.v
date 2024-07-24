@@ -85,15 +85,15 @@ Proof.
   iPoseProof "Hscrel" as "(-> & _ & Hotpub)". iClear "Hscrel".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
+  odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
   1,3: eapply Hwf_s. 2: rewrite Hsnc_eq Hsnp_eq. 1,2: eapply Hwf_t. 1: by eapply Hwf_s.
   1-2: done.
   eapply retag_step_wf_inner in Hwf_s as X. 1: destruct X as (Hwf_mid_s&Hntinmid_s).
   2-5: done.
   eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
-  edestruct trees_equal_allows_same_access as (trs2_t&Happly2_t).
-  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 2: rewrite Hscs_eq. 1,2,3: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
+  edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
+  1: exact Hstrs1_eq. 1,3,4: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
   opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
   1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
 
@@ -319,15 +319,15 @@ Proof.
   iPoseProof "Hscrel" as "(-> & _ & Hotpub)". iClear "Hscrel".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
+  odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
   1,3: eapply Hwf_s. 2: rewrite Hsnc_eq Hsnp_eq. 1,2: eapply Hwf_t. 1: by eapply Hwf_s.
   1-2: done.
   eapply retag_step_wf_inner in Hwf_s as X. 1: destruct X as (Hwf_mid_s&Hntinmid_s).
   2-5: done.
   eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
-  edestruct trees_equal_allows_same_access as (trs2_t&Happly2_t).
-  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 2: rewrite Hscs_eq. 1,2,3: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
+  edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
+  1: exact Hstrs1_eq. 1,3,4: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
   opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
   1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
 
@@ -578,15 +578,15 @@ Proof.
   iPoseProof "Hscrel" as "(-> & -> & Hotpub)". iClear "Hscrel".
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
-  1,3: eapply Hwf_s. 2: rewrite Hsnc_eq Hsnp_eq. 1,2: eapply Hwf_t. 1: by eapply Hwf_s. 
+  odestruct (trees_equal_create_child _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ Hstrs_eq Happly1_s) as (trs1_t&Happly1_t&Hstrs1_eq).
+  1,3: eapply Hwf_s. 2: rewrite Hsnc_eq Hsnp_eq. 1,2: eapply Hwf_t. 1: by eapply Hwf_s.
   1-2: done.
   eapply retag_step_wf_inner in Hwf_s as X. 1: destruct X as (Hwf_mid_s&Hntinmid_s).
   2-5: done.
   eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
-  edestruct trees_equal_allows_same_access as (trs2_t&Happly2_t).
-  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 2: rewrite Hscs_eq. 1,2,3: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
+  edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
+  1: exact Hstrs1_eq. 1,3,4: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
   opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
   1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
 

@@ -183,12 +183,9 @@ Proof.
   odestruct (apply_within_trees_equal _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains bor_s ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
-    edestruct tree_equal_allows_same_deallocation as (ttr2'&Httr2').
-    7: eapply mk_is_Some, H1. 5: done.
-    3: rewrite Hscs_eq; by eapply Hwf_t. 3: by eapply Hwf_t.
-    1-3: eapply wf_tree_tree_unique.
-    1,3: by eapply Hwf_s. 1: by eapply Hwf_t.
-    1: done.
+    edestruct tree_equal_allows_more_deallocation as (ttr2'&Httr2').
+    1,3,4,6: by eapply Hwf_s. 1: by eapply Hwf_t. 1: eapply H2.
+    1: eapply mk_is_Some, H1.
     exists ttr2'; split; first done.
     eapply tree_equal_memory_deallocate. 5,6,4,3: done.
     all: eapply wf_tree_tree_unique. 1: by eapply Hwf_s. by eapply Hwf_t. }
@@ -402,7 +399,7 @@ Proof.
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
   edestruct trees_equal_access_all_protected_initialized as (trst' & Htrst & Htrseq').
-  11: exact Hstrs_eq. 6,8: rewrite Hscs_eq. 11: exact Htrss. 1,4,8,9: by eapply Hwf_s. 1-5: by eapply Hwf_t. 1: rewrite Hsnc_eq Hsnp_eq; by eapply Hwf_t.
+  11: exact Hstrs_eq. 5,7: rewrite Hscs_eq. 11: exact Htrss. 1,3,4,7,8: by eapply Hwf_s. 4: rewrite Hsnp_eq Hsnc_eq. 1-4: by eapply Hwf_t. 1: done.
   iSplit.
   { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -421,7 +418,7 @@ Proof.
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
     iSplit; first done. iSplit.
-    { iPureIntro. eapply trees_equal_remove_call. 11: done. 11-12: done. 1,3,5,7,9: by eapply Hwf_s. 1,2,4: by eapply Hwf_t. 1-2: rewrite ?Hsnc_eq ?Hsnp_eq ?Hscs_eq; by eapply Hwf_t. done. }
+    { iPureIntro. eapply trees_equal_remove_call. 16: done. 14-15: done. 1,3,5,7,9,11: by eapply Hwf_s. 1,2,4: by eapply Hwf_t. 1-3: rewrite ?Hsnc_eq ?Hsnp_eq ?Hscs_eq; by eapply Hwf_t. done. }
     do 3 (iSplit; first (iPureIntro; try done; by f_equal)).
     iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
     { iLeft. rewrite /pub_loc /=. iApply "Hpub". }
@@ -468,7 +465,7 @@ Proof.
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   specialize (pool_safe_implies Hsafe Hpool) as (?&[= <-]&Hcall_in & trss' & Htrss).
   edestruct trees_equal_access_all_protected_initialized as (trst' & Htrst & Htrseq').
-  11: exact Hstrs_eq. 6,8: rewrite Hscs_eq. 11: exact Htrss. 1,4,8,9: by eapply Hwf_s. 1-5: by eapply Hwf_t. 1: rewrite Hsnc_eq Hsnp_eq; by eapply Hwf_t.
+  11: exact Hstrs_eq. 5,7: rewrite Hscs_eq. 11: exact Htrss. 1,3,4,7,8: by eapply Hwf_s. 4: rewrite Hsnp_eq Hsnc_eq. 1-4: by eapply Hwf_t. 1: done.
   iSplit.
   { iPureIntro. do 3 eexists. eapply end_call_base_step. all: by rewrite -Hscs_eq. }
   iIntros (e_t' efs_t σ_t') "%Hhead".
@@ -487,7 +484,7 @@ Proof.
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
     iSplit; first done. iSplit.
-    { iPureIntro. eapply trees_equal_remove_call. 11: done. 11-12: done. 1,3,5,7,9: by eapply Hwf_s. 1,2,4: by eapply Hwf_t. 1-2: rewrite ?Hsnc_eq ?Hsnp_eq ?Hscs_eq; by eapply Hwf_t. done. }
+    { iPureIntro. eapply trees_equal_remove_call. 16: done. 14-15: done. 1,3,5,7,9,11: by eapply Hwf_s. 1,2,4: by eapply Hwf_t. 1-3: rewrite ?Hsnc_eq ?Hsnp_eq ?Hscs_eq; by eapply Hwf_t. done. }
     do 3 (iSplit; first (iPureIntro; try done; by f_equal)).
     iIntros (l Hl). iDestruct ("Hl" $! l Hl) as "[Hpub|%Hpriv]".
     { iLeft. rewrite /pub_loc /=. iApply "Hpub". }

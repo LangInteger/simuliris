@@ -526,11 +526,10 @@ Proof.
   odestruct (apply_within_trees_equal _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains t ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
-    edestruct tree_equal_allows_same_deallocation as (ttr2'&Httr2').
+    edestruct tree_equal_allows_more_deallocation as (ttr2'&Httr2').
     7: eapply mk_is_Some, H1. 5: done.
     1,2,5: eapply wf_tree_tree_unique. 5: rewrite Hscs_eq.
-    1,3: by eapply Hwf_s. 1,3,4: by eapply Hwf_t.
-    1: done.
+    1,3,6: by eapply Hwf_s. 1: by eapply Hwf_t. 1: done. 1: rewrite -Hscs_eq; by eapply Hwf_s.
     exists ttr2'; split; first done.
     eapply tree_equal_memory_deallocate. 5,6,4,3: done.
     all: eapply wf_tree_tree_unique. 1: by eapply Hwf_s. by eapply Hwf_t. }
