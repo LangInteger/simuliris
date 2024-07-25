@@ -93,9 +93,9 @@ Proof.
   eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
-  1: exact Hstrs1_eq. 1,3,4: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
-  1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
+  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1,2,3: rewrite ?Hscs_eq; apply Hwf_mid_t. 1: done. 1: done. 1: by eapply mk_is_Some.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  1,3,5: eapply Hwf_mid_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_mid_t. 1: done.
 
   odestruct (tree_access_succeeds_heap_value _ false) as (v_s&Hv_s).
   1: apply Hwf_mid_s. 2: eapply mk_is_Some, Happly2_s. 1: done. simpl in Hv_s.
@@ -327,9 +327,9 @@ Proof.
   eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
-  1: exact Hstrs1_eq. 1,3,4: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
-  1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
+  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1,2,3: rewrite ?Hscs_eq; apply Hwf_mid_t. 1: done. 1: done. 1: by eapply mk_is_Some.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  1,3,5: eapply Hwf_mid_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_mid_t. 1: done.
 
   odestruct (tree_access_succeeds_heap_value _ false) as (v_s&Hv_s).
   1: apply Hwf_mid_s. 2: eapply mk_is_Some, Happly2_s. 1: done. simpl in Hv_s.
@@ -586,9 +586,9 @@ Proof.
   eapply retag_step_wf_inner in Hwf_t as X. 1: destruct X as (Hwf_mid_t&_).
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
-  1: exact Hstrs1_eq. 1,3,4: apply Hwf_mid_s. 1: apply Hwf_mid_t. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
-  1: eapply Hwf_mid_s. 1: eapply Hwf_mid_t. 1: done.
+  1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1,2,3: rewrite ?Hscs_eq; apply Hwf_mid_t. 1: done. 1: done. 1: by eapply mk_is_Some.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  1,3,5: eapply Hwf_mid_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_mid_t. 1: done.
 
   odestruct (tree_access_succeeds_heap_value _ false) as (v_s&Hv_s).
   1: apply Hwf_mid_s. 2: eapply mk_is_Some, Happly2_s. 1: done. simpl in Hv_s.

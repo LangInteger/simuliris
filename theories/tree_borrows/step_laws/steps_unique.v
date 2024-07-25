@@ -104,13 +104,13 @@ Proof.
 
   eapply mk_is_Some in Htree_s as Htree_t.
   eapply trees_equal_allows_more_access in Htree_t as (trs_t' & Htree_t);
-    [|done|eapply Hwf_s|eapply Hwf_t|by eapply Hwf_s|by eapply Hwf_s|done].
+    [|done|eapply Hwf_s|eapply Hwf_t|rewrite ?Hscs_eq;by eapply Hwf_t|by eapply Hwf_t|done|done].
 
   edestruct (trees_equal_same_tags) as [HL _]; first done.
   eapply HL in Hcontain as Hcontain_t; clear HL.
 
-  opose proof (trees_equal_preserved_by_access _ _ _ _ Htree_s Htree_t) as Hstrs_eq'.
-  1: eapply Hwf_s. 1: eapply Hwf_t. 1, 2: done.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ _ Htree_s Htree_t) as Hstrs_eq'.
+  1,3,5: eapply Hwf_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_t. 1, 2: done.
 
   (* from source reduction, we get that bor_state_pre is satisfied for the affected locations *)
   assert (∀ i, (i < length v_s)%nat → bor_state_own (l +ₗ i) t (tk_unq tkk) σ_s ∧ bor_state_own (l +ₗ i) t (tk_unq tkk) σ_t) as Hcontrol_own.

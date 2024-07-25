@@ -64,18 +64,19 @@ Proof.
   apply rel_dec_refl.
 Qed.
 
-Lemma trees_equal_allows_more_access C tr1 tr2 blk kind acc_tg range :
+Lemma trees_equal_allows_more_access C d tr1 tr2 blk kind acc_tg range :
   (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
-  trees_equal C Forwards tr1 tr2 →
+  trees_equal C d tr1 tr2 →
   wf_trees tr1 →
   wf_trees tr2 →
-  each_tree_protected_parents_not_disabled C tr1 →
-  each_tree_parents_more_init tr1 →
+  each_tree_protected_parents_not_disabled C tr2 →
+  each_tree_parents_more_init tr2 →
   trees_contain acc_tg tr1 blk →
+  (kind = AccessWrite → d = Forwards) →
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
   is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
 Proof.
-  intros Heq Hwf1 Hwf2 HCCC1 HPMI1 Hcont [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
+  intros Heq Hwf1 Hwf2 HCCC1 HPMI1 Hcont Hd [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
   specialize (Heq blk).
   rewrite H1 in Heq. inversion Heq as [? trr2 Heqr q H2'|]; simplify_eq.
   eapply mk_is_Some, tree_equal_allows_more_access in H2 as (trr2'&Htrr2').
@@ -84,6 +85,7 @@ Proof.
   * intros tg. eapply wf_tree_tree_unique. eapply Hwf2. done.
   * by eapply HCCC1.
   * by eapply HPMI1.
+  * done. 
   * apply Heqr.
   * eapply wf_tree_tree_unique. 1: eapply Hwf1, H1.
     rewrite /trees_contain /trees_at_block H1 // in Hcont.
@@ -95,13 +97,17 @@ Lemma trees_equal_preserved_by_access
   :
   wf_trees tr1 →
   wf_trees tr2 →
+  each_tree_parents_more_active tr1 →
+  each_tree_parents_more_active tr2 →
+  each_tree_no_active_cousins C tr1 →
+  each_tree_no_active_cousins C tr2 →
   trees_equal C d tr1 tr2 ->
   trees_contain acc_tg tr1 blk ->
   apply_within_trees (memory_access kind C acc_tg range) blk tr1 = Some tr1' ->
   apply_within_trees (memory_access kind C acc_tg range) blk tr2 = Some tr2' ->
   trees_equal C d tr1' tr2'.
 Proof.
-  intros (Hwf1&_) (Hwf2&_) Heq Hcont.
+  intros (Hwf1&_) (Hwf2&_) Hwx1 Hwx2 Hwy1 Hwy2 Heq Hcont.
   intros ((tr1blk & tr1blk' & Hlutr1 & Hlutr1' & Hacc1) & Htr1nblk)%apply_within_trees_lookup.
   intros ((tr2blk & tr2blk' & Hlutr2 & Hlutr2' & Hacc2) & Htr2nblk)%apply_within_trees_lookup.
   intros blk'. destruct (decide (blk = blk')) as [<- | Hne];
@@ -110,9 +116,9 @@ Proof.
   specialize (Heq blk).
   rewrite Hlutr1 Hlutr2 in Heq.
   inversion Heq as [x1 x2 Heq1|]; subst x1 x2. (* yikes *)
-  eapply tree_equal_preserved_by_memory_access.
-  3, 5, 6: done.
-  3: rewrite /trees_contain /trees_at_block Hlutr1 // in Hcont.
+  eapply tree_equal_preserved_by_memory_access. 9,10: done. 7: done.
+  7: rewrite /trees_contain /trees_at_block Hlutr1 // in Hcont.
+  3: by eapply Hwx1. 3: by eapply Hwy1. 3: by eapply Hwx2. 3: by eapply Hwy2.
   all: eapply wf_tree_tree_unique; 
     (match goal with [ H : each_tree_wf _ |- _] => by eapply H end).
 Qed.

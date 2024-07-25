@@ -1030,7 +1030,7 @@ Proof.
     |ini confl1 confl2 (cc&Hcc&Hccact) Hpc1 Hpc2 Heqi1 Heqi2
     |ini confl1 confl2 Hnprot
     |lp1 lp2 HH1 HH2 Heqi1 Heqi2
-    |wit_tg X1 X2 Hdip1 Hinieq
+    |wit_tg X1 X2 Hdip1 Hdip2 Hinieq
     |
     |p1 p2 ini HH Heq1 Heq2
   ]; simplify_eq.
@@ -1092,8 +1092,7 @@ Proof.
       split; first exact Hlu1. split; first done. exists it_cs, l.
       split. 2: { split; first done. split; first by eexists. done. }
       eapply mem_enumerate_initalized. rewrite Hpermcs. done.
-    + eapply tree_equal_transfer_pseudo_disabled in HH2 as HH2'. 8: eapply tree_equal_sym; done. 2-7: done.
-      inversion HH2 as [|tg_cs it_cs lpX protX Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs HIMcs Heq1 Heq2]; first by econstructor.
+    + inversion HH2 as [|tg_cs it_cs lpX protX Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs HIMcs Heq1 Heq2]; first by econstructor.
       simplify_eq.
       destruct (decide (cccs = cid)) as [<-|Hnecs].
       2: econstructor 2; try done; exists cccs; split; try done.
@@ -1101,30 +1100,12 @@ Proof.
       enough (lp2 = Disabled) as -> by econstructor 1.
       eapply HraiD2'. eexists tg_cs, _.
       split.
-      { erewrite <- tree_equals_protected_initialized. 11: done. 2-9: done. 2: done.
-        eapply tree_all_protected_initialized_elem_of. 1: exact Hwf1'.
+      { eapply tree_all_protected_initialized_elem_of. 1: exact Hwf2'.
         exists it_cs. split; first done. split; first done.
         eapply mem_enumerate_initalized. }
-      split; first exact Hlu2. rewrite -He2. split; first done.
-      destruct (He3 tg_cs) as (itcs1&itcs2&Hitcs1&Hitcs2&Hcseq).
-      1: eapply Hlucs.
-      assert (itcs1 = it_cs) as <- by by eapply tree_lookup_unique.
-      exists itcs2, l. destruct (Hcseq l) as (Hprotcs&Heqcs).
-      eapply every_node_iff_every_lookup in Hic1'. 3: exact Hitcs1.
-      2: intros ??; eapply unique_lookup, Hwf1'; done.
-      eapply every_node_iff_every_lookup in Hic2'. 3: exact Hitcs2.
-      2: intros ??; eapply unique_lookup, Hwf2'; done.
-      eapply perm_eq_up_to_C_same_protected_active in Heqcs as Heqact. 2-13: done.
-      2: by econstructor.
-      rewrite Hpermcs /= in Heqact. destruct Heqact as [Heqact _]. ospecialize (Heqact _). 1: done.
-      eapply item_wf_item_lookup_active in Heqact as Heqini. 2: done.
-      split_and!.
-      * eapply mem_enumerate_initalized. rewrite Hpermcs; done.
-      * done.
-      * rewrite -Hprotcs. exists cccs. done.
-      * destruct (item_lookup itcs2 l); f_equal; simplify_eq; done.
-      * done.
-      * done.
+      split; first exact Hlu2. split; first done. exists it_cs, l.
+      split. 2: { split; first done. split; first by eexists. done. }
+      eapply mem_enumerate_initalized. rewrite Hpermcs. done.
   - econstructor 5.
     + inversion Hdip1 as [wit_it incl Hclid Hlu Hdis].
       econstructor. 1-2: done.
@@ -1138,6 +1119,23 @@ Proof.
       eapply HraiD1'. eexists tg_cs, _.
       split.
       { eapply tree_all_protected_initialized_elem_of. 1: exact Hwf1'.
+        exists it_cs. split; first done. split; first done.
+        eapply mem_enumerate_initalized. }
+      split; first exact Hlu. split; first done. exists it_cs, l.
+      split. 2: { split; first done. split; first by eexists. done. }
+      eapply mem_enumerate_initalized. rewrite Hpermcs. done.
+    + inversion Hdip2 as [wit_it incl Hclid Hlu Hdis].
+      econstructor. 1-2: done.
+      inversion Hdis as [X1 Hinitdis X2|lp X1 Hpdis Hlulp X2]; simplify_eq.
+      1: econstructor 1. econstructor 2.
+      inversion Hpdis as [|tg_cs it_cs lpX protX Hreldec Hlucs (cccs&Hp1cs&Hp2cs) Hpermcs HIMcs Heq1 Heq2]; first econstructor 1. simplify_eq.
+      destruct (decide (cccs = cid)) as [<-|Hnecs].
+      2: econstructor 2; try done; exists cccs; split; try done.
+      2: rewrite /call_is_active in Hp2cs|-*; set_solver.
+      enough (lp = Disabled) as -> by econstructor 1.
+      eapply HraiD2'. eexists tg_cs, _.
+      split.
+      { eapply tree_all_protected_initialized_elem_of. 1: exact Hwf2'.
         exists it_cs. split; first done. split; first done.
         eapply mem_enumerate_initalized. }
       split; first exact Hlu. split; first done. exists it_cs, l.

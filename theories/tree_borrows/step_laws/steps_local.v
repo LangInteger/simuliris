@@ -523,16 +523,16 @@ Proof.
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
   iPoseProof (bor_interp_readN_source_local with "Hbor Hs Htag") as "(%HdL & %itL & %HitL & %HitinvL & %HittagL)".
   iPoseProof (bor_interp_readN_target_local with "Hbor Ht Htag") as "(%HdT & %itT & %HitT & %HitinvT & %HittagT)".
-  odestruct (apply_within_trees_equal _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
+  odestruct (apply_within_trees_equal _ _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains t ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
     edestruct tree_equal_allows_more_deallocation as (ttr2'&Httr2').
-    7: eapply mk_is_Some, H1. 5: done.
-    1,2,5: eapply wf_tree_tree_unique. 5: rewrite Hscs_eq.
-    1,3,6: by eapply Hwf_s. 1: by eapply Hwf_t. 1: done. 1: rewrite -Hscs_eq; by eapply Hwf_s.
+    11: eapply mk_is_Some, H1. 9: done.
+    1,2,9: eapply wf_tree_tree_unique. 5,10: rewrite Hscs_eq.
+    1,3,8,9: by eapply Hwf_s. 1,5,6: by eapply Hwf_t. 1: done. 1-2: rewrite ?Hscs_eq; by eapply Hwf_t.
     exists ttr2'; split; first done.
-    eapply tree_equal_memory_deallocate. 5,6,4,3: done.
-    all: eapply wf_tree_tree_unique. 1: by eapply Hwf_s. by eapply Hwf_t. }
+    eapply tree_equal_memory_deallocate. 9,10: done. 8,7: done. 6: rewrite Hscs_eq.
+    1,3,4: by eapply Hwf_s. all: by eapply Hwf_t. }
   iSplitR.
   { iPureIntro. do 3 eexists. eapply dealloc_base_step'; try done.
     - setoid_rewrite <- elem_of_dom. setoid_rewrite <- elem_of_dom in Hdealloc_s. rewrite -Hdom_eq //.
