@@ -28,9 +28,7 @@ Definition filter_unq_weak lp := match lp with
   | EnsuringAccess WeaklyNoChildren => Deallocable end.
 
 (*
-TODO: refactor to interiormut no longer needing protectors
-
-TODO: the above todo makes no sense, we also have the "weakly no children" protector
+TODO: add a variant for reading on both sides yielding poison or related values (for public and reserved tags)
 *)
 Lemma sim_make_unique_public l t ac (sc_s sc_t : list scalar) π Φ e_t e_s c M L:
   M !! t = Some L →

@@ -31,7 +31,7 @@ Lemma source_copy_any v_t v_rd sz l_hl l_rd t π Ψ tk :
   l_hl.1 = l_rd.1 →
   t $$ tk -∗
   l_hl ↦s∗[tk]{t} v_t -∗
-  (∀ v_res, l_hl ↦s∗[tk]{t} v_t -∗ t $$ tk -∗ ⌜(v_res = #v_rd ∨ v_res = #(replicate sz ☠%S))⌝ -∗ source_red v_res π Ψ)%E -∗
+  (∀ v_res, l_hl ↦s∗[tk]{t} v_t -∗ t $$ tk -∗ ⌜(v_res = v_rd ∨ v_res = (replicate sz ☠%S))⌝ -∗ source_red #v_res π Ψ)%E -∗
   source_red (Copy (Place l_rd t sz)) π Ψ.
 Proof.
   iIntros (Hnz Hread Hsameblk) "Htag Hs Hsim". eapply read_range_length in Hread as HH. subst sz.

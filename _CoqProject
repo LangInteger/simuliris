@@ -203,7 +203,7 @@ theories/tree_borrows/adequacy.v
 # provable or even valid.
 theories/tree_borrows/examples/lib.v
 theories/tree_borrows/examples/pure.v
-#theories/tree_borrows/examples/opt1.v
+theories/tree_borrows/examples/delete_read_unprotected.v
 theories/tree_borrows/examples/reorder_read_down_protected.v
 #theories/tree_borrows/examples/opt2.v
 theories/tree_borrows/examples/reorder_read_down_public_escaped.v
