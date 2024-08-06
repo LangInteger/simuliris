@@ -189,7 +189,7 @@ theories/tree_borrows/trees_equal/trees_equal_initcall.v
 theories/tree_borrows/trees_equal/trees_equal_endcall_law_2.v
 theories/tree_borrows/trees_equal/trees_equal_asymmetric_prot.v
 theories/tree_borrows/trees_equal/trees_equal_source_read.v
- am
+
 theories/tree_borrows/wf.v 
 theories/tree_borrows/parallel_subst.v
 theories/tree_borrows/log_rel_structural.v
@@ -206,7 +206,7 @@ theories/tree_borrows/examples/pure.v
 #theories/tree_borrows/examples/opt1.v
 theories/tree_borrows/examples/reorder_read_down_protected.v
 #theories/tree_borrows/examples/opt2.v
-#theories/tree_borrows/examples/opt2_down.v
+theories/tree_borrows/examples/reorder_read_down_public_escaped.v
 theories/tree_borrows/examples/reorder_write_activated_protected_down.v
 theories/tree_borrows/examples/reorder_write_activated_protected_up.v
 #theories/tree_borrows/examples/coinductive.v
