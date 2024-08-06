@@ -622,6 +622,66 @@ Section lemmas.
     by apply lookup_lt_is_Some_2.
   Qed.
 
+  Lemma bor_interp_readN_source_after_accesss b σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd:
+    read_range l_rd.2 sz (list_to_heaplet scs_hl l_hl.2) = Some scs_rd →
+    l_hl.1 = l_rd.1 →
+    length scs_rd ≠ 0%nat →
+    trees_contain t (strs σ_s) l_rd.1 →
+    is_Some (apply_within_trees (memory_access_maybe_nonchildren_only b AccessRead (scs σ_s) t (l_rd.2, length scs_rd)) l_rd.1 (strs σ_s)) →
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+    l_hl ↦s∗[tk]{t} scs_hl -∗
+    t $$ tk -∗
+    ∃ it tr, ⌜σ_s.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_s it tr ∧ σ_s.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
+  Proof.
+    iIntros (Hrr Hsameblk Hnn Hcontains (trs' & Htrs')) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hp Htag".
+    iDestruct "Hsrel" as "(%Hdom_eq&%Hstrs_eq&%Hsnp_eq&%Hsnv_eq&%Hscs_eq&Hsrel)".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    pose proof Htrs' as (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
+    rewrite /trees_contain /trees_at_block Htr1 in Hcontains.
+    odestruct unique_implies_lookup as (it&Hit).
+    { eapply Hwf_s. 1: exact Htr1. apply Hcontains. }
+    eapply read_range_length in Hrr as Hsz.
+    assert (sz ≠ 0%nat) as Hnnsz by lia.
+    iExists it, tr1.
+    do 2 (iSplit; first done). iPureIntro.
+    intros i Hi.
+    eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
+    eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
+    eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
+    assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
+    { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
+    ospecialize (Hs (l_rd +ₗ i) sc _).
+    1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct Hs as (Ht1&Ht2); last first.
+    { destruct Ht1 as (it'&tr'&Hit'&Htr'&HH).
+      simpl in *.
+      assert (tr1 = tr') as <- by congruence.
+      assert (it = it') as <- by by eapply tree_lookup_unique.
+      rewrite Ht2. done. }
+    enough (perm (item_lookup it (l_rd.2 + i)) ≠ Disabled).
+    { destruct tk; try done.
+      all: exists it; split; first by eexists.
+      all: intros _; done. }
+    eapply mk_is_Some, apply_access_success_condition, every_node_eqv_universal in Htr1'.
+    2: eapply exists_determined_exists; eapply Hit.
+    setoid_rewrite is_Some_ignore_bind in Htr1'.
+    setoid_rewrite <- mem_apply_range'_success_condition in Htr1'.
+    ospecialize (Htr1' (l_rd.2 + i) _).
+    { split; simpl in *; lia. }
+    eapply tree_lookup_correct_tag in Hit as Hit'; subst t.
+    rewrite rel_dec_refl in Htr1'.
+    rewrite maybe_non_children_only_no_effect in Htr1'. 2: done.
+    destruct Htr1' as [x (x1&Hx1&_)%bind_Some].
+    rewrite /item_lookup.
+    rewrite /apply_access_perm_inner in Hx1.
+    intros Hd; rewrite Hd in Hx1. congruence.
+  Qed.
+
 (*
 
   (** * Write lemmas *)

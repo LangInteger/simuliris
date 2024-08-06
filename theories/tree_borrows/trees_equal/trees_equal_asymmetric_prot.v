@@ -17,22 +17,6 @@ Section utils.
 
 Context (C : call_id_set).
 
-    (* A bunch of extra conditions on the structure.
-       They are put in the same clause to simplify this theorem, but we will want
-       a higher-level lemma that derives these assumptions from their actual justification. *)
-  Definition tree_equal_asymmetric_read_pre_protected tr range it acc_tg (mode:bool) := 
-    (∀ off, range'_contains range off → 
-            let pp_acc := item_lookup it off in
-            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
-            ∀ tg' it', tree_lookup tr tg' it' → 
-            let pp := item_lookup it' off in
-            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
-            match rd with
-              Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
-            | Foreign Cousin => pp.(perm) ≠ Active | _ => True end ∧
-            if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
-             (pp_acc.(perm) = Frozen ∧ (∀ i, rd = Child (Strict i) → pp.(perm) ≠ Active))).
-
   (* Remember that the entire reason we have [trees_equal] in the first place
      is to enable spurious reads. This is the lemma that verifies that after we
      do a spurious read we get a [tree_equal]. A companion lemma (stating
@@ -196,21 +180,6 @@ Context (C : call_id_set).
       destruct pp; try done. all: repeat (simpl in *; simplify_eq); by econstructor 1.
   Qed.
 
-  (* We can also do symmetric writes, provided we have sufficiently strong preconditions,
-     which include being protected. *)
-  Definition tree_equal_asymmetric_write_pre_protected tr range it acc_tg := 
-    (∀ off, range'_contains range off → 
-            let pp_acc := item_lookup it off in
-            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) = Active ∧
-            ∀ tg' it', tree_lookup tr tg' it' → 
-            let pp := item_lookup it' off in
-            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
-            match rd with
-            | Child (Strict Immediate) => pp.(perm) = Disabled
-            | Child _ => True
-            | Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) = Active (* this follows from state_wf *)
-            | Foreign Cousin => match pp.(perm) with Disabled => True | ReservedIM => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
-
   Lemma disabled_is_disabled x1 x2 x3 x4 pp : perm pp = Disabled → is_disabled C x1 x2 x3 pp x4.
   Proof.
     destruct pp as [[] pp]; simpl; intros ->.
@@ -225,7 +194,7 @@ Context (C : call_id_set).
     (* Accessed tag must be in the tree and protected*)
     tree_lookup tr acc_tg it ->
     protector_is_active it.(iprot) C ->
-    tree_equal_asymmetric_write_pre_protected tr range it acc_tg ->
+    tree_equal_asymmetric_write_pre_protected C tr range it acc_tg ->
     (* Under the above conditions if we do a spurious read and it succeeds
        we get a [tree_equal] on the outcome. *)
     memory_access AccessWrite C acc_tg range tr = Some tr' ->

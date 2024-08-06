@@ -168,6 +168,7 @@ theories/tree_borrows/step_laws/steps_opt.v
 theories/tree_borrows/step_laws/steps_local.v
 theories/tree_borrows/step_laws/steps_unique.v
 theories/tree_borrows/step_laws/steps_prot.v
+theories/tree_borrows/step_laws/steps_source_only.v
 theories/tree_borrows/steps_all.v
 theories/tree_borrows/primitive_laws.v # needs steps_opt, for now commented out
 theories/tree_borrows/proofmode.v
@@ -186,8 +187,9 @@ theories/tree_borrows/trees_equal/trees_equal_create_child.v
 theories/tree_borrows/trees_equal/trees_equal_endcall_law.v
 theories/tree_borrows/trees_equal/trees_equal_initcall.v
 theories/tree_borrows/trees_equal/trees_equal_endcall_law_2.v
-theories/tree_borrows/trees_equal/trees_equal_asymmetric_read.v
-
+theories/tree_borrows/trees_equal/trees_equal_asymmetric_prot.v
+theories/tree_borrows/trees_equal/trees_equal_source_read.v
+ am
 theories/tree_borrows/wf.v 
 theories/tree_borrows/parallel_subst.v
 theories/tree_borrows/log_rel_structural.v

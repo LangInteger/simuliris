@@ -7,7 +7,7 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import tree_access_laws logical_state inv_accessors.
-From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas trees_equal_asymmetric_read.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
 From iris.prelude Require Import options.
 
 Lemma loc_controlled_access_outside l tk sc cids σ σ' kind blk off1 sz acc_tg lu_tg b :
@@ -2055,6 +2055,17 @@ Proof.
     rewrite Hact. split; first done.
     intros tg' it' Hit'. specialize (Hothers _ _ Hit'). subst tg'.
     rewrite rel_dec_refl. done.
+Qed.
+
+
+Lemma source_only_read_pre_from_bor_state_own σ blk tr acc_tg range it tk :
+  state_wf σ →
+  σ.(strs) !! blk = Some tr →
+  tree_lookup tr acc_tg it →
+  (∀ off, range'_contains range off → bor_state_own_on (blk, off) acc_tg tk σ it tr) →
+  tree_equal_asymmetric_read_pre_source tr range it acc_tg (match tk with tk_pub => false | _ => true end).
+Proof.
+  by eapply asymmetric_read_prot_pre_from_bor_state_own.
 Qed.
 
 Lemma bor_state_own_unq_act_enables_write b range σ blk tg it_acc :

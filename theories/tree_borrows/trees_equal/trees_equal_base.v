@@ -430,3 +430,57 @@ Section utils.
 
 End utils.
 
+Section defs.
+
+  (* These definitions are used as preconditions for one-sided reads.
+     We put them here since that makes things more modular *)
+
+
+  
+  (* A bunch of extra conditions on the structure.
+     They are put in the same clause to simplify this theorem, but we will want
+     a higher-level lemma that derives these assumptions from their actual justification. 
+     Note that this is the same as tree_equal_asymmetric_read_pre_protected.. *)
+  Definition tree_equal_asymmetric_read_pre_source tr range it acc_tg (mode:bool) := 
+    (∀ off, range'_contains range off → 
+            let pp_acc := item_lookup it off in
+            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
+            ∀ tg' it', tree_lookup tr tg' it' → 
+            let pp := item_lookup it' off in
+            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
+            match rd with
+              Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
+            | Foreign Cousin => pp.(perm) ≠ Active | _ => True end ∧
+            if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
+             (pp_acc.(perm) = Frozen ∧ (∀ i, rd = Child (Strict i) → pp.(perm) ≠ Active))).
+
+  Definition tree_equal_asymmetric_read_pre_protected tr range it acc_tg (mode:bool) := 
+    (∀ off, range'_contains range off → 
+            let pp_acc := item_lookup it off in
+            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
+            ∀ tg' it', tree_lookup tr tg' it' → 
+            let pp := item_lookup it' off in
+            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
+            match rd with
+              Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
+            | Foreign Cousin => pp.(perm) ≠ Active | _ => True end ∧
+            if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
+             (pp_acc.(perm) = Frozen ∧ (∀ i, rd = Child (Strict i) → pp.(perm) ≠ Active))).
+
+  (* We can also do symmetric writes, provided we have sufficiently strong preconditions,
+     which include being protected. *)
+  Definition tree_equal_asymmetric_write_pre_protected C tr range it acc_tg := 
+    (∀ off, range'_contains range off → 
+            let pp_acc := item_lookup it off in
+            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) = Active ∧
+            ∀ tg' it', tree_lookup tr tg' it' → 
+            let pp := item_lookup it' off in
+            let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
+            match rd with
+            | Child (Strict Immediate) => pp.(perm) = Disabled
+            | Child _ => True
+            | Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) = Active (* this follows from state_wf *)
+            | Foreign Cousin => match pp.(perm) with Disabled => True | ReservedIM => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
+
+End defs.
+
