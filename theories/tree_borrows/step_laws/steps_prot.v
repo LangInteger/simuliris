@@ -7,7 +7,9 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
-From simuliris.tree_borrows Require Import wishlist trees_equal.
+From simuliris.tree_borrows Require Import wishlist.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_asymmetric_read trees_equal_transitivity.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)

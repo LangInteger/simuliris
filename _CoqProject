@@ -160,6 +160,8 @@ theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
 theories/tree_borrows/inv_accessors.v # needs stuff
 theories/tree_borrows/step_laws/steps_refl.v
+theories/tree_borrows/step_laws/steps_refl_delete.v
+theories/tree_borrows/step_laws/steps_refl_endcall.v
 theories/tree_borrows/step_laws/steps_read_write_simple.v
 theories/tree_borrows/step_laws/steps_retag.v
 theories/tree_borrows/step_laws/steps_opt.v 
@@ -174,8 +176,17 @@ theories/tree_borrows/wishlist.v
 theories/tree_borrows/tree_access_laws.v
 theories/tree_borrows/tag_protected_laws.v
 theories/tree_borrows/loc_controlled_laws.v
-theories/tree_borrows/trees_equal_endcall_law.v
-theories/tree_borrows/trees_equal.v
+
+theories/tree_borrows/trees_equal/trees_equal_base.v
+theories/tree_borrows/trees_equal/random_lemmas.v
+theories/tree_borrows/trees_equal/trees_equal_more_access.v
+theories/tree_borrows/trees_equal/trees_equal_preserved_by_access.v
+theories/tree_borrows/trees_equal/trees_equal_transitivity.v
+theories/tree_borrows/trees_equal/trees_equal_create_child.v
+theories/tree_borrows/trees_equal/trees_equal_endcall_law.v
+theories/tree_borrows/trees_equal/trees_equal_initcall.v
+theories/tree_borrows/trees_equal/trees_equal_endcall_law_2.v
+theories/tree_borrows/trees_equal/trees_equal_asymmetric_read.v
 
 theories/tree_borrows/wf.v 
 theories/tree_borrows/parallel_subst.v

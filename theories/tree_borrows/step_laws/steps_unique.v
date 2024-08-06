@@ -7,7 +7,9 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
-From simuliris.tree_borrows Require Import wishlist trees_equal.
+From simuliris.tree_borrows Require Import wishlist.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -109,7 +111,7 @@ Proof.
   edestruct (trees_equal_same_tags) as [HL _]; first done.
   eapply HL in Hcontain as Hcontain_t; clear HL.
 
-  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ _ Htree_s Htree_t) as Hstrs_eq'.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ _ _ Htree_s Htree_t) as Hstrs_eq'.
   1,3,5: eapply Hwf_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_t. 1, 2: done.
 
   (* from source reduction, we get that bor_state_pre is satisfied for the affected locations *)

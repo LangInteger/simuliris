@@ -5,8 +5,10 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
-From simuliris.tree_borrows Require Import trees_equal wishlist steps_progress steps_inv.
+From simuliris.tree_borrows Require Import wishlist steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors early_proofmode.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access.
 From iris.prelude Require Import options.
 
 Section lifting.
@@ -121,7 +123,7 @@ Proof.
   }
   edestruct trees_equal_allows_more_access as (trs_t'&Htrst).
   1: done. 1: eapply Hwf_s. 1,2,3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
   1,3,5: eapply Hwf_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done.
   assert (is_Some (read_mem l_s sz (shp σ_t))) as (vr_t&Hreadmem_t).
   { eapply read_mem_is_Some'. eapply mk_is_Some in Hreadmem. rewrite -read_mem_is_Some' Hdom_eq in Hreadmem. done. }

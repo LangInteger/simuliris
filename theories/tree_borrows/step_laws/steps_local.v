@@ -7,7 +7,9 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
-From simuliris.tree_borrows Require Import wishlist trees_equal.
+From simuliris.tree_borrows Require Import wishlist.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -527,9 +529,9 @@ Proof.
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains t ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
     edestruct tree_equal_allows_more_deallocation as (ttr2'&Httr2').
-    11: eapply mk_is_Some, H1. 9: done.
-    1,2,9: eapply wf_tree_tree_unique. 5,10: rewrite Hscs_eq.
-    1,3,8,9: by eapply Hwf_s. 1,5,6: by eapply Hwf_t. 1: done. 1-2: rewrite ?Hscs_eq; by eapply Hwf_t.
+    7: eapply mk_is_Some, H1. 5: done.
+    1,2: eapply wf_tree_tree_unique. 3: rewrite Hscs_eq.
+    1,5: by eapply Hwf_s. 1-3: by eapply Hwf_t.
     exists ttr2'; split; first done.
     eapply tree_equal_memory_deallocate. 9,10: done. 8,7: done. 6: rewrite Hscs_eq.
     1,3,4: by eapply Hwf_s. all: by eapply Hwf_t. }

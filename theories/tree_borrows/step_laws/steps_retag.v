@@ -5,8 +5,10 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
-From simuliris.tree_borrows Require Import trees_equal wishlist steps_progress steps_inv.
+From simuliris.tree_borrows Require Import wishlist steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access trees_equal_create_child.
 From iris.prelude Require Import options.
 
 Section lifting.
@@ -94,7 +96,7 @@ Proof.
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
   1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1,2,3: rewrite ?Hscs_eq; apply Hwf_mid_t. 1: done. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
   1,3,5: eapply Hwf_mid_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_mid_t. 1: done.
 
   odestruct (tree_access_succeeds_heap_value _ false) as (v_s&Hv_s).
@@ -328,7 +330,7 @@ Proof.
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
   1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1,2,3: rewrite ?Hscs_eq; apply Hwf_mid_t. 1: done. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
   1,3,5: eapply Hwf_mid_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_mid_t. 1: done.
 
   odestruct (tree_access_succeeds_heap_value _ false) as (v_s&Hv_s).
@@ -587,7 +589,7 @@ Proof.
   5: by rewrite Hscs_eq Hsnp_eq in Happly1_t. 4: by rewrite -Hscs_eq. 2-3: setoid_rewrite <- trees_equal_same_tags; last done. 2: done. 2: by rewrite -Hsnp_eq.
   edestruct trees_equal_allows_more_access as (trs2_t&Happly2_t).
   1: exact Hstrs1_eq. 1: apply Hwf_mid_s. 1,2,3: rewrite ?Hscs_eq; apply Hwf_mid_t. 1: done. 1: done. 1: by eapply mk_is_Some.
-  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs1_eq _ Happly2_s Happly2_t) as Hstrs2_eq.
   1,3,5: eapply Hwf_mid_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_mid_t. 1: done.
 
   odestruct (tree_access_succeeds_heap_value _ false) as (v_s&Hv_s).

@@ -1,5 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.tree_borrows Require Import proofmode tactics.
+From simuliris.tree_borrows Require Import early_proofmode tactics.
+From simuliris.tree_borrows.step_laws Require Import steps_refl steps_refl_delete steps_refl_endcall steps_retag steps_read_write_simple.
 From simuliris.tree_borrows Require Import parallel_subst primitive_laws log_rel_structural wf behavior.
 From iris.prelude Require Import options.
 

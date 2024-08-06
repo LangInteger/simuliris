@@ -11,7 +11,8 @@ From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
-From simuliris.tree_borrows Require Import logical_state inv_accessors trees_equal.
+From simuliris.tree_borrows Require Import logical_state inv_accessors.
+From simuliris.tree_borrows.trees_equal Require Export trees_equal_base random_lemmas.
 From iris.prelude Require Import options.
 
 (***** not part of the API *****)
@@ -62,65 +63,6 @@ Proof.
   rewrite /trees_rel_dec.
   destruct (trs !! blk); [|reflexivity].
   apply rel_dec_refl.
-Qed.
-
-Lemma trees_equal_allows_more_access C d tr1 tr2 blk kind acc_tg range :
-  (* _even_ nicer preconditions would be nice, but these are already somewhat eeh "optimistic" *)
-  trees_equal C d tr1 tr2 →
-  wf_trees tr1 →
-  wf_trees tr2 →
-  each_tree_protected_parents_not_disabled C tr2 →
-  each_tree_parents_more_init tr2 →
-  trees_contain acc_tg tr1 blk →
-  (kind = AccessWrite → d = Forwards) →
-  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr1) → 
-  is_Some (apply_within_trees (memory_access kind C acc_tg range) blk tr2).
-Proof.
-  intros Heq Hwf1 Hwf2 HCCC1 HPMI1 Hcont Hd [x (trr1&H1&(trr1'&H2&[= <-])%bind_Some)%bind_Some].
-  specialize (Heq blk).
-  rewrite H1 in Heq. inversion Heq as [? trr2 Heqr q H2'|]; simplify_eq.
-  eapply mk_is_Some, tree_equal_allows_more_access in H2 as (trr2'&Htrr2').
-  * eexists. rewrite /apply_within_trees -H2' /= Htrr2' /= //.
-  * intros tg. eapply wf_tree_tree_unique. eapply Hwf1, H1.
-  * intros tg. eapply wf_tree_tree_unique. eapply Hwf2. done.
-  * by eapply HCCC1.
-  * by eapply HPMI1.
-  * done. 
-  * apply Heqr.
-  * eapply wf_tree_tree_unique. 1: eapply Hwf1, H1.
-    rewrite /trees_contain /trees_at_block H1 // in Hcont.
-Qed.
-
-
-Lemma trees_equal_preserved_by_access
-  {C d blk tr1 tr2 tr1' tr2' kind acc_tg range}
-  :
-  wf_trees tr1 →
-  wf_trees tr2 →
-  each_tree_parents_more_active tr1 →
-  each_tree_parents_more_active tr2 →
-  each_tree_no_active_cousins C tr1 →
-  each_tree_no_active_cousins C tr2 →
-  trees_equal C d tr1 tr2 ->
-  trees_contain acc_tg tr1 blk ->
-  apply_within_trees (memory_access kind C acc_tg range) blk tr1 = Some tr1' ->
-  apply_within_trees (memory_access kind C acc_tg range) blk tr2 = Some tr2' ->
-  trees_equal C d tr1' tr2'.
-Proof.
-  intros (Hwf1&_) (Hwf2&_) Hwx1 Hwx2 Hwy1 Hwy2 Heq Hcont.
-  intros ((tr1blk & tr1blk' & Hlutr1 & Hlutr1' & Hacc1) & Htr1nblk)%apply_within_trees_lookup.
-  intros ((tr2blk & tr2blk' & Hlutr2 & Hlutr2' & Hacc2) & Htr2nblk)%apply_within_trees_lookup.
-  intros blk'. destruct (decide (blk = blk')) as [<- | Hne];
-    last rewrite -Htr1nblk // -Htr2nblk //.
-  rewrite Hlutr1' Hlutr2'. econstructor.
-  specialize (Heq blk).
-  rewrite Hlutr1 Hlutr2 in Heq.
-  inversion Heq as [x1 x2 Heq1|]; subst x1 x2. (* yikes *)
-  eapply tree_equal_preserved_by_memory_access. 9,10: done. 7: done.
-  7: rewrite /trees_contain /trees_at_block Hlutr1 // in Hcont.
-  3: by eapply Hwx1. 3: by eapply Hwy1. 3: by eapply Hwx2. 3: by eapply Hwy2.
-  all: eapply wf_tree_tree_unique; 
-    (match goal with [ H : each_tree_wf _ |- _] => by eapply H end).
 Qed.
 
 Lemma apply_trees_access_lookup_inout b cids trs kind blk off1 sz acc_tg lu_tg trs' itold :

@@ -9,7 +9,7 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs.
 From simuliris.tree_borrows Require Export steps_wf.
 From simuliris.tree_borrows Require Import steps_progress.
-From simuliris.tree_borrows Require Import trees_equal.
+From simuliris.tree_borrows Require Import trees_equal.trees_equal_base.
 From iris.prelude Require Import options.
 
 Inductive access_ensuring := Strongly | WeaklyNoChildren.

@@ -6,7 +6,8 @@ From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import steps_progress steps_inv.
-From simuliris.tree_borrows Require Import tree_access_laws logical_state inv_accessors trees_equal.
+From simuliris.tree_borrows Require Import tree_access_laws logical_state inv_accessors.
+From simuliris.tree_borrows.trees_equal Require Export trees_equal_base random_lemmas.
 From iris.prelude Require Import options.
 
 (* TODO move somewhere else *)

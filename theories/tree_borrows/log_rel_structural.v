@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.tree_borrows Require Import proofmode tactics.
+From simuliris.tree_borrows Require Import early_proofmode tactics.
 From simuliris.tree_borrows Require Import parallel_subst primitive_laws wf.
 From iris.prelude Require Import options.
 
