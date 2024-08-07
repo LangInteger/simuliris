@@ -1722,6 +1722,10 @@ Section val_rel.
     | _, _ => False
     end.
 
+  (* does not hold definitionally *)
+  Lemma sc_rel_source_poison t : ⊢ sc_rel t ScPoison.
+  Proof. by destruct t. Qed.
+
   Definition value_rel (v1 v2 : value) : iProp Σ := [∗ list] sc_t; sc_s ∈ v1; v2, sc_rel sc_t sc_s.
 
   Definition rrel (r1 r2 : result) : iProp Σ :=

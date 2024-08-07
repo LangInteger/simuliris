@@ -13,6 +13,7 @@ From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access t
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
+(* TODO: rename this file. It is not just about unique *)
 
 Section lifting.
 Context `{!sborGS Σ}.
@@ -22,6 +23,127 @@ Implicit Types σ σ_s σ_t : state.
 Implicit Types r r_s r_t : result.
 Implicit Types l : loc.
 Implicit Types f : fname.
+
+(** ** Read lemma *)
+
+Lemma sim_copy v_t v_s v_rd_t v_rd_s sz l_hl l_rd t π tk Φ :
+  sz ≠ 0%nat → (* if it is 0, use the zero-sized read lemma *)
+  read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd_t →
+  read_range l_rd.2 sz (list_to_heaplet v_s l_hl.2) = Some v_rd_s →
+  l_hl.1 = l_rd.1 →
+  t $$ tk -∗
+  l_hl ↦s∗[tk]{t} v_s -∗
+  l_hl ↦t∗[tk]{t} v_t -∗
+  (∀ v_res_s v_res_t, l_hl ↦s∗[tk]{t} v_s -∗ l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ ⌜(v_res_s = v_rd_s ∧ v_res_t = v_rd_t ∨ v_res_s = (replicate sz ☠%S) ∧ v_res_t = (replicate sz ☠%S))⌝ -∗ #v_res_t ⪯{π} #v_res_s  [{ Φ }])%E -∗
+  (Copy (Place l_rd t sz))  ⪯{π} (Copy (Place l_rd t sz))  [{ Φ }].
+Proof.
+  iIntros (Hsz Hreadt Hreads Hl) "Htk Hs Ht Hsim".
+  iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "[(HP_t & HP_s & Hbor) %Hsafe]".
+  iModIntro.
+  destruct Hsafe as [Hpool Hsafe].
+  iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
+  destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
+  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss)&_)|[(_&_&[]%Hsz)|(Hcontain_s&Hnotrees&Hisval)]];
+  pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done; last first.
+  { (* We get poison *)
+    assert (apply_within_trees (memory_access AccessRead (scs σ_s) t (l_rd.2, sz)) l_rd.1 (strs σ_t) = None) as Hnotrees_t.
+    { destruct apply_within_trees eqn:HSome in |-*; try done.
+      eapply mk_is_Some, trees_equal_allows_more_access in HSome as (x&Hx); first by erewrite Hnotrees in Hx.
+      1: by eapply trees_equal_sym. 1: eapply Hwf_t. 1-3: by eapply Hwf_s. 1: done. intros [=]. }
+    iSplit. 
+    { iPureIntro. do 3 eexists. eapply failed_copy_base_step'; try done.
+      1: rewrite -Hscs_eq //.
+      eapply read_mem_is_Some'. rewrite -Hdom_eq. by eapply read_mem_is_Some'.
+    }
+    iIntros (e_t' efs_t σ_t') "%Hhead_t".
+    specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&[((Hnotree&->&Hpoison&Hheapsome)&Hcontains_t)|(trs'&v'&->&Hσ_t'&Hreadmem&[(Hcontains_t&Hsometree&_)|([]%Hsz&_&_)])]); last congruence.
+    iModIntro. iExists e_t', [], σ_s. iSplit.
+    { iPureIntro. subst e_t'. destruct σ_s, l_rd. simpl. do 2 econstructor; by eauto. }
+    simpl. iFrame. iSplit; last done. subst e_t'.
+    iApply ("Hsim" $! _ _ with "Hs Ht Htk"). iPureIntro. by right.
+  }
+  edestruct trees_equal_allows_more_access as (trs_t'&Htrst).
+  1: done. 1: eapply Hwf_s. 1,2,3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done. 1: done. 1: by eapply mk_is_Some.
+  opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
+  1,3,5: eapply Hwf_s. 1-3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done.
+  assert (is_Some (read_mem l_rd sz (shp σ_t))) as (vr_t&Hreadmem_t).
+  { eapply read_mem_is_Some'. eapply mk_is_Some in Hreadmem. rewrite -read_mem_is_Some' Hdom_eq in Hreadmem. done. }
+  iSplit.
+  { iPureIntro. do 3 eexists. eapply copy_base_step'. 1-3: done. rewrite -Hscs_eq. done. }
+  (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
+  iIntros (e_t' efs_t σ_t') "%Hhead_t".
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&[((Hnotree&->&Hpoison&Hheapsome)&Hcontains_t)|(tr'&vr_t'&->&Hσ_t'&H3&[(Hcontains_t&H4&_)|([]%Hsz&_&_)])]); first congruence.
+  assert (vr_t' = vr_t) as -> by congruence.
+  assert (tr' = trs_t') as -> by congruence.
+  clear H3 H4.
+  iModIntro.
+  pose (σ_s' := (mkState (shp σ_s) trs_s' (scs σ_s) (snp σ_s) (snc σ_s))).
+  assert (Hhead_s : base_step P_s (Copy (Place l_rd t sz)) σ_s (ValR vr_s) σ_s' []).
+  { eapply copy_base_step'; eauto. }
+  iExists (Val vr_s), [], σ_s'. iSplitR; first done.
+  iFrame "HP_t HP_s".
+
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
+  eapply read_range_length in Hreads as Hlens. eapply read_range_length in Hreadt as Hlent.
+  iPoseProof (bor_interp_readN_source_after_accesss with "Hbor Hs Htk") as "(%its&%trs&%Hits&%Htrs&%Howns)".
+  1: exact Hreads. 1: done. 1: lia. 1: done. 1: eexists; rewrite Hlens; done.
+  iPoseProof (bor_interp_readN_target_after_accesss with "Hbor Ht Htk") as "(%itt&%trt&%Hitt&%Htrt&%Hownt)".
+  1: exact Hreadt. 1: done. 1: lia. 1: done. 1: eexists; rewrite Hlent -Hscs_eq; done.
+
+  
+
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iPoseProof (tkmap_lookup with "Htag_auth Htk") as "%Htk".
+  iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Ht".
+  iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hs".
+
+  iSplitR "Hsim Hs Ht Htk".
+  {
+    (* re-establish the invariants *)
+    iExists M_call, M_tag, M_t, M_s.
+    iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
+    subst σ_s' σ_t'.
+    iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+    - (* pub cid *)
+      iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
+    - repeat (iSplit; first done).
+      simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
+    - (* call invariant *)
+      iPureIntro. destruct Hcall_interp as (Hcall_interp&Hcc2). split; last first. 1: done. intros c M' HM'_some.
+      specialize (Hcall_interp c M' HM'_some) as (Hin & Hprot).
+      split; first by apply Hin. intros pid L HL_some. specialize (Hprot pid L HL_some) as [Hpid Hprot].
+      split; first by apply Hpid. intros l b Hin_l.
+      specialize (Hprot l b Hin_l).
+      eapply (tag_protected_preserved_by_access). 2: apply Htrst. 1: apply Hwf_t.
+      1: by rewrite Hscs_eq. done.
+    - (* tag invariant *)
+      iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | done..].
+      intros t' tk' Htk_some. destruct (Htag_interp _ _ Htk_some) as (Hsnp_lt_t & Hsnp_lt_s & Hlocal & Hctrl_t & Hctrl_s & Hag).
+      split_and!; [ done | done | | | | done ].
+      + done. (* intros ->. split; intros ??; eapply apply_within_trees_tag_count_preserves_exists.
+        1, 4: done. 1, 3: eapply memory_access_tag_count.
+        all: by eapply Hlocal. *)
+      + intros l sc_t Hsc_t. eapply loc_controlled_read_preserved_everywhere.
+        1: rewrite Hscs_eq in Htrst; eapply Htrst. 1: done. 1: by rewrite -Hscs_eq. 1-2: done.
+        by eapply Hctrl_t.
+      + intros l sc_s Hsc_s. eapply loc_controlled_read_preserved_everywhere.
+        1: eapply Htrss. 1-4: done.
+        by eapply Hctrl_s.
+    - (* source state wf *)
+      iPureIntro. eapply base_step_wf; done.
+    - (* target state wf *)
+      iPureIntro. eapply base_step_wf; done.
+  }
+  iSplitL; last done.
+
+  iApply ("Hsim" with "Hs Ht Htk"). iPureIntro. left.
+  eapply read_range_list_to_heaplet_read_memory_strict in Hreads. 2: done.
+  2: intros i Hi; specialize (Howns i Hi) as (_&H); exact H.
+  eapply read_range_list_to_heaplet_read_memory_strict in Hreadt. 2: done.
+  2: intros i Hi; specialize (Hownt i Hi) as (_&H); exact H.
+  rewrite Hreadmem_t in Hreadt. rewrite Hreadmem in Hreads. simplify_eq.
+  done.
+Qed.
 
 
 (** ** Write lemmas *)
