@@ -8,6 +8,11 @@ From iris.prelude Require Import options.
   These are not retagged (which mirrors the behavior of e.g. Miri).
 
   [g] is used for the loop body -- due to the environment it could potentially do "arbitrary" things.
+
+  Note that this example is chosen carefully: There are strictly more reads in the source than there are in the target.
+    In particular, after unrolling the first loop iteration, we notice that removing a load leads to the same program.
+    Thus, we do not need to insert loads in the target program, allowing us to prove this example correct while getting
+    by without exploiting "no concurrent frees" (something we do not do, in general).
  *)
 
 (*
