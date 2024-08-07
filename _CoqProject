@@ -201,13 +201,13 @@ theories/tree_borrows/adequacy.v
 # These were copied directly from SB.
 # Some of them we still want, but other are known to be no longer
 # provable or even valid.
-theories/tree_borrows/examples/lib.v
+#theories/tree_borrows/examples/coinductive.v
 theories/tree_borrows/examples/pure.v
-theories/tree_borrows/examples/delete_read_unprotected.v
-theories/tree_borrows/examples/reorder_read_down_protected.v
-#theories/tree_borrows/examples/opt2.v
 theories/tree_borrows/examples/reorder_read_down_public_escaped.v
+theories/tree_borrows/examples/reorder_read_up_public_escaped.v
+theories/tree_borrows/examples/lib.v
+theories/tree_borrows/examples/reorder_read_down_protected.v
 theories/tree_borrows/examples/reorder_write_activated_protected_down.v
 theories/tree_borrows/examples/reorder_write_activated_protected_up.v
-#theories/tree_borrows/examples/coinductive.v
-
+theories/tree_borrows/examples/delete_read_unprotected.v
+theories/tree_borrows/examples/delete_read_public_escaped_unprotected.v

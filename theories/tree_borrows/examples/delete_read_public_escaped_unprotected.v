@@ -7,26 +7,20 @@ From simuliris.tree_borrows Require Import proofmode lang adequacy examples.lib.
 From iris.prelude Require Import options.
 
 
-
-(** Moving read of shared ref up across code that *may* use that ref. *)
-
-(** This is a variant using protectors.
-  See delete_read_pubic_escaped_unprotected.v for the original optimization without protectors and with deferred UB.
- *)
+(** Re-using an earlier read across code that *may* use that ref. *)
 
 (* Assuming x : & i32 *)
-Definition ex2_unopt : expr :=
-    let: "c" := InitCall in
-
+Definition ex2_unopt' : expr :=
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place sizeof_scalar "i" in
 
     (* retag_place reborrows the pointer value stored in "x" (which is "i"),
-      then updates "x" with the new pointer value.
-      Using a protector here.
-    *)
-    retag_place "x" ShrRef TyFrz sizeof_scalar FnEntry "c";;
-
+      then updates "x" with the new pointer value. A [Default] retag is
+      sufficient for this, we don't need the protector. *)
+    retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
+    (* a "dummy load" -- since we can not insert loads, we must have a load here to so that it can remain in the target *)
+    (* This load is not used here, but later the target will use the value loaded here *)
+    Copy *{sizeof_scalar} "x" ;;
     (* The unknown code is represented by a call to an unknown function "f",
       which does take the pointer value from "x" as an argument. *)
     Call #[ScFnPtr "f"] (Copy "x") ;;
@@ -38,33 +32,30 @@ Definition ex2_unopt : expr :=
     Free "x" ;;
 
     (* Finally, return the read value *)
-    EndCall "c";;
     "v"
   .
 
-Definition ex2_opt : expr :=
-    let: "c" := InitCall in
+Definition ex2_opt' : expr :=
     let: "x" := new_place sizeof_scalar "i" in
-    retag_place "x" ShrRef TyFrz sizeof_scalar FnEntry "c";;
+    retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
     let: "v" := Copy *{sizeof_scalar} "x" in
     Call #[ScFnPtr "f"] (Copy "x") ;;
     Free "x" ;;
-    EndCall "c";;
     "v"
   .
 
-Lemma sim_opt2 `{sborGS Σ} :
-  ⊢ log_rel ex2_opt ex2_unopt.
+
+Lemma sim_opt2' `{sborGS Σ} :
+  ⊢ log_rel ex2_opt' ex2_unopt'.
 Proof.
   log_rel.
   iIntros "%r_t %r_s #Hrel !# %π _".
   sim_pures.
-  sim_apply InitCall InitCall sim_init_call "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
 
   (* new place *)
   simpl. source_bind (new_place _ _).
   iApply source_red_safe_reach.
-  { intros. rewrite subst_result. eapply new_place_safe_reach. }
+  { intros. eapply new_place_safe_reach. }
   simpl. iIntros "(%v_s & -> & %Hsize)". destruct v_s as [|v_s [|?]]; try done.
   iPoseProof (rrel_value_source with "Hrel") as (v_t) "(-> & #Hv)".
   iPoseProof (value_rel_length with "Hv") as "%Hlen". destruct v_t as [|v_t [|?]]; try done.
@@ -81,10 +72,10 @@ Proof.
   iIntros ((_ & ot & i & [= ->] & _)).
   iPoseProof (value_rel_singleton_source with "Hv") as (sc_t [= ->]) "Hscrel".
   iPoseProof (sc_rel_ptr_source with "Hscrel") as ([= ->]) "Htagged".
-  iApply (sim_retag_fnentry with "Hscrel Hcall"). 1: by cbv.
-  iIntros (t_i v_t v_s _ Hlen_t Hlen_s) "Hcall #Hvrel #Htag_i Hi_t Hi_s".
+  iApply (sim_retag_default with "Hscrel"). 1: by cbv.
+  iIntros (t_i v_t v_s Hlen_t Hlen_s) "#Hvrel Htag_i Hi_t Hi_s".
   destruct v_t as [|v_t []]; try done.
-  destruct v_s as [|v_s []]; try done. iSimpl in "Hcall".
+  destruct v_s as [|v_s []]; try done.
   iApply sim_expr_base.
   target_apply (Write _ _) (target_write_local with "Htag Ht") "Ht Htag".
   2-3: done. 1: rewrite /write_range bool_decide_true. 2: simpl; lia. 1: rewrite Z.sub_diag /= //.
@@ -92,16 +83,19 @@ Proof.
   2: done. 1: rewrite /write_range bool_decide_true. 2: simpl; lia. 1: rewrite Z.sub_diag /= //.
   sim_pures.
 
-  (* do the target load *)
+  (* do the load on both sides *)
   target_apply (Copy (Place _ _ _)) (target_copy_local with "Htag Ht") "Ht Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  target_pures. target_bind (Copy _).
-  iApply (target_copy_protected with "Hcall Htag_i Hi_t"). 1: done.
-  2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  2: by rewrite lookup_insert.
-  { intros off Hoff. simpl in *. rewrite /range'_contains /sizeof_scalar /= in Hoff. assert (off = i.2)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert /=. by eexists. }
-  iIntros "Hi_t _ Hcall". target_finish.
+  target_pures. target_finish.
+  source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
+  1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  source_pures. source_finish.
+  sim_bind (Copy _) (Copy _). sim_pures.
+  iApply (sim_copy with "Htag_i Hi_s Hi_t"). 1,4: done.
+  1-2: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  iIntros (v_res_s v_res_t) "Hi_s Hi_t #Htag_i %Hv_res".
   sim_pures.
+  iApply sim_expr_base.
 
   (* do the call *)
   sim_pures. target_apply (Copy _) (target_copy_local with "Htag Ht") "Ht Htag". 2: done.
@@ -112,44 +106,52 @@ Proof.
   { iApply big_sepL2_singleton. iFrame "Htag_i". done. }
   iIntros (r_t r_s) "_". sim_pures.
 
-  (* do the source load *)
+  (* source load (not existing in the target) *)
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   source_pures. source_bind (Copy _).
-  iApply (source_copy_protected with "Hcall Htag_i Hi_s"). 1: done.
+  iApply (source_copy_any with "Htag_i Hi_s"). 1: done.
   2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  2: by rewrite lookup_insert.
-  { intros off Hoff. simpl in *. rewrite /range'_contains /sizeof_scalar /= in Hoff. assert (off = i.2)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert /=. by eexists. }
-  iIntros "Hi_s _ Hcall". source_finish.
+  iIntros (v_res) "Hi_s _ %Hv_res'". source_pures. source_finish.
   sim_pures.
 
-  (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
+
+
+  (* cleanup: free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert.
-  iIntros "Hc". iEval (rewrite delete_insert) in "Hc".
-  sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "Hc") "".
   sim_pures.
-  sim_val. iModIntro. iSplit; first done. done.
-Qed.
+  sim_val. iModIntro. iSplit; first done.
+  iEval (cbn) in "Hvrel".
+  iDestruct "Hvrel" as "(Hvrel&_)".
+  (* prove that the values are in simulation (by case-analyzing what was poison when) *)
+  destruct Hv_res as [(->&->)|(->&->)], Hv_res' as [->| ->]; (iSplit; last done).
+  - done.
+  - iApply sc_rel_source_poison.
+  - admit.
+    (* in this case, the first read returned poison but the second did not.
+       This can not happen, once a value is disabled for reads, it stays disabled forever.
+       But proving this requires more work, since we need to add "is disabled" ghost state *)
+  - done.
+Admitted.
 
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma sim_opt2_ctx : ctx_ref ex2_opt ex2_unopt.
+  Lemma sim_opt2'_ctx : ctx_ref ex2_opt' ex2_unopt'.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply sim_opt2.
+    apply sim_opt2'.
   Qed.
 End closed.
 
-Check sim_opt2_ctx.
-Print Assumptions sim_opt2_ctx.
+Check sim_opt2'_ctx.
+Print Assumptions sim_opt2'_ctx.
 (* 
-sim_opt2_ctx
-     : ctx_ref ex2_opt ex2_unopt
+sim_opt2'_ctx
+     : ctx_ref ex2_opt' ex2_unopt'
 Axioms:
+sim_opt2' : ∀ (Σ : gFunctors) (H : sborGS Σ), ⊢ log_rel ex2_opt' ex2_unopt'
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
 *)
-

@@ -118,10 +118,11 @@ Proof.
   sim_pures.
 
 
-  (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
+  (* cleanup: free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
   sim_pures.
   sim_val. iModIntro. iSplit; first done.
+  (* prove that the values are in simulation (by case-analyzing what was poison when) *)
   destruct Hv_res_maybepoison as [->| ->]; (iSplit; last done).
   - done.
   - done.
