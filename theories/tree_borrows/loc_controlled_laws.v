@@ -2063,7 +2063,7 @@ Lemma source_only_read_pre_from_bor_state_own σ blk tr acc_tg range it tk :
   σ.(strs) !! blk = Some tr →
   tree_lookup tr acc_tg it →
   (∀ off, range'_contains range off → bor_state_own_on (blk, off) acc_tg tk σ it tr) →
-  tree_equal_asymmetric_read_pre_source tr range it acc_tg (match tk with tk_pub => false | _ => true end).
+  tree_equal_asymmetric_read_pre_source tr range it acc_tg.
 Proof.
   intros H1 H2 H3 H4.
   opose proof (asymmetric_read_prot_pre_from_bor_state_own σ blk tr acc_tg range it tk H1 H2 H3 H4) as HH.
@@ -2071,13 +2071,13 @@ Proof.
   specialize (HH off Hoff) as (HH1&HH2&HH3).
   do 2 (split; first done).
   intros tg' it' H' pp rd.
-  specialize (HH3 _ _ H') as (HH4&HH5). split.
-  - subst rd. destruct (rel_dec tr tg' acc_tg) as [[]|].
-    1,3: done.
-    intros H. exfalso. by eapply HH4.
-  - destruct tk. 2,3: done.
-    destruct HH5 as (HH5&HH6).
-    intros i Hi Ha. exfalso. by eapply HH6.
+  specialize (HH3 _ _ H') as (HH4&HH5).
+  opose proof (state_wf_tree_compat _ H1 _ _ H2) as Hiwf.
+  eapply every_node_eqv_universal in Hiwf.
+  2: eapply tree_lookup_to_exists_node, H'.
+  subst rd. destruct (rel_dec tr tg' acc_tg) as [[]|[]].
+  1,4: done.
+  all: subst pp; eapply item_wf_item_lookup_active, Hiwf.
 Qed.
 
 Lemma bor_state_own_unq_act_enables_write b range σ blk tg it_acc :

@@ -30,12 +30,12 @@ Context (C : call_id_set).
      and laziness.
    *)
   Lemma tree_equal_asymmetric_read_source
-    {tr tr' acc_tg range it} (mode:bool)
+    {tr tr' acc_tg range it}
     (GloballyUnique : forall tg, tree_contains tg tr -> tree_unique tg tr)
     :
     (* Accessed tag must be in the tree and protected*)
     tree_lookup tr acc_tg it ->
-    tree_equal_asymmetric_read_pre_source tr range it acc_tg mode ->
+    tree_equal_asymmetric_read_pre_source tr range it acc_tg ->
     (* Under the above conditions if we do a spurious read and it succeeds
        we get a [tree_equal] on the outcome. *)
     memory_access AccessRead C acc_tg range tr = Some tr' ->
@@ -85,61 +85,22 @@ Context (C : call_id_set).
     rewrite bind_Some in perm'Spec; destruct perm'Spec as (validated & MoreInit & EqPerm).
     injection EqPerm; clear EqPerm; intros; subst.
     rewrite rel_dec_flip2 in Hothers.
-    destruct Hothers as (Hothers&Hspecials).
     destruct (rel_dec tr (itag it) (itag it0)) as [[]|[]] eqn:Hreldec.
-    - destruct mode.
-      + assert (∃ tg, tree_contains tg tr ∧ rel_dec tr tg (itag it) = Child (Strict Immediate) ∧ ParentChildIn tg (itag it0) tr) as (tgsw & Hin & Hswdec&Hpar).
-        { rewrite /rel_dec in Hreldec. destruct decide as [HP|HnP]; try done. destruct decide as [HP|?]; try done.
-          destruct HP as [Heq|HSP]. 1: exfalso; eapply HnP; by left.
-          eapply immediate_sandwich in HSP as HSP2. 2, 3: eapply GloballyUnique. 2: eapply Lkup.
-          destruct HSP2 as (tsw&Htsw&HPC). exists tsw.
-          assert (tree_contains tsw tr) as Hcont.
-          { eapply contains_child. 1: right; by eapply Immediate_is_StrictParentChild.
-            eapply Lkup. }
-           split_and!. 1: done. 2: done.
-          rewrite /rel_dec decide_True. 
-          2: right; by eapply Immediate_is_StrictParentChild.
-          rewrite decide_False. 1: by rewrite decide_True.
-          intros HH. eapply immediate_parent_not_child. 4: exact HH. 3: done.
-          all: eapply GloballyUnique. 1: eapply Lkup. done. }
-        assert (∃ itsw, tree_lookup tr tgsw itsw) as (itsw&Hitsw).
-        1: eapply unique_implies_lookup, GloballyUnique, Hin.
-        specialize (Hothers_pure _ _ Hitsw).
-        destruct (apply_access_spec_per_node (proj1 Hitsw) (proj2 Hitsw) Acc) as
-        (itsw' & itsw'Spec & Hitsw').
-        destruct Hothers_pure as (_&HH). ospecialize (HH _). 1: done.
-        eapply (perm_eq_up_to_C_disabled_parent C _ _ _ _ _ _ tgsw). 3: rewrite /= most_init_comm //=.
-        * econstructor. 2: done. 1: rewrite /rel_dec decide_True //.
-          destruct (item_lookup itsw loc) as [[] pp] eqn:HHH; simpl in *; subst pp.
-          1: econstructor 1. econstructor 2. econstructor 1.
-        * econstructor. 1: erewrite <- access_same_rel_dec. 2: eassumption. 1: rewrite /rel_dec decide_True //.
-          1: exact Hitsw'. symmetry in itsw'Spec.
-          eapply bind_Some in itsw'Spec as (psw&Hsw&[= Hitsweq]).
-          pose proof (mem_apply_range'_spec _ _ loc _ _ Hsw) as PerLocSW.
-          rewrite decide_True // in PerLocSW. destruct PerLocSW as (p & HPP & Hacc).
-          rewrite /= /apply_access_perm /apply_access_perm_inner /= in Hacc.
-          change (default _ _) with (item_lookup itsw loc) in Hacc.
-          assert (itag itsw = tgsw) as <- by by eapply tree_lookup_correct_tag.
-          rewrite rel_dec_flip2 Hswdec /= HH /= most_init_comm /= in Hacc.
-          rewrite /item_lookup /= -Hitsweq HPP /=.
-          destruct (item_lookup itsw loc) as [ini prm] eqn:Heq; simpl in *; subst prm.
-          edestruct (bool_decide (protector_is_active (iprot itsw) C)), ini in Hacc; simpl in Hacc; try discriminate Hacc; injection Hacc as <-.
-          all: try econstructor 1. all: econstructor 2; econstructor 1.
-      + rewrite /apply_access_perm_inner /= in Inner. rewrite /= most_init_comm /=.
-        destruct (item_lookup it0 loc) as [ini [cfl| | | |]] eqn:Hperm.
-        2,4,5: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
-        2: { simpl in Hspecials. ospecialize (Hspecials _ eq_refl eq_refl). subst.
-             destruct (decide (protector_is_active (iprot it0) C)) as [Hprot|HNoProt].
-             - rewrite /= bool_decide_decide decide_True // in MoreInit,Inner. simplify_eq.
-             - rewrite /= bool_decide_decide decide_False // in MoreInit,Inner. simplify_eq.
-               econstructor 7; econstructor. done. }
-        simpl in *.
-        destruct cfl.
-        { simplify_eq. rewrite !Tauto.if_same in MoreInit. destruct most_init in MoreInit; simplify_eq; econstructor 1. }
-        destruct (bool_decide (protector_is_active (iprot it0) C)) eqn:Heq.
-        2: { simplify_eq. destruct most_init in MoreInit; simplify_eq; econstructor 1. }
-        eapply bool_decide_eq_true_1 in Heq. simplify_eq.
-        destruct most_init in MoreInit; simplify_eq; econstructor 7; econstructor; done.
+    - rewrite /apply_access_perm_inner /= in Inner. rewrite /= most_init_comm /=.
+      destruct (item_lookup it0 loc) as [ini [cfl| | | |]] eqn:Hperm.
+      2,4,5: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
+      2: { simpl in Hothers. ospecialize (Hothers eq_refl). subst.
+           destruct (decide (protector_is_active (iprot it0) C)) as [Hprot|HNoProt].
+           - rewrite /= bool_decide_decide decide_True // in MoreInit,Inner. simplify_eq.
+           - rewrite /= bool_decide_decide decide_False // in MoreInit,Inner. simplify_eq.
+             econstructor 7; econstructor. done. }
+      simpl in *.
+      destruct cfl.
+      { simplify_eq. rewrite !Tauto.if_same in MoreInit. destruct most_init in MoreInit; simplify_eq; econstructor 1. }
+      destruct (bool_decide (protector_is_active (iprot it0) C)) eqn:Heq.
+      2: { simplify_eq. destruct most_init in MoreInit; simplify_eq; econstructor 1. }
+      eapply bool_decide_eq_true_1 in Heq. simplify_eq.
+      destruct most_init in MoreInit; simplify_eq; econstructor 7; econstructor; done.
     - rewrite /= most_init_comm /=.
       rewrite /apply_access_perm_inner /= in Inner.
       destruct (item_lookup it0 loc) as [[] [[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.

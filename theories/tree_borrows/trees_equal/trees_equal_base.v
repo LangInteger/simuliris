@@ -101,7 +101,7 @@ Section utils.
   Definition frozen_in_practice := parent_has_perm Frozen.
 
   Inductive one_sided_sim : Prop -> permission -> permission -> Prop :=
-      (* currently, case 1 is not needed, since we always now there's no active around we can invalidate *)
+      (* currently, case 1 is not needed, since we always know there's no active around we can invalidate *)
     | one_sided_sim_active isprot :
         ¬ isprot ->
         one_sided_sim isprot Frozen Active
@@ -442,7 +442,7 @@ Section defs.
      They are put in the same clause to simplify this theorem, but we will want
      a higher-level lemma that derives these assumptions from their actual justification. 
      Note that this could be tree_equal_asymmetric_read_pre_protected, i.e. this is more general than it needs be *)
-  Definition tree_equal_asymmetric_read_pre_source tr range it acc_tg (mode:bool) := 
+  Definition tree_equal_asymmetric_read_pre_source tr range it acc_tg := 
     (∀ off, range'_contains range off → 
             let pp_acc := item_lookup it off in
             pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
@@ -452,11 +452,8 @@ Section defs.
             match rd with
               Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
               (* this is not a restriction, it always holds by state_wf *)
-            | Foreign Cousin => pp.(perm) = Active -> pp.(initialized) = PermInit 
-            | _ => True end ∧
-            (* TODO: the mode is unnecessary, since the second case is always satisfiable by state_wf *)
-            if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
-             ((∀ i, rd = Child (Strict i) → pp.(perm) = Active -> pp.(initialized) = PermInit))).
+            | Foreign Cousin | Child (Strict _) => pp.(perm) = Active -> pp.(initialized) = PermInit 
+            | _ => True end).
 
   Definition tree_equal_asymmetric_read_pre_protected tr range it acc_tg (mode:bool) := 
     (∀ off, range'_contains range off → 
