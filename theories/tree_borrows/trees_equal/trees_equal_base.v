@@ -101,6 +101,7 @@ Section utils.
   Definition frozen_in_practice := parent_has_perm Frozen.
 
   Inductive one_sided_sim : Prop -> permission -> permission -> Prop :=
+      (* currently, case 1 is not needed, since we always now there's no active around we can invalidate *)
     | one_sided_sim_active isprot :
         ¬ isprot ->
         one_sided_sim isprot Frozen Active
@@ -440,7 +441,7 @@ Section defs.
   (* A bunch of extra conditions on the structure.
      They are put in the same clause to simplify this theorem, but we will want
      a higher-level lemma that derives these assumptions from their actual justification. 
-     Note that this is the same as tree_equal_asymmetric_read_pre_protected.. *)
+     Note that this could be tree_equal_asymmetric_read_pre_protected, i.e. this is more general than it needs be *)
   Definition tree_equal_asymmetric_read_pre_source tr range it acc_tg (mode:bool) := 
     (∀ off, range'_contains range off → 
             let pp_acc := item_lookup it off in
@@ -450,9 +451,12 @@ Section defs.
             let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
             match rd with
               Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) ≠ Disabled
-            | Foreign Cousin => pp.(perm) ≠ Active | _ => True end ∧
+              (* this is not a restriction, it always holds by state_wf *)
+            | Foreign Cousin => pp.(perm) = Active -> pp.(initialized) = PermInit 
+            | _ => True end ∧
+            (* TODO: the mode is unnecessary, since the second case is always satisfiable by state_wf *)
             if mode then (rd = Child (Strict Immediate) → pp.(perm) = Disabled) else
-             (pp_acc.(perm) = Frozen ∧ (∀ i, rd = Child (Strict i) → pp.(perm) ≠ Active))).
+             ((∀ i, rd = Child (Strict i) → pp.(perm) = Active -> pp.(initialized) = PermInit))).
 
   Definition tree_equal_asymmetric_read_pre_protected tr range it acc_tg (mode:bool) := 
     (∀ off, range'_contains range off → 

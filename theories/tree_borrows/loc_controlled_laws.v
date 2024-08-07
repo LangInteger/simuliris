@@ -2065,7 +2065,19 @@ Lemma source_only_read_pre_from_bor_state_own σ blk tr acc_tg range it tk :
   (∀ off, range'_contains range off → bor_state_own_on (blk, off) acc_tg tk σ it tr) →
   tree_equal_asymmetric_read_pre_source tr range it acc_tg (match tk with tk_pub => false | _ => true end).
 Proof.
-  by eapply asymmetric_read_prot_pre_from_bor_state_own.
+  intros H1 H2 H3 H4.
+  opose proof (asymmetric_read_prot_pre_from_bor_state_own σ blk tr acc_tg range it tk H1 H2 H3 H4) as HH.
+  intros off Hoff pp_acc.
+  specialize (HH off Hoff) as (HH1&HH2&HH3).
+  do 2 (split; first done).
+  intros tg' it' H' pp rd.
+  specialize (HH3 _ _ H') as (HH4&HH5). split.
+  - subst rd. destruct (rel_dec tr tg' acc_tg) as [[]|].
+    1,3: done.
+    intros H. exfalso. by eapply HH4.
+  - destruct tk. 2,3: done.
+    destruct HH5 as (HH5&HH6).
+    intros i Hi Ha. exfalso. by eapply HH6.
 Qed.
 
 Lemma bor_state_own_unq_act_enables_write b range σ blk tg it_acc :
