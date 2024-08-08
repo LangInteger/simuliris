@@ -142,7 +142,7 @@ Proof.
   iExists (Val vr_s), [], σ_s'. iSplitR; first done.
   iFrame "HP_t HP_s".
 
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%Hpub".
 
   iSplitR "Hsim".
@@ -151,7 +151,10 @@ Proof.
     iExists M_call, M_tag, M_t, M_s.
     iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
     subst σ_s' σ_t'.
-    iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+    iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+    - iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+      iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+      simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 2: done. 2: by eapply Hwf_s. done.
     - (* pub cid *)
       iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
     - repeat (iSplit; first done).
@@ -257,14 +260,17 @@ Proof.
   iFrame "HP_t HP_s".
   iSplitR "Hsim"; first last. { iSplitL; done. }
 
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%"; try done.
 
   (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
   (* re-establish the invariants *)
   iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  - iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 2: done. 2: by eapply Hwf_s. done.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
   - (* state rel *)

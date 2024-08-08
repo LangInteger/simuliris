@@ -43,11 +43,18 @@ Proof.
   iExists (#[ ☠]%V)%E, [], (mkState σ_s.(shp) trss' (σ_s.(scs) ∖ {[c]}) σ_s.(snp) σ_s.(snc)).
   iSplitR. { iPureIntro. by eapply end_call_base_step. }
   iSplitR "Hsim"; last (simpl; by iFrame).
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   specialize (state_wf_cid_agree _ Hwf_s _ Hcall_in) as Hlt_s.
   iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
   iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro. simpl. iFrame "HP_s HP_t".
   iExists (delete c M_call), M_tag, M_t, M_s. rewrite /bor_interp_inner. iFrame.
+  iSplitL "Htainted".
+  { iDestruct "Htainted" as "(%M&Ht1&Ht2)". iExists M. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl.
+    eapply disabled_tag_access_all_protected_initialized in Ht2. 3: done. 2: by eapply Hwf_s.
+    eapply disabled_tag_remove_call. 9: exact Ht2. 8: done. 7: done.
+    1-6: by eapply Hwf_s. }
   iSplitL "Hpub_cid".
   { iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; [set_solver.. | done]. }
   iSplitL "Hsrel".
@@ -109,13 +116,20 @@ Proof.
   iExists (#[ ☠]%V)%E, [], (mkState σ_s.(shp) trss' (σ_s.(scs) ∖ {[c]}) σ_s.(snp) σ_s.(snc)).
   iSplitR. { iPureIntro. by eapply end_call_base_step. }
   iSplitR "Hsim"; last (simpl; by iFrame).
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   specialize (state_wf_cid_agree _ Hwf_s _ Hcall_in) as Hlt_s.
   iPoseProof (pub_cid_endcall with "Hsc Hpub_cid") as "(Hcall & Hpub_cid)".
   1: done. 1: done. 1: by rewrite -Hsnc_eq.
   iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hlookup".
   iMod (ghost_map_delete with "Hc Hcall") as "Hc". iModIntro. simpl. iFrame "HP_s HP_t".
   iExists (delete c M_call), M_tag, M_t, M_s. rewrite /bor_interp_inner. iFrame.
+  iSplitL "Htainted".
+  { iDestruct "Htainted" as "(%M&Ht1&Ht2)". iExists M. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl.
+    eapply disabled_tag_access_all_protected_initialized in Ht2. 3: done. 2: by eapply Hwf_s.
+    eapply disabled_tag_remove_call. 9: exact Ht2. 8: done. 7: done.
+    1-6: by eapply Hwf_s. }
   iSplitL "Hsrel".
   { iDestruct "Hsrel" as "(_ & _ & _ & _ & _ & Hl)". rewrite /state_rel. simpl.
     iSplit; first done. iSplit.

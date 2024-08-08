@@ -61,14 +61,20 @@ Proof.
   iFrame "HP_t HP_s".
   iSplitR "Hsim"; first last. { iSplitL; done. }
 
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Hpub") as "%Hpub".
 
   (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
   (* re-establish the invariants *)
   iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  - iDestruct "Htainted" as "(%M&Ht1&Ht2)". iExists M. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    destruct Ht2 as (Hlt&Ht2); split. 1: simpl; lia.
+    rewrite /=. destruct (decide (l'.1 = l_s.1)) as [Heq|Hf].
+    + rewrite Heq lookup_delete //.
+    + rewrite lookup_delete_ne //. eapply apply_within_trees_lookup in Happly_s as (_&H2). rewrite -H2 //.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.
   - (* re-establish the state relation *)

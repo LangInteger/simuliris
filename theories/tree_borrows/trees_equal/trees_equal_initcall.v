@@ -78,6 +78,23 @@ Section call_set.
     eapply is_disabled_mono. done.
   Qed.
 
+  Lemma disabled_tag_at_mono C1 nxtc tr1 tg l:
+    disabled_tag_at C1 tr1 tg l →
+    disabled_tag_at (C1 ∪ {[ nxtc ]}) tr1 tg l.
+  Proof.
+    intros (x&Hx). exists x. by eapply disabled_in_practice_mono.
+  Qed.
+
+  Lemma disabled_tag_mono C1 nxtc trs nxtp tg l :
+    disabled_tag C1 trs nxtp tg l →
+    disabled_tag (C1 ∪ {[ nxtc ]}) trs nxtp tg l.
+  Proof.
+    intros (H1&H2). split; first done.
+    destruct (trs !! l.1); last done.
+    destruct H2 as [H3|H4]. 2: by right.
+    left. eapply disabled_tag_at_mono. done.
+  Qed.
+
   Lemma perm_eq_up_to_C_mono (C1 : gset nat) (nxtc : nat)
     tr1 tr2 tg l cid lp1 lp2 {d nxtp} :
     (∀ cc, protector_is_for_call cc cid → (cc < nxtc)%nat) →

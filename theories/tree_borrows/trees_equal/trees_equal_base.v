@@ -9,6 +9,7 @@ From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs.
 From simuliris.tree_borrows Require Export steps_wf.
 From simuliris.tree_borrows Require Import steps_progress.
+From simuliris.tree_borrows Require Export trees_equal.disabled_in_practice.
 From iris.prelude Require Import options.
 
 
@@ -48,39 +49,6 @@ Section utils.
         (item_lookup it_cous l).(perm) ≠ Disabled ->
         (item_lookup it_cous l).(initialized) = PermInit ->
         pseudo_conflicted tr tg l ResActivable
-    .
-
-  Inductive pseudo_disabled (tr : tree item) (tg : tag) (l : Z) : permission → (option protector) → Prop :=
-    | pseudo_disabled_disabled prot :
-        (* a Disabled it also pseudo-disabled *)
-        pseudo_disabled _ _ _ Disabled prot
-    | pseudo_disabled_cousin_active tg_cous it_cous lp prot :
-        rel_dec tr tg tg_cous = Foreign Cousin ->
-        tree_lookup tr tg_cous it_cous ->
-        protector_is_active it_cous.(iprot) C ->
-        (item_lookup it_cous l) = mkPerm PermInit Active ->
-        (* This is not allowed, since it actually survives foreign writes. *)
-        lp ≠ ReservedIM ->
-        pseudo_disabled _ _ _ lp prot
-    .
-
-  (* this implicitly requires (by state_wf) that it's not (protected and initialized) *)
-  (* it also implies (via state_wf) that all children are not (protected and initialized) *)
-  Inductive is_disabled (tr : tree item) (tg : tag) (l : Z) : lazy_permission → option protector → Prop :=
-    | disabled_init prot : 
-        is_disabled _ _ _ (mkPerm PermInit Disabled) prot
-    | disabled_pseudo lp prot :
-        pseudo_disabled tr tg l lp prot →
-        is_disabled _ _ _ (mkPerm PermLazy lp) prot.
-
-  Inductive disabled_in_practice (tr : tree item) (tg : tag) (witness : tag) (l : Z)
-    : Prop :=
-    | disabled_parent it_witness inclusive :
-      (* Doesn't have to be immediate, just any parent is Disabled *)
-      rel_dec tr tg witness = Child inclusive ->
-      tree_lookup tr witness it_witness ->
-      is_disabled tr witness l (item_lookup it_witness l) (iprot it_witness) ->
-      disabled_in_practice tr tg witness l
     .
 
   Inductive parent_has_perm p (tr : tree item) (tg : tag) (witness : tag) (l : Z)
@@ -142,16 +110,16 @@ Section utils.
            and will become Disabled on protector-end write for that cousin.
            It must be lazy, because a protected active has no non-disabled initialized cousins.
            Only exception: ¬prot Reserved InteriorMut, for which this case here does not apply. *)
-        pseudo_disabled tr1 tg l p1 cid ->
-        pseudo_disabled tr2 tg l p2 cid ->
+        pseudo_disabled C tr1 tg l p1 cid ->
+        pseudo_disabled C tr2 tg l p2 cid ->
         perm_eq_up_to_C tr1 tr2 tg l cid d
           {| initialized := PermLazy; perm := p1 |}
           {| initialized := PermLazy; perm := p2 |}
     | perm_eq_up_to_C_disabled_parent witness_tg p p' :
         (* Finally if they have a Disabled parent we allow anything (unprotected) since
            nothing is possible through this tag anyway *)
-        disabled_in_practice tr1 tg witness_tg l ->
-        disabled_in_practice tr2 tg witness_tg l ->
+        disabled_in_practice C tr1 tg witness_tg l ->
+        disabled_in_practice C tr2 tg witness_tg l ->
         (* Added initialization requirement to help with the lemma [perm_eq_up_to_C_same_init] *)
         (initialized p = initialized p') ->
         perm_eq_up_to_C tr1 tr2 tg l cid d p p'

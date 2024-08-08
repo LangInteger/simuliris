@@ -139,7 +139,7 @@ Proof.
     eapply write_range_to_list_is_Some in Hwrite as (x&Hx&_). simpl in Hx. subst v_t'.
     iApply ("Hsim" with "Ht Htag"). }
   rewrite WRITE_MEM. simpl in Happly. assert (trs' = strs σ_t) as -> by congruence.
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hhl".
   iMod (ghost_map_update (list_to_heaplet v_t' off_hl) with "Htag_t_auth Ht") as "(Htag_t_auth&Ht)". simpl.
@@ -247,7 +247,7 @@ Proof.
   iExists _, _. iSplit.
   { iPureIntro. eapply write_base_step'. 1: done. 3: exact TREES_NOCHANGE. all: done. }
   rewrite WRITE_MEM.
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hhl".
   iMod (ghost_map_update (list_to_heaplet v_s' off_hl) with "Htag_s_auth Hs") as "(Htag_s_auth&Hs)". simpl.
@@ -340,7 +340,7 @@ Proof.
   (* allocate tag and heaplets *)
   pose (nt := σ_t.(snp)).
   pose vs := replicate sz ☠%S.
-  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   assert (M_tag !! nt = None) as HNone.
   { destruct (M_tag !! nt) as [[tk' []] | ] eqn:Hs; last done. exfalso.
     apply Htag_interp in Hs as (_ & H & _). unfold tag_valid in H. lia.
@@ -375,7 +375,13 @@ Proof.
   (* re-establish the invariants *)
   iExists M_call, (<[nt := (tk_local, ())]> M_tag), (<[(nt, blk):=list_to_heaplet vs 0]> M_t), (<[(nt, blk):=list_to_heaplet vs 0]> M_s).
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit. 
+  iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  - iDestruct "Htainted" as "(%M&Ht1&Ht2)". iExists M. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    destruct Ht2 as (Hlt&Ht2); split. 1: simpl; lia.
+    rewrite /= /α_s' /= /extend_trees /=. destruct (decide (l'.1 = blk)) as [<-|Hf].
+    + rewrite lookup_insert. right. intros Hc%init_tree_contains_only. lia.
+    + rewrite lookup_insert_ne //.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.
     (* state rel *) 
@@ -551,7 +557,7 @@ Proof.
   { eapply dealloc_base_step'; eauto. }
   iExists (#[☠])%E, [], σ_s'. iSplitR; first done.
   iFrame "HP_t HP_s".
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hhlt".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hhls".
@@ -566,7 +572,13 @@ Proof.
   (* re-establish the invariants *)
   iExists M_call, M_tag, (delete (t, l.1) M_t), (delete (t, l.1) M_s).
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  - iDestruct "Htainted" as "(%M&Ht1&Ht2)". iExists M. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    destruct Ht2 as (Hlt&Ht2); split. 1: simpl; lia.
+    rewrite /=. destruct (decide (l'.1 = l.1)) as [Heq|Hf].
+    + rewrite Heq lookup_delete //.
+    + rewrite lookup_delete_ne //. eapply apply_within_trees_lookup in Happly_s as (_&H2). rewrite -H2 //.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.
   - (* re-establish the state relation *)

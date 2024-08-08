@@ -37,12 +37,10 @@ Class bor_stateGS Σ := BorStateGS {
   (* Public call IDs *)
   pub_call_inG :: ghost_mapG Σ call_id unit;
   pub_call_name : gname;
-(*
-  (* Tainted tags: a set of tag * source location *)
-  (* this might just be that the state is Disabled, because we don't remove tags from the tree and
-  thus don't need to remember the popped tags *)
+
+  (* Tainted tags: a set of tag * source location, remembering tags which are impossible to read *)
   tainted_tag_collection :: ghost_mapG Σ (tag * loc) unit;
-  tainted_tags_name : gname; *)
+  tainted_tags_name : gname; 
 }.
 
 Class bor_stateGpreS Σ := {
@@ -363,39 +361,6 @@ Section call_defs.
     specialize (Hinterp _ _ HM'_some) as (? & Hinterp).
     specialize (Hinterp _ _ Hin). done.
   Qed.
-(*
-  Lemma loc_protected_by_source (sc_rel : scalar → scalar → iProp Σ) Mtag Mt Mcall σ_t σ_s :
-    state_rel sc_rel Mtag Mt Mcall σ_t σ_s -∗
-    ∀ t l c,
-    ⌜loc_protected_by σ_t t l c⌝ -∗
-    ⌜loc_protected_by σ_s t l c⌝.
-  Proof.
-    iIntros "(%Hdom_eq & %Hsst_eq & %Hsnp_eq & %Hsnc_eq & %Hscs_eq & _)".
-    iIntros (t l c) "%Hprot". destruct Hprot as (Hc & Ht & (it & Hlu & Hdis)).
-    iPureIntro. rewrite /loc_protected_by. rewrite !Hscs_eq !Hsnp_eq.
-    split; first done. split; first done.
-
-    destruct Hlu as [tr Htr Hin].
-    specialize (Hsst_eq (l.1)).
-    inversion Hsst_eq as [tr1 tr2 Heq Hlu1 Hlu2|]; simplify_eq.
-    2: congruence.
-    assert (tr = tr2) by congruence. subst tr.
-    destruct (Heq l.2) as (it1 & it2 & Hin1 & Hin2 & HutC).
-    exists it1. split; first by econstructor.
-    assert (it2 = it).
-    { destruct Hin2 as [iit2 Hex2 Hall2 Hcid2 Hperm2].
-      destruct Hin  as [iit  Hex  Hall  Hcid  Hperm ].
-      destruct it2 as [it2_lperm it2_tg it2_cid].
-      destruct it  as [it_lperm  it_tg  it_cid ].
-      cbn in *.
-       Print item_for_loc_in_tree. inversion Hin. inversion Hin2. Search every_node. simplify_eq.
-    intros Hinit. inversion Hutc
-    inversion Hlu; subst.
-
-    exists it. split; last done. econstructor. econstructor; last done.
- eauto 8.
-  Qed.
-*)
 End call_defs.
 
 Notation "c '@@' M" := (call_set_is call_name c M) (at level 50).
@@ -936,7 +901,7 @@ Section public_call_ids.
   Qed.
 
 End public_call_ids.
-(*
+
 Section tainted_tags.
   Context `{bor_stateGS Σ}.
   (** Interpretation for tainted tags.
@@ -945,30 +910,26 @@ Section tainted_tags.
 
   Definition tag_tainted_for (t : nat) (l : loc) :=
     ghost_map_elem tainted_tags_name (t, l) DfracDiscarded tt.
-  (* tag [t] is not in [l]'s stack, and can never be in that stack again *)
+
+  (* tag [t] is not readable, and never becomes readable again *)
   Definition tag_tainted_interp (σ_s : state) : iProp Σ :=
     ∃ (M : gmap (nat * loc) unit), ghost_map_auth tainted_tags_name 1 M ∗
       ∀ (t : nat) (l : loc), ⌜is_Some (M !! (t, l))⌝ -∗
-        ⌜(t < σ_s.(snp))%nat⌝ ∗
-        (* we have a persistent element here to remove sideconditions from the insert lemma *)
-        tag_tainted_for t l ∗
-        ⌜∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk →
-          tg it ≠ Tagged t ∨ perm it = Disabled⌝.
+        tag_tainted_for t l ∗ ⌜disabled_tag σ_s.(scs) σ_s.(strs) σ_s.(snp) t l⌝.
 
-  (* the result of a read in the target: either the tag was invalid, and it now must be invalid for the source, too,
-      or the result [v_t'] agrees with what we expected to get ([v_t]). *)
-  Definition deferred_read (v_t v_t' : value) l t : iProp Σ :=
-    (∃ i : nat, ⌜(i < length v_t)%nat ∧ length v_t = length v_t'⌝ ∗ tag_tainted_for t (l +ₗ i)) ∨ ⌜v_t' = v_t⌝.
+  (* the result of a read: either it's poison, then the tag was tainted, or it's the regular one*)
+  Definition ispoison (v_t : value) l t : iProp Σ :=
+    (∃ i : nat, ⌜(i < length v_t)%nat ∧ v_t = replicate (length v_t) ScPoison⌝ ∗ tag_tainted_for t (l +ₗ i)).
 
   Lemma tag_tainted_interp_insert σ_s t l :
     (t < σ_s.(snp))%nat →
-    (∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk → tg it ≠ Tagged t ∨ perm it = Disabled) →
+    (disabled_tag σ_s.(scs) σ_s.(strs) σ_s.(snp) t l) →
     tag_tainted_interp σ_s ==∗
     tag_tainted_interp σ_s ∗ tag_tainted_for t l.
   Proof.
     iIntros (Ht Hnot_in) "(%M & Hauth & #Hinterp)".
     destruct (M !! (t, l)) as [[] | ] eqn:Hlookup.
-    - iModIntro. iPoseProof ("Hinterp" $! t l with "[]") as "(_ & $ & _)"; first by eauto.
+    - iModIntro. iPoseProof ("Hinterp" $! t l with "[]") as "($ & _)"; first by eauto.
       iExists M. iFrame "Hauth Hinterp".
     - iMod (ghost_map_insert (t, l) () Hlookup with "Hauth") as "[Hauth He]".
       iMod (ghost_map_elem_persist with "He") as "#He". iFrame "He".
@@ -981,90 +942,14 @@ Section tainted_tags.
   Lemma tag_tainted_interp_lookup σ_s t l :
     tag_tainted_for t l -∗
     tag_tainted_interp σ_s -∗
-    ⌜(t < σ_s.(snp))%nat⌝ ∗
-    ⌜∀ (stk : stack) (it : item), σ_s.(sst) !! l = Some stk → it ∈ stk → tg it ≠ Tagged t ∨ perm it = Disabled⌝.
+    ⌜disabled_tag σ_s.(scs) σ_s.(strs) σ_s.(snp) t l⌝.
   Proof.
     iIntros "Helem (%M & Hauth & Hinterp)".
     iPoseProof (ghost_map_lookup with "Hauth Helem") as "%Hlookup".
-    iPoseProof ("Hinterp" $! t l with "[]") as "(% & _ & %)"; by eauto.
+    iPoseProof ("Hinterp" $! t l with "[]") as "(_ & %)"; by eauto.
   Qed.
-
-  Definition is_fresh_tag σ tg :=
-    match tg with
-    | Untagged => True
-    | Tagged t => σ.(snp) ≤ t
-    end.
-  Lemma tag_tainted_interp_preserve σ_s σ_s' :
-    σ_s'.(snp) ≥ σ_s.(snp) →
-    (∀ l stk', σ_s'.(sst) !! l = Some stk' → ∀ it, it ∈ stk' →
-      is_fresh_tag σ_s it.(tg) ∨ it.(perm) = Disabled ∨
-        ∃ stk, σ_s.(sst) !! l = Some stk ∧ it ∈ stk) →
-    tag_tainted_interp σ_s -∗ tag_tainted_interp σ_s'.
-  Proof.
-    iIntros (Hge Hupd) "(%M & Hauth & Hinterp)".
-    iExists M. iFrame "Hauth". iIntros (t l Hsome).
-    iDestruct ("Hinterp" $! t l with "[//]") as "(%Hlt & $ & %Hsst)".
-    iSplit; iPureIntro; first lia.
-    intros stk' it Hstk' Hit.
-    specialize (Hupd _ _ Hstk' _ Hit) as [Hfresh | [Hdisabled | (stk & Hstk & Hit')]].
-    - left. destruct (tg it) as [t' | ]; last done. intros [= ->].
-      simpl in Hfresh. lia.
-    - right; done.
-    - eapply Hsst; done.
-  Qed.
-
-(*
-  FIXME: Needs this import (commented out above):
-  From simuliris.stacked_borrows Require Import steps_progress steps_retag.
-
-  Lemma tag_tainted_interp_tagged_sublist σ_s σ_s' :
-    σ_s'.(snp) ≥ σ_s.(snp) →
-    (∀ l stk', σ_s'.(sst) !! l = Some stk' →
-      ∃ stk, σ_s.(sst) !! l = Some stk ∧
-        tagged_sublist stk' stk) →
-    tag_tainted_interp σ_s -∗ tag_tainted_interp σ_s'.
-  Proof.
-    iIntros (Hge Hupd). iApply tag_tainted_interp_preserve; first done.
-    intros l stk' Hstk' it Hit.
-    destruct (Hupd _ _ Hstk') as (stk & Hstk & Hsubl).
-    destruct (Hsubl _ Hit) as (it' & Hit' & Htg & Hprot & Hperm).
-    destruct (decide (perm it = Disabled)) as [ | Hperm'%Hperm]; first by eauto.
-    right; right. exists stk. split; first done.
-    destruct it, it'; simpl in *; simplify_eq. done.
-  Qed.
-
-
-  Lemma tag_tainted_interp_retag σ_s c l old rk pk T new α' nxtp' :
-    retag σ_s.(sst) σ_s.(snp) σ_s.(scs) c l old rk pk T = Some (new, α', nxtp') →
-    tag_tainted_interp σ_s -∗ tag_tainted_interp (mkState σ_s.(shp) α' σ_s.(scs) nxtp' σ_s.(snc)).
-  Proof.
-    iIntros (Hretag).
-    iApply (tag_tainted_interp_preserve); simpl.
-    { specialize (retag_change_nxtp _ _ _ _ _ _ _ _ _ _ _ _ Hretag). lia. }
-    intros l' stk' Hstk' it Hit.
-    specialize (retag_item_in _ _ _ _ _ _ _ _ _ _ _ _ Hretag l' stk') as Ht.
-    destruct (decide (perm it = Disabled)) as [Hdisabled | Hndisabled]; first by eauto.
-    destruct (tg it) as [t | ] eqn:Htg; last by (left; done).
-    destruct (decide (t < σ_s.(snp))%nat) as [Hlt | Hnlt].
-    - right; right. eapply (Ht t it); done.
-    - left. simpl. lia.
-  Qed.
-
-  Lemma tag_tainted_interp_alloc σ l n :
-    let nt := Tagged σ.(snp) in
-    tag_tainted_interp σ -∗ tag_tainted_interp (mkState (init_mem l n σ.(shp)) (init_stacks σ.(sst) l n nt) σ.(scs) (S σ.(snp)) σ.(snc)).
-  Proof.
-    intros nt. iIntros "Htainted".
-    iApply (tag_tainted_interp_preserve σ with "Htainted"). { simpl. lia. }
-    intros l' stk' Hstk' it Hit.
-    specialize (init_stacks_lookup_case _ _ _ _ _ _ Hstk') as [(Hstk'' & Hi) | (i & Hi & ->)].
-    + right. right. eauto.
-    + left. simpl. move : Hstk'. rewrite (proj1 (init_stacks_lookup _ _ _ _)); last done.
-      intros [= <-]. move : Hit. rewrite elem_of_list_singleton => -> /=. lia.
-  Qed.
-*)
 End tainted_tags.
-*)
+
 
 Definition tag_is_unq (M_tag : gmap tag (tag_kind * unit)) M_t (tg : tag) l := ∃ tkp, M_tag !! tg = Some (tk_unq tkp, ()) ∧ is_Some (heaplet_lookup M_t (tg, l)).
 
@@ -1087,7 +972,7 @@ Section state_interp.
     we own the authoritative parts here and not in the interpretations below *)
     bor_auth M_call M_tag M_t M_s ∗
 
-(*    tag_tainted_interp σ_s ∗ *)
+    tag_tainted_interp σ_s ∗
     pub_cid_interp σ_t σ_s ∗
 
     state_rel sc_rel M_tag M_t M_call σ_t σ_s ∗
@@ -1109,7 +994,7 @@ Section state_interp.
     σ_s.(snc) = σ_t.(snc) ∧ σ_s.(scs) = σ_t.(scs) ∧ state_wf σ_s ∧ state_wf σ_t ∧
     dom σ_s.(shp) = dom σ_t.(shp)⌝.
   Proof.
-    iIntros "(% & % & % & % & ? & _ & Hstate & _ & _ & % & %)".
+    iIntros "(% & % & % & % & ? & _ & _ & Hstate & _ & _ & % & %)".
     iPoseProof (state_rel_get_pure with "Hstate") as "%".
     iPoseProof (state_rel_dom_eq with "Hstate") as "<-".
     iPureIntro. tauto.
@@ -1118,7 +1003,7 @@ Section state_interp.
   Lemma bor_interp_get_state_wf σ_t σ_s :
     bor_interp σ_t σ_s -∗
     ⌜state_wf σ_t⌝ ∗ ⌜state_wf σ_s⌝.
-  Proof. iIntros "(% & % & % & % & ? & ? & Hstate & _ & _ & % & %)". eauto. Qed.
+  Proof. iIntros "(% & % & % & % & ? & ? & ? & Hstate & _ & _ & % & %)". eauto. Qed.
 
 End state_interp.
 
@@ -1968,15 +1853,15 @@ Proof.
   iMod (ghost_map_alloc (∅ : gmap (tag * block) (gmap Z scalar))) as (γtgt) "[Hheap_tgt_auth _]".
   iMod (ghost_map_alloc (∅ : gmap (tag * block) (gmap Z scalar))) as (γsrc) "[Hheap_src_auth _]".
   iMod (ghost_map_alloc (∅ : gmap call_id unit)) as (γpub_call) "[Hpub_call_auth _]".
-  (* iMod (ghost_map_alloc (∅ : gmap (nat * loc) unit)) as (γtainted) "[Htainted_auth _]". *)
+  iMod (ghost_map_alloc (∅ : gmap (nat * loc) unit)) as (γtainted) "[Htainted_auth _]".
   iMod (gen_sim_prog_init P_t P_s) as (?) "[#Hprog_t #Hprog_s]".
   iModIntro.
-  set (bor := BorStateGS _ _ γcall _ γtag _ γtgt γsrc _ γpub_call (* _ γtainted *)).
+  set (bor := BorStateGS _ _ γcall _ γtag _ γtgt γsrc _ γpub_call  _ γtainted).
   iExists (SBorGS _ _ _).
   iSplitL; last iSplit; last iSplit.
   - simpl. iFrame "Hprog_t Hprog_s".
-    iExists ∅, ∅, ∅, ∅. iFrame. (* iSplitL "Htainted_auth". 
-    { iExists ∅. iFrame. iIntros (? ?). rewrite lookup_empty. iIntros ([? [=]]). } *)
+    iExists ∅, ∅, ∅, ∅. iFrame. iSplitL "Htainted_auth".
+    { iExists ∅. iFrame. iIntros (t l (?&Hl)). by rewrite lookup_empty in Hl. }
     iSplitL "Hpub_call_auth".
     { iExists ∅. iFrame. iApply big_sepM_empty. done. }
     iSplitL.

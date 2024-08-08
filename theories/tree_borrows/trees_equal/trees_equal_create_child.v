@@ -57,6 +57,39 @@ Context (C : call_id_set).
       + done.
   Qed.
 
+  Definition disabled_tag_at_create_child_irreversible
+    {tr tr' tg tg_old tg_new pk im rk cid loc}
+    (Ne : tg_new ≠ tg)
+    (Nc : ¬ tree_contains tg_new tr)
+    (Dis : disabled_tag_at C tr tg loc)
+    (Ins : create_child C tg_old tg_new pk im rk cid tr = Some tr')
+    : disabled_tag_at C tr' tg loc.
+  Proof.
+    destruct Dis as (w&Dis).
+    exists w. eapply disabled_in_practice_create_child_irreversible; last done. all: try done.
+    intros ->. inversion Dis as [H1 H2 H3 H4].
+    apply Nc, H4.
+  Qed.
+
+  Definition disabled_tag_create_child_irreversible
+    {trs trs' : trees} { blk tg tg_old tg_new pk im rk cid l nxtp}
+    (Ne : tg_new ≠ tg)
+    (Nc : ¬ trees_contain tg_new trs blk )
+    (Dis : disabled_tag C trs nxtp tg l)
+    (Ins : apply_within_trees (create_child C tg_old tg_new pk im rk cid) blk trs = Some trs')
+    : disabled_tag C trs' nxtp tg l.
+  Proof.
+    eapply bind_Some in Ins as (tr&Htr&(tr'&Ins&[= <-])%bind_Some).
+    destruct (decide (blk = l.1)) as [->|Hne]; last first.
+    { rewrite /disabled_tag lookup_insert_ne //. }
+    destruct Dis as (Hv&Dis). split; first done.
+    rewrite lookup_insert. rewrite Htr in Dis.
+    destruct Dis as [Dis|Nd].
+    - left. eapply disabled_tag_at_create_child_irreversible. 4: done. 1,3: done.
+      rewrite /trees_contain /trees_at_block Htr in Nc. done.
+    - right. intros Hc. eapply Nd. eapply insertion_minimal_tags. 3: done. all: done.
+  Qed.
+
   Lemma frozen_in_practice_create_child_irreversible
     {tr tr' tg tg_old tg_new pk im rk cid witness loc}
     (Ne : tg_new ≠ tg)

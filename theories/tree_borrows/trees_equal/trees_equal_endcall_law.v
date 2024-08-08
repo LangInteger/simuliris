@@ -1179,3 +1179,75 @@ Proof.
   1: by eapply Hwf1. 1: by eapply Hwf2. 1: by eapply Hpmi1. 1: by eapply Hpmi2. 1: by eapply Hc1. 1: by eapply Hc2.
   1: by eapply Hpma1. 1: by eapply Hpma2. 1: by eapply Hnac1. 1: by eapply Hnac2. 1: by eapply Hpnd1. 1: by eapply Hpnd2. all: done.
 Qed.
+
+
+
+Lemma disabled_tag_at_remove_call C nxtp nxtc tr1 tr1' cid tg loc :
+  wf_tree tr1 → parents_more_init tr1 →
+  tree_items_compat_nexts tr1 nxtp nxtc →
+  parents_more_active tr1 →
+  no_active_cousins C tr1 →
+  protected_parents_not_disabled C tr1 →
+  cid ∈ C →
+  tree_access_all_protected_initialized C cid tr1 = Some tr1' →
+  disabled_tag_at C tr1' tg loc →
+  disabled_tag_at (C ∖ {[ cid ]}) tr1' tg loc.
+Proof.
+  intros Hwf1 Hpmi1 Hic1 Hmpa1 Hnac1 Hpnd1 Hcid Hrai1 Hdis.
+  specialize (tree_access_many_pseudo_dis_becomes_real _ _ _ _ _ _ Hwf1 Hic1 Hrai1) as HraiD1'.
+  erewrite tree_get_all_protected_initialized_idemp in HraiD1'. 7: done. 2-6: done.
+  eapply preserve_tag_count_wf in Hwf1 as Hwf1'. 3: done. 2: eapply tree_access_all_protected_initialized_tag_count.
+  destruct Hdis as (w&Hdis). exists w.
+  inversion Hdis as [it_witness incl H1 H2 H3].
+  econstructor. 1: exact H1. 1: exact H2.
+  inversion H3 as [pX H4 Hx|pX H4 H5 H6eq]; simplify_eq.
+  1: econstructor 1.
+  inversion H5 as [x1 x2 x3|lp it Hd1 Hd2 Hd3 Hd4 Hd5 Hd6 Hd7 Hd8 Hd9]; simplify_eq.
+  1: econstructor 2; econstructor 1.
+  destruct Hd5 as (c'&Hc1&Hc2).
+  destruct (decide (c' = cid)) as [<-|Hno]; last first.
+  { econstructor 2. econstructor 2. 1: exact Hd3. 1: exact Hd4. 2-3: done.
+    exists c'. split; first done. rewrite /call_is_active in Hc2|-*. set_solver. }
+  ospecialize (HraiD1' _ _ pX _); last first.
+  { econstructor. rewrite HraiD1'. econstructor 1. }
+  eexists _, _. split.
+  { eapply tree_all_protected_initialized_elem_of. 1: by eapply Hwf1'.
+    exists it. do 2 (split; first done). eapply mem_enumerate_initalized. }
+  split; first exact H2.
+  split; first exact Hd3.
+  exists it, loc.
+  split_and!.
+  - eapply mem_enumerate_sat_elem_of.
+    rewrite /item_lookup in Hd6. destruct (iperm it !! loc) as [lpx|] eqn:Heq.
+    2: simpl in Hd6; simplify_eq. rewrite Heq. exists lpx. split; first done.
+    simpl in Hd6. subst lpx. done.
+  - done.
+  - exists c'. split; first done. done.
+  - done.
+  - done.
+  - done.
+Qed.
+
+Lemma disabled_tag_remove_call C nxtp nxtc trs1 trs1' cid tg loc :
+  wf_trees trs1 → each_tree_parents_more_init trs1 →
+  trees_compat_nexts trs1 nxtp nxtc →
+  each_tree_parents_more_active trs1 →
+  each_tree_no_active_cousins C trs1 → 
+  each_tree_protected_parents_not_disabled C trs1 →
+  cid ∈ C →
+  trees_access_all_protected_initialized C cid trs1 = Some trs1' →
+  disabled_tag C trs1' nxtp tg loc →
+  disabled_tag (C ∖ {[ cid ]}) trs1' nxtp tg loc.
+Proof.
+  intros Hwf1 Hpmi1 Hic1 Hpma1 Hnac1 Hpnd1 Hcid Hrai1 Hdis.
+  destruct Hdis as (Hnn&Hdis); split; first done.
+  destruct (trs1' !! loc.1) as [tr'|] eqn:Htr'. 2: done.
+  eapply trees_access_all_protected_initialized_backwards in Hrai1 as (tr&Htr&Hrai1); last done.
+  destruct Hdis as [Hdis|Hdis].
+  - left. eapply disabled_tag_at_remove_call. 9: done. 8: done.
+    1: by eapply Hwf1. 1: by eapply Hpmi1. 1: by eapply Hic1. 1: by eapply Hpma1.
+    1: by eapply Hnac1. 1: by eapply Hpnd1. done.
+  - right. done.
+Qed.
+
+

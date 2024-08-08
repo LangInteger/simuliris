@@ -155,7 +155,6 @@ Section utils.
       + rewrite Hproteq. by eexists cid.
   Qed.
 
-
   Lemma tree_equals_access_many_helper_2 tg (L : gmap Z _) tr1 tr1' tr2
     (Hwf1 : wf_tree tr1)
     (Hwf2 : wf_tree tr2) 
@@ -298,6 +297,79 @@ Section utils.
       14: exact Hrapi1'. 13: exact Heqtr. 1: by eapply Hwf1. 1: by eapply Hwf2. 1: by eapply PMI. 1: by eapply PMA1. 1: by eapply PMA2. 1: by eapply ProtParentsNonDis1. 1: by eapply ProtParentsNonDis2.
       1: by eapply NA1. 1: by eapply NA2. 1: by eapply CC1. 1: by eapply CC2. 1: done.
       rewrite Hrapi2' in Htr2'u. injection Htr2'u as <-. done.
+  Qed.
+
+
+  Lemma disabled_tag_at_access_many_helper_2 (L : gmap Z _) tr1 tr1' tg acc_tg loc :
+    disabled_tag_at C tr1 tg loc →
+    tree_contains acc_tg tr1 →
+    wf_tree tr1 →
+    let fn := (λ tr, map_fold (λ l acc tr2, tr2 ≫= memory_access_nonchildren_only acc C acc_tg (l, 1%nat)) (Some tr) L) in
+    fn tr1 = Some tr1' →
+    disabled_tag_at C tr1' tg loc.
+  Proof.
+    simpl. map_fold_ind L as off acc E Hnone Hfoo IH in tr1'.
+    1: intros ????; by simplify_eq.
+    intros Hdis Hcont Hwf (tr1'''&H1&H2)%bind_Some.
+    assert (wf_tree tr1''') as Hwf1'''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf. 1: apply H1. }
+    assert (tree_contains acc_tg tr1''') as Hcont'''.
+    { eapply preserve_tag_count_contains. 1: eapply tree_access_many_helper_2. 1: done. apply H1. }
+    eapply disabled_tag_at_tree_apply_access_irreversible. 4: exact H2. 2,3: done.
+    eapply IH. 1: done. 1-2: done. apply H1.
+  Qed.
+
+  Lemma disabled_tag_at_access_many_helper_1 (E : list (tag * gmap Z _)) tr1 tr1' tg loc :
+    disabled_tag_at C tr1 tg loc →
+    wf_tree tr1 →
+    (∀ tg L, (tg, L) ∈ E → tree_contains tg tr1)→
+    let fn := (λ tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, map_fold (λ l acc tr2, tr2 ≫= memory_access_nonchildren_only acc C tg (l, 1%nat)) (Some tr1) L) (Some tr) E) in
+    fn tr1 = Some tr1' →
+    disabled_tag_at C tr1' tg loc.
+  Proof.
+    simpl.
+    induction E as [|(acc_tg&init_locs) S IH] in tr1'|-*.
+    1: simpl; intros ????; by simplify_eq.
+    simpl. intros Hdis Hwf Hcont (tr1'''&H1&H2)%bind_Some.
+    assert (wf_tree tr1''') as Hwf1'''.
+    { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf. 1: apply H1. }
+    assert (tree_contains acc_tg tr1''') as Hcont'''.
+    { eapply preserve_tag_count_contains. 1: eapply tree_access_many_helper_1. 1: eapply Hcont; by left. apply H1. }
+    eapply disabled_tag_at_access_many_helper_2. 4: exact H2. 2,3: done.
+    eapply IH. 1: done. 1: done. 2: apply H1.
+    intros ???; eapply Hcont; by right.
+  Qed.
+
+  Lemma disabled_tag_at_access_all_protected_initialized cid tr1 tr1' tg loc :
+    disabled_tag_at C tr1 tg loc →
+    wf_tree tr1 →
+    tree_access_all_protected_initialized C cid tr1 = Some tr1' →
+    disabled_tag_at C tr1' tg loc.
+  Proof.
+    intros H1 H2. eapply disabled_tag_at_access_many_helper_1.
+    1-2: done.
+    intros tg' E. setoid_rewrite elem_of_elements.
+    intros (it&Hit&_)%tree_all_protected_initialized_elem_of. 2: done.
+    apply Hit.
+  Qed.
+
+  Lemma disabled_tag_access_all_protected_initialized cid nxtp trs1 trs1' tg loc :
+    disabled_tag C trs1 nxtp tg loc →
+    wf_trees trs1 →
+    trees_access_all_protected_initialized C cid trs1 = Some trs1' →
+    disabled_tag C trs1' nxtp tg loc.
+  Proof.
+    intros Dis Wf Acc.
+    pose proof (trees_access_all_protected_initialized_pointwise_1 _ _ _ _ Acc loc.1) as (H1&H2).
+    destruct Dis as (HH&Dis).
+    split; first done.
+    destruct (trs1 !! loc.1) as [tr|] eqn:Htr.
+    2: by rewrite H2.
+    specialize (H1 _ eq_refl) as (tr'&Htr'&HAcc). rewrite Htr'.
+    destruct Dis as [Dis|Hne].
+    - left. eapply disabled_tag_at_access_all_protected_initialized. 1: exact Dis. 2: done. by eapply Wf.
+    - right. intros Hc. apply Hne. eapply preserve_tag_count_contains_2.
+      3: exact HAcc. 2: done. by eapply tree_access_all_protected_initialized_tag_count.
   Qed.
 
 

@@ -45,7 +45,7 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htk") as "%Ht_tk".
   iAssert (|==> tkmap_auth tag_name 1 (<[ t := (tk_pub, ()) ]> M_tag) ∗ t $$ tk_pub)%I with "[Htag_auth Htk]" as ">(Htag_auth&Htk)".
   { iMod (tkmap_update_strong tk_pub tt with "Htag_auth Htk") as "($&$)"; done. }
@@ -71,7 +71,7 @@ Proof.
   iModIntro. iSplitR "Hres Htk Hprot".
   2: by iApply ("Hres" with "Htk Hprot").
   iFrame "HP_s HP_t". iExists (<[c := _ ]> M_call), _, (delete (t, l.1) M_t), (delete (t, l.1) M_s).
-  iFrame "Hc Htag_t_auth Htag_s_auth Hpub_cid Htag_auth".
+  iFrame "Hc Htag_t_auth Htag_s_auth Hpub_cid Htag_auth Htainted".
   iSplit; last (iPureIntro; split; last (split; last done)).
   - repeat (iSplit; first done). iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
     iIntros (ll Hll). iDestruct ("Hsrel" $! ll Hll) as "[Hpub|(%tt&%Hpriv)]".
@@ -212,7 +212,7 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htk") as "%Ht_tk".
   iAssert (|==> tkmap_auth tag_name 1 (<[ t := (tk_pub, ()) ]> M_tag) ∗ t $$ tk_pub)%I with "[Htag_auth Htk]" as ">(Htag_auth&Htk)".
   { iMod (tkmap_update_strong tk_pub tt with "Htag_auth Htk") as "($&$)"; done. }
@@ -225,7 +225,7 @@ Proof.
   iModIntro. iSplitR "Hres Htk".
   2: by iApply "Hres".
   iFrame "HP_s HP_t". iExists M_call, _, (delete (t, l.1) M_t), (delete (t, l.1) M_s).
-  iFrame "Hc Htag_t_auth Htag_s_auth Hpub_cid Htag_auth".
+  iFrame "Hc Htag_t_auth Htag_s_auth Hpub_cid Htag_auth Htainted".
   iSplit; last (iPureIntro; split; last (split; last done)).
   - repeat (iSplit; first done). iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
     iIntros (ll Hll). iDestruct ("Hsrel" $! ll Hll) as "[Hpub|(%tt&%Hpriv)]".
@@ -322,7 +322,7 @@ Proof.
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hsst_eq & Hstrs_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htk") as "%Htk".
   iAssert (⌜tk = tk_unq tk_act → M_t !! (t, l.1) = Some _ ∧ M_s !! (t, l.1) = Some _⌝)%I as "%Hhl_ts".
   { iIntros (H). iDestruct ("Hvrel" $! H) as "(Hhl_t&Hhl_s&_)".
@@ -336,7 +336,7 @@ Proof.
   iSpecialize ("Hsim" with "Hcall Htk [Hvrel]").
   1: { iIntros (H). iDestruct ("Hvrel" $! H) as "(Hhl_t&Hhl_s&_)". iFrame. }
   iFrame "Hsim HP_t HP_s".
-  iModIntro. iExists _, M_tag, M_t, M_s. iFrame "Hc Hpub_cid Htag_t_auth Htag_s_auth Htag_auth".
+  iModIntro. iExists _, M_tag, M_t, M_s. iFrame "Hc Hpub_cid Htag_t_auth Htag_s_auth Htag_auth Htainted".
   iSplit. 2: iPureIntro; split_and!.
   4, 5: done.
   - do 5 (iSplit; first done). iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".

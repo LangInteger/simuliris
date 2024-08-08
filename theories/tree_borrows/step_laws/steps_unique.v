@@ -92,7 +92,7 @@ Proof.
 
   
 
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htk") as "%Htk".
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Ht".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hs".
@@ -103,7 +103,10 @@ Proof.
     iExists M_call, M_tag, M_t, M_s.
     iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
     subst σ_s' σ_t'.
-    iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+    iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+    - iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+      iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+      simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 2: done. 2: by eapply Hwf_s. done.
     - (* pub cid *)
       iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
     - repeat (iSplit; first done).
@@ -187,7 +190,7 @@ Proof.
       1: done. 1: lia. 1: by eapply ZeroWriteIS. }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
     specialize (head_write_inv _ _ _ _ _ _ _ _ _ Hhead_t) as (trst_2 & -> & -> & -> & _ & Hin_dom & [(_ & _ &Hx)|(_&->)]); first done.
-    iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+    iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
     iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hheaplet_t".
     iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hheaplet_s".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htk".
@@ -280,7 +283,7 @@ Proof.
 
   (* update the ghost state.
     no separate lemma for, this is quite an atomic operation. *)
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hheaplet_t".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hheaplet_s".
   iMod (ghost_map_array_tag_update _ _ _ v_t' with "Htag_t_auth Ht") as "[Ht Htag_t_auth]"; first lia.
@@ -309,7 +312,10 @@ Proof.
   iExists M_call, (<[t:=(tk_unq tk_act, ())]> M_tag), (array_tag_map l t v_t' ∪ M_t), (array_tag_map l t v_s' ∪ M_s).
   rewrite -!@insert_union_singleton_l. (* TODO remove *)
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  iSplitL "Htainted"; last iSplitL "Hpub_cid"; last iSplit; last iSplit; last iSplit; last iSplit.
+  - iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 2: done. 2: by eapply Hwf_s. done.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
   - (* state rel *) 

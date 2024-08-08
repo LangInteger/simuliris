@@ -9,7 +9,7 @@ From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From simuliris.tree_borrows Require Import wishlist.
 From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
-From simuliris.tree_borrows.trees_equal Require Import trees_equal_source_read trees_equal_transitivity.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_source_read trees_equal_transitivity trees_equal_preserved_by_access_base.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -77,7 +77,7 @@ Proof.
     assert (∃ (i:nat), off = off_rd + i) as (i&->) by (exists (Z.to_nat (off - off_rd)); lia).
     eapply Hown. 1: lia. }
 
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hs".
 
@@ -86,7 +86,10 @@ Proof.
   2: { iApply ("Hsim" with "Hs Htag"). iPureIntro; by left. }
   iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid". 2: iSplit; last iSplit; last (iPureIntro; split_and!).
+  iSplitL "Htainted"; last iSplitL "Hpub_cid". 3: iSplit; last iSplit; last (iPureIntro; split_and!).
+  - iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 2: done. 2: by eapply Hwf_s. done.
   - iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
   - repeat (iSplit; first done).
     simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".

@@ -9,7 +9,7 @@ From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From simuliris.tree_borrows Require Import wishlist.
 From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
-From simuliris.tree_borrows.trees_equal Require Import trees_equal_asymmetric_prot trees_equal_transitivity.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_asymmetric_prot trees_equal_transitivity trees_equal_preserved_by_access_base.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -70,7 +70,7 @@ Proof.
     assert (∃ (i:nat), off = off_rd + i) as (i&->) by (exists (Z.to_nat (off - off_rd)); lia).
     eapply Hown. 1: lia. }
 
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Ht".
   iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot3".
@@ -80,7 +80,8 @@ Proof.
   2: iApply ("Hsim" with "Ht Htag Hprot3").
   iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid". 2: iSplit; last iSplit; last (iPureIntro; split_and!).
+  iSplitL "Htainted"; last iSplitL "Hpub_cid". 3: iSplit; last iSplit; last (iPureIntro; split_and!).
+  - done.
   - iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
   - repeat (iSplit; first done).
     simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
@@ -149,7 +150,7 @@ Proof.
     assert (∃ (i:nat), off = off_rd + i) as (i&->) by (exists (Z.to_nat (off - off_rd)); lia).
     eapply Hown. 1: lia. }
 
-  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+  iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hs".
   iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot3".
@@ -159,7 +160,10 @@ Proof.
   2: iApply ("Hsim" with "Hs Htag Hprot3").
   iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
-  iSplitL "Hpub_cid". 2: iSplit; last iSplit; last (iPureIntro; split_and!).
+  iSplitL "Htainted"; last iSplitL "Hpub_cid". 3: iSplit; last iSplit; last (iPureIntro; split_and!).
+  - iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 2: done. 2: by eapply Hwf_s. done.
   - iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); done.
   - repeat (iSplit; first done).
     simpl. iIntros (l) "Hs". iPoseProof (state_rel_pub_or_priv with "Hs Hsrel") as "$".
@@ -235,7 +239,7 @@ Proof.
   rewrite /memory_access /= Htrs' in Happly.
   assert (trs''=trs') as -> by congruence.
   rewrite WRITE_MEM.
-  iDestruct "Hbor" as "((Hca & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hca & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Hca Hc") as "%Hc".
   iPoseProof (ghost_map_lookup with "Htag_t_auth Ht") as "%Hhl".
@@ -244,7 +248,7 @@ Proof.
   iSplit; first done.
   iSplitR "Hsim Htag Ht Hc".
   2: iApply ("Hsim" with "Ht Htag Hc"). iFrame "HP_t HP_s".
-  iExists M_call, M_tag, (<[(t, blk):=list_to_heaplet v_t' off_hl]> M_t), M_s.
+  iExists M_call, M_tag, (<[(t, blk):=list_to_heaplet v_t' off_hl]> M_t), M_s. iFrame "Htainted".
   iFrame. simpl. iSplit.
   { iSplit; last iSplit; last iSplit; last iSplit; last iSplit; try iPureIntro.
     { simpl. rewrite Hdom_eq. subst hp'. erewrite write_mem_dom_sane; first done. done. }
@@ -399,7 +403,7 @@ Proof.
     eapply Hown. 1: lia. }
   iExists _, _.
   iSplit; first done.
-  iDestruct "Hbor" as "((Hca & Htag_auth & Htag_t_auth & Htag_s_auth) & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
+  iDestruct "Hbor" as "((Hca & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _)".
   iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag".
   iPoseProof (ghost_map_lookup with "Hca Hc") as "%Hc".
   iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hhl".
@@ -408,7 +412,11 @@ Proof.
   iSplitR "Hsim Htag Hs Hc".
   2: iApply ("Hsim" with "Hs Htag Hc"). iFrame "HP_t HP_s".
   iExists M_call, M_tag, M_t, (<[(t, blk):=list_to_heaplet v_t' off_hl]> M_s).
-  iFrame. simpl. iSplit.
+  iFrame. simpl. iSplitL "Htainted".
+  { iDestruct "Htainted" as "(%M'&Ht1&Ht2)". iExists M'. iFrame "Ht1".
+    iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
+    simpl. eapply disabled_tag_tree_apply_access_irreversible. 4: done. 3: by eapply Hwf_s. 1: done.
+    rewrite /trees_contain /trees_at_block Hit. apply Htr. } iSplit.
   { iSplit; last iSplit; last iSplit; last iSplit; last iSplit; try iPureIntro.
     { simpl. rewrite -Hdom_eq. subst hp'. erewrite write_mem_dom_sane; first done. done. }
     1-4: done.
