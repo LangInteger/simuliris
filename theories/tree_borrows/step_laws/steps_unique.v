@@ -9,7 +9,7 @@ From simuliris.tree_borrows Require Import steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From simuliris.tree_borrows Require Import wishlist.
 From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
-From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access disabled_tag_rejects_read_precisely.
 From iris.prelude Require Import options.
 
 (** * Simulation lemmas using the ghost state for proving optimizations *)
@@ -34,7 +34,7 @@ Lemma sim_copy v_t v_s v_rd_t v_rd_s sz l_hl l_rd t π tk Φ :
   t $$ tk -∗
   l_hl ↦s∗[tk]{t} v_s -∗
   l_hl ↦t∗[tk]{t} v_t -∗
-  (∀ v_res_s v_res_t, l_hl ↦s∗[tk]{t} v_s -∗ l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ ⌜(v_res_s = v_rd_s ∧ v_res_t = v_rd_t ∨ v_res_s = (replicate sz ☠%S) ∧ v_res_t = (replicate sz ☠%S))⌝ -∗ #v_res_t ⪯{π} #v_res_s  [{ Φ }])%E -∗
+  (∀ v_res_s v_res_t, l_hl ↦s∗[tk]{t} v_s -∗ l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz) -∗ #v_res_t ⪯{π} #v_res_s  [{ Φ }])%E -∗
   (Copy (Place l_rd t sz))  ⪯{π} (Copy (Place l_rd t sz))  [{ Φ }].
 Proof.
   iIntros (Hsz Hreadt Hreads Hl) "Htk Hs Ht Hsim".
@@ -57,10 +57,61 @@ Proof.
     }
     iIntros (e_t' efs_t σ_t') "%Hhead_t".
     specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&[((Hnotree&->&Hpoison&Hheapsome)&Hcontains_t)|(trs'&v'&->&Hσ_t'&Hreadmem&[(Hcontains_t&Hsometree&_)|([]%Hsz&_&_)])]); last congruence.
-    iModIntro. iExists e_t', [], σ_s. iSplit.
-    { iPureIntro. subst e_t'. destruct σ_s, l_rd. simpl. do 2 econstructor; by eauto. }
-    simpl. iFrame. iSplit; last done. subst e_t'.
-    iApply ("Hsim" $! _ _ with "Hs Ht Htk"). iPureIntro. by right.
+
+    pose proof Hnotrees as Hn2.
+    rewrite /apply_within_trees in Hn2. pose proof Hcontain_s as Hcont.
+    rewrite /trees_contain /trees_at_block in Hcont.
+    destruct (strs σ_s !! l_rd.1) as [tr|] eqn:Heq; last done.
+    simpl in *. eapply bind_None in Hn2 as [Hn2|(x1&Hx1&Hx2)]. 2: done.
+    assert (tree_unique t tr) as (it&Hit)%unique_implies_lookup by by eapply Hwf_s.
+    iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
+    iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
+    iPoseProof (tkmap_lookup with "Htag_auth Htk") as "%Htag".
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hs") as "%Hs".
+    eapply read_range_length in Hreads as HHsz.
+    eapply read_range_length in Hreadt as HHszt.
+    eapply read_fails_disabled_tag_or_prot_act_child in Hn2 as (l&Hl'&Hn2). 2-4: by eapply Hwf_s. 2: done.
+    2: { intros l Hl' Him. destruct (Htag_interp) as (H1&_).
+         specialize (H1 _ _ Htag) as (_&_&_&H2&H3&_).
+         specialize (H3 (l_rd.1, l)). rewrite /range'_contains /= in Hl'.
+         rewrite /heaplet_lookup /= -Hl /= Hs /= in H3.
+         assert (∃ (il:nat), l = l_rd.2 + il) as (il&->).
+         { exists (Z.to_nat (l - l_rd.2)). lia. }
+         assert (il < length v_rd_s)%nat as (sc&Hsc)%lookup_lt_is_Some_2 by lia.
+         eapply read_range_lookup_nth in Hreads. 2: done.
+         specialize (H3 _ Hreads).
+         eapply bor_state_own_on_not_reservedim. 5: exact H3. 1: done. 2: done. 2: done. 1: congruence. }
+    rewrite /range'_contains /= in Hl'.
+    destruct Hn2 as [Hn2|(Hn2&_)]. 
+    2: { destruct (Htag_interp) as (H1&_).
+         specialize (H1 _ _ Htag) as (_&_&_&H2&H3&_).
+         specialize (H3 (l_rd.1, l)).
+         rewrite /heaplet_lookup /= -Hl /= Hs /= in H3.
+         assert (∃ (il:nat), l = l_rd.2 + il) as (il&->).
+         { exists (Z.to_nat (l - l_rd.2)). lia. }
+         assert (il < length v_rd_s)%nat as (sc&Hsc)%lookup_lt_is_Some_2 by lia.
+         eapply read_range_lookup_nth in Hreads. 2: done.
+         specialize (H3 _ Hreads).
+         eapply bor_state_own_no_active_child in Hn2. 2,3: done. 2: eapply Hit.
+         2: rewrite -Hl; exact H3. done. }
+
+    iMod (tag_tainted_interp_insert _ _ (l_rd.1, l) with "Htainted") as "(Htainted&#Hpoison)".
+    { split. 2: rewrite /= Heq; left; exact Hn2.
+      destruct (Htag_interp) as (H1&_).
+      specialize (H1 _ _ Htag) as (_&Hx&_). rewrite /tag_valid in Hx. lia. }
+    iModIntro. iFrame "HP_t HP_s". iSpecialize ("Hsim" $! (replicate (length v_rd_s) _) (replicate (length v_rd_s) _) with "Hs Ht Htk []").
+    { iRight. iSplit.
+      { iExists (Z.to_nat (l - l_rd.2)). rewrite replicate_length. iSplit. 1: iPureIntro; split; last by f_equal.
+        1: simpl; lia. simpl. assert ((l_rd +ₗ Z.to_nat (l - l_rd.2) = (l_rd.1, l))) as ->. 2: done.
+        rewrite /shift_loc /=. simpl. f_equal. lia. }
+      { iExists (Z.to_nat (l - l_rd.2)). rewrite replicate_length. iSplit. 1: iPureIntro; split; last by f_equal.
+        1: simpl; lia. simpl. assert ((l_rd +ₗ Z.to_nat (l - l_rd.2) = (l_rd.1, l))) as ->. 2: done.
+        rewrite /shift_loc /=. simpl. f_equal. lia. } }
+     iExists e_t', [], σ_s. iSplit.
+     { iPureIntro. subst e_t'. destruct σ_s, l_rd. simpl. do 2 econstructor; by eauto. }
+     iSplitR "Hsim".
+     { do 4 iExists _; destruct σ_s; iFrame. iFrame "Hsrel". done. }
+     simpl. rewrite Hpoison. subst sz. iSplit; last done. iApply "Hsim".
   }
   edestruct trees_equal_allows_more_access as (trs_t'&Htrst).
   1: done. 1: eapply Hwf_s. 1,2,3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done. 1: done. 1: by eapply mk_is_Some.
@@ -139,7 +190,7 @@ Proof.
   }
   iSplitL; last done.
 
-  iApply ("Hsim" with "Hs Ht Htk"). iPureIntro. left.
+  iApply ("Hsim" with "Hs Ht Htk"). iLeft. iPureIntro.
   eapply read_range_list_to_heaplet_read_memory_strict in Hreads. 2: done.
   2: intros i Hi; specialize (Howns i Hi) as (_&H); exact H.
   eapply read_range_list_to_heaplet_read_memory_strict in Hreadt. 2: done.

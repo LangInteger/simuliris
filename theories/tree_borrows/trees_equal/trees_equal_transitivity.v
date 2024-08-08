@@ -85,7 +85,7 @@ Context (C : call_id_set).
       inversion Hdis as [X1 HH X2|tgcs itcs lp X1 Hcs Hlucs Hprotcs Hactcs HH X2 X3]; simplify_eq.
       { unshelve eapply (Hpnd _ off). 1-3: done. rewrite -Hlazy. done. }
       eapply Hnac. 2: eapply Hlucs. 1: eapply Hlu. 3: by erewrite Hactcs.
-      2: right; split; done.
+      2: right; split; last done; left; done.
       eapply child_of_this_is_foreign_for_cousin. 4: exact Hcs.
       1-3: eapply Hunq. 1: eapply Hluw. 1: eapply Hlucs. 1: eapply Hlu.
       rewrite /rel_dec decide_True //.
@@ -207,7 +207,7 @@ Context (C : call_id_set).
       { rewrite -X2 in Hnondis. done. }
       inversion HH1 as [|tgcs itcs X1 X2 H1' H2' H3' H4 H5 X3 X4]; simplify_eq.
       { rewrite -HH2 in Hnondis. done. }
-      eapply HNC. 1: exact H2'. 1: exact Hl1. 3: exact Hact. 2: right; split; first done.
+      eapply HNC. 1: exact H2'. 1: exact Hl1. 3: exact Hact. 2: right; split; first by left.
       2: by rewrite H4.
       rewrite /rel_dec in H1|-*.
       destruct decide as [HPC1|] in H1; last done. clear H1.

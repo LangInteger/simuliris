@@ -93,7 +93,7 @@ Proof.
   sim_bind (Copy _) (Copy _). sim_pures.
   iApply (sim_copy with "Htag_i Hi_s Hi_t"). 1,4: done.
   1-2: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  iIntros (v_res_s v_res_t) "Hi_s Hi_t #Htag_i %Hv_res".
+  iIntros (v_res_s v_res_t) "Hi_s Hi_t #Htag_i Hv_res".
   sim_pures.
   iApply sim_expr_base.
 
@@ -110,29 +110,38 @@ Proof.
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   source_pures. source_bind (Copy _).
-  iApply (source_copy_any with "Htag_i Hi_s"). 1: done.
-  2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  iIntros (v_res) "Hi_s _ %Hv_res'". source_pures. source_finish.
-  sim_pures.
 
+  (* TODO make this case distinction nicer *)
+  iDestruct "Hv_res" as "[(->&->)|(Hpoison_s&Hpoison_t)]".
 
+  - iApply (source_copy_any with "Htag_i Hi_s"). 1: done.
+    2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+    iIntros (v_res) "Hi_s _ Hv_res'". source_pures. source_finish.
+    sim_pures.
+    (* cleanup: free the local locations*)
+    sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
+    sim_pures.
+    sim_val. iModIntro. iSplit; first done.
+    iEval (cbn) in "Hvrel".
+    iDestruct "Hvrel" as "(Hvrel&_)".
+    iDestruct "Hv_res'" as "[->|(%pi&(%Hp1&->)&Hpoison)]"; (iSplit; last done).
+    + done.
+    + iApply sc_rel_source_poison.
 
-  (* cleanup: free the local locations*)
-  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  sim_pures.
-  sim_val. iModIntro. iSplit; first done.
-  iEval (cbn) in "Hvrel".
-  iDestruct "Hvrel" as "(Hvrel&_)".
-  (* prove that the values are in simulation (by case-analyzing what was poison when) *)
-  destruct Hv_res as [(->&->)|(->&->)], Hv_res' as [->| ->]; (iSplit; last done).
-  - done.
-  - iApply sc_rel_source_poison.
-  - admit.
-    (* in this case, the first read returned poison but the second did not.
-       This can not happen, once a value is disabled for reads, it stays disabled forever.
-       But proving this requires more work, since we need to add "is disabled" ghost state *)
-  - done.
-Admitted.
+  - iApply (source_copy_poison with "Hpoison_s Htag_i Hi_s"). 1: done.
+    2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+    iIntros (v_res) "Hi_s _ Hv_res'". source_pures. source_finish.
+    sim_pures.
+    (* cleanup: free the local locations*)
+    sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
+    sim_pures.
+    sim_val. iModIntro. iSplit; first done.
+    iEval (cbn) in "Hvrel".
+    iDestruct "Hvrel" as "(Hvrel&_)".
+    iDestruct "Hpoison_t" as "(%pit&(%Hpt1&->)&Hpoison_t)".
+    iDestruct "Hv_res'" as "(%pis&(%Hps1&->)&Hpoison_s)"; (iSplit; last done).
+    done.
+Qed.
 
 
 Section closed.
@@ -151,7 +160,6 @@ Print Assumptions sim_opt2'_ctx.
 sim_opt2'_ctx
      : ctx_ref ex2_opt' ex2_unopt'
 Axioms:
-sim_opt2' : ∀ (Σ : gFunctors) (H : sborGS Σ), ⊢ log_rel ex2_opt' ex2_unopt'
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
 *)

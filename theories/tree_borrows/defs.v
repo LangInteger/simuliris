@@ -35,8 +35,8 @@ Definition protected_parents_not_disabled C (tr : tree item) := ∀ tg, every_ch
 
 Definition active_or_prot_init C it off := 
   perm (item_lookup it off) = Active ∨
-  (protector_is_active it.(iprot) C) ∧ initialized (item_lookup it off) = PermInit.
-(* the definition is asymmetric: an active tag can not have a protected nor an active tag as cousin *)
+  ((protector_is_active it.(iprot) C) ∨ let p := perm (item_lookup it off) in (p = Frozen ∨ p = Reserved ResActivable ∨ p = Reserved ResConflicted)) ∧ initialized (item_lookup it off) = PermInit.
+(* the definition is asymmetric: an active tag only has very restricted foreign cousins *)
 Definition no_active_cousins C tr := ∀ tg1 it1 tg2 it2 off, tree_lookup tr tg1 it1 → tree_lookup tr tg2 it2 → rel_dec tr tg1 tg2 = Foreign Cousin → active_or_prot_init C it1 off → perm (item_lookup it2 off) = Active → False.
 
 Definition tree_items_unique (tr:tree item) :=

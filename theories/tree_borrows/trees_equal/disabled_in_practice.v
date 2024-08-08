@@ -53,4 +53,7 @@ Section disabled_tag.
 
   Definition disabled_tag (trs : trees) nxtp (tg : tag) (l : loc) := tg < nxtp ∧ (match trs !! l.1 with Some tr => disabled_tag_at tr tg l.2 ∨ ¬ tree_contains tg tr | None => True end).
 
+  Definition active_child tr tg l :=
+    ∃ it ii, tree_lookup tr (itag it) it ∧ rel_dec tr (itag it) tg = Child (Strict ii) ∧ item_lookup it l = mkPerm PermInit Active ∧ protector_is_active (iprot it) C.
+
 End disabled_tag.

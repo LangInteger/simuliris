@@ -113,6 +113,20 @@ Proof.
     auto.
 Qed.
 
+Lemma join_fail_condition {X} (tr:tree (option X)) :
+  join_nodes tr = None <-> exists_node (λ x, x = None) tr.
+Proof.
+  induction tr as [|[data|] tr1 IHtr1 tr2 IHtr2]; simpl; split; try done; try auto.
+  - destruct (join_nodes tr1); last first.
+    { intros _. right. left. apply IHtr1. done. }
+    simpl. destruct (join_nodes tr2); last first.
+    { intros _. right. right. apply IHtr2. done. }
+    simpl. done.
+  - intros [[=]|[H1%IHtr1|H2%IHtr2]].
+    1: rewrite H1; done.
+    rewrite H2. simpl. by destruct (join_nodes tr1). 
+Qed.
+
 Lemma every_subtree_eqv_universal {X} prop tr :
   every_subtree prop tr <-> (forall (br:tbranch X), exists_subtree ((=) br) tr -> prop br).
 Proof.

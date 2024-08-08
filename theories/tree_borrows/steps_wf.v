@@ -1352,10 +1352,12 @@ Proof.
          eapply ParentChild_transitive. 1: exact HPCA2. 1: done. }
     rewrite maybe_non_children_only_no_effect in Hlp1'. 2: done.
     rewrite /apply_access_perm /apply_access_perm_inner /= in Hlp1'.
-    destruct Ha1 as [Ha1|(Hp1&Hi1)]; last rewrite bool_decide_true // in Hlp1'.
+    destruct Ha1 as [Ha1|(Hp1&Hi1)].
     1: repeat (case_match; simpl in *; simplify_eq; try done).
     destruct acc.
-    2: repeat (case_match; simpl in *; simplify_eq; try done).
+    2: { destruct Hp1 as [|[|[]]].
+         1: rewrite bool_decide_eq_true_2 // in Hlp1'.
+         all: repeat (case_match; simpl in *; simplify_eq; try done). }
     assert (perm (item_lookup it2 off) = Active) as Ha2old.
     { clear Hlp1'. rewrite maybe_non_children_only_no_effect // /= /apply_access_perm /apply_access_perm_inner /= in Hlp2'.
       rewrite /item_lookup.
@@ -1366,8 +1368,14 @@ Proof.
     all: rewrite most_init_comm /= in Hinit.
     all: destruct (iperm it1 !! off) as [[[] prm]|] eqn:Hlu; rewrite Hlu /= // in Hinit.
     all: eapply WFcs; [exact Hit1|exact Hit2|exact Hreldec| |exact Ha2old].
-    all: right; split; try done.
-    all: rewrite /item_lookup Hlu /= //. }
+    all: try (left; apply Hperm).
+    all: try (right; split; last (by rewrite /item_lookup Hlu /= //)).
+    all: destruct Hp1 as [Hx|Hp1]; first by left.
+    all: right.
+    all: destruct (bool_decide (protector_is_active (iprot it1) cids)); simpl in *.
+    all: rewrite /item_lookup Hperm. all: try done; try by eauto.
+    all: injection Hlp1' as <-.
+    all: simpl in Hp1. all: clear -Hp1. all: by destruct_or!. }
   destruct (decide (ParentChildIn tg (itag it1) tr)) as [HPCB1|HnPCB1];
   first destruct (decide (ParentChildIn tg (itag it2) tr)) as [HPCB2|HnPCB2];
   first destruct b.
@@ -1384,10 +1392,12 @@ Proof.
     repeat (case_match; simpl in *; simplify_eq; try done). }
   { rewrite maybe_non_children_only_no_effect in Hlp1'. 2: done.
     rewrite /apply_access_perm /apply_access_perm_inner /= in Hlp1'.
-    destruct Ha1 as [Ha1|(Hp1&Hi1)]; last rewrite bool_decide_true // in Hlp1'.
+    destruct Ha1 as [Ha1|(Hp1&Hi1)].
     1: repeat (case_match; simpl in *; simplify_eq; try done).
     destruct acc.
-    2: repeat (case_match; simpl in *; simplify_eq; try done).
+    2: { destruct Hp1 as [|[|[]]].
+         1: rewrite bool_decide_eq_true_2 // in Hlp1'.
+         all: repeat (case_match; simpl in *; simplify_eq; try done). }
     assert (perm (item_lookup it2 off) = Active) as Ha2old.
     { clear Hlp1'. edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq in Hlp2'.
       2: { injection Hlp2' as <-. rewrite /item_lookup Ha2 //. } clear Heq.
@@ -1400,8 +1410,14 @@ Proof.
     all: rewrite most_init_comm /= in Hinit.
     all: destruct (iperm it1 !! off) as [[[] prm]|] eqn:Hlu; rewrite Hlu /= // in Hinit.
     all: eapply WFcs; [exact Hit1|exact Hit2|exact Hreldec| |exact Ha2old].
-    all: right; split; try done.
-    all: rewrite /item_lookup Hlu /= //. }
+    all: try (left; apply Hperm).
+    all: try (right; split; last (by rewrite /item_lookup Hlu /= //)).
+    all: destruct Hp1 as [Hx|Hp1]; first by left.
+    all: right.
+    all: destruct (bool_decide (protector_is_active (iprot it1) cids)); simpl in *.
+    all: rewrite /item_lookup Hperm. all: try done; try by eauto.
+    all: injection Hlp1' as <-.
+    all: simpl in Hp1. all: clear -Hp1. all: by destruct_or!. }
 Qed.
 
 Lemma memory_deallocate_compat_parents_more_init tr tr' cids tg range :
@@ -2058,7 +2074,7 @@ Proof.
   intros (Hwf&_) Hnew H1 blk tr Htr tg1 it1 tg2 it2 off Hit1 Hit2 Hcs Hpa Ha.
   eapply H1. 1: eassumption. 3,5: eassumption. 1: exact Hit1. 1: exact Hit2.
   destruct Hpa as [Hpa|(Hp&Hi)]; first by left.
-  right. split; last done.
+  right. split; last done. destruct Hp as [Hp|Hx]. 2: by right. left.
   destruct Hp as (c&Hc&HHc). exists c. split; first done.
   eapply elem_of_union in HHc as [HHc|HHc]; last done.
   exfalso. specialize (Hnew _ _ Htr).
@@ -2650,7 +2666,7 @@ Proof.
   intros (Hwf&_) Hnew H1 blk tr Htr tg1 it1 tg2 it2 off Hit1 Hit2 Hcs Hpa Ha.
   eapply H1. 1: exact Htr. 1: exact Hit1. 1: exact Hit2. 1: done. 2: done.
   destruct Hpa as [Hpa|(Hp&Hi)]; first by left.
-  right; split; last done.
+  right; split; last done. destruct Hp as [Hp|Hx]; last by right. left.
   destruct Hp as (c&Hc&HHc%Hnew). by exists c.
 Qed.
 

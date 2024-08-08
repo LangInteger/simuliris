@@ -41,6 +41,17 @@ Proof.
   tauto.
 Qed.
 
+
+Lemma apply_access_fail_condition tr cids access_tag range fn :
+  exists_node (fun it => item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it = None) tr
+  <-> tree_apply_access fn cids access_tag range tr = None.
+Proof.
+  rewrite /tree_apply_access.
+  rewrite join_fail_condition.
+  rewrite exists_node_map /compose.
+  tauto.
+Qed.
+
 Lemma mem_apply_range'_success_condition {X} (map : gmap Z X) fn range :
   (forall l, range'_contains range l -> is_Some (fn (map !! l))) <->
   is_Some (mem_apply_range' fn range map).
@@ -91,6 +102,27 @@ Proof.
         apply (proj2 (IHsz _ _) App'' l InSubRange).
 Qed.
 
+Lemma mem_apply_range'_fail_condition {X} (map : gmap Z X) fn range : 
+  mem_apply_range' fn range map = None ↔
+  ∃ l, range'_contains range l ∧ fn (map !! l) = None.
+Proof.
+  destruct range as [z n].
+  rewrite /mem_apply_range' /range'_contains /=.
+  induction n as [|n IH] in z,map|-*.
+  { simpl. split; try done. intros (l&Hl1&Hl2). lia. }
+  simpl; split.
+  - intros [H|(x&H1&H2)]%bind_None.
+    + exists z. simpl. split; first lia. eapply bind_None in H as [H|(y&Hy1&Hy2)]. 2: done.
+      done.
+    + destruct (IH x (z+1)) as (IH1&IH2). specialize (IH1 H2) as (l&Hl1&Hl2).
+      exists l. split; first lia.
+      eapply bind_Some in H1 as (x1&Hx1&[= <-]). rewrite lookup_insert_ne // in Hl2. lia.
+  - intros (l&Hl1&Hl2). destruct (decide (l = z)) as [->|Hne].
+    + rewrite /mem_apply_loc Hl2 /=. done.
+    + destruct (mem_apply_loc fn z map) as [map2|] eqn:Hmap. 2: done.
+      simpl. eapply IH. exists l. split; first lia.
+      eapply bind_Some in Hmap as (x1&Hx1&[= <-]). rewrite lookup_insert_ne //.
+Qed.
 
 
 Definition is_access_compatible (tr : tree item) (cids : call_id_set) (tg : tag) (range : range') (kind : access_kind) (it : item ) :=

@@ -1485,7 +1485,7 @@ Proof.
   - by injection Hp3a as <-.
   - split_and!; last first.
     { intros Hact. exfalso. opose proof (state_wf_tree_no_active_cousins _ Hwf _ _ Htr) as HH.
-      eapply HH. 3: exact Hrd. 1-2: done. 2: exact Hact. by right. }
+      eapply HH. 3: exact Hrd. 1-2: done. 2: exact Hact. right. split; last done. by left. }
     rewrite /apply_access_perm /apply_access_perm_inner Hinitacc in Hp3a.
     eapply bind_Some in Hp3a as (x&_&Hp3a).
     eapply bind_Some in Hp3a as (y&_&[= <-]). done.
@@ -2250,5 +2250,86 @@ Proof.
   + done.
 Qed.
 
+Lemma bor_state_own_on_not_reservedim σ blk tr tg it tk l sc :
+  state_wf σ →
+  σ.(strs) !! blk = Some tr →
+  tree_lookup tr tg it →
+  perm (item_lookup it l) = ReservedIM →
+  loc_controlled (blk, l) tg tk sc σ  →
+  False.
+Proof.
+  intros H1 H2 Hit Him Hlc; simpl in *.
+  destruct Hlc as (Hlc&_).
+  { destruct tk. 3: done.
+    all: exists it; split; first by exists tr.
+    all: rewrite /= Him //. }
+  destruct Hlc as (it1&tr1&Hit1&Htr1&_&H3B).
+  assert (tr1 = tr) as -> by (simpl in *; congruence). clear Htr1.
+  assert (it1 = it) as ->. { eapply tree_lookup_unique. 1-2: done. } clear Hit1.
+  rewrite /bor_state_post_unq /= Him in H3B.
+  destruct tk.
+  - by destruct H3B.
+  - destruct H3B as [H3B _]; eapply H3B. done.
+  - by destruct H3B.
+Qed.
+
+Lemma bor_state_own_no_active_child σ blk tr sc tg tk l :
+  state_wf σ →
+  σ.(strs) !! blk = Some tr →
+  tree_contains tg tr →
+  loc_controlled (blk, l) tg tk sc σ →
+  active_child σ.(scs) tr tg l →
+  False.
+Proof.
+  intros Hwf Htr Hcont Hlc.
+  intros (ita&ii&Hita&Hreldec&HitaA&Haprot).
+  assert (tree_unique tg tr) as (it&Hit)%unique_implies_lookup by by eapply Hwf.
+  odestruct (Hlc _) as ((it1&tr1&Hit1&Htr1&Hown)&_).
+  { opose proof (state_wf_tree_more_active _ Hwf _ _ Htr tg) as Hma.
+    rewrite /rel_dec in Hreldec.
+    destruct decide as [HPC|] in Hreldec; last done.
+    eapply every_child_ParentChildIn in Hma.
+    2: by eapply Hwf. 2: eapply Hwf; first done; eapply Hit.
+    2: eapply Hit. 3: exact HPC. 2: eapply Hwf; first done; eapply Hita.
+    eapply every_node_eqv_universal in Hma.
+    2: eapply tree_lookup_to_exists_node, Hita.
+    ospecialize (Hma eq_refl l).
+    rewrite HitaA in Hma. specialize (Hma eq_refl).
+    destruct tk. 3: done.
+    all: exists it; split; first (exists tr; done).
+    all: rewrite /= Hma; done. }
+  assert (tr1 = tr) as -> by (simpl in Htr1; congruence). clear Htr1.
+  assert (it1 = it) as ->. { eapply tree_lookup_unique. 1-2: done. } clear Hit1.
+  destruct tk.
+  - destruct Hown as (H1&H2&H3). specialize (H3 _ _ Hita). rewrite Hreldec in H3.
+    rewrite HitaA in H3. done.
+  - destruct Hown as (H1&H2&H3). clear H2.
+    rewrite /rel_dec in Hreldec.
+    destruct decide as [HPC1|HnPC1] in Hreldec; try done.
+    destruct decide as [HPC2|HnPC2] in Hreldec; try done.
+    destruct HPC1 as [->|HSPC]. 1: { eapply HnPC2. by left. }
+    eapply immediate_sandwich in HSPC as Himm.
+    2: by eapply Hwf. 2: eapply Hwf; first done. 2: eapply Hit.
+    destruct Himm as (imm&Himm&HPC).
+    assert (tree_unique imm tr) as (itm&Hitm)%unique_implies_lookup.
+    { eapply Hwf. 1: done. eapply contains_child; last eapply Hit. right. by eapply Immediate_is_StrictParentChild. }
+    specialize (H3 _ _ Hitm).
+    rewrite /rel_dec in H3. rewrite decide_True in H3.
+    2: right; by eapply Immediate_is_StrictParentChild.
+    rewrite decide_False in H3.
+    2: { intros Hpc. eapply immediate_parent_not_child. 4: exact Hpc. 3: done. all: eapply Hwf; first done. 1: eapply Hit. eapply Hitm. }
+    rewrite decide_True // in H3. simpl in H3.
+    opose proof (state_wf_tree_more_active _ Hwf _ _ Htr imm) as Hma.
+    eapply every_child_ParentChildIn in Hma.
+    2: by eapply Hwf. 2: eapply Hwf; first done; eapply Hitm.
+    2: eapply Hitm. 3: exact HPC. 2: eapply Hwf; first done; eapply Hita.
+    eapply every_node_eqv_universal in Hma.
+    2: eapply tree_lookup_to_exists_node, Hita.
+    ospecialize (Hma eq_refl l).
+    rewrite HitaA in Hma. rewrite H3 in Hma.
+    specialize (Hma eq_refl). done.
+  - destruct Hown as (H1&H2&_&H3). specialize (H3 _ _ Hita).
+    subst tg. rewrite rel_dec_refl in Hreldec. done.
+Qed.
 
 

@@ -905,8 +905,7 @@ End public_call_ids.
 Section tainted_tags.
   Context `{bor_stateGS Σ}.
   (** Interpretation for tainted tags.
-    A tag [t] is tainted for a location [l] when invariantly, the stack for [l] can never contain
-     an item tagged with [t] again. *)
+    A tag [t] is tainted for a location [l] when invariantly, reads using t at l will fail. *)
 
   Definition tag_tainted_for (t : nat) (l : loc) :=
     ghost_map_elem tainted_tags_name (t, l) DfracDiscarded tt.
@@ -917,17 +916,16 @@ Section tainted_tags.
       ∀ (t : nat) (l : loc), ⌜is_Some (M !! (t, l))⌝ -∗
         tag_tainted_for t l ∗ ⌜disabled_tag σ_s.(scs) σ_s.(strs) σ_s.(snp) t l⌝.
 
-  (* the result of a read: either it's poison, then the tag was tainted, or it's the regular one*)
-  Definition ispoison (v_t : value) l t : iProp Σ :=
-    (∃ i : nat, ⌜(i < length v_t)%nat ∧ v_t = replicate (length v_t) ScPoison⌝ ∗ tag_tainted_for t (l +ₗ i)).
+  (* marks that a read yielded poison, and that it will always yield poison in the future *)
+  Definition ispoison (v_t : value) l t sz : iProp Σ :=
+    (∃ i : nat, ⌜(i < length v_t)%nat ∧ v_t = replicate sz ScPoison⌝ ∗ tag_tainted_for t (l +ₗ i)).
 
   Lemma tag_tainted_interp_insert σ_s t l :
-    (t < σ_s.(snp))%nat →
     (disabled_tag σ_s.(scs) σ_s.(strs) σ_s.(snp) t l) →
     tag_tainted_interp σ_s ==∗
     tag_tainted_interp σ_s ∗ tag_tainted_for t l.
   Proof.
-    iIntros (Ht Hnot_in) "(%M & Hauth & #Hinterp)".
+    iIntros (Hnot_in) "(%M & Hauth & #Hinterp)".
     destruct (M !! (t, l)) as [[] | ] eqn:Hlookup.
     - iModIntro. iPoseProof ("Hinterp" $! t l with "[]") as "($ & _)"; first by eauto.
       iExists M. iFrame "Hauth Hinterp".

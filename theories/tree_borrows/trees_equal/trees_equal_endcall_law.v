@@ -548,7 +548,7 @@ Proof.
       destruct (item_lookup it offi); f_equal; done.
     + intros Hitoff. exfalso. eapply Hcousins with (off:=offi).
       2: exact Hit. 1: exact Hlu. 1: rewrite /rel_dec decide_False // decide_False //.
-      2: rewrite Hitoff //. right. split; first done.
+      2: rewrite Hitoff //. right. split; first by left.
       rewrite Hinitacc. done.
     + intros Hwrong. exfalso. rewrite /= in Hwrong. injection Hwrong as Hwinit Hppeq. subst pp.
       all: rewrite Hwinit /= in Hpp.

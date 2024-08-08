@@ -56,7 +56,7 @@ Section utils.
       inversion HH1 as [|tgcs itcs X1 X2 H1' H2' H3' H4 H5 X3 X4]; simplify_eq.
       { rewrite -HH2 in Hnondis. done. }
       eapply HNC. 1: exact Hl1. 1: exact H2'. 3: by erewrite H4.
-      2: right; split. 2: done. 2: done.
+      2: right; split. 2: by left. 2: done.
       rewrite rel_dec_flip2 /=.
       rewrite /rel_dec in H1|-*.
       destruct decide as [HPC1|] in H1; last done. clear H1.
