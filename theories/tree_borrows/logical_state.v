@@ -920,6 +920,11 @@ Section tainted_tags.
   Definition ispoison (v_t : value) l t sz : iProp Σ :=
     (∃ i : nat, ⌜(i < length v_t)%nat ∧ v_t = replicate sz ScPoison⌝ ∗ tag_tainted_for t (l +ₗ i)).
 
+  Lemma ispoison_length v_t l t sz : ispoison v_t l t sz -∗ ⌜length v_t = sz⌝.
+  Proof.
+    iIntros "(%i&(_&->)&_)". iPureIntro. by rewrite replicate_length.
+  Qed.
+
   Lemma tag_tainted_interp_insert σ_s t l :
     (disabled_tag σ_s.(scs) σ_s.(strs) σ_s.(snp) t l) →
     tag_tainted_interp σ_s ==∗
@@ -1793,6 +1798,10 @@ Section val_rel.
     iDestruct (value_rel_length with "Hv1") as %EqL.
     rewrite /value_rel. iApply (big_sepL2_app with "Hv1 Hv2").
   Qed.
+
+  Definition will_read_in_simulation v_src v_tgt l_rd t : iProp Σ :=
+    value_rel v_tgt v_src ∨ (⌜length v_src = length v_tgt⌝ ∗ ispoison (replicate (length v_tgt) ScPoison) l_rd t (length v_tgt)).
+
 End val_rel.
 
 (** Simulation / relation final setup *)

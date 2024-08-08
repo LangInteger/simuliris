@@ -185,4 +185,35 @@ Proof.
     rewrite /memory_access HNone in Hreadsome. simpl in Hreadsome. by destruct Hreadsome.
 Qed.
 
+
+Lemma source_copy_in_simulation v_t v_rd v_tgt sz l_hl l_rd t π Ψ tk :
+  sz ≠ 0%nat → (* if it is 0, use the zero-sized read lemma *)
+  read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd →
+  l_hl.1 = l_rd.1 →
+  will_read_in_simulation v_rd v_tgt l_rd t -∗
+  t $$ tk -∗
+  l_hl ↦s∗[tk]{t} v_t -∗
+  (∀ v_res, l_hl ↦s∗[tk]{t} v_t -∗ t $$ tk -∗ value_rel v_tgt v_res -∗ source_red #v_res π Ψ)%E -∗
+  source_red (Copy (Place l_rd t sz)) π Ψ.
+Proof.
+  iIntros (Hsz Hrr Hhl).
+  eapply read_range_length in Hrr as Hszlen.
+  iIntros "#[Hrel|Hpoison] Htk Hhl Hsim".
+  - iPoseProof (value_rel_length with "Hrel") as "%Hlen".
+    iApply (source_copy_any with "Htk Hhl [Hsim]"). 1-3: done.
+    iIntros (v_res) "Hhl Htk [->|#(%i&(%Hp1&%Hp2)&Hpoison2)]";
+      iApply ("Hsim" with "Hhl Htk").
+    + done.
+    + rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite replicate_length; lia.
+      iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison.
+  - subst sz. iDestruct "Hpoison" as "(%Hlen&Hpoison)".
+    iApply (source_copy_poison with "[] Htk Hhl [Hsim]"). 1-3: done.
+    1: rewrite Hlen; done.
+    iIntros (v_res) "Hhl Htk #(%i&(%Hp1&%Hp2)&Hpoison2)".
+    iApply ("Hsim" with "Hhl Htk").
+    rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite replicate_length; lia.
+    iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison.
+Qed.
+
+
 End lifting.

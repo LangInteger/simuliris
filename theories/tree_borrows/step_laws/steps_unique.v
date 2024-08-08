@@ -200,6 +200,25 @@ Proof.
 Qed.
 
 
+Lemma sim_into_read_for_simulation v_res_t v_res_s v_rd_t v_rd_s l_rd t :
+  let sz := length v_rd_t in
+  value_rel v_rd_t v_rd_s -∗
+  (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz) -∗
+  will_read_in_simulation v_rd_s v_res_t l_rd t.
+Proof.
+  intros sz. iIntros "Hv1 Hor".
+  iPoseProof (value_rel_length with "Hv1") as "%Hlen".
+  iDestruct "Hor" as "[(->&->)|(Hp1&Hp2)]".
+  { iLeft. done. }
+  iRight. subst sz.
+  iDestruct "Hp2" as "(%i&(_&%HH)&_)". rewrite HH.
+  rewrite replicate_length Hlen. iSplit; first done.
+  iDestruct "Hp1" as "(%ip&(%H1&%H2)&Hpp)". iExists ip. iSplit; last done.
+  rewrite replicate_length. iPureIntro; split. 2: done.
+  rewrite H2 replicate_length in H1. lia.
+Qed.
+
+
 (** ** Write lemmas *)
 
 (* TODO we can even strengthen this to learn that the old values were related if tkk = tk_res *)

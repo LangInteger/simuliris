@@ -111,36 +111,16 @@ Proof.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   source_pures. source_bind (Copy _).
 
-  (* TODO make this case distinction nicer *)
-  iDestruct "Hv_res" as "[(->&->)|(Hpoison_s&Hpoison_t)]".
+  iPoseProof (sim_into_read_for_simulation with "Hvrel Hv_res") as "Hreadsim".
 
-  - iApply (source_copy_any with "Htag_i Hi_s"). 1: done.
-    2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-    iIntros (v_res) "Hi_s _ Hv_res'". source_pures. source_finish.
-    sim_pures.
-    (* cleanup: free the local locations*)
-    sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-    sim_pures.
-    sim_val. iModIntro. iSplit; first done.
-    iEval (cbn) in "Hvrel".
-    iDestruct "Hvrel" as "(Hvrel&_)".
-    iDestruct "Hv_res'" as "[->|(%pi&(%Hp1&->)&Hpoison)]"; (iSplit; last done).
-    + done.
-    + iApply sc_rel_source_poison.
-
-  - iApply (source_copy_poison with "Hpoison_s Htag_i Hi_s"). 1: done.
-    2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-    iIntros (v_res) "Hi_s _ Hv_res'". source_pures. source_finish.
-    sim_pures.
-    (* cleanup: free the local locations*)
-    sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-    sim_pures.
-    sim_val. iModIntro. iSplit; first done.
-    iEval (cbn) in "Hvrel".
-    iDestruct "Hvrel" as "(Hvrel&_)".
-    iDestruct "Hpoison_t" as "(%pit&(%Hpt1&->)&Hpoison_t)".
-    iDestruct "Hv_res'" as "(%pis&(%Hps1&->)&Hpoison_s)"; (iSplit; last done).
-    done.
+  iApply (source_copy_in_simulation with "Hreadsim Htag_i Hi_s"). 1: done.
+  2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  iIntros (v_res) "Hi_s _ Hinsim". source_pures. source_finish.
+  sim_pures.
+  (* cleanup: free the local locations*)
+  sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
+  sim_pures.
+  sim_val. iModIntro. iSplit; first done. iApply "Hinsim".
 Qed.
 
 
