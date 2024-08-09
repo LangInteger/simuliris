@@ -112,20 +112,18 @@ Proof.
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   source_pures. source_bind (Copy _).
-  iApply (source_copy_any with "Htag_i Hi_s"). 1: done.
+
+  iApply (source_copy_in_simulation with "[] Htag_i Hi_s"). 1: done.
   2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  iIntros (v_res) "Hi_s Htag_i Hv_res_maybepoison". source_pures. source_finish.
+  { iLeft. iApply value_rel_int. }
+  iIntros (v_res) "Hi_s Htag_i Hv_res". source_pures. source_finish.
   sim_pures.
 
 
   (* cleanup: free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
   sim_pures.
-  sim_val. iModIntro. iSplit; first done.
-  (* prove that the values are in simulation (by case-analyzing what was poison when) *)
-  iDestruct "Hv_res_maybepoison" as "[->| (%id&(%Hp1&->)&Hpp)]"; (iSplit; last done).
-  - done.
-  - done.
+  sim_val. iModIntro. iSplit; first done. iApply "Hv_res".
 Qed.
 
 

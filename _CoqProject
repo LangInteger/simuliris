@@ -204,7 +204,7 @@ theories/tree_borrows/adequacy.v
 # These were copied directly from SB.
 # Some of them we still want, but other are known to be no longer
 # provable or even valid.
-#theories/tree_borrows/examples/coinductive.v
+theories/tree_borrows/examples/coinductive.v
 theories/tree_borrows/examples/pure.v
 theories/tree_borrows/examples/reorder_read_down_public_escaped.v
 theories/tree_borrows/examples/reorder_read_up_public_escaped.v

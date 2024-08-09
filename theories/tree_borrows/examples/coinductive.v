@@ -10,9 +10,10 @@ From iris.prelude Require Import options.
   [g] is used for the loop body -- due to the environment it could potentially do "arbitrary" things.
 
   Note that this example is chosen carefully: There are strictly more reads in the source than there are in the target.
-    In particular, after unrolling the first loop iteration, we notice that removing a load leads to the same program.
+    The load in the target is not "inserted ahead of the loop". Instead, the loop is unrolled once, all subsequent loads
+    are removed, and then everything is reshuffled to get back to the same loop.
     Thus, we do not need to insert loads in the target program, allowing us to prove this example correct while getting
-    by without exploiting "no concurrent frees" (something we do not do, in general).
+    by without exploiting data race UB (something we do not do, in general).
  *)
 
 (*
@@ -46,14 +47,14 @@ Definition loop_unopt : expr :=
     let: "fnG" := Proj "p" #[4] in
 
     (* "x" is the local variable that stores the pointer value "i" *)
-    let: "x" := new_place (&int) "i" in
+    let: "x" := new_place sizeof_scalar "i" in
 
     (* retag_place reborrows the pointer value stored in "x" (which is "i"),
       then updates "x" with the new pointer value.
     *)
-    retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
+    retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
 
-    while: Call "fn" (Conc "env" (Copy *{int} "x")) do
+    while: Call "fn" (Conc "env" (Copy *{sizeof_scalar} "x")) do
       Call "fnG" "envG"
     od;;
 
@@ -71,9 +72,9 @@ Definition loop_opt : expr :=
     let: "fn" := Proj "p" #[2] in
     let: "envG" := Proj "p" #[3] in
     let: "fnG" := Proj "p" #[4] in
-    let: "x" := new_place (&int) "i" in
-    retag_place "x" (RefPtr Immutable) int Default #[ScCallId 0];;
-    let: "r" := Copy *{int} "x" in
+    let: "x" := new_place (sizeof_scalar) "i" in
+    retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
+    let: "r" := Copy *{sizeof_scalar} "x" in
     while: Call "fn" (Conc "env" "r") do
       Call "fnG" "envG"
     od;;
@@ -136,64 +137,58 @@ Proof.
   sim_apply (new_place _ _) (new_place _ _) sim_new_place_local "%t_x %l_x % % Hx Ht_x Hs_x"; first done.
   sim_pures.
 
-  target_apply (Copy _) (target_copy_local with "Hx Ht_x") "Ht_x Hx"; first done.
-  source_apply (Copy _) (source_copy_local with "Hx Hs_x") "Hs_x Hx"; first done.
+(* TODO from here *)
+
+  target_apply (Copy _) (target_copy_local with "Hx Ht_x") "Ht_x Hx". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  source_apply (Copy _) (source_copy_local with "Hx Hs_x") "Hs_x Hx". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
 
   rewrite /value_rel. rewrite !big_sepL2_cons.
   iDestruct "Hvrel" as "(#Hsc0_rel & #Hsc1_rel & #Hsc2_rel & #Hsc3_rel & #Hsc4_rel & Hvrel)".
 
   (* do the retag *)
-  sim_bind (Retag _ _ _ _ _) (Retag _ _ _ _ _).
+  sim_bind (Retag _ _ _ _ _ _) (Retag _ _ _ _ _ _).
   iApply sim_safe_implies.
   iIntros ((_ & ot & i & Heq & _)). injection Heq as [= ->].
   iPoseProof (sc_rel_ptr_source with "Hsc0_rel") as "[-> Htagged]".
-  iApply (sim_retag_default with "Hsc0_rel"); [cbn; lia| done | ].
-  iIntros (t_i vx_t vx_s Hlen_t Hlen_s) "#Hvx Htag_i Hi_t Hi_s _".
+  iApply (sim_retag_default with "Hsc0_rel"). 1: by cbv.
+  iIntros (t_i vx_t vx_s Hlen_t Hlen_s) "#Hvx Htag_i Hi_t Hi_s".
   iApply sim_expr_base.
-  target_apply (Write _ _) (target_write_local with "Hx Ht_x") "Ht_x Hx"; [done | done | ].
-  source_apply (Write _ _) (source_write_local with "Hx Hs_x") "Hs_x Hx"; [done | done | ].
+  target_apply (Write _ _) (target_write_local with "Hx Ht_x") "Ht_x Hx". 2,3: done.
+  1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
+  source_apply (Write _ _) (source_write_local with "Hx Hs_x") "Hs_x Hx". 2: done.
+  1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
   sim_pures.
 
-  (* do a deferred read.
-     we will initiate coinduction with the deferred assertion and then resolve anew in each iteration.
-   *)
-  target_apply (Copy (Place _ _ _)) (target_copy_local with "Hx Ht_x") "Ht_x Hx"; first done.
-  target_pures. target_bind (Copy _).
-  iApply (target_copy_deferred with "Htag_i Hi_t"); first done. iIntros (v_t') "Hdeferred Hi_t Htag_i". target_finish.
+  destruct vx_t as [|vx_t []]; try done.
+  destruct vx_s as [|vx_s []]; try done.
+
+  (* unroll the loop once, to do a read on both sides *)
+  target_apply (Copy (Place _ _ _)) (target_copy_local with "Hx Ht_x") "Ht_x Hx". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  source_while. source_pures.
+  source_apply (Copy (Place _ _ _)) (source_copy_local with "Hx Hs_x") "Hs_x Hx". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  sim_bind (Copy _) (Copy _). sim_pures.
+  iApply (sim_copy with "Htag_i Hi_s Hi_t"). 1,4: done.
+  1-2: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  iIntros (v_res_s v_res_t) "Hi_s Hi_t #Htag_i #Hv_res".
+  sim_pures.
+  iApply sim_expr_base.
+
+  iPoseProof (sim_into_read_for_simulation with "Hvx Hv_res") as "#Hreadsim_fut".
+  iPoseProof (sim_read_result_value_rel with "Hvx Hv_res") as "#Hreadsim".
+  sim_pures. target_while.
   sim_pures.
 
-  (* initiate coinduction *)
-  sim_bind (While _ _) (While _ _).
-  set (inv := (
-    l_x ↦s∗[tk_local]{t_x} [ScPtr i (Tagged t_i)] ∗
-    l_x ↦t∗[tk_local]{t_x} [ScPtr i (Tagged t_i)] ∗
-    t_x $$ tk_local ∗
-    deferred_read vx_t v_t' i t_i ∗
-    i ↦s∗[tk_pub]{t_i} vx_s ∗
-    i ↦t∗[tk_pub]{t_i} vx_t ∗
-    t_i $$ tk_pub)%I).
-
-  iApply (sim_while_while inv with "[$Hi_s $Hx $Hdeferred $Hi_t $Htag_i $Hs_x $Ht_x]").
-  iModIntro. iIntros "(Hs & Ht & Htag & #Hdeferred & Hi_s & Hi_t & Htag_i)".
-
-  (* resolve the deferred read in the source *)
-  source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
-  source_pures. source_bind (Copy _).
-  iApply (source_copy_resolve_deferred with "Htag_i Hi_s Hdeferred"); [done | done | ].
-  iIntros (v_s') "#Hv' Hi_s Htag_i". source_finish.
-  sim_pures.
-
-  (* do the call *)
+  (* do the loop header call *)
   source_bind (Call _ _).
   iApply source_red_safe_implies.
   iIntros "(%fn & %Heq)". injection Heq as [= ->].
   iPoseProof (sc_rel_fnptr_source with "Hsc2_rel") as "->".
   iApply source_red_base. iModIntro. to_sim.
   sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
-  { iApply big_sepL2_cons. iSplitR; done. }
+  { iApply big_sepL2_cons. iSplit; first done. iApply "Hreadsim". }
   iIntros (r_t r_s) "#Hres".
 
-  (* reduce the case *)
+  (* the "if" deciding if the loop continues *)
   source_bind (Case _ _).
   destruct r_s; iApply source_red_safe_implies; last by iIntros "?".
   iIntros "(%i'&  %e_s & -> & %Hi' & %He_s_l)".
@@ -208,31 +203,98 @@ Proof.
   }
   clear He_s_l.
   assert (i' = 0 ∨ i' = 1) as [-> | ->] by lia.
+
+  { (* exit the loop early *)
+    source_case. { done. } source_pures.
+    target_case. { done. } target_pures.
+    sim_pures.
+    sim_apply (Free _) (Free _) (sim_free_local with "Hx Ht_x Hs_x") "Hx"; [done..|]. sim_pures.
+    sim_val. iModIntro. iSplit; first done. repeat (iSplit; try done). }
+
+  (* the loop continues *)
+  iApply source_red_base. iModIntro.
+  source_case. { done. } source_pures.
+  target_case. { done. } target_pures.
+  sim_pures.
+
+  source_bind (Call _ _).
+  iApply source_red_safe_implies.
+  iIntros "(%fnG & %Heq)". injection Heq as [= ->].
+  iPoseProof (sc_rel_fnptr_source with "Hsc4_rel") as "->".
+  iApply source_red_base. iModIntro. to_sim.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
+  { iApply big_sepL2_cons. iSplitR; done. }
+  iIntros (r_t r_s) "#Hres".
+
+  sim_pures.
+
+  (* initiate coinduction *)
+  sim_bind (While _ _) (While _ _).
+  set (inv := (
+    l_x ↦s∗[tk_local]{t_x} [ScPtr i t_i] ∗
+    l_x ↦t∗[tk_local]{t_x} [ScPtr i t_i] ∗
+    t_x $$ tk_local ∗
+    i ↦s∗[tk_pub]{t_i} [vx_s] ∗
+    i ↦t∗[tk_pub]{t_i} [vx_t])%I).
+
+  iApply (sim_while_while inv with "[$Hi_s $Hx $Hi_t $Hs_x $Ht_x]").
+  iModIntro. iIntros "(Hs & Ht & Htag & Hi_s & Hi_t)".
+
+  (* resolve the deferred read in the source *)
+  source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
+  1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  source_pures. source_bind (Copy _).
+  iApply (source_copy_in_simulation with "Hreadsim_fut Htag_i Hi_s"). 1: done.
+  2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  iIntros (v_res_s') "Hi_s _ #Hinsim". source_pures. source_finish.
+  sim_pures.
+
+
+  (* do the loop header call *)
+  source_bind (Call _ _).
+  iApply source_red_safe_implies.
+  iIntros "(%fn' & %Heq)". injection Heq as [= ->].
+  iApply source_red_base. iModIntro. to_sim.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
+  { iApply big_sepL2_cons. iSplit; first done. iApply "Hinsim". }
+  iIntros (r_t' r_s') "#Hres'".
+
+  (* the "if" deciding if the loop continues *)
+  source_bind (Case _ _).
+  destruct r_s'; iApply source_red_safe_implies; last by iIntros "?".
+  iIntros "(%i2'&  %e_s' & -> & %Hi2' & %He_s_l)".
+  iPoseProof (rrel_value_source with "Hres'") as (?) "(-> & Hvi')".
+  iPoseProof (value_rel_singleton_source with "Hvi'") as (sci') "(-> & Hsci')".
+  iPoseProof (sc_rel_int_source with "Hsci'") as "->".
+  iClear "Hres Hvi' Hsci'".
+
+  assert (Z.to_nat i2' = 0%nat ∨ Z.to_nat i2' = 1%nat) as Hzi2'.
+  { destruct (Z.to_nat i2') as [ | ni]; first by left.
+    destruct ni as [ | [ | ni]]; first by right. all: simpl in He_s_l; congruence.
+  }
+  clear He_s_l.
+  assert (i2' = 0 ∨ i2' = 1) as [-> | ->] by lia.
   - (* exit the loop *)
-    source_case. { done. }
-    target_case. { done. }
-    sim_pures. iApply sim_expr_base. iLeft.
-    sim_pures.
-
+    source_case. { done. } source_pures.
+    target_case. { done. } target_pures.
+    sim_pures. iApply sim_expr_base. iLeft. sim_pures.
     sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-    sim_val. iModIntro. iSplit; first done. iApply big_sepL2_singleton; done.
+    sim_val. iModIntro. iSplit; first done. repeat (iSplit; try done).
   - (* another round *)
-    source_case. { done. }
-    target_case. { done. }
+    source_case. { done. } source_pures.
+    target_case. { done. } target_pures.
     sim_pures.
 
-    (* do the call to [g] *)
     source_bind (Call _ _).
     iApply source_red_safe_implies.
-    iIntros "(%fnG & %Heq)". injection Heq as [= ->].
-    iPoseProof (sc_rel_fnptr_source with "Hsc4_rel") as "->".
+    iIntros "(%fnG' & %Heq)". injection Heq as [= ->].
     iApply source_red_base. iModIntro. to_sim.
     sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
     { iApply big_sepL2_cons. iSplitR; done. }
-    iIntros (r_t r_s) "#Hres".
+    iIntros (r_t' r_s') "#Hres''".
 
     sim_pures.
-    iApply sim_expr_base. iRight. iFrame "Ht Hi_t Hs Htag Hi_s Htag_i Hdeferred".
+    iApply sim_expr_base. iRight. iFrame "Ht Hi_t Hs Htag Hi_s".
     done.
 Qed.
 
@@ -245,3 +307,15 @@ Section closed.
     apply loop_opt1.
   Qed.
 End closed.
+
+
+Check sim_loop_ctx.
+Print Assumptions sim_loop_ctx.
+(* 
+sim_loop_ctx
+     : ctx_ref loop_opt loop_unopt
+Axioms:
+IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
+Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
+*)
+

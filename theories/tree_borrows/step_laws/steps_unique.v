@@ -218,6 +218,25 @@ Proof.
   rewrite H2 replicate_length in H1. lia.
 Qed.
 
+Lemma sim_read_result_value_rel v_res_t v_res_s v_rd_t v_rd_s l_rd t :
+  let sz := length v_rd_t in
+  value_rel v_rd_t v_rd_s -∗
+  (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz) -∗
+  value_rel v_res_t v_res_s.
+Proof.
+  intros sz. iIntros "Hv1 Hor".
+  iPoseProof (value_rel_length with "Hv1") as "%Hlen".
+  iDestruct "Hor" as "[(->&->)|(Hp1&Hp2)]".
+  { done. }
+  subst sz.
+  iDestruct "Hp2" as "(%i&(_&%HH)&_)". rewrite HH.
+  iDestruct "Hp1" as "(%ip&(%H1&%H2)&Hpp)". rewrite H2.
+  iApply big_sepL2_forall. iSplit.
+  { rewrite replicate_length //. }
+  iIntros (k x1 x2 (->&_)%lookup_replicate_1 (->&_)%lookup_replicate_1). done.
+Qed.
+
+
 
 (** ** Write lemmas *)
 
