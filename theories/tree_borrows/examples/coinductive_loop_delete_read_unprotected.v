@@ -137,8 +137,6 @@ Proof.
   sim_apply (new_place _ _) (new_place _ _) sim_new_place_local "%t_x %l_x % % Hx Ht_x Hs_x"; first done.
   sim_pures.
 
-(* TODO from here *)
-
   target_apply (Copy _) (target_copy_local with "Hx Ht_x") "Ht_x Hx". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   source_apply (Copy _) (source_copy_local with "Hx Hs_x") "Hs_x Hx". 2: done. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
 
@@ -237,7 +235,7 @@ Proof.
     i ↦s∗[tk_pub]{t_i} [vx_s] ∗
     i ↦t∗[tk_pub]{t_i} [vx_t])%I).
 
-  iApply (sim_while_while inv with "[$Hi_s $Hx $Hi_t $Hs_x $Ht_x]").
+  iApply (sim_while_while inv with "[$]").
   iModIntro. iIntros "(Hs & Ht & Htag & Hi_s & Hi_t)".
 
   (* resolve the deferred read in the source *)
