@@ -28,9 +28,9 @@ Section refl.
       iIntros (n ?????) "Ht Hv Hcont".
       target_alloc l_t as "Hl_t" "Ha_t"; first done.
       source_alloc l_s as "Hl_s" "Ha_s"; first done.
-      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite replicate_length.. | | ].
+      iApply (sim_bij_insertN with "Ha_t Ha_s Hl_t Hl_s [Hv]"); [lia | by rewrite length_replicate.. | | ].
       { iDestruct "Hv" as "#Hv".
-        rewrite big_sepL2_replicate_l; last by rewrite replicate_length.
+        rewrite big_sepL2_replicate_l; last by rewrite length_replicate.
         generalize (Z.to_nat n) => n'.
         iInduction n' as [] "IHn"; cbn; first done. iFrame "Hv IHn".
       }

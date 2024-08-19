@@ -114,7 +114,7 @@ Proof.
   sim_pures.
   sim_val. iModIntro. iSplit; first done.
   destruct Hv_s' as [-> | ->]; first done.
-  iApply big_sepL2_forall. iSplit. { rewrite replicate_length. iPureIntro. lia. }
+  iApply big_sepL2_forall. iSplit. { rewrite length_replicate. iPureIntro. lia. }
   iIntros (k sc_t sc_s). rewrite lookup_replicate. iIntros "Hsc (-> & _)". destruct sc_t;done.
 Qed.
 

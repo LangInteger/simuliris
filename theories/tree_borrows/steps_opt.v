@@ -1255,7 +1255,7 @@ Proof.
     iSplitR "Hsim Htfor Htag Ht"; first last.
     { iApply ("Hsim" with "[Htfor] Ht Htag").
       iLeft. iExists i. iFrame "Htfor".
-      iPureIntro. rewrite replicate_length. split; lia.
+      iPureIntro. rewrite length_replicate. split; lia.
     }
     iFrame "HP_t HP_s".
     iExists M_call, M_tag, M_t, M_s. iFrame. iFrame "Hsrel". repeat (iSplit; done).
@@ -1280,7 +1280,7 @@ Proof.
   { (* unsuccessful read, but poison is refined by anything *)
     iExists _, _. iSplitR. { iPureIntro. eapply failed_copy_base_step'; done. }
     iModIntro. iFrame. iApply ("Hsim" with "[Hdef] Hs Htag").
-    iApply big_sepL2_forall. rewrite replicate_length. iSplit.
+    iApply big_sepL2_forall. rewrite length_replicate. iSplit.
     - iPoseProof (value_rel_length with "Hv") as "%".
       iDestruct "Hdef" as "[(%i & % & _) | ->]"; iPureIntro; lia.
     - iIntros (i sc_s ?). rewrite lookup_replicate. iIntros "_ (-> & _)".

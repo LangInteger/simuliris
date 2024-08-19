@@ -202,12 +202,12 @@ Proof.
   rewrite reverse_cons.
   destruct i.
   - simpl. intros. simplify_eq. exists (length l). split; [|lia].
-    rewrite lookup_app_r; rewrite reverse_length //.
+    rewrite lookup_app_r; rewrite length_reverse //.
     by rewrite Nat.sub_diag.
   - simpl. intros Eqi. have Lt := lookup_lt_Some _ _ _ Eqi.
     move : Eqi => /IH [j [Eqj Eql]].
     exists j. rewrite Eql. split; [|done]. rewrite lookup_app_l //.
-    rewrite reverse_length. lia.
+    rewrite length_reverse. lia.
 Qed.
 
 Lemma list_find_fmap {A B : Type} (P : A → Prop) `{!∀ x, Decision (P x)}

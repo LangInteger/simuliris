@@ -34,11 +34,11 @@ Proof.
   source_bind (Write _ _).
   (* gain knowledge about the length *)
   iApply source_red_safe_implies. iIntros (Hsize).
-  iApply (source_write_local with "Htag Hs"); [by rewrite replicate_length | done | ].
+  iApply (source_write_local with "Htag Hs"); [by rewrite length_replicate | done | ].
   iIntros "Hs Htag". source_finish.
 
   target_bind (Write _ _).
-  iApply (target_write_local with "Htag Ht"); [ by rewrite replicate_length | lia| ].
+  iApply (target_write_local with "Htag Ht"); [ by rewrite length_replicate | lia| ].
   iIntros "Ht Htag". target_finish.
 
   sim_pures. iApply ("Hsim" with "[//] [] Htag Ht Hs").

@@ -65,7 +65,7 @@ Section language_setup.
   Lemma threads_src_tgt P:
     threads P.(tgt) = threads P.(src).
   Proof.
-    by rewrite /threads !fmap_length.
+    by rewrite /threads !length_fmap.
   Qed.
 
 
@@ -104,7 +104,7 @@ Section language_setup.
     - intros (e & e' & T_f & Hstep & Hlook & ->).
       replace T with (take i T ++ e :: drop (S i) T); last by eapply take_drop_middle.
       assert (i = length (take i T)).
-      { rewrite take_length_le; first lia. eapply lookup_lt_Some in Hlook. lia. }
+      { rewrite length_take_le; first lia. eapply lookup_lt_Some in Hlook. lia. }
       replace i with (length (take i T) + 0) at 4 by lia.
       rewrite insert_app_r. simpl.
       rewrite -app_assoc; simpl.

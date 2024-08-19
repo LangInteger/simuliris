@@ -478,7 +478,7 @@ Section fix_lang.
           rewrite list_insert_insert. iFrame.
           iSplit; first by iPureIntro; eauto using no_forks_trans, fill_no_forks.
           iApply (big_sepL2_impl with "Hforks"). clear.
-          iIntros "!>" (π' e_t e_s ??) "H". rewrite insert_length. by iRight.
+          iIntros "!>" (π' e_t e_s ??) "H". rewrite length_insert. by iRight.
     - iModIntro. iRight;  iDestruct "Hstep" as "[%Hred Hstep]".
       iSplitR. { iPureIntro. by apply fill_reducible. }
       iIntros (e_t' efs σ_t') "%Hstep".
@@ -601,7 +601,7 @@ Section fix_lang.
         iDestruct "Hstutter" as "(-> & SI & Hsim)"; simpl; iFrame.
         by iPureIntro.
       + iRight. iDestruct "Hred" as (e_s'' e_s''' σ_s'' σ_s''' efs_s) "(%Hnfs & Hstep & Hstate & Hsim & Hfrks)".
-        rewrite list_insert_insert insert_length.
+        rewrite list_insert_insert length_insert.
         iExists e_s'', e_s''', σ_s'', σ_s''', efs_s. iFrame. iPureIntro.
         by eapply no_forks_trans.
   Qed.

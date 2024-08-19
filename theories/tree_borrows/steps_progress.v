@@ -291,7 +291,7 @@ Proof.
   - intros ??? IH vl1 Eq.
     destruct (IH [] vl1) as [IH1 IH2]; [done..|simpl;intros;lia|].
     split; [done|]. intros i.
-     rewrite -{2}(Nat.add_0_l i) -(nil_length (A:=scalar)). by apply IH2.
+     rewrite -{2}(Nat.add_0_l i) -(length_nil (A:=scalar)). by apply IH2.
   - clear. intros _ _ ????????. simplify_eq/=.
     (* We use [simplify_eq/=] to work around https://github.com/mattam82/Coq-Equations/issues/449. *)
     split; [lia|]. split; [done|intros; lia].
@@ -300,22 +300,22 @@ Proof.
     move => /= Eqvl ACC.
     destruct (IH acc v (acc ++ [v]) vl eq_refl Eqvl) as [IH0 [IH1 IH2]];
       last split; last split.
-    { intros i. rewrite app_length /=. intros Lt.
+    { intros i. rewrite length_app /=. intros Lt.
       rewrite (_: l +ₗ 1 +ₗ (i - (length acc + 1)%nat) = l +ₗ (i - length acc));
         last first. { rewrite shift_loc_assoc. f_equal. lia. }
       case (decide (i = length acc)) => ?; [subst i|].
       - by rewrite Z.sub_diag shift_loc_0 list_lookup_middle.
       - have ?: (i < length acc)%nat by lia.
         rewrite ACC; [|done]. by rewrite lookup_app_l. }
-    { rewrite IH0 app_length /=. lia. }
-    { intros i Lt. rewrite -IH1; [|rewrite app_length /=; lia].
-      f_equal. rewrite shift_loc_assoc. f_equal. rewrite app_length /=. lia. }
+    { rewrite IH0 length_app /=. lia. }
+    { intros i Lt. rewrite -IH1; [|rewrite length_app /=; lia].
+      f_equal. rewrite shift_loc_assoc. f_equal. rewrite length_app /=. lia. }
     intros [|i] Lt.
-    + rewrite Nat.add_0_r -IH1; [|rewrite app_length /=; lia].
-      rewrite app_length /= shift_loc_assoc. do 2 f_equal. lia.
+    + rewrite Nat.add_0_r -IH1; [|rewrite length_app /=; lia].
+      rewrite length_app /= shift_loc_assoc. do 2 f_equal. lia.
     + rewrite (_: (l +ₗ S i) =  (l +ₗ 1 +ₗ i));
         [|rewrite shift_loc_assoc; f_equal; lia].
-      rewrite IH2; [|lia]. f_equal. rewrite app_length /=. lia.
+      rewrite IH2; [|lia]. f_equal. rewrite length_app /=. lia.
 Qed.
 
 Lemma read_mem_values' l n h v :
@@ -434,7 +434,7 @@ Proof.
       [|rewrite Eq2 /=; by eexists].
     intros jt [j Eqj]%elem_of_list_lookup_1 IU.
     have ?: (j < i)%nat.
-    { rewrite -(take_length_le stk i); [|done]. by eapply lookup_lt_Some. }
+    { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
     destruct (Lti j jt) as [Eq1 PR]; [done|..].
     + symmetry. by rewrite -Eqj lookup_take.
     + move : PR. by rewrite /= IU.
@@ -445,7 +445,7 @@ Proof.
     + move : Eqx. apply find_first_write_incompatible_length.
     + intros j jt Lt Eqj.
       have ?: (j < i)%nat.
-      { rewrite -(take_length_le stk i); [|done]. by eapply lookup_lt_Some. }
+      { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
       destruct (Lti j jt) as [Eq1 PR]; [done|..].
       * symmetry. by rewrite -Eqj lookup_take.
       * move : PR. by rewrite /= Eqx decide_True.
