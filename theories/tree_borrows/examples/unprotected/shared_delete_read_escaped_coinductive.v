@@ -35,7 +35,7 @@ fn funky_loop(x : &i32, f, g) {
 *)
 
 
-Definition loop_unopt : expr :=
+Definition unprot_shared_delete_read_escaped_coinductive_unopt : expr :=
     let: "i" := Proj "p" #[0] in
     (* We do not retag "env" as we do not access it.
       For the purpose of this function, it is just "data". *)
@@ -66,7 +66,7 @@ Definition loop_unopt : expr :=
   .
 
 
-Definition loop_opt : expr :=
+Definition unprot_shared_delete_read_escaped_coinductive_opt : expr :=
     let: "i" := Proj "p" #[0] in
     let: "env" := Proj "p" #[1] in
     let: "fn" := Proj "p" #[2] in
@@ -83,8 +83,8 @@ Definition loop_opt : expr :=
   .
 
 
-Lemma loop_opt1 `{sborGS Σ} :
-  ⊢ log_rel loop_opt loop_unopt.
+Lemma unprot_shared_delete_read_escaped_coinductive `{sborGS Σ} :
+  ⊢ log_rel unprot_shared_delete_read_escaped_coinductive_opt unprot_shared_delete_read_escaped_coinductive_unopt.
 Proof.
   log_rel.
   iIntros "%r_t %r_s #Hrel !# %π _".
@@ -298,20 +298,20 @@ Qed.
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma sim_loop_ctx : ctx_ref loop_opt loop_unopt.
+  Lemma unprot_shared_delete_read_escaped_coinductive_ctx : ctx_ref unprot_shared_delete_read_escaped_coinductive_opt unprot_shared_delete_read_escaped_coinductive_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply loop_opt1.
+    apply unprot_shared_delete_read_escaped_coinductive.
   Qed.
 End closed.
 
 
-Check sim_loop_ctx.
-Print Assumptions sim_loop_ctx.
+Check unprot_shared_delete_read_escaped_coinductive_ctx.
+Print Assumptions unprot_shared_delete_read_escaped_coinductive_ctx.
 (* 
-sim_loop_ctx
-     : ctx_ref loop_opt loop_unopt
+unprot_shared_delete_read_escaped_coinductive_ctx
+     : ctx_ref unprot_shared_delete_read_escaped_coinductive_opt unprot_shared_delete_read_escaped_coinductive_unopt
 Axioms:
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P

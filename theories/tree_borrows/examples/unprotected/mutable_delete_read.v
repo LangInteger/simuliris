@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 (** Deleting read of mutable reference, by instead using an earlier value. *)
 
 (* Assuming x : &mut i32 *)
-Definition ex1_unopt : expr :=
+Definition unprot_mutable_delete_read_unopt : expr :=
     (* get related values i*)
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place sizeof_scalar "i" in
@@ -40,7 +40,7 @@ Definition ex1_unopt : expr :=
     "v"
   .
 
-Definition ex1_opt : expr :=
+Definition unprot_mutable_delete_read_opt : expr :=
     let: "x" := new_place (sizeof_scalar) "i" in
     retag_place "x" MutRef TyFrz sizeof_scalar Default #[ScCallId 0];;
     Call #[ScFnPtr "f"] #[] ;;
@@ -51,8 +51,8 @@ Definition ex1_opt : expr :=
     Free "x" ;;
     "v".
 
-Lemma sim_opt1 `{sborGS Σ} :
-  ⊢ log_rel ex1_opt ex1_unopt.
+Lemma unprot_mutable_delete_read `{sborGS Σ} :
+  ⊢ log_rel unprot_mutable_delete_read_opt unprot_mutable_delete_read_unopt.
 Proof.
   log_rel.
   iIntros "%r_t %r_s #Hrel !# %π _".
@@ -107,7 +107,7 @@ Proof.
   (* second unknown code block *)
   sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
   iIntros (r_t2 r_s2) "Hsame2". sim_pures.
-
+ 
   (* source load (not existing in the target) *)
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
@@ -130,21 +130,20 @@ Qed.
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma sim_opt1_ctx : ctx_ref ex1_opt ex1_unopt.
+  Lemma unprot_mutable_delete_read_ctx : ctx_ref unprot_mutable_delete_read_opt unprot_mutable_delete_read_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply sim_opt1.
+    apply unprot_mutable_delete_read.
   Qed.
 End closed.
 
-Check sim_opt1_ctx.
-Print Assumptions sim_opt1_ctx.
+Check unprot_mutable_delete_read_ctx.
+Print Assumptions unprot_mutable_delete_read_ctx.
 (*
-sim_opt1_ctx
-     : ctx_ref ex1_opt ex1_unopt
+unprot_mutable_delete_read_ctx
+     : ctx_ref unprot_mutable_delete_read_opt unprot_mutable_delete_read_unopt
 Axioms:
-IndefiniteDescription.constructive_indefinite_description
-  : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
+IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
 *)

@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 (** Re-using an earlier read across code that *may* use that ref. *)
 
 (* Assuming x : & i32 *)
-Definition ex2_unopt' : expr :=
+Definition unprot_shared_delete_read_escaped_unopt : expr :=
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place sizeof_scalar "i" in
 
@@ -35,7 +35,7 @@ Definition ex2_unopt' : expr :=
     "v"
   .
 
-Definition ex2_opt' : expr :=
+Definition unprot_shared_delete_read_escaped_opt : expr :=
     let: "x" := new_place sizeof_scalar "i" in
     retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
     let: "v" := Copy *{sizeof_scalar} "x" in
@@ -45,8 +45,8 @@ Definition ex2_opt' : expr :=
   .
 
 
-Lemma sim_opt2' `{sborGS Σ} :
-  ⊢ log_rel ex2_opt' ex2_unopt'.
+Lemma unprot_shared_delete_read_escaped `{sborGS Σ} :
+  ⊢ log_rel unprot_shared_delete_read_escaped_opt unprot_shared_delete_read_escaped_unopt.
 Proof.
   log_rel.
   iIntros "%r_t %r_s #Hrel !# %π _".
@@ -126,19 +126,19 @@ Qed.
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma sim_opt2'_ctx : ctx_ref ex2_opt' ex2_unopt'.
+  Lemma unprot_shared_delete_read_escaped_ctx : ctx_ref unprot_shared_delete_read_escaped_opt unprot_shared_delete_read_escaped_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply sim_opt2'.
+    apply unprot_shared_delete_read_escaped.
   Qed.
 End closed.
 
-Check sim_opt2'_ctx.
-Print Assumptions sim_opt2'_ctx.
+Check unprot_shared_delete_read_escaped_ctx.
+Print Assumptions unprot_shared_delete_read_escaped_ctx.
 (* 
-sim_opt2'_ctx
-     : ctx_ref ex2_opt' ex2_unopt'
+unprot_shared_delete_read_escaped_ctx
+     : ctx_ref unprot_shared_delete_read_escaped_opt unprot_shared_delete_read_escaped_unopt
 Axioms:
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P

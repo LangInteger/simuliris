@@ -11,7 +11,7 @@ From iris.prelude Require Import options.
     This requires activating the reference first. *)
 
 (* Assuming x : &mut i32 *)
-Definition ex3_down_unopt : expr :=
+Definition prot_mutable_reorder_write_down_activated_unopt : expr :=
     let: "c" := InitCall in
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place sizeof_scalar "i" in
@@ -44,7 +44,7 @@ Definition ex3_down_unopt : expr :=
     "v1"
   .
 
-Definition ex3_down_opt : expr :=
+Definition prot_mutable_reorder_write_down_activated_opt : expr :=
     let: "c" := InitCall in
     let: "x" := new_place sizeof_scalar "i" in
     retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c" ;;
@@ -59,8 +59,8 @@ Definition ex3_down_opt : expr :=
   .
 
 
-Lemma sim_opt3_down `{sborGS Σ} :
-  ⊢ log_rel ex3_down_opt ex3_down_unopt.
+Lemma prot_mutable_reorder_write_down_activated `{sborGS Σ} :
+  ⊢ log_rel prot_mutable_reorder_write_down_activated_opt prot_mutable_reorder_write_down_activated_unopt.
 Proof.
   log_rel.
   iIntros "%r_t %r_s #Hrel !# %π _".
@@ -170,21 +170,20 @@ Qed.
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma sim_opt3_down_ctx : ctx_ref ex3_down_opt ex3_down_unopt.
+  Lemma prot_mutable_reorder_write_down_activated_ctx : ctx_ref prot_mutable_reorder_write_down_activated_opt prot_mutable_reorder_write_down_activated_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply sim_opt3_down.
+    apply prot_mutable_reorder_write_down_activated.
   Qed.
 End closed.
 
-Check sim_opt3_down_ctx.
-Print Assumptions sim_opt3_down_ctx.
+Check prot_mutable_reorder_write_down_activated_ctx.
+Print Assumptions prot_mutable_reorder_write_down_activated_ctx.
 (* 
-sim_opt3_down_ctx
-     : ctx_ref ex3_down_opt ex3_down_unopt
+prot_mutable_reorder_write_down_activated_ctx
+     : ctx_ref prot_mutable_reorder_write_down_activated_opt prot_mutable_reorder_write_down_activated_unopt
 Axioms:
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P
-
 *)

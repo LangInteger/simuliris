@@ -10,7 +10,7 @@ From iris.prelude Require Import options.
 (** Moving a read of a mutable reference down across code that *may* use that ref. *)
 
 (* Assuming x : &mut i32 *)
-Definition ex1_down_unopt : expr :=
+Definition prot_mutable_reorder_read_down_unopt : expr :=
     let: "c" := InitCall in
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place sizeof_scalar "i" in
@@ -34,7 +34,7 @@ Definition ex1_down_unopt : expr :=
     "v"
   .
 
-Definition ex1_down_opt : expr :=
+Definition prot_mutable_reorder_read_down_opt : expr :=
     let: "c" := InitCall in
     let: "x" := new_place sizeof_scalar "i" in
     retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c";;
@@ -48,8 +48,8 @@ Definition ex1_down_opt : expr :=
   .
 
 
-Lemma sim_opt1_down `{sborGS Σ} :
-  ⊢ log_rel ex1_down_opt ex1_down_unopt.
+Lemma prot_mutable_reorder_read_down `{sborGS Σ} :
+  ⊢ log_rel prot_mutable_reorder_read_down_opt prot_mutable_reorder_read_down_unopt.
 Proof.
   log_rel.
   iIntros "%r_t %r_s #Hrel !# %π _".
@@ -119,19 +119,19 @@ Qed.
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma sim_opt1_down_ctx : ctx_ref ex1_down_opt ex1_down_unopt.
+  Lemma prot_mutable_reorder_read_down_ctx : ctx_ref prot_mutable_reorder_read_down_opt prot_mutable_reorder_read_down_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply sim_opt1_down.
+    apply prot_mutable_reorder_read_down.
   Qed.
 End closed.
 
-Check sim_opt1_down_ctx.
-Print Assumptions sim_opt1_down_ctx.
+Check prot_mutable_reorder_read_down_ctx.
+Print Assumptions prot_mutable_reorder_read_down_ctx.
 (* 
-sim_opt1_down_ctx
-     : ctx_ref ex1_down_opt ex1_down_unopt
+prot_mutable_reorder_read_down_ctx
+     : ctx_ref prot_mutable_reorder_read_down_opt prot_mutable_reorder_read_down_unopt
 Axioms:
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P

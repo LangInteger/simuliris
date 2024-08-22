@@ -200,13 +200,13 @@ theories/tree_borrows/refl.v
 theories/tree_borrows/behavior.v 
 theories/tree_borrows/adequacy.v
 
-theories/tree_borrows/examples/coinductive_loop_delete_read_unprotected.v
-theories/tree_borrows/examples/pure.v
-theories/tree_borrows/examples/reorder_read_down_public_escaped.v
-theories/tree_borrows/examples/reorder_read_up_public_escaped.v
+theories/tree_borrows/examples/protected/mutable_reorder_read_down.v
+theories/tree_borrows/examples/protected/shared_reorder_read_down_escaped.v
+theories/tree_borrows/examples/protected/shared_reorder_read_up_escaped.v
+theories/tree_borrows/examples/protected/mutable_reorder_write_down_activated.v
+theories/tree_borrows/examples/protected/mutable_reorder_write_up_activated.v
+theories/tree_borrows/examples/unprotected/mutable_delete_read.v
+theories/tree_borrows/examples/unprotected/shared_delete_read_escaped.v
+theories/tree_borrows/examples/unprotected/shared_delete_read_escaped_coinductive.v
 theories/tree_borrows/examples/lib.v
-theories/tree_borrows/examples/reorder_read_down_protected.v
-theories/tree_borrows/examples/reorder_write_activated_protected_down.v
-theories/tree_borrows/examples/reorder_write_activated_protected_up.v
-theories/tree_borrows/examples/delete_read_unprotected.v
-theories/tree_borrows/examples/delete_read_public_escaped_unprotected.v
+theories/tree_borrows/examples/pure.v
