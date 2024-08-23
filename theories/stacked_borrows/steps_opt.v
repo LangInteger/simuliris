@@ -186,6 +186,7 @@ Qed.
 Lemma sim_retag_default mut T l_t l_s c ot π Φ :
   (0 < tsize T)%nat → (* for convenience: makes the proof easier *)
   let pk : pointer_kind := RefPtr mut in
+  let pm := match mut with Mutable => Unique | Immutable => SharedReadOnly end in
   let tk := match mut with Mutable => tk_unq | Immutable => tk_pub end in
   (if mut is Immutable then is_freeze T else True) →
   sc_rel (ScPtr l_t ot) (ScPtr l_s ot) -∗
@@ -199,8 +200,7 @@ Lemma sim_retag_default mut T l_t l_s c ot π Φ :
     #[ScPtr l_t (Tagged nt)] ⪯{π} #[ScPtr l_s (Tagged nt)] [{ Φ }]) -∗
   Retag #[ScPtr l_t ot] #[ScCallId c] pk T Default ⪯{π} Retag #[ScPtr l_s ot] #[ScCallId c] pk T Default [{ Φ }].
 Proof.
-  intros Hsize pk tk Hmut. iIntros "#Hscrel Hsim".
-  simpl.
+  intros Hsize pk pm tk Hmut. iIntros "#Hscrel Hsim".
   iApply sim_lift_base_step_both. iIntros (P_t P_s σ_t σ_s ??) "((HP_t & HP_s & Hbor) & %Hthread & %Hsafe)".
   (* exploit source to gain knowledge about stacks & that c is a valid id *)
   specialize (pool_safe_implies Hsafe Hthread) as (c' & ot' & l' & [= <- <-] & [= <-] & Hc_active & Hretag_some_s).
