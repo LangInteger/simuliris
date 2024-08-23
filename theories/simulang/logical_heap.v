@@ -511,7 +511,7 @@ Section heap.
     { apply eq_None_not_Some => -[? /Hrel]. naive_solver. }
     rewrite heap_block_size_eq heap_pointsto_vec_combine //.
     2: { by destruct (Z.to_nat n). }
-    iFrame. iModIntro. iSplit; [|by eauto]. iExists _. iFrame.
+    iFrame. iModIntro. iSplit; [|by eauto].
     iPureIntro. split.
     - by apply heap_block_size_rel_init_mem.
     - by apply heap_wf_init_mem.
@@ -654,7 +654,7 @@ Section heap.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & Hg & % & %)".
     iMod (heap_read_vs with "Hσ Hmt") as "[Hσ Hmt]"; first done.
     iModIntro. iExists n'; iSplit; [done|]. iFrame.
-    iExists hF. iFrame. eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
+    eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
   Qed.
 
   Lemma heap_read_na_2 σ l q v n :
@@ -668,7 +668,7 @@ Section heap.
     iDestruct "Hσ" as (hF) "(Hσ & HhF & Hg & % & %)".
     iMod (heap_read_vs with "Hσ Hmt") as "[Hσ Hmt]"; first done.
     iModIntro. iExists n'; iSplit; [done|]. iFrame.
-    iExists hF. iFrame. eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
+    eauto 8 using heap_block_size_rel_stable, heap_wf_insert.
   Qed.
 
   Lemma heap_read_na σ l q v :

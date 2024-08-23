@@ -305,7 +305,7 @@ Proof.
       generalize (tsize T_t) => n. iInduction n as [ | n] "IH"; first by iApply big_sepL2_nil.
       rewrite /value_rel big_sepL2_cons; iFrame "IH". done.
     }
-    iExists M_call, M_tag, M_t, M_s. iFrame. repeat (iSplit; done).
+    repeat (iSplit; done).
   }
   (* successful copy *)
   iAssert (⌜∀ i : nat, (i < tsize T_t)%nat → is_Some (shp σ_t !! (l_t +ₗ i))⌝)%I as "%Hsome_target".

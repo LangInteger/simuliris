@@ -210,7 +210,7 @@ Section fix_heap.
     iIntros (Hn Ht Hs) "[% Hs_t] [% Hs_s] Hl_t Hl_s Hval Hsim". iApply sim_update_si.
     iIntros (?????) "(HP_t & HP_s & Hσ_t & Hσ_s & (%L&Hinv&#Hgs))".
     iMod (heapbij_insertN with "Hinv Hl_t Hl_s Hval Hs_t Hs_s") as "[Hb #Ha]"; [done .. | ].
-    iModIntro. iFrame. iDestruct ("Hsim" with "[//]") as "$". iExists _. by iFrame "Hgs".
+    iModIntro. iFrame. iDestruct ("Hsim" with "[//]") as "$". done.
   Qed.
 
   Lemma sim_bij_insert π l_t l_s v_t v_s e_t e_s Φ :

@@ -13,8 +13,7 @@ Proof.
   { iDestruct (big_sepL2_nil_inv_l with "Hl") as %->. iExists []. by iSplit. }
   iDestruct (big_sepL2_cons_inv_l with "Hl") as (x2 l2' ->) "[[%x ?] Hl]".
   iDestruct ("IH" with "Hl") as (xs) "[%Heq ?]".
-  iExists (x::xs) => /=. iSplit; [by rewrite /= Heq|]. iFrame.
-  iExists _. by iFrame.
+  iExists (x::xs) => /=. iSplit; [by rewrite /= Heq|]. by iFrame.
 Qed.
 Lemma big_sepL2_to_sepL_r {PROP : bi} {A B} (l1 : list A) (l2 : list B) (Φ : _ → _ → _ → PROP) `{!BiAffine PROP}:
   length l1 = length l2 →
