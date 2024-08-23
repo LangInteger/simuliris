@@ -20,7 +20,7 @@ From iris.prelude Require Import options.
 fn funky_loop(x : &i32, f, g) {
   retag x;
   while(f( *x)) {
-    g()
+    g( *x )
   }
 }
 
@@ -28,7 +28,7 @@ fn funky_loop(x : &i32, f, g) {
   retag x;
   let v = *x;
   while(f(v)) {
-    g()
+    g(v)
   }
 }
 
@@ -55,7 +55,7 @@ Definition unprot_shared_delete_read_escaped_coinductive_unopt : expr :=
     retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
 
     while: Call "fn" (Conc "env" (Copy *{sizeof_scalar} "x")) do
-      Call "fnG" "envG"
+      Call "fnG" (Conc "envG" (Copy *{sizeof_scalar} "x"))
     od;;
 
     (* Free the local variable *)
@@ -76,7 +76,7 @@ Definition unprot_shared_delete_read_escaped_coinductive_opt : expr :=
     retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
     let: "r" := Copy *{sizeof_scalar} "x" in
     while: Call "fn" (Conc "env" "r") do
-      Call "fnG" "envG"
+      Call "fnG" (Conc "envG" "r")
     od;;
     Free "x" ;;
     #[42]
@@ -215,6 +215,15 @@ Proof.
   target_case. { done. } target_pures.
   sim_pures.
 
+  (* resolve the deferred read in the source *)
+  source_apply (Copy (Place _ _ _)) (source_copy_local with "Hx Hs_x") "Hs_x Hx". 2: done.
+  1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  source_pures. source_bind (Copy _).
+  iApply (source_copy_in_simulation with "Hreadsim_fut Htag_i Hi_s"). 1: done.
+  2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+  iIntros (v_res_s''') "Hi_s _ #Hinsim'''". source_pures. source_finish.
+  sim_pures.
+
   source_bind (Call _ _).
   iApply source_red_safe_implies.
   iIntros "(%fnG & %Heq)". injection Heq as [= ->].
@@ -246,7 +255,6 @@ Proof.
   2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   iIntros (v_res_s') "Hi_s _ #Hinsim". source_pures. source_finish.
   sim_pures.
-
 
   (* do the loop header call *)
   source_bind (Call _ _).
@@ -281,6 +289,15 @@ Proof.
   - (* another round *)
     source_case. { done. } source_pures.
     target_case. { done. } target_pures.
+    sim_pures.
+
+    (* resolve the deferred read in the source *)
+    source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
+    1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+    source_pures. source_bind (Copy _).
+    iApply (source_copy_in_simulation with "Hreadsim_fut Htag_i Hi_s"). 1: done.
+    2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
+    iIntros (v_res_s'') "Hi_s _ #Hinsim''". source_pures. source_finish.
     sim_pures.
 
     source_bind (Call _ _).
