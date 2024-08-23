@@ -397,7 +397,7 @@ Proof.
       destruct Hsc' as [([= ->] & -> & Hpos & Hlt)|[([=] & _)|(Hthru&Hne)]].
       * iRight. iPureIntro. exists nt, tk_local. subst vs.
         rewrite /heaplet_lookup !lookup_insert /=. split; first done.
-        split. 1: eapply elem_of_dom, list_to_heaplet_dom; rewrite replicate_length; lia.
+        split. 1: eapply elem_of_dom, list_to_heaplet_dom; rewrite length_replicate; lia.
         by left.
       * iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
         unshelve iDestruct ("Hsrel" $! (blk', off') _) as "[Hsrel2|%Hpriv]".
@@ -450,13 +450,13 @@ Proof.
       - (* new tag: local, currently poison *)
         split_and!; [ rewrite /tag_valid; lia | rewrite /tag_valid; lia | | | |].
         + intros _; split; intros bb M [([= <-]&<-)|(Hne&HM)]%lookup_insert_Some.
-          1,3: intros H%list_to_heaplet_empty_length; subst vs; rewrite replicate_length in H; lia.
+          1,3: intros H%list_to_heaplet_empty_length; subst vs; rewrite length_replicate in H; lia.
           1: rewrite HtNone // in HM. 1: rewrite HsNone // in HM.
         + intros l' sc_t (M&[([= He1]&<-)|(Hne&Hhl)]%lookup_insert_Some&HM)%bind_Some.
           2: by rewrite /= HtNone in Hhl. eapply list_to_heaplet_lookup_Some in HM as Hbnd. simpl in Hbnd.
           assert (l'.2 = Z.of_nat (Z.to_nat l'.2)) as Heq by lia.
           rewrite /= -(Z.add_0_l l'.2) Heq list_to_heaplet_nth in HM. fold blk α_t' l σ_t'.
-          subst vs. rewrite replicate_length in Hbnd.
+          subst vs. rewrite length_replicate in Hbnd.
           enough (sc_t = ScPoison) as ->.
           * eapply loc_controlled_alloc_creates_local. 1: done. 1: done. all: done.
           * eapply lookup_replicate in HM as (->&_). done.
@@ -464,7 +464,7 @@ Proof.
           2: by rewrite /= HsNone in Hhl. eapply list_to_heaplet_lookup_Some in HM as Hbnd. simpl in Hbnd.
           assert (l'.2 = Z.of_nat (Z.to_nat l'.2)) as Heq by lia.
           rewrite /= -(Z.add_0_l l'.2) Heq list_to_heaplet_nth in HM.
-          subst vs. rewrite replicate_length in Hbnd.
+          subst vs. rewrite length_replicate in Hbnd.
           assert (fresh_block (shp σ_t) = fresh_block (shp σ_s)) as Hfresh.
           1: eapply fresh_block_equiv; try done; by rewrite Hdom_eq.
           enough (sc_t = ScPoison) as ->.

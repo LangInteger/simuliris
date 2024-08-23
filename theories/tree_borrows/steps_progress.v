@@ -461,7 +461,7 @@ Proof.
       [|rewrite Eq2 /=; by eexists].
     intros jt [j Eqj]%elem_of_list_lookup_1 IU.
     have ?: (j < i)%nat.
-    { rewrite -(take_length_le stk i); [|done]. by eapply lookup_lt_Some. }
+    { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
     destruct (Lti j jt) as [Eq1 PR]; [done|..].
     + symmetry. by rewrite -Eqj lookup_take.
     + move : PR. by rewrite /= IU.
@@ -472,7 +472,7 @@ Proof.
     + move : Eqx. apply find_first_write_incompatible_length.
     + intros j jt Lt Eqj.
       have ?: (j < i)%nat.
-      { rewrite -(take_length_le stk i); [|done]. by eapply lookup_lt_Some. }
+      { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
       destruct (Lti j jt) as [Eq1 PR]; [done|..].
       * symmetry. by rewrite -Eqj lookup_take.
       * move : PR. by rewrite /= Eqx decide_True.

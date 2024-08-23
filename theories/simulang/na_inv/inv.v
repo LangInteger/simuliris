@@ -78,32 +78,32 @@ Section fix_heap.
   Next Obligation.
     iIntros (????????) "(%L & %cols & % & % & ? &?)".
     iExists _,_. iFrame. iPureIntro.
-    rewrite insert_length. split; [done|].
+    rewrite length_insert. split; [done|].
     by apply: na_locs_wf_pure.
   Qed.
 
   Global Instance na_inv_supports_alloc : sheapInvSupportsAlloc.
   Proof.
     constructor. iIntros (???????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
-    iExists _,_. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    iExists _,_. iFrame. iPureIntro. rewrite length_insert. split; [done|].
     by apply: na_locs_wf_alloc.
   Qed.
   Global Instance na_inv_supports_free : sheapInvSupportsFree.
   Proof.
     constructor. iIntros (???????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    iExists _, _. iFrame. iPureIntro. rewrite length_insert. split; [done|].
     by apply: na_locs_wf_free.
   Qed.
   Global Instance na_inv_supports_load o : sheapInvSupportsLoad o.
   Proof.
     constructor. iIntros (?????????????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    iExists _, _. iFrame. iPureIntro. rewrite length_insert. split; [done|].
     by apply: na_locs_wf_load.
   Qed.
   Global Instance na_inv_supports_store : sheapInvSupportsStore Na1Ord.
   Proof.
     constructor. iIntros (??????? π ????) "(%L&%cols&%Hlen&%Hwf&?&?&?&?)".
-    iExists _, _. iFrame. iPureIntro. rewrite insert_length. split; [done|].
+    iExists _, _. iFrame. iPureIntro. rewrite length_insert. split; [done|].
     have [|??]:= lookup_lt_is_Some_2 cols π. { rewrite Hlen. by apply: lookup_lt_Some. }
     apply: na_locs_wf_store; [done | done | by left | done | done |done | done |done].
   Qed.
@@ -144,7 +144,7 @@ Section fix_heap.
     iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame "Hheap".
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
-    - by rewrite insert_length.
+    - by rewrite length_insert.
     - apply: na_locs_wf_insert_store; [done..| by rewrite list_insert_id | ].
       move => ?. apply: safe_reach_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     - move => ???? /list_lookup_insert_Some[[?[??]]|[??]] Hl'; simplify_eq; [|naive_solver].
@@ -193,7 +193,7 @@ Section fix_heap.
     iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$] [$] [$] [$]") as "$". iFrame "Hheap".
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
-    - by rewrite insert_length.
+    - by rewrite length_insert.
     - apply: na_locs_wf_insert_load; [done..| by rewrite list_insert_id | ].
       move => ?. apply: safe_reach_mono; [done|]. move => ???. apply: post_in_ectx_mono; [done|]. naive_solver.
     - move => ???? /list_lookup_insert_Some[[?[??]]|[??]] Hl'; simplify_eq; [|naive_solver].
@@ -230,7 +230,7 @@ Section fix_heap.
     iMod (ghost_map_update with "Hcols Hcol") as "[Hcols Hcol]". rewrite insert_map_seq_0 //.
     iModIntro. iDestruct ("HWp" with "[$]") as "$".
     iApply ("Hclose" with "[] [] [] [] [$] [$]"); iPureIntro.
-    - by rewrite insert_length.
+    - by rewrite length_insert.
     - by apply: na_locs_wf_delete.
     - move => ???? /list_lookup_insert_Some[[?[??]]|[??]] Hl'; simplify_eq; [|naive_solver].
       move: Hl' => /lookup_delete_Some[??]; simplify_eq; naive_solver.
@@ -297,7 +297,7 @@ Section fix_heap.
     iDestruct ("Hsim" with "Hcol") as "$".
     iFrame "HP_t HP_s Hσ_t Hσ_s" => /=. rewrite !right_id.
     iApply ("Hclose" with "[%] [%] [%] [%] Hcols Halloc").
-    - by rewrite insert_length.
+    - by rewrite length_insert.
     - rewrite fill_comp. apply: (na_locs_wf_store σ_s); [done |done | | done | done | done | done | done ].
       right. split; [done|]. move => ?????. rewrite -fill_comp. apply: fill_safe_reach. naive_solver.
     - naive_solver.
@@ -333,7 +333,7 @@ Section fix_heap.
     iDestruct (ghost_map_lookup with "Hcols Hc") as %Hcoll.
     rewrite lookup_map_seq_0 in Hcoll.
     iDestruct ("Hsim" with "Hc [$]") as "$". iExists _, _. iFrame.
-    iPureIntro. rewrite insert_length. split; [done|].
+    iPureIntro. rewrite length_insert. split; [done|].
     apply: na_locs_wf_store; [done | done | by right | done | done | done | done |done].
   Qed.
 
@@ -388,7 +388,7 @@ Section fix_heap.
     iDestruct ("Hsim" with "Hv' Hcol") as "$".
     iFrame "HP_t HP_s Hσ_t Hσ_s" => /=. rewrite !right_id.
     iApply ("Hclose" with "[%] [%] [%] [%] Hcols Halloc").
-    - by rewrite insert_length.
+    - by rewrite length_insert.
     - apply: (na_locs_wf_load σ_s); [done |done | done | done | done | done ].
     - naive_solver.
     - naive_solver.
@@ -434,7 +434,7 @@ Section fix_heap.
     iSplitR; first by eauto with base_step.
     iDestruct ("Hsim" with "Hcol") as "$". iFrame "HP_t HP_s Hσ_t Hσ_s". iSplit; [|done].
     iApply ("Hclose" with "[%] [%] [%] [%] [$] [$]").
-    - rewrite app_length insert_length /=. lia.
+    - rewrite length_app length_insert /=. lia.
     - rewrite app_nil_r. by apply: na_locs_wf_free.
     - naive_solver.
     - naive_solver.
@@ -464,7 +464,7 @@ Section fix_heap.
     { iModIntro. iSplit; [|done]. iApply "Hsim". by rewrite Nat.add_0_r. }
     iExists _, _. iFrame. iModIntro.
     repeat iSplit; try iPureIntro.
-    - rewrite !app_length insert_length /=. lia.
+    - rewrite !length_app length_insert /=. lia.
     - by apply na_locs_wf_fork.
     - move => ???? /lookup_app_Some[?|[??]]; [naive_solver|]. by simplify_list_eq.
     - iApply (big_sepS_impl with "HL").

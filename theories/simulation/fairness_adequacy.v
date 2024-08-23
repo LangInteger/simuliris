@@ -445,7 +445,7 @@ Proof.
               iFrame. iApply (csim_expr_mono with "Hpost [Hsim]").
               by rewrite csim_expr_eq.
            ++ rewrite /csim_expr_all.
-              by rewrite big_sepL2_alt csim_expr_eq bi.and_elim_r insert_length fmap_length.
+              by rewrite big_sepL2_alt csim_expr_eq bi.and_elim_r length_insert length_fmap.
       + eapply fair_pool_step_inv in Hstep as (e_j & e_j_t' & efs_t & Hstep & Hlook' & Hupd & Hdecr).
         eapply list_lookup_fmap_inv in Hlook' as ([e_j_t e_j_s] & -> & Hlookj); simpl in Hstep.
         eapply Hdecr in HD as (d' & -> & HD'); last done.
@@ -468,8 +468,8 @@ Proof.
           -- rewrite (csim_expr_all_wo_split _ {[i]} j); last set_solver; last first.
              { eapply lookup_app_l_Some, list_lookup_insert, lookup_lt_Some, Hlookj. }
              iFrame. rewrite -csim_expr_all_wo_app; last first.
-             { intros k Hk. assert (k = j ∨ k = i) as [] by set_solver; subst; rewrite insert_length; by eapply lookup_lt_Some. }
-             rewrite insert_length fmap_length.
+             { intros k Hk. assert (k = j ∨ k = i) as [] by set_solver; subst; rewrite length_insert; by eapply lookup_lt_Some. }
+             rewrite length_insert length_fmap.
              iFrame. rewrite csim_expr_all_wo_insert //. set_solver.
 Qed.
 
@@ -534,7 +534,7 @@ Section fair_termination.
 
   Lemma threads_src_tgt P: threads P.(src) = threads P.(tgt).
   Proof.
-    rewrite /threads !fmap_length //.
+    rewrite /threads !length_fmap //.
   Qed.
 
   Lemma fair_div_must_take_steps p_t p_s σ_t σ_s σ_s' P P' D I:

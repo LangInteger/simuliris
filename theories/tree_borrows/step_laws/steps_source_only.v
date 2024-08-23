@@ -84,7 +84,7 @@ Proof.
       destruct (Htag_interp) as (H1&_).
       specialize (H1 _ _ Htag) as (_&Hx&_). rewrite /tag_valid in Hx. lia. }
     iModIntro. iFrame "HP_t HP_s". iSpecialize ("Hsim" $! (replicate (length v_rd) _) with "Hs Htag []").
-    { iRight. iExists (Z.to_nat (l - l_rd.2)). rewrite replicate_length. iSplit. 1: iPureIntro; split; last done.
+    { iRight. iExists (Z.to_nat (l - l_rd.2)). rewrite length_replicate. iSplit. 1: iPureIntro; split; last done.
       1: simpl; lia. simpl. assert ((l_rd +ₗ Z.to_nat (l - l_rd.2) = (l_rd.1, l))) as ->. 2: done.
       rewrite /shift_loc /=. simpl. f_equal. lia. }
     1: iSplitR "Hsim"; last by iApply "Hsim".
@@ -163,7 +163,7 @@ Proof.
   iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
   iDestruct "Hpoison" as "(%i&%Hi&#Hpoison)".
   eapply pool_safe_implies in Ht_s as Hfoo. 2: done.
-  destruct Hi as (Hi&->). rewrite replicate_length in Hi.
+  destruct Hi as (Hi&->). rewrite length_replicate in Hi.
   destruct Hfoo as [(v_rd'&Hv_rd&Hcont&Hreadsome&_)|[(v_nil&Hread_nil&Hiszero)|(Hcont&Happly_none&Hmemsome)]]; last first.
   2: lia.
   - iExists _, _. iSplit.
@@ -172,7 +172,7 @@ Proof.
     iModIntro. iFrame "HP_t HP_s". iSpecialize ("Hsim" $! _ with "Hs Htag []"); last first.
     1: iSplitR "Hsim"; last by iApply "Hsim".
     1: do 4 iExists _; destruct σ_s; iApply "Hbor".
-    iExists i. iFrame "Hpoison". rewrite replicate_length. iPureIntro. split; last done. lia.
+    iExists i. iFrame "Hpoison". rewrite length_replicate. iPureIntro. split; last done. lia.
   - iDestruct "Hbor" as "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & _ & _)".
     iPoseProof (tag_tainted_interp_lookup with "Hpoison Htainted") as "%Hpoison".
     exfalso. rewrite /trees_contain /trees_at_block /= in Hcont.
@@ -204,14 +204,14 @@ Proof.
     iIntros (v_res) "Hhl Htk [->|#(%i&(%Hp1&%Hp2)&Hpoison2)]";
       iApply ("Hsim" with "Hhl Htk").
     + done.
-    + rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite replicate_length; lia.
+    + rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite length_replicate; lia.
       iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison.
   - subst sz. iDestruct "Hpoison" as "(%Hlen&Hpoison)".
     iApply (source_copy_poison with "[] Htk Hhl [Hsim]"). 1-3: done.
     1: rewrite Hlen; done.
     iIntros (v_res) "Hhl Htk #(%i&(%Hp1&%Hp2)&Hpoison2)".
     iApply ("Hsim" with "Hhl Htk").
-    rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite replicate_length; lia.
+    rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite length_replicate; lia.
     iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison.
 Qed.
 

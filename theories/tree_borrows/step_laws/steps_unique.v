@@ -101,10 +101,10 @@ Proof.
       specialize (H1 _ _ Htag) as (_&Hx&_). rewrite /tag_valid in Hx. lia. }
     iModIntro. iFrame "HP_t HP_s". iSpecialize ("Hsim" $! (replicate (length v_rd_s) _) (replicate (length v_rd_s) _) with "Hs Ht Htk []").
     { iRight. iSplit.
-      { iExists (Z.to_nat (l - l_rd.2)). rewrite replicate_length. iSplit. 1: iPureIntro; split; last by f_equal.
+      { iExists (Z.to_nat (l - l_rd.2)). rewrite length_replicate. iSplit. 1: iPureIntro; split; last by f_equal.
         1: simpl; lia. simpl. assert ((l_rd +ₗ Z.to_nat (l - l_rd.2) = (l_rd.1, l))) as ->. 2: done.
         rewrite /shift_loc /=. simpl. f_equal. lia. }
-      { iExists (Z.to_nat (l - l_rd.2)). rewrite replicate_length. iSplit. 1: iPureIntro; split; last by f_equal.
+      { iExists (Z.to_nat (l - l_rd.2)). rewrite length_replicate. iSplit. 1: iPureIntro; split; last by f_equal.
         1: simpl; lia. simpl. assert ((l_rd +ₗ Z.to_nat (l - l_rd.2) = (l_rd.1, l))) as ->. 2: done.
         rewrite /shift_loc /=. simpl. f_equal. lia. } }
      iExists e_t', [], σ_s. iSplit.
@@ -212,10 +212,10 @@ Proof.
   { iLeft. done. }
   iRight. subst sz.
   iDestruct "Hp2" as "(%i&(_&%HH)&_)". rewrite HH.
-  rewrite replicate_length Hlen. iSplit; first done.
+  rewrite length_replicate Hlen. iSplit; first done.
   iDestruct "Hp1" as "(%ip&(%H1&%H2)&Hpp)". iExists ip. iSplit; last done.
-  rewrite replicate_length. iPureIntro; split. 2: done.
-  rewrite H2 replicate_length in H1. lia.
+  rewrite length_replicate. iPureIntro; split. 2: done.
+  rewrite H2 length_replicate in H1. lia.
 Qed.
 
 Lemma sim_read_result_value_rel v_res_t v_res_s v_rd_t v_rd_s l_rd t :
@@ -232,7 +232,7 @@ Proof.
   iDestruct "Hp2" as "(%i&(_&%HH)&_)". rewrite HH.
   iDestruct "Hp1" as "(%ip&(%H1&%H2)&Hpp)". rewrite H2.
   iApply big_sepL2_forall. iSplit.
-  { rewrite replicate_length //. }
+  { rewrite length_replicate //. }
   iIntros (k x1 x2 (->&_)%lookup_replicate_1 (->&_)%lookup_replicate_1). done.
 Qed.
 
