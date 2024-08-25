@@ -1,5 +1,6 @@
 From simuliris.simulation Require Import slsls lifting.
-From simuliris.tree_borrows Require Import proofmode tactics.
+From simuliris.tree_borrows Require Import early_proofmode tactics.
+From simuliris.tree_borrows.step_laws Require Import steps_refl steps_refl_delete steps_refl_endcall steps_retag steps_read_write_simple.
 From simuliris.tree_borrows Require Import parallel_subst primitive_laws log_rel_structural wf behavior.
 From iris.prelude Require Import options.
 
@@ -98,7 +99,7 @@ Section log_rel.
       iPoseProof (rrel_value_source with H) as (? ->) H'
     ];
     try iClear H; try iRename H' into H.
-(*
+
   Lemma log_rel_call e1_t e1_s e2_t e2_s :
     log_rel e1_t e1_s -∗ log_rel e2_t e2_s -∗ log_rel (Call e1_t e2_t) (Call e1_s e2_s).
   Proof.
@@ -136,7 +137,7 @@ Section log_rel.
     iApply (sim_endcall with "Hv").
     sim_finish. sim_val. iModIntro. iSplit; first done. iApply value_rel_poison.
   Qed.
-*)
+
 
   (** a bit of work for eqop *)
   Lemma bor_interp_scalar_eq_source σ_t σ_s sc1_t sc1_s sc2_t sc2_s :
@@ -319,7 +320,7 @@ Section log_rel.
     discr_source. val_discr_source "Hv".
     sim_pures. solve_rrel_refl.
   Qed.
-(*
+
   Lemma log_rel_copy e_t e_s :
     log_rel e_t e_s -∗ log_rel (Copy e_t) (Copy e_s).
   Proof.
@@ -350,11 +351,11 @@ Section log_rel.
     iApply (sim_write_public with "[Hv1] Hv2"). { by iApply rrel_place. }
     solve_rrel_refl.
   Qed.
-
-  Lemma log_rel_retag e1_t e1_s e2_t e2_s pk T k :
+  
+  Lemma log_rel_retag e1_t e1_s e2_t e2_s pk im T k :
     log_rel e1_t e1_s -∗
     log_rel e2_t e2_s -∗
-    log_rel (Retag e1_t e2_t pk T k) (Retag e1_s e2_s pk T k).
+    log_rel (Retag e1_t e2_t pk im T k) (Retag e1_s e2_s pk im T k).
   Proof.
     rewrite /gen_log_rel.
     iIntros "#IH1 #IH2" (? xs) "!# #Hs _"; simpl.
@@ -365,9 +366,12 @@ Section log_rel.
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
-    iApply (sim_retag_public with "[-]"). { by iApply value_rel_ptr. }
-    iIntros (t) "Hv". sim_val. eauto.
-  Qed. *)
+    destruct (decide (pk = ShrRef ∧ im = InteriorMut)) as [(->&->)|Hnim].
+    - iApply (sim_retag_noop). solve_rrel_refl.
+    - iApply (sim_retag_public with "[-]"). 1: done.
+      { by iApply value_rel_ptr. }
+      iIntros (t) "Hv". sim_val. eauto.
+  Qed.
 
   (* TODO: this can be useful elsewhere. It's here because I'm relying on the
     several useful tactics defined here. *)
@@ -482,11 +486,11 @@ Section refl.
     - (* Var *)
       by iApply log_rel_var.
     - (* Call *)
-      admit; by iApply (log_rel_call with "IH IH1").
+      by iApply (log_rel_call with "IH IH1").
     - (* InitCall *)
-      admit; by iApply log_rel_initcall.
+      by iApply log_rel_initcall.
     - (* EndCall *)
-      admit; by iApply (log_rel_endcall with "IH").
+      by iApply (log_rel_endcall with "IH").
     - (* Proj *)
       by iApply (log_rel_proj with "IH IH1").
     - (* Conc *)
@@ -498,15 +502,15 @@ Section refl.
     - (* Ref *)
       by iApply (log_rel_ref with "IH").
     - (* Copy *)
-      admit; by iApply (log_rel_copy with "IH").
+      by iApply (log_rel_copy with "IH").
     - (* Write *)
-      admit; by iApply (log_rel_write with "IH IH1").
+      by iApply (log_rel_write with "IH IH1").
     - (* Alloc *)
       by iApply log_rel_alloc.
     - (* Free *)
-      admit; by iApply log_rel_free.
+      by iApply log_rel_free.
     - (* Retag *)
-      admit; by iApply (log_rel_retag with "IH IH1").
+      by iApply (log_rel_retag with "IH IH1").
     - (* Let *)
       by iApply (log_rel_let with "IH IH1").
     - (* Case *)
@@ -515,7 +519,7 @@ Section refl.
       by iApply (log_rel_fork with "IH").
     - (* While *)
       by iApply (log_rel_while with "IH IH1").
-  Admitted.
+  Qed.
 
   Corollary log_rel_refl e :
     expr_wf e →

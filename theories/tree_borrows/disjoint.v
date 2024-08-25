@@ -35,21 +35,25 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve.
 From iris.prelude Require Import options.
 
+(*
+(* TODO do not forget *)
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+
 (* Key lemma: converts the entire traversal to a per-node level.
 This is applicable to every permission in the accessed range, all that's needed
 to complement it should be preservation of permissions outside of said range. *)
 Lemma access_effect_per_loc_within_range
   {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
   : exists post zpost, (
     let rel := rel_dec tr access_tag affected_tag in
     let isprot := bool_decide (protector_is_active pre.(iprot) cids) in
-    apply_access_perm kind rel isprot true zpre = Some zpost
-    /\ tree_unique affected_tag post tr'
+    apply_access_perm kind rel isprot zpre = Some zpost
+    /\ tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
   ).
@@ -58,7 +62,7 @@ Proof.
   (* use apply_access_spec_per_node to get info on the post permission *)
   destruct (apply_access_spec_per_node Ex Unq ACC) as [post [SpecPost [ContainsPost UniquePost]]].
   (* and then it's per-tag work *)
-  rewrite (tree_unique_specifies_tag _ _ _ Ex Unq) in SpecPost.
+  rewrite (tree_determined_specifies_tag _ _ _ Ex Unq) in SpecPost.
   option step in SpecPost as ?:tmpSpec.
   injection SpecPost; intro H; subst; clear SpecPost.
   (* now down to per-location *)
@@ -66,24 +70,25 @@ Proof.
   rewrite (decide_True _ _ Within) in ForeachSpec.
   destruct ForeachSpec as [lazy_perm [PermExists ForeachSpec]].
   assert (default {| initialized := PermLazy; perm := initp pre |} (iperm pre !! z) = item_lazy_perm_at_loc pre z) as InitPerm. {
-    unfold item_lazy_perm_at_loc. destruct (iperm pre !! z); simpl; reflexivity.
+    unfold item_lazy_perm_at_loc, item_lookup. destruct (iperm pre !! z); simpl; reflexivity.
   } rewrite InitPerm in ForeachSpec.
   eexists. eexists.
   split; [|split; [|split]]; [|exact UniquePost|reflexivity|reflexivity].
+  simpl in ForeachSpec.
   rewrite ForeachSpec.
-  unfold item_lazy_perm_at_loc.
+  unfold item_lazy_perm_at_loc, item_lookup.
   rewrite PermExists; simpl; reflexivity.
 Qed.
 
 Lemma access_effect_per_loc_outside_range
   {tr affected_tag access_tag pre kind cids cids' range tr' z zpre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Outside : ~range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt kind access_tag range) tr' cids')
   : exists post, (
-    tree_unique affected_tag post tr
+    tree_item_determined affected_tag post tr
     /\ item_lazy_perm_at_loc post z = zpre
     /\ iprot post = iprot pre
   ).
@@ -98,7 +103,7 @@ Proof.
     injection SpecPost; intros; subst; clear SpecPost.
     pose proof (mem_apply_range'_spec _ _ z _ _ SpecPerms) as RangeForeach.
     rewrite (decide_False _ _ Outside) in RangeForeach.
-    unfold item_lazy_perm_at_loc; simpl.
+    unfold item_lazy_perm_at_loc, item_lookup; simpl.
     rewrite RangeForeach; reflexivity.
   }
   eexists.
@@ -109,7 +114,7 @@ Qed.
 
 Lemma _
   (Ex : tree_contains ?aff ?tr)
-  (Unq : tree_unique ?aff ?pre ?tr)
+  (Unq : tree_item_determined ?aff ?pre ?tr)
   (Within : range_contains ?range ?z)
 
   optional: (Nonchild : ~ParentChildIn ?aff ?acc ?tr)
@@ -125,7 +130,7 @@ Where the conclusion can be either
   : False.
 * there is some item in the new tree that is related to ?pre:
   : exists post zpost, (
-    tree_unique ?aff post ?tr'
+    tree_item_determined ?aff post ?tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ iprot post = iprot pre
     /\ ...
@@ -138,7 +143,7 @@ Ltac auto_access_event_within_range :=
   match goal with
   (* First off, if we see an access step, we apply the key per-location lemma *)
   | Ex : tree_contains ?aff ?tr,
-    Unq : tree_unique ?aff ?pre ?tr,
+    Unq : tree_item_determined ?aff ?pre ?tr,
     Within : range'_contains ?range ?z,
     Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
     |- exists _ _, _ =>
@@ -146,7 +151,7 @@ Ltac auto_access_event_within_range :=
     exists post, zpost;
     clear Step Unq Within Ex
   | Ex : tree_contains ?aff ?tr,
-    Unq : tree_unique ?aff ?pre ?tr,
+    Unq : tree_item_determined ?aff ?pre ?tr,
     Within : range'_contains ?range ?z,
     Step : bor_local_step ?tr _ (AccessBLEvt _ _ ?range) _ _
     |- _ =>
@@ -171,7 +176,7 @@ Ltac auto_access_event_within_range :=
   | x : lazy_permission |- _ => destruct x; simpl in *
   | p : permission |- _ => destruct p as [[][]| | |]; simpl in *
   | i : perm_init |- _ => destruct i; simpl in *
-  | H : apply_access_perm _ _ _ _ _ = Some _ |- _ => try (inversion H; done); clear H
+  | H : apply_access_perm _ _ _ _ = Some _ |- _ => try (inversion H; done); clear H
   (* when all the rest is done, you can split and auto *)
   | |- _ => subst; try repeat split; eauto
   end
@@ -180,7 +185,7 @@ Ltac auto_access_event_within_range :=
 Lemma nonchild_write_reserved_to_disabled
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -188,7 +193,7 @@ Lemma nonchild_write_reserved_to_disabled
   (Reach : reach (Reserved TyFrz ResActivable) (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
@@ -198,7 +203,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma nonchild_write_any_protected_to_disabled
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -206,17 +211,19 @@ Lemma nonchild_write_any_protected_to_disabled
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Disabled (perm zpost)
     /\ iprot post = iprot pre
   ).
 Proof. do 11 auto_access_event_within_range. Qed.
 
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+
 Lemma nonchild_read_active_to_frozen
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -224,7 +231,7 @@ Lemma nonchild_read_active_to_frozen
   (Reach : reach Active (perm zpre))
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ reach Frozen (perm zpost)
     /\ reach (perm zpre) (perm zpost)
@@ -234,7 +241,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_write_frozen_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -247,7 +254,7 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_write_protected_freeze_like_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -265,7 +272,7 @@ Qed.
 Lemma child_read_disabled_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
@@ -278,14 +285,14 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_write_any_to_init_active
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessWrite access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ perm zpost = Active
     /\ iprot post = iprot pre
@@ -296,14 +303,14 @@ Proof. do 11 auto_access_event_within_range. Qed.
 Lemma child_read_any_to_init_nondis
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Child : ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Within : range'_contains range z)
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ item_lazy_perm_at_loc post z = zpost
     /\ ~reach Disabled (perm zpost)
     /\ iprot post = iprot pre
@@ -315,7 +322,7 @@ Proof. do 15 auto_access_event_within_range. Qed.
 Lemma protected_nonchild_write_initialized_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -330,7 +337,7 @@ Proof. do 15 auto_access_event_within_range. Qed.
 Lemma protected_nonchild_read_initialized_active_to_ub
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -350,7 +357,7 @@ Definition freeze_like p : Prop :=
 Lemma protected_nonchild_read_any_to_conflicted
   {tr affected_tag access_tag pre}
   (Ex : tree_contains affected_tag tr)
-  (Unq : tree_unique affected_tag pre tr)
+  (Unq : tree_item_determined affected_tag pre tr)
   (Nonchild : ~ParentChildIn affected_tag access_tag tr)
   {cids cids' range tr' z zpre}
   (Protected : protector_is_active (iprot pre) cids)
@@ -358,7 +365,7 @@ Lemma protected_nonchild_read_any_to_conflicted
   (IsPre : item_lazy_perm_at_loc pre z = zpre)
   (Step : bor_local_step tr cids (AccessBLEvt AccessRead access_tag range) tr' cids')
   : exists post zpost, (
-    tree_unique affected_tag post tr'
+    tree_item_determined affected_tag post tr'
     /\ iprot post = iprot pre
     /\ item_lazy_perm_at_loc post z = zpost
     /\ freeze_like (perm zpost)
@@ -379,7 +386,7 @@ Proof. unfold freeze_like. do 15 auto_access_event_within_range. Qed.
    - tree_contains
    - ParentChildIn
    - protector_is_for_call
-   - tree_unique
+   - tree_determined
 
    through steps:
    - bor_step
@@ -421,13 +428,13 @@ Ltac migrate prop dest :=
       pose proof prop as dest;
       rewrite <- ACC in prop
     end
-  (* Migrate a tree_unique (lossy) *)
-  | tree_unique ?tg _ ?tr =>
+  (* Migrate a tree_item_determined (lossy) *)
+  | tree_item_determined ?tg _ ?tr =>
     lazymatch goal with
     | Seq : bor_local_seq _  tr _ _ _ _,
       Ex : tree_contains tg tr
       |- _ =>
-      pose proof (bor_local_seq_last_unique Ex prop (bor_local_seq_forget Seq)) as dest
+      pose proof (bor_local_seq_last_determined Ex prop (bor_local_seq_forget Seq)) as dest
     end
   (* failed *)
   | ?other =>
@@ -452,38 +459,37 @@ Ltac forget x :=
   end;
   clear x.
 
-(* `created_unique`, `created_protected`, and `created_nonparent` know the properties of items produced by `create_new_item`
+(* `created_determined`, `created_protected`, and `created_nonparent` know the properties of items produced by `create_new_item`
    Usage:
-      created tg unique as [tgExists tgUnique].
+      created tg determined as [tgExists tgUnique].
       created tg protected as tgProtected.
       created tg nonparent of tg' as Unrelated.
    If you have sufficient hypotheses, these will produce proofs for
    - tree_contains tg ?tr
-   - tree_unique tg (create_new_item tg _) ?tr
+   - tree_item_determined tg (create_new_item tg _) ?tr
    - protector_is_for_call (iprot (create_new_item tg _)) _
    - ~ParentChildIn tg tg' ?tr
    respectively.
 *)
-Ltac created_unique tg bindEx bindUnq :=
+Ltac created_determined tg bindEx bindUnq :=
   match goal with
-  | Rebor : bor_local_step ?tr _ (RetagBLEvt _ tg _ _) _ _ |- _ =>
-    pose proof (bor_local_step_retag_produces_contains_unique Rebor) as [bindEx bindUnq]
+  | Rebor : bor_local_step ?tr _ (RetagBLEvt _ tg _ _ _) _ _ |- _ =>
+    pose proof (bor_local_step_retag_produces_contains_determined Rebor) as [bindEx bindUnq]
   end.
 
-Tactic Notation "created" constr(tg) "unique" "as" "[" ident(ex) ident(uq) "]" :=
-  created_unique tg ex uq.
-Tactic Notation "created" constr(tg) "unique" :=
+Tactic Notation "created" constr(tg) "determined" "as" "[" ident(ex) ident(uq) "]" :=
+  created_determined tg ex uq.
+Tactic Notation "created" constr(tg) "determined" :=
   let ex := fresh "Exists" in
   let uq := fresh "Unique" in
-  created_unique tg ex uq.
+  created_determined tg ex uq.
 
 Ltac created_protected tg dest :=
   let newp := fresh "newp" in
   lazymatch goal with
-  | H : protector_is_for_call ?cid (new_protector ?newp),
-    _ : context [create_new_item tg ?newp]
+  | _ : context [create_new_item tg ?pk FnEntry ?cid]
     |- _ =>
-    assert (protector_is_for_call cid (iprot (create_new_item tg newp))) as dest by (simpl; exact H)
+    assert (protector_is_for_call cid (iprot (create_new_item tg pk FnEntry cid))) as dest by constructor
   end.
 
 Tactic Notation "created" constr(tg) "protected" "as" ident(prot) :=
@@ -494,7 +500,7 @@ Tactic Notation "created" constr(tg) "protected" :=
 
 Ltac created_nonparent tg other dest :=
   match goal with
-  | Rebor : bor_local_step ?tr _ (RetagBLEvt _ tg _ _) _ _,
+  | Rebor : bor_local_step ?tr _ (RetagBLEvt _ tg _ _ _) _ _,
     Exother : tree_contains other ?tr
     |- _ =>
     pose proof (bor_local_step_retag_order_nonparent Exother Rebor) as dest
@@ -512,7 +518,7 @@ Ltac solve_reachability :=
   multimatch goal with
   | |- reach _ _ => assumption
   | |- reach _ _ => eapply reach_reflexive; done
-  | |- reach _ (perm (item_lazy_perm_at_loc (create_new_item _ _) _)) => eapply create_new_item_perm_prop
+  | |- reach _ (perm (item_lazy_perm_at_loc (create_new_item _ _ _ _) _)) => eapply create_new_item_perm_prop
   (* transitivity hints  *)
   | |- reach Frozen ?p => apply (reach_transitive Frozen Disabled p); [done|]
   end.
@@ -542,10 +548,10 @@ Tactic Notation "pose" "replace" constr(target) "with" uconstr(a) uconstr(b) uco
 Tactic Notation "pose" "replace" constr(target) "with" uconstr(a) uconstr(b) uconstr(c) uconstr(d) uconstr(e) "@" uconstr(g) := xspecialize target (a b c d e target g).
 
 Lemma fwrite_cwrite_disjoint
-  {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2' pk rk}
   (Ex : tree_contains tg tr0)
-  (ResReach : reach (Reserved TyFrz ResActivable) (initial_state newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (ResReach : reach (Reserved TyFrz ResActivable) (pointer_kind_to_perm pk))
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid rk) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
@@ -554,14 +560,14 @@ Lemma fwrite_cwrite_disjoint
 Proof.
   intros [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
 
   (* opaque seq *)
   destruct Seq01 as [evts01 Seq01].
-  assert (reach (Reserved TyFrz ResActivable) (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
+  assert (reach (Reserved TyFrz ResActivable) (perm (item_lazy_perm_at_loc (create_new_item tg' pk rk cid) z))) as ResReach1 by solve_reachability.
   migrate Unrelated.
   pose replace ResReach1 with bor_local_seq_last_backward_reach Ex' Unq' @ Seq01.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
@@ -592,10 +598,10 @@ Proof.
 Qed.
 
 Lemma fwrite_cread_disjoint
-  {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' pk rk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (ResReach : reach (Reserved TyFrz ResActivable) (initial_state newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (ResReach : reach (Reserved TyFrz ResActivable) (pointer_kind_to_perm pk))
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid rk) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
@@ -604,14 +610,14 @@ Lemma fwrite_cread_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
 
   (* opaque seq *)
   destruct Seq01 as [evts01 Seq01].
-  assert (reach (Reserved TyFrz ResActivable) (perm (item_lazy_perm_at_loc (create_new_item tg' newp) z))) as ResReach1 by solve_reachability.
+  assert (reach (Reserved TyFrz ResActivable) (perm (item_lazy_perm_at_loc (create_new_item tg' pk rk cid) z))) as ResReach1 by solve_reachability.
   migrate Unrelated.
   pose replace ResReach1 with bor_local_seq_last_backward_reach Ex' Unq' @ Seq01.
   migrate Unq'; destruct Unq' as [post [Unq' _]].
@@ -652,10 +658,9 @@ Proof.
 Qed.
 
 Lemma protected_fwrite_cwrite_disjoint
-  {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' pk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid FnEntry) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Call : call_is_active cid cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
@@ -665,7 +670,7 @@ Lemma protected_fwrite_cwrite_disjoint
 Proof.
   intros [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -679,7 +684,7 @@ Proof.
 
   (* write step 1 *)
   rename post into pre.
-  assert (protector_is_active (iprot pre) cids1) as Protected by (eexists; split; [rewrite <- Prot'; simpl|]; eassumption).
+  assert (protector_is_active (iprot pre) cids1) as Protected by (eexists; split; [|eassumption]; rewrite -Prot'; constructor).
   destruct (nonchild_write_any_protected_to_disabled Ex' Unq' Unrelated Protected RContains1 eq_refl Write1)
     as [post [zpost [Unq'Post [PermPost [DisPost ProtPost]]]]].
   migrate Ex'.
@@ -701,10 +706,9 @@ Proof.
 Qed.
 
 Lemma protected_fwrite_cread_disjoint
-  {tg tg' newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' pk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cid cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid FnEntry) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Call : call_is_active cid cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg range1) tr1' cids1')
@@ -714,7 +718,7 @@ Lemma protected_fwrite_cread_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -728,7 +732,7 @@ Proof.
 
   (* write step 1 *)
   rename post into pre.
-  assert (protector_is_active (iprot pre) cids1) as Protected by (eexists; split; [rewrite <- Prot'; simpl|]; eassumption).
+  assert (protector_is_active (iprot pre) cids1) as Protected by (eexists; split; [|eassumption]; rewrite -Prot'; constructor).
   destruct (nonchild_write_any_protected_to_disabled
     Ex' Unq'
     Unrelated
@@ -761,9 +765,9 @@ Qed.
 
 
 Lemma activated_fread_cwrite_disjoint
-  {tg tg' newp range1 range2 range3 tgp tr0 tr0' tr1 tr1' tr2 tr2' tr3 tr3' cid cids0 cids0' cids1 cids1' cids2 cids2' cids3 cids3'}
+  {tg tg' pk rk range1 range2 range3 tgp tr0 tr0' tr1 tr1' tr2 tr2' tr3 tr3' cid cids0 cids0' cids1 cids1' cids2 cids2' cids3 cids3'}
   (Ex : tree_contains tg tr0)
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid rk) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr1' cids1' l tr2 cids2)
@@ -774,7 +778,7 @@ Lemma activated_fread_cwrite_disjoint
 Proof.
   move=> [z [RContains1 [RContains2 RContains3]]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
   forget tr0.
@@ -847,10 +851,9 @@ Proof.
 Qed.
 
 Lemma protected_cwrite_fwrite_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' cid pk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid FnEntry) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
@@ -859,7 +862,7 @@ Lemma protected_cwrite_fwrite_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -898,7 +901,7 @@ Proof.
   assert (bor_local_seq
     {|seq_inv:=fun tr cids =>
       (forall it,
-        tree_unique tg' it tr ->
+        tree_item_determined tg' it tr ->
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenActPost. {
@@ -926,10 +929,9 @@ Proof.
 Qed.
 
 Lemma protected_cread_fwrite_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' cid pk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid FnEntry) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
@@ -938,7 +940,7 @@ Lemma protected_cread_fwrite_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -976,7 +978,7 @@ Proof.
   assert (bor_local_seq
     {|seq_inv:=fun tr cids =>
       (forall it,
-        tree_unique tg' it tr ->
+        tree_item_determined tg' it tr ->
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenNonDisPost. {
@@ -1000,10 +1002,9 @@ Proof.
 Qed.
 
 Lemma protected_cwrite_fread_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' cid pk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid FnEntry) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Write1 : bor_local_step tr1 cids1 (AccessBLEvt AccessWrite tg' range1) tr1' cids1')
   (Seq12 : exists l, bor_local_seq {|seq_inv:=fun _ cids => call_is_active cid cids|} tr1' cids1' l tr2 cids2)
@@ -1012,7 +1013,7 @@ Lemma protected_cwrite_fread_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -1049,7 +1050,7 @@ Proof.
   assert (bor_local_seq
     {|seq_inv:=fun tr cids =>
       (forall it,
-        tree_unique tg' it tr ->
+        tree_item_determined tg' it tr ->
         initialized (item_lazy_perm_at_loc it z) = PermInit)
       /\ call_is_active cid cids|}
     tr1' cids1' evts12 tr2 cids2) as GenActPost. {
@@ -1074,10 +1075,9 @@ Proof.
 Qed.
 
 Lemma protected_fread_cwrite_disjoint
-  {tg tg' cid newp range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
+  {tg tg' cid pk range1 range2 tgp tr0 tr0' tr1 tr1' tr2 tr2' cids0 cids0' cids1 cids1' cids2 cids2'}
   (Ex : tree_contains tg tr0)
-  (Prot : protector_is_for_call cid (new_protector newp))
-  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' newp cid) tr0' cids0')
+  (Retag0 : bor_local_step tr0 cids0 (RetagBLEvt tgp tg' pk cid FnEntry) tr0' cids0')
   (Seq01 : exists l, bor_local_seq {|seq_inv:=fun _ _ => True|} tr0' cids0' l tr1 cids1)
   (Call1 : call_is_active cid cids1)
   (Read1 : bor_local_step tr1 cids1 (AccessBLEvt AccessRead tg range1) tr1' cids1')
@@ -1087,7 +1087,7 @@ Lemma protected_fread_cwrite_disjoint
 Proof.
   move=> [z [RContains1 RContains2]].
   (* reborrow step *)
-  created tg' unique as [Ex' Unq'].
+  created tg' determined as [Ex' Unq'].
   created tg' protected as Protected.
   created tg' nonparent of tg as Unrelated.
   migrate Ex.
@@ -1143,14 +1143,13 @@ Qed.
 Definition disjoint' range1 range2 := ~exists z, range'_contains range1 z /\ range'_contains range2 z.
 
 Lemma llvm_retagx_opaque_writey_writex_disjoint
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
   (Seq : bor_local_seq
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
+         [RetagBLEvt tg_xparent tg_x pk cid FnEntry]
       ++ opaque
       ++ [AccessBLEvt AccessWrite tg_y range_y]
       ++ [AccessBLEvt AccessWrite tg_x range_x]
@@ -1168,7 +1167,6 @@ Proof.
   inversion HEAD1 as [| | |???????? COMPAT_CID1].
   eapply protected_fwrite_cwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact INV2.
@@ -1178,14 +1176,13 @@ Proof.
 Qed.
 
 Lemma llvm_retagx_opaque_writey_readx_disjoint
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
   (Seq : bor_local_seq
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
+         [RetagBLEvt tg_xparent tg_x pk cid FnEntry]
       ++ opaque
       ++ [AccessBLEvt AccessWrite tg_y range_y]
       ++ [AccessBLEvt AccessRead tg_x range_x]
@@ -1203,7 +1200,6 @@ Proof.
   inversion HEAD1 as [| | |???????? COMPAT_CID1].
   eapply protected_fwrite_cread_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact INV2.
@@ -1213,14 +1209,13 @@ Proof.
 Qed.
 
 Lemma llvm_retagx_opaque_readx_writey_disjoint
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
   (Seq : bor_local_seq
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
+         [RetagBLEvt tg_xparent tg_x pk cid FnEntry]
       ++ opaque
       ++ [AccessBLEvt AccessRead tg_x range_x]
       ++ [AccessBLEvt AccessWrite tg_y range_y]
@@ -1238,7 +1233,6 @@ Proof.
   inversion HEAD1 as [| | |???????? COMPAT_CID1].
   eapply protected_cread_fwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact HEAD3.
@@ -1246,15 +1240,16 @@ Proof.
   - exact HEAD2.
 Qed.
 
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+
 Lemma llvm_retagx_opaque_writex_writey_disjoint
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
   (Seq : bor_local_seq
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
+         [RetagBLEvt tg_xparent tg_x pk cid FnEntry]
       ++ opaque
       ++ [AccessBLEvt AccessWrite tg_x range_x]
       ++ [AccessBLEvt AccessWrite tg_y range_y]
@@ -1272,7 +1267,6 @@ Proof.
   inversion HEAD1 as [| | |???????? COMPAT_CID1].
   eapply protected_cwrite_fwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact HEAD3.
@@ -1281,14 +1275,13 @@ Proof.
 Qed.
 
 Lemma llvm_retagx_opaque_writex_ready_disjoint
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
   (Seq : bor_local_seq
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
+         [RetagBLEvt tg_xparent tg_x pk cid FnEntry]
       ++ opaque
       ++ [AccessBLEvt AccessWrite tg_x range_x]
       ++ [AccessBLEvt AccessRead tg_y range_y]
@@ -1306,7 +1299,6 @@ Proof.
   inversion HEAD1 as [| | |???????? COMPAT_CID1].
   eapply protected_cwrite_fread_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact HEAD2.
@@ -1315,14 +1307,13 @@ Proof.
 Qed.
 
 Lemma llvm_retagx_opaque_ready_writex_disjoint
-  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid new_permission opaque range_x range_y}
-  (Prot : is_Some (new_protector new_permission))
+  {tg_x tg_y tg_xparent tr_initial tr_final cids_initial cids_final cid pk opaque range_x range_y}
   (AlreadyExists_y : tree_contains tg_y tr_initial)
   (Seq : bor_local_seq
     {|seq_inv:=fun _ cids => call_is_active cid cids|}
     tr_initial cids_initial
     (
-         [RetagBLEvt tg_xparent tg_x new_permission cid]
+         [RetagBLEvt tg_xparent tg_x pk cid FnEntry]
       ++ opaque
       ++ [AccessBLEvt AccessRead tg_y range_y]
       ++ [AccessBLEvt AccessWrite tg_x range_x]
@@ -1340,7 +1331,6 @@ Proof.
   inversion HEAD1 as [| | |???????? COMPAT_CID1].
   eapply protected_fread_cwrite_disjoint.
   - exact AlreadyExists_y.
-  - eapply COMPAT_CID1. exact Prot.
   - exact HEAD1.
   - exists opaque. exact (bor_local_seq_forget SeqOpaque).
   - exact INV3.
@@ -1376,8 +1366,8 @@ Definition commutes_option {X}
 Lemma apply_access_perm_read_commutes
   {rel1 rel2 prot}
   : commutes
-    (apply_access_perm AccessRead rel1 prot true)
-    (apply_access_perm AccessRead rel2 prot true).
+    (apply_access_perm AccessRead rel1 prot)
+    (apply_access_perm AccessRead rel2 prot).
 Proof.
   move=> p0 p1 p2 Step01 Step12.
   unfold apply_access_perm in *.
@@ -1651,11 +1641,11 @@ Lemma item_apply_access_read_commutes
   {cids rel1 rel2 range1 fn1 fn2 range2}
   (FnCommutes : forall isprot,
     commutes
-      (fn1 rel1 isprot true)
-      (fn2 rel2 isprot true))
+      (fn1 rel1 isprot)
+      (fn2 rel2 isprot))
   : commutes
-    (item_apply_access fn1 ProtStrong cids rel1 range1)
-    (item_apply_access fn2 ProtStrong cids rel2 range2).
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2).
 Proof.
   intros it0 it1 it2 Step01 Step12.
   option step in Step01 as ?:S1.
@@ -1664,7 +1654,7 @@ Proof.
   injection Step12; destruct it2 as [??? iperm2]; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
   destruct (permissions_foreach_commutes
     range1 range2
-    (fn1 _ _ _) (fn2 _ _ _)
+    (fn1 _ _) (fn2 _ _)
     {| initialized:=PermLazy; perm:=initp it0 |}
     (FnCommutes _) 
     (*(apply_access_perm_read_commutes (rel1:=rel1) (rel2:=rel2) (prot:=bool_decide (protector_is_active (iprot it0) cids)))*)
@@ -1681,8 +1671,8 @@ Lemma item_apply_access_disjoint_commutes
   {cids rel1 rel2 fn1 fn2 range1 range2}
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (item_apply_access fn1 ProtStrong cids rel1 range1)
-    (item_apply_access fn2 ProtStrong cids rel2 range2).
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2).
 Proof.
   intros it0 it1 it2 Step01 Step12.
   option step in Step01 as ?:S1.
@@ -1691,8 +1681,8 @@ Proof.
   injection Step12; destruct it2; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
   edestruct (permissions_foreach_disjoint_commutes
     range1 range2
-    (fn1 rel1 (bool_decide (protector_is_active (iprot it0) cids)) true)
-    (fn2 rel2 (bool_decide (protector_is_active (iprot it0) cids)) true)
+    (fn1 rel1 (bool_decide (protector_is_active (iprot it0) cids)))
+    (fn2 rel2 (bool_decide (protector_is_active (iprot it0) cids)))
     {| initialized:=PermLazy; perm:=initp it0 |}
   ) as [?[Pre Post]]; eauto.
   unfold item_apply_access.
@@ -1703,18 +1693,18 @@ Proof.
 Qed.
 
 Lemma apply_access_success_condition
-  {fn strong cids access_tag range tr}
+  {fn cids access_tag range tr}
   (ALL_SOME : every_node
-    (fun it => is_Some (item_apply_access fn strong cids (rel_dec tr access_tag (itag it)) range it)) tr)
-  : exists tr', tree_apply_access fn strong cids access_tag range tr = Some tr'.
+    (fun it => is_Some (item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it)) tr)
+  : exists tr', tree_apply_access fn cids access_tag range tr = Some tr'.
 Proof.
-  assert (every_node is_Some (map_nodes (fun it => item_apply_access fn strong cids (rel_dec tr access_tag (itag it)) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
+  assert (every_node is_Some (map_nodes (fun it => item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it) tr)) as AllSomeMap by (rewrite every_node_map; assumption).
   destruct (proj2 (join_success_condition _) AllSomeMap).
   eexists; eassumption.
 Qed.
 
 Lemma join_map_commutes
-  {fn1 fn2 : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag1 access_tag2 range1 range2}
+  {fn1 fn2 : call_id_set -> rel_pos -> Z * nat -> item -> option item} {cids access_tag1 access_tag2 range1 range2}
   (Fn1PreservesTag : forall it it' cids rel range, fn1 cids rel range it = Some it' -> itag it = itag it')
   (Fn2PreservesTag : forall it it' cids rel range, fn2 cids rel range it = Some it' -> itag it = itag it')
   (Commutes : forall rel1 rel2, commutes
@@ -1756,9 +1746,10 @@ Proof.
 Qed.
 
 Lemma tree_apply_access_only_cares_about_rel
-  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> tree.app item} {cids access_tag range}
+  {tr} {fn : call_id_set -> rel_pos -> Z * nat -> item -> option item} {cids access_tag range}
   {tr1 tr2}
   (Agree : forall tg tg', ParentChildIn tg tg' tr1 <-> ParentChildIn tg tg' tr2)
+  (RAgree : forall tg tg', ImmediateParentChildIn tg tg' tr1 <-> ImmediateParentChildIn tg tg' tr2)
   : join_nodes (map_nodes (fun it => fn cids (rel_dec tr1 access_tag it.(itag)) range it) tr)
   = join_nodes (map_nodes (fun it => fn cids (rel_dec tr2 access_tag it.(itag)) range it) tr).
 Proof.
@@ -1775,27 +1766,28 @@ Proof.
   all: try reflexivity.
   all: rewrite <- Agree in R2'; auto; try contradiction.
   all: rewrite <- Agree in R2; auto; try contradiction.
-  all: apply Subtree; left; simpl.
+  all: erewrite decide_ext; last apply RAgree.
+  all: done.
 Qed.
 
 Lemma tree_apply_access_commutes
-  {fn1 fn2 cids access_tag1 access_tag2 strong1 strong2 range1 range2}
+  {fn1 fn2 cids access_tag1 access_tag2 range1 range2}
   (Commutes : forall rel1 rel2, commutes
-    (item_apply_access fn1 strong1 cids rel1 range1)
-    (item_apply_access fn2 strong2 cids rel2 range2))
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2))
   : commutes
-    (fun tr => tree_apply_access fn1 strong1 cids access_tag1 range1 tr)
-    (fun tr => tree_apply_access fn2 strong2 cids access_tag2 range2 tr).
+    (fun tr => tree_apply_access fn1 cids access_tag1 range1 tr)
+    (fun tr => tree_apply_access fn2 cids access_tag2 range2 tr).
 Proof.
   unfold tree_apply_access.
   intros tr0 tr1 tr2 Step01 Step12.
   assert (forall (it it' : item) (cids : call_id_set) (rel : rel_pos) (range : Z * nat),
-     item_apply_access fn1 strong1 cids rel range it = Some it'
+     item_apply_access fn1 cids rel range it = Some it'
      → itag it = itag it') as Fn1PreservesTag. {
       intros. eapply item_apply_access_preserves_metadata. eassumption.
   }
   assert (forall (it it' : item) (cids : call_id_set) (rel : rel_pos) (range : Z * nat),
-     item_apply_access fn2 strong2 cids rel range it = Some it'
+     item_apply_access fn2 cids rel range it = Some it'
      → itag it = itag it') as Fn2PreservesTag. {
       intros. eapply item_apply_access_preserves_metadata. eassumption.
   }
@@ -1810,15 +1802,18 @@ Proof.
   1: exact Step1'2.
   all: intros tg tg'.
   - eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn2PreservesTag. exact H.
+  - eapply join_map_eqv_imm_rel; [|eassumption]. intros it it' H. eapply Fn2PreservesTag. exact H.
   - symmetry. eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - symmetry. eapply join_map_eqv_imm_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - tauto.
   - tauto.
 Qed.
 
 Lemma memory_access_read_commutes
   {cids access_tag1 access_tag2 range1 range2}
   : commutes
-    (memory_access AccessRead ProtStrong cids access_tag1 range1)
-    (memory_access AccessRead ProtStrong cids access_tag2 range2).
+    (memory_access AccessRead cids access_tag1 range1)
+    (memory_access AccessRead cids access_tag2 range2).
 Proof.
   unfold memory_access.
   apply tree_apply_access_commutes; intros.
@@ -1830,8 +1825,8 @@ Lemma memory_access_disjoint_commutes
   {cids kind1 kind2 access_tag1 access_tag2 range1 range2}
   (Disjoint : disjoint' range1 range2)
   : commutes
-    (memory_access kind1 ProtStrong cids access_tag1 range1)
-    (memory_access kind2 ProtStrong cids access_tag2 range2).
+    (memory_access kind1 cids access_tag1 range1)
+    (memory_access kind2 cids access_tag2 range2).
 Proof.
   unfold memory_access.
   apply tree_apply_access_commutes; intros.
@@ -1951,13 +1946,12 @@ Proof.
 Qed.
 
 Theorem llvm_noalias_reorder
-  {tg_xparent new_permission cid}
+  {tg_xparent pk cid}
   {tg_x kind_x range_x}
   {tg_y kind_y range_y}
   {tr_initial cids_initial opaque tr_final cids_final}
-  (HasProtector_x : is_Some (new_protector new_permission))
   (AlreadyExists_y : tree_contains tg_y tr_initial) :
-  let retag_x := RetagBLEvt tg_xparent tg_x new_permission cid in
+  let retag_x := RetagBLEvt tg_xparent tg_x pk cid FnEntry in
   let access_y := AccessBLEvt kind_y tg_y range_y in
   let access_x := AccessBLEvt kind_x tg_x range_x in
   let invariant := {| seq_inv := fun _ cids => call_is_active cid cids |} in
@@ -1992,5 +1986,5 @@ Proof.
     all: eapply bor_local_seq_forget; eassumption.
 Qed.
 
-
-
+Check neven_see_also_the_todo_for_the_local_step_semantics_which_is_missing_a_case.
+*)

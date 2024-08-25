@@ -33,7 +33,7 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Deref e T => Deref (subst x es e) T
   | Ref e => Ref (subst x es e)
   (* | Field e path => Field (subst x: es e) path *)
-  | Retag e1 e2 newp sz kind => Retag (subst x es e1) (subst x es e2) newp sz kind
+  | Retag e1 e2 newp im sz kind => Retag (subst x es e1) (subst x es e2) newp im sz kind
   | Let x1 e1 e2 =>
       Let x1 (subst x es e1)
                  (if bool_decide (BNamed x ≠ x1) then subst x es e2 else e2)
@@ -112,8 +112,8 @@ Inductive ectx_item :=
 | DerefEctx (sz : nat)
 | RefEctx
 (* | FieldEctx (path : list nat) *)
-| RetagREctx (e1 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
-| RetagLEctx (r2 : result) (newp : newperm) (sz : nat) (kind : retag_kind)
+| RetagREctx (e1 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
+| RetagLEctx (r2 : result) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
 | CaseEctx (el : list expr)
 (* Deliberately nothing for While and Fork; those reduce *before* the subexpressions reduce! *)
@@ -137,8 +137,8 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | DerefEctx T => Deref e T
   | RefEctx => Ref e
   (* | FieldEctx path => Field e path *)
-  | RetagLEctx r2 newp sz kind => Retag e (of_result r2) newp sz kind
-  | RetagREctx e1 newp sz kind => Retag e1 e newp sz kind
+  | RetagLEctx r2 newp im sz kind => Retag e (of_result r2) newp im sz kind
+  | RetagREctx e1 newp im sz kind => Retag e1 e newp im sz kind
   | LetEctx x e2 => Let x e e2
   | CaseEctx el => Case e el
   end.
@@ -172,8 +172,8 @@ Inductive ctx_item :=
   | FreeCtx
   | DerefCtx (sz : nat)
   | RefCtx
-  | RetagLCtx (e2 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
-  | RetagRCtx (e1 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
+  | RetagLCtx (e2 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
+  | RetagRCtx (e1 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
   | CaseLCtx (el : list expr)
   | CaseRCtx (e : expr) (el1 el2 : list expr)
   | WhileLCtx (e1 : expr)
@@ -200,8 +200,8 @@ Definition fill_ctx_item (Ci : ctx_item) (e : expr) : expr :=
   | FreeCtx => Free e
   | DerefCtx T => Deref e T
   | RefCtx => Ref e
-  | RetagLCtx e2 newp sz k => Retag e e2 newp sz k
-  | RetagRCtx e1 newp sz k => Retag e1 e newp sz k
+  | RetagLCtx e2 newp im sz k => Retag e e2 newp im sz k
+  | RetagRCtx e1 newp im sz k => Retag e1 e newp im sz k
   | CaseLCtx el => Case e el
   | CaseRCtx e0 el1 el2 => Case e0 (el1 ++ e :: el2)
   | WhileLCtx e1 => While e e1
@@ -235,7 +235,7 @@ Inductive expr_head :=
   | WriteHead
   | AllocHead (sz : nat)
   | FreeHead
-  | RetagHead (newp : newperm) (sz : nat) (kind : retag_kind)
+  | RetagHead (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
   | CaseHead
   | ForkHead
   | WhileHead
@@ -260,7 +260,7 @@ Definition expr_split_head (e : expr) : (expr_head * list expr) :=
   | Fork e => (ForkHead, [e])
   | Alloc T => (AllocHead T, [])
   | Free e => (FreeHead, [e])
-  | Retag e1 e2 newp sz k => (RetagHead newp sz k, [e1; e2])
+  | Retag e1 e2 newp im sz k => (RetagHead newp im sz k, [e1; e2])
   | Case e el => (CaseHead, e :: el)
   | While e0 e1 => (WhileHead, [e0; e1])
   end.
@@ -286,8 +286,8 @@ Definition ectxi_split_head (Ki : ectx_item) : (expr_head * list expr) :=
   | FreeEctx => (FreeHead, [])
   | DerefEctx T => (DerefHead T, [])
   | RefEctx => (RefHead, [])
-  | RetagREctx e1 newp sz k => (RetagHead newp sz k, [e1])
-  | RetagLEctx r2 newp sz k => (RetagHead newp sz k, [of_result r2])
+  | RetagREctx e1 newp im sz k => (RetagHead newp im sz k, [e1])
+  | RetagLEctx r2 newp im sz k => (RetagHead newp im sz k, [of_result r2])
   | CaseEctx el => (CaseHead, el)
   end.
 
@@ -310,8 +310,8 @@ Definition ctxi_split_head (Ci : ctx_item) : (expr_head * list expr) :=
   | FreeCtx => (FreeHead, [])
   | DerefCtx T => (DerefHead T, [])
   | RefCtx => (RefHead, [])
-  | RetagRCtx e1 newp sz k => (RetagHead newp sz k, [e1])
-  | RetagLCtx e2 newp sz k => (RetagHead newp sz k, [e2])
+  | RetagRCtx e1 newp im sz k => (RetagHead newp im sz k, [e1])
+  | RetagLCtx e2 newp im sz k => (RetagHead newp im sz k, [e2])
   | CaseLCtx el => (CaseHead, el)
   | CaseRCtx e el1 el2 => (CaseHead, e :: el1 ++ el2)
   | WhileLCtx e1 => (WhileHead, [e1])
@@ -417,17 +417,13 @@ Fixpoint write_mem l (v: value) h: mem :=
   | s :: v => write_mem (l +ₗ 1) v (<[l := s]> h)
   end.
 
-Section no_mangle.
-Local Unset Mangle Names. (* work around https://github.com/mattam82/Coq-Equations/issues/407 *)
-Equations read_mem (l: loc) (n: nat) h: option value :=
-  read_mem l n h := go l n (Some [])
-  where go : loc → nat → option value → option value :=
-        go l' O      oacc := oacc;
-        go l' (S n')  oacc :=
-          acc ← oacc ;
-          v ← h !! l';
-          go (l' +ₗ 1) n' (Some (acc ++ [v])).
-End no_mangle.
+Fixpoint read_mem (l: loc) (n: nat) h: option value :=
+  match n with
+    0%nat => Some []
+  | S n' => 
+      rr ← read_mem (l +ₗ 1) n' h ;
+      v  ← h !! l ;
+      Some (v :: rr) end.
 
 Definition fresh_block (h : mem) : block :=
   let loclst : list loc := elements (dom h) in
@@ -441,6 +437,12 @@ Proof.
   { induction 1; set_solver. }
   rewrite /fresh_block /shift /= -elem_of_elements.
   move=> /(help _ _ ∅) /=. apply is_fresh.
+Qed.
+
+Lemma is_fresh_block_fst h : fresh_block h ∉ (set_map fst (dom h) : gset _).
+Proof.
+  intros ((blk&off)&H1&H2)%elem_of_map_1. simpl in *. subst blk.
+  by eapply is_fresh_block.
 Qed.
 
 Lemma fresh_block_equiv (h1 h2: mem) :
@@ -504,10 +506,12 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
 | CopyBS blk l lbor sz (v: value)
     (READ: read_mem (blk, l) sz h = Some v) :
     mem_expr_step h (Copy (Place (blk, l) lbor sz)) (CopyEvt blk lbor (l, sz) v) h (Val v) []
-| FailedCopyBS blk l lbor sz :
+| FailedCopyBS blk l lbor sz
+    (READ: is_Some (read_mem (blk, l) sz h)) : 
     (* failed copies lead to poison, but still of the appropriate length *)
     mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []
 | WriteBS blk l lbor sz v
+    (LEN: length v = sz)
     (DEFINED: ∀ (i: nat), (i < length v)%nat → (blk,l) +ₗ i ∈ dom h) :
     mem_expr_step
               h (Place (blk, l) lbor sz <- Val v)
@@ -520,23 +524,27 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               (AllocEvt blk lbor (0, sz))
               (init_mem (blk, 0) sz h) (Place (blk, 0) lbor sz) []
 | DeallocBS blk l (sz:nat) lbor :
+    (* FIXME: l here is an offset. But we usually want to deallocate at offset 0, right? *)
     (* FIXME: This is wrong because it allows double-free of zero-sized allocations
               Possible solutions:
               - Change the heap from `gmap loc scalar` to `gmap blk (gmap Z scalar)`
-              - Require `sz > 0`      <- probably this (implementing it)
+              - Require `sz > 0`      <- probably this
               - special case for TB where if the size is zero we don't add a new tree
     *)
+    (* Actual solution: We forbid zero-sized allocations (see AllocIS in bor_semantics).
+       If we track that in state_wf, we should be able to prove that sz > 0 here,
+       instead of making it UB.
+       TODO actually add it to state_wf, until then it is UB *)
     (sz > 0)%nat →
     (∀ m, is_Some (h !! ((blk,l) +ₗ m)) ↔ 0 ≤ m < sz) →
     mem_expr_step
               h (Free (Place (blk,l) lbor sz))
               (DeallocEvt blk lbor (l, sz))
               (free_mem (blk,l) sz h) #[☠] []
-| RetagBS blk l otag ntag sz kind cid newp
-    (NEW_PERM : newp.(new_protector) = match kind with FnEntry => Some cid | Default => None end) :
+| RetagBS l otag ntag sz kind cid pk im :
     mem_expr_step
-              h (Retag #[ScPtr l otag] #[ScCallId (call cid)] newp sz kind)
-              (RetagEvt blk otag ntag newp sz)
+              h (Retag #[ScPtr l otag] #[ScCallId cid] pk im sz kind)
+              (RetagEvt l.1 (l.2, sz) otag ntag pk im cid kind)
               h #[ScPtr l ntag] []
 
 (* observable behavior *)

@@ -23,7 +23,7 @@ Lemma expr_ind (P : expr → Prop):
   (∀ e1 e2, P e1 → P e2 → P (Write e1 e2)) →
   (∀ ty, P (Alloc ty)) →
   (∀ e, P e → P (Free e)) →
-  (∀ e1 e2 newp sz rk, P e1 → P e2 → P (Retag e1 e2 newp sz rk)) →
+  (∀ e1 e2 newp im sz rk, P e1 → P e2 → P (Retag e1 e2 newp im sz rk)) →
   (∀ b e1 e2, P e1 → P e2 → P (Let b e1 e2)) →
   (∀ e el, P e → Forall P el → P (Case e el)) →
   (∀ e1 e2, P e1 → P e2 → P (While e1 e2)) →
@@ -35,6 +35,8 @@ Proof.
   (* Find head symbol, then find lemma for that symbol.
      We have to be this smart because we can't use the unguarded [REC]! *)
   match goal with
+  | |- P (?head _ _ _ _ _ _) =>
+    match goal with H : context[head] |- _ => apply H; try done end
   | |- P (?head _ _ _ _ _) =>
     match goal with H : context[head] |- _ => apply H; try done end
   | |- P (?head _ _ _ _) =>
@@ -72,7 +74,7 @@ Fixpoint subst_map (xs : gmap string result) (e : expr) : expr :=
   | Free e => Free (subst_map xs e)
   | Deref e T => Deref (subst_map xs e) T
   | Ref e => Ref (subst_map xs e)
-  | Retag e1 e2 newp sz kind => Retag (subst_map xs e1) (subst_map xs e2) newp sz kind
+  | Retag e1 e2 newp im sz kind => Retag (subst_map xs e1) (subst_map xs e2) newp im sz kind
   | Case e el => Case (subst_map xs e) (fmap (subst_map xs) el)
   | While e0 e1 => While (subst_map xs e0) (subst_map xs e1)
   | Fork e => Fork (subst_map xs e)
@@ -168,7 +170,7 @@ Fixpoint free_vars (e : expr) : gset string :=
   | Fork e | Copy e | Free e | Deref e _ | Ref e | EndCall e =>
      free_vars e
   | Call e1 e2 | While e1 e2 | BinOp _ e1 e2 | Proj e1 e2 | Conc e1 e2
-    | Write e1 e2 | Retag e1 e2 _ _ _ =>
+    | Write e1 e2 | Retag e1 e2 _ _ _ _ =>
      free_vars e1 ∪ free_vars e2
   | Case e el =>
     (free_vars e) ∪ foldr (λ ei s, s ∪ free_vars ei) ∅ el

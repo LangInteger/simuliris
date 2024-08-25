@@ -28,22 +28,27 @@ Canonical Structure tag_kindO := leibnizO tag_kind.
 Global Instance tagKindR_discrete : CmraDiscrete tagKindR.
 Proof. apply _. Qed.
 
+Definition to_tgkR_unq (act : tk_activation_kind) : csumR (exclR unitO) (exclR unitO) :=
+  match act with
+  | tk_res => Cinl $ Excl ()
+  | tk_act => Cinr $ Excl ()
+  end.
+
 Definition to_tgkR (tk: tag_kind) : tagKindR :=
   match tk with
   | tk_local => Cinl $ Excl ()
-  | tk_unq_res => Cinr $ Cinl $ Cinl $ Excl ()
-  | tk_unq_act => Cinr $ Cinl $ Cinr $ Excl ()
+  | tk_unq variant => Cinr $ Cinl $ to_tgkR_unq variant
   | tk_pub => Cinr $ Cinr ()
   end.
 
 Lemma to_tgkR_valid tk : ✓ (to_tgkR tk).
-Proof. destruct tk; done. Qed.
+Proof. destruct tk as [|[]|]; done. Qed.
 Lemma to_tgkR_validN tk n : ✓{n} (to_tgkR tk).
-Proof. destruct tk; done. Qed.
+Proof. destruct tk as [|[]|]; done. Qed.
 
 Global Instance to_tgkR_inj n : Inj (=) (dist n) to_tgkR.
 Proof.
-  intros [] []; simpl; first [done | inversion 1];
+  intros [|[]|] [|[]|]; simpl; first [done | inversion 1];
   do 2 match goal with
   (* Base cases *)
   | H : Cinl _ ≡{_}≡ Cinr _ |- _ => inversion H
@@ -58,24 +63,24 @@ Lemma tgkR_validN_inv tkr n : ✓{n} tkr → ∃ tk, tkr ≡ to_tgkR tk.
 Proof.
   rewrite -cmra_discrete_valid_iff. destruct tkr as [c | [[c|c|]|c|] | ]; simpl; try by move => [].
   - destruct c as [u|]; last move => []. destruct u; intros. exists tk_local. done.
-  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq_res. done.
-  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq_act. done.
+  - destruct c as [u|]; last move => []. destruct u; intros. exists (tk_unq tk_res). done.
+  - destruct c as [u|]; last move => []. destruct u; intros. exists (tk_unq tk_act). done.
   - destruct c. intros. exists tk_pub; done.
 Qed.
 
-Global Instance to_tgkR_unq_res_excl : Exclusive (to_tgkR tk_unq_res).
+Global Instance to_tgkR_unq_res_excl : Exclusive (to_tgkR (tk_unq tk_res)).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
-Global Instance to_tgkR_unq_act_excl : Exclusive (to_tgkR tk_unq_act).
+Global Instance to_tgkR_unq_act_excl : Exclusive (to_tgkR (tk_unq tk_act)).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
 Global Instance to_tgkR_local_excl : Exclusive (to_tgkR tk_local).
 Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
 Lemma to_tgkR_not_pub_excl tk : tk ≠ tk_pub → Exclusive (to_tgkR tk).
-Proof. move : tk => [] H //; apply _. Qed.
+Proof. move : tk => [|[]|] H //; apply _. Qed.
 
 Lemma to_tgkR_op_validN n tk tk' : ✓{n} (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
-Proof. destruct tk, tk'; simpl; by intros []. Qed.
+Proof. destruct tk as [|[]|], tk' as [|[]|]; simpl; by intros []. Qed.
 Lemma to_tgkR_op_valid tk tk' : ✓ (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
-Proof. destruct tk, tk'; simpl; by intros []. Qed.
+Proof. destruct tk as [|[]|], tk' as [|[]|]; simpl; by intros []. Qed.
 
 Lemma tagKindR_incl_eq (k1 k2: tagKindR):
   ✓ k2 → k1 ≼ k2 → k1 ≡ k2.
@@ -151,7 +156,7 @@ Section rel.
     intros Hrel k. destruct (f !! k) as [[tkr va]|] eqn:Hf; rewrite Hf; last done.
     specialize (Hrel _ _ Hf) as (v & tk & Hagree & Htk & Hm1). simpl in *.
     split; simpl.
-    - rewrite Htk. apply cmra_discrete_valid_iff. destruct tk; done.
+    - rewrite Htk. apply cmra_discrete_valid_iff. destruct tk as [|[]|]; done.
     - rewrite Hagree. done.
   Qed.
 
@@ -424,10 +429,10 @@ Section lemmas.
       rewrite lookup_delete_ne //.
   Qed.
 
-  Lemma tkmap_view_update m k tk v v' :
+  Lemma tkmap_view_update m k tk tk' v v' :
     tk ≠ tk_pub →
     tkmap_view_auth 1 m ⋅ tkmap_view_frag k tk v ~~>
-      tkmap_view_auth 1 (<[k := (tk, v')]> m) ⋅ tkmap_view_frag k tk v'.
+      tkmap_view_auth 1 (<[k := (tk', v')]> m) ⋅ tkmap_view_frag k tk' v'.
   Proof.
     intros Htk_eq; apply view_update=>n bf Hrel j [tkr va] /=.
     rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].
@@ -440,7 +445,7 @@ Section lemmas.
         move=>[/= /to_tgkR_not_pub_excl] //. }
       rewrite Hbf right_id lookup_singleton. clear Hbf.
       intros [= <- <-].
-      eexists; exists tk. split_and!; [done | done | ].
+      eexists; exists tk'. split_and!; [done | done | ].
       rewrite lookup_insert. done.
     - rewrite lookup_singleton_ne; last done.
       rewrite left_id=>Hbf.
@@ -651,10 +656,10 @@ Section lemmas.
     by iCombine "H1 H2" gives %[??].
   Qed.
   Lemma tkmap_elem_ne_res γ k1 k2 tk2 v1 v2 :
-    k1 ↪[γ]{tk_unq_res} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
+    k1 ↪[γ]{tk_unq tk_res} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
   Proof. apply tkmap_elem_tk_ne. apply: exclusive_l. Qed.
   Lemma tkmap_elem_ne_act γ k1 k2 tk2 v1 v2 :
-    k1 ↪[γ]{tk_unq_act} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
+    k1 ↪[γ]{tk_unq tk_act} v1 -∗ k2 ↪[γ]{tk2} v2 -∗ ⌜k1 ≠ k2⌝.
   Proof. apply tkmap_elem_tk_ne. apply: exclusive_l. Qed.
 
   Global Instance tkmap_elem_pub_pers γ k v : Persistent (k ↪[γ]{tk_pub} v).
@@ -745,14 +750,14 @@ Section lemmas.
   Qed.
   Lemma tkmap_insert_unq_res {γ m} k v :
     m !! k = None →
-    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq_res, v)]> m) ∗ k ↪[γ]{tk_unq_res} v.
+    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq tk_res, v)]> m) ∗ k ↪[γ]{tk_unq tk_res} v.
   Proof.
     iIntros (?) "Hauth".
     iMod (tkmap_insert _ k with "Hauth") as "[$ Helem]"; done.
   Qed.
   Lemma tkmap_insert_unq_act {γ m} k v :
     m !! k = None →
-    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq_act, v)]> m) ∗ k ↪[γ]{tk_unq_act} v.
+    tkmap_auth γ 1 m ==∗ tkmap_auth γ 1 (<[k := (tk_unq tk_act, v)]> m) ∗ k ↪[γ]{tk_unq tk_act} v.
   Proof.
     iIntros (?) "Hauth".
     iMod (tkmap_insert _ k with "Hauth") as "[$ Helem]"; done.
@@ -776,6 +781,14 @@ Section lemmas.
   Lemma tkmap_update {γ m tk k v} w :
     tk ≠ tk_pub →
     tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk, w)]> m) ∗ k ↪[γ]{tk} w.
+  Proof.
+    unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -!own_op.
+    apply own_update. by apply: tkmap_view_update.
+  Qed.
+
+  Lemma tkmap_update_strong {γ m tk k v} tk' w :
+    tk ≠ tk_pub →
+    tkmap_auth γ 1 m -∗ k ↪[γ]{tk} v ==∗ tkmap_auth γ 1 (<[k := (tk', w)]> m) ∗ k ↪[γ]{tk'} w.
   Proof.
     unseal => Htk. apply bi.entails_wand, bi.wand_intro_r. rewrite -!own_op.
     apply own_update. by apply: tkmap_view_update.

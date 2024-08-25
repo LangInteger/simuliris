@@ -1,4 +1,12 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
+(** Core language definitions.
+  This defines most of the low level stuff, starting at "what is a tag"
+  up to the inductive definition of borrow events.
+  This does *not* include nontrivial computations about objects of the language,
+  which are mostly in [bor_semantics.v].
+  Trivial lemmas (decidability/countability instances and easy conversions)
+  are included here, but overall most lemmas should be kept to files such as [bor_lemmas.v].
+
+  This file has been adapted from the Stacked Borrows development, available at 
   https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
@@ -30,6 +38,9 @@ Definition call_id_set := gset call_id.
 (** Tags for pointers *)
 Notation tag := nat (only parsing).
 
+(* Whether a type contains interior mutability.
+   This is only relevant for [Reserved] and appears in the state machine
+   because some transitions depend on interior mutability. *)
 Inductive interior_mut := InteriorMut | TyFrz.
 Global Instance interior_mut_eq_dec : EqDecision interior_mut.
 Proof. solve_decision. Defined.
@@ -47,7 +58,7 @@ Proof.
     _); by intros [].
 Qed.
 
-
+(* Whether a [Reserved] tag is also conflicted. *)
 Inductive res_conflicted := ResConflicted | ResActivable.
 Global Instance res_conflicted_eq_dec : EqDecision res_conflicted.
 Proof. solve_decision. Defined.
@@ -65,10 +76,17 @@ Proof.
     _); by intros [].
 Qed.
 
-
+(* [permission] is the lowest level of the state machine.
+   This is _not yet_ the per-location data, that would be [lazy_permission].
+   We will sometimes call "permission" something that in reality is a
+   [lazy_permission]. *)
 Inductive permission :=
-  | Reserved (mut:interior_mut) (confl:res_conflicted)
-  | Active | Frozen | Disabled.
+  | Reserved (confl:res_conflicted)
+  | ReservedIM
+  | Active
+  | Frozen
+  | Disabled.
+
 Global Instance permission_eq_dec : EqDecision permission.
 Proof. solve_decision. Defined.
 Global Instance permission_countable : Countable permission.
@@ -76,23 +94,25 @@ Proof.
   refine (inj_countable
     (λ p,
       match p with
-      | Reserved m c => inr (m, c)
+      | Reserved c => inr c
+      | ReservedIM => inl 3
       | Active => inl 0 | Frozen => inl 1 | Disabled => inl 2
       end)
     (λ s,
       Some match s with
-      | inr (m, c) => Reserved m c
+      | inr c => Reserved c
+      | inl 3 => ReservedIM
       | inl 0 => Active | inl 1 => Frozen | inl _ => Disabled
       end) _); by intros [].
 Qed.
 
+(* Strong/weak protectors are a distinction that is necessary because
+   of [Box], because even though [Box] is protected, it needs to allow deallocation.
+   We will not really consider optimizations where this distinction is important,
+   but for completeness we do distinguish two kinds of protectors. *)
 Inductive prot_strong :=
   | ProtStrong
   | ProtWeak
-  .
-Inductive access_strong :=
-  | AllProt
-  | OnlyStrong
   .
 
 Global Instance prot_strong_eq_dec : EqDecision prot_strong.
@@ -104,16 +124,12 @@ Proof.
     (λ b:bool, if b then ProtStrong else ProtWeak) _); by intros [].
 Qed.
 
-Definition prot_relevant (pr:prot_strong) (acc:access_strong) : bool :=
-  match pr, acc with
-  | ProtWeak, OnlyStrong => false
-  | _, _ => true
-  end.
-
-(** Tree of borrows. *)
+(* A protector. Note that while we say a tag "has a protector" when it is protected,
+   this development will often call "protector" a variable of type [option protector]
+   because unlike a [protector], all tags have one. *)
 Record protector := mkProtector {
-  strong : prot_strong;
-  call : call_id;
+  strong : prot_strong; (* [ProtWeak] for [Box]es, [ProtStrong] for everything else *)
+  call : call_id; (* Function call id that the tag is an argument of *)
 }.
 Global Instance protector_eq_dec : EqDecision protector.
 Proof. solve_decision. Defined.
@@ -124,7 +140,9 @@ Proof.
     (λ t, {| strong:=t.1; call:=t.2 |}) _); by intros [].
 Qed.
 
-
+(* Boolean flag that records if a permission has been initialized.
+   A permission starts uninitialized and becomes permanently initialized on the
+   first child access. See [bor_semantics.v]'s [requires_init]. *)
 Inductive perm_init :=
   | PermInit
   | PermLazy
@@ -132,12 +150,15 @@ Inductive perm_init :=
 
 Global Instance perm_init_eq_dec : EqDecision perm_init.
 Proof. solve_decision. Defined.
+
+(* Initialized status is irreversible. *)
 Definition most_init p p' :=
   match p with
   | PermInit => PermInit
   | PermLazy => p'
   end.
 
+(* The true per-location data is a permission *and* an initialized status. *)
 Record lazy_permission := mkPerm {
   initialized : perm_init;
   perm        : permission;
@@ -145,19 +166,26 @@ Record lazy_permission := mkPerm {
 Global Instance lazy_perm_eq_dec : EqDecision lazy_permission.
 Proof. solve_decision. Defined.
 
-(* Permissions for one tag *)
+(* Permissions for one tag. This is most of the available per-tag-per-allocation data. *)
 Definition permissions := gmap Z lazy_permission.
 
 (* Data associated with one tag *)
-(* Note: this is a substructure of the miri "Node" *)
+(* Note: this is a substructure of the miri "Node", as it doesn't include the
+   pointers that impose the structure of the tree.
+   In this development we instead define the tree structure using the [tree] type. *)
 Record item := mkItem {
+  (* Metadata determined on item creation *)
   itag  : tag;
   iprot : option protector;
   initp : permission;
+  (* Most of the data (and all of the modifiable data) is here. *)
   iperm : permissions;
 }.
 Global Instance item_eq_dec : EqDecision item.
 Proof. solve_decision. Defined.
+
+Definition item_lookup (it : item) (l : Z) :=
+  default (mkPerm PermLazy it.(initp)) (it.(iperm) !! l).
 
 (* Per-allocation borrow data *)
 Definition trees := gmap block (tree item).
@@ -198,34 +226,61 @@ Definition value := list scalar.
 Bind Scope val_scope with value.
 
 Inductive access_kind := AccessRead | AccessWrite.
+(* Implicit accesses inserted on function exit are not visible to children *)
 Inductive access_visibility := VisibleAll | OnlyNonChildren.
 
-Inductive rel_pos := This | Parent | Child | Cousin.
-Definition foreign rel := match rel with Parent | Cousin => True | _ => False end.
-Definition child rel := match rel with This | Child => True | _ => False end.
+(* The state machine only cares about Foreign vs Child.
+   The invariants need more fine-grained relationships between tags.
+   We use this two-layer representation so that things compute better. *)
+Inductive immediaity := Immediate | FurtherAway.
+Inductive foreign_rel_pos := Parent (direct:immediaity) | Cousin.
+Inductive child_rel_pos := Strict (direct:immediaity) | This.
+Inductive rel_pos := Foreign (pos : foreign_rel_pos) | Child (pos : child_rel_pos).
 
 Global Instance access_kind_eq_dec : EqDecision access_kind.
 Proof. solve_decision. Qed.
 Global Instance access_visibility_eq_dec : EqDecision access_visibility.
 Proof. solve_decision. Qed.
+Global Instance immediaity_eq_dec : EqDecision immediaity.
+Proof. solve_decision. Qed.
+Global Instance foreign_rel_pos_eq_dec : EqDecision foreign_rel_pos.
+Proof. solve_decision. Qed.
+Global Instance child_rel_pos_eq_dec : EqDecision child_rel_pos.
+Proof. solve_decision. Qed.
 Global Instance rel_pos_eq_dec : EqDecision rel_pos.
 Proof. solve_decision. Qed.
-Global Instance foreign_rel_dec rel : Decision (foreign rel).
-Proof. destruct rel; solve_decision. Qed.
-Global Instance child_rel_dec rel : Decision (child rel).
-Proof. destruct rel; solve_decision. Qed.
 
-Record newperm := mkNewPerm {
-  initial_state : permission;
-  new_protector : option protector;
-}.
-Global Instance newperm_eq_dec : EqDecision newperm.
-Proof. solve_decision. Qed.
-Global Instance newperm_countable : Countable newperm.
+Global Instance access_kind_countable : Countable access_kind.
 Proof.
-  refine (inj_countable'
-    (λ newp, (newp.(initial_state), newp.(new_protector)))
-    (λ t, {| initial_state:=t.1; new_protector:=t.2 |}) _); by intros [].
+  refine (inj_countable
+    (λ m, match m with
+           | AccessRead => true
+           | AccessWrite => false
+           end)
+    (λ b, Some match b with
+           | true => AccessRead
+           | false => AccessWrite
+           end)
+    _); by intros [].
+Qed.
+
+Inductive pointer_kind := Box | MutRef | ShrRef.
+Global Instance pointer_kind_eq_dec : EqDecision pointer_kind.
+Proof. solve_decision. Defined.
+Global Instance pointer_kind_countable : Countable pointer_kind.
+Proof.
+  refine (inj_countable
+    (λ m, match m with
+           | Box => inl ()
+           | MutRef => inr (inl ())
+           | ShrRef => inr (inr ())
+           end)
+    (λ b, Some match b with
+           | inl _ => Box
+           | inr (inl _) => MutRef
+           | inr (inr _) => ShrRef
+           end)
+    _); by intros [].
 Qed.
 
 
@@ -264,9 +319,9 @@ Inductive expr :=
 (* | CAS (e0 e1 e2 : expr) *)     (* CAS the value `e2` for `e1` to the place `e0` *)
 (* | AtomWrite (e1 e2: expr) *)
 (* | AtomRead (e: expr) *)
-(* retag *) (* Retag the memory pointed to by `e1` of type (Reference pk T) with
-  retag kind `kind`, for call_id `e2`. *)
-| Retag (e1 : expr) (e2 : expr) (newp : newperm) (sz : nat) (kind : retag_kind)
+(* retag *) (* Retag the memory pointed to by `e1` with
+  retag kind `kind`, for call_id `e2`. The new pointer should have pointer kind pk. *)
+| Retag (e1 : expr) (e2 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 (* let binding *)
 | Let (x : binder) (e1 e2: expr)
 (* case *)
@@ -304,7 +359,7 @@ Fixpoint is_closed (X : list string) (e : expr) : bool :=
   | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
   | Var x => bool_decide (x ∈ X)
   | BinOp _ e1 e2 | Write e1 e2 | While e1 e2 
-      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ => is_closed X e1 && is_closed X e2
+      | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
@@ -393,14 +448,23 @@ Definition mem := gmap loc scalar.
 
 (** Internal events *)
 
+(* Per-allocation events.
+   This is only useful during the proofs against the operational semantics:
+   if we drop support for [disjoint.v] we should also delete this definition. *)
 Inductive bor_local_event :=
   | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
   | InitCallBLEvt (cid : call_id)
   | EndCallBLEvt (cid : call_id)
-  | RetagBLEvt (tgp tg : tag) (newp : newperm) (c : call_id)
+  | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (im : interior_mut) (c : call_id) (rk : retag_kind)
   | SilentBLEvt.
 
-(** Internal events *)
+(* Events in all their generality.
+   We use the point of view adopted by Stacked Borrows and regarded by LLVM
+   as acceptable which is to make FAILED READS NOT UB.
+   A failed read has its own event [FailedCopyEvt] which returns poison
+   instead of triggering immediate UB. This is assumed to be a sound change
+   w.r.t. the semantics and is expected to allow proving more optimizations
+   (they would still be true, but they wouldn't be *provable* with our means) *)
 Inductive event :=
 | AllocEvt (alloc : block) (lbor : tag) (range : Z * nat)
 | DeallocEvt (alloc : block) (lbor: tag) (range : Z * nat)
@@ -409,6 +473,6 @@ Inductive event :=
 | WriteEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)
-| RetagEvt (alloc : block) (otag ntag : tag) (newp : newperm) (c : call_id)
+| RetagEvt (alloc : block) (range : Z * nat) (otag ntag : tag) (pk : pointer_kind) (im : interior_mut) (c : call_id) (rk : retag_kind)
 | SilentEvt.
 

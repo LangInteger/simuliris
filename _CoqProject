@@ -124,13 +124,12 @@ theories/stacked_borrows/examples/coinductive.v
 
 
 ## Tree Borrows
-# Basic definitions, mostly unchanged from SB
 theories/tree_borrows/helpers.v
 theories/tree_borrows/locations.v
 theories/tree_borrows/lang_base.v
 theories/tree_borrows/notation.v
 theories/tree_borrows/expr_semantics.v
-# Definitions specific to Tree Borrows
+
 theories/tree_borrows/tree.v
 theories/tree_borrows/tree_lemmas.v
 theories/tree_borrows/bor_semantics.v
@@ -145,44 +144,68 @@ theories/tree_borrows/lang.v
 theories/tree_borrows/steps_preserve.v
 theories/tree_borrows/disjoint.v
 
-# Well-formedness and other low level lemmas.
+# Actual Simuliris proof content for TB
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
-theories/tree_borrows/steps_list.v # Builds but is empty. Lemmas in there don't look useful for TB.
 theories/tree_borrows/steps_access.v
-theories/tree_borrows/steps_wf.v # Preservation of WF, work in progress
-theories/tree_borrows/steps_progress.v # In progress
-theories/tree_borrows/steps_retag.v # barely modified from SB
-theories/tree_borrows/steps_inv.v # barely modified from SB
+theories/tree_borrows/steps_wf.v
+theories/tree_borrows/steps_progress.v
+theories/tree_borrows/steps_inv.v
 
 theories/tree_borrows/tactics.v
 theories/tree_borrows/class_instances.v
 theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
-theories/tree_borrows/inv_accessors.v # needs stuff
-theories/tree_borrows/steps_refl.v # needs tkmap_view
-#theories/tree_borrows/steps_opt.v # needs tkmap_view
-theories/tree_borrows/primitive_laws.v # needs logical_state
-theories/tree_borrows/proofmode.v # needs primitive_laws
+theories/tree_borrows/inv_accessors.v
+theories/tree_borrows/step_laws/steps_refl.v
+theories/tree_borrows/step_laws/steps_refl_delete.v
+theories/tree_borrows/step_laws/steps_refl_endcall.v
+theories/tree_borrows/step_laws/steps_read_write_simple.v
+theories/tree_borrows/step_laws/steps_retag.v
+theories/tree_borrows/step_laws/steps_opt.v
+theories/tree_borrows/step_laws/steps_local.v
+theories/tree_borrows/step_laws/steps_unique.v
+theories/tree_borrows/step_laws/steps_prot.v
+theories/tree_borrows/step_laws/steps_source_only.v
+theories/tree_borrows/steps_all.v
+theories/tree_borrows/primitive_laws.v
+theories/tree_borrows/proofmode.v
+theories/tree_borrows/early_proofmode.v
+theories/tree_borrows/wishlist.v
+theories/tree_borrows/tree_access_laws.v
+theories/tree_borrows/tag_protected_laws.v
+theories/tree_borrows/loc_controlled_laws.v
 
-theories/tree_borrows/wf.v # builds almost as-is
+theories/tree_borrows/trees_equal/trees_equal_base.v
+theories/tree_borrows/trees_equal/random_lemmas.v
+theories/tree_borrows/trees_equal/disabled_in_practice.v
+theories/tree_borrows/trees_equal/disabled_tag_rejects_read_precisely.v
+theories/tree_borrows/trees_equal/trees_equal_more_access.v
+theories/tree_borrows/trees_equal/trees_equal_preserved_by_access.v
+theories/tree_borrows/trees_equal/trees_equal_preserved_by_access_base.v
+theories/tree_borrows/trees_equal/trees_equal_transitivity.v
+theories/tree_borrows/trees_equal/trees_equal_create_child.v
+theories/tree_borrows/trees_equal/trees_equal_endcall_law.v
+theories/tree_borrows/trees_equal/trees_equal_initcall.v
+theories/tree_borrows/trees_equal/trees_equal_endcall_law_2.v
+theories/tree_borrows/trees_equal/trees_equal_asymmetric_prot.v
+theories/tree_borrows/trees_equal/trees_equal_source_read.v
+
+theories/tree_borrows/wf.v
 theories/tree_borrows/parallel_subst.v
 theories/tree_borrows/log_rel_structural.v
 theories/tree_borrows/refl.v
-theories/tree_borrows/behavior.v # builds almost as-is
-#theories/tree_borrows/adequacy.v # needs proofmode
+theories/tree_borrows/behavior.v
+theories/tree_borrows/adequacy.v
 
-# Examples
-# These were copied directly from SB.
-# Some of them we still want, but other are known to be no longer
-# provable or even valid.
-#theories/tree_borrows/examples/lib.v
-#theories/tree_borrows/examples/pure.v
-#theories/tree_borrows/examples/opt1.v
-#theories/tree_borrows/examples/opt1_down.v
-#theories/tree_borrows/examples/opt2.v
-#theories/tree_borrows/examples/opt2_down.v
-#theories/tree_borrows/examples/opt3.v
-#theories/tree_borrows/examples/opt3_down.v
-#theories/tree_borrows/examples/coinductive.v
-
+theories/tree_borrows/examples/protected/mutable_reorder_read_down.v
+theories/tree_borrows/examples/protected/mutable_reorder_read_up.v
+theories/tree_borrows/examples/protected/shared_reorder_read_down_escaped.v
+theories/tree_borrows/examples/protected/shared_reorder_read_up_escaped.v
+theories/tree_borrows/examples/protected/mutable_reorder_write_down_activated.v
+theories/tree_borrows/examples/protected/mutable_reorder_write_up_activated.v
+theories/tree_borrows/examples/unprotected/mutable_delete_read.v
+theories/tree_borrows/examples/unprotected/shared_delete_read_escaped.v
+theories/tree_borrows/examples/unprotected/shared_delete_read_escaped_coinductive.v
+theories/tree_borrows/examples/lib.v
+theories/tree_borrows/examples/pure.v

@@ -1,6 +1,6 @@
 From simuliris.logic Require Import satisfiable.
 From simuliris.simulation Require Import slsls lifting adequacy.
-From simuliris.tree_borrows Require Import proofmode tactics.
+From simuliris.tree_borrows Require Import early_proofmode tactics.
 From simuliris.tree_borrows Require Import parallel_subst primitive_laws
   log_rel_structural wf refl.
 From simuliris.tree_borrows Require Export behavior.
@@ -10,7 +10,7 @@ Lemma sc_rel_obs `{!sborGS Σ} sc_t sc_s :
   sc_rel sc_t sc_s ⊢@{iPropI Σ} ⌜ obs_scalar sc_t sc_s ⌝.
 Proof.
   destruct sc_t, sc_s; try by eauto.
-  rewrite sc_rel_cid_source. iIntros "[<- _]". eauto.
+  iIntros "(->&_)". done.
 Qed.
 
 Lemma rrel_obs `{!sborGS Σ} r_t r_s :

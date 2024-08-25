@@ -123,7 +123,7 @@ Section safe_reach.
     [ rewrite language_to_val_eq in Hval; simpl in Hval; destruct Hval as [? [=]] |
       destruct Hred as (? & ? & ? & Hhead%prim_base_step);
       [ (* this need not complete the proof and may generate a proof obligation *)
-        inv_base_step; subst; try by eauto 10 using of_result_value, of_result_place
+        inv_base_step; subst; try by eauto 20 using of_result_value, of_result_place
       | solve [solve_sub_redexes_are_values]] ].
 
 
@@ -189,7 +189,7 @@ Section safe_reach.
 
 
   Global Instance safe_implies_endcall P σ v :
-    SafeImplies (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs)) P (EndCall (Val v)) σ.
+    SafeImplies (∃ c, v = [ScCallId c] ∧ c ∈ σ.(scs) ∧ is_Some (trees_access_all_protected_initialized σ.(scs) c σ.(strs))) P (EndCall (Val v)) σ.
   Proof. prove_safe_implies. Qed.
 
   Global Instance safe_implies_endcall_result_weak P σ r :
@@ -200,34 +200,33 @@ Section safe_reach.
     eauto using of_result_value.
   Qed.
 
-  (* Doesn't build because `retag` has been renamed and changed
-  Global Instance safe_implies_retag P σ v v' pk T rk :
-    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧
-      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag v v' pk T rk) σ.
+  Global Instance safe_implies_retag P σ v v' pk im sz rk :
+    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c] ∧ c ∈ σ.(scs) ∧ 
+      trees_contain ot σ.(strs) l.1 ∧ 
+      ((retag_perm pk im rk = None) ∨ ( ∃ trs1 trs2,
+      ¬trees_contain σ.(snp) σ.(strs) l.1 ∧
+      apply_within_trees (create_child σ.(scs) ot σ.(snp) pk im rk c) l.1 σ.(strs) = Some trs1 ∧
+      apply_within_trees (memory_access AccessRead σ.(scs) σ.(snp) (l.2, sz)) l.1 trs1 = Some trs2)))
+    P (Retag v v' pk im sz rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_result P σ r r' pk T rk :
-    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c] ∧ c ∈ σ.(scs) ∧
-      is_Some (retag σ.(sst) σ.(snp) σ.(scs) c l ot rk pk T)) P (Retag r r' pk T rk) σ.
+  Global Instance safe_implies_retag_place_l P σ l t sz sz' v pk im rk :
+    SafeImplies False P (Retag (Place l t sz) (Val v) pk im sz' rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_place_l P σ l t T T' v pk rk :
-    SafeImplies False P (Retag (Place l t T) (Val v) pk T' rk) σ.
+  Global Instance safe_implies_retag_place_r P σ l t sz sz' v pk im rk :
+    SafeImplies False P (Retag (Val v) (Place l t sz) pk im sz' rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_place_r P σ l t T T' v pk rk :
-    SafeImplies False P (Retag (Val v) (Place l t T) pk T' rk) σ.
+  Global Instance safe_implies_retag_place_r2 P σ l t sz sz' l' t' sz'' pk im rk :
+    SafeImplies False P (Retag (Place l' t' sz'') (Place l t sz) pk im sz' rk) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_retag_place_r2 P σ l t T T' l' t' T'' pk rk :
-    SafeImplies False P (Retag (Place l' t' T'') (Place l t T) pk T' rk) σ.
-  Proof. prove_safe_implies. Qed.
-   *)
 
-  (* doesn't build because we don't have types anymore
   Global Instance safe_implies_copy_val P σ r :
-    SafeImplies (∃ l t T, r = PlaceR l t T) P (Copy r) σ.
+    SafeImplies (∃ l t sz, r = PlaceR l t sz) P (Copy r) σ.
   Proof. prove_safe_implies. Qed.
-  Global Instance safe_implies_copy_place P σ l t T :
-    SafeImplies ((∃ v, read_mem l (tsize T) σ.(shp) = Some v ∧ is_Some (memory_read σ.(sst) σ.(scs) l t (tsize T))) ∨ memory_read σ.(sst) σ.(scs) l t (tsize T) = None) P (Copy (Place l t T)) σ.
+  Global Instance safe_implies_copy_place P σ l tg (sz:nat) :
+    SafeImplies (  (∃ v, read_mem l sz σ.(shp) = Some v ∧ trees_contain tg σ.(strs) l.1 ∧ is_Some (apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs)) ∧ sz ≠ 0%nat)
+                 ∨ (∃ v, read_mem l sz σ.(shp) = Some v ∧ sz = 0%nat)
+                 ∨ (trees_contain tg σ.(strs) l.1 ∧ apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None ∧ is_Some (read_mem l sz σ.(shp)))) P (Copy (Place l tg sz)) σ.
   Proof. prove_safe_implies. Qed.
-   *)
 
   Global Instance safe_implies_write_val_left1 P σ v v' :
     SafeImplies False P (Write (Val v) (Val v')) σ.
@@ -238,17 +237,26 @@ Section safe_reach.
   Global Instance safe_implies_write_place_right P σ l' t' T' l t T :
     SafeImplies False P (Write (Place l' t' T') (Place l t T)) σ.
   Proof. prove_safe_implies. Qed.
-  (* Doesn't build because memory_written has been changed
-  Global Instance safe_implies_write P σ l t T v :
-    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ is_Some (memory_written σ.(sst) σ.(scs) l t (tsize T)) ∧ length v = tsize T) P (Write (Place l t T) (Val v)) σ.
+  Global Instance safe_implies_write P σ l t sz v :
+    SafeImplies ((∀ (i: nat), (i < length v)%nat → l +ₗ i ∈ dom σ.(shp)) ∧ 
+                  (trees_contain t (strs σ) l.1 ∧ is_Some (apply_within_trees (memory_access AccessWrite (scs σ) t (l.2, length v)) l.1 (strs σ)) ∨ sz = 0%nat) ∧ length v = sz)
+       P (Write (Place l t sz) (Val v)) σ | 1.
   Proof. prove_safe_implies. Qed.
+
   Global Instance safe_implies_write_result P σ r r' :
     SafeImplies (∃ l tg T v, r = PlaceR l tg T ∧ r' = ValR v) P (Write r r') σ.
   Proof. prove_safe_implies. Qed.
-   *)
+
+  Global Instance safe_implies_write_place_result P l tg sz σ r' :
+    SafeImplies (∃ v, r' = ValR v ∧ length v = sz) P (Write (Place l tg sz) r') σ.
+  Proof. prove_safe_implies. Qed.
+   
 
   Global Instance safe_implies_alloc P σ sz :
     SafeImplies (sz > 0)%nat P (Alloc sz) σ.
+  Proof. prove_safe_implies. Qed.
+  Global Instance safe_implies_alloc_strong P σ sz :
+    SafeImplies (sz > 0 ∧ σ.(strs) !! fresh_block σ.(shp) = None)%nat P (Alloc sz) σ | 2.
   Proof. prove_safe_implies. Qed.
 
   Global Instance safe_implies_free_val P σ r :
@@ -259,23 +267,19 @@ Section safe_reach.
     SafeImplies (∃ trs', (∀ m, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m < sz) ∧ (sz > 0)%nat ∧ trees_contain t σ.(strs) l.1 ∧ apply_within_trees (memory_deallocate σ.(scs) t (l.2, sz)) l.1 σ.(strs) = Some trs') P (Free (Place l t sz)) σ.
   Proof. prove_safe_implies. Qed.
 
-  (* Doesn't build because we don't have typees anymore
-  Global Instance safe_implies_write_weak P σ l t T v :
-    SafeImplies (length v = tsize T) P (Write (Place l t T) (Val v)) σ | 10.
+  Global Instance safe_implies_write_weak P σ l t sz v :
+    SafeImplies (length v = sz) P (Write (Place l t sz) (Val v)) σ | 10.
   Proof.
     eapply safe_implies_weaken; last apply safe_implies_write. tauto.
   Qed.
-  Global Instance safe_implies_retag_weak P σ v v' pk T rk :
-    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag v v' pk T rk) σ | 10.
+  Global Instance safe_implies_retag_weak P σ v v' pk im sz rk :
+    SafeImplies (∃ c ot l, v = [ScPtr l ot] ∧ v' = [ScCallId c]) P (Retag v v' pk im sz rk) σ | 10.
   Proof.
     eapply safe_implies_weaken; last apply safe_implies_retag.
-    intros (c & ot & l & -> & -> & _). eauto.
+    intros (c & ot & l  & -> & -> & _). eauto.
   Qed.
-  Global Instance safe_implies_retag_weak_result P σ r r' pk T rk :
-    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c]) P (Retag r r' pk T rk) σ | 10.
-  Proof.
-    eapply safe_implies_weaken; last apply safe_implies_retag_result.
-    intros (c & ot & l & -> & -> & _). eauto.
-  Qed.
-   *)
+  Global Instance safe_implies_retag_result_weak P σ r r' pk im sz rk :
+    SafeImplies (∃ c ot l, r = ValR [ScPtr l ot] ∧ r' = ValR [ScCallId c])
+    P (Retag r r' pk im sz rk) σ | 10.
+  Proof. prove_safe_implies. Qed.
 End safe_reach.

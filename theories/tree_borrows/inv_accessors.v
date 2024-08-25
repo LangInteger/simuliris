@@ -5,7 +5,8 @@ From simuliris.simulation Require Export slsls.
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import tkmap_view.
 From simuliris.tree_borrows Require Export defs.
-From simuliris.tree_borrows Require Import steps_progress steps_retag steps_inv logical_state.
+From simuliris.tree_borrows Require Import steps_progress steps_inv logical_state.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
 From iris.prelude Require Import options.
 
 
@@ -15,6 +16,7 @@ Add Printing Constructor state item.
 Section lemmas.
   Context `{bor_stateGS Σ}.
   Local Notation bor_interp := (bor_interp sc_rel).
+  Local Notation bor_interp_inner := (bor_interp_inner sc_rel).
 
   Implicit Types
     (l : loc) (sc : scalar).
@@ -35,78 +37,81 @@ Section lemmas.
     intros Hdom. induction n as [ | n IH] in l |-*; first done.
     simpl. rewrite !dom_delete_L IH. done.
   Qed.
-
-  Lemma extend_trees_preserve σ :
+  
+  Lemma extend_trees_preserve off sz σ :
     let blk := fresh_block σ.(shp) in
-    let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     state_wf σ →
-    ∀ l' tree, σ.(strs) !! l'.1 = Some tree → α' !! l'.1 = Some tree.
+    ∀ bb tree, σ.(strs) !! bb = Some tree → α' !! bb = Some tree.
   Proof.
-    intros blk l nt α' Hwf (blk' & off') stk. cbn. intros Hl'.
+    intros blk nt α' Hwf blk' stk. cbn. intros Hl'.
     rewrite /α' /extend_trees lookup_insert_ne //.
     intros <-. eapply elem_of_dom_2 in Hl'.
     rewrite state_wf_dom // in Hl'.
-    eapply elem_of_map in Hl' as ((blk'&off)&Heq&Heq2).
+    eapply elem_of_map in Hl' as ((blk'&off'')&Heq&Heq2).
     cbn in Heq. subst blk'.
     by eapply is_fresh_block in Heq2.
   Qed.
 
-  Lemma extend_trees_find_item σ it loc :
+  Lemma extend_trees_find_item σ t it off sz (loc : loc) :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     state_wf σ →
-    item_for_loc_in_trees it σ.(strs) loc →
-    item_for_loc_in_trees it α' loc.
+    trees_lookup σ.(strs) loc.1 t it ->
+    trees_lookup  α' loc.1 t it.
   Proof.
     intros blk l nt α' Hwf Hinv.
-    inversion Hinv as [tree H1 Hinv1]; clear Hinv.
-    eapply (is_in_trees _ _ _ tree); last done.
+    inversion Hinv as [tree [H1 Lookup]]; clear Hinv.
+    econstructor; split; last eassumption.
     by apply extend_trees_preserve.
   Qed.
 
   (* TODO refactor the tree lemmas *)
-
-  Lemma exists_node_init_tree tg P :
-    exists_node P (init_tree tg) ↔
-    P (mkItem tg None Active ∅).
+  Lemma exists_node_init_tree tg off (sz:nat) P :
+    exists_node P (init_tree tg off sz) ↔
+    P (mkItem tg None Disabled (init_perms Active off sz)).
   Proof.
-    cbv. tauto.
+    cbv -[init_perms]. tauto.
   Qed.
 
-  Lemma every_node_init_tree tg P :
-    every_node P (init_tree tg) ↔
-    P (mkItem tg None Active ∅).
+  Lemma every_node_init_tree tg off sz P :
+    every_node P (init_tree tg off sz) ↔
+    P (mkItem tg None Disabled (init_perms Active off sz)).
   Proof.
-    cbv. tauto.
+    cbv -[init_perms]. tauto.
   Qed.
 
-  Lemma extend_trees_find_item_rev σ it loc :
+  Lemma tree_lookup_init_tree t off sz : tree_lookup (init_tree t off sz) t (initial_item t off sz).
+  Proof.
+    split.
+    - by eapply exists_node_init_tree.
+    - by eapply every_node_init_tree.
+  Qed.
+
+  Lemma extend_trees_find_item_rev σ t it off sz (loc : loc) :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     state_wf σ →
-    item_for_loc_in_trees it α' loc →
-    item_for_loc_in_trees it σ.(strs) loc ∨ (it = mkItemForLoc (mkPerm PermLazy Active) nt None ∧ loc.1 = blk).
+    trees_lookup α' loc.1 t it ->
+    trees_lookup σ.(strs) loc.1 t it ∨ (it = mkItem nt None Disabled (init_perms Active off sz) ∧ loc.1 = blk).
   Proof.
     intros blk l nt α' Hwf Hinv.
-    inversion Hinv as [tree H1 Hinv1]; clear Hinv.
+    inversion Hinv as [tree [H1 Hinv1]]; clear Hinv.
     destruct loc as (blk'&off'). cbn in *.
     rewrite /α' /extend_trees in H1.
     eapply lookup_insert_Some in H1 as [(<-&Heq)|(H1&H2)].
-    2: left; by eapply (is_in_trees _ _ _ tree).
+    2: left; econstructor; split; last eassumption; done.
     right. subst tree.
-    inversion Hinv1 as [itm H1%exists_node_init_tree H2%every_node_init_tree H3 H4]; simplify_eq.
-    destruct it as [lperm tg cid].
-    rewrite /= /IsTag in H1. subst tg.
-    rewrite /= in H2. specialize (H2 (ltac:(done))). subst itm.
-    rewrite /= in H3. subst cid.
-    rewrite /= lookup_empty /= in H4. subst lperm.
-    done.
+    inversion Hinv1 as [Ex Unq]; simplify_eq.
+    split; last reflexivity.
+    inversion Ex as [Root|Else].
+    - inversion Unq as [Eq]. rewrite <- Eq; last done. simpl. f_equal.
+    - inversion Else; contradiction.
   Qed.
 
   Lemma init_mem_preserve σ n :
@@ -124,12 +129,12 @@ Section lemmas.
     move : Ha. apply is_fresh_block.
   Qed.
 
-  Lemma loc_controlled_alloc_update σ l' n t (tk : tag_kind) sc :
+  Lemma loc_controlled_alloc_update σ l' off sz n t (tk : tag_kind) sc :
     let blk := fresh_block σ.(shp) in
     let l := (blk, 0) in
     let nt := σ.(snp) in
     let h' := init_mem l n σ.(shp) in
-    let α' := extend_trees σ.(snp) blk σ.(strs) in
+    let α' := extend_trees σ.(snp) blk off sz σ.(strs) in
     let σ' := mkState h' α' σ.(scs) (S σ.(snp)) σ.(snc) in
     t ≠ nt →
     state_wf σ →
@@ -138,12 +143,16 @@ Section lemmas.
   Proof.
     intros blk l nt h' α' σ' Hnt Hwf Hcontrolled Hpre.
     assert (bor_state_pre l' t tk σ) as [Hown Hmem]%Hcontrolled.
-    { destruct tk; unfold bor_state_pre in Hpre|-*.
-      1-3: destruct Hpre as (it & [Hin|(Heq&_)]%extend_trees_find_item_rev & H1 & H2); [
-             by exists it | by subst it t | done ].
-      done. }
+    (* FIXME: very ugly *)
+    { destruct tk as [| |]; unfold bor_state_pre in Hpre|-*.
+      3: done.
+      all: destruct Hpre as (it & [Ha Hb]); exists it.
+      all: split; auto; destruct (extend_trees_find_item_rev _ _ _ _ _ _ Hwf Ha) as [|[]]; [assumption|].
+      all: subst it nt; pose proof (trees_lookup_correct_tag Ha) as SameTg.
+      all: by rewrite /= in SameTg.
+    }
     split; last by eapply init_mem_preserve.
-    destruct Hown as (it & tr & Hin & Ht & Htrs & Htk).
+    destruct Hown as (it & tr & Hin & Ht & Hinit & Htrs).
     exists it, tr; split_and!; try done.
     by apply extend_trees_preserve.
   Qed.
@@ -287,162 +296,453 @@ Section lemmas.
         intros [[-> _]%array_tag_map_lookup2 | ?]; eauto.
     }
     eauto.
-  Qed.
+  Qed. *)
 
   (** Read lemmas *)
-    Lemma bor_interp_readN_target_local σ_t σ_s (t : ptr_id) l scs :
-    bor_interp σ_t σ_s -∗
+
+    Lemma bor_interp_local_shapes_tree_target σ_t σ_s M_call M_tag M_t M_s t l scs :
+      bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+      l ↦t∗[tk_local]{t} scs -∗
+      t $$ tk_local -∗
+      ⌜∃ it, σ_t.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_t.(shp) ∧ t = itag it⌝.
+    Proof.
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hp Htag".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    destruct Htag_interp as (Htag_interp & _).
+    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    iPureIntro. destruct Hlocal as (Hl1&Hl2). 1: done.
+    specialize (Hl1 _ _ Ht_lookup) as Hne. rewrite list_to_heaplet_empty_length in Hne.
+    specialize (Ht l). rewrite /heaplet_lookup /= Ht_lookup /= in Ht.
+    assert (l.2 + (0%nat) = l.2) as Hzero by lia.
+    pose proof (list_to_heaplet_nth scs l.2 0) as Hnth. rewrite Hzero in Hnth. rewrite Hnth in Ht.
+    edestruct (lookup_lt_is_Some_2 scs 0) as [x Hx]. 1: lia.
+    odestruct (Ht _ Hx _) as ((it&tr&Hit&Htr&Hini&Hperm&Hprot&Hothers)&HH); first done.
+    pose proof (state_wf_roots_active _ Hwf_t _ _ Htr) as Htrc.
+    pose tr as tr_main.
+    destruct tr as [|itroot ? trb]; first done. destruct Htrc as (Htrc&->). exists itroot.
+    assert (tree_contains (itag itroot) tr_main) as Hin1 by (simpl; tauto).
+    eapply wf_tree_tree_unique in Hin1; last by eapply Hwf_t.
+    eapply unique_implies_lookup in Hin1 as HHin1; destruct HHin1 as (ii1&Hii1%Hothers).
+    split; last done. rewrite Htr.
+    f_equal. f_equal. destruct trb as [|itb ??]; first done.
+    assert (tree_contains (itag itb) tr_main) as Hin2 by (simpl; tauto).
+    eapply wf_tree_tree_unique in Hin2; last by eapply Hwf_t.
+    eapply unique_implies_lookup in Hin2 as HHin2; destruct HHin2 as (ii2&Hii2%Hothers).
+    subst t. rewrite /tr_main /= /tree_unique /= !bool_decide_true // in Hin2.
+  Qed.
+
+    Lemma bor_interp_local_shapes_tree_source σ_t σ_s M_call M_tag M_t M_s t l scs :
+      bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+      l ↦s∗[tk_local]{t} scs -∗
+      t $$ tk_local -∗
+      ⌜∃ it, σ_s.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_s.(shp) ∧ t = itag it⌝.
+    Proof.
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hp Htag".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    destruct Htag_interp as (Htag_interp & _).
+    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
+    iPureIntro. destruct Hlocal as (Hl1&Hl2). 1: done.
+    specialize (Hl2 _ _ Ht_lookup) as Hne. rewrite list_to_heaplet_empty_length in Hne.
+    specialize (Hs l). rewrite /heaplet_lookup /= Ht_lookup /= in Hs.
+    assert (l.2 + (0%nat) = l.2) as Hzero by lia.
+    pose proof (list_to_heaplet_nth scs l.2 0) as Hnth. rewrite Hzero in Hnth. rewrite Hnth in Hs.
+    edestruct (lookup_lt_is_Some_2 scs 0) as [x Hx]. 1: lia.
+    odestruct (Hs _ Hx _) as ((it&tr&Hit&Htr&Hini&Hperm&Hprot&Hothers)&HH); first done.
+    pose proof (state_wf_roots_active _ Hwf_s _ _ Htr) as Htrc.
+    pose tr as tr_main.
+    destruct tr as [|itroot ? trb]; first done. destruct Htrc as (Htrc&->). exists itroot.
+    assert (tree_contains (itag itroot) tr_main) as Hin1 by (simpl; tauto).
+    eapply wf_tree_tree_unique in Hin1; last by eapply Hwf_s.
+    eapply unique_implies_lookup in Hin1 as HHin1; destruct HHin1 as (ii1&Hii1%Hothers).
+    split. 2: done.
+    rewrite Htr.
+    f_equal. f_equal. destruct trb as [|itb ??]; first done.
+    assert (tree_contains (itag itb) tr_main) as Hin2 by (simpl; tauto).
+    eapply wf_tree_tree_unique in Hin2; last by eapply Hwf_s.
+    eapply unique_implies_lookup in Hin2 as HHin2; destruct HHin2 as (ii2&Hii2%Hothers).
+    subst t. rewrite /tr_main /= /tree_unique /= !bool_decide_true // in Hin2.
+  Qed.
+
+
+    Lemma bor_interp_readN_target_local σ_t σ_s M_call M_tag M_t M_s t l scs :
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
     l ↦t∗[tk_local]{t} scs -∗
     t $$ tk_local -∗
     ⌜∀ i : nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
-    ⌜∀ i:nat, (i < length scs)%nat → bor_state_own (l +ₗ i) t tk_local σ_t⌝.
+    ⌜∃ it, σ_t.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_t.(shp) ∧ t = itag it⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & ? & ? & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
-    destruct Htag_interp as (Htag_interp & _ & _).
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
-    iPureIntro.
-    enough (∀ i: nat, (i < length scs)%nat → σ_t.(shp) !! (l +ₗ i) = scs !! i ∧ σ_t.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]) as Hsingle.
-    { split_and!; [ apply Hsingle..]. }
-    intros i Hi.
-    specialize (Ht_lookup i Hi). rewrite list_lookup_lookup_total in Ht_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    specialize (Ht _ _ Ht_lookup) as Hcontrol.
-    specialize (loc_controlled_local _ _ _ _ Hcontrol) as (Hstack & Hmem).
-    split_and!.
-    - rewrite Hmem. rewrite list_lookup_lookup_total; [done | by apply lookup_lt_is_Some_2].
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    iPoseProof (bor_interp_local_shapes_tree_target with "[-Hp Htag] Hp Htag") as "%Htree".
+    1: iFrame; iFrame "#"; iPureIntro; done.
+    iPureIntro. split; last done.
+    intros i Hi. edestruct (lookup_lt_is_Some_2 scs i) as [sc Hsc]; first done.
+    rewrite Hsc.
+    destruct (Ht (l +ₗ i) sc). 2: done. 1: rewrite /heaplet_lookup /= Ht_lookup /= list_to_heaplet_nth //. done.
+  Qed.
+
+
+    Lemma bor_interp_readN_source_local σ_t σ_s M_call M_tag M_t M_s t l scs :
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+    l ↦s∗[tk_local]{t} scs -∗
+    t $$ tk_local -∗
+    ⌜∀ i : nat, (i < length scs)%nat → σ_s.(shp) !! (l +ₗ i) = scs !! i⌝ ∗
+    ⌜∃ it, σ_s.(strs) !! l.1 = Some (branch it empty empty) ∧ root_invariant l.1 it σ_s.(shp) ∧ t = itag it⌝.
+  Proof.
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hp Htag".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & Hlocal & Ht & Hs & Hagree).
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
+    iPoseProof (bor_interp_local_shapes_tree_source with "[-Hp Htag] Hp Htag") as "%Htree".
+    1: iFrame; iFrame "#"; iPureIntro; done.
+    iPureIntro. split; last done.
+    intros i Hi. edestruct (lookup_lt_is_Some_2 scs i) as [sc Hsc]; first done.
+    rewrite Hsc.
+    destruct (Hs (l +ₗ i) sc). 2: done. 1: rewrite /heaplet_lookup /= Ht_lookup /= list_to_heaplet_nth //. done.
+  Qed.
+
+  Lemma protected_tags_bor_state_pre P c σ l tg ae tk :
+    tag_protected_for P c σ.(strs) l tg (EnsuringAccess ae) →
+    bor_state_pre l tg tk σ.
+  Proof.
+    intros (it&Hit&Hforcall&Hstrength&HP&Hndis).
+    destruct tk.
+    - by exists it.
+    - by exists it.
     - done.
   Qed.
 
-  Lemma bor_interp_readN_target_protected σ_t σ_s (t : ptr_id) tk l v_t c M :
-    (∀ i: nat, (i < length v_t)%nat → call_set_in M t (l +ₗ i)) →
-    bor_interp σ_t σ_s -∗
-    l ↦t∗[tk]{t} v_t -∗
+  Lemma bor_interp_readN_target_protected σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd L M c :
+    read_range l_rd.2 sz (list_to_heaplet scs_hl l_hl.2) = Some scs_rd →
+    l_hl.1 = l_rd.1 →
+    (∀ off, range'_contains (l_rd.2, sz) off → ∃ ae, L !! (l_rd.1, off) = Some (EnsuringAccess ae)) →
+    M !! t = Some L →
+    length scs_rd ≠ 0%nat →
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+  c @@ M -∗
+    l_hl ↦t∗[tk]{t} scs_hl -∗
     t $$ tk -∗
-    c @@ M -∗
-    ⌜∀ i : nat, (i < length v_t)%nat → σ_t.(shp) !! (l +ₗ i) = v_t !! i⌝ ∗
-    ⌜∀ i:nat, (i < length v_t)%nat → bor_state_own (l +ₗ i) t tk σ_t⌝.
+    ∃ it tr, ⌜σ_t.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧ protector_is_active (iprot it) σ_t.(scs) ∧
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_t it tr ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
   Proof.
-    iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
-    iIntros "Hp Htag Hcall".
+    iIntros (Hrr Hsameblk Hprot1 Hprot2 Hnn) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hprot3 Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
-    destruct Htag_interp as (Htag_interp & _ & _).
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
-    iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hc_lookup".
-    iPureIntro.
-    enough (∀ i: nat, (i < length v_t)%nat → σ_t.(shp) !! (l +ₗ i) = v_t !! i ∧ bor_state_own (l +ₗ i) t tk σ_t) as Hsingle.
-    { split_and!; [ apply Hsingle..]. }
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    destruct Hcall_interp as (Hcall_interp&_).
+    specialize (Hcall_interp _ _ Hprot_lookup) as (Hprot4&Hcall_interp).
+    specialize (Hcall_interp _ _ Hprot2) as (Hvalid&Hcall_interp).
+    eapply read_range_length in Hrr as Hsz.
+    assert (sz ≠ 0%nat) as Hnnsz by lia.
+    opose proof (Hprot1 l_rd.2 _) as (ae1&Hae1). 1: split; simpl in *; lia.
+    opose proof (Hcall_interp _ _ Hae1) as (it1&(tr1&Htr1&Hit11)&Hforcall&_).
+    iExists it1, tr1. iPureIntro. do 2 (split; first done).
+    split. 1: by eexists.
     intros i Hi.
-    specialize (Ht_lookup i Hi). rewrite list_lookup_lookup_total in Ht_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    specialize (Ht _ _ Ht_lookup) as Hcontrol.
-    assert (bor_state_pre (l +ₗ i) t tk σ_t) as Hpre.
-    { specialize (Hprot i Hi).
-      specialize (call_set_interp_access _ _ _ _ _ Hcall ltac:(exists M; done)). apply loc_protected_bor_state_pre.
-    }
-    specialize (Hcontrol Hpre) as [Hown Hmem].
-    split_and!; [| done ].
-    - rewrite Hmem. rewrite list_lookup_lookup_total; [done | ]. by apply lookup_lt_is_Some_2.
+    eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
+    eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
+    eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
+    assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
+    { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
+    ospecialize (Ht (l_rd +ₗ i) sc _).
+    1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct (Hprot1 (l_rd.2 + i)) as (ae&Hae). 1: subst sz; split; simpl; lia.
+    specialize (Hcall_interp _ _ Hae).
+    destruct Ht as (Ht1&Ht2).
+    1: by eapply protected_tags_bor_state_pre.
+    destruct Hcall_interp as (it&(tr&Htr&Hit)&Hpc&_). simpl in Htr,Htr1.
+    assert (tr = tr1) as <- by congruence.
+    assert (it = it1) as <- by by eapply tree_lookup_unique.
+    destruct Ht1 as (it'&tr'&Hit'&Htr'&HH).
+    simpl in *.
+    assert (tr = tr') as <- by congruence.
+    assert (it = it') as <- by by eapply tree_lookup_unique.
+    rewrite Ht2. done.
   Qed.
 
-  Lemma bor_interp_readN_target σ_t σ_s (t : ptr_id) tk l v_t :
-    bor_interp σ_t σ_s -∗
+  Lemma wf_trees_parents_not_disabled_self trs C tg (it : item) blk off :
+    wf_trees trs →
+    each_tree_protected_parents_not_disabled C trs →
+    trees_lookup trs blk tg it →
+    protector_is_active (iprot it) C →
+    initialized (item_lookup it off) = PermInit →
+    perm (item_lookup it off) = Disabled →
+    False.
+  Proof.
+    intros (Hwf&_) Hntrs (tr&Htr&Hit) Hact Hini Hdis.
+    specialize (Hwf _ _ Htr). eapply tree_lookup_correct_tag in Hit as Hit2; subst tg.
+    specialize (Hntrs  _ _ Htr (itag it)). eapply every_child_ParentChildIn in Hntrs.
+    2: eapply Hwf. 2,4: eapply Hwf, Hit. 2: eapply Hit. 2: by left.
+    eapply every_node_eqv_universal in Hntrs.
+    2: by eapply tree_lookup_to_exists_node.
+    eapply Hntrs. all: done.
+  Qed.
+
+  Lemma tag_protected_for_trees_equal P C c d trs1 trs2 l tg ps :
+    wf_trees trs1 → wf_trees trs2 →
+    each_tree_protected_parents_not_disabled C trs1 →
+    each_tree_protected_parents_not_disabled C trs2 →
+    c ∈ C →
+    trees_equal C d trs1 trs2 →
+    tag_protected_for P c trs1 l tg ps →
+    tag_protected_for P c trs2 l tg ps.
+  Proof.
+    intros Hwf1 Hwf2 Hnd1 Hnd2 Hc Heq. destruct ps as [|ae].
+    - intros Hx it2 (tr2&Htr2&Hit2).
+      specialize (Heq l.1). rewrite Htr2 in Heq.
+      inversion Heq as [tr1 tr2' Heq12 Htr1 X5|]; simplify_eq. symmetry in Htr1.
+      destruct (tree_equal_transfer_lookup_2 C Heq12 Hit2) as (it1&Hit1&Heqit).
+      odestruct (Hx it1 _) as (HHit1&HHit1B&HXX&HHit1C). 1: by exists tr1.
+      destruct (Heqit l.2) as (Heqprot&Heqperm).
+      split_and!.
+      + by rewrite -Heqprot.
+      + by rewrite -Heqprot.
+      + done.
+      + intros Hini Hndis. eapply wf_trees_parents_not_disabled_self.
+        6: exact Hndis. 5: exact Hini. 3: exists tr2; done. 1-2: done.
+        exists c. split; last done. by rewrite -Heqprot.
+    - intros (it1&(tr1&Htr1&Hit1)&HHit1&HHit1B&HHit1X&HHit1C).
+      specialize (Heq l.1). rewrite Htr1 in Heq.
+      inversion Heq as [tr1' tr2 Heq12 X4 Htr2|]; simplify_eq. symmetry in Htr2.
+      destruct (tree_equal_transfer_lookup_1 C Heq12 Hit1) as (it2&Hit2&Heqit).
+      exists it2. split. 1: by exists tr2.
+      destruct (Heqit l.2) as (Heqprot&Heqperm).
+      split_and!.
+      + by rewrite -Heqprot.
+      + by rewrite -Heqprot.
+      + intros [= ->]. eapply tree_lookup_correct_tag in Hit1, Hit2. rewrite Hit2 -Hit1. by eapply HHit1X.
+      + intros Hini Hndis. eapply wf_trees_parents_not_disabled_self.
+        6: exact Hndis. 5: exact Hini. 3: exists tr2; done. 1-2: done.
+        exists c. split; last done. by rewrite -Heqprot.
+  Qed.
+
+  Lemma bor_interp_readN_source_protected σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd L M c :
+    read_range l_rd.2 sz (list_to_heaplet scs_hl l_hl.2) = Some scs_rd →
+    l_hl.1 = l_rd.1 →
+    (∀ off, range'_contains (l_rd.2, sz) off → ∃ ae, L !! (l_rd.1, off) = Some (EnsuringAccess ae)) →
+    M !! t = Some L →
+    length scs_rd ≠ 0%nat →
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+  c @@ M -∗
+    l_hl ↦s∗[tk]{t} scs_hl -∗
+    t $$ tk -∗
+    ∃ it tr, ⌜σ_s.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧ protector_is_active (iprot it) σ_s.(scs) ∧
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_s it tr ∧ σ_s.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
+  Proof.
+    iIntros (Hrr Hsameblk Hprot1 Hprot2 Hnn) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hprot3 Hp Htag".
+    iDestruct "Hsrel" as "(%Hdom_eq&%Hstrs_eq&%Hsnp_eq&%Hsnv_eq&%Hscs_eq&Hsrel)".
+    iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
+    iPoseProof (ghost_map_lookup with "Hc Hprot3") as "%Hprot_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    destruct Hcall_interp as (Hcall_interp&_).
+    specialize (Hcall_interp _ _ Hprot_lookup) as (Hprot4&Hcall_interp).
+    specialize (Hcall_interp _ _ Hprot2) as (Hvalid&Hcall_interp).
+    eapply read_range_length in Hrr as Hsz.
+    assert (sz ≠ 0%nat) as Hnnsz by lia.
+    opose proof (Hprot1 l_rd.2 _) as (ae1&Hae1). 1: split; simpl in *; lia.
+    opose proof (Hcall_interp _ _ Hae1) as (it1&(tr1&Htr1&Hit1)&Hforcall&_).
+    simpl in *.
+    assert (is_Some (σ_s.(strs) !! l_rd.1)) as [tr2 Htr2].
+    { specialize (Hstrs_eq l_rd.1). rewrite Htr1 /= in Hstrs_eq.
+      inversion Hstrs_eq. done. }
+    eassert (tree_equal (scs σ_s) _ tr2 tr1) as Htr12.
+    { specialize (Hstrs_eq l_rd.1). rewrite Htr1 Htr2 /= in Hstrs_eq. inversion Hstrs_eq; simplify_eq. done. }
+    unshelve edestruct tree_equal_transfer_lookup_2 as (it2&Hit2&(Hitprot&Hit12)). 1: exact 0. 7: exact Htr12. 3: exact Hit1.
+    iExists it2, tr2. iPureIntro. do 2 (split; first done).
+    split. { exists c. split; last by rewrite Hscs_eq. by rewrite Hitprot. }
+    intros i Hi.
+    eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
+    eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
+    eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
+    assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
+    { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
+    ospecialize (Hs (l_rd +ₗ i) sc _).
+    1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct (Hprot1 (l_rd.2 + i)) as (ae&Hae). 1: subst sz; split; simpl; lia.
+    specialize (Hcall_interp _ _ Hae).
+    destruct Hs as (Ht1&Ht2).
+    { eapply protected_tags_bor_state_pre. eapply tag_protected_for_trees_equal.
+      7: exact Hcall_interp. 6: eapply trees_equal_sym, Hstrs_eq. 3, 5: rewrite Hscs_eq. 4: done.
+      1, 3: eapply Hwf_t. 1, 2: eapply Hwf_s. }
+    destruct Ht1 as (it'&tr'&Hit'&Htr'&HH).
+    simpl in *.
+    assert (tr2 = tr') as <- by congruence.
+    assert (it2 = it') as <- by by eapply tree_lookup_unique.
+    rewrite Ht2. done.
+  Qed.
+
+  Lemma bor_interp_readN_target σ_t σ_s M_call M_tag M_t M_s (t : tag) tk l v_t :
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
     l ↦t∗[tk]{t} v_t -∗
     t $$ tk -∗
     ⌜∀ i:nat, (i < length v_t)%nat → loc_controlled (l +ₗ i) t tk (v_t !!! i) σ_t⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & _ & _).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & _ & Ht & _ & _).
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
     iPureIntro.
-    intros i Hi.
-    specialize (Ht_lookup i Hi). rewrite list_lookup_lookup_total in Ht_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    apply Ht. done.
+    intros i Hi. eapply Ht.
+    rewrite /heaplet_lookup Ht_lookup /= list_to_heaplet_nth list_lookup_lookup_total //.
+    by apply lookup_lt_is_Some_2.
   Qed.
 
-  Lemma bor_interp_readN_source σ_t σ_s (t : ptr_id) tk l v_s :
-    bor_interp σ_t σ_s -∗
+  Lemma bor_interp_readN_source σ_t σ_s M_call M_tag M_t M_s (t : tag) tk l v_s :
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
     l ↦s∗[tk]{t} v_s -∗
     t $$ tk -∗
-    ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
+      ⌜∀ i:nat, (i < length v_s)%nat → loc_controlled (l +ₗ i) t tk (v_s !!! i) σ_s⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
     destruct Htag_interp as (Htag_interp & _ & _).
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & _ & Hs & _).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_s_auth Hp") as "%Hs_lookup".
-    iPureIntro. intros i Hi.
-    specialize (Hs_lookup i Hi). rewrite list_lookup_lookup_total in Hs_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    apply Hs. done.
+    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & _ & _ & Hs & _).
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Hs_lookup".
+    iPureIntro. intros i Hi. eapply Hs.
+    rewrite /heaplet_lookup Hs_lookup /= list_to_heaplet_nth list_lookup_lookup_total //.
+    by apply lookup_lt_is_Some_2.
   Qed.
 
-  Lemma bor_interp_readN_source_protected σ_t σ_s (t : ptr_id) tk l v_s c M :
-    (∀ i: nat, (i < length v_s)%nat → call_set_in M t (l +ₗ i)) →
-    bor_interp σ_t σ_s -∗
-    l ↦s∗[tk]{t} v_s -∗
+  Lemma bor_interp_readN_source_after_accesss b σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd:
+    read_range l_rd.2 sz (list_to_heaplet scs_hl l_hl.2) = Some scs_rd →
+    l_hl.1 = l_rd.1 →
+    length scs_rd ≠ 0%nat →
+    trees_contain t (strs σ_s) l_rd.1 →
+    is_Some (apply_within_trees (memory_access_maybe_nonchildren_only b AccessRead (scs σ_s) t (l_rd.2, length scs_rd)) l_rd.1 (strs σ_s)) →
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+    l_hl ↦s∗[tk]{t} scs_hl -∗
     t $$ tk -∗
-    c @@ M -∗
-    ⌜∀ i : nat, (i < length v_s)%nat → σ_s.(shp) !! (l +ₗ i) = v_s !! i⌝ ∗
-    ⌜∀ i:nat, (i < length v_s)%nat → bor_state_own (l +ₗ i) t tk σ_s⌝.
+    ∃ it tr, ⌜σ_s.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_s it tr ∧ σ_s.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
   Proof.
-    iIntros (Hprot) "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & Hsrel & %Hcall & %Htag_interp & %Hwf_s & %Hwf_t)".
-    iIntros "Hp Htag Hcall".
+    iIntros (Hrr Hsameblk Hnn Hcontains (trs' & Htrs')) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros "Hp Htag".
+    iDestruct "Hsrel" as "(%Hdom_eq&%Hstrs_eq&%Hsnp_eq&%Hsnv_eq&%Hscs_eq&Hsrel)".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
-    destruct Htag_interp as (Htag_interp & _ & _).
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_s_auth Hp") as "%Hs_lookup".
-    iPoseProof (ghost_map_lookup with "Hc Hcall") as "%Hc_lookup".
-    iPoseProof (loc_protected_by_source with "Hsrel") as "%Hprots". iPureIntro.
-    enough (∀ i: nat, (i < length v_s)%nat → σ_s.(shp) !! (l +ₗ i) = v_s !! i ∧ bor_state_own (l +ₗ i) t tk σ_s) as Hsingle.
-    { split_and!; [ apply Hsingle..]. }
+    iPoseProof (ghost_map_lookup with "Htag_s_auth Hp") as "%Ht_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    pose proof Htrs' as (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
+    rewrite /trees_contain /trees_at_block Htr1 in Hcontains.
+    odestruct unique_implies_lookup as (it&Hit).
+    { eapply Hwf_s. 1: exact Htr1. apply Hcontains. }
+    eapply read_range_length in Hrr as Hsz.
+    assert (sz ≠ 0%nat) as Hnnsz by lia.
+    iExists it, tr1.
+    do 2 (iSplit; first done). iPureIntro.
     intros i Hi.
-    specialize (Hs_lookup i Hi). rewrite list_lookup_lookup_total in Hs_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    specialize (Hs _ _ Hs_lookup) as Hcontrol.
-    assert (bor_state_pre (l +ₗ i) t tk σ_s) as Hpre.
-    { specialize (Hprot i Hi).
-      specialize (call_set_interp_access _ _ _ _ _ Hcall ltac:(exists M; done)) as ?%Hprots.
-      by eapply loc_protected_bor_state_pre.
-    }
-    specialize (Hcontrol Hpre) as [Hown Hmem].
-    split_and!; [| done ].
-    rewrite Hmem. rewrite list_lookup_lookup_total; [done | ]. by apply lookup_lt_is_Some_2.
+    eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
+    eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
+    eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
+    assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
+    { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
+    ospecialize (Hs (l_rd +ₗ i) sc _).
+    1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct Hs as (Ht1&Ht2); last first.
+    { destruct Ht1 as (it'&tr'&Hit'&Htr'&HH).
+      simpl in *.
+      assert (tr1 = tr') as <- by congruence.
+      assert (it = it') as <- by by eapply tree_lookup_unique.
+      rewrite Ht2. done. }
+    enough (perm (item_lookup it (l_rd.2 + i)) ≠ Disabled).
+    { destruct tk; try done.
+      all: exists it; split; first by eexists.
+      all: intros _; done. }
+    eapply mk_is_Some, apply_access_success_condition, every_node_eqv_universal in Htr1'.
+    2: eapply exists_determined_exists; eapply Hit.
+    setoid_rewrite is_Some_ignore_bind in Htr1'.
+    setoid_rewrite <- mem_apply_range'_success_condition in Htr1'.
+    ospecialize (Htr1' (l_rd.2 + i) _).
+    { split; simpl in *; lia. }
+    eapply tree_lookup_correct_tag in Hit as Hit'; subst t.
+    rewrite rel_dec_refl in Htr1'.
+    rewrite maybe_non_children_only_no_effect in Htr1'. 2: done.
+    destruct Htr1' as [x (x1&Hx1&_)%bind_Some].
+    rewrite /item_lookup.
+    rewrite /apply_access_perm_inner in Hx1.
+    intros Hd; rewrite Hd in Hx1. congruence.
   Qed.
 
-  Lemma bor_interp_readN_source_local σ_t σ_s (t : ptr_id) l v :
-    bor_interp σ_t σ_s -∗
-    l ↦s∗[tk_local]{t} v -∗
-    t $$ tk_local -∗
-    ⌜∀ i : nat, (i < length v)%nat → σ_s.(shp) !! (l +ₗ i) = v !! i⌝ ∗
-    ⌜∀ i:nat, (i < length v)%nat → bor_state_own (l +ₗ i) t tk_local σ_s⌝.
+  Lemma bor_interp_readN_target_after_accesss b σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd:
+    read_range l_rd.2 sz (list_to_heaplet scs_hl l_hl.2) = Some scs_rd →
+    l_hl.1 = l_rd.1 →
+    length scs_rd ≠ 0%nat →
+    trees_contain t (strs σ_t) l_rd.1 →
+    is_Some (apply_within_trees (memory_access_maybe_nonchildren_only b AccessRead (scs σ_t) t (l_rd.2, length scs_rd)) l_rd.1 (strs σ_t)) →
+    bor_interp_inner σ_t σ_s M_call M_tag M_t M_s -∗
+    l_hl ↦t∗[tk]{t} scs_hl -∗
+    t $$ tk -∗
+    ∃ it tr, ⌜σ_t.(strs) !! l_rd.1 = Some tr ∧ tree_lookup tr t it ∧
+    ∀ i : nat, (i < length scs_rd)%nat → bor_state_own_on (l_rd +ₗ i) t tk σ_t it tr ∧ σ_t.(shp) !! (l_rd +ₗ i) = scs_rd !! i⌝.
   Proof.
-    iIntros "(% & % & % & % & (Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & ? & ? & Hsrel & ? & %Htag_interp & %Hwf_s & %Hwf_t)".
+    iIntros (Hrr Hsameblk Hnn Hcontains (trs' & Htrs')) "((Hc & Htag_auth & Htag_t_auth & Htag_s_auth) & Htainted & Hpub_cid & #Hsrel & %Hcall_interp & %Htag_interp & %Hwf_s & %Hwf_t)".
     iIntros "Hp Htag".
+    iDestruct "Hsrel" as "(%Hdom_eq&%Hstrs_eq&%Hsnp_eq&%Hsnv_eq&%Hscs_eq&Hsrel)".
     iPoseProof (tkmap_lookup with "Htag_auth Htag") as "%Htag_lookup".
-    destruct Htag_interp as (Htag_interp & _ & _).
-    destruct (Htag_interp _ _ Htag_lookup) as (_ & _ & Ht & Hs & Hagree).
-    iPoseProof (ghost_map_array_tag_lookup with "Htag_s_auth Hp") as "%Hs_lookup".
-    iPureIntro.
-    enough (∀ i: nat, (i < length v)%nat → σ_s.(shp) !! (l +ₗ i) = v !! i ∧ σ_s.(sst) !! (l +ₗ i) = Some [mkItem Unique (Tagged t) None]) as Hsingle.
-    { split_and!; [ apply Hsingle..]. }
+    iPoseProof (ghost_map_lookup with "Htag_t_auth Hp") as "%Ht_lookup".
+    pose proof Htag_interp as (Htag_interp2 & _).
+    destruct (Htag_interp2 _ _ Htag_lookup) as (_ & _ & _ & Ht & Hs & Hagree).
+    pose proof Htrs' as (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
+    rewrite /trees_contain /trees_at_block Htr1 in Hcontains.
+    odestruct unique_implies_lookup as (it&Hit).
+    { eapply Hwf_t. 1: exact Htr1. apply Hcontains. }
+    eapply read_range_length in Hrr as Hsz.
+    assert (sz ≠ 0%nat) as Hnnsz by lia.
+    iExists it, tr1.
+    do 2 (iSplit; first done). iPureIntro.
     intros i Hi.
-    specialize (Hs_lookup i Hi). rewrite list_lookup_lookup_total in Hs_lookup; first last.
-    { by apply lookup_lt_is_Some_2. }
-    specialize (Hs _ _ Hs_lookup) as Hcontrol.
-    specialize (loc_controlled_local _ _ _ _ Hcontrol) as (Hstack & Hmem).
-    split_and!.
-    - rewrite Hmem. rewrite list_lookup_lookup_total; [done | by apply lookup_lt_is_Some_2].
-    - done.
+    eapply lookup_lt_is_Some_2 in Hi as Hissome. destruct Hissome as (sc&Hsc).
+    eapply read_range_lookup_nth in Hsc as Hschl. 2: eassumption.
+    eapply list_to_heaplet_lookup_Some in Hschl as Hbounds.
+    assert (∃ (i_rd:nat), (l_hl.2 + i_rd = l_rd.2 + i)%Z) as (i_rd&Hi_rd).
+    { exists (Z.to_nat ((l_rd.2 + i) - l_hl.2)). lia. }
+    ospecialize (Ht (l_rd +ₗ i) sc _).
+    1: rewrite /heaplet_lookup /= -Hsameblk Ht_lookup /= //.
+    destruct Ht as (Ht1&Ht2); last first.
+    { destruct Ht1 as (it'&tr'&Hit'&Htr'&HH).
+      simpl in *.
+      assert (tr1 = tr') as <- by congruence.
+      assert (it = it') as <- by by eapply tree_lookup_unique.
+      rewrite Ht2. done. }
+    enough (perm (item_lookup it (l_rd.2 + i)) ≠ Disabled).
+    { destruct tk; try done.
+      all: exists it; split; first by eexists.
+      all: intros _; done. }
+    eapply mk_is_Some, apply_access_success_condition, every_node_eqv_universal in Htr1'.
+    2: eapply exists_determined_exists; eapply Hit.
+    setoid_rewrite is_Some_ignore_bind in Htr1'.
+    setoid_rewrite <- mem_apply_range'_success_condition in Htr1'.
+    ospecialize (Htr1' (l_rd.2 + i) _).
+    { split; simpl in *; lia. }
+    eapply tree_lookup_correct_tag in Hit as Hit'; subst t.
+    rewrite rel_dec_refl in Htr1'.
+    rewrite maybe_non_children_only_no_effect in Htr1'. 2: done.
+    destruct Htr1' as [x (x1&Hx1&_)%bind_Some].
+    rewrite /item_lookup.
+    rewrite /apply_access_perm_inner in Hx1.
+    intros Hd; rewrite Hd in Hx1. congruence.
   Qed.
+
+(*
 
   (** * Write lemmas *)
   Lemma loc_controlled_write_update σ bor tk l l' n α' sc v t :
@@ -911,47 +1211,64 @@ Section lemmas.
       intros i sc0 Hsc0. cbn.
       rewrite shift_loc_assoc. replace (1 + i)%Z with (Z.of_nat $ S i) by lia. done.
   Qed.
-
+  *)
   (** Dealloc lemmas *)
-  Lemma loc_controlled_dealloc_update σ l l' (bor : tag) n (α' : stacks) (t : ptr_id) (tk : tag_kind) sc :
-    memory_deallocated σ.(sst) σ.(scs) l bor n = Some α' →
+  Lemma loc_controlled_dealloc_update σ l l' sz (α' : trees) (acc_tg lu_tg : tag) (tk : tag_kind) sc :
+    apply_within_trees (memory_deallocate σ.(scs) acc_tg (l.2, sz)) l.1 σ.(strs)  = Some α' →
     state_wf σ →
-    (bor = Tagged t ∧ (∃ i:nat, l' = l +ₗ i ∧ (i < n)%nat) → tk = tk_pub) →
-    loc_controlled l' t tk sc σ →
-    loc_controlled l' t tk sc (mkState (free_mem l n σ.(shp)) α' σ.(scs) σ.(snp) σ.(snc)).
+    trees_contain acc_tg σ.(strs) l.1 →
+    (acc_tg = lu_tg → l.1 = l'.1 → tk ≠ tk_local) →
+    loc_controlled l' lu_tg tk sc σ →
+    loc_controlled l' lu_tg tk sc (mkState (free_mem l sz σ.(shp)) (delete l.1 α') σ.(scs) σ.(snp) σ.(snc)).
   Proof.
-    intros Hdealloc Hwf Hpub Hcontrol Hpre.
-    destruct tk.
+    intros Hdealloc Hwf Hcontain Hpub Hcontrol Hpre.
+    edestruct free_mem_lookup as [_ free_mem_lookup].
+    destruct tk as [|tkk|].
     - (* public *)
-      destruct Hpre as (stk & pm & opro & Hstk & Hit & Hpm). simpl in *.
-      destruct (for_each_dealloc_lookup_Some _ _ _ _ _ Hdealloc _ _ Hstk) as [Hneq Hstk'].
-      destruct Hcontrol as [Hown Hshp]. { exists stk, pm, opro. done. }
-      destruct Hown as (stk' & Hstk'' & Hsro).
+      destruct Hpre as (it'&Hlu'&Hndis). simpl in Hlu'|-*.
+      destruct Hlu' as (tr'&Htr'&Hlu').
+      pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
+      rewrite delete_insert_delete in Htr'|-*.
+      eapply lookup_delete_Some in Htr' as (Hne&Htr').
+      destruct Hcontrol as (Hown&Hmem).
+      { exists it'. split; last done. exists tr'. done. }
       split.
-      + simplify_eq. exists stk. done.
-      + destruct (free_mem_lookup_case l' l n σ.(shp)) as [(_ & ->) | (i & Hi & -> & _)]; first done.
-        specialize (Hneq i Hi). congruence.
-    - (* unique *)
-      destruct Hpre as (stk & pm & opro & Hstk & Hit & Hpm). simpl in *.
-      destruct (for_each_dealloc_lookup_Some _ _ _ _ _ Hdealloc _ _ Hstk) as [Hneq Hstk'].
-      destruct Hcontrol as [Hown Hshp]. { exists stk, pm, opro. done. }
-      destruct Hown as (stk' & Hstk'' & (opro' & ? & ->)).
+      2: { erewrite free_mem_lookup; first done.
+           intros i _. intros ->. by simpl in Hne. }
+      destruct Hown as (it&tr&Hlu&Htr&Hit).
+      exists it, tr. split; first done. split; last done.
+      rewrite /= lookup_delete_ne /= //.
+    - (* unique *) (* it's the same proof *)
+      destruct Hpre as (it'&Hlu'&Hndis). simpl in Hlu'|-*.
+      destruct Hlu' as (tr'&Htr'&Hlu').
+      pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
+      rewrite delete_insert_delete in Htr'|-*.
+      eapply lookup_delete_Some in Htr' as (Hne&Htr').
+      destruct Hcontrol as (Hown&Hmem).
+      { exists it'. split; last done. exists tr'. done. }
       split.
-      + simplify_eq. exists stk. split; first done. rewrite Hstk' in Hstk''.
-        injection Hstk'' as ->. eauto.
-      + destruct (free_mem_lookup_case l' l n σ.(shp)) as [(_ & ->) | (i & Hi & -> & _)]; first done.
-        specialize (Hneq i Hi). congruence.
-    - (* local *) clear Hpre. destruct Hcontrol as [Hown Hshp]; first done. simpl.
-      destruct (free_mem_lookup_case l' l n σ.(shp)) as [(Hi & ->) | (i & Hi & -> & Hfree)].
-      + split; last done. destruct (for_each_dealloc_lookup _ _ _ _ _ Hdealloc) as (_ & Heq).
-        rewrite Heq; done.
-      + exfalso. destruct (for_each_true_lookup_case_2 _ _ _ _ _ Hdealloc) as [Heq _].
-        specialize (Heq _ Hi) as (stk & stk' & Hstk & Hstk' & Hd1).
-        rewrite Hown in Hstk. injection Hstk as <-.
-        destruct (dealloc1 _ _ _) eqn:Heq; [ | done].
-        destruct (dealloc1_singleton_Some _ _ _ ltac:(eauto)) as (<- & _).
-        enough (tk_local = tk_pub) by congruence. apply Hpub. eauto.
-  Qed.
+      2: { erewrite free_mem_lookup; first done.
+           intros i _. intros ->. by simpl in Hne. }
+      destruct Hown as (it&tr&Hlu&Htr&Hit).
+      exists it, tr. split; first done. split; last done.
+      rewrite /= lookup_delete_ne /= //.
+    - (* local *)
+      clear Hpre. destruct Hcontrol as [Hown Hshp]; first done. simpl.
+      destruct (decide (l.1 = l'.1)) as [Hsameblk|Hne].
+      + enough (acc_tg = lu_tg) by by ospecialize (Hpub _ _).
+        destruct Hown as (tr&it&Hit&Htr&_&Hothers).
+        odestruct unique_implies_lookup as (it2&Hlu2).
+        2: symmetry; by eapply Hothers.
+        eapply wf_tree_tree_unique. 1: by eapply Hwf.
+        rewrite /trees_contain /trees_at_block Hsameblk Htr // in Hcontain.
+      + split.
+        2: { erewrite free_mem_lookup; first done.
+             intros i _. intros ->. by simpl in Hne. }
+        destruct Hown as (it&tr&Hit&Htr&HH).
+        exists it, tr. split; first done. simpl. split; last done.
+        pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
+        rewrite delete_insert_delete lookup_delete_ne //.
+  Qed. (*
 
 
   (** Retag *)

@@ -113,6 +113,20 @@ Proof.
     auto.
 Qed.
 
+Lemma join_fail_condition {X} (tr:tree (option X)) :
+  join_nodes tr = None <-> exists_node (λ x, x = None) tr.
+Proof.
+  induction tr as [|[data|] tr1 IHtr1 tr2 IHtr2]; simpl; split; try done; try auto.
+  - destruct (join_nodes tr1); last first.
+    { intros _. right. left. apply IHtr1. done. }
+    simpl. destruct (join_nodes tr2); last first.
+    { intros _. right. right. apply IHtr2. done. }
+    simpl. done.
+  - intros [[=]|[H1%IHtr1|H2%IHtr2]].
+    1: rewrite H1; done.
+    rewrite H2. simpl. by destruct (join_nodes tr1). 
+Qed.
+
 Lemma every_subtree_eqv_universal {X} prop tr :
   every_subtree prop tr <-> (forall (br:tbranch X), exists_subtree ((=) br) tr -> prop br).
 Proof.
@@ -212,7 +226,7 @@ Proof.
   tauto.
 Qed.
 
-Lemma every_not_eqv_not_exists {X} (prop:Tprop X) (tr:tree X) :
+Lemma every_not_eqv_not_exists {X} (prop:X -> Prop) (tr:tree X) :
   every_node (compose not prop) tr
   <-> ~exists_node prop tr.
 Proof.
@@ -268,7 +282,7 @@ Proof.
 Qed.
 *)
 
-Lemma insert_true_preserves_every {X} (tr:tree X) (ins:X) (search prop:Tprop X)
+Lemma insert_true_preserves_every {X} (tr:tree X) (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   prop ins ->
   every_node prop tr <-> every_node prop (insert_child_at tr ins search).
@@ -287,7 +301,7 @@ Proof.
   inversion H2 as [HIns [H2' HE]]; auto.
 Qed.
 
-Lemma insert_never_unchanged {X} (tr:tree X) (ins:X) (search prop:Tprop X)
+Lemma insert_never_unchanged {X} (tr:tree X) (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   every_node (compose not search) tr ->
   insert_child_at tr ins search = tr.
@@ -300,7 +314,7 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma insert_preserves_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma insert_preserves_exists {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   exists_node prop tr -> exists_node prop (insert_child_at tr ins search).
 Proof.
@@ -313,7 +327,16 @@ Proof.
   right; right; right; left; auto.
 Qed.
 
-Lemma insert_false_infer_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma exists_sibling_insert {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
+  {search_dec:forall x, Decision (search x)} :
+  exists_sibling prop tr ↔ exists_sibling prop (insert_child_at tr ins search).
+Proof.
+  induction tr as [|data tr1 IHtr1 tr2 IHtr2]; simpl; auto.
+  destruct (decide (search data)); simpl.
+  all: rewrite IHtr1 //.
+Qed.
+
+Lemma insert_false_infer_exists {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   ~prop ins ->
   exists_node prop (insert_child_at tr ins search) ->
@@ -331,7 +354,7 @@ Proof.
   - contradiction Ex22.
 Qed.
 
-Lemma insert_true_produces_exists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
+Lemma insert_true_produces_exists {X} (ins:X) (tr:tree X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   prop ins ->
   exists_node search tr ->
@@ -362,7 +385,7 @@ Proof.
 Qed.
 *)
 
-Lemma exists_insert_requires_parent {X} (ins:X) (search prop:Tprop X)
+Lemma exists_insert_requires_parent {X} (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   forall tr,
   every_node (compose not prop) tr ->
@@ -378,7 +401,7 @@ Proof.
   contradiction.
 Qed.
 
-Lemma remove_false_preserves_exists {X} (ins:X) (search prop:Tprop X)
+Lemma remove_false_preserves_exists {X} (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   ~prop ins ->
   forall tr,
@@ -496,7 +519,7 @@ Proof.
   try repeat split; eassumption.
 Qed.
 
-Lemma exists_node_increasing {X} (prop prop':Tprop X) tr :
+Lemma exists_node_increasing {X} (prop prop':X -> Prop) tr :
   exists_node prop tr ->
   every_node (fun x => prop x -> prop' x) tr ->
   exists_node prop' tr.
@@ -508,7 +531,7 @@ Proof.
   - right; right; apply IHtr2; auto.
 Qed.
 
-Lemma every_node_increasing {X} (prop prop':Tprop X) tr :
+Lemma every_node_increasing {X} (prop prop':X -> Prop) tr :
   every_node prop tr ->
   every_node (fun x => prop x -> prop' x) tr ->
   every_node prop' tr.
@@ -520,7 +543,7 @@ Proof.
   exact Ex.
 Qed.
 
-Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:Tprop X) :
+Lemma join_map_preserves_exists {X} (tr tr':tree X) (prop:X -> Prop) :
   forall fn,
   (forall x y, fn x = Some y -> prop x <-> prop y) ->
   join_nodes (map_nodes fn tr) = Some tr' ->
@@ -536,6 +559,38 @@ Proof.
   erewrite IHtr2; [|eassumption].
   rewrite Preserves; [|eassumption].
   tauto.
+Qed.
+
+Lemma join_map_preserves_exists_sibling {X} (tr tr':tree X) (prop:X -> Prop) :
+  forall fn,
+  (forall x y, fn x = Some y -> prop x <-> prop y) ->
+  join_nodes (map_nodes fn tr) = Some tr' ->
+  exists_sibling prop tr <-> exists_sibling prop tr'.
+Proof.
+  move=> ? Preserves JoinMap.
+  generalize dependent tr'.
+  induction tr as [|?? IHtr1 ? IHtr2]; [simpl; move=> ? H; injection H; intros; subst; tauto|].
+  intros tr' JoinMap.
+  destruct (destruct_joined _ _ _ _ JoinMap) as [data' [tr1' [tr2' [EqTr' [EqData' [EqTr1' EqTr2']]]]]]; subst.
+  simpl.
+  erewrite IHtr1; [|eassumption].
+  rewrite Preserves; [|eassumption].
+  tauto.
+Qed.
+
+Lemma exists_sibling_exists_node {X} tr (prop : X → Prop) :
+  exists_sibling prop tr → exists_node prop tr.
+Proof.
+  induction tr as [|data tl IHl ? _]; first done.
+  simpl. tauto.
+Qed.
+
+Lemma fold_immediate_children_at_count {X Y} p (ini:Y) fn (tr : tree X) :
+  length (fold_immediate_children_at p ini fn tr)
+= count_nodes p tr.
+Proof.
+  induction tr as [|x tr1 IH1 tr2 IH2]; first done.
+  simpl. rewrite !length_app IH1 IH2. by destruct (p x).
 Qed.
 
 
