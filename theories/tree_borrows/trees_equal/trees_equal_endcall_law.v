@@ -53,7 +53,7 @@ Lemma tree_access_many_pseudo_confl_helper_2_pers C tg_acc (L : gmap Z _) tr1 tr
   (∀ tg' it acc, is_pseudo_conflicted_by_in C trL tg' it S acc → acc = ResConflicted).
 Proof.
   intros Hunq fn Hih H. revert Hih. subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL.
   1: by intros [= ->]. simpl.
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
@@ -100,7 +100,7 @@ Lemma tree_access_many_pseudo_dis_helper_2_pers C tg_acc (L : gmap Z _) tr1 trL 
   (∀ tg' it acc, is_pseudo_disabled_by_in C trL tg' it S acc → acc = Disabled).
 Proof.
   intros Hunq Hcompat fn Hih H. revert Hih. subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL.
   1: by intros [= ->]. simpl.
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
@@ -210,7 +210,7 @@ Lemma tree_access_many_pseudo_confl_helper_2_news C tg_acc (L : gmap Z access_ki
 Proof.
   intros Hunq fn.
   subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL.
   { simpl. intros [= ->] tg it acc (?&?&?&?&?&?&HH&_). set_solver. }
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
@@ -253,7 +253,7 @@ Lemma tree_access_many_pseudo_dis_helper_2_news C tg_acc (L : gmap Z access_kind
 Proof.
   intros Hunq fn.
   subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL.
   { simpl. intros [= ->] tg it acc (?&?&?&?&?&?&HH&_). set_solver. }
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
@@ -406,7 +406,7 @@ Lemma tree_access_many_preserve_protector_2 C tg_acc (L : gmap Z _) tr1 trL
   ∀ tgl it1 itL, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → iprot it1 = iprot itL.
 Proof.
   intros fn. subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL; simpl.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL; simpl.
   { intros [= ->]. intros tg1 it1 it2 Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
     by eapply tree_lookup_unique. }
   intros (tr2&Hoff&HL)%bind_Some.
@@ -565,7 +565,7 @@ Lemma tree_access_many_more_initialized_2 C tg_acc (L : gmap Z _) tr1 trL
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = PermInit → initialized (item_lookup itL l) = PermInit.
 Proof.
   intros fn. subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL; simpl.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL; simpl.
   { intros [= ->]. intros tg1 it1 it2 l Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
     by eapply tree_lookup_unique. }
   intros (tr2&Hoff&HL)%bind_Some.
@@ -590,7 +590,7 @@ Lemma tree_access_many_more_active_initialized_2 C tg_acc (L : gmap Z _) tr1 trL
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → protector_is_active it1.(iprot) C → (item_lookup it1 l) = mkPerm PermInit Active → (item_lookup itL l) = mkPerm PermInit Active.
 Proof.
   intros fn. subst fn. simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL; simpl.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL; simpl.
   { intros [= ->]. intros tg1 it1 it2 l Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
     by eapply tree_lookup_unique. }
   intros (tr2&Hoff&HL)%bind_Some.
@@ -622,7 +622,7 @@ Lemma tree_access_many_equally_initialized_2 C tg_acc (L : gmap Z _) tr1 trL
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → initialized (item_lookup it1 l) = initialized (item_lookup itL l).
 Proof.
   intros Hcont Hinit fn. subst fn; simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL Hinit; simpl.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL Hinit; simpl.
   { intros [= ->]. intros tg1 it1 it2 l Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
     by eapply tree_lookup_unique. }
   intros (tr2&Hoff&HL)%bind_Some.
@@ -663,7 +663,7 @@ Lemma tree_access_many_equally_active_initialized_2 C tg_acc it_acc (L : gmap Z 
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → (item_lookup it1 l) = mkPerm PermInit Active ↔ (item_lookup itL l) = mkPerm PermInit Active.
 Proof.
   intros Hwf1 Hmore1 Hmorea1 Hcousins1 Hlookup1 Hprot1 Hinit fn. subst fn; simpl.
-  map_fold_ind L as off v L HH1 HH2 IH in trL Hinit; simpl.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL Hinit; simpl.
   { intros [= ->]. intros tg1 it1 it2 l Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
     by eapply tree_lookup_unique. }
   intros (tr2&Hoff&HL)%bind_Some.

@@ -1524,7 +1524,7 @@ Proof.
   intros (tr0&Htr0&(trr&Htrr&[= <-])%bind_Some)%bind_Some Hf.
   exists tr0. split; first done. revert Htrr.
   generalize (S tr0); intros Str0.
-  map_fold_ind Str0 as el1 acc E Hne Hshape IH in trr; intros Htrr.
+  map_fold_weak_ind Str0 as el1 acc E Hne Hshape IH in trr; intros Htrr.
   - simpl in *. injection Htrr as ->. by rewrite insert_id.
   - simpl in *. pose proof Htrr as Htrr'. eapply Hf in Htrr as (sy&Htrr).
     specialize (IH _ Htrr). rewrite Hshape IH. simpl. rewrite Htrr in Htrr'.
@@ -1639,7 +1639,7 @@ Lemma tree_access_many_state_wf_helper_2 σ trs' blk tg L L' S :
   PS (set_strs σ trs') S blk ∧ dom σ.(strs) = dom trs'.
 Proof.
   intros HPS HS HL'.
-  map_fold_ind L as z acc L Hne _ IH in trs' HPS HS HL'; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in trs' HPS HS HL'; simpl.
   1: intros [= <-]; by destruct σ.
   intros (trm&H1&H2)%bind_Some.
   eapply IH in H1 as (H1&Hdom1). 1: rewrite Hdom1. 2: done. 2: done.
@@ -1697,7 +1697,7 @@ Proof.
   assert (∃ L', L = L') as (L'&HL'eq) by by eexists.
   assert (L ⊆ L') as HL' by (subst; reflexivity).
   rewrite HL'eq in HS. clear HL'eq.
-  map_fold_ind L as z acc L Hne _ IH in trs' HPS HS HL' Hloc; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in trs' HPS HS HL' Hloc; simpl.
   1: intros [= <-]; by destruct σ.
   intros (trm&H1&H2)%bind_Some.
   eapply IH in H1 as H1'. 2: done. 2: done.

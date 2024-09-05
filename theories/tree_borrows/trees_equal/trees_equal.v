@@ -3072,7 +3072,7 @@ Section utils.
     ∃ tr2', fn tr2 = Some tr2' ∧  tree_equal Forwards tr1' tr2'.
   Proof.
     intros X1 X2 X3 X4 Heq Hunq''. simpl.
-    map_fold_ind L as off acc E Hnone Hfoo IH in tr1' Hunq''.
+    map_fold_weak_ind L as off acc E Hnone Hfoo IH in tr1' Hunq''.
     { simpl. intros [= ->]; by eexists. }
     simpl. intros (tr1'''&H1&H2)%bind_Some.
     specialize (IH _ Hunq'' H1) as (tr2'''&Htr2&HHtr2p). rewrite Hfoo Htr2 /=.

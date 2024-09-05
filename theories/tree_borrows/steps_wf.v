@@ -60,7 +60,7 @@ Proof.
 Qed.
 
 
-Tactic Notation "map_fold_ind" constr(M) "as" simple_intropattern(k) simple_intropattern(v) simple_intropattern(LL) simple_intropattern(Hnone) simple_intropattern(Hothers) simple_intropattern(IH) "in" hyp_list(hyps)  := 
+Tactic Notation "map_fold_weak_ind" constr(M) "as" simple_intropattern(k) simple_intropattern(v) simple_intropattern(LL) simple_intropattern(Hnone) simple_intropattern(Hothers) simple_intropattern(IH) "in" hyp_list(hyps)  := 
   match goal with |- context C [map_fold ?f ?b M] => revert hyps; pattern (map_fold f b M); pattern M; 
     (match goal with |- (λ m', (λ b', ?Q) ?B) M => change ((λ b' m', Q) (map_fold f b M) M);
       refine ((map_fold_ind_strong (λ b' m', Q) f b M _ _)) end) end; clear M; [| intros k v LL Hnone Hothers IH]; intros hyps.
@@ -2123,7 +2123,7 @@ Lemma tree_access_many_helper_2 C tg (L : gmap Z _) :
   preserve_tree_tag_count (λ tr, map_fold (λ l acc tr2, tr2 ≫= memory_access_nonchildren_only acc C tg (l, 1%nat)) (Some tr) L).
 Proof.
   intros tr1 tr2 tg'.
-  map_fold_ind L as z a L Hne _ IH in tr2; simpl.
+  map_fold_weak_ind L as z a L Hne _ IH in tr2; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some.
   ospecialize (IH _ H1). rewrite IH. clear IH H1 tr1.
@@ -2159,7 +2159,7 @@ Lemma tree_access_many_root_compat_helper_2 C tg (L : gmap Z _) blk hp tr tr' :
   tree_root_compatible tr' blk hp.
 Proof.
   intros Hcont Htr Hcompat.
-  map_fold_ind L as z acc L Hne _ IH in tr'; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in tr'; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some. simpl in IH.
   ospecialize (IH _ H1).
@@ -2197,7 +2197,7 @@ Lemma tree_access_many_more_init_helper_2 C tg (L : gmap Z _) tr tr' :
   parents_more_init tr'.
 Proof.
   intros Hwf Hcontains Hmore.
-  map_fold_ind L as z acc L Hne _ IH in tr'; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in tr'; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some.
   specialize (IH _ H1).
@@ -2234,7 +2234,7 @@ Lemma tree_access_many_more_active_helper_2 C tg (L : gmap Z _) tr tr' :
   parents_more_active tr'.
 Proof.
   intros Hwf Hcontains Hmore.
-  map_fold_ind L as z acc L Hne _ IH in tr'; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in tr'; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some.
   specialize (IH _ H1).
@@ -2272,7 +2272,7 @@ Lemma tree_access_many_protected_not_disabled_helper_2 C tg (L : gmap Z _) tr tr
   protected_parents_not_disabled C tr'.
 Proof.
   intros Hwf Hcontains Hinit Hmore.
-  map_fold_ind L as z acc L Hne Hss IH in tr'; simpl.
+  map_fold_weak_ind L as z acc L Hne Hss IH in tr'; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some.
   specialize (IH _ H1).
@@ -2313,7 +2313,7 @@ Lemma tree_access_many_no_cousins_helper_2 C tg (L : gmap Z _) tr tr' :
   no_active_cousins C tr'.
 Proof.
   intros Hwf Hcontains Hmore.
-  map_fold_ind L as z acc L Hne _ IH in tr'; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in tr'; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some.
   specialize (IH _ H1).
@@ -2347,7 +2347,7 @@ Lemma mem_enumerate_sat_elem_of {X Y} fn k (vv:Y) (m:gmap _ X) :
   ∃ v, m !! k = Some v ∧ fn v = Some vv.
 Proof.
   rewrite /mem_enumerate_sat. revert k vv.
-  eapply (map_fold_ind (λ b m, ∀ k vv, b !! k = Some vv ↔ ∃ v, m !! k = Some v ∧ fn v = Some vv)); clear m.
+  eapply (map_fold_weak_ind (λ b m, ∀ k vv, b !! k = Some vv ↔ ∃ v, m !! k = Some v ∧ fn v = Some vv)); clear m.
   1: intros ?; rewrite lookup_empty; set_solver.
   intros k1 v1 m r Hk1 IH k.
   destruct (fn v1) as [y|] eqn:Hv1; split.
@@ -2500,7 +2500,7 @@ Lemma tree_access_many_compat_nexts_helper_2 C tg (L : gmap Z _) a b :
   preserve_tree_compat_nexts (λ tr, map_fold (λ l acc tr2, tr2 ≫= memory_access_nonchildren_only acc C tg (l, 1%nat)) (Some tr) L) a a b b.
 Proof.
   intros tr tr' Hcompat.
-  map_fold_ind L as z acc L Hne _ IH in tr'; simpl.
+  map_fold_weak_ind L as z acc L Hne _ IH in tr'; simpl.
   1: intros [= ->]; done.
   intros (trm&H1&H2)%bind_Some.
   eapply memory_access_compat_nexts. 2: done.
