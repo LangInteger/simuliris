@@ -117,7 +117,7 @@ Qed.
 
 (** Write *)
 Lemma write_mem_dom l vl h
-  (DEFINED: ∀ i : nat, (i < strings.length vl)%nat → (l +ₗ i) ∈ dom h) :
+  (DEFINED: ∀ i : nat, (i < String.length vl)%nat → (l +ₗ i) ∈ dom h) :
   dom (write_mem l vl h) ≡ dom h.
 Proof.
   revert l h DEFINED. induction vl as [|v vl IH]; intros l h DEFINED; [done|].
