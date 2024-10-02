@@ -65,6 +65,7 @@ End fix_bi.
 
 Module bij_test.
   Import inv.
+  Section b.
   Context `{!simpleGS Σ}.
 
   Lemma test_load π l l2:
@@ -110,4 +111,5 @@ Module bij_test.
   Proof.
     iIntros "#H". sim_free; sim_val. done.
   Qed.
+  End b.
 End bij_test.
