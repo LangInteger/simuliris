@@ -53,7 +53,7 @@ Fixpoint subst_l (xl : list binder) (esl : list expr) (e : expr) : option expr :
   | x::xl, es::esl => subst_l xl esl (subst' x es e)
   | _, _ => None
   end.
-Arguments subst_l _%binder _ _%E.
+Arguments subst_l _%_binder _ _%_E.
 
 Lemma subst_l_is_Some xl el e :
   length xl = length el → is_Some (subst_l xl el e).

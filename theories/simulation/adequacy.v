@@ -19,7 +19,7 @@ Section meta_level_simulation.
   Context {PROP_pure_forall : BiPureForall PROP}.
   Context {PROP_pers_forall : BiPersistentlyForall PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
+  Arguments sat _%_I.
 
   Context (p_t p_s: prog Λ).
 
@@ -300,7 +300,7 @@ Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP, !BiPersistentlyForall PROP}.
   Context {Λ : language}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
+  Arguments sat _%_I.
 
   Variable (I: state Λ → state Λ → Prop).
   Variable (main: string) (u: val Λ).

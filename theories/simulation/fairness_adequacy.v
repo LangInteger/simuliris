@@ -503,7 +503,7 @@ Qed.
 (* we use sim_pool to prove the preservation of fair termination *)
 Section fair_termination.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
+  Arguments sat _%_I.
 
 
   (* TODO: move these lemmas to different file *)
