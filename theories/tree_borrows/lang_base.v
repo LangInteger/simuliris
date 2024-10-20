@@ -446,18 +446,6 @@ Qed.
 (** Main state: a heap of scalars, each with an associated lock to detect data races. *)
 Definition mem := gmap loc scalar.
 
-(** Internal events *)
-
-(* Per-allocation events.
-   This is only useful during the proofs against the operational semantics:
-   if we drop support for [disjoint.v] we should also delete this definition. *)
-Inductive bor_local_event :=
-  | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
-  | InitCallBLEvt (cid : call_id)
-  | EndCallBLEvt (cid : call_id)
-  | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (im : interior_mut) (c : call_id) (rk : retag_kind)
-  | SilentBLEvt.
-
 (* Events in all their generality.
    We use the point of view adopted by Stacked Borrows and regarded by LLVM
    as acceptable which is to make FAILED READS NOT UB.

@@ -832,61 +832,6 @@ Definition trees_fresh_call cid trs blk :=
   trs !! blk = Some tr ->
   tree_fresh_call cid tr.
 
-(* FIXME: this can only do strong accesses *)
-Inductive bor_local_step tr cids
-  : bor_local_event -> tree item -> call_id_set -> Prop :=
-  | AccessLIS kind tr' range tg
-    (EXISTS_TAG: tree_contains tg tr)
-    (ACC: memory_access kind cids tg range tr = Some tr') :
-    bor_local_step
-      tr cids
-      (AccessBLEvt kind tg range)
-      tr' cids
-  | InitCallLIS cid
-    (INACTIVE_CID : ~cid ∈ cids)
-    (FRESH_CID : tree_fresh_call cid tr) :
-    bor_local_step
-      tr cids
-      (InitCallBLEvt cid)
-      tr ({[cid]} ∪ cids)
-  | EndCallLIS cid
-    (EL: cid ∈ cids) :
-    bor_local_step
-      tr cids
-      (EndCallBLEvt cid)
-      tr (cids ∖ {[cid]})
-  | RetagLIS tr' tgp tg pk im (cid : call_id) rk
-    (EL: cid ∈ cids)
-    (EXISTS_PARENT: tree_contains tgp tr)
-    (FRESH_CHILD: ~tree_contains tg tr)
-    (RETAG_EFFECT: create_child cids tgp tg pk im rk cid tr = Some tr') :
-    bor_local_step
-      tr cids
-      (RetagBLEvt tgp tg pk im cid rk)
-      tr' cids
-    (* TODO: this is missing the no-op retag for shared interiormut. *)
-  .
-
-Record seq_invariant := MkRecord {
-  seq_inv : tree item -> call_id_set -> Prop;
-}.
-Inductive bor_local_seq (invariant : seq_invariant) tr cids
-  : list bor_local_event -> tree item -> call_id_set -> Prop :=
-  | bor_nil
-    (INV : invariant.(seq_inv) tr cids) :
-    bor_local_seq invariant
-      tr cids
-      []
-      tr cids
-  | bor_cons evt tr' cids' evts tr'' cids''
-    (INV : invariant.(seq_inv) tr cids)
-    (HEAD : bor_local_step tr cids evt tr' cids')
-    (REST : bor_local_seq invariant tr' cids' evts tr'' cids'') :
-    bor_local_seq invariant
-      tr cids
-      (evt :: evts)
-      tr'' cids''.
-
 (* Traverse the entire tree and get for each tag protected by cid its currently initialized locations.
    Those are all the locations that we'll do a read access through, or even a write access if it is Active *)
 Definition tree_get_all_protected_tags_initialized_locs (cid : nat) (tr : tree item)
@@ -1062,8 +1007,4 @@ Succeed Example foo : rel_dec with_three_children 4 1 = Child (Strict FurtherAwa
 Succeed Example foo : rel_dec with_three_children 4 2 = Child (Strict Immediate)     := eq_refl.
 Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin               := eq_refl.
 Succeed Example foo : rel_dec with_three_children 4 4 = Child This                   := eq_refl.
-
-
-
-
 
