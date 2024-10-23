@@ -461,3 +461,63 @@ Proof.
   apply apply_within_trees_commutes.
   apply memory_access_read_commutes.
 Qed.
+
+Lemma CopyEvt_commutes
+  { trs0 cids0 nxtp0 nxtc0
+    alloc1 tg1 range1 val1
+    trs1 cids1 nxtp1 nxtc1
+    alloc2 tg2 range2 val2
+    trs2 cids2 nxtp2 nxtc2
+  }
+  (Step1 :
+    bor_step
+      trs0 cids0 nxtp0 nxtc0
+      (CopyEvt alloc1 tg1 range1 val1)
+      trs1 cids1 nxtp1 nxtc1)
+  (Step2 :
+    bor_step
+      trs1 cids1 nxtp1 nxtc1
+      (CopyEvt alloc2 tg2 range2 val2)
+      trs2 cids2 nxtp2 nxtc2)
+  : exists trs1' cids1' nxtp1' nxtc1',
+    bor_step
+      trs0 cids0 nxtp0 nxtc0
+      (CopyEvt alloc2 tg2 range2 val2)
+      trs1' cids1' nxtp1' nxtc1'
+    /\
+    bor_step
+      trs1' cids1' nxtp1' nxtc1'
+      (CopyEvt alloc1 tg1 range1 val1)
+      trs2 cids2 nxtp2 nxtc2
+  .
+Proof.
+  inversion Step1 as [|????? EXISTS1 ACC1 SZ1| | | | | | | | |].
+  - subst.
+    inversion Step2 as [|????? EXISTS2 ACC2 SZ2| | | | | | | | |].
+    + subst.
+      destruct (apply_read_within_trees_commutes _ _ _ ACC1 ACC2) as [trs1' [ACC2' ACC1']].
+      exists trs1'. exists cids2. exists nxtp2. exists nxtc2.
+      split.
+      * econstructor; eauto.
+        ** admit.
+      * econstructor; eauto.
+        ** admit.
+    + subst.
+      repeat eexists.
+      1: econstructor 3; auto.
+      econstructor; eauto.
+  - subst.
+    inversion Step2 as [|????? EXISTS2 ACC2 SZ2| | | | | | | | |].
+    + subst.
+      repeat eexists.
+      1: econstructor; eauto.
+      econstructor 3; eauto.
+    + subst.
+      repeat eexists.
+      all: econstructor 3; eauto.
+Admitted.
+
+
+
+
+
