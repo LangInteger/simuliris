@@ -401,3 +401,63 @@ Proof.
   apply apply_access_perm_read_commutes.
 Qed.
 
+Lemma apply_within_trees_commutes
+  {fn1 fn2 alloc1 alloc2}
+  (Commutes : commutes fn1 fn2)
+  : commutes
+    (apply_within_trees fn1 alloc1)
+    (apply_within_trees fn2 alloc2)
+  .
+Proof.
+  intros trs0 trs1 trs2 App0 App1.
+  (* Move forward *)
+  rewrite bind_Some in App0. destruct App0 as [tr0 [tr0Spec App0]].
+  rewrite bind_Some in App0. destruct App0 as [tr1 [tr1Spec App0]].
+  injection App0; intros; clear App0; subst.
+  rewrite bind_Some in App1. destruct App1 as [tr1b [tr1bSpec App1]].
+  rewrite bind_Some in App1. destruct App1 as [tr2 [tr2Spec App1]].
+  injection App1; intros; clear App1; subst.
+  (* Now we do the interesting case distinction *)
+  destruct (decide (alloc1 = alloc2)).
+  - (* Same allocation *)
+    subst.
+    assert (tr1 = tr1b). {
+      rewrite lookup_insert in tr1bSpec. injection tr1bSpec. tauto.
+    }
+    subst.
+    destruct (Commutes _ _ _ tr1Spec tr2Spec) as [tr1' [tr1'SpecA tr1'SpecB]].
+    exists (<[alloc2:=tr1']> trs0).
+    split.
+    + rewrite bind_Some. exists tr0. split; first done.
+      rewrite tr1'SpecA; simpl; done.
+    + rewrite bind_Some. exists tr1'.
+      split.
+      * apply lookup_insert.
+      * rewrite tr1'SpecB; simpl.
+        f_equal.
+        do 2 rewrite insert_insert.
+        reflexivity.
+  - (* Not the same allocation *)
+    exists (<[alloc2:=tr2]> trs0).
+    split.
+    + rewrite bind_Some. exists tr1b.
+      split.
+      * rewrite <- tr1bSpec. rewrite lookup_insert_ne; done.
+      * rewrite tr2Spec; done.
+    + rewrite bind_Some. exists tr0.
+      split.
+      * rewrite <- tr0Spec. rewrite lookup_insert_ne; done.
+      * rewrite tr1Spec; simpl.
+        f_equal. apply insert_commute. done.
+Qed.
+
+Lemma apply_read_within_trees_commutes
+  {cids tg1 range1 alloc1 tg2 range2 alloc2}
+  : commutes
+    (apply_within_trees (memory_access AccessRead cids tg1 range1) alloc1)
+    (apply_within_trees (memory_access AccessRead cids tg2 range2) alloc2)
+  .
+Proof.
+  apply apply_within_trees_commutes.
+  apply memory_access_read_commutes.
+Qed.
