@@ -517,6 +517,31 @@ Proof.
       all: econstructor 3; eauto.
 Admitted.
 
+Lemma bor_steps_CopyEvt_commutes
+  { trs0 cids0 nxtp0 nxtc0
+    alloc1 tg1 range1 val1
+    alloc2 tg2 range2 val2
+    trs2 cids2 nxtp2 nxtc2
+  }
+  (Steps : bor_steps
+    trs0 cids0 nxtp0 nxtc0
+    [CopyEvt alloc1 tg1 range1 val1; CopyEvt alloc2 tg2 range2 val2]
+    trs2 cids2 nxtp2 nxtc2)
+  : bor_steps
+    trs0 cids0 nxtp0 nxtc0
+    [CopyEvt alloc2 tg2 range2 val2; CopyEvt alloc1 tg1 range1 val1]
+    trs2 cids2 nxtp2 nxtc2
+  .
+Proof.
+  inversion Steps as [|?????????? HEAD1 REST1].
+  inversion REST1 as [|?????????? HEAD2 REST2].
+  inversion REST2.
+  subst.
+  destruct (CopyEvt_commutes HEAD1 HEAD2) as [?[?[?[?[HEAD2' HEAD1']]]]].
+  econstructor; last econstructor; last constructor.
+  + apply HEAD2'.
+  + apply HEAD1'.
+Qed.
 
 
 

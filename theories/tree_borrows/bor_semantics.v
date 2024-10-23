@@ -968,10 +968,27 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs' (cids ∖ {[c]}) nxtp nxtc
   .
 
+Inductive bor_steps trs cids nxtp nxtc
+  : list event -> trees -> call_id_set -> nat -> call_id -> Prop :=
+  | BorStepsDone :
+      bor_steps
+        trs cids nxtp nxtc
+        []
+        trs cids nxtp nxtc
+  | BorStepsMore evt evts
+      trs1 cids1 nxtp1 nxtc1
+      trs2 cids2 nxtp2 nxtc2
+      (HEAD : bor_step trs cids nxtp nxtc evt trs1 cids1 nxtp1 nxtc1)
+      (REST : bor_steps trs1 cids1 nxtp1 nxtc1 evts trs2 cids2 nxtp2 nxtc2) :
+      bor_steps
+        trs cids nxtp nxtc
+        (evt :: evts)
+        trs2 cids2 nxtp2 nxtc2
+  .
+
 (* conversion is magic *)
 Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some oo) : A := oo.
 Local Notation unwrap K := (unpack_option K eq_refl).
-
 
 Local Definition initial_tree := init_tree 1 0 4.
 Local Definition with_one_child :=
