@@ -226,7 +226,7 @@ Lemma tree_access_many_preserve_tag_protected_for_2 C tg_acc (L : gmap Z _) tr1 
   tag_protected_for_tree P c trL offp tg_prs ps.
 Proof.
   intros Hact fn. subst fn. simpl.
-  map_fold_ind L as off v L _ _ IH in trL.
+  map_fold_weak_ind L as off v L _ _ IH in trL.
   { intros [= ->]. done. }
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).

@@ -922,7 +922,7 @@ Section tainted_tags.
 
   Lemma ispoison_length v_t l t sz : ispoison v_t l t sz -∗ ⌜length v_t = sz⌝.
   Proof.
-    iIntros "(%i&(_&->)&_)". iPureIntro. by rewrite replicate_length.
+    iIntros "(%i&(_&->)&_)". iPureIntro. by rewrite length_replicate.
   Qed.
 
   Lemma tag_tainted_interp_insert σ_s t l :
@@ -1248,7 +1248,7 @@ Proof.
   intros <-.
   induction vals as [|v vals IH] in base,into|-*.
   1: done.
-  rewrite /= insert_length -IH //.
+  rewrite /= length_insert -IH //.
 Qed.
 
 Lemma write_range_to_list_length {T} base (vals into : list T) :
@@ -1337,7 +1337,7 @@ Proof.
     intros _. rewrite Nat.sub_diag /= //.
   - assert (<[ b := v ]> (write_range_to_list (S b) vs vold) !! i = write_range_to_list (S b) vs vold !! i) as ->.
     { destruct (decide (i = b)) as [->|Hne2]. 2: by rewrite list_lookup_insert_ne.
-      rewrite !lookup_ge_None_2. 1: done. 2: rewrite insert_length. all: rewrite write_range_to_list_length. all: lia. }
+      rewrite !lookup_ge_None_2. 1: done. 2: rewrite length_insert. all: rewrite write_range_to_list_length. all: lia. }
     intros (H1&H2)%IH. split.
     + intros (Hi1&Hi2&Hi3). assert (i-b = S (i - S b))%nat as -> by lia. simpl. eapply H1. lia.
     + intros Hn. eapply H2. lia.
@@ -1355,7 +1355,7 @@ Proof.
     rewrite Nat.sub_diag /= in H1. eapply H1. lia.
   - assert (<[ b := v ]> (write_range_to_list (S b) vs vold) !! i = write_range_to_list (S b) vs vold !! i) as ->.
     { destruct (decide (i = b)) as [->|Hne2]. 2: by rewrite list_lookup_insert_ne.
-      rewrite !lookup_ge_None_2. 1: done. 2: rewrite insert_length. all: rewrite write_range_to_list_length. all: lia. }
+      rewrite !lookup_ge_None_2. 1: done. 2: rewrite length_insert. all: rewrite write_range_to_list_length. all: lia. }
     symmetry. eapply IH. split.
     + intros (Hi1&Hi2&Hi3). assert (i-b = S (i - S b))%nat as HH by lia. rewrite HH in H1. simpl in H1. eapply H1. lia.
     + intros Hn. eapply H2. lia.
@@ -1867,10 +1867,12 @@ Proof.
   iExists (SBorGS _ _ _).
   iSplitL; last iSplit; last iSplit.
   - simpl. iFrame "Hprog_t Hprog_s".
-    iExists ∅, ∅, ∅, ∅. iFrame. iSplitL "Htainted_auth".
+    iExists ∅, ∅, ∅, ∅.
+    iFrame "Hcall_auth Htag_auth Hheap_tgt_auth Hheap_src_auth".
+    iSplitL "Htainted_auth".
     { iExists ∅. iFrame. iIntros (t l (?&Hl)). by rewrite lookup_empty in Hl. }
     iSplitL "Hpub_call_auth".
-    { iExists ∅. iFrame. iApply big_sepM_empty. done. }
+    { iFrame. iApply big_sepM_empty. done. }
     iSplitL.
     { do 5 (iSplit; first (done || (iPureIntro; apply trees_equal_empty))). iIntros (l Hl). exfalso.
       move : Hl. rewrite lookup_empty. intros [? [=]]. }

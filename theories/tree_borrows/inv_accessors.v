@@ -278,7 +278,7 @@ Section lemmas.
           + apply dom_agree_on_tag_union; first last.
             { apply dom_agree_on_tag_not_elem; done. }
             rewrite Hl_eq. apply dom_agree_on_tag_array_tag_map.
-            by rewrite replicate_length.
+            by rewrite length_replicate.
         - (* old tag *)
           specialize (Htag_interp _ _ Hsome) as (? & ? & Hcontrol_t & Hcontrol_s & Hag).
           split_and!; [lia | lia | .. ].

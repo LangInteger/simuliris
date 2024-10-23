@@ -356,7 +356,7 @@ Proof.
     rewrite Eqf.
     intros. simplify_eq. apply list_find_Some in Eqf as [Eqi ?].
     apply lookup_lt_Some in Eqi.
-    rewrite app_length /= reverse_length Nat.add_1_r in Eqi. lia.
+    rewrite length_app /= length_reverse Nat.add_1_r in Eqi. lia.
 Qed.
 
 Lemma remove_check_incompatible_items cids stk stk' stk0 n it i t
@@ -653,7 +653,7 @@ Proof.
       exfalso. apply (LT _ _ Lt Eqit1). rewrite /matched_grant Eqp1 //. }
     intros it [k Eqk]%elem_of_list_lookup_1.
     have Ltk : (k < n2)%nat.
-    { rewrite -(take_length_le stk n2).
+    { rewrite -(length_take_le stk n2).
       - by eapply lookup_lt_Some.
       - apply Nat.lt_le_incl; by eapply lookup_lt_Some. }
     have HL: stk !! k = Some it. { rewrite -(lookup_take _ n2) //. }
@@ -1314,10 +1314,10 @@ Proof.
     + exists i. split; [done|]. rewrite Nat.sub_0_r. split; [right; lia|done].
     + exists (S i). split; [done|]. split; [by left|done].
     + exists (S i). rewrite Nat.sub_0_r. split; last split; [|by left|].
-      * rewrite list_lookup_middle // take_length_le //.
+      * rewrite list_lookup_middle // length_take_le //.
         by eapply Nat.lt_le_incl, lookup_lt_Some.
       * intros j' Lt'. rewrite lookup_app_l; [apply lookup_take; lia|].
-        rewrite take_length_le //. by eapply Nat.lt_le_incl, lookup_lt_Some.
+        rewrite length_take_le //. by eapply Nat.lt_le_incl, lookup_lt_Some.
 Qed. *)
 
 Lemma find_granting_Some stk kind bor i pi :
@@ -1393,15 +1393,15 @@ Proof.
   have IN2 := find_first_write_incompatible_active_SRO _ _ _ FI.
   have Ltn := find_granting_lt _ _ _ _ _ FR.
   destruct (IN2 _ IN') as (j & jt & Eqjt & Eqp & Eqt & Lt' & HL).
-  have Eqln: length (take n stk) = n by apply take_length_le; lia.
+  have Eqln: length (take n stk) = n by apply length_take_le; lia.
   have Len' := find_first_write_incompatible_le _ _ _ FI. rewrite Eqln in Len'.
   have Eqjt' : stk !! j = Some jt.
   { rewrite lookup_take // in Eqjt. lia. }
   apply (active_SRO_elem_of_inv j jt t); [|done|done|].
   - rewrite lookup_app_l; [by rewrite lookup_take|].
-    rewrite take_length_le //. lia.
+    rewrite length_take_le //. lia.
   - intros k kt Ltk.
-    rewrite lookup_app_l; last by (rewrite take_length_le; lia).
+    rewrite lookup_app_l; last by (rewrite length_take_le; lia).
     intros Eqkt. apply (HL _ _ Ltk).
     rewrite lookup_take; [|lia].
     rewrite lookup_take in Eqkt; [done|lia].
@@ -1527,7 +1527,7 @@ Proof.
   have IN' := find_granting_incompatible_head _ _ _ _ _ _ _ _ IN NEQ FR.
   have IN2 := find_first_write_incompatible_head _ _ _ _ _ _ IN' ltac:(done) FI.
   have Ltn := find_granting_lt _ _ _ _ _ FR.
-  have Eqln: length (take n stk) = n by apply take_length_le; lia.
+  have Eqln: length (take n stk) = n by apply length_take_le; lia.
   have Len' := find_first_write_incompatible_le _ _ _ FI. rewrite Eqln in Len'.
   have ?: take n' stk ≠ [].
   { destruct stk; [simpl in Ltn; lia|]. destruct n'; [lia|done]. }

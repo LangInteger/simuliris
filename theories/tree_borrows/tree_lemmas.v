@@ -590,7 +590,7 @@ Lemma fold_immediate_children_at_count {X Y} p (ini:Y) fn (tr : tree X) :
 = count_nodes p tr.
 Proof.
   induction tr as [|x tr1 IH1 tr2 IH2]; first done.
-  simpl. rewrite !app_length IH1 IH2. by destruct (p x).
+  simpl. rewrite !length_app IH1 IH2. by destruct (p x).
 Qed.
 
 

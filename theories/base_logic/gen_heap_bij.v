@@ -78,10 +78,11 @@ Section laws.
     iPoseProof (gset_bij_elem_of with "Hauth Hrel") as "%".
     iPoseProof (big_sepS_delete with "Hheap") as "[He Hheap]"; first done.
     iDestruct "He" as (v_t v_s) "(H_t & H_s & Hvrel)".
-    iExists v_t, v_s. iFrame.
+    iExists v_t, v_s. iFrame "Hvrel H_t H_s".
     iIntros (v_t' v_s') "H_t H_s Hvrel".
-    iExists L. iFrame. iApply big_sepS_delete; first done.
-    iFrame. iExists v_t', v_s'. iFrame.
+    iExists L. iFrame.
+    iApply big_sepS_delete; first done.
+    iFrame.
   Qed.
 
   Lemma gen_heap_bij_insert val_rel l_t l_s v_t v_s :
@@ -111,7 +112,7 @@ Section laws.
     - iModIntro. iSplitL; last done.
       iExists ({[(l_t, l_s)]} ∪ L)%I. iFrame.
       iApply big_sepS_insert. { contradict Hext_t. by exists (l_t, l_s). }
-      iFrame. iExists v_t, v_s. iFrame.
+      iFrame.
   Qed.
 
 End laws.

@@ -166,28 +166,28 @@ Inductive expr :=
 
 Bind Scope expr_scope with expr.
 
-Arguments Val _%E.
-(* Arguments App _%E _%E. *)
-Arguments BinOp _ _%E _%E.
-Arguments Call _%E _%E.
-Arguments EndCall _%E.
-Arguments Proj _%E _%E.
-Arguments Conc _%E _%E.
-Arguments Deref _%E _%T.
-Arguments Ref _%E.
-(* Arguments Field _%E _. *)
-Arguments Copy _%E.
-Arguments Write _%E _%E.
-Arguments Alloc _%T.
-Arguments Free _%E.
-(* Arguments CAS _%E _%E _%E. *)
-(* Arguments AtomWrite _%E _%E. *)
-(* Arguments AtomRead _%E. *)
-Arguments Retag _%E _%E _ _ _.
-Arguments Let _%binder _%E _%E.
-Arguments Case _%E _%E.
-Arguments While _%E _%E.
-(* Arguments Fork _%E. *)
+Arguments Val _%_E.
+(* Arguments App _%_E _%_E. *)
+Arguments BinOp _ _%_E _%_E.
+Arguments Call _%_E _%_E.
+Arguments EndCall _%_E.
+Arguments Proj _%_E _%_E.
+Arguments Conc _%_E _%_E.
+Arguments Deref _%_E _%_T.
+Arguments Ref _%_E.
+(* Arguments Field _%_E _. *)
+Arguments Copy _%_E.
+Arguments Write _%_E _%_E.
+Arguments Alloc _%_T.
+Arguments Free _%_E.
+(* Arguments CAS _%_E _%_E _%_E. *)
+(* Arguments AtomWrite _%_E _%_E. *)
+(* Arguments AtomRead _%_E. *)
+Arguments Retag _%_E _%_E _ _ _.
+Arguments Let _%_binder _%_E _%_E.
+Arguments Case _%_E _%_E.
+Arguments While _%_E _%_E.
+(* Arguments Fork _%_E. *)
 
 (** Closedness *)
 Fixpoint is_closed (X : list string) (e : expr) : bool :=

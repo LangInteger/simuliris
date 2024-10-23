@@ -19,7 +19,7 @@ Section meta_level_simulation.
   Context {PROP_pure_forall : BiPureForall PROP}.
   Context {PROP_pers_forall : BiPersistentlyForall PROP}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
+  Arguments sat _%_I.
 
   Context (p_t p_s: prog Λ).
 
@@ -152,7 +152,7 @@ Section meta_level_simulation.
             exists v_t, v_s. split; eauto using pool_step_value_preservation, pool_steps_value_preservation. }
           iSpecialize ("Hpost" $! e_t' e_s'' with "Hsim").
           rewrite Hupd. iApply (big_sepL2_app with "Hpost [Hforks]").
-          by rewrite insert_length Hlen.
+          by rewrite length_insert Hlen.
   Qed.
 
   Lemma msim_not_stuck (T_t T_s: tpool Λ) (σ_t σ_s: state Λ) V i e_t :
@@ -300,7 +300,7 @@ Section adequacy_statement.
   Context {PROP : bi} `{!BiBUpd PROP, !BiAffine PROP, !BiPureForall PROP, !BiPersistentlyForall PROP}.
   Context {Λ : language}.
   Context {sat: PROP → Prop} {Sat: Satisfiable sat}.
-  Arguments sat _%I.
+  Arguments sat _%_I.
 
   Variable (I: state Λ → state Λ → Prop).
   Variable (main: string) (u: val Λ).

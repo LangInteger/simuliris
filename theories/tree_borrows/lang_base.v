@@ -336,22 +336,22 @@ Inductive expr :=
 
 Bind Scope expr_scope with expr.
 
-Arguments Val _%E.
-Arguments BinOp _ _%E _%E.
-Arguments Call _%E _%E.
-Arguments EndCall _%E.
-Arguments Proj _%E _%E.
-Arguments Conc _%E _%E.
-Arguments Deref _%E _%nat.
-Arguments Ref _%E.
-Arguments Copy _%E.
-Arguments Write _%E _%E.
-Arguments Alloc _%nat.
-Arguments Free _%E.
-Arguments Retag _%E _%E _%nat _.
-Arguments Let _%binder _%E _%E.
-Arguments Case _%E _%E.
-Arguments While _%E _%E.
+Arguments Val _%_E.
+Arguments BinOp _ _%_E _%_E.
+Arguments Call _%_E _%_E.
+Arguments EndCall _%_E.
+Arguments Proj _%_E _%_E.
+Arguments Conc _%_E _%_E.
+Arguments Deref _%_E _%_nat.
+Arguments Ref _%_E.
+Arguments Copy _%_E.
+Arguments Write _%_E _%_E.
+Arguments Alloc _%_nat.
+Arguments Free _%_E.
+Arguments Retag _%_E _%_E _%_nat _.
+Arguments Let _%_binder _%_E _%_E.
+Arguments Case _%_E _%_E.
+Arguments While _%_E _%_E.
 
 (** Closedness *)
 Fixpoint is_closed (X : list string) (e : expr) : bool :=

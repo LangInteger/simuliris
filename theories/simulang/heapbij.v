@@ -188,7 +188,7 @@ Section definitions.
     iFrame "Halloc_t Halloc_s".
     iSplitR; [|iSplit; [done|]]; last first.
     - iApply "Hclose". iExists _, (Some _). by iFrame.
-    - iPureIntro. rewrite insert_length. lia.
+    - iPureIntro. rewrite length_insert. lia.
   Qed.
 
   Lemma alloc_rel_free b_t b_s n σ_s σ_t o (P : _ → _ → _ → Prop):
@@ -227,7 +227,7 @@ Section definitions.
     iMod (heap_free with "Hσ_s Hl_s [Ha_s]") as (_ _) "[Ha_s Hσ_s]"; [done| naive_solver| by rewrite -Hlen' Hlen |].
     rewrite -Hlen' Hlen Z2Nat.id; [|lia]. iFrame. iModIntro. iSplit; [naive_solver|].
     rewrite Z2Nat.id in Hlookup; [|lia]. iSplit; [done|].
-    iExists _, [], []. iFrame. by simpl.
+    iExists [], []. by simpl.
   Qed.
 
   Lemma alloc_rel_P_holds (P : _ → _ → _ → Prop) b_t b_s σ_s o s:
@@ -277,7 +277,7 @@ Section definitions.
     have [v_t Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
     have Hv_s':= take_drop_middle _ _ _ Hv_s.
     have Hv_t':= take_drop_middle _ _ _ Hv_t.
-    rewrite -{1}Hv_s' -{1}Hv_t' big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..].
+    rewrite -{1}Hv_s' -{1}Hv_t' big_sepL2_app_same_length /= ?length_take_le ?Nat.add_0_r; [|lia..].
     iDestruct "Hvs" as "(Hvs_1&Hl&Hvs_2)".
     iDestruct "Hl" as (st' q ?%Hq1) "[#Hv Hp]". subst.
     iDestruct "Hp" as "[Hl_t Hl_s]".
@@ -288,8 +288,8 @@ Section definitions.
       iDestruct (heap_pointsto_split _ _ _ _ 0 with "Hl_s") as "[Hl_s1 Hl_s2]"; [done..|].
       iModIntro.
       iExists _. iFrame "∗Hv".
-      iExists _, vs_t, vs_s. iFrame. iSplit; [done|]. iSplit; [done|].
-      rewrite -{3}Hv_s' -{3}Hv_t' big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..].
+      iExists vs_t, vs_s. iSplit; [done|]. iSplit; [done|].
+      rewrite -{3}Hv_s' -{3}Hv_t' big_sepL2_app_same_length /= ?length_take_le ?Nat.add_0_r; [|lia..].
       iSplitL "Hvs_1"; [|iSplitR "Hvs_2"].
       + iApply (big_sepL2_impl with "Hvs_1").
         iIntros "!>" (??? ?%lookup_take_Some ?%lookup_take_Some) "[%s [%q' [% Hp]]]".
@@ -303,8 +303,8 @@ Section definitions.
     - have ->: n'' = 0 by naive_solver lia.
       iModIntro.
       iExists _. iFrame "∗Hv".
-      iExists _, vs_t, vs_s. iFrame. iSplit; [done|]. iSplit; [done|].
-      rewrite -{3}Hv_s' -{3}Hv_t' big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..].
+      iExists vs_t, vs_s. iSplit; [done|]. iSplit; [done|].
+      rewrite -{3}Hv_s' -{3}Hv_t' big_sepL2_app_same_length /= ?length_take_le ?Nat.add_0_r; [|lia..].
       iSplitL "Hvs_1"; [|iSplitR "Hvs_2"].
       + iApply (big_sepL2_impl with "Hvs_1").
         iIntros "!>" (??? ?%lookup_take_Some ?%lookup_take_Some) "[%s [%q' [% Hp]]]".
@@ -343,15 +343,15 @@ Section definitions.
     have [v_t' Hv_t]:= lookup_lt_is_Some_2 vs_t n' ltac:(lia).
     have Hv_s':= take_drop_middle _ _ _ Hv_s.
     have Hv_t':= take_drop_middle _ _ _ Hv_t.
-    rewrite -{1}Hv_s' -{1}Hv_t' big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..].
+    rewrite -{1}Hv_s' -{1}Hv_t' big_sepL2_app_same_length /= ?length_take_le ?Nat.add_0_r; [|lia..].
     iDestruct "Hvs" as "(Hvs_1&Hl&Hvs_2)".
     iDestruct "Hl" as (st' q' ?) "[Hv' Hp]". subst.
 
     iModIntro. iFrame.
-    iExists n, (<[n' := v_t]>vs_t), (<[n' := v_s]>vs_s).
-    iSplit. { by rewrite insert_length. } iSplit; [done|]. iFrame.
+    iExists (<[n' := v_t]>vs_t), (<[n' := v_s]>vs_s).
+    iSplit. { by rewrite length_insert. } iSplit; [done|].
     rewrite !insert_take_drop; [|by apply: lookup_lt_Some..].
-    rewrite big_sepL2_app_same_length /= ?take_length_le ?Nat.add_0_r; [|lia..]. iFrame.
+    rewrite big_sepL2_app_same_length /= ?length_take_le ?Nat.add_0_r; [|lia..]. iFrame.
     iSplitL "Hvs_1"; [|iSplitR "Hvs_2"].
     - iApply (big_sepL2_impl with "Hvs_1").
       iIntros "!>" (??? ?%lookup_take_Some ?%lookup_take_Some) "[%s [%q'' [% Hp]]]".

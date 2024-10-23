@@ -20,7 +20,7 @@ Section satisfiable.
 
   Section derived_lemmas.
     Context {sat: PROP → Prop} `{Satisfiable sat}.
-    Arguments sat _%I.
+    Arguments sat _%_I.
 
     (* derived *)
     Set Default Proof Using "Type*".
@@ -30,7 +30,7 @@ Section satisfiable.
 
     Global Instance sat_equiv: Proper ((≡) ==> iff) sat.
     Proof.
-      intros P Q Heq; split; intros Hsat; eauto using sat_mono, equiv_entails_1_1, equiv_entails_1_2.
+      intros P Q Heq; split; intros Hsat; (eapply sat_mono; last done); eauto using equiv_entails_1_1, equiv_entails_1_2.
     Qed.
 
     Lemma sat_sep P Q: sat (P ∗ Q) → sat P ∧ sat Q.
@@ -73,7 +73,7 @@ Section satisfiable.
 
   Section sat_frame.
     Context {sat: PROP → Prop} `{Satisfiable sat}.
-    Arguments sat _%I.
+    Arguments sat _%_I.
 
     Definition sat_frame (F P: PROP) := sat (F ∗ P).
 
@@ -99,7 +99,7 @@ Section satisfiable.
   End sat_frame.
 
 End satisfiable.
-Arguments sat_frame {_} {_}%function_scope _%I _%I.
+Arguments sat_frame {_} {_}%_function_scope _%_I _%_I.
 
 
 

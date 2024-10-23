@@ -52,12 +52,12 @@ Proof.
   (* gain knowledge about the length *)
   iApply source_red_safe_implies. iIntros (Hsize).
   iApply (source_write_local with "Htag Hs"). 2: done.
-  { eapply write_entire_range. 2: exact Hsize. rewrite replicate_length //. }
+  { eapply write_entire_range. 2: exact Hsize. rewrite length_replicate //. }
   iIntros "Hs Htag". source_finish.
 
   target_bind (Write _ _).
   iApply (target_write_local with "Htag Ht"). 2: done. 2: lia.
-  { eapply write_entire_range. 1: rewrite replicate_length //. lia. }
+  { eapply write_entire_range. 1: rewrite length_replicate //. lia. }
   iIntros "Ht Htag". target_finish.
 
   sim_pures. iApply ("Hsim" with "[//] [] Htag Ht Hs").

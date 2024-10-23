@@ -35,9 +35,9 @@ Proof.
   iIntros (e_t' efs_t σ_t' Hstep).
   eapply head_copy_inv in Hstep as (->&[((HNone&->&->&HH1)&Hintree)|(trs'&v'&->&->&Hread&[(_&_&HH)|(_&->&->)])]).
   - iModIntro. iSplit; first done. simpl. iFrame "Hsim".
-    iFrame. by repeat iExists _.
+    iFrame.
   - lia.
-  - iModIntro. iSplit; first done. simpl. iFrame. do 4 iExists _. destruct σ_t. done.
+  - iModIntro. iSplit; first done. simpl. iFrame "HP_s HP_t Hsim". do 4 iExists _. destruct σ_t. done.
 Qed.
 
 Lemma source_copy_zero l t π Ψ :

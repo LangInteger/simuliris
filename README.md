@@ -6,7 +6,7 @@ This repository contains the Coq development of Simuliris (paper presented at PO
 
 This version is known to compile with:
 
- - Coq 8.18.0
+ - Coq 8.20.0
  - A development version of [Iris](https://gitlab.mpi-sws.org/iris/iris)
  - A recent version of [Coq-Equations](https://github.com/mattam82/Coq-Equations)
 
