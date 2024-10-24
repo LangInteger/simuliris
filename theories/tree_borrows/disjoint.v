@@ -462,6 +462,23 @@ Proof.
   apply memory_access_read_commutes.
 Qed.
 
+Lemma apply_read_within_trees_same_tags
+  {tg trs trs' cids tg' range blk blk'}
+  (ACC : apply_within_trees (memory_access AccessRead cids tg' range) blk' trs = Some trs')
+  : trees_contain tg trs blk <-> trees_contain tg trs' blk.
+Proof.
+  rewrite bind_Some in ACC. destruct ACC as [tr [trSpec ACC]].
+  rewrite bind_Some in ACC. destruct ACC as [tr' [tr'Spec ACC]].
+  injection ACC; intros; clear ACC; subst.
+  rewrite /trees_contain /trees_at_block.
+  destruct (decide (blk = blk')).
+  + subst. rewrite lookup_insert. rewrite trSpec.
+    eapply access_preserves_tags.
+    apply tr'Spec.
+  + rewrite lookup_insert_ne; last done.
+    reflexivity.
+Qed.
+
 Lemma CopyEvt_commutes
   { trs0 cids0 nxtp0 nxtc0
     alloc1 tg1 range1 val1
@@ -499,9 +516,15 @@ Proof.
       exists trs1'. exists cids2. exists nxtp2. exists nxtc2.
       split.
       * econstructor; eauto.
-        ** admit.
+        rewrite apply_read_within_trees_same_tags; last exact ACC2'.
+        rewrite apply_read_within_trees_same_tags; last exact ACC1'.
+        rewrite- apply_read_within_trees_same_tags; last exact ACC2.
+        assumption.
       * econstructor; eauto.
-        ** admit.
+        rewrite apply_read_within_trees_same_tags; last exact ACC1'.
+        rewrite- apply_read_within_trees_same_tags; last exact ACC2.
+        rewrite- apply_read_within_trees_same_tags; last exact ACC1.
+        assumption.
     + subst.
       repeat eexists.
       1: econstructor 3; auto.
@@ -515,7 +538,7 @@ Proof.
     + subst.
       repeat eexists.
       all: econstructor 3; eauto.
-Admitted.
+Qed.
 
 Lemma bor_steps_CopyEvt_commutes
   { trs0 cids0 nxtp0 nxtc0
