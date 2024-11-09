@@ -570,6 +570,8 @@ From simuliris.tree_borrows Require Import lang examples.lib.
 
 Definition single_thread_step (P : prog) (st st' : expr * state) := prim_step P st.1 st.2 st'.1 st'.2 [].
 
+Definition exec e1 σ1 e2 σ2 := rtc single_thread_step (e1, σ1) (e2, σ2) ∧ irreducible e2 σ2.
+
 Definition refines P (e1 e2 : expr) :=
   ∀ σ e' σ', rtc (single_thread_step P) (e1, σ) (e', σ') →
     ( (* if the target can reach a stuck state, then so can the source *)
@@ -582,18 +584,4 @@ Definition two_reads v1 x1 v2 x2 rest : expr :=
   let: v2 := Copy *{sizeof_scalar} x2 in
   rest.
 
-Theorem basic_refinement {P rest} :
-  refines P
-    (two_reads "v1" "x1" "v2" "x2" rest)
-    (two_reads "v2" "x2" "v1" "x1" rest).
-Proof.
-  intros ? ? ? Reach. 
-  split.
-  + admit.
-  + unfold two_reads in *.
-    inversion Reach; intros; subst. { inversion H0. inversion H. }
-    destruct y; simpl in *; subst.
-    inversion H; simpl in *; subst.
-    destruct K; simpl in *.
-    * inversion H4.
 
