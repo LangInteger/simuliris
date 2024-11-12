@@ -25,6 +25,16 @@ Definition commutes {X}
     /\ fn1 x1' = Some x2
   ).
 
+Definition persistent {X}
+  (fn1 fn2 : X -> option X)
+  := forall x x1 x2,
+  fn1 x = Some x1 ->
+  fn2 x = Some x2 ->
+  exists x', (
+    fn2 x1 = Some x'
+    /\ fn1 x2 = Some x'
+  ).
+
 Definition commutes_option {X}
   (fn1 fn2 : option X -> option X)
   := forall x0 x1 x2,
@@ -55,6 +65,31 @@ Proof.
   all: try (eexists; split; [reflexivity|]); simpl.
   all: reflexivity.
 Qed.
+
+(* Unfortunately this does not go through because
+   Active lazy protected is unreachable but not unrepresentable.
+ *)
+Lemma apply_access_perm_read_persistent
+  {rel1 rel2 prot}
+  : persistent
+    (apply_access_perm AccessRead rel1 prot)
+    (apply_access_perm AccessRead rel2 prot).
+Proof.
+  move=> p0 p1 p2 Step01 Step12.
+  unfold apply_access_perm in *.
+  all: destruct p0 as [[] [[]| | | | ]].
+  all: destruct prot; simpl in *.
+  all: destruct rel1; simpl in *.
+  all: try (inversion Step01; done).
+  all: injection Step01; intros; subst.
+  all: simpl.
+  all: destruct rel2; simpl in *.
+  all: try (inversion Step12; done).
+  all: injection Step12; intros; subst; simpl.
+  all: try (eexists; split; [reflexivity|]); simpl.
+  all: reflexivity.
+Qed.
+
 
 Lemma mem_apply_loc_insert_ne
   {X} {fn : option X -> option X} {z mem mem' z0}
@@ -565,23 +600,4 @@ Proof.
   + apply HEAD2'.
   + apply HEAD1'.
 Qed.
-
-From simuliris.tree_borrows Require Import lang examples.lib.
-
-Definition single_thread_step (P : prog) (st st' : expr * state) := prim_step P st.1 st.2 st'.1 st'.2 [].
-
-Definition exec e1 σ1 e2 σ2 := rtc single_thread_step (e1, σ1) (e2, σ2) ∧ irreducible e2 σ2.
-
-Definition refines P (e1 e2 : expr) :=
-  ∀ σ e' σ', rtc (single_thread_step P) (e1, σ) (e', σ') →
-    ( (* if the target can reach a stuck state, then so can the source *)
-      irreducible P e' σ' → ∃ e'' σ'', irreducible P e'' σ'' ∧ rtc (single_thread_step P) (e2, σ) (e', σ') ) ∧
-    ( (* if the target can reach a value, then the source can reach the same value in the same state *)
-      is_Some (to_val e') → rtc (single_thread_step P) (e2, σ) (e', σ')).
-
-Definition two_reads v1 x1 v2 x2 rest : expr :=
-  let: v1 := Copy *{sizeof_scalar} x1 in
-  let: v2 := Copy *{sizeof_scalar} x2 in
-  rest.
-
 
