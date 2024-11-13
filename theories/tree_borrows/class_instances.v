@@ -13,7 +13,6 @@ Section pure_exec.
     subst; intros ?; apply nsteps_once, pure_base_step_pure_step;
       constructor; [solve_exec_safe | solve_exec_puredet].
 
-
   (*pure_expr_step*)
   Global Instance pure_iota_val x (e2 : expr) (v1 : value) :
     PureExec True 1 (Let x (Val v1) e2) (subst' x (Val v1) e2).

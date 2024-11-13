@@ -209,3 +209,4 @@ theories/tree_borrows/examples/unprotected/shared_delete_read_escaped.v
 theories/tree_borrows/examples/unprotected/shared_delete_read_escaped_coinductive.v
 theories/tree_borrows/examples/lib.v
 theories/tree_borrows/examples/pure.v
+theories/tree_borrows/read_reorder.v

@@ -12,7 +12,7 @@
  *)
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
-From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve.
+From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve defs.
 From iris.prelude Require Import options.
 
 Definition commutes {X}
@@ -25,15 +25,21 @@ Definition commutes {X}
     /\ fn1 x1' = Some x2
   ).
 
-Definition persistent {X}
+Definition commutes_first_failing {X} (P : X → Prop)
   (fn1 fn2 : X -> option X)
-  := forall x x1 x2,
-  fn1 x = Some x1 ->
-  fn2 x = Some x2 ->
-  exists x', (
-    fn2 x1 = Some x'
-    /\ fn1 x2 = Some x'
-  ).
+  := forall x0 x1,
+  P x0 →
+  fn1 x0 = None ->
+  fn2 x0 = Some x1 ->
+  fn1 x1 = None.
+
+Definition commutes_second_failing {X} (P : X → Prop)
+  (fn1 fn2 : X -> option X)
+  := forall x0 x1,
+  P x0 →
+  fn1 x0 = Some x1 ->
+  fn2 x1 = None ->
+  fn2 x0 = None.
 
 Definition commutes_option {X}
   (fn1 fn2 : option X -> option X)
@@ -66,28 +72,39 @@ Proof.
   all: reflexivity.
 Qed.
 
-(* Unfortunately this does not go through because
-   Active lazy protected is unreachable but not unrepresentable.
- *)
-Lemma apply_access_perm_read_persistent
+Lemma apply_access_perm_read_commutes_fail_first
   {rel1 rel2 prot}
-  : persistent
+  : commutes_first_failing (λ _, True)
     (apply_access_perm AccessRead rel1 prot)
     (apply_access_perm AccessRead rel2 prot).
 Proof.
-  move=> p0 p1 p2 Step01 Step12.
+  move=> p0 p1 Hwf Step01 Step12.
   unfold apply_access_perm in *.
   all: destruct p0 as [[] [[]| | | | ]].
   all: destruct prot; simpl in *.
   all: destruct rel1; simpl in *.
-  all: try (inversion Step01; done).
-  all: injection Step01; intros; subst.
+  all: try by simplify_eq.
   all: simpl.
   all: destruct rel2; simpl in *.
-  all: try (inversion Step12; done).
-  all: injection Step12; intros; subst; simpl.
-  all: try (eexists; split; [reflexivity|]); simpl.
-  all: reflexivity.
+  all: by simplify_eq.
+Qed.
+
+Lemma apply_access_perm_read_commutes_fail_second
+  {rel1 rel2 prot}
+  : commutes_second_failing lazy_perm_wf
+    (apply_access_perm AccessRead rel1 prot)
+    (apply_access_perm AccessRead rel2 prot).
+Proof.
+  move=> p0 p1 Hwf Step01 Step12.
+  unfold apply_access_perm in *.
+  all: destruct p0 as [[] [[]| | | | ]].
+  all: destruct prot; simpl in *.
+  all: destruct rel1; simpl in *.
+  all: simplify_eq.
+  all: simpl.
+  all: destruct rel2; simpl in *.
+  all: simplify_eq; try done.
+  all: specialize (Hwf eq_refl); simpl in *; simplify_eq.
 Qed.
 
 
@@ -600,4 +617,5 @@ Proof.
   + apply HEAD2'.
   + apply HEAD1'.
 Qed.
+
 
