@@ -146,6 +146,7 @@ theories/tree_borrows/steps_progress.v
 theories/tree_borrows/steps_inv.v
 
 theories/tree_borrows/tactics.v
+theories/tree_borrows/wishlist.v
 theories/tree_borrows/class_instances.v
 theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
