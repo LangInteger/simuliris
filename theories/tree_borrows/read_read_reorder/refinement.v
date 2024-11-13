@@ -1,6 +1,8 @@
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
-From simuliris.tree_borrows Require Import defs lang_base lang notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve tactics class_instances.
+From simuliris.tree_borrows Require Import defs lang_base lang notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve tactics class_instances refinement_def.
+
+
 From simuliris.tree_borrows.read_read_reorder Require Import low_level.
 From iris.prelude Require Import options.
 
@@ -313,7 +315,7 @@ Proof.
     split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
 Qed.
 
-Theorem read_reorder x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
+Lemma read_reorder' x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
   state_wf σ →
   x1 ≠ x2 →
   identical_states_after P (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) (target x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) σ 4
@@ -321,6 +323,14 @@ Theorem read_reorder x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
 Proof.
   split.
   all: eapply read_reorder_onesided; done.
+Qed.
+
+Theorem read_reorder x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P :
+  x1 ≠ x2 →
+  refines_after_nsteps P (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) (target x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) 4.
+Proof.
+  intros H1 σ Hσ.
+  eapply read_reorder'; done.
 Qed.
 
 Print Assumptions read_reorder.

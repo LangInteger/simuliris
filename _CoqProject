@@ -207,5 +207,6 @@ theories/tree_borrows/examples/pure.v
 # This results in a proof that reads can be reordered.
 theories/tree_borrows/read_read_reorder/low_level.v
 theories/tree_borrows/read_read_reorder/refinement.v
+theories/tree_borrows/read_read_reorder/refinement_def.v
 
 
