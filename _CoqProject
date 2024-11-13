@@ -164,7 +164,6 @@ theories/tree_borrows/steps_all.v
 theories/tree_borrows/primitive_laws.v
 theories/tree_borrows/proofmode.v
 theories/tree_borrows/early_proofmode.v
-theories/tree_borrows/wishlist.v
 theories/tree_borrows/tree_access_laws.v
 theories/tree_borrows/tag_protected_laws.v
 theories/tree_borrows/loc_controlled_laws.v
