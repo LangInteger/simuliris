@@ -51,6 +51,22 @@ Definition commutes_option {X}
     /\ fn1 (Some x1') = Some x2
   ).
 
+Definition persistent_if {X} (P : X -> Prop)
+  (fn1 fn2 : X -> option X)
+  := forall x x1 x2,
+  P x ->
+  fn1 x = Some x1 ->
+  fn2 x = Some x2 ->
+  exists x', fn2 x1 = Some x'.
+
+Definition persistent_if_option {X} (P : option X -> Prop)
+  (fn1 fn2 : option X -> option X)
+  := forall x x1 x2,
+  P x ->
+  fn1 x = Some x1 ->
+  fn2 x = Some x2 ->
+  exists x', fn2 (Some x1) = Some x'.
+
 Lemma apply_access_perm_read_commutes
   {rel1 rel2 prot}
   : commutes
@@ -70,6 +86,31 @@ Proof.
   all: injection Step12; intros; subst; simpl.
   all: try (eexists; split; [reflexivity|]); simpl.
   all: reflexivity.
+Qed.
+
+Lemma apply_access_perm_read_persistent
+  {rel1 rel2 prot}
+  : persistent_if lazy_perm_wf
+    (apply_access_perm AccessRead rel1 prot)
+    (apply_access_perm AccessRead rel2 prot).
+Proof.
+  move=> p0 p1 p2 wf Step01 Step12.
+  unfold apply_access_perm in *.
+  all: destruct p0 as [[] [[]| | | | ]].
+  all: destruct prot; simpl in *.
+  all: destruct rel1; simpl in *.
+  all: try (inversion Step01; done).
+  all: injection Step01; intros; subst.
+  all: simpl.
+  all: destruct rel2; simpl in *.
+  all: try (inversion Step12; done).
+  all: injection Step12; intros; subst; simpl.
+  all: try (eexists; reflexivity).
+  (* Only the non-wf cases remain *)
+  - rewrite /lazy_perm_wf in wf; simpl in *. exfalso.
+    specialize (wf ltac:(auto)). discriminate.
+  - rewrite /lazy_perm_wf in wf; simpl in *. exfalso.
+    specialize (wf ltac:(auto)). discriminate.
 Qed.
 
 Lemma apply_access_perm_read_commutes_fail_first
@@ -106,7 +147,6 @@ Proof.
   all: simplify_eq; try done.
   all: specialize (Hwf eq_refl); simpl in *; simplify_eq.
 Qed.
-
 
 Lemma mem_apply_loc_insert_ne
   {X} {fn : option X -> option X} {z mem mem' z0}
@@ -268,6 +308,42 @@ Proof.
       reflexivity.
 Qed.
 
+Definition if_some_then {X} (P : X -> Prop) o :=
+  match o with
+  | None => True
+  | Some x => P x
+  end.
+
+Lemma range_foreach_persistent
+  {X}
+  P
+  range1 range2
+  (fn1 fn2 : option X -> option X)
+  (FnCommutes : persistent_if_option (if_some_then P) fn1 fn2)
+  : persistent_if (fun m => forall i, if_some_then P (m !! i))
+    (mem_apply_range' fn1 range1)
+    (mem_apply_range' fn2 range2).
+Proof.
+  intros mem0 mem1 mem2 Wf Success01 Success12.
+  assert (forall z, range'_contains range2 z -> exists x', fn2 (mem1 !! z) = Some x') as fn2mem1. {
+    intros z R2.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success01) as Spec01.
+    pose proof (mem_apply_range'_spec _ _ z _ _ Success12) as Spec12.
+    destruct (decide (range'_contains range1 z)).
+    - destruct Spec01 as [fn1z0 [z1Spec fn1z0Spec]].
+      rewrite decide_True in Spec12; [|assumption].
+      pose proof (Wf z) as wfz.
+      destruct Spec12 as [fn2z1 [z2Spec fn2z1Spec]].
+      destruct (FnCommutes _ _ _ wfz fn1z0Spec fn2z1Spec) as [x1' fn2z0Spec].
+      exists x1'; rewrite z1Spec; assumption.
+    - rewrite decide_True in Spec12; [|assumption].
+      destruct Spec12 as [x2 [x2Spec fn2x1Spec]].
+      exists x2; rewrite Spec01; assumption.
+  }
+  destruct (mem_apply_range'_success_condition fn2mem1) as [mem1' Success01'].
+  exists mem1'. assumption.
+Qed.
+
 Lemma commutes_option_build
   {X} {dflt : X} {fn1 fn2}
   (Commutes : commutes fn1 fn2)
@@ -278,6 +354,22 @@ Proof.
   intros x0 x1 x2 Step01 Step12.
   destruct (Commutes (default dflt x0) _ _ Step01 Step12) as [?[??]].
   eexists; eauto.
+Qed.
+
+Lemma persistent_if_option_build
+  {X} {dflt : X} P {fn1 fn2}
+  (Commutes : persistent_if P fn1 fn2)
+  (Base : P dflt)
+  : persistent_if_option (if_some_then P)
+    (fun ox => fn1 (default dflt ox))
+    (fun ox => fn2 (default dflt ox)).
+Proof.
+  intros x0 x1 x2 Pre Step01 Step12.
+  destruct x0; simpl in *.
+  - destruct (Commutes x _ _ Pre Step01 Step12) as [? ?].
+    eexists; eassumption.
+  - destruct (Commutes dflt _ _ Base Step01 Step12) as [? ?].
+    eexists; eassumption.
 Qed.
 
 Lemma permissions_foreach_commutes
@@ -292,6 +384,23 @@ Proof.
   apply range_foreach_commutes.
   apply commutes_option_build.
   assumption.
+Qed.
+
+Lemma permissions_foreach_persistent
+  P
+  range1 range2
+  (fn1 fn2 : lazy_permission -> option lazy_permission)
+  dflt
+  (FnCommutes : persistent_if P fn1 fn2)
+  (Base : P dflt)
+  : persistent_if (fun m => forall i, if_some_then P (m !! i))
+    (permissions_apply_range' dflt range1 fn1)
+    (permissions_apply_range' dflt range2 fn2).
+Proof.
+  apply range_foreach_persistent.
+  apply persistent_if_option_build.
+  - assumption.
+  - assumption.
 Qed.
 
 Lemma item_apply_access_read_commutes
@@ -321,6 +430,50 @@ Proof.
   rewrite Pre; simpl.
   eexists; split; [reflexivity|].
   simpl. rewrite Post; simpl.
+  reflexivity.
+Qed.
+
+Lemma item_apply_access_read_persistent
+  {cids rel1 rel2 range1 fn1 fn2 range2}
+  (FnCommutes : forall isprot,
+    persistent_if lazy_perm_wf
+      (fn1 rel1 isprot)
+      (fn2 rel2 isprot))
+  : persistent_if (fun it => exists nxtc nxtp, item_wf it nxtc nxtp)
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2).
+Proof.
+  intros it0 it1 it2 Pre Step01 Step12.
+  option step in Step01 as ?:S1.
+  option step in Step12 as ?:S2.
+  injection Step01; destruct it1 as [??? iperm1]; intro H; injection H; intros; subst; simpl in *; clear Step01; clear H.
+  injection Step12; destruct it2 as [??? iperm2]; intro H; injection H; intros; subst; simpl in *; clear Step12; clear H.
+  destruct Pre as [nxtc [nxtp itWf]].
+  assert (lazy_perm_wf {| initialized:=PermLazy; perm := initp it0 |}) as LazyWf. {
+    rewrite /lazy_perm_wf /=.
+    intro Absurd.
+    exfalso. eapply itWf.(item_default_perm_valid it0 _ _). assumption.
+  }
+  assert (forall i, if_some_then lazy_perm_wf (iperm it0 !! i)) as InitWf. {
+    pose proof (itWf.(item_perms_valid it0 _ _)) as AllWf.
+    intro i.
+    destruct (iperm it0 !! i) eqn:perm.
+    2: simpl; done.
+    simpl.
+    apply (map_Forall_lookup_1 _ _ i l AllWf perm).
+  }
+  destruct (permissions_foreach_persistent
+    lazy_perm_wf
+    range1 range2
+    (fn1 _ _) (fn2 _ _)
+    {| initialized:=PermLazy; perm:=initp it0 |}
+    (FnCommutes _) 
+    LazyWf
+    (iperm it0) iperm1 iperm2
+    InitWf
+    S1 S2) as [perms' Res].
+  unfold item_apply_access; simpl.
+  eexists. rewrite Res; simpl.
   reflexivity.
 Qed.
 
@@ -375,6 +528,48 @@ Proof.
     rewrite Left1'2; simpl.
     rewrite Right1'2; simpl.
     tauto.
+Qed.
+
+Lemma join_map_persistent
+  {fn1 fn2 : call_id_set -> rel_pos -> Z * nat -> item -> option item} {cids access_tag1 access_tag2 range1 range2}
+  (Fn1PreservesTag : forall it it' cids rel range, fn1 cids rel range it = Some it' -> itag it = itag it')
+  (Fn2PreservesTag : forall it it' cids rel range, fn2 cids rel range it = Some it' -> itag it = itag it')
+  (Commutes : forall rel1 rel2, persistent_if (fun it => exists nxtp nxtc, item_wf it nxtp nxtc)
+    (fn1 cids rel1 range1)
+    (fn2 cids rel2 range2))
+  (* We need the two [rel_dec] to refer to the same tree otherwise the proof would be much more difficult *)
+  : forall (tr0:tree item),
+    persistent_if (fun tr => exists nxtp nxtc, tree_items_compat_nexts tr nxtp nxtc)
+      (fun tr => join_nodes (map_nodes (fun it => fn1 cids (rel_dec tr0 access_tag1 it.(itag)) range1 it) tr))
+      (fun tr => join_nodes (map_nodes (fun it => fn2 cids (rel_dec tr0 access_tag2 it.(itag)) range2 it) tr)).
+Proof.
+  intros tr tr0 tr1 tr2 Pre.
+  destruct Pre as [nxtp [nxtc AllWf]].
+  revert tr1 tr2.
+  induction tr0 as [|data0 left0 IHleft right0 IHright]; intros tr1 tr2 Step01 Step12.
+  - simpl in Step01; injection Step01; intros; subst.
+    simpl in Step12; injection Step12; intros; subst.
+    exists tree.empty; simpl; tauto.
+  - option step in Step01 as data1:Data01.
+    option step in Step01 as left1:Left01.
+    option step in Step01 as right1:Right01.
+    injection Step01; intros; subst.
+    option step in Step12 as data2:Data12.
+    option step in Step12 as left2:Left12.
+    option step in Step12 as right2:Right12.
+    injection Step12; intros; subst.
+    inversion AllWf as [RootWf [LeftWf RightWf]].
+    destruct (Commutes _ _ data0 data1 data2 ltac:(eexists; eexists; exact RootWf) Data01 Data12) as [data1' Res].
+    destruct (IHleft LeftWf left1 left2 Left01 Left12) as [left1' LeftRes].
+    destruct (IHright RightWf right1 right2 Right01 Right12) as [right1' RightRes].
+    exists (branch data1' left1' right1').
+    simpl in *.
+    assert (itag data0 = itag data1) as Tg01 by (eapply Fn1PreservesTag; eassumption).
+    rewrite -Tg01; rewrite Res; simpl.
+    rewrite LeftRes.
+    rewrite RightRes.
+    simpl.
+    reflexivity.
 Qed.
 
 Lemma tree_apply_access_only_cares_about_rel
@@ -441,6 +636,44 @@ Proof.
   - tauto.
 Qed.
 
+Lemma tree_apply_access_persistent
+  {fn1 fn2 cids access_tag1 access_tag2 range1 range2}
+  (Commutes : forall rel1 rel2, persistent_if (fun it => exists nxtp nxtc, item_wf it nxtp nxtc)
+    (item_apply_access fn1 cids rel1 range1)
+    (item_apply_access fn2 cids rel2 range2))
+  : persistent_if (fun tr => exists nxtp nxtc, tree_items_compat_nexts tr nxtp nxtc)
+    (fun tr => tree_apply_access fn1 cids access_tag1 range1 tr)
+    (fun tr => tree_apply_access fn2 cids access_tag2 range2 tr).
+Proof.
+  unfold tree_apply_access.
+  intros tr0 tr1 tr2 Pre Step01 Step12.
+  assert (forall (it it' : item) (cids : call_id_set) (rel : rel_pos) (range : Z * nat),
+     item_apply_access fn1 cids rel range it = Some it'
+     → itag it = itag it') as Fn1PreservesTag. {
+      intros. eapply item_apply_access_preserves_metadata. eassumption.
+  }
+  assert (forall (it it' : item) (cids : call_id_set) (rel : rel_pos) (range : Z * nat),
+     item_apply_access fn2 cids rel range it = Some it'
+     → itag it = itag it') as Fn2PreservesTag. {
+      intros. eapply item_apply_access_preserves_metadata. eassumption.
+  }
+
+  erewrite tree_apply_access_only_cares_about_rel in Step01.
+  1: erewrite tree_apply_access_only_cares_about_rel in Step12.
+  1: edestruct (join_map_persistent
+    Fn1PreservesTag
+    Fn2PreservesTag
+    Commutes _ tr0 tr1 tr2 Pre Step01 Step12) as [tr1' Res].
+  1: exists tr1'.
+  1: exact Res.
+  all: intros tg tg'.
+  - eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - eapply join_map_eqv_imm_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - eapply join_map_eqv_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+  - eapply join_map_eqv_imm_rel; [|eassumption]. intros it it' H. eapply Fn1PreservesTag. exact H.
+Qed.
+
+
 Lemma memory_access_read_commutes
   {cids access_tag1 access_tag2 range1 range2}
   : commutes
@@ -451,6 +684,18 @@ Proof.
   apply tree_apply_access_commutes; intros.
   apply item_apply_access_read_commutes; intros.
   apply apply_access_perm_read_commutes.
+Qed.
+
+Lemma memory_access_read_persistent
+  {cids access_tag1 access_tag2 range1 range2}
+  : persistent_if (fun tr => exists nxtp nxtc, tree_items_compat_nexts tr nxtp nxtc)
+    (memory_access AccessRead cids access_tag1 range1)
+    (memory_access AccessRead cids access_tag2 range2).
+Proof.
+  unfold memory_access.
+  apply tree_apply_access_persistent; intros.
+  apply item_apply_access_read_persistent; intros.
+  apply apply_access_perm_read_persistent.
 Qed.
 
 Lemma apply_within_trees_commutes
@@ -503,6 +748,47 @@ Proof.
         f_equal. apply insert_commute. done.
 Qed.
 
+Lemma apply_within_trees_persistent
+  {fn1 fn2 alloc1 alloc2}
+  (Commutes : persistent_if (fun tr => exists nxtp nxtc, tree_items_compat_nexts tr nxtp nxtc) fn1 fn2)
+  : persistent_if (fun trs => exists nxtp nxtc, trees_compat_nexts trs nxtp nxtc)
+    (apply_within_trees fn1 alloc1)
+    (apply_within_trees fn2 alloc2)
+  .
+Proof.
+  intros trs0 trs1 trs2 Pre App0 App1.
+  destruct Pre as [nxtp [nxtc AllWf]].
+  (* Move forward *)
+  rewrite bind_Some in App0. destruct App0 as [tr0 [tr0Spec App0]].
+  rewrite bind_Some in App0. destruct App0 as [tr1 [tr1Spec App0]].
+  injection App0; intros; clear App0; subst.
+  rewrite bind_Some in App1. destruct App1 as [tr1b [tr1bSpec App1]].
+  rewrite bind_Some in App1. destruct App1 as [tr2 [tr2Spec App1]].
+  injection App1; intros; clear App1; subst.
+  pose proof (AllWf alloc1 tr0 tr0Spec) as tr0Wf.
+  (* Now we do the interesting case distinction *)
+  destruct (decide (alloc1 = alloc2)).
+  - (* Same allocation *)
+    subst.
+    assert (tr0 = tr1b). {
+      rewrite tr0Spec in tr1bSpec.
+      injection tr1bSpec. tauto.
+    }
+    subst.
+    destruct (Commutes _ _ _ ltac:(eexists; eexists; apply tr0Wf) tr1Spec tr2Spec) as [tr1' Res].
+    eexists.
+    rewrite bind_Some. eexists.
+    split.
+    + rewrite lookup_insert; reflexivity.
+    + rewrite Res; simpl; reflexivity.
+  - (* Not the same allocation *)
+    eexists.
+    + rewrite bind_Some. exists tr1b.
+      split.
+      * rewrite <- tr1bSpec. rewrite lookup_insert_ne; done.
+      * rewrite tr2Spec; simpl. done.
+Qed.
+
 Lemma apply_read_within_trees_commutes
   {cids tg1 range1 alloc1 tg2 range2 alloc2}
   : commutes
@@ -512,6 +798,42 @@ Lemma apply_read_within_trees_commutes
 Proof.
   apply apply_within_trees_commutes.
   apply memory_access_read_commutes.
+Qed.
+
+Lemma apply_read_within_trees_persistent
+  {cids tg1 range1 alloc1 tg2 range2 alloc2}
+  : persistent_if (fun trs => exists nxtp nxtc, trees_compat_nexts trs nxtp nxtc)
+    (apply_within_trees (memory_access AccessRead cids tg1 range1) alloc1)
+    (apply_within_trees (memory_access AccessRead cids tg2 range2) alloc2)
+  .
+Proof.
+  apply apply_within_trees_persistent.
+  apply memory_access_read_persistent.
+Qed.
+
+Lemma read_failure_preserved
+  {cids tg1 range1 alloc1 tg2 range2 alloc2 trs0 trs1}
+  (Wf : exists nxtp nxtc, trees_compat_nexts trs0 nxtp nxtc)
+  (Read1 : apply_within_trees (memory_access AccessRead cids tg1 range1) alloc1 trs0 = Some trs1)
+  :
+  apply_within_trees (memory_access AccessRead cids tg2 range2) alloc2 trs0 = None
+  <->
+  apply_within_trees (memory_access AccessRead cids tg2 range2) alloc2 trs1 = None
+  .
+Proof.
+  split.
+  + intro Fail0.
+    destruct (apply_within_trees (memory_access AccessRead cids tg2 range2) alloc2 trs1) eqn:Acc1.
+    2: reflexivity.
+    exfalso.
+    destruct (apply_read_within_trees_commutes _ _ _ Read1 Acc1) as [x1' [Read' _]].
+    rewrite Read' in Fail0. discriminate.
+  + intro Fail1.
+    destruct (apply_within_trees (memory_access AccessRead cids tg2 range2) alloc2 trs0) eqn:Acc0.
+    2: reflexivity.
+    destruct (apply_read_within_trees_persistent _ _ _ Wf Read1 Acc0) as [x' Read'].
+    rewrite Read' in Fail1.
+    discriminate.
 Qed.
 
 Lemma apply_read_within_trees_same_tags

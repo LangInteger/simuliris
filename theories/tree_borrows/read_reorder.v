@@ -174,7 +174,13 @@ Proof.
     { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
       eapply fill_prim_step. eapply base_prim_step.
       econstructor 2. 1: econstructor 4. 1: done.
-      econstructor; admit. }
+      econstructor.
+      + eapply apply_read_within_trees_same_tags; eassumption.
+      + eapply read_failure_preserved.
+        * eexists. eexists. apply (Hwf.(state_wf_tree_compat _)).
+        * eassumption.
+        * eassumption.
+    }
     (* this admit needs the theorem saying that if it fails after the other read has succeeded, it also succeeds earlier *)
     do 2 eexists. split.
     { simpl. eapply base_prim_step.
@@ -256,7 +262,13 @@ Proof.
     { change (Let x1 ?a ?b) with (fill [LetEctx x1 b] a).
       eapply fill_prim_step. eapply base_prim_step.
       econstructor 2. 1: econstructor 4. 1: done. simpl.
-      econstructor; admit. }
+      econstructor.
+      + erewrite <- apply_read_within_trees_same_tags; eassumption.
+      + erewrite <- read_failure_preserved.
+        * eassumption.
+        * eexists. eexists. apply (Hwf.(state_wf_tree_compat _)).
+        * eassumption.
+    }
     (* this admit needs the theorem saying that if it fails earlier, it fails also after the other read has succeeded *)
     do 2 eexists. split.
     { simpl. eapply base_prim_step.
@@ -298,7 +310,7 @@ Proof.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
     split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
-Admitted.
+Qed.
 
 Theorem read_reorder x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
   state_wf σ →
@@ -309,3 +321,5 @@ Proof.
   split.
   all: eapply read_reorder_onesided; done.
 Qed.
+
+Print Assumptions read_reorder.
