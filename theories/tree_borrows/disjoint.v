@@ -25,22 +25,6 @@ Definition commutes {X}
     /\ fn1 x1' = Some x2
   ).
 
-Definition commutes_first_failing {X} (P : X → Prop)
-  (fn1 fn2 : X -> option X)
-  := forall x0 x1,
-  P x0 →
-  fn1 x0 = None ->
-  fn2 x0 = Some x1 ->
-  fn1 x1 = None.
-
-Definition commutes_second_failing {X} (P : X → Prop)
-  (fn1 fn2 : X -> option X)
-  := forall x0 x1,
-  P x0 →
-  fn1 x0 = Some x1 ->
-  fn2 x1 = None ->
-  fn2 x0 = None.
-
 Definition commutes_option {X}
   (fn1 fn2 : option X -> option X)
   := forall x0 x1 x2,
@@ -111,41 +95,6 @@ Proof.
     specialize (wf ltac:(auto)). discriminate.
   - rewrite /lazy_perm_wf in wf; simpl in *. exfalso.
     specialize (wf ltac:(auto)). discriminate.
-Qed.
-
-Lemma apply_access_perm_read_commutes_fail_first
-  {rel1 rel2 prot}
-  : commutes_first_failing (λ _, True)
-    (apply_access_perm AccessRead rel1 prot)
-    (apply_access_perm AccessRead rel2 prot).
-Proof.
-  move=> p0 p1 Hwf Step01 Step12.
-  unfold apply_access_perm in *.
-  all: destruct p0 as [[] [[]| | | | ]].
-  all: destruct prot; simpl in *.
-  all: destruct rel1; simpl in *.
-  all: try by simplify_eq.
-  all: simpl.
-  all: destruct rel2; simpl in *.
-  all: by simplify_eq.
-Qed.
-
-Lemma apply_access_perm_read_commutes_fail_second
-  {rel1 rel2 prot}
-  : commutes_second_failing lazy_perm_wf
-    (apply_access_perm AccessRead rel1 prot)
-    (apply_access_perm AccessRead rel2 prot).
-Proof.
-  move=> p0 p1 Hwf Step01 Step12.
-  unfold apply_access_perm in *.
-  all: destruct p0 as [[] [[]| | | | ]].
-  all: destruct prot; simpl in *.
-  all: destruct rel1; simpl in *.
-  all: simplify_eq.
-  all: simpl.
-  all: destruct rel2; simpl in *.
-  all: simplify_eq; try done.
-  all: specialize (Hwf eq_refl); simpl in *; simplify_eq.
 Qed.
 
 Lemma mem_apply_loc_insert_ne
@@ -366,9 +315,9 @@ Lemma persistent_if_option_build
 Proof.
   intros x0 x1 x2 Pre Step01 Step12.
   destruct x0; simpl in *.
-  - destruct (Commutes x _ _ Pre Step01 Step12) as [? ?].
+  - destruct (Commutes _ _ _ Pre Step01 Step12) as [? ?].
     eexists; eassumption.
-  - destruct (Commutes dflt _ _ Base Step01 Step12) as [? ?].
+  - destruct (Commutes _ _ _ Base Step01 Step12) as [? ?].
     eexists; eassumption.
 Qed.
 
@@ -457,10 +406,10 @@ Proof.
   assert (forall i, if_some_then lazy_perm_wf (iperm it0 !! i)) as InitWf. {
     pose proof (itWf.(item_perms_valid it0 _ _)) as AllWf.
     intro i.
-    destruct (iperm it0 !! i) eqn:perm.
+    destruct (iperm it0 !! i) as [perm|] eqn:permSpec.
     2: simpl; done.
     simpl.
-    apply (map_Forall_lookup_1 _ _ i l AllWf perm).
+    apply (map_Forall_lookup_1 _ _ i perm AllWf permSpec).
   }
   destruct (permissions_foreach_persistent
     lazy_perm_wf
