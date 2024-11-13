@@ -1,6 +1,7 @@
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
-From simuliris.tree_borrows Require Import disjoint defs lang_base lang notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve tactics class_instances.
+From simuliris.tree_borrows Require Import defs lang_base lang notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve tactics class_instances.
+From simuliris.tree_borrows.read_read_reorder Require Import low_level.
 From iris.prelude Require Import options.
 
 Fixpoint nsteps P (e : expr) σ e'' σ'' n : Prop := match n with
