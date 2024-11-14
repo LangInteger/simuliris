@@ -831,9 +831,9 @@ Lemma CopyEvt_commutes
       trs2 cids2 nxtp2 nxtc2
   .
 Proof.
-  inversion Step1 as [|????? EXISTS1 ACC1 SZ1| | | | | | | | |].
+  inversion Step1 as [|????? EXISTS1 ACC1 SZ1| | | | | | | |].
   - subst.
-    inversion Step2 as [|????? EXISTS2 ACC2 SZ2| | | | | | | | |].
+    inversion Step2 as [|????? EXISTS2 ACC2 SZ2| | | | | | | |].
     + subst.
       destruct (apply_read_within_trees_commutes _ _ _ ACC1 ACC2) as [trs1' [ACC2' ACC1']].
       exists trs1'. exists cids2. exists nxtp2. exists nxtc2.
@@ -853,7 +853,7 @@ Proof.
       1: econstructor 3; auto.
       econstructor; eauto.
   - subst.
-    inversion Step2 as [|????? EXISTS2 ACC2 SZ2| | | | | | | | |].
+    inversion Step2 as [|????? EXISTS2 ACC2 SZ2| | | | | | | |].
     + subst.
       repeat eexists.
       1: econstructor; eauto.

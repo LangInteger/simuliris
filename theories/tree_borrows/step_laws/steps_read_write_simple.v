@@ -33,9 +33,7 @@ Proof.
   { iPureIntro. do 3 eexists. econstructor 2. 1: eapply CopyBS. 1: done.
     eapply ZeroCopyIS. done. }
   iIntros (e_t' efs_t σ_t' Hstep).
-  eapply head_copy_inv in Hstep as (->&[((HNone&->&->&HH1)&Hintree)|(trs'&v'&->&->&Hread&[(_&_&HH)|(_&->&->)])]).
-  - iModIntro. iSplit; first done. simpl. iFrame "Hsim".
-    iFrame.
+  eapply head_copy_inv in Hstep as (->&trs'&v'&->&->&Hread&[(_&_&HH)|(_&->&->)]).
   - lia.
   - iModIntro. iSplit; first done. simpl. iFrame "HP_s HP_t Hsim". do 4 iExists _. destruct σ_t. done.
 Qed.
@@ -69,7 +67,7 @@ Proof.
   eapply head_write_inv in Hstep as (trs'&->&->&->&_&_&[(_&_&?)|(_&->)]).
   - lia.
   - iModIntro. iSplit; first done. simpl. iFrame "Hsim".
-    iFrame. destruct σ_t. by repeat iExists _.
+    iFrame "HP_t HP_s". destruct σ_t. by repeat iExists _.
 Qed.
 
 Lemma source_write_zero l t v π Ψ :
@@ -102,9 +100,9 @@ Proof.
   destruct Hsafe as [Hpool Hsafe].
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss)&_)|[(_&_&[]%Hne)|(Hcontain_s&Hnotrees&Hisval)]];
+  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss)&_)|(_&_&[]%Hne)];
   pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done; last first.
-  { (* We get poison *)
+(*  { (* We get poison *)
     assert (apply_within_trees (memory_access AccessRead (scs σ_s) bor_s (l_s.2, sz)) l_s.1 (strs σ_t) = None) as Hnotrees_t.
     { destruct apply_within_trees eqn:HSome in |-*; try done.
       eapply mk_is_Some, trees_equal_allows_more_access in HSome as (x&Hx); first by erewrite Hnotrees in Hx.
@@ -120,7 +118,7 @@ Proof.
     { iPureIntro. subst e_t'. destruct σ_s, l_s. simpl. do 2 econstructor; by eauto. }
     simpl. iFrame. iSplit; last done. subst e_t'.
     iApply "Hsim". iApply big_sepL_sepL2_diag. iApply big_sepL_forall. by iIntros (k v (->&_)%lookup_replicate_1).
-  }
+  } *)
   edestruct trees_equal_allows_more_access as (trs_t'&Htrst).
   1: done. 1: eapply Hwf_s. 1,2,3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done. 1: done. 1: by eapply mk_is_Some.
   opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
@@ -131,7 +129,7 @@ Proof.
   { iPureIntro. do 3 eexists. eapply copy_base_step'. 1-3: done. rewrite -Hscs_eq. done. }
   (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&[((Hnotree&->&Hpoison&Hheapsome)&Hcontains_t)|(tr'&vr_t'&->&Hσ_t'&H3&[(Hcontains_t&H4&_)|([]%Hne&_&_)])]); first congruence.
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&tr'&vr_t'&->&Hσ_t'&H3&[(Hcontains_t&H4&_)|([]%Hne&_&_)]).
   assert (vr_t' = vr_t) as -> by congruence.
   assert (tr' = trs_t') as -> by congruence.
   clear H3 H4.

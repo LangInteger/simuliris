@@ -54,8 +54,8 @@ Proof.
   iSplit.
   { iPureIntro. do 3 eexists. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact Htrs'. done. }
   iIntros (??? Hstep). pose proof Hstep as Hstep2.
-  eapply head_copy_inv in Hstep2 as (->&[((HNone&_&_&_)&_)|(trs''&v'&->&->&Hreadv'&[(_&Htrs''&Hnon)|(Hzero&->&->)])]).
-  1: rewrite /= Htrs' // in HNone. 2: done.
+  eapply head_copy_inv in Hstep2 as (->&trs''&v'&->&->&Hreadv'&[(_&Htrs''&Hnon)|(Hzero&->&->)]).
+  2: done.
   assert (trs'' = trs') as ->.
   { rewrite /memory_access Htrs' in Htrs''. congruence. }
   assert (v_rd = v') as -> by congruence.

@@ -73,7 +73,7 @@ Lemma prim_step_copy_inv l tg sz P σ e' σ' tt :
   prim_step P (Copy (Place l tg sz)) σ e' σ' tt →
   (∃ v trs', e' = (#v)%E ∧ tt = nil ∧ read_mem l sz (shp σ) = Some v ∧ trees_contain tg (strs σ) l.1 ∧ apply_within_trees (memory_access AccessRead (scs σ) tg (l.2, sz)) l.1 (strs σ) = Some trs' ∧ sz ≠ 0 ∧ σ' = mkState (shp σ) trs' (scs σ) (snp σ) (snc σ))
 ∨ (∃ v, e' = (#v)%E ∧ tt = nil ∧ read_mem l sz (shp σ) = Some v ∧ sz = 0 ∧ σ' = σ)
-∨ (e' = (#(replicate sz ☠%S))%E ∧ tt = nil ∧ is_Some (read_mem l sz (shp σ)) ∧ trees_contain tg (strs σ) l.1 ∧ apply_within_trees (memory_access AccessRead (scs σ) tg (l.2, sz)) l.1 (strs σ) = None ∧ σ' = σ).
+(*∨ (e' = (#(replicate sz ☠%S))%E ∧ tt = nil ∧ is_Some (read_mem l sz (shp σ)) ∧ trees_contain tg (strs σ) l.1 ∧ apply_within_trees (memory_access AccessRead (scs σ) tg (l.2, sz)) l.1 (strs σ) = None ∧ σ' = σ)*).
 Proof.
   intros H%prim_base_step.
   2: solve_sub_redexes_are_values.
@@ -82,11 +82,11 @@ Proof.
   inversion ME; simplify_eq.
   - inversion IE; simplify_eq.
     + left. do 2 eexists. done.
-    + right. left. eexists. do 4 (split; first done). by destruct σ.
-  - simpl in *.
+    + right. eexists. do 4 (split; first done). by destruct σ.
+(*  - simpl in *.
     inversion IE; simplify_eq. right. right.
     do 5 (split; first done).
-    by destruct σ.
+    by destruct σ. *)
 Qed.
 
 Lemma subst_val_twice_exchange e x1 x2 v1 v2 :
@@ -114,10 +114,10 @@ Lemma read_reorder_onesided x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
 Proof.
   destruct l1 as [blk1 off1], l2 as [blk2 off2].
   intros Hwf Hne.
-  intros e4 σ4 (e1' & σ1 & [(?&[=]&_)|(e1&_&[(v1&trs1&->&_&Hread1&Hcontain1&Happly1&Hne1&->)|[(v1&->&_&Hrd1&->&->)|(->&_&Hread1&Hcontains1&HapplyNone1&->)]]%prim_step_copy_inv&->)]%prim_step_let_inv & Hrst).
+  intros e4 σ4 (e1' & σ1 & [(?&[=]&_)|(e1&_&[(v1&trs1&->&_&Hread1&Hcontain1&Happly1&Hne1&->)|(v1&->&_&Hrd1&->&->)]%prim_step_copy_inv&->)]%prim_step_let_inv & Hrst).
   all: destruct Hrst as (e2 & σ2 & [(?&[= <-]&_&->&->)|(?&[=]&_)]%prim_step_let_inv & Hrst).
   all: simpl in *|-.
-  all: destruct Hrst as (e3' & σ3 & [(?&[=]&_)|(e3&_&[(v3&trs3&->&_&Hread3&Hcontain3&Happly3&Hne2&->)|[(v3&->&_&Hrd3&->&->)|(->&_&Hread3&Hcontains3&HapplyNone3&->)]]%prim_step_copy_inv&->)]%prim_step_let_inv & Hrst).
+  all: destruct Hrst as (e3' & σ3 & [(?&[=]&_)|(e3&_&[(v3&trs3&->&_&Hread3&Hcontain3&Happly3&Hne2&->)|(v3&->&_&Hrd3&->&->)]%prim_step_copy_inv&->)]%prim_step_let_inv & Hrst).
   all: simpl in *|-.
   all: destruct Hrst as (e4' & σ4' & [(?&[= <-]&_&->&->)|(?&[=]&_)]%prim_step_let_inv & <- & <-).
   all: rewrite /target. 
@@ -162,7 +162,7 @@ Proof.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
     split; last done. rewrite bool_decide_decide decide_True //; congruence.
-  - (* read x1: succeed, read x2: fail *)
+(*  - (* read x1: succeed, read x2: fail *)
     do 2 eexists. split.
     { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
       eapply fill_prim_step. eapply base_prim_step.
@@ -174,7 +174,6 @@ Proof.
         * eassumption.
         * eassumption.
     }
-    (* this admit needs the theorem saying that if it fails after the other read has succeeded, it also succeeds earlier *)
     do 2 eexists. split.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
@@ -186,7 +185,7 @@ Proof.
     do 2 eexists. split.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
-    split; last done. rewrite bool_decide_decide decide_True //; congruence.
+    split; last done. rewrite bool_decide_decide decide_True //; congruence. *)
   - (* read x1: zerosized, read x2: succeed *)
     do 2 eexists. split.
     { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
@@ -223,7 +222,7 @@ Proof.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
     split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
-  - (* read x1: zerosized, read x2: fail *)
+(*  - (* read x1: zerosized, read x2: fail *)
     do 2 eexists. split.
     { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
       eapply fill_prim_step. eapply base_prim_step.
@@ -302,7 +301,7 @@ Proof.
     do 2 eexists. split.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
-    split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
+    split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence. *)
 Qed.
 
 Lemma read_example_no_termination x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
@@ -311,11 +310,11 @@ Lemma read_example_no_termination x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
 Proof.
   intros Hne.
   econstructor; first done.
-  intros e' σ' [(?&[=]&_)|(e1&_&[(v1&trs1&->&_&Hread1&Hcontain1&Happly1&Hne1&->)|[(v1&->&_&Hrd1&->&->)|(->&_&Hread1&Hcontains1&HapplyNone1&->)]]%prim_step_copy_inv&->)]%prim_step_let_inv.
+  intros e' σ' [(?&[=]&_)|(e1&_&[(v1&trs1&->&_&Hread1&Hcontain1&Happly1&Hne1&->)|(v1&->&_&Hrd1&->&->)]%prim_step_copy_inv&->)]%prim_step_let_inv.
   all: econstructor; first done.
   all: intros e' σ' [(?&[= <-]&_&->&->)|(?&[=]&_)]%prim_step_let_inv.
   all: econstructor; first done.
-  all: intros e' σ' [(?&[=]&_)|(e3&_&[(v3&trs3&->&_&Hread3&Hcontain3&Happly3&Hne2&->)|[(v3&->&_&Hrd3&->&->)|(->&_&Hread3&Hcontains3&HapplyNone3&->)]]%prim_step_copy_inv&->)]%prim_step_let_inv.
+  all: intros e' σ' [(?&[=]&_)|(e3&_&[(v3&trs3&->&_&Hread3&Hcontain3&Happly3&Hne2&->)|(v3&->&_&Hrd3&->&->)]%prim_step_copy_inv&->)]%prim_step_let_inv.
   all: econstructor; first done.
   all: intros e' σ' [(?&[= <-]&_&->&->)|(?&[=]&_)]%prim_step_let_inv.
   all: econstructor.

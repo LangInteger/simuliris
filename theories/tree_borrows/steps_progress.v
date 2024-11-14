@@ -547,6 +547,7 @@ Proof.
   eapply copy_base_step'; eauto.
 Qed. *)
 
+(*
 Lemma failed_copy_base_step' P (σ: state) l tg sz (WF: state_wf σ) :
   trees_contain tg σ.(strs) l.1 →
   apply_within_trees (memory_access AccessRead σ.(scs) tg (l.2, sz)) l.1 σ.(strs) = None →
@@ -555,7 +556,7 @@ Lemma failed_copy_base_step' P (σ: state) l tg sz (WF: state_wf σ) :
 Proof.
   intros TC Happly. destruct l, σ. do 2 econstructor; by eauto.
 Qed.
-
+*)
 (*
 
 Lemma access1_write_is_Some cids stk bor

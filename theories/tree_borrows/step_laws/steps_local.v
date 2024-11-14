@@ -50,19 +50,19 @@ Proof.
   { iPureIntro. do 3 eexists. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact TREES_NOCHANGE.
     rewrite /trees_contain /trees_at_block /= Hit. subst t. cbv. tauto. }
   iIntros (??? Hstep).
-  eapply head_copy_inv in Hstep as (->&[((HNone&_&_&_)&_)|(trs'&v'&->&->&Hreadv'&[(_&Happly&Hnon)|(Hzero&->&->)])]).
-  1: rewrite /= TREES_NOCHANGE // in HNone.
+  eapply head_copy_inv in Hstep as (->&trs'&v'&->&->&Hreadv'&[(_&Happly&Hnon)|(Hzero&->&->)]).
   - iModIntro. iSplitR; first done.
     assert (v_rd = v') as -> by congruence.
     iSplitR "Htag Ht Hsim"; last first.
     1: iApply ("Hsim" with "Ht Htag").
-    iFrame. simpl in Happly. assert (trs' = strs σ_t) as -> by congruence.
+    iFrame "HP_t HP_s".
+    simpl in Happly. assert (trs' = strs σ_t) as -> by congruence.
     iExists _, _, _, _. destruct σ_t. iApply "Hbor".
   - iModIntro. iSplitR; first done.
     assert (v_rd = []) as -> by by destruct v_rd.
     iSplitR "Htag Ht Hsim"; last first.
     1: iApply ("Hsim" with "Ht Htag").
-    iFrame.
+    iFrame "HP_t HP_s".
     iExists _, _, _, _. destruct σ_t. iApply "Hbor".
 Qed.
 
@@ -96,7 +96,7 @@ Proof.
   iModIntro.
   iSplitR "Htag Ht Hsim"; last first.
   1: iApply ("Hsim" with "Ht Htag").
-  iFrame. destruct σ_s; simpl.
+  iFrame "HP_t HP_s". destruct σ_s; simpl.
   iExists _, _, _, _. iApply "Hbor".
 Qed.
 
@@ -134,7 +134,8 @@ Proof.
   iIntros (??? Hstep). pose proof Hstep as Hstep2.
   eapply head_write_inv in Hstep2 as (trs'&->&->&->&_&Hiinv&[(Hcont&Happly&Hlen)|(Hlen&->)]); last first.
   { iModIntro. iSplit; first done.
-    assert (v_wr = nil) as -> by by destruct v_wr. iFrame.
+    assert (v_wr = nil) as -> by by destruct v_wr.
+    iFrame "HP_t HP_s".
     iSplitL "Hbor". 1: repeat iExists _; destruct σ_t; done.
     eapply write_range_to_list_is_Some in Hwrite as (x&Hx&_). simpl in Hx. subst v_t'.
     iApply ("Hsim" with "Ht Htag"). }

@@ -115,7 +115,7 @@ Proof.
 
   iApply (source_copy_in_simulation with "[] Htag_i Hi_s"). 1: done.
   2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  { iLeft. iApply value_rel_int. }
+  { iApply value_rel_int. }
   iIntros (v_res) "Hi_s Htag_i Hv_res". source_pures. source_finish.
   sim_pures.
 

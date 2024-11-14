@@ -506,10 +506,10 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
 | CopyBS blk l lbor sz (v: value)
     (READ: read_mem (blk, l) sz h = Some v) :
     mem_expr_step h (Copy (Place (blk, l) lbor sz)) (CopyEvt blk lbor (l, sz) v) h (Val v) []
-| FailedCopyBS blk l lbor sz
+(*| FailedCopyBS blk l lbor sz
     (READ: is_Some (read_mem (blk, l) sz h)) : 
     (* failed copies lead to poison, but still of the appropriate length *)
-    mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []
+    mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []*)
 | WriteBS blk l lbor sz v
     (LEN: length v = sz)
     (DEFINED: ∀ (i: nat), (i < length v)%nat → (blk,l) +ₗ i ∈ dom h) :

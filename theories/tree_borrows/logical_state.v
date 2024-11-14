@@ -1799,8 +1799,8 @@ Section val_rel.
     rewrite /value_rel. iApply (big_sepL2_app with "Hv1 Hv2").
   Qed.
 
-  Definition will_read_in_simulation v_src v_tgt l_rd t : iProp Σ :=
-    value_rel v_tgt v_src ∨ (⌜length v_src = length v_tgt⌝ ∗ ispoison (replicate (length v_tgt) ScPoison) l_rd t (length v_tgt)).
+  Definition will_read_in_simulation v_src v_tgt (l_rd : loc) (t : tag) : iProp Σ :=
+    value_rel v_tgt v_src(* ∨ (⌜length v_src = length v_tgt⌝ ∗ ispoison (replicate (length v_tgt) ScPoison) l_rd t (length v_tgt))*).
 
 End val_rel.
 

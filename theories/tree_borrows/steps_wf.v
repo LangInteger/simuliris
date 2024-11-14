@@ -888,7 +888,7 @@ Proof.
   destruct σ as [h trs cids nxtp nxtc].
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF. inversion BS. clear BS. simplify_eq.
-  inversion IS as [x| | | | | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
+  inversion IS as [x| | | | | | | | |]; clear IS. simpl in *; simplify_eq. constructor; simpl.
   - apply same_blocks_init_extend; [lia|].
     apply WF.
   - apply extend_trees_wf.
@@ -1758,7 +1758,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ | | | | | | | |trs'' ???? ACC | | ]; clear IS; simplify_eq.
+  inversion IS as [ | | | | | | |trs'' ???? ACC | | ]; clear IS; simplify_eq.
   destruct (trees_deallocate_isSome _ _ _ _ _ _ (mk_is_Some _ _ ACC)) as [x [Lookup Update]].
   assert (each_tree_parents_more_init trs'') as HH1.
   { eapply apply_within_trees_deallocate_compat_parents_more_init; try done.
@@ -1845,11 +1845,12 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ |?????? ACC| | | | | | | | | ]; clear IS; simplify_eq.
+  inversion IS as [ |?????? ACC| | | | | | | | ]; clear IS; simplify_eq.
   - eapply (access_step_wf_inner σ false); done.
   - by destruct σ.
 Qed.
 
+(*
 Lemma failed_copy_step_wf σ σ' e e' l bor T efs :
   mem_expr_step σ.(shp) e (FailedCopyEvt l bor T) σ'.(shp) e' efs →
   bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
@@ -1863,7 +1864,7 @@ Proof.
   inversion BS. clear BS. simplify_eq.
   inversion IS; clear IS; simplify_eq.
   done.
-Qed.
+Qed. *)
 
 (* TODO less equalities makes applying the rule easier, see _sane version below *)
 Lemma write_mem_dom l (vl : value) h h'
@@ -2004,7 +2005,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS; clear BS; simplify_eq.
-  inversion IS as [ | | | |?????? ACC |???? RANGE_SIZE| | | | | ]; clear IS; simplify_eq.
+  inversion IS as [ | | |?????? ACC |???? RANGE_SIZE| | | | | ]; clear IS; simplify_eq.
   2: { simpl in RANGE_SIZE. destruct vl; last done. simpl. done. }
   constructor; simpl.
   - rewrite /same_blocks.
@@ -3217,7 +3218,7 @@ Proof.
   destruct σ' as [h' trs' cids' nxtp' nxtc']. simpl.
   intros BS IS WF.
   inversion BS. clear BS. simplify_eq.
-  inversion IS as [| | | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | | |].
+  inversion IS as [| | | | |trsmid ???????? EXISTS_TAG FRESH_CHILD RETAG_EFFECT READ_ON_REBOR| | | |].
   2: by simplify_eq. simplify_eq.
   eapply retag_step_wf_inner in WF as (WF&TAG_AFTER_ADD); simpl in WF|-*. 2-5: try done.
   eapply access_step_wf_inner in WF. all: done.
@@ -3231,7 +3232,7 @@ Proof.
   - eapply alloc_step_wf; eauto.
   - eapply dealloc_step_wf; eauto.
   - eapply read_step_wf; eauto.
-  - eapply failed_copy_step_wf; eauto.
+ (* - eapply failed_copy_step_wf; eauto. *)
   - eapply write_step_wf; eauto.
   - eapply initcall_step_wf; eauto.
   - eapply endcall_step_wf; eauto.

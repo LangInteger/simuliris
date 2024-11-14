@@ -896,14 +896,14 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs cids nxtp nxtc
       (CopyEvt alloc tg range val)
       trs cids nxtp nxtc
-  | FailedCopyIS (alloc : block) range tg
+(*  | FailedCopyIS (alloc : block) range tg
     (* Unsuccessful read access just returns poison instead of causing UB *)
     (EXISTS_TAG : trees_contain tg trs alloc)
     (ACC : apply_within_trees (memory_access AccessRead cids tg range) alloc trs = None) :
     bor_step
       trs cids nxtp nxtc
       (FailedCopyEvt alloc tg range)
-      trs cids nxtp nxtc
+      trs cids nxtp nxtc *)
   | WriteIS trs' (alloc : block) range tg val
     (* Successful write access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
