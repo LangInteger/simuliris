@@ -1,7 +1,7 @@
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
-From simuliris.tree_borrows Require Import defs lang_base lang notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve tactics class_instances refinement_def.
-From simuliris.tree_borrows.read_read_reorder Require Import low_level refinement_def.
+From simuliris.tree_borrows Require Import defs lang_base lang notation bor_semantics tree tree_lemmas bor_lemmas steps_preserve tactics class_instances.
+From simuliris.tree_borrows.read_read_reorder Require Import low_level equivalence_def.
 From iris.prelude Require Import options.
 
 Definition source (x1 x2 : string) l1 tg1 sz1 l2 tg2 sz2 erest : expr :=
@@ -305,22 +305,34 @@ Proof.
     split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
 Qed.
 
-Lemma read_reorder' x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
-  state_wf σ →
+Lemma read_example_no_termination x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
   x1 ≠ x2 →
-  identical_states_after P (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) (target x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) σ 4
-∧ identical_states_after P (target x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) σ 4.
+  no_termination_within P (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) σ 4.
 Proof.
-  split.
-  all: eapply read_reorder_onesided; done.
+  intros Hne.
+  econstructor; first done.
+  intros e' σ' [(?&[=]&_)|(e1&_&[(v1&trs1&->&_&Hread1&Hcontain1&Happly1&Hne1&->)|[(v1&->&_&Hrd1&->&->)|(->&_&Hread1&Hcontains1&HapplyNone1&->)]]%prim_step_copy_inv&->)]%prim_step_let_inv.
+  all: econstructor; first done.
+  all: intros e' σ' [(?&[= <-]&_&->&->)|(?&[=]&_)]%prim_step_let_inv.
+  all: econstructor; first done.
+  all: intros e' σ' [(?&[=]&_)|(e3&_&[(v3&trs3&->&_&Hread3&Hcontain3&Happly3&Hne2&->)|[(v3&->&_&Hrd3&->&->)|(->&_&Hread3&Hcontains3&HapplyNone3&->)]]%prim_step_copy_inv&->)]%prim_step_let_inv.
+  all: econstructor; first done.
+  all: intros e' σ' [(?&[= <-]&_&->&->)|(?&[=]&_)]%prim_step_let_inv.
+  all: econstructor.
 Qed.
 
 Theorem read_reorder x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P :
   x1 ≠ x2 →
-  refines_after_nsteps P (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) (target x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) 4.
+  eventually_equal P (source x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest) (target x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest).
 Proof.
-  intros H1 σ Hσ.
-  eapply read_reorder'; done.
+  intros H1.
+  exists 4.
+  intros σ Hσ.
+  split; first by eapply read_example_no_termination.
+  split; first by eapply read_example_no_termination.
+  split; eapply read_reorder_onesided; done.
 Qed.
+
+
 
 Print Assumptions read_reorder.

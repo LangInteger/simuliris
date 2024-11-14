@@ -18,12 +18,12 @@ Definition unprot_shared_delete_read_escaped_unopt : expr :=
       then updates "x" with the new pointer value. A [Default] retag is
       sufficient for this, we don't need the protector. *)
     retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
-    (* a "dummy load" -- since we can not insert loads, we must have a load here to so that it can remain in the target *)
-    (* This load is not used here, but later the target will use the value loaded here *)
-    Copy *{sizeof_scalar} "x" ;;
+    (* Note that val is not actually used in the source, but it will be used in the target. *)
+    let: "val" := Copy *{sizeof_scalar} "x" in
     (* The unknown code is represented by a call to an unknown function "f",
-      which does take the pointer value from "x" as an argument. *)
-    Call #[ScFnPtr "f"] (Copy "x") ;;
+       which does take the pointer value from "x" as an argument.
+       To simulate Rust closures, it also takes an arbitrary closure env. *)
+    Call #[ScFnPtr "f"] (Conc "f_closure_env" (Copy "x")) ;;
 
     (* Read the value "v" from the cell pointed to by the pointer in "x" *)
     let: "v" := Copy *{sizeof_scalar} "x" in
@@ -38,8 +38,9 @@ Definition unprot_shared_delete_read_escaped_unopt : expr :=
 Definition unprot_shared_delete_read_escaped_opt : expr :=
     let: "x" := new_place sizeof_scalar "i" in
     retag_place "x" ShrRef TyFrz sizeof_scalar Default #[ScCallId 0];;
-    let: "v" := Copy *{sizeof_scalar} "x" in
-    Call #[ScFnPtr "f"] (Copy "x") ;;
+    let: "val" := Copy *{sizeof_scalar} "x" in
+    Call #[ScFnPtr "f"] (Conc "f_closure_env" (Copy "x")) ;;
+    let: "v" := "val" in
     Free "x" ;;
     "v"
   .
@@ -49,8 +50,9 @@ Lemma unprot_shared_delete_read_escaped `{sborGS Σ} :
   ⊢ log_rel unprot_shared_delete_read_escaped_opt unprot_shared_delete_read_escaped_unopt.
 Proof.
   log_rel.
-  iIntros "%r_t %r_s #Hrel !# %π _".
+  iIntros "%closure_env_t %closure_env_s #Hclosure_env_rel %r_t %r_s #Hrel !# %π _".
   sim_pures.
+  rewrite !subst_result.
 
   (* new place *)
   simpl. source_bind (new_place _ _).
@@ -102,8 +104,14 @@ Proof.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
   source_apply (Copy _) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //. sim_pures.
-  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR [ScPtr i _]) (ValR [ScPtr i _])) "".
-  { iApply big_sepL2_singleton. iFrame "Htag_i". done. }
+  rewrite !subst_result.
+  source_bind (Conc _ _).
+  iApply source_red_safe_implies. 1: eapply irred_conc with (r2 := ValR _).
+  iIntros ((closure_env_s_v & v2 & -> & [= <-])).
+  destruct closure_env_t as [closure_env_t_v|]; last done.
+  source_pures. to_sim. sim_pures.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR _) (ValR _)) "".
+  { iApply big_sepL2_app; first iAssumption. iApply big_sepL2_singleton. iFrame "Htag_i". done. }
   iIntros (r_t r_s) "_". sim_pures.
 
   (* source load (not existing in the target) *)

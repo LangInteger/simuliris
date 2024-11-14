@@ -197,6 +197,7 @@ theories/tree_borrows/examples/protected/shared_reorder_read_down_escaped.v
 theories/tree_borrows/examples/protected/shared_reorder_read_up_escaped.v
 theories/tree_borrows/examples/protected/mutable_reorder_write_down_activated.v
 theories/tree_borrows/examples/protected/mutable_reorder_write_up_activated.v
+theories/tree_borrows/examples/protected/mutable_reorder_write_up_activated_paper.v
 theories/tree_borrows/examples/unprotected/mutable_delete_read.v
 theories/tree_borrows/examples/unprotected/shared_delete_read_escaped.v
 theories/tree_borrows/examples/unprotected/shared_delete_read_escaped_coinductive.v
@@ -206,7 +207,7 @@ theories/tree_borrows/examples/pure.v
 # Proofs directly against the operational semantics.
 # This results in a proof that reads can be reordered.
 theories/tree_borrows/read_read_reorder/low_level.v
-theories/tree_borrows/read_read_reorder/refinement.v
-theories/tree_borrows/read_read_reorder/refinement_def.v
+theories/tree_borrows/read_read_reorder/read_reorder.v
+theories/tree_borrows/read_read_reorder/equivalence_def.v
 
 
