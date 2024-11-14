@@ -26,18 +26,18 @@ Definition prot_mutable_reorder_write_up_activated_paper_unopt : expr :=
     (* Write 10 to the cell pointed to by the pointer in "x" *)
     *{sizeof_scalar} "x" <- #[10] ;;
 
-    (* The unknown code is represented by a call to an unknown function "f" *)
-    let: "v" := Call #[ScFnPtr "g"] "g_closure_arg" in
+    (* Call the unknown function "g" *)
+    Call #[ScFnPtr "g"] "g_closure_arg" ;;
 
-    (* Write 13 to the cell pointed to by the pointer in "x" *)
+    (* Write 0 to the cell pointed to by the pointer in "x" *)
     *{sizeof_scalar} "x" <- #[0] ;;
 
     (* Free the local variable *)
     Free "x" ;;
 
-    (* Finally, return the value *)
+    (* Finally, return unit *)
     EndCall "c";;
-    "v"
+    #[]
   .
 
 Definition prot_mutable_reorder_write_up_activated_paper_opt : expr :=
@@ -46,10 +46,10 @@ Definition prot_mutable_reorder_write_up_activated_paper_opt : expr :=
     retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c";;
     Call #[ScFnPtr "f"] "f_closure_arg" ;;
     *{sizeof_scalar} "x" <- #[0] ;;
-    let: "v" := Call #[ScFnPtr "g"] "g_closure_arg" in
+    Call #[ScFnPtr "g"] "g_closure_arg" ;;
     Free "x" ;;
     EndCall "c";;
-    "v"
+    #[]
   .
 
 Lemma prot_mutable_reorder_write_up_activated_paper `{sborGS Σ} :
@@ -136,7 +136,8 @@ Proof.
   iIntros "Hc". iEval (rewrite delete_insert) in "Hc".
   sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "Hc") "".
   sim_pures.
-  sim_val. iModIntro. iSplit; first done. done.
+  sim_val. iModIntro. iSplit; first done.
+  by iApply big_sepL2_nil.
 Qed.
 
 Section closed.
