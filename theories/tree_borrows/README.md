@@ -31,19 +31,19 @@ It is subdivided into
 
 Section 5 has three examples, one for deleting reads, one for deleting writes, and one for reordering reads.
 
-### Example 1: Deleting Reads
+### Paragraph 1: Deleting Reads (Example 16)
 
 This example corresponds to the one in  `examples/unprotected/shared_delete_read_escaped.v`.
 The Coq example is very close to the one in the paper.
 The only difference is that `f` has an extra argument in Coq, which corresponds to the implicit environment that closures have in Rust.
 
-### Example 2: Deleting Writes (Optimizing with Protectors)
+### Paragraph 2: Deleting Writes (Optimizing with Protectors) (Example 17)
 
 This example corresponds to the one in `examples/protected/mutable_reorder_write_up_activated_paper.v`.
 This Coq example corresponds very closely to the one in the paper.
 The only difference is that `f` and `g` have an extra argument in Coq, which corresponds to the implicit environment that closures have in Rust.
 
-### Example 3: Reordering Reads
+### Paragraph 3: Reordering Reads (Example 18)
 
 This is proven in `read_read_reorder`, particularly in `refinement.v`.
 These proofs do not use the `simuliris` library, but instead they do a much simpler equivalence proof directly against the operational semantics.
@@ -53,3 +53,15 @@ We suspect that they also hold in a concurrent setting, but this would require d
 Specifically, the extremely simple notion of "equivalence after a few steps" is in `refinement_def.v`.
 The proof that the two reads can be reordered is in `read_reorder.v`.
 The file `low_level.v` contains low-level lemmas used in `read_reorder.v`
+
+### Other Examples From The Paper
+Example 1 is subsumed by Example 16, if one instantiates the unknown code properly.
+
+We have not shown Example 14, but two examples similar to it:
+* `examples/unprotected/shared_delete_read_escaped_coinductive.v` demonstrates reasoning in a loop.
+  But note that this does not insert a read if there is none. Also, the tag is not protected.
+* `examples/protected/shared_insert_read.v` demonstrates that reads can be inserted on protected tags.
+
+For the artifact submission, we will create a new example that corresponds to Example 14 more closely.
+
+

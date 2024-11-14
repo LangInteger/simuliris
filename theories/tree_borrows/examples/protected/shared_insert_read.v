@@ -112,7 +112,6 @@ Proof.
   sim_pures. simpl. rewrite !subst_result.
 
   source_bind (BinOp _ _ _).
-  Search BinOp.
   iApply source_red_safe_implies. 1: eapply (safe_implies_le r_s (ValR [ScInt 0]%V)%V).
   iIntros ((zres_s & z2 & -> & [= <-])).
   destruct r_t as [[|zres_t []]|]; simpl; try done.
@@ -148,7 +147,7 @@ Proof.
     iIntros "Hc". iEval (rewrite delete_insert) in "Hc".
     sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "Hc") "".
     sim_pures.
-    sim_val. iModIntro. iSplit; first done.
+    sim_val. iModIntro. iSplit; first done. iApply big_sepL2_singleton. done.
 Qed.
 
 
