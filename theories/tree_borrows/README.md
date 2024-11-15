@@ -55,7 +55,8 @@ The proof that the two reads can be reordered is in `read_reorder.v`.
 The file `low_level.v` contains low-level lemmas used in `read_reorder.v`
 
 ### Other Examples From The Paper
-Example 1 is subsumed by Example 16, if one instantiates the unknown code properly.
+Example 1 is similar to the one shown in `examples/unprotected/mutable_delete_read.v`.
+The one shown in Coq has two places where arbitrary unknown functions are called, and Example 1 is just a special case of that, if one instantiates these unknown functions correctly.
 
 We have not shown Example 14, but two examples similar to it:
 * `examples/unprotected/shared_delete_read_escaped_coinductive.v` demonstrates reasoning in a loop.
