@@ -22,6 +22,7 @@ Once you got opam set up, run `make build-dep` to install the right versions
 of the dependencies.
 
 Then run `make` to build everything.
+Note that the project contains some `Check` and `Print Assumptions` for key lemmas, which will be printed when you run `make`. Don't be scared.
 
 ## Structure
 Our fork of simuliris in particular includes the upstream version, which proves things about Simuliris, or about data races (in weak memory model), which is part of this archive file but not relevant for the paper.
