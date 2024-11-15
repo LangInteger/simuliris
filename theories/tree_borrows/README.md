@@ -59,8 +59,9 @@ Example 1 is similar to the one shown in `examples/unprotected/mutable_delete_re
 The one shown in Coq has two places where arbitrary unknown functions are called, and Example 1 is just a special case of that, if one instantiates these unknown functions correctly.
 
 We have not shown Example 14, but two examples similar to it:
-* `examples/unprotected/shared_delete_read_escaped_coinductive.v` demonstrates reasoning in a loop.
+* `examples/unprotected/shared_delete_read_escaped_coinductive.v` demonstrates reasoning in a while loop.
   But note that this does not insert a read if there is none. Also, the tag is not protected.
 * `examples/protected/shared_insert_read.v` demonstrates that reads can be inserted on protected tags.
 
-
+This shows that the program logic has all the reasoning primitives required for verifying Example 14,
+so taht its verification would be straightforward, just needing combine the two reasoning principles.
