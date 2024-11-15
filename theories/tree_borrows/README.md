@@ -63,6 +63,4 @@ We have not shown Example 14, but two examples similar to it:
   But note that this does not insert a read if there is none. Also, the tag is not protected.
 * `examples/protected/shared_insert_read.v` demonstrates that reads can be inserted on protected tags.
 
-For the artifact evaluation submission, we will create a new example that corresponds to Example 14 more closely.
-
 
