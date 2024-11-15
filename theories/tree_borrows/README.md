@@ -23,9 +23,9 @@ In addition, `read_read_reorder/` provides proofs of simple reorderings
 (swapping adjacent operations in a sequential setting)
 directly against the operational semantics.
 It is subdivided into
- * `refinement_def.v`: definition of a simple notion of program equivalence for a sequential setting.
+ * `equivalence_def.v`: definition of a simple notion of program equivalence for a sequential setting.
  * `low_level.v`: lemmas against the operational semantics.
- * `refinement.v`: actual proof of bisimulation between two programs in which adjacent reads have been swapped.
+ * `read_reorder.v`: actual proof of equivalence between two programs in which adjacent reads have been swapped. (Example 18)
 
 ## Correspondence with Section 5
 
@@ -45,12 +45,12 @@ The only difference is that `f` and `g` have an extra argument in Coq, which cor
 
 ### Paragraph 4: Reordering Reads (Example 18)
 
-This is proven in `read_read_reorder`, particularly in `refinement.v`.
+This is proven in `read_read_reorder`, particularly in `read_reorder.v`.
 These proofs do not use the `simuliris` library, but instead they do a much simpler equivalence proof directly against the operational semantics.
 This is because these proofs only hold for a non-concurrent language.
 We suspect that they also hold in a concurrent setting, but this would require data race reasoning, and thus we have not proven that.
 
-Specifically, the simple notion of "equivalence after a few steps" is in `refinement_def.v`.
+Specifically, the simple notion of "equivalence after a few steps" is in `equivalence_def.v`.
 The proof that the two reads can be reordered is in `read_reorder.v`.
 The file `low_level.v` contains low-level lemmas used in `read_reorder.v`
 
