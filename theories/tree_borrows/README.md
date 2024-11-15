@@ -64,4 +64,4 @@ We have not shown Example 14, but two examples similar to it:
 * `examples/protected/shared_insert_read.v` demonstrates that reads can be inserted on protected tags.
 
 This shows that the program logic has all the reasoning primitives required for verifying Example 14,
-so taht its verification would be straightforward, just needing combine the two reasoning principles.
+so that its verification would be straightforward, just needing combine the two reasoning principles.
