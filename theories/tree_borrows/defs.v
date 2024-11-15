@@ -45,9 +45,8 @@ Definition tree_items_unique (tr:tree item) :=
 
 Definition tree_items_compat_nexts (tr:tree item) (nxtp:tag) (nxtc: call_id) :=
   every_node (λ it, item_wf it nxtp nxtc) tr.
-  (* FIXME: rename above to just tree_items_wf *)
+  (* FIXME: Improve consistency of naming conventions *)
 
-(* FIXME: consistent naming *)
 Definition wf_tree (tr:tree item) :=
   tree_items_unique tr.
 Definition each_tree_wf (trs:trees) :=
@@ -83,9 +82,8 @@ Definition wf_scalar t sc := ∀ t' l, sc = ScPtr l t' → t' < t.
 Definition same_blocks (hp:mem) (trs:trees) :=
   dom trs =@{gset _} set_map fst (dom hp).
 Arguments same_blocks / _ _.
-(* OLD: forall blk l, is_Some (hp !! (blk, l)) -> is_Some (trs !! blk). *)
-(* FIXME: map fst (dom hp) === dom trs *)
-(* FIXME: forall blk, (exists l, is_Some (hp !! (blk, l))) <-> is_Some (trs !! blk). *)
+(* Formerly: map fst (dom hp) === dom trs
+   However this is no longer accurate. *)
 
 Definition root_invariant blk it (shp : mem) :=
   it.(iprot) = None ∧ it.(initp) = Disabled ∧
@@ -103,21 +101,19 @@ Definition tree_roots_compatible (trs : trees) shp :=
 
 
 Record state_wf (s: state) := {
-  (*state_wf_dom : dom s.(shp) ≡ dom s.(strs); Do we care ? After all TB is very permissive about the range, so out-of-bounds UB is *always* triggered at the level of the heap, not the trees *)
+  (*state_wf_dom : dom s.(shp) ≡ dom s.(strs);
+     This was included in SB but we don't care anymore because TB
+     is very permissive about the range so out-of-bounds UB is *always*
+     triggered by `expr_semantics` not `bor_semantics`. *)
   state_wf_dom : same_blocks s.(shp) s.(strs);
-  (*state_wf_mem_tag : wf_mem_tag s.(shp) s.(snp);*) (* FIXME: this seems to state that all pointers are wf, it should be included *)
   state_wf_tree_unq : wf_trees s.(strs);
   state_wf_tree_more_init : each_tree_parents_more_init s.(strs);
   state_wf_tree_more_active : each_tree_parents_more_active s.(strs);
   state_wf_tree_not_disabled :  each_tree_protected_parents_not_disabled s.(scs) s.(strs);
   state_wf_tree_no_active_cousins : each_tree_no_active_cousins s.(scs) s.(strs);
   state_wf_tree_compat : trees_compat_nexts s.(strs) s.(snp) s.(snc);
-  (* state_wf_non_empty : wf_non_empty s.(strs); *)
   state_wf_roots_active : tree_roots_compatible s.(strs) s.(shp);
-  (*state_wf_cid_no_dup : NoDup s.(scs) ;*) (* FIXME: call ids are unique, include this *)
   state_wf_cid_agree: wf_cid_incl s.(scs) s.(snc);
-  (* state_wf_cid_non_empty : s.(scs) ≠ []; *)
-  (* state_wf_no_dup : wf_no_dup σ.(cst).(sst); *)
 }.
 
 Definition init_state := (mkState ∅ ∅ {[O]} O 1).

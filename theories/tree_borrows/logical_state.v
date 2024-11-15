@@ -393,13 +393,12 @@ Section heap_defs.
                    ∧ ((item_lookup it l.2).(initialized) = PermInit → (item_lookup it l.2).(perm) ≠ Disabled)
     end.
 
-  (* FIXME: merge the two tk_unq ? *)
+  (* FIXME: Refactor potential: merge the two tk_unq *)
   Lemma bor_state_pre_unq_or l t tk σ : (tk = tk_unq tk_act ∨ tk = tk_unq tk_res) →
     bor_state_pre l t tk σ = bor_state_pre_unq l t σ.
   Proof. intros [-> | ->]; done. Qed.
 
 
-  (* TODO: we still want that the children are disabled and the cousins are not active even when this tag is frozen !protected. So perhaps we need 2 case distinctions here? *)
   Definition bor_state_post_unq (l : loc) (t : tag) (σ : state) it tr tkk:=
       let P := ((item_lookup it l.2).(perm) = Frozen → protector_is_active it.(iprot) σ.(scs)) in
       ( P →
@@ -1601,7 +1600,7 @@ Section val_rel.
         (* through [state_rel]:
           * the stacks are the same,
           * the allocation size is the same,
-          * and the locations are related (i.e.: public) TODO: previously, scalars could be untagged. this no longer works.
+          * and the locations are related (i.e.: public)
         *)
         ⌜l1 = l2⌝ ∗  ⌜p1 = p2⌝ ∗ p1 $$ tk_pub
     | ScCallId c, ScCallId c' => ⌜c = c'⌝ ∗ pub_cid c

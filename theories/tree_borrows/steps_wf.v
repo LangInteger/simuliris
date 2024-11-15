@@ -1850,22 +1850,6 @@ Proof.
   - by destruct σ.
 Qed.
 
-(*
-Lemma failed_copy_step_wf σ σ' e e' l bor T efs :
-  mem_expr_step σ.(shp) e (FailedCopyEvt l bor T) σ'.(shp) e' efs →
-  bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)
-           (FailedCopyEvt l bor T)
-           σ'.(strs) σ'.(scs) σ'.(snp) σ'.(snc) →
-  state_wf σ → state_wf σ'.
-Proof.
-  destruct σ as [h α cids nxtp nxtc].
-  destruct σ' as [h' α' cids' nxtp' nxtc']. simpl.
-  intros BS IS WF.
-  inversion BS. clear BS. simplify_eq.
-  inversion IS; clear IS; simplify_eq.
-  done.
-Qed. *)
-
 (* TODO less equalities makes applying the rule easier, see _sane version below *)
 Lemma write_mem_dom l (vl : value) h h'
   (DEFINED: ∀ i : nat, (i < length vl)%nat → (l +ₗ i) ∈ dom h)

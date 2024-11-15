@@ -13,7 +13,6 @@ From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_l
 From simuliris.tree_borrows.trees_equal Require Export trees_equal_preserved_by_access_base.
 From iris.prelude Require Import options.
 
-(* TODO cleanup *)
 Section utils.
 
   Context (C : call_id_set).

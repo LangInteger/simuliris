@@ -191,7 +191,6 @@ Definition item_lookup (it : item) (l : Z) :=
 Definition trees := gmap block (tree item).
 
 (** Retag kinds *)
-(* FIXME: simplify related stuff *)
 Inductive retag_kind := FnEntry | Default.
 
 (** Language base constructs *)

@@ -351,7 +351,6 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessRead, Foreign _ =>
       (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
       match perm with
-        (* FIXME: refactor *)
       | Reserved ResActivable => Some (Reserved (if isprot then ResConflicted else ResActivable))
       | Active => if isprot then
         (* So that the function is commutative on all states and not just on reachable states,
@@ -364,7 +363,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Foreign _ =>
       (* Foreign write. Disables everything except interior mutable [Reserved]. *)
       match perm with
-      (* TODO: remove -- this can never happen, but having it simplifies theorems. *)
+      (* NOTE: this can never happen, but having it simplifies theorems. *)
       | ReservedIM => if isprot then Some Disabled else Some $ ReservedIM
       | Disabled => Some Disabled
       | _ => Some Disabled
@@ -401,11 +400,6 @@ Definition protector_is_for_call c prot := call_of_protector prot = Some c.
 Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
 Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Defined.
 
-(* FIXME: This definition overlaps with logical_state.v:protected_by
-   We should pick one of them. If we pick this one it should be simplified
-   to match prot with Some (mkProtector _ c) => c in cids | None => False end.
-
-   In practice: delete [protector_is_active]. rename [witness_protector_is_active]. fix proofs. *)
 Definition protector_is_active prot cids :=
   exists c, protector_is_for_call c prot /\ call_is_active c cids.
 
@@ -767,7 +761,7 @@ Definition trees_unique tg trs blk it :=
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
 
-(* FIXME: order of args *)
+(* FIXME: Improve consistency of argument ordering *)
 
 (** Reborrow *)
 
@@ -859,7 +853,9 @@ Definition tree_access_all_protected_initialized (cids : call_id_set) (cid : nat
     (* finally we can combine this all *)
     set_fold (fun '(tg, init_locs) (tr:option (tree item)) => tr ← tr; reader_locs tg init_locs tr) (Some tr) init_locs.
 
-(* FIXME: IMPORTANT: don't make the access visible to children ! *)
+(* WARNING: don't make the access visible to children !
+    You can check in `trees_access_all_protected_initialized` that we properly use
+    `memory_access_nonchildren_only`. *)
 (* Finally we read all protected initialized locations on the entire trees by folding it
    for each tree separately.
    NOTE: be careful about how other properties assume the uniqueness of tags intra- and inter- trees,
@@ -875,7 +871,7 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (blk : block) (off : Z) (sz : nat)
     (FRESH : trs !! blk = None)
-    (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
+    (NONZERO : (sz > 0)%nat) :
     bor_step
       trs cids nxtp nxtc
       (AllocEvt blk nxtp (off, sz))
@@ -926,7 +922,6 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
                We want to do the read *after* the insertion so that it properly initializes the locations of the range. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
-    (* TODO get rid of fresh_child assumption here *)
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk im rk cid) alloc trs = Some trs')
     (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :

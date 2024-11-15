@@ -19,9 +19,7 @@ From simuliris.tree_borrows Require Export defs.
   - tk_loc: the tag is local
  *)
 
-(* TODO: allow a local update from tk_unq to tk_pub *)
 Definition tagKindR := csumR (exclR unitO) (csumR (csumR (exclR unitO) (exclR unitO)) unitR).
-
 
 Canonical Structure tag_kindO := leibnizO tag_kind.
 

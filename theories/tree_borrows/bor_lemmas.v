@@ -868,7 +868,6 @@ Proof.
     exists br2. split; [|assumption]. right; right; assumption.
 Qed.
 
-(* FIXME: these proofs ane absolutely horrible, refactor them. *)
 Lemma unique_only_one_subtree
   {tr tg br1 br2} :
   tree_unique tg tr ->

@@ -13,7 +13,6 @@ From simuliris.tree_borrows.trees_equal Require Import trees_equal_base.
 From iris.prelude Require Import options.
 
 
-(* TODO cleanup *)
 Section utils.
 
   Lemma every_node_iff_every_lookup
@@ -270,7 +269,7 @@ Section utils.
   Qed.
 
 
-  (* FIXME: move this elsewhere *)
+  (* FIXME: This is a very low level lemma, move this elsewhere ? *)
   Lemma if_fun_absorb_args {X Y} {b : bool} {x : X} {f g : X -> Y} :
     (if b then f else g) x = if b then f x else g x.
   Proof. destruct b; reflexivity. Qed.

@@ -277,7 +277,6 @@ Section log_rel.
     iDestruct (value_rel_length with "Hv1") as %EqL.
     iDestruct (value_rel_lookup with "Hv1") as (sc_t sc_s Eqt Eqs) "Hsc".
     {  rewrite EqL. eapply Nat2Z.inj_lt, lookup_lt_Some; eauto. }
-    (* TODO: I don't know how to fix sim_pures to do this. *)
     target_proj; [done|]. source_proj; [done|]. solve_rrel_refl.
   Qed.
 
@@ -373,8 +372,6 @@ Section log_rel.
       iIntros (t) "Hv". sim_val. eauto.
   Qed.
 
-  (* TODO: this can be useful elsewhere. It's here because I'm relying on the
-    several useful tactics defined here. *)
   Local Lemma sim_case π e_t e_s el_t el_s Ψ :
     e_t ⪯{π} e_s {{ rrel }} -∗
     ([∗ list] e_t';e_s' ∈ el_t;el_s, e_t' ⪯{π} e_s' [{ Ψ }]) -∗
@@ -389,7 +386,6 @@ Section log_rel.
     rename select (_ !! _ = Some _) into Hls.
     assert (∃ e_t', el_t !! Z.to_nat i = Some e_t') as [? Hlt].
     { apply lookup_lt_is_Some_2. apply lookup_lt_Some in Hls. by rewrite EqL. }
-    (* TODO sim_pures? *)
     target_case; [done|]. source_case; [done|]. sim_pures.
     iApply (big_sepL2_lookup _ _ _ _ _ _ Hlt Hls with "Hle").
   Qed.

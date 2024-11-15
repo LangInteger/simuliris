@@ -12,7 +12,6 @@ From simuliris.tree_borrows Require Import steps_progress.
 From iris.prelude Require Import options.
 
 
-(* TODO cleanup *)
 Section utils.
 
   Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
