@@ -24,7 +24,8 @@ Inductive no_termination_within P : expr → state → nat → Prop :=
     (∀ e' σ', prim_step P e σ e' σ' nil → no_termination_within P e' σ' n) →
     no_termination_within P e σ (S n).
 
-(* Two programs are eventually equal if they both do not terminate with n steps,
+(* Two programs are eventually equal if there exists an n such that they
+   both do not terminate with n steps,
   and after n steps, they are equal. *)
 Definition eventually_equal P e1 e2 :=
   ∃ n, ∀ σ, state_wf σ →
