@@ -43,7 +43,7 @@ This example corresponds to the one in `examples/protected/mutable_reorder_write
 This Coq example corresponds very closely to the one in the paper.
 The only difference is that `f` and `g` have an extra argument in Coq, which corresponds to the implicit environment that closures have in Rust.
 
-### Paragraph 3: Reordering Reads (Example 18)
+### Paragraph 4: Reordering Reads (Example 18)
 
 This is proven in `read_read_reorder`, particularly in `refinement.v`.
 These proofs do not use the `simuliris` library, but instead they do a much simpler equivalence proof directly against the operational semantics.
@@ -62,6 +62,6 @@ We have not shown Example 14, but two examples similar to it:
   But note that this does not insert a read if there is none. Also, the tag is not protected.
 * `examples/protected/shared_insert_read.v` demonstrates that reads can be inserted on protected tags.
 
-For the artifact submission, we will create a new example that corresponds to Example 14 more closely.
+For the artifact evaluation submission, we will create a new example that corresponds to Example 14 more closely.
 
 

@@ -1,6 +1,6 @@
 # Simuliris Coq development
 
-This repository contains the Coq development of Simuliris (paper presented at POPL22: https://iris-project.org/pdfs/2022-popl-simuliris.pdf).
+This repository contains the Coq development of Simuliris, additionally including the Tree Borrows Optimization Program Logic, and also some Tree Borrows optimizations not proven via Simuliris.
 
 ## Prerequisites
 
@@ -21,9 +21,10 @@ installing the dependencies.  This requires the following two repositories:
 Once you got opam set up, run `make build-dep` to install the right versions
 of the dependencies.
 
+Then run `make` to build everything.
+
 ## Structure
-We include our fork of simuliris in its entirety.
-In particular, that includes the data-race reasoning examples from the simuliris paper, as well as the Stacked Borrows development, which are not the focus of our paper.
+Our fork of simuliris in particular includes the upstream version, which proves things about Simuliris, or about data races (in weak memory model), which is part of this archive file but not relevant for the paper.
 The Tree Borrows development lives in `theories/tree_borrows` and has its own `README.md`, please consult that.
 
 
