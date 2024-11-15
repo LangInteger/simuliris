@@ -23,7 +23,7 @@ In addition, `read_read_reorder/` provides proofs of simple reorderings
 (swapping adjacent operations in a sequential setting)
 directly against the operational semantics.
 It is subdivided into
- * `refinement_def.v`: definition of a bisimulation relation for a sequential setting.
+ * `refinement_def.v`: definition of a simple notion of program equivalence for a sequential setting.
  * `low_level.v`: lemmas against the operational semantics.
  * `refinement.v`: actual proof of bisimulation between two programs in which adjacent reads have been swapped.
 
@@ -50,7 +50,7 @@ These proofs do not use the `simuliris` library, but instead they do a much simp
 This is because these proofs only hold for a non-concurrent language.
 We suspect that they also hold in a concurrent setting, but this would require data race reasoning, and thus we have not proven that.
 
-Specifically, the extremely simple notion of "equivalence after a few steps" is in `refinement_def.v`.
+Specifically, the simple notion of "equivalence after a few steps" is in `refinement_def.v`.
 The proof that the two reads can be reordered is in `read_reorder.v`.
 The file `low_level.v` contains low-level lemmas used in `read_reorder.v`
 
