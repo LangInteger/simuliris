@@ -1,5 +1,5 @@
 From stdpp Require Import gmap.
-From iris.bi Require Import bi fixpoint.
+From iris.bi Require Import bi fixpoint_mono.
 From iris.algebra Require Import gset gmap list.
 From iris.proofmode Require Import proofmode.
 From simuliris.simulation Require Import language fairness.
