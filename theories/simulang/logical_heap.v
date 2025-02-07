@@ -113,7 +113,7 @@ Section to_heap.
   Implicit Types σ : gmap loc (lock_state * val).
 
   Lemma to_heap_valid σ : ✓ to_heap σ.
-  Proof. intros l. rewrite lookup_fmap. case (σ !! l)=> [[[|n] v]|] //=. Qed.
+  Proof. intros l. rewrite lookup_fmap. case: (σ !! l)=> [[[|n] v]|] //=. Qed.
 
   Lemma lookup_to_heap_None σ l : σ !! l = None → to_heap σ !! l = None.
   Proof. by rewrite /to_heap lookup_fmap=> ->. Qed.
