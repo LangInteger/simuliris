@@ -20,6 +20,7 @@ Definition obs_scalar (sc_t sc_s : scalar) :=
   | _, _ => False
   end
 .
+
 Definition obs_value (v_t v_s : value) : Prop := Forall2 obs_scalar v_t v_s.
 Definition obs_result (r_t r_s : val bor_lang) : Prop :=
   match r_t, r_s with

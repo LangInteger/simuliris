@@ -7,9 +7,14 @@ Forked and adapted from the sibling folder `../stacked_borrows` with the same st
 * `tree.v`, `locations.v` contain preliminary definitions.
 * `lang_base.v`, `expr_semantics.v`, `bor_semantics.v`, and `lang.v` contain the language definition.
 * `tree_lemmas.v`, `bor_lemmas.v`, `steps_wf.v` and `steps_preserve.v` contain basic lemmas to help with the manipulation of trees.
+* `tree_access_laws.v` contains more complex lemmas about the entire memory (`trees`) rather than single allocations (`tree`)
 * `defs.v` defines well-formedness invariants for trees.
+* `wf.v` defines well-formedness for expressions.
+* `steps_progress.v` states success conditions for the various borrow steps so that we can prove absence of UB or exploit presence of UB.
+* `tkmap_view.v` defines views (partial ownership) of the global maps we use to remember the kind of each tag
 * `logical_state.v` defines the invariants and instantiates the simulation relation,
   using among others a notion of when trees are similar in `trees_equal/`.
+* `tag_protected_laws.v` contains reasoning principles about protectors
 * `steps_refl.v` and `steps_opt.v` prove the main execution lemmas.
 * `behavior.v` defines the notion of contextual refinement and expression well-formedness.
 * `adequacy.v` contains the resulting adequacy proof.
@@ -55,6 +60,7 @@ The proof that the two reads can be reordered is in `read_reorder.v`.
 The file `low_level.v` contains low-level lemmas used in `read_reorder.v`
 
 ### Other Examples From The Paper
+
 Example 1 is similar to the one shown in `examples/unprotected/mutable_delete_read.v`.
 The one shown in Coq has two places where arbitrary unknown functions are called, and Example 1 is just a special case of that, if one instantiates these unknown functions correctly.
 

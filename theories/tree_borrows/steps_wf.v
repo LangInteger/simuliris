@@ -2,6 +2,9 @@
 https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
+(** The core idea of this file is to prove that all borrow steps preserve
+    well-formedness of trees. *)
+
 From simuliris.tree_borrows Require Import helpers.
 From simuliris.tree_borrows Require Export defs steps_foreach steps_access steps_preserve bor_lemmas.
 From iris.prelude Require Import options.

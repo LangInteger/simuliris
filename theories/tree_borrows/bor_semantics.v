@@ -20,14 +20,6 @@ From stdpp Require Export gmap.
 From simuliris.tree_borrows Require Export lang_base notation tree tree_lemmas.
 From iris.prelude Require Import options.
 
-Lemma decision_equiv (P Q:Prop) :
-  (P <-> Q) ->
-  Decision P ->
-  Decision Q.
-Proof.
-  unfold Decision. tauto.
-Defined.
-
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
 
 Implicit Type (c:call_id) (cids:call_id_set).
@@ -430,6 +422,14 @@ Proof.
     * inversion IsProt.
 Defined.
 
+Lemma decision_equiv (P Q:Prop) :
+  (P <-> Q) ->
+  Decision P ->
+  Decision Q.
+Proof.
+  unfold Decision. tauto.
+Defined.
+
 Global Instance protector_is_active_dec prot cids :
   Decision (protector_is_active prot cids).
 Proof.
@@ -501,7 +501,6 @@ Definition tree_apply_access
 
 (* Initial permissions. *)
 Definition init_perms perm off sz
-  (* FIXME: simplify to just ø directly ? *)
   : permissions := mem_apply_range'_defined (fun _ => mkPerm PermInit perm) (off, sz) ∅.
 
 (* Initial tree is a single root whose default permission is [Active]. *)
@@ -562,7 +561,7 @@ Definition memory_deallocate cids t range
   let post_write := memory_access AccessWrite cids t range tr in
   (* Then strong protector UB. *)
   let find_strong_prot : item -> option item := fun it => (
-    (* FIXME: switch to plain [decide] ? *)
+    (* FIXME: consider switching to plain [decide] *)
     if bool_decide (protector_is_strong it.(iprot)) && bool_decide (protector_is_active it.(iprot) cids)
     then None
     else Some it
@@ -589,7 +588,7 @@ Definition witness_transition p p' : Prop :=
   | _, _ => False
   end.
 
-(* FIXME: use builtin rtc *)
+(* FIXME: using builtin reflexive transitive closure could simplify some proofs. *)
 Inductive witness_reach p p' : Prop :=
   | witness_reach_refl : p = p' -> witness_reach p p'
   | witness_reach_step p'' : witness_transition p p'' ->  witness_reach p'' p' -> witness_reach p p'
@@ -607,11 +606,17 @@ Definition reach p p' : Prop :=
   | _, _ => False
   end.
 
+(* Denotes a permission that "acts like Frozen" for the purpose
+   of a later invariant. Concretely this contains
+   [Frozen], [Disabled], [Reserved ResConflicted],
+   which are the 3 permissions that are not affected by a foreign read,
+   so "acts like frozen" can mean "is allowed to coexist with shared references". *)
 Definition freeze_like p : Prop :=
   reach Frozen p \/ p = Reserved ResConflicted.
 
-(* Now we check that the two definitions are equivalent, so that the clean definition
-   acts as a witness for the easy-to-do-case-analysis definition *)
+(* Now we check that the two definitions of reachability are equivalent,
+   so that the clean definition acts as a witness for the easy-to-do-case-analysis
+   definition *)
 
 Ltac destruct_permission :=
   match goal with
@@ -717,20 +722,26 @@ Proof.
   all: destruct isprot'; simpl; try auto.
 Qed.
 
+(** Some important predicates on trees. *)
+
+(** There is a node with tag [tg]. *)
 Definition tree_contains tg tr
   : Prop :=
   exists_node (IsTag tg) tr.
 
+(** All nodes with tag [tg] equal [it].
+    This is often useless on its own if you don't also own a [tree_contains tg]. *)
 Definition tree_item_determined tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
 Notation has_tag tg := (fun it => bool_decide (IsTag tg it)) (only parsing).
 
+(** Counting how many nodes in a tree have a certain tag. *)
 Definition tree_count_tg tg tr : nat := count_nodes (has_tag tg) tr.
 Definition tree_unique tg tr : Prop := tree_count_tg tg tr = 1.
 
-(* TODO change to thing below *)
+(** Capable of lifting any of the above predicates to [trees]. *)
 Definition trees_at_block prop trs blk
   : Prop :=
   match trs !! blk with
@@ -761,7 +772,7 @@ Definition trees_unique tg trs blk it :=
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
 
-(* FIXME: Improve consistency of argument ordering *)
+(* FIXME: Future refactoring: improve consistency of argument ordering *)
 
 (** Reborrow *)
 
@@ -808,7 +819,6 @@ Definition every_tagged t (P:item -> Prop) tr
   : Prop :=
   every_node (fun it => IsTag t it -> P it) tr.
 
-(* FIXME: gmap::partial_alter ? *)
 Definition apply_within_trees (fn:tree item -> option (tree item)) blk
   : trees -> option trees := fun trs =>
   oldtr ← trs !! blk;
@@ -853,7 +863,7 @@ Definition tree_access_all_protected_initialized (cids : call_id_set) (cid : nat
     (* finally we can combine this all *)
     set_fold (fun '(tg, init_locs) (tr:option (tree item)) => tr ← tr; reader_locs tg init_locs tr) (Some tr) init_locs.
 
-(* WARNING: don't make the access visible to children !
+(* WARNING: don't make the access visible to children!
     You can check in `trees_access_all_protected_initialized` that we properly use
     `memory_access_nonchildren_only`. *)
 (* Finally we read all protected initialized locations on the entire trees by folding it
@@ -870,6 +880,7 @@ Definition trees_access_all_protected_initialized (cids : call_id_set) (cid : na
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (blk : block) (off : Z) (sz : nat)
+    (* Memory allocation *)
     (FRESH : trs !! blk = None)
     (NONZERO : (sz > 0)%nat) :
     bor_step
@@ -894,6 +905,10 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs cids nxtp nxtc
 (*  | FailedCopyIS (alloc : block) range tg
     (* Unsuccessful read access just returns poison instead of causing UB *)
+    (* WARNING: SB works like this, having failed reads return poison
+       instead of triggering UB. We can't do this for Tree Borrows.
+       This was a hack for SB anyway, and not having it gives a stronger result.
+     *)
     (EXISTS_TAG : trees_contain tg trs alloc)
     (ACC : apply_within_trees (memory_access AccessRead cids tg range) alloc trs = None) :
     bor_step
@@ -930,9 +945,8 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       (RetagEvt alloc range parentt nxtp pk im cid rk)
       trs'' cids (S nxtp) nxtc
   | RetagNoopIS parentt (alloc : block) range pk im cid rk
-      (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
-         NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
-               We want to do the read *after* the insertion so that it properly initializes the locations of the range.*)
+      (* This is a noop retag. Some "retagging" operations don't actually do anything,
+         e.g. raw pointer retags. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
     (IS_NOOP: retag_perm pk im rk = None) :

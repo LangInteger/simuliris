@@ -2,6 +2,9 @@
   https://gitlab.mpi-sws.org/FP/stacked-borrows
 *)
 
+(** Statements of success conditions for borrow steps.
+    The goal is to be able to prove a [bor_step] statement. *)
+
 From simuliris.tree_borrows Require Export steps_wf.
 From Equations Require Import Equations.
 From iris.prelude Require Import options.
@@ -29,7 +32,7 @@ Proof.
     exact Dom.
 Qed.
 
-
+(* Basically, [tree_apply_access] works iff every node accepts the inner function being applied *)
 Lemma apply_access_success_condition tr cids access_tag range fn :
   every_node (fun it => is_Some (item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it)) tr
   <-> is_Some (tree_apply_access fn cids access_tag range tr).
@@ -39,7 +42,6 @@ Proof.
   rewrite every_node_map /compose.
   tauto.
 Qed.
-
 
 Lemma apply_access_fail_condition tr cids access_tag range fn :
   exists_node (fun it => item_apply_access fn cids (rel_dec tr access_tag (itag it)) range it = None) tr
@@ -51,6 +53,7 @@ Proof.
   tauto.
 Qed.
 
+(* [mem_apply_range'] succeeds iff every offset succeeds. *)
 Lemma mem_apply_range'_success_condition {X} (map : gmap Z X) fn range :
   (forall l, range'_contains range l -> is_Some (fn (map !! l))) <->
   is_Some (mem_apply_range' fn range map).
@@ -179,46 +182,6 @@ Proof.
   destruct (ProtVulnerable ltac:(reflexivity)); discriminate.
 Qed.
 
-
-
-(*
-Lemma dealloc1_progress stk bor cids
-  (PR: Forall (λ it, ¬ is_active_protector cids it) stk)
-  (BOR: ∃ it, it ∈ stk ∧ it.(tg) = bor ∧
-        it.(perm) ≠ Disabled ∧ it.(perm) ≠ SharedReadOnly) :
-  is_Some (dealloc1 stk bor cids).
-Proof.
-  rewrite /dealloc1.
-  destruct (find_granting_is_Some stk AccessWrite bor) as [? Eq]; [naive_solver|].
-  rewrite Eq /find_top_active_protector list_find_None_inv;
-    [by eexists|done].
-Qed.
-
-Lemma for_each_is_Some α l (n: nat) b f :
-  (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom α) →
-  (∀ (m: nat) stk, (m < n)%nat → α !! (l +ₗ m) = Some stk → is_Some (f stk)) →
-  is_Some (for_each α l n b f).
-Proof.
-  revert α. induction n as [|n IHn]; intros α IN Hf; [by eexists|]. simpl.
-  assert (is_Some (α !! (l +ₗ n))) as [stk Eq].
-  { apply (elem_of_dom (D:=gset loc)), IN. by lia. }
-  rewrite Eq /=. destruct (Hf n stk) as [stk' Eq']; [lia|done|].
-  rewrite Eq' /=. destruct b; apply IHn.
-  - intros. apply elem_of_dom. rewrite lookup_delete_ne.
-    + apply (elem_of_dom (D:=gset loc)), IN. lia.
-    + move => /shift_loc_inj. lia.
-  - intros ???. rewrite lookup_delete_ne.
-    + apply Hf. lia.
-    + move => /shift_loc_inj. lia.
-  - intros. apply elem_of_dom. rewrite lookup_insert_ne.
-    + apply (elem_of_dom (D:=gset loc)), IN. lia.
-    + move => /shift_loc_inj. lia.
-  - intros ???. rewrite lookup_insert_ne.
-    + apply Hf. lia.
-    + move => /shift_loc_inj. lia.
-Qed.
-*)
-
 (* For a protector to allow deallocation it must be weak or inactive *)
 Definition item_deallocateable_protector cids (it: item) :=
   match it.(iprot) with
@@ -226,47 +189,6 @@ Definition item_deallocateable_protector cids (it: item) :=
   | _ => True
   end.
 
-(* Deallocation progress is going to be a bit more tricky because we need the success of the write *)
-(*
-Lemma memory_deallocated_progress α cids l bor (n: nat) :
-  (∀ m : Z, 0 ≤ m ∧ m < n → l +ₗ m ∈ dom α) →
-  (∀ (m: nat) stk, (m < n)%nat → α !! (l +ₗ m) = Some stk →
-      (∃ it, it ∈ stk ∧ it.(itag) = bor ∧
-        it.(perm) ≠ Disabled ∧ it.(perm) ≠ SharedReadOnly) ∧
-      ∀ it, it ∈ stk → item_inactive_protector cids it) →
-  is_Some (memory_deallocated α cids l bor n).
-Proof.
-  intros IN IT. apply for_each_is_Some; [done|].
-  intros m stk Lt Eq. destruct (IT _ _ Lt Eq) as [In PR].
-  destruct (dealloc1_progress stk bor cids) as [? Eq1];
-    [|done|rewrite Eq1; by eexists].
-  apply Forall_forall. move => it /PR.
-  rewrite /item_inactive_protector /is_active_protector /is_active.
-  case protector; naive_solver.
-Qed.
-*)
-(*
-Lemma memory_deallocate_progress (σ: state) l tg (sz:nat) (WF: state_wf σ) :
-  (∀ m : Z, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m ∧ m < sz) →
-  (sz > 0)%nat →
-  trees_contain tg (strs σ) l.1 →
-  is_Some (apply_within_trees (memory_deallocate σ.(scs) tg (l.2, sz)) l.1 σ.(strs)).
-Proof.
-  intros Hfoo Hbar Hcont.
-  eexists. Locate trees_contain. unfold trees_contain in Hcont. unfold trees_at_block in Hcont.
-  destruct (strs σ !! l.1) as [tr|] eqn:Heqtr; last done.
-  rewrite /apply_within_trees /memory_deallocate Heqtr /=.
-  unfold tree_apply_access.
-  Print join_nodes.
-  Print map_nodes.
-  Search join_nodes.
-   simpl.
-  Print apply_within_trees.
-  Print memory_deallocate.
-  Print tree_apply_access.
-  Print item_apply_access.
-  Print memory_deallocate.
-*)
 Lemma dealloc_base_step' P (σ: state) l tg (sz:nat) α' (WF: state_wf σ) :
   (∀ m : Z, is_Some (σ.(shp) !! (l +ₗ m)) ↔ 0 ≤ m ∧ m < sz) →
   (sz > 0)%nat →
@@ -278,25 +200,6 @@ Proof.
   intros Hdom Hpos Hcont Happly. destruct l as [blk off].
   econstructor; econstructor; auto.
 Qed.
-(*
-Lemma dealloc_base_step P (σ: state) T l bor
-  (WF: state_wf σ)
-  (BLK: ∀ m : Z, l +ₗ m ∈ dom σ.(shp) ↔ 0 ≤ m ∧ m < tsize T)
-  (BOR: ∀ (n: nat) stk, (n < tsize T)%nat →
-    σ.(sst) !! (l +ₗ n) = Some stk →
-    (∃ it, it ∈ stk ∧ it.(tg) = bor ∧
-      it.(perm) ≠ Disabled ∧ it.(perm) ≠ SharedReadOnly) ∧
-      ∀ it, it ∈ stk → item_inactive_protector σ.(scs) it) :
-  ∃ σ',
-  base_step P (Free (Place l bor T)) σ #[☠] σ' [].
-Proof.
-  destruct (memory_deallocated_progress σ.(sst) σ.(scs) l bor (tsize T))
-    as [α' Eq']; [|done|].
-  - intros. rewrite -(state_wf_dom _ WF). by apply BLK.
-  - eexists. econstructor; econstructor; [|done].
-    intros. by rewrite -(elem_of_dom (D:= gset loc) σ.(shp)).
-Qed.
-*)
 
 (* Success of `read_mem` on the heap is unchanged. *)
 Lemma read_mem_is_Some' l n h :
@@ -361,147 +264,8 @@ Proof.
   rewrite -Hs; last lia. rewrite -Hv'; last lia. intros -> [= ->]. done.
 Qed.
 
-(*
-Lemma replace_check'_is_Some cids acc stk :
-  (∀ it, it ∈ stk → it.(perm) = Unique → item_inactive_protector cids it) →
-  is_Some (replace_check' cids acc stk).
-Proof.
-  revert acc. induction stk as [|si stk IH]; intros acc PR; simpl; [by eexists|].
-  case decide => EqU; last by (apply IH; set_solver).
-  rewrite (Is_true_eq_true (check_protector cids si)); first by (apply IH; set_solver).
-  have IN: si ∈ si :: stk by set_solver. apply PR in IN; [|done].
-  move : IN. rewrite /check_protector /item_inactive_protector.
-  case si.(protector) => [? /negb_prop_intro|//]. by case is_active.
-Qed.
-
-Lemma replace_check_is_Some cids stk :
-  (∀ it, it ∈ stk → it.(perm) = Unique → item_inactive_protector cids it) →
-  is_Some (replace_check cids stk).
-Proof. move => /replace_check'_is_Some IS. by apply IS. Qed.
-
-*)
-
-
-(*
-Definition access1_read_pre cids (stk: stack) (bor: tag) :=
-  ∃ (i: nat) it, stk !! i = Some it ∧ it.(tg) = bor ∧ it.(perm) ≠ Disabled ∧
-  ∀ (j: nat) jt, (j < i)%nat → stk !! j = Some jt →
-    (jt.(perm) = Disabled ∨ jt.(tg) ≠ bor) ∧
-    match jt.(perm) with
-    | Unique => item_inactive_protector cids jt
-    | _ => True
-    end.
-
-Definition access1_write_pre cids (stk: stack) (bor: tag) :=
-  ∃ (i: nat) it, stk !! i = Some it ∧ it.(perm) ≠ Disabled ∧
-  it.(perm) ≠ SharedReadOnly ∧ it.(tg) = bor ∧
-  ∀ (j: nat) jt, (j < i)%nat → stk !! j = Some jt →
-    (jt.(perm) = Disabled ∨ jt.(perm) = SharedReadOnly ∨ jt.(tg) ≠ bor) ∧
-    match find_first_write_incompatible (take i stk) it.(perm) with
-    | Some idx =>
-        if decide (j < idx)%nat then
-        (* Note: if a Disabled item is already in the stack, then its protector
-          must have been inactive since its insertion, so this condition is
-          unneccessary. *)
-          item_inactive_protector cids jt
-        else True
-    | _ => True
-    end.
- *)
-
 Definition is_write (access: access_kind) : bool :=
   match access with AccessWrite => true | _ => false end.
-(*
-Definition access1_pre
-  cids (stk: stack) (access: access_kind) (bor: tag) :=
-  ∃ (i: nat) it, stk !! i = Some it ∧ it.(perm) ≠ Disabled ∧
-  (is_write access → it.(perm) ≠ SharedReadOnly) ∧ it.(tg) = bor ∧
-  ∀ (j: nat) jt, (j < i)%nat → stk !! j = Some jt →
-    (jt.(perm) = Disabled ∨
-     (if is_write access then jt.(perm) = SharedReadOnly ∨ jt.(tg) ≠ bor
-      else jt.(tg) ≠ bor)) ∧
-    if is_write access then
-      match find_first_write_incompatible (take i stk) it.(perm) with
-      | Some idx =>
-          if decide (j < idx)%nat then
-          (* Note: if a Disabled item is already in the stack, then its protector
-            must have been inactive since its insertion, so this condition is
-            unneccessary. *)
-            item_inactive_protector cids jt
-          else True
-      | _ => True
-      end
-    else
-      match jt.(perm) with
-      | Unique => item_inactive_protector cids jt
-      | _ => True
-      end.
- *)
-
-(*
-Lemma access1_is_Some cids stk kind bor
-  (BOR: access1_pre cids stk kind bor) :
-  is_Some (access1 stk kind bor cids).
-Proof.
-  destruct BOR as (i & it & Eqi & ND & IW & Eqit & Lti).
-  rewrite /access1 /find_granting.
-  rewrite (_: list_find (matched_grant kind bor) stk = Some (i, it)); last first.
-  { apply list_find_Some_not_earlier. split; last split; [done|..].
-    - split; [|done].
-      destruct kind; [by apply grants_access_all|by apply grants_write_all, IW].
-    - intros ?? Lt Eq GR. destruct (Lti _ _ Lt Eq) as [[Eq1|NEq1] NEq2].
-      { move : GR. rewrite /matched_grant Eq1 /=. naive_solver. }
-      destruct kind; [by apply NEq1, GR|]. destruct NEq1 as [OR|OR].
-      + move : GR. rewrite /matched_grant OR /=. naive_solver.
-      + by apply OR, GR. } simpl.
-  have ?: (i ≤ length stk)%nat. { by eapply Nat.lt_le_incl, lookup_lt_Some. }
-  destruct kind.
-  - destruct (replace_check_is_Some cids (take i stk)) as [? Eq2];
-      [|rewrite Eq2 /=; by eexists].
-    intros jt [j Eqj]%elem_of_list_lookup_1 IU.
-    have ?: (j < i)%nat.
-    { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
-    destruct (Lti j jt) as [Eq1 PR]; [done|..].
-    + symmetry. by rewrite -Eqj lookup_take.
-    + move : PR. by rewrite /= IU.
-  - destruct (find_first_write_incompatible_is_Some (take i stk) it.(perm))
-      as [idx Eqx]; [done|by apply IW|]. rewrite Eqx /=.
-    destruct (remove_check_is_Some cids (take i stk) idx) as [stk' Eq'];
-      [..|rewrite Eq'; by eexists].
-    + move : Eqx. apply find_first_write_incompatible_length.
-    + intros j jt Lt Eqj.
-      have ?: (j < i)%nat.
-      { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
-      destruct (Lti j jt) as [Eq1 PR]; [done|..].
-      * symmetry. by rewrite -Eqj lookup_take.
-      * move : PR. by rewrite /= Eqx decide_True.
-Qed.
-
-Lemma access1_read_is_Some cids stk bor
-  (BOR: access1_read_pre cids stk bor) :
-  is_Some (access1 stk AccessRead bor cids).
-Proof.
-  destruct BOR as (i & it & Eqi & Eqit & ND &  Lti).
-  apply access1_is_Some. exists i, it. do 4 (split; [done|]).
-  intros j jt Lt Eq. by destruct (Lti _ _ Lt Eq).
-Qed.
- *)
-
-(*
-Lemma memory_read_is_Some α cids l bor (n: nat) :
-  (∀ m, (m < n)%nat → l +ₗ m ∈ dom α) →
-  (∀ (m: nat) stk, (m < n)%nat →
-    α !! (l +ₗ m) = Some stk → access1_read_pre cids stk bor) →
-  is_Some (memory_read α cids l bor n).
-Proof.
-  intros IN STK. apply for_each_is_Some.
-  - intros m []. rewrite -(Z2Nat.id m); [|done]. apply IN.
-    rewrite -(Nat2Z.id n) -Z2Nat.inj_lt; [done..|lia].
-  - intros m stk Lt Eq.
-    specialize (STK _ _ Lt Eq).
-    destruct (access1_read_is_Some _ _ _ STK) as [? Eq2]. rewrite Eq2. by eexists.
-Qed.
- *)
 
 Lemma apply_within_trees_unchanged fn blk trs trs' :
       (∀ tr, trs !! blk = Some tr → fn tr = Some tr) →

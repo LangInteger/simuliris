@@ -27,12 +27,8 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Write e1 e2 => Write (subst x es e1) (subst x es e2)
   | Alloc T => Alloc T
   | Free e => Free (subst x es e)
-  (* | CAS e0 e1 e2 => CAS (subst x es e0) (subst x es e1) (subst x es e2) *)
-  (* | AtomWrite e1 e2 => AtomWrite (subst x es e1) (subst x es e2) *)
-  (* | AtomRead e => AtomRead (subst x es e) *)
   | Deref e T => Deref (subst x es e) T
   | Ref e => Ref (subst x es e)
-  (* | Field e path => Field (subst x: es e) path *)
   | Retag e1 e2 newp im sz kind => Retag (subst x es e1) (subst x es e2) newp im sz kind
   | Let x1 e1 e2 =>
       Let x1 (subst x es e1)
@@ -40,7 +36,6 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Case e el => Case (subst x es e) (fmap (subst x es) el)
   | Fork e => Fork (subst x es e) 
   | While e1 e2 => While (subst x es e1) (subst x es e2)
-  (* | SysCall id => SysCall id *)
   end.
 
 (* formal argument list substitution *)
@@ -111,7 +106,6 @@ Inductive ectx_item :=
 | FreeEctx
 | DerefEctx (sz : nat)
 | RefEctx
-(* | FieldEctx (path : list nat) *)
 | RetagREctx (e1 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 | RetagLEctx (r2 : result) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
@@ -136,7 +130,6 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | FreeEctx => Free e
   | DerefEctx T => Deref e T
   | RefEctx => Ref e
-  (* | FieldEctx path => Field e path *)
   | RetagLEctx r2 newp im sz kind => Retag e (of_result r2) newp im sz kind
   | RetagREctx e1 newp im sz kind => Retag e1 e newp im sz kind
   | LetEctx x e2 => Let x e e2
@@ -542,8 +535,4 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               h (Retag #[ScPtr l otag] #[ScCallId cid] pk im sz kind)
               (RetagEvt l.1 (l.2, sz) otag ntag pk im cid kind)
               h #[ScPtr l ntag] []
-
-(* observable behavior *)
-(* | SysCallBS id h:
-    expr_step (SysCall id) h (SysCallEvt id) (Lit LitPoison) h [] *)
 .

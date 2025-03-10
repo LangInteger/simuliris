@@ -2,9 +2,18 @@ From iris.prelude Require Import prelude options.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas bor_lemmas defs.
 From iris.prelude Require Import options.
 
+(** Lemmas about borrow steps preserving properties of the tree.
+    This is related to [steps_wf.v], but where [steps_wf] states lemmas about
+    preservation of well-formedness by all borrow steps, these are lower-level.
+    Many lemmas here will seem trivial (e.g. if you have a tree in which a tag
+   is unique and you apply a tag-preserving function, the tag is still unique). *)
+
 (* Any function that operates only on permissions (which is all transitions steps)
    leaves the tag and protector unchanged which means that most of the preservation lemmas
-   are trivial once we get to the level of items *)
+   are trivial once we get to the level of items.
+   Preservation of metadata includes preservation of relationships since
+   the parent-child relation is defined by the relative location of tags
+   (which are metadata). *)
 Definition preserve_item_metadata (fn:item -> option item) :=
   forall it it', fn it = Some it' -> it.(itag) = it'.(itag) /\ it.(iprot) = it'.(iprot) /\ it.(initp) = it'.(initp).
 
@@ -140,9 +149,10 @@ Proof.
   erewrite new_item_has_tag; done.
 Qed.
 
+(** Detailed specification of the effects of one access.
+    This is to trees what [mem_apply_range'_spec] is to ranges. *)
 Lemma apply_access_spec_per_node
   {tr affected_tag access_tag pre fn cids range tr'}
-  (*(ExAcc : tree_contains access_tag tr)*)
   (ExAff : tree_contains affected_tag tr)
   (UnqAff : tree_item_determined affected_tag pre tr)
   (Access : tree_apply_access fn cids access_tag range tr = Some tr')
@@ -182,6 +192,8 @@ Proof.
       tauto.
 Qed.
 
+(** Reachability of a state behaves as expected in between applications
+    of functions compatible with [reach]. *)
 Lemma apply_access_perm_preserves_backward_reach
   {pre post kind rel b p0}
   (Access : apply_access_perm kind rel b pre = Some post)
@@ -314,7 +326,7 @@ Proof.
   all: intros H H'; inversion H'; inversion H.
 Qed.
 
-
+(** Initialized status is monotonous: an initialized location stays initialized. *)
 Lemma memory_access_preserves_perminit
   {access_tag affected_tag pre tr post tr' kind cids range z zpre zpost}
   (ExAff : tree_contains affected_tag tr)
@@ -344,6 +356,7 @@ Proof.
   all: rewrite Lkup; simpl; try exact Apply.
 Qed.
 
+(** Furthermore a child access produces an initialized. *)
 Lemma apply_access_perm_child_produces_perminit
   {pre post kind b rel}
   (CHILD : if rel is Child _ then True else False)
@@ -390,6 +403,7 @@ Proof.
   all: simpl; done.
 Qed.
 
+(** Protected + initialized prevents loss of [Active]. *)
 Lemma apply_access_perm_protected_initialized_preserves_active
   {pre post kind rel}
   (Access : apply_access_perm kind rel true pre = Some post)
