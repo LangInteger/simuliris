@@ -12,6 +12,9 @@ Forked and adapted from the sibling folder `../stacked_borrows` with the same st
 * `wf.v` defines well-formedness for expressions.
 * `steps_progress.v` states success conditions for the various borrow steps so that we can prove absence of UB or exploit presence of UB.
 * `tkmap_view.v` defines views (partial ownership) of the global maps we use to remember the kind of each tag
+* `trees_equal/` contains a number of files related to a `trees_equal` binary relation between trees.
+  In Stacked Borrows the source stack and the target stack are always identical.
+  In Tree Borrows that is no longer the case, and this relation describes the extent to which they are allowed to differ.
 * `logical_state.v` defines the invariants and instantiates the simulation relation,
   using among others a notion of when trees are similar in `trees_equal/`.
 * `tag_protected_laws.v` contains reasoning principles about protectors
