@@ -27,10 +27,7 @@ Forked and adapted from the sibling folder `../stacked_borrows` with the same st
 In addition, `read_read_reorder/` provides proofs of simple reorderings
 (swapping adjacent operations in a sequential setting)
 directly against the operational semantics.
-It is subdivided into
- * `equivalence_def.v`: definition of a simple notion of program equivalence for a sequential setting.
- * `low_level.v`: lemmas against the operational semantics.
- * `read_reorder.v`: actual proof of equivalence between two programs in which adjacent reads have been swapped. (Example 18)
+You can find more details in the associated `README.md`.
 
 ## Correspondence with Section 5
 

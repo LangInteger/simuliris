@@ -162,30 +162,6 @@ Proof.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
     split; last done. rewrite bool_decide_decide decide_True //; congruence.
-(*  - (* read x1: succeed, read x2: fail *)
-    do 2 eexists. split.
-    { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 4. 1: done.
-      econstructor.
-      + eapply apply_read_within_trees_same_tags; eassumption.
-      + eapply read_failure_preserved.
-        * eexists. eexists. apply (Hwf.(state_wf_tree_compat _)).
-        * eassumption.
-        * eassumption.
-    }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    do 2 eexists. simpl. split.
-    { change (Let x1 ?a ?b) with (fill [LetEctx x1 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 3. 1: done. simpl.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    split; last done. rewrite bool_decide_decide decide_True //; congruence. *)
   - (* read x1: zerosized, read x2: succeed *)
     do 2 eexists. split.
     { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
@@ -222,86 +198,6 @@ Proof.
     { simpl. eapply base_prim_step.
       econstructor 1. econstructor. 1: done. done. }
     split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
-(*  - (* read x1: zerosized, read x2: fail *)
-    do 2 eexists. split.
-    { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 4. 1: done.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    do 2 eexists. simpl. split.
-    { change (Let x1 ?a ?b) with (fill [LetEctx x1 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 3. 1: done. simpl.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
-  - (* read x1: fail, read x2: succeed *)
-    do 2 eexists. split.
-    { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 3. 1: done.
-      econstructor; done. }
-    simpl.
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    do 2 eexists. simpl. split.
-    { change (Let x1 ?a ?b) with (fill [LetEctx x1 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 4. 1: done. simpl.
-      econstructor.
-      + erewrite <- apply_read_within_trees_same_tags; eassumption.
-      + erewrite <- read_failure_preserved.
-        * eassumption.
-        * eexists. eexists. apply (Hwf.(state_wf_tree_compat _)).
-        * eassumption.
-    }
-    (* this admit needs the theorem saying that if it fails earlier, it fails also after the other read has succeeded *)
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
-  - (* read x1: fail, read x2: zerosized *)
-    do 2 eexists. split.
-    { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 3. 1: done.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    do 2 eexists. simpl. split.
-    { change (Let x1 ?a ?b) with (fill [LetEctx x1 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 4. 1: done. simpl.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence.
-  - (* read x1: fail, read x2: fail *)
-    do 2 eexists. split.
-    { change (Let x2 ?a ?b) with (fill [LetEctx x2 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 4. 1: done.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    do 2 eexists. simpl. split.
-    { change (Let x1 ?a ?b) with (fill [LetEctx x1 b] a).
-      eapply fill_prim_step. eapply base_prim_step.
-      econstructor 2. 1: econstructor 4. 1: done. simpl.
-      econstructor; done. }
-    do 2 eexists. split.
-    { simpl. eapply base_prim_step.
-      econstructor 1. econstructor. 1: done. done. }
-    split; last by destruct σ. rewrite bool_decide_decide decide_True //; congruence. *)
 Qed.
 
 Lemma read_example_no_termination x1 x2 l1 tg1 sz1 l2 tg2 sz2 erest P σ :
@@ -331,7 +227,6 @@ Proof.
   split; first by eapply read_example_no_termination.
   split; eapply read_reorder_onesided; done.
 Qed.
-
 
 
 Print Assumptions read_reorder.
