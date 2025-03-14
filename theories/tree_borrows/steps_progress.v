@@ -1,7 +1,3 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
-
 (** Statements of success conditions for borrow steps.
     The goal is to be able to prove a [bor_step] statement. *)
 

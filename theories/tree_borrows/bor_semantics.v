@@ -17,7 +17,7 @@ From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 
-From simuliris.tree_borrows Require Export lang_base notation tree tree_lemmas.
+From simuliris.tree_borrows Require Export lang_base notation tree  locations.
 From iris.prelude Require Import options.
 
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
@@ -995,6 +995,7 @@ Inductive bor_steps trs cids nxtp nxtc
         trs2 cids2 nxtp2 nxtc2
   .
 
+(** Unit test for the tree relation definition, showing how it works *)
 (* conversion is magic *)
 Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some oo) : A := oo.
 Local Notation unwrap K := (unpack_option K eq_refl).
@@ -1016,6 +1017,8 @@ Local Definition with_three_children :=
 In particular, 4 is a non-immediate child of 1, but all other child relations are immediate.
 
 *)
+
+(** Having constructed the above tree, we can now check that all relations are computed correctly *)
 (* conversion keeps being magical *)
 Succeed Example foo : rel_dec with_three_children 1 1 = Child This                   := eq_refl.
 Succeed Example foo : rel_dec with_three_children 1 2 = Foreign (Parent Immediate)   := eq_refl.

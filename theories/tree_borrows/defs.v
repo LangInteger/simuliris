@@ -1,7 +1,3 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
-
 From iris.prelude Require Export prelude.
 From simuliris.tree_borrows Require Export tactics notation lang bor_semantics bor_lemmas.
 From iris.prelude Require Import options.

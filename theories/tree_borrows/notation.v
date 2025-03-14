@@ -1,7 +1,3 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
-
 From iris.prelude Require Import prelude options.
 From simuliris.tree_borrows Require Export lang_base.
 From iris.prelude Require Import options.

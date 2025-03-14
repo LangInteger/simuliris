@@ -1,65 +1,22 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
-
 (** The core idea of this file is to prove that all borrow steps preserve
     well-formedness of trees. *)
 
-From simuliris.tree_borrows Require Import helpers.
-From simuliris.tree_borrows Require Export defs steps_foreach steps_access steps_preserve bor_lemmas.
+From simuliris.tree_borrows Require Export defs tree_lemmas steps_foreach steps_preserve bor_lemmas.
 From iris.prelude Require Import options.
 
 (* weird GMAP stuff *)
 
-Lemma gmap_dep_fold_ind_strong {B A P} (f : positive → A → B → B) (Q : B → gmap_dep A P → Prop) (b : B) j :
-  Q b GEmpty →
-  (∀ i p x mt r, gmap.gmap_dep_lookup i mt = None →
-    r = gmap.gmap_dep_fold f j b mt →
-    (∀ B' f' (b':B'), (f' (Pos.reverse_go i j) x (gmap.gmap_dep_fold f' j b' mt)) = gmap.gmap_dep_fold f' j b' (gmap.gmap_dep_partial_alter (λ _, Some x) i p mt)) →
-    Q r mt →
-    Q (f (Pos.reverse_go i j) x r) (gmap.gmap_dep_partial_alter (λ _, Some x) i p mt)) →
-  ∀ mt, Q (gmap.gmap_dep_fold f j b mt) mt.
-Proof.
-  intros Hemp Hinsert mt. revert Q b j Hemp Hinsert.
-  induction mt as [|P ml mx mr ? IHl IHr] using gmap.gmap_dep_ind;
-    intros Q b j Hemp Hinsert; [done|].
-  rewrite gmap.gmap_dep_fold_GNode; try done.
-  apply (IHr (λ y mt, Q y (gmap.GNode ml mx mt))).
-  { apply (IHl (λ y mt, Q y (gmap.GNode mt mx GEmpty))).
-    { destruct mx as [[p x]|]; [|done].
-      replace (gmap.GNode gmap.GEmpty (Some (p,x)) gmap.GEmpty) with
-        (gmap.gmap_dep_partial_alter (λ _, Some x) 1 p gmap.GEmpty) by done.
-      by apply Hinsert. }
-    intros i p x mt r H1 H2 H3 H4.
-    replace (gmap.GNode (gmap.gmap_dep_partial_alter (λ _, Some x) i p mt) mx gmap.GEmpty)
-      with (gmap.gmap_dep_partial_alter (λ _, Some x) (i~0) p (gmap.GNode mt mx gmap.GEmpty))
-      by (by destruct mt, mx as [[]|]).
-    apply Hinsert. 1,4: by rewrite ?gmap.gmap_dep_lookup_GNode.
-    1: by destruct mt, mx as [[]|]; done.
-    intros B' f' b'. destruct mt, mx as [[]|]; simpl in *.
-    1: done. 1: done. all: rewrite H3; by destruct gmap.gmap_dep_ne_partial_alter. }
-  intros i p x mt r H1 H2 H3 H4.
-  replace (gmap.GNode ml mx (gmap.gmap_dep_partial_alter (λ _, Some x) i p mt))
-    with (gmap.gmap_dep_partial_alter (λ _, Some x) (i~1) p (gmap.GNode ml mx mt))
-    by (by destruct ml, mx as [[]|], mt).
-  apply Hinsert. all: rewrite ?gmap.gmap_dep_lookup_GNode; try done.
-  1: destruct ml, mx as [[]|], mt; simpl in *; done.
-  intros B' f' b'. destruct ml, mx as [[]|], mt; simpl in *.
-  1,3,5,7: done. all: rewrite H3; by destruct gmap.gmap_dep_ne_partial_alter.
-Qed.
 
 Lemma map_fold_ind_strong {K V B} `{Countable K} (P : B → gmap K V → Prop) (f : K → V → B → B) (b:B) (M : gmap K V) :
   P b ∅ →
   (∀ k v M, M !! k = None → (∀ B' f' (b':B'), map_fold f' b' (<[k:=v]> M) = f' k v (map_fold f' b' M)) → P (map_fold f b M) M → P (f k v (map_fold f b M)) (<[k:=v]> M)) →
   P (map_fold f b M) M.
 Proof.
-  intros H1 H2. destruct M as [M]. rewrite /map_fold /=.
-  apply (gmap_dep_fold_ind_strong _ (λ r M, P r (GMap M))); clear M; [done|].
-  intros i [Hk] x mt r H0 -> H3; simpl. destruct (fmap_Some_1 _ _ _ Hk) as (k&Hk1&Hk2). subst i.
-  rewrite Hk1.
-  assert (GMapKey Hk = gmap_key_encode k) as Hk3 by (apply proof_irrel). rewrite Hk3.
-  apply (H2 _ _ (GMap mt)). 1: done.
-  intros ???. simpl. rewrite /map_fold /gmap_fold /= -Hk3 -H3 /= Hk1 //.
+  intros Hbase Hstep. eapply (map_first_key_ind (fun mm => P (map_fold f b mm) mm)).
+  - rewrite map_fold_empty. apply Hbase.
+  - intros k v m Hnone Hfirstkey HIH.
+    rewrite map_fold_insert_first_key //. eapply Hstep; [done| |done].
+    intros B' f' b'. rewrite map_fold_insert_first_key //.
 Qed.
 
 

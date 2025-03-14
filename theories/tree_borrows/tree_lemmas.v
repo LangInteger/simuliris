@@ -1,7 +1,7 @@
 From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
-From simuliris.tree_borrows Require Export lang_base notation tree.
+From simuliris.tree_borrows Require Export tree.
 From iris.prelude Require Import options.
 
 Implicit Type (V W X Y:Type).
@@ -246,42 +246,6 @@ Proof.
     all: simpl; auto.
 Qed.
 
-(*
-Lemma exists_child_transitive {X} (search search':Tprop X) :
-  forall tr,
-  exists_node search tr ->
-  tree_AtNode search (tree_ChildExists search') tr ->
-  exists_node search' tr.
-Proof.
-  intros tr Exists Search.
-  induction tr; simpl; auto.
-  destruct Search as [Search0 [Search1 Search2]].
-  destruct Exists as [Exists0 | [Exists1 | Exists2]]; auto.
-  destruct (Search0 Exists0); auto.
-Qed.
-
-Lemma AtNodeExists_transitive {X} (search search' search'':Tprop X) :
-  forall tr,
-  tree_AtNode search (tree_ChildExists search') tr ->
-  tree_AtNode search' (tree_ChildExists search'') tr ->
-  tree_AtNode search (tree_ChildExists search'') tr.
-Proof.
-  intros tr Search Search'.
-  induction tr; auto.
-  destruct Search' as [Search' [Search'1 Search'2]].
-  destruct Search as [Search [Search1 Search2]].
-  pose Found1 := (IHtr1 Search1 Search'1).
-  pose Found2 := (IHtr2 Search2 Search'2).
-  simpl; try repeat split; auto.
-  clear Found1; clear Found2; clear IHtr1; clear IHtr2.
-  intro Found; destruct (Search Found) as [Found' | FoundSub].
-  - destruct (Search' Found') as [Found'' | Found'Sub]; auto.
-  - right; clear Found; clear Search; clear Search1; clear Search2.
-    clear Search'.
-    apply (ExistsAtNode_transitive search'); auto.
-Qed.
-*)
-
 Lemma insert_true_preserves_every {X} (tr:tree X) (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   prop ins ->
@@ -370,21 +334,6 @@ Proof.
     * right; right; auto.
 Qed.
 
-(*
-Lemma insert_preserves_ChildExists {X} (ins:X) (tr:tree X) (search prop:Tprop X)
-  {search_dec:forall x, Decision (search x)} :
-  tree_ChildExists prop tr -> tree_ChildExists prop (insert_child_at tr ins search).
-Proof.
-  intro Exists.
-  destruct tr; simpl; auto.
-  destruct (decide (search data)) eqn:Found; simpl; auto.
-  all: simpl in Exists.
-  all: inversion Exists as [Ex0 | Ex2]; auto.
-  1: right; right; left; apply insert_preserves_Exists; auto.
-  right; apply insert_preserves_Exists; auto.
-Qed.
-*)
-
 Lemma exists_insert_requires_parent {X} (ins:X) (search prop:X -> Prop)
   {search_dec:forall x, Decision (search x)} :
   forall tr,
@@ -414,7 +363,7 @@ Proof.
   right; right. destruct Hyp2 as [Contra | [Hyp2Sub | Hyp2Empty]]; auto; contradiction.
 Qed.
 
-Lemma exists_subtree_transitive br prop (tr:tree item) :
+Lemma exists_subtree_transitive T br prop (tr:tree T) :
   exists_subtree (eq br) tr ->
   exists_subtree prop (of_branch br) ->
   exists_subtree prop tr.
@@ -428,7 +377,7 @@ Proof.
   - right; right. apply IHtr2; auto.
 Qed.
 
-Lemma every_subtree_transitive br prop (tr:tree item) :
+Lemma every_subtree_transitive T br prop (tr:tree T) :
   every_subtree (eq br) tr ->
   every_subtree prop (of_branch br) ->
   every_subtree prop tr.
@@ -442,7 +391,7 @@ Proof.
   try repeat split; auto.
 Qed.
 
-Lemma exists_node_transitive br prop (tr:tree item) :
+Lemma exists_node_transitive T br prop (tr:tree T) :
   exists_subtree (eq br) tr ->
   exists_node prop (of_branch br) ->
   exists_node prop tr.

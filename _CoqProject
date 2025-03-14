@@ -124,7 +124,7 @@ theories/stacked_borrows/examples/coinductive.v
 
 
 ## Tree Borrows
-theories/tree_borrows/helpers.v
+# theories/tree_borrows/helpers.v
 theories/tree_borrows/locations.v
 theories/tree_borrows/lang_base.v
 theories/tree_borrows/notation.v
@@ -139,7 +139,6 @@ theories/tree_borrows/lang.v
 # Actual Simuliris proof content for TB
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
-theories/tree_borrows/steps_access.v
 theories/tree_borrows/steps_preserve.v
 theories/tree_borrows/steps_wf.v
 theories/tree_borrows/steps_progress.v
