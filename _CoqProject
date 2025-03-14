@@ -4,7 +4,7 @@
 # Cannot use non-canonical projections as it causes massive unification failures
 # (https://github.com/coq/coq/issues/6294).
 -arg -w -arg -redundant-canonical-projection
-# Warning seems incorrect
+# Warning seems incorrect, see https://gitlab.mpi-sws.org/iris/stdpp/-/issues/216
 -arg -w -arg -notation-incompatible-prefix
 
 theories/logic/satisfiable.v
@@ -124,7 +124,6 @@ theories/stacked_borrows/examples/coinductive.v
 
 
 ## Tree Borrows
-# theories/tree_borrows/helpers.v
 theories/tree_borrows/locations.v
 theories/tree_borrows/lang_base.v
 theories/tree_borrows/notation.v
