@@ -6,6 +6,7 @@ From iris.prelude Require Import options.
 
 (* [nsteps ... n] says that one can transition from one state to the other in exactly [n]
 primitive steps. *)
+(* This is similar to stdpp's [nsteps], except that this one computes more nicely for fixed [n]. *)
 Fixpoint nsteps P (e : expr) σ e'' σ'' n : Prop := match n with
   0 => e = e'' ∧ σ = σ''
 | S n => ∃ e' σ', prim_step P e σ e' σ' nil ∧ nsteps P e' σ' e'' σ'' n end.
