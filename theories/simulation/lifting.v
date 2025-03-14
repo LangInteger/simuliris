@@ -1,5 +1,5 @@
 From simuliris.simulation Require Import language slsls.
-From iris Require Import bi.bi bi.lib.fixpoint.
+From iris Require Import bi.bi bi.lib.fixpoint_mono.
 From iris.prelude Require Import options.
 From iris.proofmode Require Import proofmode.
 

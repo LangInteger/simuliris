@@ -263,10 +263,10 @@ Proof.
      | GenNode 5 Ts => Sum (go <$> Ts)
      | _ => FixedSize 0
      end) _).
-  fix FIX 1. intros [| | |Ts|Ts|Ts]; f_equal=>//; revert Ts; clear -FIX.
-  - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
-  - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
-  - fix FIX_INNER 1. intros []; [done|]. by simpl; f_equal.
+  fix FIX 1. intros [| | |Ts|Ts|Ts]; csimpl; f_equal=>//; revert Ts; clear -FIX.
+  - fix FIX_INNER 1. intros []; [done|]. by f_equal/=.
+  - fix FIX_INNER 1. intros []; [done|]. by f_equal/=.
+  - fix FIX_INNER 1. intros []; [done|]. by f_equal/=.
 Qed.
 
 (** Finding sum types *)

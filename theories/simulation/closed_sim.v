@@ -1,5 +1,5 @@
 (** * Closed simulation (without the call case) *)
-From iris.bi Require Import bi fixpoint.
+From iris.bi Require Import bi fixpoint_mono.
 From iris.proofmode Require Import proofmode.
 From simuliris.simulation Require Import language.
 From simuliris.simulation Require Export simulation slsls gen_log_rel.

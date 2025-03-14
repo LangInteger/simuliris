@@ -1,7 +1,7 @@
 (** * SLSLS, Separation Logic Stuttering Local Simulation *)
 
 From iris.algebra Require Export ofe.
-From iris.bi Require Import bi fixpoint.
+From iris.bi Require Import bi fixpoint_mono.
 From iris.proofmode Require Import proofmode.
 From simuliris.simulation Require Import language.
 From simuliris.simulation Require Export simulation.
