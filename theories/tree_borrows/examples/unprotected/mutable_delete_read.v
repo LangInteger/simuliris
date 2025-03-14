@@ -134,8 +134,10 @@ Section closed.
   Qed.
 End closed.
 
+(*
 Check unprot_mutable_delete_read_ctx.
 Print Assumptions unprot_mutable_delete_read_ctx.
+*)
 (*
 unprot_mutable_delete_read_ctx
      : ctx_ref unprot_mutable_delete_read_opt unprot_mutable_delete_read_unopt

@@ -157,8 +157,10 @@ Section closed.
   Qed.
 End closed.
 
+(*
 Check prot_shared_insert_read_ctx.
 Print Assumptions prot_shared_insert_read_ctx.
+*)
 (* 
 prot_shared_insert_read_ctx
      : ctx_ref prot_shared_insert_read_opt prot_shared_insert_read_unopt

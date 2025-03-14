@@ -138,8 +138,10 @@ Section closed.
   Qed.
 End closed.
 
+(*
 Check unprot_shared_delete_read_escaped_ctx.
 Print Assumptions unprot_shared_delete_read_escaped_ctx.
+*)
 (* 
 unprot_shared_delete_read_escaped_ctx
      : ctx_ref unprot_shared_delete_read_escaped_opt unprot_shared_delete_read_escaped_unopt

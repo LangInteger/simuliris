@@ -132,8 +132,10 @@ Section closed.
   Qed.
 End closed.
 
+(*
 Check prot_mutable_reorder_write_up_activated_ctx.
 Print Assumptions prot_mutable_reorder_write_up_activated_ctx.
+*)
 (* 
 prot_mutable_reorder_write_up_activated_ctx
      : ctx_ref prot_mutable_reorder_write_up_activated_opt prot_mutable_reorder_write_up_activated_unopt

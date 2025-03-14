@@ -138,9 +138,10 @@ Section closed.
     apply prot_shared_reorder_read_up_escaped.
   Qed.
 End closed.
-
+(*
 Check prot_shared_reorder_read_up_escaped_ctx.
 Print Assumptions prot_shared_reorder_read_up_escaped_ctx.
+*)
 (* 
 prot_shared_reorder_read_up_escaped_ctx
      : ctx_ref prot_shared_reorder_read_up_escaped_opt prot_shared_reorder_read_up_escaped_unopt

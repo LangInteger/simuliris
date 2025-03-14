@@ -123,8 +123,10 @@ Section closed.
   Qed.
 End closed.
 
+(*
 Check prot_mutable_reorder_read_down_ctx.
 Print Assumptions prot_mutable_reorder_read_down_ctx.
+*)
 (* 
 prot_mutable_reorder_read_down_ctx
      : ctx_ref prot_mutable_reorder_read_down_opt prot_mutable_reorder_read_down_unopt
