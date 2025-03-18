@@ -53,6 +53,49 @@ In addition, `read_read_reorder/` provides proofs of simple reorderings
 directly against the operational semantics.
 You can find more details in the associated `README.md`.
 
+## Correspondence with Sections 2 and 3
+
+Here, we describe how we formalized the semantics of Tree Borrows described in the paper.
+We start with the formalization of trees given in `tree.v`, which defines n-ary trees where each node is indexed by an integer, called a `tag`.
+
+Next, `lang_base.v` defines the type of permission, notably defining `Inductive permission` in line 83, which corresponds to the states of the state machine.
+Like in Miri, we actually have two kinds of protectors (line 113), with `ProtStrong` corresponding to regular protectors and `ProtWeak` not being used in the paper.
+(It is used to model `Box` aliasing rules, something not touched upon in the paper and also something that might be removed in future versions of Rust.)
+
+Next, `bor_semantics.v` defines the main Tree Borrows semantics.
+In line 224-291, we define the notions of "relatedness" in a tree (parent/child/local/foreign etc.).
+This culminates in `rel_dec`, which decides the relation between two tags in a tree.
+
+The main state machine is defined in line 340, the function `apply_access_perm_inner`.
+This depends on the access kind (read/write), the relatedness (foreign/local) and on whether the current node is protected.
+It returns the new permission, or `None` which indicates UB.
+
+This is used in `apply_access_perm`, which also tracks "initialization" which is part of lazy range detection.
+It is used to cause UB when a protected, already locally accessed node becomes disabled.
+Compare to the description around line 545 in the paper.
+
+The function `item_apply_access` lifts this from one permission to a tree item, which contains the entire range, accounting for every offset in a block in the block-based memory model.
+Then, `tree_apply_access` lifts this to an entire tree, and `trees_apply_access` lifts it to the entire memory.
+
+The function `memory_deallocate` ensures that no deallocation happens while a protector exists. This is not described in the paper, but this behavior is inherited from Stacked Borrows.
+It is also present in the Miri implementation.
+
+After some basic proofs about the definitions, we contine in line 780 with the definition of retags.
+A retag is the core operation creating a new reference, which is parameterized by a "pointer kind" defining if this is to be a shared/mutable reference with(out) interior mutability.
+Further it defines whether there are to be protectors.
+The function `create_child` is the main function used during a retag.
+
+Finally, the protector end semantics are defined starting at lien 841, with the function `tree_get_all_protected_tags_initialized_locs` and `tree_access_all_protected_initialized`.
+
+To put all the definitions together, the inductive `bor_step` is defined.
+It is coupled to the main operational semantics by a series of "events".
+For example, a read (called "copy" here) causes a `CopyEvt`, which is picked up by the `CopyIS` rule.
+This will ensure the tag exists, and then cause a read event.
+
+Also of interests to reviewers is like 1000-1038. This defines a "unit test" for the `rel_dec` and `create_child` functions.
+Since `rel_dec` is not commutative, it can be difficult to remember which node is which and whether an output of e.g. "Child" means that the first node is a child of the second or the other way around.
+The "unit test" makes it clear that an output of "Child" indeed means that the first node is a child of the second.
+
 ## Correspondence with Section 5
 
 Section 5 has three examples, one for deleting reads, one for deleting writes, and one for reordering reads.
