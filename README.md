@@ -1,6 +1,7 @@
 # Simuliris Coq development
 
 This repository contains the Coq development of Simuliris (paper presented at POPL22: https://iris-project.org/pdfs/2022-popl-simuliris.pdf).
+It also contains the proofs for [Tree Borrows](theories/tree_borrows/README.md).
 
 ## Prerequisites
 
@@ -65,7 +66,7 @@ The project follows the following structure below the `theories` folder:
     * `adequacy.v` contains the resulting adequacy proof.
     * `examples` contains example optimizations, see below.
 - `tree_borrows` contains the Simuliris development of Tree Borrows.
-  This development has its own README in `tree_borrows/README.md`.
+  This development has its [own README](theories/tree_borrows/README.md).
 
 
 ## Theorems, definitions, and examples referenced in the paper
