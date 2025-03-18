@@ -134,13 +134,8 @@ The file `low_level.v` contains low-level lemmas used in `read_reorder.v`
 Example 1 is similar to the one shown in `examples/unprotected/mutable_delete_read.v`.
 The one shown in Coq has two places where arbitrary unknown functions are called, and Example 1 is just a special case of that, if one instantiates these unknown functions correctly.
 
-We have not shown Example 14, but two examples similar to it:
-* `examples/unprotected/shared_delete_read_escaped_coinductive.v` demonstrates reasoning in a while loop.
-  But note that this does not insert a read if there is none. Also, the tag is not protected.
-* `examples/protected/shared_insert_read.v` demonstrates that reads can be inserted on protected tags.
-
-This shows that the program logic has all the reasoning primitives required for verifying Example 14,
-so that its verification would be straightforward, just needing to combine the two reasoning principles.
+Example 14 is shown in `example/protected/shared_read_insert_coinductive.v`.
+The only difference to the one in the paper is that Rust's `0..n` syntax is desugared to an explicit counter.
 
 ## Program Logic
 
