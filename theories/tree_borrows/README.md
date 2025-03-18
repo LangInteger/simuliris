@@ -149,7 +149,7 @@ This program logic can prove refinements, and uses several separation logic reso
 You can see the separation logic in action in the examples shown above.
 Here, we explain the resources that you will encounter when stepping through the proof.
 
-The `$$` resource associates a "tag" with a "tag kind." Remember that each tag corresponds to a specific node in the borrow tree.
+The `t $$ tk` resource associates a "tag" `t` with a "tag kind" `tk`. Remember that each tag corresponds to a specific node in the borrow tree.
 The tag kind is a very coarse over-approximation of the shape of the tree from that specific node.
 
 The simplest kind is `tk_local`, which says that the tree here is a singleton, and this tag is the only tag in the tree.
