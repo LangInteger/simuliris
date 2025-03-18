@@ -1,7 +1,3 @@
-(** This file has been adapted from the Iris development, available at 
-  https://gitlab.mpi-sws.org/iris/iris
-*)
-
 From Coq.QArith Require Import Qcanon.
 From iris.algebra Require Export view gmap frac dfrac.
 From iris.algebra Require Import local_updates proofmode_classes big_op.
@@ -13,15 +9,13 @@ From simuliris.tree_borrows Require Export defs.
 (gmap_view has since been updated so we could now use it directly, but this code predates the generalized gmap_view for arbitrary CRMA.) *)
 
 (* Currently, we place a strong restriction on the shape of a location's stack:
-  A tag can be of one of two kinds:
+  A tag can be of one of several kinds:
   - tk_pub: the tag is public (can be shared, assertion is persistent)
-  - tk_unq: the tag is unique (cannot be shared, assertion is not persistent).
-  - tk_loc: the tag is local
+  - tk_unq: the tag is unique (cannot be shared, assertion is not persistent). This is further parameterized by whether it is reserved or activated.
+  - tk_loc: the tag is local (a local variable whose address has not been taken)
  *)
 
-(* TODO: allow a local update from tk_unq to tk_pub *)
 Definition tagKindR := csumR (exclR unitO) (csumR (csumR (exclR unitO) (exclR unitO)) unitR).
-
 
 Canonical Structure tag_kindO := leibnizO tag_kind.
 

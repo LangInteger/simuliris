@@ -2,6 +2,13 @@ From iris.prelude Require Import prelude options.
 From simuliris.tree_borrows Require Import lang_base notation bor_semantics tree tree_lemmas.
 From iris.prelude Require Import options.
 
+(** A collection of lemmas to reason about the current state of the tree.
+   These are not invariants (you will find those in [steps_wf.v].
+   Rather, consider that this file is to [bor_semantics.v] what
+   [tree_lemmas.v] is to [tree.v]: these are specialized lemmas
+   to reason about the instanciation of trees that is specifically
+   with [item]s containing [tag]s (and some non-tree lemmas also). *)
+
 Lemma most_init_comm m1 m2 : most_init m1 m2 = most_init m2 m1.
 Proof. by destruct m1, m2. Qed.
 
@@ -32,6 +39,9 @@ Lemma exists_somewhere
   a + b + c ≥ 1 <-> a ≥ 1 \/ b ≥ 1 \/ c ≥ 1.
 Proof. lia. Qed.
 
+(** [tree_unique] is defined by [count_nodes].
+    [tree_contains] is defined by [exists_node].
+    Here are some lemmas that relate the two. *)
 Lemma unique_exists {tr tg} :
   tree_unique tg tr ->
   tree_contains tg tr.
@@ -66,7 +76,6 @@ Proof.
     reflexivity.
 Qed.
 
-
 Lemma count_0_not_exists tr tg :
   tree_count_tg tg tr = 0
   <-> ~tree_contains tg tr.
@@ -93,6 +102,8 @@ Proof.
     + apply IHtr2. auto.
 Qed.
 
+(** [tree_item_determined] is defined by a [forall_nodes].
+    We can similarly relate it to predicates derived from [count_nodes]. *)
 Lemma absent_determined tr tg :
   tree_count_tg tg tr = 0 ->
   forall it, tree_item_determined tg it tr.
@@ -148,6 +159,12 @@ Proof.
   - right; right; auto.
 Qed.
 
+(** Some of the most important lemmas here.
+    They characterizes insertion of a child node in terms of its relationship
+    with other nodes. If you insert [n'] as a child of [n]...
+    then in the resulting tree [n'] is a child of [n]!
+    Not a groundbreaking statement, but necessary due to our representation
+    of trees. *)
 Lemma insert_eqv_strict_rel t t' (ins:item) (tr:tree item) (search:item -> Prop)
   {search_dec:forall it, Decision (search it)} :
   ~IsTag t ins ->
@@ -225,6 +242,92 @@ Proof.
   erewrite exists_sibling_insert. eauto.
 Qed.
 
+Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
+  ~IsTag t ins ->
+  StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
+Proof.
+  intro Nott.
+  unfold StrictParentChildIn.
+  induction tr as [|data ????]; simpl; auto.
+  destruct (decide (IsTag t data)) eqn:Found; simpl.
+  - try repeat split; auto.
+  - try repeat split; auto.
+    intro H; contradiction.
+Qed.
+
+Lemma insert_produces_ParentChild t tg (ins:item) (tr:tree item) :
+  IsTag tg ins ->
+  tg ≠ t ->
+  ParentChildIn t tg (insert_child_at tr ins (IsTag t)).
+Proof.
+  move=> Tg Ne.
+  right.
+  assert (~IsTag t ins) as NotTg by (intro H; rewrite <- H in Ne; rewrite <- Tg in Ne; contradiction).
+  pose proof (insert_produces_StrictParentChild _ _ tr NotTg) as H.
+  rewrite Tg in H; assumption.
+Qed.
+
+Lemma insert_produces_ImmediateParentChild t (ins:item) (tr:tree item) :
+  ~IsTag t ins ->
+  ImmediateParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
+Proof.
+  intro Nott.
+  unfold StrictParentChildIn.
+  induction tr as [|data ????]; simpl; auto.
+  destruct (decide (IsTag t data)) eqn:Found; simpl.
+  - try repeat split; auto.
+  - try repeat split; auto.
+    intro H; contradiction.
+Qed.
+
+Lemma ImmediateParentChild_of_insert_is_parent t t' (ins:item) (tr:tree item) :
+  ¬ exists_node (IsTag (ins.(itag))) tr ->
+  exists_node (IsTag t') tr ->
+  t ≠ ins.(itag) →
+  ImmediateParentChildIn t' ins.(itag) (insert_child_at tr ins (IsTag t)) ->
+  t = t'.
+Proof.
+  intros H1 H2 Htag HIPCI.
+  induction tr as [|it tr1 IHtr1 tr2 IHtr2].
+  { by simpl in H2. }
+  destruct (decide (exists_node (IsTag t') tr1)) as [Ht1|Hnt1].
+  { eapply IHtr1. 2: done. 1: intros H; eapply H1; simpl; tauto.
+    simpl in HIPCI. destruct (decide (itag it = t)); simpl in HIPCI.
+    all: eapply HIPCI. }
+  destruct (decide (exists_node (IsTag t') tr2)) as [Ht2|Hnt2].
+  { eapply IHtr2. 2: done. 1: intros H; eapply H1; simpl; tauto.
+    simpl in HIPCI. destruct (decide (itag it = t)); simpl in HIPCI.
+    all: eapply HIPCI. }
+  simpl in H2.
+  destruct H2 as [Heq|[H2|H2]]. 2-3: done.
+  simpl in HIPCI.
+  destruct (decide (itag it = t)) as [|Hne]; first congruence.
+  simpl in HIPCI. destruct HIPCI as (HIPCI&_&_).
+  clear IHtr1 IHtr2.
+  specialize (HIPCI Heq). clear Hnt1. exfalso.
+  assert (¬ exists_node (IsTag (itag ins)) tr2) as H1tr2.
+  { simpl in H1|-*. tauto. }
+  clear H1.
+
+  induction tr2 as [|it' tr1' IHtr1' tr2' IHtr2'].
+  { simpl in HIPCI. done. }
+  simpl in HIPCI. destruct (decide (itag it' = t)) as [Heq'|Hne'].
+  all: simpl in HIPCI.
+  - destruct HIPCI as [|HIPCI]; first congruence.
+    eapply IHtr1'; first done. all: simpl in H1tr2,Hnt2; tauto.
+  - destruct HIPCI as [Hcc|HIPCI].
+    { eapply H1tr2. by left. } 
+    eapply IHtr1'; first done. all: simpl in H1tr2,Hnt2; tauto.
+Qed.
+
+(** Recall:
+    [map_nodes : (X -> Y) -> tree X -> tree Y] applies a function to each node.
+    [join_nodes : tree (option X) -> option (tree X)] collects failures.
+
+    Our semantics are mostly expressed as a combination of these two,
+    in the form of [join_nodes (map_nodes faillible_function tree)].
+    Therefore it is not surprising that these characterizations of
+    [join]+[map] are also among the most important lemmas here. *)
 Lemma join_map_eqv_strict_rel t t' (tr tr':tree item) :
   forall fn,
   (forall it it', fn it = Some it' -> itag it = itag it') ->
@@ -287,87 +390,6 @@ Proof.
       * intros; subst. erewrite PreservesTags; eauto.
       * apply EqTr2'.
 Qed.
-
-Lemma insert_produces_StrictParentChild t (ins:item) (tr:tree item) :
-  ~IsTag t ins ->
-  StrictParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
-Proof.
-  intro Nott.
-  unfold StrictParentChildIn.
-  induction tr as [|data ????]; simpl; auto.
-  destruct (decide (IsTag t data)) eqn:Found; simpl.
-  - try repeat split; auto.
-  - try repeat split; auto.
-    intro H; contradiction.
-Qed.
-
-Lemma insert_produces_ParentChild t tg (ins:item) (tr:tree item) :
-  IsTag tg ins ->
-  tg ≠ t ->
-  ParentChildIn t tg (insert_child_at tr ins (IsTag t)).
-Proof.
-  move=> Tg Ne.
-  right.
-  assert (~IsTag t ins) as NotTg by (intro H; rewrite <- H in Ne; rewrite <- Tg in Ne; contradiction).
-  pose proof (insert_produces_StrictParentChild _ _ tr NotTg) as H.
-  rewrite Tg in H; assumption.
-Qed.
-
-Lemma insert_produces_ImmediateParentChild t (ins:item) (tr:tree item) :
-  ~IsTag t ins ->
-  ImmediateParentChildIn t ins.(itag) (insert_child_at tr ins (IsTag t)).
-Proof.
-  intro Nott.
-  unfold StrictParentChildIn.
-  induction tr as [|data ????]; simpl; auto.
-  destruct (decide (IsTag t data)) eqn:Found; simpl.
-  - try repeat split; auto.
-  - try repeat split; auto.
-    intro H; contradiction.
-Qed.
-
-
-Lemma ImmediateParentChild_of_insert_is_parent t t' (ins:item) (tr:tree item) :
-  ¬ exists_node (IsTag (ins.(itag))) tr ->
-  exists_node (IsTag t') tr ->
-  t ≠ ins.(itag) →
-  ImmediateParentChildIn t' ins.(itag) (insert_child_at tr ins (IsTag t)) ->
-  t = t'.
-Proof.
-  intros H1 H2 Htag HIPCI.
-  induction tr as [|it tr1 IHtr1 tr2 IHtr2].
-  { by simpl in H2. }
-  destruct (decide (exists_node (IsTag t') tr1)) as [Ht1|Hnt1].
-  { eapply IHtr1. 2: done. 1: intros H; eapply H1; simpl; tauto.
-    simpl in HIPCI. destruct (decide (itag it = t)); simpl in HIPCI.
-    all: eapply HIPCI. }
-  destruct (decide (exists_node (IsTag t') tr2)) as [Ht2|Hnt2].
-  { eapply IHtr2. 2: done. 1: intros H; eapply H1; simpl; tauto.
-    simpl in HIPCI. destruct (decide (itag it = t)); simpl in HIPCI.
-    all: eapply HIPCI. }
-  simpl in H2.
-  destruct H2 as [Heq|[H2|H2]]. 2-3: done.
-  simpl in HIPCI.
-  destruct (decide (itag it = t)) as [|Hne]; first congruence.
-  simpl in HIPCI. destruct HIPCI as (HIPCI&_&_).
-  clear IHtr1 IHtr2.
-  specialize (HIPCI Heq). clear Hnt1. exfalso.
-  assert (¬ exists_node (IsTag (itag ins)) tr2) as H1tr2.
-  { simpl in H1|-*. tauto. }
-  clear H1.
-
-  induction tr2 as [|it' tr1' IHtr1' tr2' IHtr2'].
-  { simpl in HIPCI. done. }
-  simpl in HIPCI. destruct (decide (itag it' = t)) as [Heq'|Hne'].
-  all: simpl in HIPCI.
-  - destruct HIPCI as [|HIPCI]; first congruence.
-    eapply IHtr1'; first done. all: simpl in H1tr2,Hnt2; tauto.
-  - destruct HIPCI as [Hcc|HIPCI].
-    { eapply H1tr2. by left. } 
-    eapply IHtr1'; first done. all: simpl in H1tr2,Hnt2; tauto.
-Qed.
-
-
 
 Lemma Immediate_is_StrictChildTag tg tr :
   HasImmediateChildTag tg tr →
@@ -868,7 +890,6 @@ Proof.
     exists br2. split; [|assumption]. right; right; assumption.
 Qed.
 
-(* FIXME: these proofs ane absolutely horrible, refactor them. *)
 Lemma unique_only_one_subtree
   {tr tg br1 br2} :
   tree_unique tg tr ->

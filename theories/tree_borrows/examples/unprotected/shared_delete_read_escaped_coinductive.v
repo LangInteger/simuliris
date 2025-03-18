@@ -323,9 +323,10 @@ Section closed.
   Qed.
 End closed.
 
-
+(*
 Check unprot_shared_delete_read_escaped_coinductive_ctx.
 Print Assumptions unprot_shared_delete_read_escaped_coinductive_ctx.
+*)
 (* 
 unprot_shared_delete_read_escaped_coinductive_ctx
      : ctx_ref unprot_shared_delete_read_escaped_coinductive_opt unprot_shared_delete_read_escaped_coinductive_unopt

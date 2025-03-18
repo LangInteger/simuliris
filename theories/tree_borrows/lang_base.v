@@ -191,7 +191,6 @@ Definition item_lookup (it : item) (l : Z) :=
 Definition trees := gmap block (tree item).
 
 (** Retag kinds *)
-(* FIXME: simplify related stuff *)
 Inductive retag_kind := FnEntry | Default.
 
 (** Language base constructs *)
@@ -200,20 +199,9 @@ Inductive retag_kind := FnEntry | Default.
 Inductive bin_op :=
   | AddOp     (* + addition       *)
   | SubOp     (* - subtraction    *)
-(* | MulOp     (* * multiplication *)
-  | DivOp     (* / division       *)
-  | RemOp     (* % modulus        *)
-  | BitXorOp  (* ^ bit xor        *)
-  | BitAndOp  (* & bit and        *)
-  | BitOrOp   (* | bit or         *)
-  | ShlOp     (* << shift left    *)
-  | ShrOp     (* >> shift right   *) *)
   | EqOp      (* == equality      *)
   | LtOp      (* < less than      *)
   | LeOp      (* <= less than or equal to *)
-(* | NeOp      (* != not equal to  *)
-  | GeOp      (* >= greater than or equal to *)
-  | GtOp      (* > greater than   *) *)
   | OffsetOp  (* . offset         *)
   .
 
@@ -307,18 +295,11 @@ Inductive expr :=
                                      presenting the location that `e` points to.
                                      The location has the kind and size of `ptr`. *)
 | Ref (e : expr)                   (* Turn a place `e` into a pointer value. *)
-(* | Field (e: expr) (path: list nat)(* Create a place that points to a component
-                                     of the place `e`. `path` defines the path
-                                     through the type. *) *)
 (* mem op *)
 | Copy (e : expr)                 (* Read from the place `e` *)
 | Write (e1 e2 : expr)             (* Write the value `e2` to the place `e1` *)
 | Alloc (sz : nat)                 (* Allocate a place of type `T` *)
 | Free (e : expr)                 (* Free the place `e` *)
-(* atomic mem op *)
-(* | CAS (e0 e1 e2 : expr) *)     (* CAS the value `e2` for `e1` to the place `e0` *)
-(* | AtomWrite (e1 e2: expr) *)
-(* | AtomRead (e: expr) *)
 (* retag *) (* Retag the memory pointed to by `e1` with
   retag kind `kind`, for call_id `e2`. The new pointer should have pointer kind pk. *)
 | Retag (e1 : expr) (e2 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
@@ -330,8 +311,6 @@ Inductive expr :=
 | Fork (e : expr)
 (* While *)
 | While (e1 e2 : expr)
-(* observable behavior *)
-(* | SysCall (id: nat) *)
 .
 
 Bind Scope expr_scope with expr.
@@ -356,15 +335,15 @@ Arguments While _%_E _%_E.
 (** Closedness *)
 Fixpoint is_closed (X : list string) (e : expr) : bool :=
   match e with
-  | Val _ | Place _ _ _ | Alloc _ | InitCall (* | SysCall _ *) => true
+  | Val _ | Place _ _ _ | Alloc _ | InitCall => true
   | Var x => bool_decide (x ∈ X)
   | BinOp _ e1 e2 | Write e1 e2 | While e1 e2 
       | Conc e1 e2 | Proj e1 e2 | Call e1 e2 | Retag e1 e2 _ _ _ _ => is_closed X e1 && is_closed X e2
   | Let x e1 e2 => is_closed X e1 && is_closed (x :b: X) e2
   | Case e el 
       => is_closed X e && forallb (is_closed X) el
-  | Fork e | Copy e | Deref e _ | Ref e (* | Field e _ *)
-      | Free e | EndCall e (* | AtomRead e | Fork e *)
+  | Fork e | Copy e | Deref e _ | Ref e
+      | Free e | EndCall e
       => is_closed X e
   end.
 
@@ -446,30 +425,11 @@ Qed.
 (** Main state: a heap of scalars, each with an associated lock to detect data races. *)
 Definition mem := gmap loc scalar.
 
-(** Internal events *)
-
-(* Per-allocation events.
-   This is only useful during the proofs against the operational semantics:
-   if we drop support for [disjoint.v] we should also delete this definition. *)
-Inductive bor_local_event :=
-  | AccessBLEvt (kind : access_kind) (tg : tag) (range : Z * nat)
-  | InitCallBLEvt (cid : call_id)
-  | EndCallBLEvt (cid : call_id)
-  | RetagBLEvt (tgp tg : tag) (pk : pointer_kind) (im : interior_mut) (c : call_id) (rk : retag_kind)
-  | SilentBLEvt.
-
-(* Events in all their generality.
-   We use the point of view adopted by Stacked Borrows and regarded by LLVM
-   as acceptable which is to make FAILED READS NOT UB.
-   A failed read has its own event [FailedCopyEvt] which returns poison
-   instead of triggering immediate UB. This is assumed to be a sound change
-   w.r.t. the semantics and is expected to allow proving more optimizations
-   (they would still be true, but they wouldn't be *provable* with our means) *)
+(* Arbitrary borrow events. *)
 Inductive event :=
 | AllocEvt (alloc : block) (lbor : tag) (range : Z * nat)
 | DeallocEvt (alloc : block) (lbor: tag) (range : Z * nat)
 | CopyEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
-| FailedCopyEvt (alloc : block) (lbor : tag) (range : Z * nat)
 | WriteEvt (alloc : block) (lbor : tag) (range : Z * nat) (v : value)
 | InitCallEvt (c : call_id)
 | EndCallEvt (c : call_id)

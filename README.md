@@ -64,6 +64,8 @@ The project follows the following structure below the `theories` folder:
     * `behavior.v` defines the notion of contextual refinement and expression well-formedness.
     * `adequacy.v` contains the resulting adequacy proof.
     * `examples` contains example optimizations, see below.
+- `tree_borrows` contains the Simuliris development of Tree Borrows.
+  This development has its own README in `tree_borrows/README.md`.
 
 
 ## Theorems, definitions, and examples referenced in the paper

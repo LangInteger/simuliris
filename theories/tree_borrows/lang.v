@@ -1,6 +1,5 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
+(** This file manages the interface between the expression semantics and
+   the borrow semantics. *)
 
 From simuliris.simulation Require Export language.
 From iris.algebra Require Import ofe.
@@ -15,7 +14,7 @@ Module bor_lang.
 Record state := mkState {
   (* Heap of scalars *)
   shp : mem;
-  (* Stacked borrows for the heap *)
+  (* Borrow trees for each allocation of the heap *)
   strs : trees;
   (* Set of active call ids *)
   scs : call_id_set;

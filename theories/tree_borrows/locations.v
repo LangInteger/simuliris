@@ -1,6 +1,6 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
+(** Internal representation of memory.
+    We opt for a view in which a location is composed of
+    an allocation id and an offset into that allocation. *)
 
 From iris.prelude Require Import prelude.
 From iris.prelude Require Import options.

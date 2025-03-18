@@ -21,8 +21,6 @@ Implicit Types l : loc.
 Implicit Types f : fname.
 
 
-
-
 (** ** Retags *)
 
 Lemma tree_access_succeeds_heap_value σ b ak tg blk off sz :

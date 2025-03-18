@@ -1,4 +1,3 @@
-(** This file provides the basic heap and ghost state support for the BorIngLang program logic. *)
 From iris.proofmode Require Export proofmode.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
@@ -12,8 +11,6 @@ From simuliris.tree_borrows Require Import steps_progress.
 From simuliris.tree_borrows Require Export trees_equal.disabled_in_practice.
 From iris.prelude Require Import options.
 
-
-(* TODO cleanup *)
 Section utils.
 
   Definition tag_valid (upper : tag) (n : tag) : Prop := (n < upper)%nat.
@@ -151,7 +148,6 @@ Section utils.
     (* and define all the same relationships between those tags *)
     /\ (forall tg tg', rel_dec tr1 tg tg' = rel_dec tr2 tg tg')
     (* and have their permissions be equal up to C on all locations *)
-    (* FIXME: maybe think about reformulating ∧ (∀ t it1 it2, tree_lookup t it1 tr1 -> tree_lookup t it2 tr2 -> it_rel it1 it2) *)
     /\ (forall tg, tree_contains tg tr1 ->
           exists it1 it2,
             tree_lookup tr1 tg it1

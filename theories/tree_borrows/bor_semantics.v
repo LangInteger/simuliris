@@ -17,16 +17,8 @@ From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 
-From simuliris.tree_borrows Require Export lang_base notation tree tree_lemmas.
+From simuliris.tree_borrows Require Export lang_base notation tree  locations.
 From iris.prelude Require Import options.
-
-Lemma decision_equiv (P Q:Prop) :
-  (P <-> Q) ->
-  Decision P ->
-  Decision Q.
-Proof.
-  unfold Decision. tauto.
-Defined.
 
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
 
@@ -351,7 +343,6 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessRead, Foreign _ =>
       (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
       match perm with
-        (* FIXME: refactor *)
       | Reserved ResActivable => Some (Reserved (if isprot then ResConflicted else ResActivable))
       | Active => if isprot then
         (* So that the function is commutative on all states and not just on reachable states,
@@ -364,7 +355,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Foreign _ =>
       (* Foreign write. Disables everything except interior mutable [Reserved]. *)
       match perm with
-      (* TODO: remove -- this can never happen, but having it simplifies theorems. *)
+      (* NOTE: this can never happen, but having it simplifies theorems. *)
       | ReservedIM => if isprot then Some Disabled else Some $ ReservedIM
       | Disabled => Some Disabled
       | _ => Some Disabled
@@ -401,11 +392,6 @@ Definition protector_is_for_call c prot := call_of_protector prot = Some c.
 Global Instance protector_is_for_call_dec c prot : Decision (protector_is_for_call c prot).
 Proof. rewrite /protector_is_for_call /call_of_protector. case_match; [case_match|]; solve_decision. Defined.
 
-(* FIXME: This definition overlaps with logical_state.v:protected_by
-   We should pick one of them. If we pick this one it should be simplified
-   to match prot with Some (mkProtector _ c) => c in cids | None => False end.
-
-   In practice: delete [protector_is_active]. rename [witness_protector_is_active]. fix proofs. *)
 Definition protector_is_active prot cids :=
   exists c, protector_is_for_call c prot /\ call_is_active c cids.
 
@@ -434,6 +420,14 @@ Proof.
     destruct prot as [p|]; [destruct p as [prot call]|].
     * injection IsProt; intros; subst; assumption.
     * inversion IsProt.
+Defined.
+
+Lemma decision_equiv (P Q:Prop) :
+  (P <-> Q) ->
+  Decision P ->
+  Decision Q.
+Proof.
+  unfold Decision. tauto.
 Defined.
 
 Global Instance protector_is_active_dec prot cids :
@@ -507,7 +501,6 @@ Definition tree_apply_access
 
 (* Initial permissions. *)
 Definition init_perms perm off sz
-  (* FIXME: simplify to just ø directly ? *)
   : permissions := mem_apply_range'_defined (fun _ => mkPerm PermInit perm) (off, sz) ∅.
 
 (* Initial tree is a single root whose default permission is [Active]. *)
@@ -568,7 +561,7 @@ Definition memory_deallocate cids t range
   let post_write := memory_access AccessWrite cids t range tr in
   (* Then strong protector UB. *)
   let find_strong_prot : item -> option item := fun it => (
-    (* FIXME: switch to plain [decide] ? *)
+    (* FIXME: consider switching to plain [decide] *)
     if bool_decide (protector_is_strong it.(iprot)) && bool_decide (protector_is_active it.(iprot) cids)
     then None
     else Some it
@@ -595,7 +588,7 @@ Definition witness_transition p p' : Prop :=
   | _, _ => False
   end.
 
-(* FIXME: use builtin rtc *)
+(* FIXME: using builtin reflexive transitive closure could simplify some proofs. *)
 Inductive witness_reach p p' : Prop :=
   | witness_reach_refl : p = p' -> witness_reach p p'
   | witness_reach_step p'' : witness_transition p p'' ->  witness_reach p'' p' -> witness_reach p p'
@@ -613,11 +606,17 @@ Definition reach p p' : Prop :=
   | _, _ => False
   end.
 
+(* Denotes a permission that "acts like Frozen" for the purpose
+   of a later invariant. Concretely this contains
+   [Frozen], [Disabled], [Reserved ResConflicted],
+   which are the 3 permissions that are not affected by a foreign read,
+   so "acts like frozen" can mean "is allowed to coexist with shared references". *)
 Definition freeze_like p : Prop :=
   reach Frozen p \/ p = Reserved ResConflicted.
 
-(* Now we check that the two definitions are equivalent, so that the clean definition
-   acts as a witness for the easy-to-do-case-analysis definition *)
+(* Now we check that the two definitions of reachability are equivalent,
+   so that the clean definition acts as a witness for the easy-to-do-case-analysis
+   definition *)
 
 Ltac destruct_permission :=
   match goal with
@@ -723,20 +722,26 @@ Proof.
   all: destruct isprot'; simpl; try auto.
 Qed.
 
+(** Some important predicates on trees. *)
+
+(** There is a node with tag [tg]. *)
 Definition tree_contains tg tr
   : Prop :=
   exists_node (IsTag tg) tr.
 
+(** All nodes with tag [tg] equal [it].
+    This is often useless on its own if you don't also own a [tree_contains tg]. *)
 Definition tree_item_determined tg it tr
   : Prop :=
   every_node (fun it' => IsTag tg it' -> it' = it) tr.
 
 Notation has_tag tg := (fun it => bool_decide (IsTag tg it)) (only parsing).
 
+(** Counting how many nodes in a tree have a certain tag. *)
 Definition tree_count_tg tg tr : nat := count_nodes (has_tag tg) tr.
 Definition tree_unique tg tr : Prop := tree_count_tg tg tr = 1.
 
-(* TODO change to thing below *)
+(** Capable of lifting any of the above predicates to [trees]. *)
 Definition trees_at_block prop trs blk
   : Prop :=
   match trs !! blk with
@@ -767,7 +772,7 @@ Definition trees_unique tg trs blk it :=
 Definition ParentChildInBlk tg tg' trs blk :=
   trees_at_block (ParentChildIn tg tg') trs blk.
 
-(* FIXME: order of args *)
+(* FIXME: Future refactoring: improve consistency of argument ordering *)
 
 (** Reborrow *)
 
@@ -814,7 +819,6 @@ Definition every_tagged t (P:item -> Prop) tr
   : Prop :=
   every_node (fun it => IsTag t it -> P it) tr.
 
-(* FIXME: gmap::partial_alter ? *)
 Definition apply_within_trees (fn:tree item -> option (tree item)) blk
   : trees -> option trees := fun trs =>
   oldtr ← trs !! blk;
@@ -831,61 +835,6 @@ Definition trees_fresh_call cid trs blk :=
   forall tr,
   trs !! blk = Some tr ->
   tree_fresh_call cid tr.
-
-(* FIXME: this can only do strong accesses *)
-Inductive bor_local_step tr cids
-  : bor_local_event -> tree item -> call_id_set -> Prop :=
-  | AccessLIS kind tr' range tg
-    (EXISTS_TAG: tree_contains tg tr)
-    (ACC: memory_access kind cids tg range tr = Some tr') :
-    bor_local_step
-      tr cids
-      (AccessBLEvt kind tg range)
-      tr' cids
-  | InitCallLIS cid
-    (INACTIVE_CID : ~cid ∈ cids)
-    (FRESH_CID : tree_fresh_call cid tr) :
-    bor_local_step
-      tr cids
-      (InitCallBLEvt cid)
-      tr ({[cid]} ∪ cids)
-  | EndCallLIS cid
-    (EL: cid ∈ cids) :
-    bor_local_step
-      tr cids
-      (EndCallBLEvt cid)
-      tr (cids ∖ {[cid]})
-  | RetagLIS tr' tgp tg pk im (cid : call_id) rk
-    (EL: cid ∈ cids)
-    (EXISTS_PARENT: tree_contains tgp tr)
-    (FRESH_CHILD: ~tree_contains tg tr)
-    (RETAG_EFFECT: create_child cids tgp tg pk im rk cid tr = Some tr') :
-    bor_local_step
-      tr cids
-      (RetagBLEvt tgp tg pk im cid rk)
-      tr' cids
-    (* TODO: this is missing the no-op retag for shared interiormut. *)
-  .
-
-Record seq_invariant := MkRecord {
-  seq_inv : tree item -> call_id_set -> Prop;
-}.
-Inductive bor_local_seq (invariant : seq_invariant) tr cids
-  : list bor_local_event -> tree item -> call_id_set -> Prop :=
-  | bor_nil
-    (INV : invariant.(seq_inv) tr cids) :
-    bor_local_seq invariant
-      tr cids
-      []
-      tr cids
-  | bor_cons evt tr' cids' evts tr'' cids''
-    (INV : invariant.(seq_inv) tr cids)
-    (HEAD : bor_local_step tr cids evt tr' cids')
-    (REST : bor_local_seq invariant tr' cids' evts tr'' cids'') :
-    bor_local_seq invariant
-      tr cids
-      (evt :: evts)
-      tr'' cids''.
 
 (* Traverse the entire tree and get for each tag protected by cid its currently initialized locations.
    Those are all the locations that we'll do a read access through, or even a write access if it is Active *)
@@ -914,7 +863,9 @@ Definition tree_access_all_protected_initialized (cids : call_id_set) (cid : nat
     (* finally we can combine this all *)
     set_fold (fun '(tg, init_locs) (tr:option (tree item)) => tr ← tr; reader_locs tg init_locs tr) (Some tr) init_locs.
 
-(* FIXME: IMPORTANT: don't make the access visible to children ! *)
+(* WARNING: don't make the access visible to children!
+    You can check in `trees_access_all_protected_initialized` that we properly use
+    `memory_access_nonchildren_only`. *)
 (* Finally we read all protected initialized locations on the entire trees by folding it
    for each tree separately.
    NOTE: be careful about how other properties assume the uniqueness of tags intra- and inter- trees,
@@ -929,8 +880,9 @@ Definition trees_access_all_protected_initialized (cids : call_id_set) (cid : na
 Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_id)
   : event -> trees -> call_id_set -> nat -> call_id -> Prop :=
   | AllocIS (blk : block) (off : Z) (sz : nat)
+    (* Memory allocation *)
     (FRESH : trs !! blk = None)
-    (NONZERO : (sz > 0)%nat) : (* FIXME: should we have an event for zero-size allocations ? *)
+    (NONZERO : (sz > 0)%nat) :
     bor_step
       trs cids nxtp nxtc
       (AllocEvt blk nxtp (off, sz))
@@ -951,14 +903,18 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs cids nxtp nxtc
       (CopyEvt alloc tg range val)
       trs cids nxtp nxtc
-  | FailedCopyIS (alloc : block) range tg
+(*  | FailedCopyIS (alloc : block) range tg
     (* Unsuccessful read access just returns poison instead of causing UB *)
+    (* WARNING: SB works like this, having failed reads return poison
+       instead of triggering UB. We can't do this for Tree Borrows.
+       This was a hack for SB anyway, and not having it gives a stronger result.
+     *)
     (EXISTS_TAG : trees_contain tg trs alloc)
     (ACC : apply_within_trees (memory_access AccessRead cids tg range) alloc trs = None) :
     bor_step
       trs cids nxtp nxtc
       (FailedCopyEvt alloc tg range)
-      trs cids nxtp nxtc
+      trs cids nxtp nxtc *)
   | WriteIS trs' (alloc : block) range tg val
     (* Successful write access *)
     (EXISTS_TAG: trees_contain tg trs alloc)
@@ -981,7 +937,6 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
                We want to do the read *after* the insertion so that it properly initializes the locations of the range. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
-    (* TODO get rid of fresh_child assumption here *)
     (FRESH_CHILD: ~trees_contain nxtp trs alloc)
     (RETAG_EFFECT: apply_within_trees (create_child cids parentt nxtp pk im rk cid) alloc trs = Some trs')
     (READ_ON_REBOR: apply_within_trees (memory_access AccessRead cids nxtp range) alloc trs' = Some trs'') :
@@ -990,9 +945,8 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       (RetagEvt alloc range parentt nxtp pk im cid rk)
       trs'' cids (S nxtp) nxtc
   | RetagNoopIS parentt (alloc : block) range pk im cid rk
-      (* For a retag we require that the parent exists and the introduced tag is fresh, then we do a read access.
-         NOTE: create_child does not read, it only inserts, so the read needs to be explicitly added.
-               We want to do the read *after* the insertion so that it properly initializes the locations of the range.*)
+      (* This is a noop retag. Some "retagging" operations don't actually do anything,
+         e.g. raw pointer retags. *)
     (EL: cid ∈ cids)
     (EXISTS_TAG: trees_contain parentt trs alloc)
     (IS_NOOP: retag_perm pk im rk = None) :
@@ -1023,10 +977,28 @@ Inductive bor_step (trs : trees) (cids : call_id_set) (nxtp : nat) (nxtc : call_
       trs' (cids ∖ {[c]}) nxtp nxtc
   .
 
+Inductive bor_steps trs cids nxtp nxtc
+  : list event -> trees -> call_id_set -> nat -> call_id -> Prop :=
+  | BorStepsDone :
+      bor_steps
+        trs cids nxtp nxtc
+        []
+        trs cids nxtp nxtc
+  | BorStepsMore evt evts
+      trs1 cids1 nxtp1 nxtc1
+      trs2 cids2 nxtp2 nxtc2
+      (HEAD : bor_step trs cids nxtp nxtc evt trs1 cids1 nxtp1 nxtc1)
+      (REST : bor_steps trs1 cids1 nxtp1 nxtc1 evts trs2 cids2 nxtp2 nxtc2) :
+      bor_steps
+        trs cids nxtp nxtc
+        (evt :: evts)
+        trs2 cids2 nxtp2 nxtc2
+  .
+
+(** Unit test for the tree relation definition, showing how it works *)
 (* conversion is magic *)
 Local Definition unpack_option {A:Type} (o : option A) {oo : A} (Heq : o = Some oo) : A := oo.
 Local Notation unwrap K := (unpack_option K eq_refl).
-
 
 Local Definition initial_tree := init_tree 1 0 4.
 Local Definition with_one_child :=
@@ -1045,6 +1017,8 @@ Local Definition with_three_children :=
 In particular, 4 is a non-immediate child of 1, but all other child relations are immediate.
 
 *)
+
+(** Having constructed the above tree, we can now check that all relations are computed correctly *)
 (* conversion keeps being magical *)
 Succeed Example foo : rel_dec with_three_children 1 1 = Child This                   := eq_refl.
 Succeed Example foo : rel_dec with_three_children 1 2 = Foreign (Parent Immediate)   := eq_refl.
@@ -1062,8 +1036,4 @@ Succeed Example foo : rel_dec with_three_children 4 1 = Child (Strict FurtherAwa
 Succeed Example foo : rel_dec with_three_children 4 2 = Child (Strict Immediate)     := eq_refl.
 Succeed Example foo : rel_dec with_three_children 4 3 = Foreign Cousin               := eq_refl.
 Succeed Example foo : rel_dec with_three_children 4 4 = Child This                   := eq_refl.
-
-
-
-
 

@@ -378,7 +378,6 @@ Ltac sim_val := sim_finish; sim_result_head.
 
 (** ** Pure reduction *)
 Ltac solve_pure_sidecond :=
-  (*TODO: have tactic adapted to our instances *)
   fast_done || (left; fast_done) || (right; fast_done).
 
 (** The argument [efoc] can be used to specify the construct that should be

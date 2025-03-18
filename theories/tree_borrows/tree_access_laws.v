@@ -25,7 +25,7 @@ Proof.
   destruct (trs !! blk); [|tauto].
   intros Ex Eq. injection Eq; intros; subst. assumption.
 Qed.
-(***** not part of the API *****)
+(***** END not part of the API *****)
 
 Lemma trees_contain_trees_lookup_1 trs blk tg :
   wf_trees trs →
@@ -329,8 +329,8 @@ Proof.
 Qed.
 
 (* Reverse lifting to single trees.
-   This is a roundabout of proving these, but we started with the lemmas above and this way there is the least refactoring effort. *)
-
+   This is a roundabout of proving these, but we started with the lemmas above
+   and this way there is the least refactoring effort. *)
 
 Lemma wf_tree_wf_singleton_any z tr : wf_tree tr → wf_trees (singletonM z tr).
 Proof.
@@ -427,7 +427,8 @@ Proof.
 Qed.
 
 
-(* Some more facts about trees. These could be refactored, maybe? *)
+(* Some more facts about trees. *)
+(* TODO: These could be refactored, maybe? *)
 
 Lemma apply_access_perm_access_remains_disabled b acc rel isprot itmo itmn :
   maybe_non_children_only b (apply_access_perm acc) rel isprot itmo = Some itmn →

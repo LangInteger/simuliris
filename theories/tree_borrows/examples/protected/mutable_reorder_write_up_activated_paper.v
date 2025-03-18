@@ -3,11 +3,10 @@ From simuliris.tree_borrows Require Import proofmode lang adequacy examples.lib.
 From iris.prelude Require Import options.
 
 
-(** Moving a write to a mutable reference down across unknown code.
-    This requires activating the reference first. *)
+(** Moving a write to a mutable reference up across unknown code. *)
 
 (* Assuming x : &mut i32 *)
-Definition prot_mutable_reorder_write_down_activated_unopt : expr :=
+Definition prot_mutable_reorder_write_up_activated_paper_unopt : expr :=
     let: "c" := InitCall in
     (* "x" is the local variable that stores the pointer value "i" *)
     let: "x" := new_place sizeof_scalar "i" in
@@ -15,52 +14,50 @@ Definition prot_mutable_reorder_write_down_activated_unopt : expr :=
     (* retag_place reborrows the pointer value stored in "x" (which is "i"),
       then updates "x" with the new pointer value. This relies on protectors,
       hence [FnEntry]. *)
-    retag_place "x"  MutRef TyFrz sizeof_scalar FnEntry "c";;
+    retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c";;
 
-    (* Activate the reference *)
-    ( *{sizeof_scalar} "x" <- #[0]) ;;
+    (* Call the unknown function "f" *)
+    Call #[ScFnPtr "f"] "f_closure_arg" ;;
 
-    (* After the activation, we can have arbitrary code *)
-    let: "v1" := Call #[ScFnPtr "post_active"] #[] in
+    (* Write 10 to the cell pointed to by the pointer in "x" *)
+    *{sizeof_scalar} "x" <- #[10] ;;
 
-    (* Write 42 to the cell pointed to by the pointer in "x" *)
-    ( *{sizeof_scalar} "x" <- #[42]) ;;
+    (* Call the unknown function "g" *)
+    Call #[ScFnPtr "g"] "g_closure_arg" ;;
 
-    (* The unknown code is represented by a call to an unknown function "f" *)
-    let: "v2" := Call #[ScFnPtr "f"] #[] in
-
-    (* Write the result of the call to the cell pointed to by the pointer in "x" *)
-    ( *{sizeof_scalar} "x" <- "v2") ;;
+    (* Write 0 to the cell pointed to by the pointer in "x" *)
+    *{sizeof_scalar} "x" <- #[0] ;;
 
     (* Free the local variable *)
     Free "x" ;;
 
-    (* Finally, return the value *)
+    (* Finally, return unit *)
     EndCall "c";;
-    "v1"
+    #[]
   .
 
-Definition prot_mutable_reorder_write_down_activated_opt : expr :=
+Definition prot_mutable_reorder_write_up_activated_paper_opt : expr :=
     let: "c" := InitCall in
     let: "x" := new_place sizeof_scalar "i" in
-    retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c" ;;
-    ( *{sizeof_scalar} "x" <- #[0]) ;;
-    let: "v1" := Call #[ScFnPtr "post_active"] #[] in
-    (* write was eliminated *)
-    let: "v2" := Call #[ScFnPtr "f"] #[] in
-    ( *{sizeof_scalar} "x" <- "v2") ;;
+    retag_place "x" MutRef TyFrz sizeof_scalar FnEntry "c";;
+    Call #[ScFnPtr "f"] "f_closure_arg" ;;
+    *{sizeof_scalar} "x" <- #[0] ;;
+    Call #[ScFnPtr "g"] "g_closure_arg" ;;
     Free "x" ;;
     EndCall "c";;
-    "v1"
+    #[]
   .
 
-
-Lemma prot_mutable_reorder_write_down_activated `{sborGS Σ} :
-  ⊢ log_rel prot_mutable_reorder_write_down_activated_opt prot_mutable_reorder_write_down_activated_unopt.
+Lemma prot_mutable_reorder_write_up_activated_paper `{sborGS Σ} :
+  ⊢ log_rel prot_mutable_reorder_write_up_activated_paper_opt prot_mutable_reorder_write_up_activated_paper_unopt.
 Proof.
   log_rel.
-  iIntros "%r_t %r_s #Hrel !# %π _".
+  iIntros "%f_closure_t %f_closure_s #Hrel_f_closure".
+  iIntros "%r_t %r_s #Hrel".
+  iIntros "%g_closure_t %g_closure_s #Hrel_g_closure".
+  iIntros "!# %π _".
   sim_pures.
+  rewrite !subst_result.
   sim_apply InitCall InitCall sim_init_call "". iIntros (c) "Hcall". iApply sim_expr_base. sim_pures.
 
   (* new place *)
@@ -94,6 +91,11 @@ Proof.
   2: done. 1: rewrite /write_range bool_decide_true. 2: simpl; lia. 1: rewrite Z.sub_diag /= //.
   sim_pures.
 
+  (* arbitrary code (call to f) *)
+  rewrite !subst_result.
+  sim_apply (Call _ _) (Call _ _) (sim_call _ _ _) ""; first done.
+  iIntros (r_t_f r_s_f) "Hsamef". sim_pures.
+
   (* do the activation write *)
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
   1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
@@ -107,8 +109,8 @@ Proof.
     by rewrite lookup_insert. }
   sim_pures.
 
-  (* first write, between retag and opt code *)
-  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
+  (* arbitrary code (call to g) *)
+  sim_apply (Call _ _) (Call _ _) (sim_call _ _ _) ""; first done.
   iIntros (r_t r_s) "Hsame1". sim_pures.
 
   (* do the source store *)
@@ -121,66 +123,36 @@ Proof.
   1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert; by eexists.
   source_pures. source_finish.
 
-  (* first write, between retag and opt code *)
-  sim_apply (Call _ _) (Call _ _) (sim_call _ (ValR []) (ValR [])) ""; first by iApply value_rel_empty.
-  iIntros (r2_t r2_s) "#Hsame2". sim_pures.
-
-  (* pre-stuff for second write *)
-  source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag". 2: done.
-  1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  source_pures.
-  source_bind (Write _ _).
-  iApply source_red_safe_implies.
-  iIntros "(%v2_s&->&%Hlenvs_2)".
-  destruct r2_t as [v2_t|]; last done. iSimpl in "Hsame2".
-  iPoseProof (value_rel_length with "Hsame2") as "%Hlenvt_s".
-  destruct v2_s as [|v2_s []]; try done.
-  destruct v2_t as [|v2_t []]; try done.
-  (* do the second store (happening on both sides) in the source *)
-  source_apply (Write (Place _ _ _) _) (source_write_protected_active with "Hcall Htag_i Hi_s") "Hi_s Htag_i Hcall". 1,3,4: done.
-  1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
-  2: rewrite lookup_insert //.
-  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert; by eexists.
-  source_pures. source_finish.
-  (* do the second store (happening on both sides) in the target *)
-  target_apply (Copy (Place _ _ _)) (target_copy_local with "Htag Ht") "Ht Htag". 2: done.
-  1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  target_pures. 
-  target_apply (Write (Place _ _ _) _) (target_write_protected_active with "Hcall Htag_i Hi_t") "Hi_t Htag_i Hcall". 1,3,4: done.
-  1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
-  2: rewrite lookup_insert //.
-  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert; by eexists.
-  target_pures. target_finish.
-
   (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  iApply (sim_make_unique_public with "Hi_t Hi_s Htag_i Hcall []"). 1: by rewrite lookup_insert. 1: iIntros "_"; done.
+  iApply (sim_make_unique_public with "Hi_t Hi_s Htag_i Hcall []"). 1: by rewrite lookup_insert.
+  { iIntros "_". iApply value_rel_int. }
   iIntros  "Htag_i Hcall". iEval (rewrite !fmap_insert !fmap_empty !insert_insert /=) in "Hcall".
   iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert.
   iIntros "Hc". iEval (rewrite delete_insert) in "Hc".
   sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "Hc") "".
-  sim_pures. rewrite !subst_result.
-  sim_val. iModIntro. iSplit; first done. done.
+  sim_pures.
+  sim_val. iModIntro. iSplit; first done.
+  by iApply big_sepL2_nil.
 Qed.
-
 
 Section closed.
   (** Obtain a closed proof of [ctx_ref]. *)
-  Lemma prot_mutable_reorder_write_down_activated_ctx : ctx_ref prot_mutable_reorder_write_down_activated_opt prot_mutable_reorder_write_down_activated_unopt.
+  Lemma prot_mutable_reorder_write_up_activated_paper_ctx : ctx_ref prot_mutable_reorder_write_up_activated_paper_opt prot_mutable_reorder_write_up_activated_paper_unopt.
   Proof.
     set Σ := #[sborΣ].
     apply (log_rel_adequacy Σ)=>?.
-    apply prot_mutable_reorder_write_down_activated.
+    apply prot_mutable_reorder_write_up_activated_paper.
   Qed.
 End closed.
 
 (*
-Check prot_mutable_reorder_write_down_activated_ctx.
-Print Assumptions prot_mutable_reorder_write_down_activated_ctx.
+Check prot_mutable_reorder_write_up_activated_paper_ctx.
+Print Assumptions prot_mutable_reorder_write_up_activated_paper_ctx.
 *)
 (* 
-prot_mutable_reorder_write_down_activated_ctx
-     : ctx_ref prot_mutable_reorder_write_down_activated_opt prot_mutable_reorder_write_down_activated_unopt
+prot_mutable_reorder_write_up_activated_paper_ctx
+     : ctx_ref prot_mutable_reorder_write_up_activated_paper_opt prot_mutable_reorder_write_up_activated_paper_unopt
 Axioms:
 IndefiniteDescription.constructive_indefinite_description : ∀ (A : Type) (P : A → Prop), (∃ x : A, P x) → {x : A | P x}
 Classical_Prop.classic : ∀ P : Prop, P ∨ ¬ P

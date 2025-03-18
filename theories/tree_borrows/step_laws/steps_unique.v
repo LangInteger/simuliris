@@ -34,7 +34,7 @@ Lemma sim_copy v_t v_s v_rd_t v_rd_s sz l_hl l_rd t π tk Φ :
   t $$ tk -∗
   l_hl ↦s∗[tk]{t} v_s -∗
   l_hl ↦t∗[tk]{t} v_t -∗
-  (∀ v_res_s v_res_t, l_hl ↦s∗[tk]{t} v_s -∗ l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz) -∗ #v_res_t ⪯{π} #v_res_s  [{ Φ }])%E -∗
+  (∀ v_res_s v_res_t, l_hl ↦s∗[tk]{t} v_s -∗ l_hl ↦t∗[tk]{t} v_t -∗ t $$ tk -∗ (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ (*∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz*)) -∗ #v_res_t ⪯{π} #v_res_s  [{ Φ }])%E -∗
   (Copy (Place l_rd t sz))  ⪯{π} (Copy (Place l_rd t sz))  [{ Φ }].
 Proof.
   iIntros (Hsz Hreadt Hreads Hl) "Htk Hs Ht Hsim".
@@ -43,9 +43,9 @@ Proof.
   destruct Hsafe as [Hpool Hsafe].
   iPoseProof (bor_interp_get_pure with "Hbor") as "%Hp".
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
-  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss)&_)|[(_&_&[]%Hsz)|(Hcontain_s&Hnotrees&Hisval)]];
+  specialize (pool_safe_implies Hsafe Hpool) as [(vr_s&Hreadmem&Hcontain_s&(trs_s'&Htrss)&_)|(_&_&[]%Hsz)];
   pose proof Hcontain_s as Hcontain_t; rewrite trees_equal_same_tags in Hcontain_t; try done; last first.
-  { (* We get poison *)
+(*  { (* We get poison *)
     assert (apply_within_trees (memory_access AccessRead (scs σ_s) t (l_rd.2, sz)) l_rd.1 (strs σ_t) = None) as Hnotrees_t.
     { destruct apply_within_trees eqn:HSome in |-*; try done.
       eapply mk_is_Some, trees_equal_allows_more_access in HSome as (x&Hx); first by erewrite Hnotrees in Hx.
@@ -112,7 +112,7 @@ Proof.
      iSplitR "Hsim".
      { do 4 iExists _; destruct σ_s; iFrame. iFrame "Hsrel". done. }
      simpl. rewrite Hpoison. subst sz. iSplit; last done. iApply "Hsim".
-  }
+  } *)
   edestruct trees_equal_allows_more_access as (trs_t'&Htrst).
   1: done. 1: eapply Hwf_s. 1,2,3: rewrite ?Hscs_eq; eapply Hwf_t. 1: done. 1: done. 1: by eapply mk_is_Some.
   opose proof (trees_equal_preserved_by_access _ _ _ _ _ _ _ Hstrs_eq _ Htrss Htrst) as Hstrs_eq'.
@@ -123,7 +123,7 @@ Proof.
   { iPureIntro. do 3 eexists. eapply copy_base_step'. 1-3: done. rewrite -Hscs_eq. done. }
   (* we keep the base_step hypotheses to use the [base_step_wf] lemma below *)
   iIntros (e_t' efs_t σ_t') "%Hhead_t".
-  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&[((Hnotree&->&Hpoison&Hheapsome)&Hcontains_t)|(tr'&vr_t'&->&Hσ_t'&H3&[(Hcontains_t&H4&_)|([]%Hsz&_&_)])]); first congruence.
+  specialize (head_copy_inv _ _ _ _ _ _ _ _ Hhead_t) as (->&tr'&vr_t'&->&Hσ_t'&H3&[(Hcontains_t&H4&_)|([]%Hsz&_&_)]).
   assert (vr_t' = vr_t) as -> by congruence.
   assert (tr' = trs_t') as -> by congruence.
   clear H3 H4.
@@ -190,7 +190,7 @@ Proof.
   }
   iSplitL; last done.
 
-  iApply ("Hsim" with "Hs Ht Htk"). iLeft. iPureIntro.
+  iApply ("Hsim" with "Hs Ht Htk"). iPureIntro.
   eapply read_range_list_to_heaplet_read_memory_strict in Hreads. 2: done.
   2: intros i Hi; specialize (Howns i Hi) as (_&H); exact H.
   eapply read_range_list_to_heaplet_read_memory_strict in Hreadt. 2: done.
@@ -203,37 +203,37 @@ Qed.
 Lemma sim_into_read_for_simulation v_res_t v_res_s v_rd_t v_rd_s l_rd t :
   let sz := length v_rd_t in
   value_rel v_rd_t v_rd_s -∗
-  (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz) -∗
+  (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ (*∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz*)) -∗
   will_read_in_simulation v_rd_s v_res_t l_rd t.
 Proof.
   intros sz. iIntros "Hv1 Hor".
   iPoseProof (value_rel_length with "Hv1") as "%Hlen".
-  iDestruct "Hor" as "[(->&->)|(Hp1&Hp2)]".
-  { iLeft. done. }
+  iDestruct "Hor" as "(->&->)".
+  { done. } (*
   iRight. subst sz.
   iDestruct "Hp2" as "(%i&(_&%HH)&_)". rewrite HH.
   rewrite length_replicate Hlen. iSplit; first done.
   iDestruct "Hp1" as "(%ip&(%H1&%H2)&Hpp)". iExists ip. iSplit; last done.
   rewrite length_replicate. iPureIntro; split. 2: done.
-  rewrite H2 length_replicate in H1. lia.
+  rewrite H2 length_replicate in H1. lia. *)
 Qed.
 
-Lemma sim_read_result_value_rel v_res_t v_res_s v_rd_t v_rd_s l_rd t :
+Lemma sim_read_result_value_rel v_res_t v_res_s v_rd_t v_rd_s :
   let sz := length v_rd_t in
   value_rel v_rd_t v_rd_s -∗
-  (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz) -∗
+  (⌜v_res_s = v_rd_s ∧ v_res_t = v_rd_t⌝ (* ∨ ispoison v_res_s l_rd t sz ∗ ispoison v_res_t l_rd t sz *) ) -∗
   value_rel v_res_t v_res_s.
 Proof.
   intros sz. iIntros "Hv1 Hor".
   iPoseProof (value_rel_length with "Hv1") as "%Hlen".
-  iDestruct "Hor" as "[(->&->)|(Hp1&Hp2)]".
-  { done. }
+  iDestruct "Hor" as "(->&->)".
+  { done. } (*
   subst sz.
   iDestruct "Hp2" as "(%i&(_&%HH)&_)". rewrite HH.
   iDestruct "Hp1" as "(%ip&(%H1&%H2)&Hpp)". rewrite H2.
   iApply big_sepL2_forall. iSplit.
   { rewrite length_replicate //. }
-  iIntros (k x1 x2 (->&_)%lookup_replicate_1 (->&_)%lookup_replicate_1). done.
+  iIntros (k x1 x2 (->&_)%lookup_replicate_1 (->&_)%lookup_replicate_1). done. *)
 Qed.
 
 

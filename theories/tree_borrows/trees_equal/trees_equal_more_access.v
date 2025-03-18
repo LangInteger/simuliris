@@ -1,4 +1,3 @@
-(** This file provides the basic heap and ghost state support for the BorIngLang program logic. *)
 From iris.proofmode Require Export proofmode.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.
@@ -12,7 +11,6 @@ From simuliris.tree_borrows Require Import steps_progress.
 From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
 From iris.prelude Require Import options.
 
-(* TODO cleanup *)
 Section utils.
 
   Context (C : call_id_set).
@@ -79,11 +77,6 @@ Section utils.
        We now need to prove that actually there is also UB in the source,
        just not _here_, instead it occured at the cousin that creates the conflict. *)
     all: exfalso.
-    (* FIXME: here we need a lemma that shows
-       1. a Child/This access for tg is Foreign for tg_cous who is Cousin of tg
-       2. a Foreign access for such tg_cous is UB globally.
-       We can indeed check that in all of the following cases we have
-       rel = This or rel = Child and kind = AccessWrite. *)
     all: eapply cousin_write_for_initialized_protected_nondisabled_is_ub.
     all: try exact GlobalSuccess.
     all: try eassumption.

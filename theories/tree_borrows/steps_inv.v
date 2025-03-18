@@ -17,11 +17,11 @@ Proof. intros Hhead. inv_base_step. eauto 8. Qed.
 Lemma head_copy_inv (P : prog) l bor sz σ σ' e' efs :
   base_step P (Copy (Place l bor sz)) σ e' σ' efs →
   efs = [] ∧
-((apply_within_trees (memory_access AccessRead (scs σ) bor (l.2, sz)) l.1 σ.(strs) = None ∧
+((*(apply_within_trees (memory_access AccessRead (scs σ) bor (l.2, sz)) l.1 σ.(strs) = None ∧
   σ = σ' ∧
   e' = ValR (replicate sz ScPoison)%V ∧
   is_Some (read_mem l sz σ.(shp))) ∧
-  trees_contain bor σ.(strs) l.1 ∨
+  trees_contain bor σ.(strs) l.1 ∨  *)
   ∃ trs' (v':value),
   e' = (v')%E ∧
   σ' = mkState σ.(shp) trs' σ.(scs) σ.(snp) σ.(snc) ∧

@@ -1,4 +1,3 @@
-(** This file provides the basic heap and ghost state support for the BorIngLang program logic. *)
 From iris.proofmode Require Export proofmode.
 From iris.bi.lib Require Import fractional.
 From iris.base_logic.lib Require Import ghost_map.

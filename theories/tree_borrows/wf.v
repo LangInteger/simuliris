@@ -25,7 +25,7 @@ Section expr_wf.
   Fixpoint gen_expr_wf (e : expr) : Prop :=
     expr_head_wf (expr_split_head e).1 ∧
     match e with
-    (** [value_wf v] should be part of [expr_head_wf (Val v)] because
+    (** NOTE: [value_wf v] could be part of [expr_head_wf (Val v)] because
         [log_rel_structural] only provides [expr_head_wf]. *)
     | Val v => True
     | Var x => True
@@ -44,7 +44,7 @@ Section expr_wf.
     | Case e branches => gen_expr_wf e ∧ Forall id (fmap gen_expr_wf branches)
     | While e1 e2 => gen_expr_wf e1 ∧ gen_expr_wf e2
     | Fork e => gen_expr_wf e
-    (* These should have been handled by [expr_head_wf]. *)
+    (* NOTE: These could also have been handled by [expr_head_wf]. *)
     | EndCall e => gen_expr_wf e
     | InitCall => True (* administrative *)
     | Place _ _ _ => True (* literal pointers *)

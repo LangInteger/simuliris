@@ -1,7 +1,3 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
-
 From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
@@ -27,12 +23,8 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Write e1 e2 => Write (subst x es e1) (subst x es e2)
   | Alloc T => Alloc T
   | Free e => Free (subst x es e)
-  (* | CAS e0 e1 e2 => CAS (subst x es e0) (subst x es e1) (subst x es e2) *)
-  (* | AtomWrite e1 e2 => AtomWrite (subst x es e1) (subst x es e2) *)
-  (* | AtomRead e => AtomRead (subst x es e) *)
   | Deref e T => Deref (subst x es e) T
   | Ref e => Ref (subst x es e)
-  (* | Field e path => Field (subst x: es e) path *)
   | Retag e1 e2 newp im sz kind => Retag (subst x es e1) (subst x es e2) newp im sz kind
   | Let x1 e1 e2 =>
       Let x1 (subst x es e1)
@@ -40,7 +32,6 @@ Fixpoint subst (x : string) (es : expr) (e : expr) : expr :=
   | Case e el => Case (subst x es e) (fmap (subst x es) el)
   | Fork e => Fork (subst x es e) 
   | While e1 e2 => While (subst x es e1) (subst x es e2)
-  (* | SysCall id => SysCall id *)
   end.
 
 (* formal argument list substitution *)
@@ -111,7 +102,6 @@ Inductive ectx_item :=
 | FreeEctx
 | DerefEctx (sz : nat)
 | RefEctx
-(* | FieldEctx (path : list nat) *)
 | RetagREctx (e1 : expr) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 | RetagLEctx (r2 : result) (pk : pointer_kind) (im : interior_mut) (sz : nat) (kind : retag_kind)
 | LetEctx (x : binder) (e2 : expr)
@@ -136,7 +126,6 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | FreeEctx => Free e
   | DerefEctx T => Deref e T
   | RefEctx => Ref e
-  (* | FieldEctx path => Field e path *)
   | RetagLEctx r2 newp im sz kind => Retag e (of_result r2) newp im sz kind
   | RetagREctx e1 newp im sz kind => Retag e1 e newp im sz kind
   | LetEctx x e2 => Let x e e2
@@ -465,15 +454,9 @@ Inductive pure_expr_step (P : prog) (h : mem) : expr → expr → list expr → 
     pure_expr_step P h (Conc (Val v1) (Val v2))
                        (Val (v1 ++ v2)) []
 | RefPS l lbor T :
-    (* is_Some (h !! l) → *)
     pure_expr_step P h (Ref (Place l lbor T)) #[ScPtr l lbor] []
-| DerefPS l lbor T
-    (* (DEFINED: ∀ (i: nat), (i < tsize T)%nat → l +ₗ i ∈ dom h) *) :
+| DerefPS l lbor T :
     pure_expr_step P h (Deref #[ScPtr l lbor] T) (Place l lbor T) []
-(* | FieldBS l lbor T path off T'
-    (FIELD: field_access T path = Some (off, T')) :
-    pure_expr_step FNs h (Field (Place l lbor T) path)
-                         SilentEvt (Place (l +ₗ off) lbor T') *)
 | LetPS x e1 e2 e' :
     is_Some (to_result e1) →
     subst' x e1 e2 = e' →
@@ -506,10 +489,12 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
 | CopyBS blk l lbor sz (v: value)
     (READ: read_mem (blk, l) sz h = Some v) :
     mem_expr_step h (Copy (Place (blk, l) lbor sz)) (CopyEvt blk lbor (l, sz) v) h (Val v) []
-| FailedCopyBS blk l lbor sz
+(* This was a poison semantics for failing reads. We have removed this to be
+   closer to the actual semantics described in Tree Borrows.
+  | FailedCopyBS blk l lbor sz
     (READ: is_Some (read_mem (blk, l) sz h)) : 
     (* failed copies lead to poison, but still of the appropriate length *)
-    mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []
+    mem_expr_step h (Copy (Place (blk, l) lbor sz)) (FailedCopyEvt blk lbor (l, sz)) h (Val $ replicate sz ScPoison) []*)
 | WriteBS blk l lbor sz v
     (LEN: length v = sz)
     (DEFINED: ∀ (i: nat), (i < length v)%nat → (blk,l) +ₗ i ∈ dom h) :
@@ -524,17 +509,17 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               (AllocEvt blk lbor (0, sz))
               (init_mem (blk, 0) sz h) (Place (blk, 0) lbor sz) []
 | DeallocBS blk l (sz:nat) lbor :
-    (* FIXME: l here is an offset. But we usually want to deallocate at offset 0, right? *)
-    (* FIXME: This is wrong because it allows double-free of zero-sized allocations
-              Possible solutions:
-              - Change the heap from `gmap loc scalar` to `gmap blk (gmap Z scalar)`
-              - Require `sz > 0`      <- probably this
-              - special case for TB where if the size is zero we don't add a new tree
+    (* WARNING: If we are not careful here, it could allow double-free of zero-sized allocations.
+       Possible solutions that we have considered include
+       - changing the heap from `gmap loc scalar` to `gmap blk (gmap Z scalar)`
+       - requiring `sz . 0`
+       - having a special case for TB where if the size is zero we don't add a new tree.
+
+       We go for the second one and forbid zero-sized allocations, at the level of
+       `AllocIS` in `bor_semantics`.
+       FIXME: We could potentially be able to actually *prove* here that `sz > 0`
+       if we added this to `state_wf`. Until then it is UB to deallocate a zero-sized.
     *)
-    (* Actual solution: We forbid zero-sized allocations (see AllocIS in bor_semantics).
-       If we track that in state_wf, we should be able to prove that sz > 0 here,
-       instead of making it UB.
-       TODO actually add it to state_wf, until then it is UB *)
     (sz > 0)%nat →
     (∀ m, is_Some (h !! ((blk,l) +ₗ m)) ↔ 0 ≤ m < sz) →
     mem_expr_step
@@ -546,8 +531,4 @@ Inductive mem_expr_step (h: mem) : expr → event → mem → expr → list expr
               h (Retag #[ScPtr l otag] #[ScCallId cid] pk im sz kind)
               (RetagEvt l.1 (l.2, sz) otag ntag pk im cid kind)
               h #[ScPtr l ntag] []
-
-(* observable behavior *)
-(* | SysCallBS id h:
-    expr_step (SysCall id) h (SysCallEvt id) (Lit LitPoison) h [] *)
 .

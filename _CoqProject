@@ -124,7 +124,6 @@ theories/stacked_borrows/examples/coinductive.v
 
 
 ## Tree Borrows
-theories/tree_borrows/helpers.v
 theories/tree_borrows/locations.v
 theories/tree_borrows/lang_base.v
 theories/tree_borrows/notation.v
@@ -136,23 +135,16 @@ theories/tree_borrows/bor_semantics.v
 theories/tree_borrows/bor_lemmas.v
 theories/tree_borrows/lang.v
 
-# Proofs directly against the operational semantics.
-# Ultimately goes in a different direction but there are useful
-# intermediate lemmas.
-# Both of these files can be removed (after extracting some lemmas)
-# if keeping them building slows down development too much.
-theories/tree_borrows/steps_preserve.v
-theories/tree_borrows/disjoint.v
-
 # Actual Simuliris proof content for TB
 theories/tree_borrows/defs.v
 theories/tree_borrows/steps_foreach.v
-theories/tree_borrows/steps_access.v
+theories/tree_borrows/steps_preserve.v
 theories/tree_borrows/steps_wf.v
 theories/tree_borrows/steps_progress.v
 theories/tree_borrows/steps_inv.v
 
 theories/tree_borrows/tactics.v
+theories/tree_borrows/wishlist.v
 theories/tree_borrows/class_instances.v
 theories/tree_borrows/tkmap_view.v
 theories/tree_borrows/logical_state.v
@@ -171,7 +163,6 @@ theories/tree_borrows/steps_all.v
 theories/tree_borrows/primitive_laws.v
 theories/tree_borrows/proofmode.v
 theories/tree_borrows/early_proofmode.v
-theories/tree_borrows/wishlist.v
 theories/tree_borrows/tree_access_laws.v
 theories/tree_borrows/tag_protected_laws.v
 theories/tree_borrows/loc_controlled_laws.v
@@ -202,10 +193,20 @@ theories/tree_borrows/examples/protected/mutable_reorder_read_down.v
 theories/tree_borrows/examples/protected/mutable_reorder_read_up.v
 theories/tree_borrows/examples/protected/shared_reorder_read_down_escaped.v
 theories/tree_borrows/examples/protected/shared_reorder_read_up_escaped.v
+theories/tree_borrows/examples/protected/shared_insert_read.v
 theories/tree_borrows/examples/protected/mutable_reorder_write_down_activated.v
 theories/tree_borrows/examples/protected/mutable_reorder_write_up_activated.v
+theories/tree_borrows/examples/protected/mutable_reorder_write_up_activated_paper.v
 theories/tree_borrows/examples/unprotected/mutable_delete_read.v
 theories/tree_borrows/examples/unprotected/shared_delete_read_escaped.v
 theories/tree_borrows/examples/unprotected/shared_delete_read_escaped_coinductive.v
 theories/tree_borrows/examples/lib.v
 theories/tree_borrows/examples/pure.v
+
+# Proofs directly against the operational semantics.
+# This results in a proof that reads can be reordered.
+theories/tree_borrows/read_read_reorder/low_level.v
+theories/tree_borrows/read_read_reorder/read_reorder.v
+theories/tree_borrows/read_read_reorder/equivalence_def.v
+
+

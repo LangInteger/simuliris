@@ -31,7 +31,7 @@ Lemma source_copy_any v_t v_rd sz l_hl l_rd t π Ψ tk :
   l_hl.1 = l_rd.1 →
   t $$ tk -∗
   l_hl ↦s∗[tk]{t} v_t -∗
-  (∀ v_res, l_hl ↦s∗[tk]{t} v_t -∗ t $$ tk -∗ (⌜v_res = v_rd⌝ ∨ ispoison v_res l_rd t sz) -∗ source_red #v_res π Ψ)%E -∗
+  (∀ v_res, l_hl ↦s∗[tk]{t} v_t -∗ t $$ tk -∗ (⌜v_res = v_rd⌝) -∗ source_red #v_res π Ψ)%E -∗
   source_red (Copy (Place l_rd t sz)) π Ψ.
 Proof.
   iIntros (Hnz Hread Hsameblk) "Htag Hs Hsim". eapply read_range_length in Hread as HH. subst sz.
@@ -40,9 +40,9 @@ Proof.
   destruct Hp as (Hstrs_eq & Hsnp_eq & Hsnc_eq & Hscs_eq & Hwf_s & Hwf_t & Hdom_eq).
   iModIntro. iDestruct "Hbor" as "(%M_call & %M_tag & %M_t & %M_s & Hbor)".
   eapply pool_safe_implies in Ht_s as Hfoo. 2: done.
-  destruct Hfoo as [(v_rd'&Hv_rd&Hcont&Hreadsome&_)|[(v_nil&Hread_nil&Hiszero)|(Hcont&Happly_none&Hmemsome)]]; last first.
+  destruct Hfoo as [(v_rd'&Hv_rd&Hcont&Hreadsome&_)|(v_nil&Hread_nil&Hiszero)].
   2: lia.
-  { (* poison *)
+(*  { (* poison *)
     pose proof Happly_none as Hn2.
     rewrite /apply_within_trees in Hn2.
     rewrite /trees_contain /trees_at_block in Hcont.
@@ -88,7 +88,7 @@ Proof.
       1: simpl; lia. simpl. assert ((l_rd +ₗ Z.to_nat (l - l_rd.2) = (l_rd.1, l))) as ->. 2: done.
       rewrite /shift_loc /=. simpl. f_equal. lia. }
     1: iSplitR "Hsim"; last by iApply "Hsim".
-    do 4 iExists _; destruct σ_s; iFrame. iFrame "Hsrel". done. }
+    do 4 iExists _; destruct σ_s; iFrame. iFrame "Hsrel". done. } *)
   iPoseProof (bor_interp_readN_source_after_accesss with "Hbor Hs Htag") as "(%it&%tr&%Hit&%Htr&%Hown)".
   1: exact Hread. 1: done. 1: done. 1: done. 1: exact Hreadsome.
   opose proof* (read_range_list_to_heaplet_read_memory_strict) as READ_MEM. 1: exact Hread. 1: done.
@@ -122,7 +122,7 @@ Proof.
 
   iModIntro.
   iSplitR "Hs Htag Hsim".
-  2: { iApply ("Hsim" with "Hs Htag"). iLeft. by iPureIntro. }
+  2: { iApply ("Hsim" with "Hs Htag"). by iPureIntro. }
   iFrame "HP_t HP_s". iExists M_call, M_tag, M_t, M_s.
   iFrame "Hc Htag_auth Htag_t_auth Htag_s_auth".
   iSplitL "Htainted"; last iSplitL "Hpub_cid". 3: iSplit; last iSplit; last (iPureIntro; split_and!).
@@ -145,7 +145,7 @@ Proof.
   - eapply (base_step_wf P_s). 2: exact Hwf_s. eapply copy_base_step'. 1: done. 2: exact READ_MEM. 2: exact Htrs'. done.
   - done.
 Qed.
-
+(*
 Lemma source_copy_poison v_t v_rd sz l_hl l_rd t π Ψ tk v_read_earlier :
   sz ≠ 0%nat → (* if it is 0, it will not be poison *)
   read_range l_rd.2 sz (list_to_heaplet v_t l_hl.2) = Some v_rd →
@@ -183,7 +183,7 @@ Proof.
     opose proof (disabled_tag_no_access _ false _ AccessRead _ (l_rd.2 + i) (l_rd.2, length v_rd) _ HH _) as HNone.
     1: by eapply Hwf_s. 1: split; simpl in *; lia.
     rewrite /memory_access HNone in Hreadsome. simpl in Hreadsome. by destruct Hreadsome.
-Qed.
+Qed. *)
 
 
 Lemma source_copy_in_simulation v_t v_rd v_tgt sz l_hl l_rd t π Ψ tk :
@@ -198,12 +198,13 @@ Lemma source_copy_in_simulation v_t v_rd v_tgt sz l_hl l_rd t π Ψ tk :
 Proof.
   iIntros (Hsz Hrr Hhl).
   eapply read_range_length in Hrr as Hszlen.
-  iIntros "#[Hrel|Hpoison] Htk Hhl Hsim".
+  iIntros "#Hrel Htk Hhl Hsim".
+  rewrite /will_read_in_simulation.
   - iPoseProof (value_rel_length with "Hrel") as "%Hlen".
     iApply (source_copy_any with "Htk Hhl [Hsim]"). 1-3: done.
-    iIntros (v_res) "Hhl Htk [->|#(%i&(%Hp1&%Hp2)&Hpoison2)]";
+    iIntros (v_res) "Hhl Htk ->";
       iApply ("Hsim" with "Hhl Htk").
-    + done.
+    + done. (*
     + rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite length_replicate; lia.
       iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison.
   - subst sz. iDestruct "Hpoison" as "(%Hlen&Hpoison)".
@@ -212,7 +213,7 @@ Proof.
     iIntros (v_res) "Hhl Htk #(%i&(%Hp1&%Hp2)&Hpoison2)".
     iApply ("Hsim" with "Hhl Htk").
     rewrite Hp2. iApply big_sepL2_forall. iSplit. 1: iPureIntro; rewrite length_replicate; lia.
-    iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison.
+    iIntros (k sc1 sc2 _ (->&HH2)%lookup_replicate_1). iApply sc_rel_source_poison. *)
 Qed.
 
 

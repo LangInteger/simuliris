@@ -1,7 +1,3 @@
-(** This file has been adapted from the Stacked Borrows development, available at 
-  https://gitlab.mpi-sws.org/FP/stacked-borrows
-*)
-
 From simuliris.simulation Require Import lifting.
 From simuliris.tree_borrows Require Import primitive_laws proofmode examples.lib adequacy.
 From iris.prelude Require Import options.
@@ -128,8 +124,10 @@ Section closed.
   Qed.
 End closed.
 
+(*
 Check prot_mutable_reorder_read_up_ctx.
 Print Assumptions prot_mutable_reorder_read_up_ctx.
+*)
 (* 
 prot_mutable_reorder_read_up_ctx
      : ctx_ref prot_mutable_reorder_read_up_opt prot_mutable_reorder_read_up_unopt
