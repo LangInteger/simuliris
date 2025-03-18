@@ -23,7 +23,7 @@ Of course, that end-to-end proof uses Simuliris' definition of refinement, but t
 
 ### Development
 
-* `defs.v` contains some more logical definitions, notably that of well-formed states (`state_wf`).
+* `defs.v` contains basic logical definitions, notably that of well-formed states (`state_wf`).
 * `tactics.v` and `class_instances.v` are some more Simuliris-related infrastructure.
 * `tree_lemmas.v`, `bor_lemmas.v`, `steps_foreach.v`, `steps_inv.v`, and `steps_preserve.v` contain basic lemmas to help with the manipulation of trees.
 * `steps_wf.v` proves that all OpSem steps preserve state well-foundedness.
@@ -31,8 +31,7 @@ Of course, that end-to-end proof uses Simuliris' definition of refinement, but t
 * `steps_progress.v` states success conditions for the various borrow steps so that we can prove absence of UB or exploit presence of UB.
 * `tkmap_view.v` defines views (partial ownership) of the global maps we use to remember the kind of each tag.
 * `trees_equal/` contains a number of files related to a `trees_equal` binary relation between trees.
-  In Stacked Borrows the source stack and the target stack are always identical.
-  In Tree Borrows that is no longer the case, and this relation describes the extent to which they are allowed to differ.
+  Our simulation relation has to allow small differences between the trees in the source and target program; this relation describes the extent to which they are allowed to differ.
 * `logical_state.v` defines the invariants and instantiates the simulation relation,
   using among others a notion of when trees are similar in `trees_equal/`.
 * `tag_protected_laws.v` contains reasoning principles about protectors.
@@ -48,10 +47,8 @@ Of course, that end-to-end proof uses Simuliris' definition of refinement, but t
   - `impossible/` optimizations used to hold under Stacked Borrows,
     but we know of counter-examples under Tree Borrows.
 
-In addition, `read_read_reorder/` provides proofs of simple reorderings
-(swapping adjacent operations in a sequential setting)
-directly against the operational semantics.
-You can find more details in the associated `README.md`.
+In addition, `read_read_reorder/` provides proofs of simple reorderings (swapping adjacent operations in a sequential setting) directly against the operational semantics.
+You can find more details in the associated [`README.md`](read_read_reorder/README.md).
 
 ## Correspondence with Sections 2 and 3
 
@@ -92,7 +89,7 @@ It is coupled to the main operational semantics by a series of "events".
 For example, a read (called "copy" here) causes a `CopyEvt`, which is picked up by the `CopyIS` rule.
 This will ensure the tag exists, and then cause a read event.
 
-Also of interests to reviewers is like 1000-1038. This defines a "unit test" for the `rel_dec` and `create_child` functions.
+Also of interests to reviewers are lines 1000-1038. This defines a "unit test" for the `rel_dec` and `create_child` functions.
 Since `rel_dec` is not commutative, it can be difficult to remember which node is which and whether an output of e.g. "Child" means that the first node is a child of the second or the other way around.
 The "unit test" makes it clear that an output of "Child" indeed means that the first node is a child of the second.
 
@@ -104,7 +101,7 @@ Section 5 has three examples, one for deleting reads, one for deleting writes, a
 
 This example corresponds to the one in  `examples/unprotected/shared_delete_read_escaped.v`.
 The Coq example is very close to the one in the paper.
-The only difference is that `f` has an extra argument in Coq, which corresponds to the implicit environment that closures have in Rust.
+To model the environment of the closure in the Rust code, we use an explicit argument passed to `f`.
 
 In the justification in the paper (around line 818), we say that a protected Reserved cousing of a tag can be conflicted in one side,
 but not in the other. In Coq, this is achieved using the `pseudo_conflicted` case of `perm_eq_up_to_C` in line 88 of `trees_equal_base.v`.
@@ -113,7 +110,7 @@ but not in the other. In Coq, this is achieved using the `pseudo_conflicted` cas
 
 This example corresponds to the one in `examples/protected/mutable_reorder_write_up_activated_paper.v`.
 This Coq example corresponds very closely to the one in the paper.
-The only difference is that `f` and `g` have an extra argument in Coq, which corresponds to the implicit environment that closures have in Rust.
+Again, closure environments are modeled with extra arguments.
 
 This is also where we need (and the paper finally explains) protector end semantics.
 Protector end semantics ensure that two states remain `trees_equal` even when a protector is removed.
@@ -124,8 +121,9 @@ which shows that after the protector end access, `trees_equal` is preserved even
 
 This is proven in `read_read_reorder`, particularly in `read_reorder.v`.
 These proofs do not use the `simuliris` library, but instead they do a much simpler equivalence proof directly against the operational semantics.
-This is because these proofs only hold for a non-concurrent language.
-We suspect that they also hold in a concurrent setting, but this would require data race reasoning, and thus we have not proven that.
+This is possible because there is no unknown code involved in this transformation (the reordered instructions are immediately adjacent).
+We also cannot use `simuliris` since the transformation does not hold in our concurrent semantics.
+We suspect that they also hold in a realistic concurrent setting where data races are Undefined Behavior, but this would be very challenging to prove so we consider it out-of-scope.
 
 Specifically, the simple notion of "equivalence after a few steps" is in `equivalence_def.v`.
 The proof that the two reads can be reordered is in `read_reorder.v`.
@@ -154,7 +152,7 @@ Here, we explain the resources that you will encounter when stepping through the
 The `$$` resource associates a "tag" with a "tag kind." Remember that each tag corresponds to a specific node in the borrow tree.
 The tag kind is a very coarse over-approximation of the shape of the tree from that specific node.
 
-The simplemost kind is `tk_local`, which says that the tree here is a singleton, and this tag is the only tag in the tree.
+The simplest kind is `tk_local`, which says that the tree here is a singleton, and this tag is the only tag in the tree.
 `tk_local` tags are used for new fresh allocations that do not have their address taken, and allows treating them as local variables.
 
 To talk about the value of such a local tag, the "heaplet points-to" `l ↦t∗[tk_local]{t} vs` is used.
@@ -184,7 +182,7 @@ This allows passing a shared reference to another function and later still knowi
 
 At this point, we should mention that all heaplets represent "conditional" knowledge: They basically say that the given value is stored in memory, or that alternatively the corresponding tag has since become `Disabled`.
 This allows proving rules like lockstep reads (`sim_copy` in `step_laws/steps_unique.v`), based on the argument that either the source has UB when the tag is `Disabled`, or we know that the heaplet is still alive and hence the read is possible.
-This means that lockstep rules are typically easy to prove with our setup, but proving anything about single-sided reads is much more difficult, which is why we can only prove read removal optimizations without protectors.
+This means that lockstep rules are typically easy to prove with our setup, but proving anything about single-sided reads is much more difficult, which is why without protectors,  we can only prove read removal optimizations.
 
 ### Protectors
 

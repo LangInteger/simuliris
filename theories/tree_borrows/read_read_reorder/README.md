@@ -12,13 +12,13 @@ they require one of
 - ability to reason about data races.
 The latter has been demonstrated to be *possible* in simuliris (see `theories/simulang`),
 but combining this with Tree Borrows is outside of our current scope.
-Instead we opt for the former: this subdirectory has only sequential semantics,
+Instead we opt for the former: this subdirectory only considers the sequential semantics,
 no concurrency.
 
 The main theorem for this proof is `read_reorder` in `read_reorder.v`,
 which states that the two example programs given that differ in the ordering
 of two reads are equivalent according to the notion defined in `equivalence_def.v`.
-In addition the intermediate lemmas in `low_level.v` should give confidence
+In addition, the intermediate lemmas in `low_level.v` should give confidence
 that this reordering is indeed a more general property of the model and not
 merely applicable to only this simple example.
 
