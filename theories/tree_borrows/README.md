@@ -82,12 +82,12 @@ A retag is the core operation creating a new reference, which is parameterized b
 Further it defines whether there are to be protectors.
 The function `create_child` is the main function used during a retag.
 
-Finally, the protector end semantics are defined starting at lien 841, with the function `tree_get_all_protected_tags_initialized_locs` and `tree_access_all_protected_initialized`.
+Finally, the protector end semantics are defined starting at line 841, with the functions `tree_get_all_protected_tags_initialized_locs` and `tree_access_all_protected_initialized`.
 
 To put all the definitions together, the inductive `bor_step` is defined.
 It is coupled to the main operational semantics by a series of "events".
 For example, a read (called "copy" here) causes a `CopyEvt`, which is picked up by the `CopyIS` rule.
-This will ensure the tag exists, and then cause a read event.
+This will ensure the tag exists, and then traverse the tree, advancing the state machine appropiately and triggering UB if necessary.
 
 Also of interests to reviewers are lines 1000-1038. This defines a "unit test" for the `rel_dec` and `create_child` functions.
 Since `rel_dec` is not commutative, it can be difficult to remember which node is which and whether an output of e.g. "Child" means that the first node is a child of the second or the other way around.
