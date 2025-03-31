@@ -295,11 +295,11 @@ Global Instance result_inhabited : Inhabited result := populate (ValR [☠]%S).
 Global Instance state_Inhabited : Inhabited state.
 Proof. do 2!econstructor; exact: inhabitant. Qed.
 
-Canonical Structure locO := leibnizO loc.
-Canonical Structure scalarO := leibnizO scalar.
-Canonical Structure resultO := leibnizO result.
-Canonical Structure exprO := leibnizO expr.
-Canonical Structure stateO := leibnizO state.
+Canonical Structure locO {SI : sidx} := leibnizO loc.
+Canonical Structure scalarO {SI : sidx} := leibnizO scalar.
+Canonical Structure resultO {SI : sidx} := leibnizO result.
+Canonical Structure exprO {SI : sidx} := leibnizO expr.
+Canonical Structure stateO {SI : sidx} := leibnizO state.
 
 (** Basic properties about the language *)
 
@@ -365,7 +365,7 @@ Inductive base_step (P : prog) :
   expr → state → expr → state → list expr → Prop :=
   | HeadPureS σ e e' efs
       (ExprStep: pure_expr_step P σ.(shp) e e' efs)
-    : base_step P e σ e' σ efs 
+    : base_step P e σ e' σ efs
   | HeadImpureS σ e e' ev h' α' cids' nxtp' nxtc' efs
       (ExprStep : mem_expr_step σ.(shp) e ev h' e' efs)
       (InstrStep: bor_step σ.(strs) σ.(scs) σ.(snp) σ.(snc)

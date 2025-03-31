@@ -1,4 +1,4 @@
-(** This file has been adapted from the Iris development, available at 
+(** This file has been adapted from the Iris development, available at
   https://gitlab.mpi-sws.org/iris/iris
 *)
 
@@ -12,77 +12,80 @@ From simuliris.stacked_borrows Require Export defs.
 (** An adaption of gmap_view to use tag_kind to control permissions of fragments and to reflect that into the authoritative fragment.
 (gmap_view has since been updated so we could now use it directly, but this code predates the generalized gmap_view for arbitrary CRMA.) *)
 
-(* Currently, we place a strong restriction on the shape of a location's stack:
-  A tag can be of one of two kinds:
-  - tk_pub: the tag is public (can be shared, assertion is persistent)
-  - tk_unq: the tag is unique (cannot be shared, assertion is not persistent).
-  - tk_loc: the tag is local
- *)
-(* TODO: allow a local update from tk_unq to tk_pub *)
-Definition tagKindR := csumR (exclR unitO) (csumR (exclR unitO) unitR).
+Section tag_kind.
+  Context {SI : sidx}.
+
+  (* Currently, we place a strong restriction on the shape of a location's stack:
+    A tag can be of one of two kinds:
+    - tk_pub: the tag is public (can be shared, assertion is persistent)
+    - tk_unq: the tag is unique (cannot be shared, assertion is not persistent).
+    - tk_loc: the tag is local
+   *)
+  (* TODO: allow a local update from tk_unq to tk_pub *)
+  Definition tagKindR := csumR (exclR unitO) (csumR (exclR unitO) unitR).
 
 
-Canonical Structure tag_kindO := leibnizO tag_kind.
+  Canonical Structure tag_kindO := leibnizO tag_kind.
 
-Global Instance tagKindR_discrete : CmraDiscrete tagKindR.
-Proof. apply _. Qed.
+  Global Instance tagKindR_discrete : CmraDiscrete tagKindR.
+  Proof. apply _. Qed.
 
-Definition to_tgkR (tk: tag_kind) : tagKindR :=
-  match tk with
-  | tk_unq => Cinr $ Cinl $ Excl ()
-  | tk_pub => Cinr $ Cinr ()
-  | tk_local => Cinl $ Excl ()
-  end.
+  Definition to_tgkR (tk: tag_kind) : tagKindR :=
+    match tk with
+    | tk_unq => Cinr $ Cinl $ Excl ()
+    | tk_pub => Cinr $ Cinr ()
+    | tk_local => Cinl $ Excl ()
+    end.
 
-Lemma to_tgkR_valid tk : ✓ (to_tgkR tk).
-Proof. destruct tk; done. Qed.
-Lemma to_tgkR_validN tk n : ✓{n} (to_tgkR tk).
-Proof. destruct tk; done. Qed.
+  Lemma to_tgkR_valid tk : ✓ (to_tgkR tk).
+  Proof. destruct tk; done. Qed.
+  Lemma to_tgkR_validN tk n : ✓{n} (to_tgkR tk).
+  Proof. destruct tk; done. Qed.
 
-Global Instance to_tgkR_inj n : Inj (=) (dist n) to_tgkR.
-Proof.
-  intros [] []; simpl; first [done | inversion 1];
-  match goal with
-  | H : Cinl _ ≡{_}≡ Cinr _ |- _ => inversion H
-  | H : Cinr _ ≡{_}≡ Cinl _ |- _ => inversion H
-  end.
-Qed.
+  Global Instance to_tgkR_inj n : Inj (=) (dist n) to_tgkR.
+  Proof.
+    intros [] []; simpl; first [done | inversion 1];
+    match goal with
+    | H : Cinl _ ≡{_}≡ Cinr _ |- _ => inversion H
+    | H : Cinr _ ≡{_}≡ Cinl _ |- _ => inversion H
+    end.
+  Qed.
 
-Lemma tgkR_validN_inv tkr n : ✓{n} tkr → ∃ tk, tkr ≡ to_tgkR tk.
-Proof.
-  rewrite -cmra_discrete_valid_iff. destruct tkr as [c | [c|c|] | ]; simpl; try by move => [].
-  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_local. done.
-  - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq. done.
-  - destruct c. intros. exists tk_pub; done.
-Qed.
+  Lemma tgkR_validN_inv tkr n : ✓{n} tkr → ∃ tk, tkr ≡ to_tgkR tk.
+  Proof.
+    rewrite -cmra_discrete_valid_iff. destruct tkr as [c | [c|c|] | ]; simpl; try by move => [].
+    - destruct c as [u|]; last move => []. destruct u; intros. exists tk_local. done.
+    - destruct c as [u|]; last move => []. destruct u; intros. exists tk_unq. done.
+    - destruct c. intros. exists tk_pub; done.
+  Qed.
 
-Global Instance to_tgkR_unq_excl : Exclusive (to_tgkR tk_unq).
-Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
-Global Instance to_tgkR_local_excl : Exclusive (to_tgkR tk_local).
-Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
-Lemma to_tgkR_op_validN n tk tk' : ✓{n} (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
-Proof. destruct tk, tk'; simpl; by intros []. Qed.
-Lemma to_tgkR_op_valid tk tk' : ✓ (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
-Proof. destruct tk, tk'; simpl; by intros []. Qed.
+  Global Instance to_tgkR_unq_excl : Exclusive (to_tgkR tk_unq).
+  Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
+  Global Instance to_tgkR_local_excl : Exclusive (to_tgkR tk_local).
+  Proof. intros [ | [ [] | [] | ]| ]; simpl; [ intros [] ..]. Qed.
+  Lemma to_tgkR_op_validN n tk tk' : ✓{n} (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
+  Proof. destruct tk, tk'; simpl; by intros []. Qed.
+  Lemma to_tgkR_op_valid tk tk' : ✓ (to_tgkR tk ⋅ to_tgkR tk') → tk = tk_pub ∧ tk' = tk_pub.
+  Proof. destruct tk, tk'; simpl; by intros []. Qed.
 
-Lemma tagKindR_incl_eq (k1 k2: tagKindR):
-  ✓ k2 → k1 ≼ k2 → k1 ≡ k2.
-Proof.
-  move => VAL /csum_included
-    [?|[[? [? [? [? INCL]]]]|[x1 [x2 [? [? INCL]]]]]]; subst; [done|..].
-  - exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
-  - move : INCL => /csum_included
-      [? |[[? [? [? [? INCL]]]]|[[] [[] [? [? LE]]]]]]; subst; [done|..|done].
-    exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
-Qed.
+  Lemma tagKindR_incl_eq (k1 k2: tagKindR):
+    ✓ k2 → k1 ≼ k2 → k1 ≡ k2.
+  Proof.
+    move => VAL /csum_included
+      [?|[[? [? [? [? INCL]]]]|[x1 [x2 [? [? INCL]]]]]]; subst; [done|..].
+    - exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
+    - move : INCL => /csum_included
+        [? |[[? [? [? [? INCL]]]]|[[] [[] [? [? LE]]]]]]; subst; [done|..|done].
+      exfalso. eapply exclusive_included; [..|apply INCL|apply VAL]; apply _.
+  Qed.
+End tag_kind.
 
-
-Local Definition tkmap_view_fragUR (K : Type) `{Countable K} (V : ofe) : ucmra :=
+Local Definition tkmap_view_fragUR {SI : sidx} (K : Type) `{Countable K} (V : ofe) : ucmra :=
   gmapUR K (prodR tagKindR (agreeR V)).
 (** View relation. *)
 Section rel.
-  Context (K : Type) `{Countable K} (V : ofe).
-  Implicit Types (m : gmap K (tag_kind * V)) (k : K) (v : V) (n : nat).
+  Context {SI : sidx} (K : Type) `{Countable K} (V : ofe).
+  Implicit Types (m : gmap K (tag_kind * V)) (k : K) (v : V) (n : SI).
   Implicit Types (f : gmap K (tagKindR * agree V)).
 
   Local Definition tkmap_view_rel_raw n m f : Prop :=
@@ -93,7 +96,7 @@ Section rel.
     tkmap_view_rel_raw n1 m1 f1 →
     m1 ≡{n2}≡ m2 →
     f2 ≼{n2} f1 →
-    (n2 <= n1)%nat →
+    (n2 ≤ n1)%sidx →
     tkmap_view_rel_raw n2 m2 f2.
   Proof.
     intros Hrel Hm Hf Hn k [tk va] Hk.
@@ -143,7 +146,8 @@ Section rel.
     ∃ m, tkmap_view_rel_raw n m ε.
   Proof. exists ∅. apply: map_Forall_empty. Qed.
 
-  Local Canonical Structure tkmap_view_rel : view_rel (gmapO K (prodO tag_kindO V)) (tkmap_view_fragUR K V) :=
+  Local Canonical Structure tkmap_view_rel :
+      view_rel (gmapO K (prodO tag_kindO V)) (tkmap_view_fragUR K V) :=
     ViewRel tkmap_view_rel_raw tkmap_view_rel_raw_mono
             tkmap_view_rel_raw_valid tkmap_view_rel_raw_unit.
 
@@ -195,15 +199,15 @@ Local Existing Instance tkmap_view_rel_discrete.
 (** [tkmap_view] is a notation to give canonical structure search the chance
 to infer the right instances (see [auth]). *)
 Notation tkmap_view K V := (view (@tkmap_view_rel_raw K _ _ V)).
-Definition tkmap_viewO (K : Type) `{Countable K} (V : ofe) : ofe :=
+Definition tkmap_viewO {SI : sidx} (K : Type) `{Countable K} (V : ofe) : ofe :=
   viewO (tkmap_view_rel K V).
-Definition tkmap_viewR (K : Type) `{Countable K} (V : ofe) : cmra :=
+Definition tkmap_viewR {SI : sidx} (K : Type) `{Countable K} (V : ofe) : cmra :=
   viewR (tkmap_view_rel K V).
-Definition tkmap_viewUR (K : Type) `{Countable K} (V : ofe) : ucmra :=
+Definition tkmap_viewUR {SI : sidx} (K : Type) `{Countable K} (V : ofe) : ucmra :=
   viewUR (tkmap_view_rel K V).
 
 Section definitions.
-  Context {K : Type} `{Countable K} {V : ofe}.
+  Context {SI : sidx} {K : Type} `{Countable K} {V : ofe}.
 
   Definition tkmap_view_auth (q : frac) (m : gmap K (tag_kind * V)) : tkmap_viewR K V :=
     ●V{#q} m.
@@ -212,16 +216,16 @@ Section definitions.
 End definitions.
 
 Section lemmas.
-  Context {K : Type} `{Countable K} {V : ofe}.
+  Context {SI : sidx} {K : Type} `{Countable K} {V : ofe}.
   Implicit Types (m : gmap K (tag_kind * V)) (k : K) (q : Qp) (t : tag_kind) (v : V).
 
-  Global Instance : Params (@tkmap_view_auth) 5 := {}.
+  Global Instance : Params (@tkmap_view_auth) 6 := {}.
   Global Instance tkmap_view_auth_ne q : NonExpansive (tkmap_view_auth (K:=K) (V:=V) q).
   Proof. solve_proper. Qed.
   Global Instance tkmap_view_auth_proper q : Proper ((≡) ==> (≡)) (tkmap_view_auth (K:=K) (V:=V) q).
   Proof. apply ne_proper, _. Qed.
 
-  Global Instance : Params (@tkmap_view_frag) 6 := {}.
+  Global Instance : Params (@tkmap_view_frag) 7 := {}.
   Global Instance tkmap_view_frag_ne k tk : NonExpansive (tkmap_view_frag (K:=K) (V:=V) k tk).
   Proof. solve_proper. Qed.
   Global Instance tkmap_view_frag_proper k tk : Proper ((≡) ==> (≡)) (tkmap_view_frag (K:=K) (V:=V) k tk).
