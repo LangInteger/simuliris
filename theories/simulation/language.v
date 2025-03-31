@@ -1135,8 +1135,8 @@ End safe_reach.
 
 
 (* discrete OFE instance for expr and thread_id *)
-Definition exprO {Λ : language} := leibnizO (expr Λ).
-Global Instance expr_equiv {Λ} : Equiv (expr Λ). apply exprO. Defined.
+Definition exprO {SI : sidx}{Λ : language} := leibnizO (expr Λ).
+Global Instance expr_equiv {SI : sidx} {Λ} : Equiv (expr Λ). apply exprO. Defined.
 
-Definition thread_idO := leibnizO thread_id.
-Global Instance thread_id_equiv : Equiv thread_id. apply thread_idO. Defined.
+Definition thread_idO {SI : sidx} := leibnizO thread_id.
+Global Instance thread_id_equiv {SI : sidx} : Equiv thread_id. apply thread_idO. Defined.

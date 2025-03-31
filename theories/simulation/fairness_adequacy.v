@@ -79,13 +79,13 @@ Proof.
 Qed.
 
 (* free NonExpansive instances *)
-Local Instance free_discrete_prod_ne (Φ: prodO (prodO (listO (prodO (@exprO Λ) (@exprO Λ))) (gsetO natO)) (gmapO natO natO) → PROP):
+Local Instance free_discrete_prod_ne (Φ: prodO (prodO (listO (prodO (@exprO _ Λ) (@exprO _ Λ))) (gsetO natO)) (gmapO natO natO) → PROP):
   NonExpansive Φ.
 Proof.
   by intros n [[? ?] ?] [[? ?] ?] ->%discrete_iff%leibniz_equiv; last apply _.
 Qed.
 
-Local Instance free_discrete_expr_ne (Φ: listO (prodO (@exprO Λ) (@exprO Λ)) → PROP):
+Local Instance free_discrete_expr_ne (Φ: listO (prodO (@exprO _ Λ) (@exprO _ Λ)) → PROP):
   NonExpansive Φ.
 Proof.
   by intros n ? ? ->%discrete_iff%leibniz_equiv; last apply _.
@@ -151,7 +151,7 @@ Lemma sim_pool_coind F P:
   F P -∗ sim_pool P.
 Proof.
   iIntros "#IH HF". rewrite /sim_pool.
-  iApply (greatest_fixpoint_coiter _ (F: listO (prodO (@exprO Λ) (@exprO Λ)) → PROP) with "[] HF").
+  iApply (greatest_fixpoint_coiter _ (F: listO (prodO (@exprO _ Λ) (@exprO _ Λ)) → PROP) with "[] HF").
   iModIntro. iIntros (L) "HF". rewrite /sim_pool_inner.
   iIntros (D). by iApply "IH".
 Qed.

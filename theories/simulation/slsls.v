@@ -1,6 +1,6 @@
 (** * SLSLS, Separation Logic Stuttering Local Simulation *)
-
-From iris.algebra Require Export ofe.
+(* Specialize to finite stepindices *)
+From iris.algebra Require Export ofe stepindex_finite.
 From iris.bi Require Import bi fixpoint_mono.
 From iris.proofmode Require Import proofmode.
 From simuliris.simulation Require Import language.
@@ -35,7 +35,7 @@ Section fix_lang.
     (P_s P_t P: prog Λ)
     (σ_s σ_t σ : state Λ).
 
-  Notation expr_rel := (@exprO Λ -d> @exprO Λ -d> PROP).
+  Notation expr_rel := (@exprO _ Λ -d> @exprO _ Λ -d> PROP).
 
   Local Instance expr_rel_func_ne (F: expr_rel → thread_idO -d> expr_rel) `{Hne: !NonExpansive F}:
     (∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n) F).
@@ -169,7 +169,7 @@ Section fix_lang.
       destruct y as (((Ψ & π') & e_t') & e_s'); simpl.
       destruct Heq as [[[Heq1 Heq2] Heq3] Heq4]; simpl in Heq1, Heq2, Heq3, Heq4.
       eapply sim_expr_inner_ne; eauto.
-      + intros ?????->%leibniz_equiv. by eapply Hg.
+      + intros ????? ->%leibnizO_leibniz. by eapply Hg.
       + intros ????????; rewrite /curry4. eapply Hne.
         repeat split; simpl; done.
   Qed.
