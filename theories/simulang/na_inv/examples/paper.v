@@ -51,8 +51,8 @@ Section data_race.
       source_load. target_load. sim_pures.
       source_load.
       iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
-      { apply lookup_insert. }
-      rewrite delete_insert; last done. iIntros "Hcol".
+      { apply lookup_insert_eq. }
+      rewrite delete_insert_id; last done. iIntros "Hcol".
       sim_val. by iFrame.
     - (* don't alias *)
       sim_bind (Load _ _) (Load _ _).
@@ -62,8 +62,8 @@ Section data_race.
       sim_pures. source_load.
 
       iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
-      { apply lookup_insert. }
-      rewrite delete_insert; last done. iIntros "Hcol".
+      { apply lookup_insert_eq. }
+      rewrite delete_insert_id; last done. iIntros "Hcol".
       sim_val. by iFrame.
   Qed.
 
@@ -99,8 +99,8 @@ Section data_race.
       source_load. target_load. sim_val. sim_pures.
       source_load.
       iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
-      { apply lookup_insert. }
-      rewrite delete_insert; last done. iIntros "Hcol".
+      { apply lookup_insert_eq. }
+      rewrite delete_insert_id; last done. iIntros "Hcol".
       sim_val. by iFrame.
     - (* don't alias *)
       sim_bind (Load _ _) (Load _ _).
@@ -110,8 +110,8 @@ Section data_race.
       sim_pures. source_load.
 
       iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
-      { apply lookup_insert. }
-      rewrite delete_insert; last done. iIntros "Hcol".
+      { apply lookup_insert_eq. }
+      rewrite delete_insert_id; last done. iIntros "Hcol".
       sim_val. by iFrame.
     Qed.
 
@@ -191,8 +191,8 @@ Section data_race.
     sim_pures. source_load.
 
     iApply (sim_bij_release NaExcl with "Hx Hcol Hx_t Hx_s []"); [ | done | ].
-    { apply lookup_insert. }
-    rewrite delete_insert; last done. iIntros "Hcol".
+    { apply lookup_insert_eq. }
+    rewrite delete_insert_id; last done. iIntros "Hcol".
     sim_val. by iFrame.
   Qed.
 
@@ -297,8 +297,8 @@ Section data_race.
         sim_pures. source_load. target_load. sim_pures.
         (* cleanup *)
         iApply (sim_bij_release (NaRead qx) with "Hbij_x Hc Hx_t Hx_s [//]").
-        { apply lookup_insert. }
-        rewrite delete_insert; last done. iIntros "Hc".
+        { apply lookup_insert_eq. }
+        rewrite delete_insert_id; last done. iIntros "Hc".
         sim_val. eauto.
       + (* compare unequal and take another trip around the loop *)
         apply bool_decide_eq_false_1 in Heq_vx_s.
@@ -369,12 +369,12 @@ Section data_race.
         sim_pures. source_load. target_load. sim_pures.
         (* cleanup *)
         iApply (sim_bij_release (NaRead qy) with "Hbij_y Hc Hy_t Hy_s [//]").
-        { apply lookup_insert. }
-        rewrite delete_insert; last by rewrite lookup_insert_ne.
+        { apply lookup_insert_eq. }
+        rewrite delete_insert_id; last by rewrite lookup_insert_ne.
         iIntros "Hc".
         iApply (sim_bij_release (NaRead qx) with "Hbij_x Hc Hx_t Hx_s [//]").
-        { apply lookup_insert. }
-        rewrite delete_insert; last done. iIntros "Hc".
+        { apply lookup_insert_eq. }
+        rewrite delete_insert_id; last done. iIntros "Hc".
         sim_val. eauto.
       + (* compare unequal and take another trip around the loop *)
         apply bool_decide_eq_false_1 in Heq_vy_s.

@@ -227,7 +227,7 @@ Module W.
     - rewrite subst_free_vars //. set_solver.
     - rewrite subst_free_vars // free_vars_subst_map dom_list_to_map. set_solver.
     - revert select (to_expr _ = _) => ->.
-      rewrite subst_map_subst -subst_subst_map delete_notin //.
+      rewrite subst_map_subst -subst_subst_map delete_id //.
       apply/not_elem_of_dom. rewrite dom_list_to_map. set_solver.
   Qed.
 

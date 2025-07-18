@@ -110,7 +110,7 @@ Proof.
   injection mem'_spec; intros; subst.
   rewrite fnv; simpl.
   f_equal.
-  rewrite insert_commute; auto.
+  rewrite insert_insert_ne; auto.
 Qed.
 
 Lemma mem_apply_range'_insert_outside
@@ -668,7 +668,7 @@ Proof.
   - (* Same allocation *)
     subst.
     assert (tr1 = tr1b). {
-      rewrite lookup_insert in tr1bSpec. injection tr1bSpec. tauto.
+      rewrite lookup_insert_eq in tr1bSpec. injection tr1bSpec. tauto.
     }
     subst.
     destruct (Commutes _ _ _ tr1Spec tr2Spec) as [tr1' [tr1'SpecA tr1'SpecB]].
@@ -678,10 +678,10 @@ Proof.
       rewrite tr1'SpecA; simpl; done.
     + rewrite bind_Some. exists tr1'.
       split.
-      * apply lookup_insert.
+      * apply lookup_insert_eq.
       * rewrite tr1'SpecB; simpl.
         f_equal.
-        do 2 rewrite insert_insert.
+        do 2 rewrite insert_insert_eq.
         reflexivity.
   - (* Not the same allocation *)
     exists (<[alloc2:=tr2]> trs0).
@@ -694,7 +694,7 @@ Proof.
       split.
       * rewrite <- tr0Spec. rewrite lookup_insert_ne; done.
       * rewrite tr1Spec; simpl.
-        f_equal. apply insert_commute. done.
+        f_equal. apply insert_insert_ne. done.
 Qed.
 
 Lemma apply_within_trees_persistent
@@ -728,7 +728,7 @@ Proof.
     eexists.
     rewrite bind_Some. eexists.
     split.
-    + rewrite lookup_insert; reflexivity.
+    + rewrite lookup_insert_eq; reflexivity.
     + rewrite Res; simpl; reflexivity.
   - (* Not the same allocation *)
     eexists.
@@ -795,7 +795,7 @@ Proof.
   injection ACC; intros; clear ACC; subst.
   rewrite /trees_contain /trees_at_block.
   destruct (decide (blk = blk')).
-  + subst. rewrite lookup_insert. rewrite trSpec.
+  + subst. rewrite lookup_insert_eq. rewrite trSpec.
     eapply access_preserves_tags.
     apply tr'Spec.
   + rewrite lookup_insert_ne; last done.

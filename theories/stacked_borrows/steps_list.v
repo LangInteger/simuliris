@@ -52,7 +52,7 @@ Proof.
     move => /IH; [|by rewrite -app_assoc].
   move => H1 it1 /H1 [it2 [IN2 [Eq1 [Eq2 ND]]]].
   setoid_rewrite elem_of_app. setoid_rewrite elem_of_cons.
-  move : IN2 => /elem_of_app [/elem_of_app [?|/elem_of_list_singleton Eq]|?];
+  move : IN2 => /elem_of_app [/elem_of_app [?|/list_elem_of_singleton Eq]|?];
     [..|naive_solver].
   - exists it2. naive_solver.
   - subst it2. exists it. naive_solver.

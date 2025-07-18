@@ -81,7 +81,7 @@ Context (C : call_id_set).
     destruct (decide (blk = l.1)) as [->|Hne]; last first.
     { rewrite /disabled_tag lookup_insert_ne //. }
     destruct Dis as (Hv&Dis). split; first done.
-    rewrite lookup_insert. rewrite Htr in Dis.
+    rewrite lookup_insert_eq. rewrite Htr in Dis.
     destruct Dis as [Dis|Nd].
     - left. eapply disabled_tag_at_create_child_irreversible. 4: done. 1,3: done.
       rewrite /trees_contain /trees_at_block Htr in Nc. done.
@@ -369,7 +369,7 @@ Context (C : call_id_set).
     - eexists. rewrite /apply_within_trees /= Htr2 /=.
       split; first by rewrite /create_child Hit.
       intros blk'. destruct (decide (blk = blk')) as [->|Hne].
-      + rewrite !lookup_insert. econstructor.
+      + rewrite !lookup_insert_eq. econstructor.
         eapply bind_Some in Htr2' as HH. destruct HH as (it2&Hit2&[= <-]).
         enough (it = it2) as -> by by eapply Heqtr.
         congruence.

@@ -52,7 +52,7 @@ Proof.
     by rewrite /check_protector /= /is_active bool_decide_true //.
   - move => Eq pm t c IN /elem_of_cons [?|].
     + apply (replace_check'_acc_result _ _ _ _ Eq), elem_of_app. right.
-      by apply elem_of_list_singleton.
+      by apply list_elem_of_singleton.
     + by apply (IH _ Eq).
 Qed.
 
@@ -144,8 +144,8 @@ Proof.
   rewrite /stack_item_tagged_NoDup filter_cons decide_True;
     last by rewrite /is_tagged Eqt.
   rewrite fmap_cons NoDup_cons. intros [NI ?].
-  apply NI, elem_of_list_fmap. exists it'. split; [rewrite Eqt' Eqt //|].
-  apply elem_of_list_filter. split; first by rewrite /is_tagged Eqt'. by rewrite <-SUB.
+  apply NI, list_elem_of_fmap. exists it'. split; [rewrite Eqt' Eqt //|].
+  apply list_elem_of_filter. split; first by rewrite /is_tagged Eqt'. by rewrite <-SUB.
 Qed.
 
 Lemma replace_check'_head_preserving stk stk' acc stk0 cids pm pm' t opro:
@@ -243,8 +243,8 @@ Proof.
       rewrite /stack_item_tagged_NoDup filter_cons decide_True;
         last by rewrite /is_tagged Eq.
       rewrite fmap_cons NoDup_cons. intros [NI ?].
-      apply NI, elem_of_list_fmap. exists it. split; [rewrite Eqt Eq //|].
-      apply elem_of_list_filter. split; first by rewrite /is_tagged Eqt. by rewrite <-SUB.
+      apply NI, list_elem_of_fmap. exists it. split; [rewrite Eqt Eq //|].
+      apply list_elem_of_filter. split; first by rewrite /is_tagged Eqt. by rewrite <-SUB.
     + apply IH; auto. by eapply stack_item_tagged_NoDup_cons_1.
 Qed.
 
@@ -379,8 +379,8 @@ Proof.
     rewrite /stack_item_tagged_NoDup filter_cons decide_True;
             [|by rewrite /is_tagged Eqt].
     rewrite fmap_cons NoDup_cons Eqt -Eq'.
-    intros [IN' _]. apply IN'. apply elem_of_list_fmap.
-    exists it'. split; [done|]. apply elem_of_list_filter. by rewrite /is_tagged Eq'.
+    intros [IN' _]. apply IN'. apply list_elem_of_fmap.
+    exists it'. split; [done|]. apply list_elem_of_filter. by rewrite /is_tagged Eq'.
   - apply (IH i); [|done|lia]. by apply stack_item_tagged_NoDup_cons_1 in ND.
 Qed.
 
@@ -540,7 +540,7 @@ Proof.
   simpl.
   destruct (list_find_elem_of (λ it, it.(perm) ≠ SharedReadWrite) (reverse stk) it1)
     as [[n1 pm1] Eqpm1].
-  { rewrite elem_of_reverse. by eapply elem_of_list_lookup_2. }
+  { rewrite elem_of_reverse. by eapply list_elem_of_lookup_2. }
   { by rewrite Eqp1. }
   rewrite Eqpm1. intros. simplify_eq.
   exists i1, it1. repeat split; [done..| |done].
@@ -639,7 +639,7 @@ Proof.
   rewrite /= /access1.
    have Eq1: is_Some (list_find (matched_grant AccessRead (Tagged t)) stk).
   { apply (list_find_elem_of _ _ it1).
-    - by eapply elem_of_list_lookup_2.
+    - by eapply list_elem_of_lookup_2.
     - by rewrite /matched_grant Eqp1. }
   destruct Eq1 as [[n2 it2] Eq2].
   have Eq3: find_granting stk AccessRead (Tagged t) = Some (n2, it2.(perm)).
@@ -651,12 +651,12 @@ Proof.
     have Lti1: (n2 ≤ i1)%nat.
     { case (decide (n2 ≤ i1)%nat) => [//|/Nat.nle_gt Lt].
       exfalso. apply (LT _ _ Lt Eqit1). rewrite /matched_grant Eqp1 //. }
-    intros it [k Eqk]%elem_of_list_lookup_1.
+    intros it [k Eqk]%list_elem_of_lookup_1.
     have Ltk : (k < n2)%nat.
     { rewrite -(length_take_le stk n2).
       - by eapply lookup_lt_Some.
       - apply Nat.lt_le_incl; by eapply lookup_lt_Some. }
-    have HL: stk !! k = Some it. { rewrite -(lookup_take _ n2) //. }
+    have HL: stk !! k = Some it. { rewrite -(lookup_take_lt _ n2) //. }
     have Ltk2: (k < i1)%nat. { eapply Nat.lt_le_trans; eauto. }
     by rewrite (HL1 _ _ Ltk2 HL).
 Qed.
@@ -673,7 +673,7 @@ Proof.
   destruct it as [perm tg' prot']. intros [prot ?]; simplify_eq/=.
   edestruct tag_unique_head_access as [n ->].
   { eexists. done. }
-  simpl. intros. simplify_eq/=. eexists. rewrite lookup_insert.
+  simpl. intros. simplify_eq/=. eexists. rewrite lookup_insert_eq.
   simpl. done.
 Qed.
 
@@ -1316,7 +1316,7 @@ Proof.
     + exists (S i). rewrite Nat.sub_0_r. split; last split; [|by left|].
       * rewrite list_lookup_middle // length_take_le //.
         by eapply Nat.lt_le_incl, lookup_lt_Some.
-      * intros j' Lt'. rewrite lookup_app_l; [apply lookup_take; lia|].
+      * intros j' Lt'. rewrite lookup_app_l; [apply lookup_take_lt; lia|].
         rewrite length_take_le //. by eapply Nat.lt_le_incl, lookup_lt_Some.
 Qed. *)
 
@@ -1340,9 +1340,9 @@ Proof.
     destruct (stk !! i) as [it|] eqn:Eq; last first.
     { apply lookup_ge_None_1 in Eq. apply lookup_lt_Some in Eqs. lia. }
     rewrite decide_False; last first.
-    { intros ?. subst. by eapply NIN, elem_of_list_lookup_2. }
+    { intros ?. subst. by eapply NIN, list_elem_of_lookup_2. }
     rewrite decide_False //.
-    intros ?. subst. by eapply NIN, elem_of_list_lookup_2.
+    intros ?. subst. by eapply NIN, list_elem_of_lookup_2.
 Qed.
 
 Lemma item_insert_dedup_case stk new i :
@@ -1396,15 +1396,15 @@ Proof.
   have Eqln: length (take n stk) = n by apply length_take_le; lia.
   have Len' := find_first_write_incompatible_le _ _ _ FI. rewrite Eqln in Len'.
   have Eqjt' : stk !! j = Some jt.
-  { rewrite lookup_take // in Eqjt. lia. }
+  { rewrite lookup_take_lt // in Eqjt. lia. }
   apply (active_SRO_elem_of_inv j jt t); [|done|done|].
-  - rewrite lookup_app_l; [by rewrite lookup_take|].
+  - rewrite lookup_app_l; [by rewrite lookup_take_lt|].
     rewrite length_take_le //. lia.
   - intros k kt Ltk.
     rewrite lookup_app_l; last by (rewrite length_take_le; lia).
     intros Eqkt. apply (HL _ _ Ltk).
-    rewrite lookup_take; [|lia].
-    rewrite lookup_take in Eqkt; [done|lia].
+    rewrite lookup_take_lt; [|lia].
+    rewrite lookup_take_lt in Eqkt; [done|lia].
 Qed.
 
 Lemma grant_active_SRO_non_SRW stk old it cids stk' t pm opro
@@ -1733,12 +1733,12 @@ Proof.
   - case (lookup n) as [?|] eqn:Eq1; case (lookup (S n)) as [?|] eqn:Eq2;
       [..|set_solver];
       (case decide => ?; [subst|]).
-    + by eapply elem_of_list_lookup_2.
+    + by eapply list_elem_of_lookup_2.
     + case decide => ?; [subst|set_solver].
-      by eapply elem_of_list_lookup_2.
-    + by eapply elem_of_list_lookup_2.
+      by eapply list_elem_of_lookup_2.
+    + by eapply list_elem_of_lookup_2.
     + set_solver.
-    + by eapply elem_of_list_lookup_2.
+    + by eapply list_elem_of_lookup_2.
     + set_solver.
 Qed.
 

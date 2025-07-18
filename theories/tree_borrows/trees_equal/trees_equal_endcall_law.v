@@ -273,7 +273,7 @@ Proof.
     destruct (item_lookup it' off) as [ini pp].
     destruct ini.
     { exfalso. eapply bind_Some in H4 as (x&Hx&(y&Hy&[=])%bind_Some). }
-    rewrite lookup_insert in HlL. injection HlL as ->.
+    rewrite lookup_insert_eq in HlL. injection HlL as ->.
     destruct pp as [[]| | | |], (bool_decide (protector_is_active (iprot it) C)).
     all: simpl in H4; try discriminate H4; injection H4 as <-.
     all: try done. all: exfalso; by eapply Hnores.
@@ -692,7 +692,7 @@ Proof.
   eapply tree_access_protected_active_initialized_equally. 8: exact HL. 1-2: done. 7: exact HitL. 6: exact Hit2. 3: done. 1-2: done.
   1: by rewrite -Hprot.
   intros H. assert (off = z) as -> by lia.
-  destruct (Hinit z v) as (pp&Hpp1&Hpp2). 1: by rewrite lookup_insert.
+  destruct (Hinit z v) as (pp&Hpp1&Hpp2). 1: by rewrite lookup_insert_eq.
   destruct (item_lookup itacc2 z) as [ii2 pp2] eqn:Heqii. exists pp2.
   assert (ii2 = PermInit) as ->.
   { opose proof* tree_access_many_more_initialized_2 as Hini. 2: exact Hoff. 1: done. 1: exact Hlookup1. 1: done.

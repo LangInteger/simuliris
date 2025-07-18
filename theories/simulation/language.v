@@ -598,7 +598,7 @@ Section language.
     eapply threads_spec.
     destruct (decide (i = j)).
     - subst; exists e.
-      eapply list_lookup_insert, lookup_lt_Some, Hlook.
+      eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
     - rewrite list_lookup_insert_ne; last done. by exists e'.
   Qed.
 
@@ -673,7 +673,7 @@ Section language.
     destruct 1 as [|T T' T'' σ σ' σ'' i I Hstep Hsteps]; eauto.
     intros Hvals.
     eapply pool_step_iff in Hstep as (e & e' & efs & Hstep & Hlook & Hupd).
-    opose proof* (Hvals e) as Irr; first by eapply elem_of_list_lookup_2.
+    opose proof* (Hvals e) as Irr; first by eapply list_elem_of_lookup_2.
     exfalso; eapply val_irreducible; eauto.
   Qed.
 
@@ -686,21 +686,21 @@ Section language.
     rewrite pool_step_iff; intros (e1 & e2 & efs & Hprim & Hlook & Hupd) Hlook1.
     destruct (decide (i = j)).
     - subst. assert (<[j:=e2]> T !! j = Some e2) as Hlook2.
-      { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+      { eapply list_lookup_insert_eq, lookup_lt_Some, Hlook. }
       exists e2; split; first eapply lookup_app_l_Some, Hlook2.
       rewrite insert_app_l; last by eapply lookup_lt_Some, Hlook2.
-      rewrite list_insert_insert. assert (e1 = e) as -> by naive_solver.
+      rewrite list_insert_insert_eq. assert (e1 = e) as -> by naive_solver.
       eapply pool_step_iff; exists (fill K e), (fill K e2), efs.
       split; first by eapply fill_prim_step.
-      split; first eapply list_lookup_insert, lookup_lt_Some, Hlook.
-      by rewrite list_insert_insert.
+      split; first eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
+      by rewrite list_insert_insert_eq.
     - exists e. rewrite Hupd.
       rewrite (lookup_app_l_Some _ _ _ e);
         last by rewrite list_lookup_insert_ne //.
       rewrite insert_app_l;
         last (eapply lookup_lt_Some; rewrite list_lookup_insert_ne //).
       split; first done.
-      rewrite list_insert_commute //.
+      rewrite list_insert_insert_ne //.
       eapply pool_step_iff; exists e1, e2, efs.
       split; first done.
       split; first rewrite list_lookup_insert_ne //.
@@ -738,7 +738,7 @@ Section language.
     destruct (decide (i = j)) as [-> | Hneq].
     - assert (e'' = e') as -> by naive_solver.
       eapply fill_not_stuck. eapply Hsafe; first done.
-      eapply list_lookup_insert, lookup_lt_Some, Hlook'.
+      eapply list_lookup_insert_eq, lookup_lt_Some, Hlook'.
     - eapply Hsafe; first done. rewrite list_lookup_insert_ne //.
   Qed.
 
@@ -753,7 +753,7 @@ Section language.
     destruct Hstuck as (e'' & j & Hlook'' & Hstuck).
     destruct (decide (i = j)).
     - subst. exists (fill K e'), j. assert (e'' = e') as -> by naive_solver.
-      split; first eapply list_lookup_insert, lookup_lt_Some, Hlook'.
+      split; first eapply list_lookup_insert_eq, lookup_lt_Some, Hlook'.
       eapply fill_stuck, Hstuck.
     - exists e'', j. rewrite list_lookup_insert_ne //.
   Qed.
@@ -851,7 +851,7 @@ Section language.
   Proof.
     intros Hsafe Hlook. eapply pool_safe_sub_pool; first done.
     eapply singleton_submseteq_l.
-    apply elem_of_list_lookup. eauto.
+    apply list_elem_of_lookup. eauto.
   Qed.
 
   Lemma pool_reach_stuck_reach_stuck p e σ i T:
@@ -862,7 +862,7 @@ Section language.
     intros Hstuck Hlook.
     eapply pool_reach_stuck_sub_pool; first apply Hstuck.
     eapply singleton_submseteq_l.
-    apply elem_of_list_lookup. eauto.
+    apply list_elem_of_lookup. eauto.
   Qed.
 
   Lemma stuck_reach_stuck P e σ:
@@ -929,9 +929,9 @@ Section language.
       set_solver.
     - eapply no_fork_pool_step in Hstep; last done.
       destruct (IH (<[i := e']> T)) as (I & Hsteps' & Hsub').
-      { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+      { eapply list_lookup_insert_eq, lookup_lt_Some, Hlook. }
       exists (i :: I). split; last set_solver.
-      rewrite list_insert_insert in Hsteps'.
+      rewrite list_insert_insert_eq in Hsteps'.
       econstructor; done.
   Qed.
 
@@ -945,9 +945,9 @@ Section language.
     intros Hnfs Hprim Hlook. eapply no_forks_pool_steps in Hnfs as (I & Hsteps & Hsub); last done.
     exists (I ++ [i]); split; last set_solver.
     eapply pool_steps_trans; eauto. eapply pool_steps_single.
-    rewrite -(list_insert_insert T i e'' e').
+    rewrite -(list_insert_insert_eq T i e'' e').
     eapply prim_step_pool_step; first done.
-    eapply list_lookup_insert, lookup_lt_Some, Hlook.
+    eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
   Qed.
 
   Lemma pool_reach_stuck_no_forks π p T e e' σ σ':

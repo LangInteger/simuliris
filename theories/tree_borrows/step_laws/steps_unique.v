@@ -305,7 +305,7 @@ Proof.
     split; last split; last done.
     { eapply call_set_interp_mono. 2: eassumption. intros ??[??] it ???? (tk' & Htk' & HHH).
       destruct (decide (itag it = t)) as [<-|Hne].
-      { eexists. rewrite lookup_insert. done. }
+      { eexists. rewrite lookup_insert_eq. done. }
       { exists tk'. split; last done. by rewrite lookup_insert_ne. } }
     { destruct Htag_interp as (HH1&HH2&HH3&HH4&HH5). split_and!. 4-5: done. all: simpl in *.
       - intros t' tl' [(<-&[= <-])|(Hne&Hin)]%lookup_insert_Some.
@@ -422,10 +422,10 @@ Proof.
         iSplitR. { iPureIntro. apply list_lookup_lookup_total. apply lookup_lt_is_Some_2. lia. }
         iApply (value_rel_lookup_total with "HvrelP"). lia.
       * (* the location is protected, we can write different values *)
-        iRight. iPure "HvrelP" as (Hc&Hcs). iPureIntro. exists t. eexists. split; first by rewrite lookup_insert. split.
+        iRight. iPure "HvrelP" as (Hc&Hcs). iPureIntro. exists t. eexists. split; first by rewrite lookup_insert_eq. split.
         2: { right. edestruct Hcs as (ae&Hae). 1: rewrite -Hlen_s' -Hlen_t' //.
              do 2 eexists. split; first done. exists M. done. }
-        rewrite /heaplet_lookup /= lookup_insert /= list_to_heaplet_nth.
+        rewrite /heaplet_lookup /= lookup_insert_eq /= list_to_heaplet_nth.
         by eapply lookup_lt_is_Some_2.
     + (* unaffected location (it can not be the same block) *)
       simpl. rewrite Hwrite in Hs.
@@ -460,9 +460,9 @@ Proof.
     intros l0 it Hit1 Hit2 Hit3 (tk&Htk'&Hhl).
     destruct (decide (itag it = t)) as [<-|]; last first.
     + exists tk. rewrite /heaplet_lookup !lookup_insert_ne /= //. congruence.
-    + rewrite /tag_is_unq lookup_insert. exists tk_act. split; first done.
+    + rewrite /tag_is_unq lookup_insert_eq. exists tk_act. split; first done.
       rewrite /heaplet_lookup /=. destruct (decide (l0.1 = l.1)) as [Heq|?].
-      * rewrite Heq lookup_insert // /=.
+      * rewrite Heq lookup_insert_eq // /=.
         rewrite /heaplet_lookup /= Heq Hheaplet_t /= in Hhl. eapply elem_of_dom.
         eapply elem_of_dom in Hhl.
         erewrite list_to_heaplet_dom_1. 1: exact Hhl. lia.
@@ -471,12 +471,12 @@ Proof.
     iPureIntro. destruct Htag_interp as (Htag_interp & Ht_dom & Hs_dom & Hunq1 & Hunq2). split_and!; [ | | | | ]; first last.
     1-2: rewrite /dom_unique_per_tag !dom_insert_lookup_L //.
     { intros t' l' (x1&Hx1%lookup_insert_Some). simpl in Hx1.
-      destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert.
+      destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert_eq.
       rewrite lookup_insert_ne; first eapply (Hs_dom _ l'). 1: by eexists.
       intros ->. eapply Hne1. f_equal. eapply Hunq2; eapply elem_of_dom_2; done.
     }
     { intros t' l' (x1&Hx1%lookup_insert_Some). simpl in Hx1.
-      destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert.
+      destruct Hx1 as [([= -> _]&_)|[Hne1 Hx1]]; first by rewrite lookup_insert_eq.
       rewrite lookup_insert_ne; first eapply (Ht_dom _ l'). 1: by eexists.
       intros ->. eapply Hne1. f_equal. eapply Hunq1; eapply elem_of_dom_2; done.
     }

@@ -45,7 +45,7 @@ Proof.
       apply foldr_gmap_insert_dom, WF.
     + intros ??. rewrite init_stacks_foldr.
       intros [->|Eq]%foldr_gmap_insert_lookup; split.
-      * intros si ->%elem_of_list_singleton. simpl. split; [lia|done].
+      * intros si ->%list_elem_of_singleton. simpl. split; [lia|done].
       * apply stack_item_tagged_NoDup_singleton.
       * move => si /(proj1 (state_wf_stack_item _ WF _ _ Eq)) /= [Lt ?].
         split; [|done]. destruct si.(tg); [simpl; lia|done..].
@@ -138,7 +138,7 @@ Proof.
     [split; [intros ?; by lia|done]|].
   destruct (IH (l +ₗ 1) (<[l:=v]> h)) as [IH1 IH2]. split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0_nat /=. rewrite IH2; [by rewrite lookup_insert|].
+    + rewrite shift_loc_0_nat /=. rewrite IH2; [by rewrite lookup_insert_eq|].
       move => ? _.
       rewrite shift_loc_assoc -{1}(shift_loc_0 l) => /shift_loc_inj ?. by lia.
     + rewrite /= -IH1; [|lia].  by rewrite shift_loc_assoc -(Nat2Z.inj_add 1).
@@ -406,7 +406,7 @@ Proof.
   rewrite /tag_fresh_stack. destruct new; [|done].
   apply replace_check'_tagged_sublist in RC.
   do 2 (setoid_rewrite elem_of_app). setoid_rewrite elem_of_cons at 1.
-  intros IS it1 [[|Eq%elem_of_list_singleton]|]; [naive_solver| |naive_solver].
+  intros IS it1 [[|Eq%list_elem_of_singleton]|]; [naive_solver| |naive_solver].
   rewrite Eq /=. naive_solver.
 Qed.
 
@@ -455,7 +455,7 @@ Proof.
   case decide => [|//]. rewrite {1}/is_tagged fmap_cons => ?.
   destruct new.(tg); [|done].
   intros IS ND. apply NoDup_cons. split; [|done].
-  move => /elem_of_list_fmap [it [Eq /elem_of_list_filter [IT IN]]].
+  move => /list_elem_of_fmap [it [Eq /list_elem_of_filter [IT IN]]].
   by apply (IS _ IN).
 Qed.
 

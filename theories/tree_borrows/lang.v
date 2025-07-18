@@ -64,7 +64,7 @@ Proof. intros <-%of_to_result. apply is_closed_of_result. Qed.
 Lemma list_Forall_to_of_result vl :
   Forall (λ ei, is_Some (to_result ei)) (of_result <$> vl).
 Proof.
-  apply Forall_forall. move => e /elem_of_list_fmap [? [-> ?]].
+  apply Forall_forall. move => e /list_elem_of_fmap [? [-> ?]].
   rewrite to_of_result. by eexists.
 Qed.
 

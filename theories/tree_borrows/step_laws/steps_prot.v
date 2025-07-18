@@ -259,7 +259,7 @@ Proof.
     destruct (decide (l.1 = blk ∧ off_rd ≤ l.2 < off_rd + length v_wr)) as [(<-&Hrange)|Hout].
     { iRight. iExists t. iPureIntro. exists (tk_unq tk_act). split; first done.
       split.
-      - rewrite /heaplet_lookup lookup_insert /=. destruct (list_to_heaplet v_t' off_hl !! l.2) eqn:HH; first done.
+      - rewrite /heaplet_lookup lookup_insert_eq /=. destruct (list_to_heaplet v_t' off_hl !! l.2) eqn:HH; first done.
         eapply list_to_heaplet_lookup_None in HH. lia.
       - right. destruct (HL l.2) as (ae&Hae). 1: apply Hrange. eexists _, _. split; first done. eexists. split; first exact Hc.
         eexists. split; first exact HM. destruct l; apply Hae. }
@@ -269,7 +269,7 @@ Proof.
       - iRight. iPureIntro. destruct Hpriv as (t'&tk&Htk&Htkhl&Hrst). exists t', tk.
         split; first done. split; last done.
         destruct (decide (t = t' ∧ blk = l.1)) as [(->&->)|Hne2].
-        + rewrite /heaplet_lookup /= lookup_insert /=.
+        + rewrite /heaplet_lookup /= lookup_insert_eq /=.
           destruct (list_to_heaplet v_t' off_hl !! l.2) eqn:Heq. 1: done.
           eapply list_to_heaplet_lookup_None in Heq. eapply mk_is_Some, write_range_valid_iff in Hwrite. exfalso.
           rewrite /heaplet_lookup Hhl /= in Htkhl.
@@ -291,7 +291,7 @@ Proof.
     + exists tk. rewrite /heaplet_lookup !lookup_insert_ne /= //. congruence.
     + rewrite /tag_is_unq. exists tk. split; first done.
       rewrite /heaplet_lookup /=. destruct (decide (l0.1 = blk)) as [Heq|?].
-      * rewrite Heq lookup_insert // /=.
+      * rewrite Heq lookup_insert_eq // /=.
         rewrite /heaplet_lookup /= Heq Hhl /= in HhlX. eapply elem_of_dom.
         eapply elem_of_dom in HhlX.
         erewrite list_to_heaplet_dom_1. 1: exact HhlX. lia.

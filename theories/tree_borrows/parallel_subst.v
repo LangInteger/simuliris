@@ -97,12 +97,12 @@ Proof.
   revert x r map; induction e using expr_ind; intros xx r map; simpl;
   try (f_equal; eauto).
   - case_bool_decide.
-    + simplify_eq/=. rewrite lookup_insert. destruct r; done.
+    + simplify_eq/=. rewrite lookup_insert_eq. destruct r; done.
     + rewrite lookup_insert_ne //.
   - match goal with |- context[binder_delete ?x _] => destruct x; simpl; first done end.
     case_bool_decide as NEq.
     + rewrite delete_insert_ne //. intros ?. apply NEq. f_equal. done.
-    + simplify_eq/=. rewrite delete_insert_delete //.
+    + simplify_eq/=. rewrite delete_insert_eq //.
   - match goal with H : Forall _ _ |- _ =>
       induction H; first done; simpl; by f_equal
     end.
@@ -117,7 +117,7 @@ Proof.
   - match goal with |- context[delete _ _ !! ?x] =>
       destruct (decide (xx=x)) as [->|Hne]
     end.
-    + rewrite lookup_delete // lookup_insert //. simpl.
+    + rewrite lookup_delete_eq // lookup_insert_eq //. simpl.
       rewrite bool_decide_true //.
     + rewrite lookup_delete_ne // lookup_insert_ne //.
       destruct (map !! _) as [rr|].
@@ -125,8 +125,8 @@ Proof.
       * simpl. rewrite bool_decide_false //.
   - match goal with |- context[binder_delete ?x _] => destruct x; simpl; first by auto end.
     case_bool_decide.
-    + rewrite delete_insert_ne //; last congruence. rewrite delete_commute. eauto.
-    + simplify_eq. rewrite delete_idemp delete_insert_delete. done.
+    + rewrite delete_insert_ne //; last congruence. rewrite delete_delete. eauto.
+    + simplify_eq. rewrite delete_delete_eq delete_insert_eq. done.
   - match goal with H : Forall _ _ |- _ =>
       induction H; first done; simpl; by f_equal
     end.
@@ -182,7 +182,7 @@ Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string result) :
 Proof.
   destruct y as [|s]; first done. simpl.
   destruct (decide (s = x)) as [->|Hne].
-  - rewrite !lookup_delete //.
+  - rewrite !lookup_delete_eq //.
   - rewrite !lookup_delete_ne //. eauto.
 Qed.
 
@@ -270,5 +270,5 @@ Lemma free_vars_subst_map xs e :
 Proof.
   induction xs as [| x v xs HNone IH] using map_ind.
   - rewrite subst_map_empty. set_solver.
-  - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
+  - rewrite -subst_subst_map delete_id // free_vars_subst IH. set_solver.
 Qed.

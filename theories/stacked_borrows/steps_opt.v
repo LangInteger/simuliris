@@ -368,7 +368,7 @@ Proof.
       specialize (array_tag_map_lookup1 l nt v_t t' l' ltac:(eauto)) as [Heq _]. congruence.
     - destruct Htk' as [-> | [-> [c' Hin]]]; first by left. right. split; first done. exists c'.
       destruct (decide (c' = c)) as [-> | Hneq].
-      + exists M'. rewrite lookup_insert; split; first done.
+      + exists M'. rewrite lookup_insert_eq; split; first done.
         destruct Hin as (M'' & HM'' & (L' & HL' & Hin)). simplify_eq. exists L'.
         rewrite lookup_insert_ne; done.
       + destruct Hin as (M'' & HM'' & Hin). exists M''. rewrite lookup_insert_ne; done.
@@ -376,14 +376,14 @@ Proof.
   iSplitL.
   { (* call interpretation. *)
     iPureIntro. intros c' M''. destruct (decide (c' = c)) as [-> | Hneq].
-    - rewrite lookup_insert. intros [= <-]. simpl.
+    - rewrite lookup_insert_eq. intros [= <-]. simpl.
       specialize (Hcall_interp c M HM_c) as (Hc & Hinterp). split; first done.
       intros t S. subst M'. destruct (decide (t = σ_t.(snp))) as [-> | Hneq]; first last.
       { rewrite lookup_insert_ne; last done. intros [Ht Hprot]%Hinterp. split; first lia.
         intros l' Hl'. specialize (Hprot l' Hl') as (s & pm' & Hs & Hit & Hpm').
         specialize (retag_item_active_preserving _ _ _ _ _ _ _ _ _ _ _ _ Hretag_t l' s (Tagged t) c pm' Hs Hc Hit) as (s' & -> & Hin'). eauto.
       }
-      rewrite lookup_insert. intros [= <-]. split; first lia. subst L.
+      rewrite lookup_insert_eq. intros [= <-]. split; first lia. subst L.
       intros l'. rewrite seq_loc_set_elem. intros (i & Hi & ->).
       eapply retag_fn_entry_item_active; done.
     - (* TODO: duplication *)
@@ -543,12 +543,12 @@ Proof.
       destruct Hpriv as (c' & M'' & Hc' & Hin').
       destruct (decide (c' = c)) as [-> | Hneq]; first last.
       { exists c', M''. rewrite lookup_insert_ne; done. }
-      exists c, M'. rewrite lookup_insert. split; first done.
+      exists c, M'. rewrite lookup_insert_eq. split; first done.
       destruct (decide (t' = t)) as [-> | Hneq']; first last.
       { destruct Hin' as (L'' & HL'' & Hl''). exists L''. split; last done.
         simplify_eq. rewrite lookup_insert_ne; done.
       }
-      destruct Hin' as (L'' & HL'' & Hl''). exists L'. split; first by rewrite lookup_insert.
+      destruct Hin' as (L'' & HL'' & Hl''). exists L'. split; first by rewrite lookup_insert_eq.
       simplify_eq. subst L'. apply elem_of_difference. done.
   }
   iSplitL; last done.
@@ -608,7 +608,7 @@ Proof.
     destruct Hpriv as (c' & M'' & Hc' & Hin').
     destruct (decide (c' = c)) as [-> | Hneq]; first last.
     { exists c', M''. rewrite lookup_insert_ne; done. }
-    exists c, M'. rewrite lookup_insert. split; first done.
+    exists c, M'. rewrite lookup_insert_eq. split; first done.
     destruct (decide (t' = t)) as [-> | Hneq']; first last.
     { destruct Hin' as (L'' & HL'' & Hl''). exists L''. split; last done.
       simplify_eq. rewrite lookup_delete_ne; done.

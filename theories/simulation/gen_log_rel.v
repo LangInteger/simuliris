@@ -64,7 +64,7 @@ Section fix_lang.
     rewrite /prog_rel.
     iIntros "#He #Hp !# %f %fn".
     destruct (decide (f = fname)) as [->|Hne].
-    - rewrite !lookup_insert.
+    - rewrite !lookup_insert_eq.
       iIntros ([= <-]). iExists _. iSplitR; done.
     - rewrite !lookup_insert_ne //.
       iIntros (Hf). iExists fn. iSplitR; first done.
@@ -123,7 +123,7 @@ Section fix_lang.
   Proof.
     iIntros (?) "Hrel".
     iApply (subst_map_rel_weaken {[x]}); first done.
-    rewrite /subst_map_rel big_sepS_singleton lookup_singleton. done.
+    rewrite /subst_map_rel big_sepS_singleton lookup_singleton_eq. done.
   Qed.
 
   (* TODO: use [binder_delete], once we can [delete] on [gset]. *)
@@ -137,7 +137,7 @@ Section fix_lang.
   Proof.
     iIntros "Hmap Hval". destruct x as [|x]; first done. simpl.
     rewrite /subst_map_rel. iApply (big_sepS_delete_2 x with "[Hval]").
-    - rewrite /= lookup_insert. done.
+    - rewrite /= lookup_insert_eq. done.
     - iApply (big_sepS_impl with "Hmap").
       iIntros "!# %x' %Hx'".
       destruct (decide (x = x')) as [<-|Hne]; first by set_solver.

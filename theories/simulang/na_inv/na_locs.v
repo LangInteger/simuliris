@@ -23,8 +23,8 @@ Proof.
   destruct o => //.
   - by apply: safe_reach_base_step; [by econstructor|].
   - apply: safe_reach_base_step; [by econstructor|].
-    apply: safe_reach_base_step; [econstructor; by rewrite lookup_insert|].
-    destruct σ => /=. by rewrite insert_insert.
+    apply: safe_reach_base_step; [econstructor; by rewrite lookup_insert_eq|].
+    destruct σ => /=. by rewrite insert_insert_eq.
 Qed.
 
 Lemma safe_reach_load P_s (l_s : loc) (v' : val) σ o Φ n:
@@ -37,8 +37,8 @@ Proof.
   destruct o => //.
   - by apply: safe_reach_base_step; [by econstructor|].
   - apply: safe_reach_base_step; [by econstructor|].
-    apply: safe_reach_base_step; [econstructor; by rewrite lookup_insert|].
-    destruct σ => /=. by rewrite insert_insert insert_id.
+    apply: safe_reach_base_step; [econstructor; by rewrite lookup_insert_eq|].
+    destruct σ => /=. by rewrite insert_insert_eq insert_id.
 Qed.
 
 Inductive na_locs_state :=
@@ -147,7 +147,7 @@ Section combine_na_locs.
     combine_na_locs (Some (snd <$> (col !! l))) (combine_na_locs_list (<[π:=(partial_alter f l col)]>cols) l).
   Proof.
     elim: π cols.
-    - move => [//|??] /= [->]. rewrite lookup_partial_alter.
+    - move => [//|??] /= [->]. rewrite lookup_partial_alter_eq.
       by rewrite assoc (comm _ (Some (snd <$> f (col !! l)))) assoc.
     - move => n IH [//|col' cols] /= ?.
       rewrite assoc (comm _ (Some (snd <$> f (col !! l)))) -assoc IH //.
@@ -262,23 +262,23 @@ Section na_alt_exec.
     move => [e [σ' [K [Hsafe [He Hσ]]]]] HT ? ? ? Hsteps.
     eapply pool_reach_stuck_not_safe; last apply Hsafe.
     apply: pool_safe_safe_reach_stuck; first done.
-    { by apply list_lookup_insert. }
+    { by apply list_lookup_insert_eq. }
     { by apply: fill_safe_reach. }
-    move => ?? [?[?[-> [? ->]]]]. rewrite list_insert_insert => Hsafe'.
+    move => ?? [?[?[-> [? ->]]]]. rewrite list_insert_insert_eq => Hsafe'.
     apply: pool_safe_safe_reach_stuck; first done.
     { by rewrite list_lookup_insert_ne. }
     { apply: fill_safe_reach. by apply: Hsteps. }
     move => ?? [? [? [-> ->]]]. intros Hsafe''.
     eapply pool_safe_implies_app; [ | | apply Hsafe'' | ].
-    2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
+    2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert_eq. }
     { apply _. }
     move => [?[?[??]]]; simplify_eq.
     apply: (pool_reach_stuck_no_forks π').
-    { rewrite list_lookup_insert_ne //. by apply list_lookup_insert. }
+    { rewrite list_lookup_insert_ne //. by apply list_lookup_insert_eq. }
     { apply: fill_no_forks. apply: no_forks_step; [|by apply: no_forks_refl].
         apply: base_prim_step. by constructor. }
     apply: pool_reach_stuck_reach_stuck.
-    2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert.
+    2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert_eq.
          rewrite length_insert. by apply: lookup_lt_Some. }
     apply: stuck_reach_stuck. apply: fill_stuck.
     apply: base_stuck_stuck; [|solve_sub_redexes_are_values].
@@ -297,38 +297,38 @@ Section na_alt_exec.
     move => [e [σ' [K [Hsafe [He Hσ]]]]] HT ? ? ? Hsteps.
     eapply pool_reach_stuck_not_safe; last apply Hsafe.
     apply: (pool_safe_safe_reach_stuck); first done.
-    { by apply list_lookup_insert. }
+    { by apply list_lookup_insert_eq. }
     { by apply: fill_safe_reach. }
-    move => ?? [?[?[-> [? ->]]]]. rewrite list_insert_insert => Hsafe'.
+    move => ?? [?[?[-> [? ->]]]]. rewrite list_insert_insert_eq => Hsafe'.
     apply: pool_safe_safe_reach_stuck; first done.
     { by rewrite list_lookup_insert_ne. }
     { apply: fill_safe_reach. by apply: Hsteps. }
     move => ?? [? [? [-> [? ->]]]] Hsafe''.
     destruct ns.
     - eapply (pool_safe_implies_app); [ | | apply Hsafe'' | ].
-      2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
+      2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert_eq. }
       { apply _. }
       move => [?[?[??]]]; simplify_eq.
       apply: (pool_reach_stuck_no_forks π').
-      { rewrite list_lookup_insert_ne //. by apply list_lookup_insert. }
+      { rewrite list_lookup_insert_ne //. by apply list_lookup_insert_eq. }
       { apply: fill_no_forks. apply: no_forks_step; [|by apply: no_forks_refl].
         apply: base_prim_step. by constructor. }
       apply: pool_reach_stuck_reach_stuck.
-      2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert.
+      2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert_eq.
            rewrite length_insert. by apply: lookup_lt_Some. }
       apply: stuck_reach_stuck. apply: fill_stuck.
       apply: base_stuck_stuck; [|solve_sub_redexes_are_values].
       split; [done|] => ??? Hstep. inversion Hstep; simplify_map_eq/=.
     - eapply (pool_safe_implies_app); [ | | apply Hsafe'' | ].
-      2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert. }
+      2: { rewrite list_lookup_insert_ne //. by apply: list_lookup_insert_eq. }
       { apply _. }
       move => [?[?[?[??]]]]; simplify_eq.
       apply: (pool_reach_stuck_no_forks π').
-      { rewrite list_lookup_insert_ne //. by apply list_lookup_insert. }
+      { rewrite list_lookup_insert_ne //. by apply list_lookup_insert_eq. }
       { apply: fill_no_forks. apply: no_forks_step; [|by apply: no_forks_refl].
         apply: base_prim_step. by constructor. }
       apply: pool_reach_stuck_reach_stuck.
-      2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert.
+      2: { rewrite list_lookup_insert_ne //. apply list_lookup_insert_eq.
            rewrite length_insert. by apply: lookup_lt_Some. }
       apply: stuck_reach_stuck. apply: fill_stuck.
       apply: base_stuck_stuck; [|solve_sub_redexes_are_values].
@@ -346,32 +346,32 @@ Section na_alt_exec.
     move => [e [σ' [K [Hsafe [He Hσ]]]]] HT ? ? Hsteps .
     eapply pool_reach_stuck_not_safe; last apply Hsafe.
     apply: (pool_safe_safe_reach_stuck); first done.
-    { by apply list_lookup_insert. }
+    { by apply list_lookup_insert_eq. }
     { by apply: fill_safe_reach. }
-    move => ?? [?[?[-> [? ->]]]]. rewrite list_insert_insert => Hsafe'.
+    move => ?? [?[?[-> [? ->]]]]. rewrite list_insert_insert_eq => Hsafe'.
     apply: pool_safe_safe_reach_stuck; first done.
     { by rewrite list_lookup_insert_ne. }
     { apply: fill_safe_reach. by apply: Hsteps. }
     move => ?? [? [? [-> ->]]] => Hsafe''.
     eapply (pool_safe_implies_app); [ | | apply Hsafe'' | ].
-    2: { apply: list_lookup_insert. rewrite length_insert. by apply: lookup_lt_Some. }
+    2: { apply: list_lookup_insert_eq. rewrite length_insert. by apply: lookup_lt_Some. }
     { apply _. }
     move => [?[?[?[?[? [? Hs]]]]]]; simplify_eq.
     apply: pool_reach_stuck_no_forks.
-    { apply: list_lookup_insert. rewrite length_insert. by apply: lookup_lt_Some. }
+    { apply: list_lookup_insert_eq. rewrite length_insert. by apply: lookup_lt_Some. }
     { apply: no_forks_step; [|apply no_forks_refl]. apply: fill_no_fork.
       apply: base_prim_step. by econstructor. }
-    rewrite list_insert_insert list_insert_commute //.
+    rewrite list_insert_insert_eq list_insert_insert_ne //.
     apply: pool_reach_stuck_reach_stuck.
-    2: { apply: list_lookup_insert. by rewrite length_insert. }
+    2: { apply: list_lookup_insert_eq. by rewrite length_insert. }
     apply: fill_reach_stuck.
     eapply pool_safe_no_forks in Hsafe''.
-    2: { apply: list_lookup_insert. rewrite length_insert. by apply: lookup_lt_Some. }
+    2: { apply: list_lookup_insert_eq. rewrite length_insert. by apply: lookup_lt_Some. }
     2: { apply: no_forks_step; [|apply no_forks_refl]. apply: fill_no_fork.
       apply: base_prim_step. by econstructor. }
-    rewrite list_insert_insert list_insert_commute // in Hsafe''.
+    rewrite list_insert_insert_eq list_insert_insert_ne // in Hsafe''.
     destruct ns; (eapply (pool_safe_implies_app _ _ π'); [ | | apply Hsafe'' | ];
-      [ | apply list_lookup_insert; by rewrite length_insert | ]; first apply _).
+      [ | apply list_lookup_insert_eq; by rewrite length_insert | ]; first apply _).
     - move => [?[?[? Hh]]]; simplify_eq/=.
       move: Hh => /lookup_free_mem_Some /= [/(mk_is_Some _ _) /Hs ?[//|?]]. lia.
     - move => [?[?[? [? Hh]]]]; simplify_eq/=.
@@ -399,7 +399,7 @@ Section na_alt_exec.
     have [|?[?[[? [Hh [?[??]]]]?]]]:= (pool_safe_safe_reach π _ _ _ _ _ K_s ltac:(done) _ ltac:(clear He; naive_solver)); simplify_eq.
     { by rewrite list_lookup_insert_ne. }
     eexists _, _, _. split_and!.
-    - by rewrite list_insert_commute.
+    - by rewrite list_insert_insert_ne.
     - done.
     - done.
     - done.
@@ -419,7 +419,7 @@ Section na_alt_exec.
     move: (HT) => /(lookup_lt_Some _ _ _)?.
     rewrite -insert_app_l //.
     eexists _, _, _. split; [|done].
-    rewrite list_insert_commute //.
+    rewrite list_insert_insert_ne //.
     apply: pool_steps_safe; [|done].
     apply/pool_steps_single.
     rewrite !insert_app_l // ?length_insert //.
@@ -436,8 +436,8 @@ Section na_alt_exec.
     move => [e'' [σ' [K [? [?[?[?[??]]]]]]]] HT Hstep.
     eexists _, _, _. split; [|done].
     destruct (decide (π' = π)); subst.
-    - by rewrite list_insert_insert.
-    - rewrite list_insert_commute //.
+    - by rewrite list_insert_insert_eq.
+    - rewrite list_insert_insert_ne //.
       apply: pool_steps_safe; [|done].
       apply/pool_steps_single/no_fork_pool_step; [ by apply Hstep |].
       by rewrite list_lookup_insert_ne.
@@ -515,7 +515,7 @@ Section na_locs_wf.
   Proof.
     move => Hwf ? Hcols Hsafe He π' col' Hlookup.
     destruct (decide (π' = π)); simplify_eq.
-    - rewrite list_lookup_insert in Hlookup; [|by apply: lookup_lt_Some]; simplify_eq.
+    - rewrite list_lookup_insert_eq in Hlookup; [|by apply: lookup_lt_Some]; simplify_eq.
       have [lcol [Hlcol {}Hwf]]:= Hwf _ _ Hcols.
       eexists ((l_s, NaExcl)::lcol).
       split.
@@ -540,7 +540,7 @@ Section na_locs_wf.
   Proof.
     move => Hwf ? Hcols Hnfs He π' col' Hlookup.
     destruct (decide (π' = π)); simplify_eq.
-    - rewrite list_lookup_insert in Hlookup; [|by apply: lookup_lt_Some]; simplify_eq.
+    - rewrite list_lookup_insert_eq in Hlookup; [|by apply: lookup_lt_Some]; simplify_eq.
       have [lcol [Hlcol {}Hwf]]:= Hwf _ _ Hcols.
       eexists ((l_s, NaRead q)::lcol).
       split.
@@ -564,7 +564,7 @@ Section na_locs_wf.
     move: (Hcol) => /(lookup_lt_Some _ _ _)?.
     destruct (decide (π = π')); subst.
     2: { apply: Hwf. by rewrite list_lookup_insert_ne in Hcol'. }
-    rewrite list_lookup_insert // in Hcol'; simplify_eq.
+    rewrite list_lookup_insert_eq // in Hcol'; simplify_eq.
     have [lcol [? {}Hwf]]:= Hwf _ _ Hcol.
     eexists lcol. split; [|done].
     move => ??? /lookup_delete_Some[??]. naive_solver.
@@ -609,12 +609,12 @@ Section na_locs_wf.
         * apply: na_alt_exec_intro; [done|done|done | | |].
           -- move => l ?. have ? : l ≠ l_s by set_solver.
                by rewrite lookup_insert_ne.
-          -- by rewrite list_insert_insert list_insert_id.
+          -- by rewrite list_insert_insert_eq list_insert_id.
           -- move => ?. apply safe_reach_refl. apply: post_in_ectx_intro. naive_solver.
         * apply: na_alt_exec_mono; [naive_solver| |done| done| |set_solver].
           -- move => σ' ?? Ha l ???. have ? : l ≠ l_s by set_solver.
              rewrite lookup_insert_ne //. apply: Ha. set_solver.
-          -- move => ?. by rewrite list_insert_insert.
+          -- move => ?. by rewrite list_insert_insert_eq.
       + eexists (map_to_list (snd <$> col)). split.
         { move => ????. apply elem_of_map_to_list. by simplify_map_eq. }
         move => ?? /elem_of_map_to_list/lookup_fmap_Some[[??][??]]; simplify_eq/=.
@@ -623,7 +623,7 @@ Section na_locs_wf.
         * done.
         * done.
         * done.
-        * erewrite fill_empty. rewrite list_insert_insert. apply: pool_safe_no_forks; [done|done|].
+        * erewrite fill_empty. rewrite list_insert_insert_eq. apply: pool_safe_no_forks; [done|done|].
           apply: fill_no_forks. apply: no_forks_step. { apply: base_prim_step. by econstructor. }
           apply: no_forks_refl.
         * naive_solver.
@@ -652,7 +652,7 @@ Section na_locs_wf.
     move => Hwf ? ? ? ? Hlen π' col' Hcol'.
     move: (Hcol') => /(lookup_lt_Some _ _ _)Hlt. rewrite Hlen in Hlt.
     destruct (decide (π = π')); subst.
-    { unfold na_alt_exec. setoid_rewrite list_insert_insert. by apply: Hwf. }
+    { unfold na_alt_exec. setoid_rewrite list_insert_insert_eq. by apply: Hwf. }
     have [lcol [Hlcol {}Hwf]]:= Hwf _ _ Hcol'.
     eexists lcol. split; [done|] => p_s ws Hp.
     destruct (decide ((l_s, NaExcl) ∈ lcol)) as [Hin|Hin].
@@ -664,8 +664,8 @@ Section na_locs_wf.
       apply: safe_reach_load; [done..|].
       apply: safe_reach_refl. split_and!; [|done|done|done|done].
       opose proof* Heq; [|done|done|naive_solver].
-      rewrite not_elem_of_list_to_set elem_of_list_fmap.
-      move => [[??][?]]. rewrite elem_of_list_filter. naive_solver.
+      rewrite not_elem_of_list_to_set list_elem_of_fmap.
+      move => [[??][?]]. rewrite list_elem_of_filter. naive_solver.
   Qed.
 
   Lemma na_locs_wf_alloc cols P_s σ_s n T_s π (v : val) K_s:
@@ -686,7 +686,7 @@ Section na_locs_wf.
     eexists lcol. split; [done|] => p_s ws Hp.
     destruct (decide (π = π')); simplify_eq.
     - apply: na_alt_exec_mono; [naive_solver | | set_solver |done | |done].
-      2: { move => ?. by rewrite list_insert_insert. }
+      2: { move => ?. by rewrite list_insert_insert_eq. }
       move => ? Hhwf Hsub Ha ???? /lookup_union_Some [|/heap_array_lookup [?[?[?[?[??]]]]]|]; simplify_eq.
       { apply heap_array_map_disjoint => ???. apply eq_None_not_Some => -[? /Hσwf]. apply is_fresh. }
       + move => /Hhwf /Hsub /(is_fresh _)[].
@@ -720,7 +720,7 @@ Section na_locs_wf.
     eexists lcol. split; [done|] => p_s ws Hp.
     destruct (decide (π = π')); simplify_eq.
     - apply: na_alt_exec_mono; [naive_solver | | set_solver | done| |done].
-      2: { move => ?. by rewrite list_insert_insert. }
+      2: { move => ?. by rewrite list_insert_insert_eq. }
       move => /= ??? Hl???? /lookup_free_mem_Some[??]. by apply: Hl.
     - apply: na_alt_exec_step; [naive_solver |done |done |].
       move => σ' Hhwf Hsub Hg Heq.
@@ -738,7 +738,7 @@ Section na_locs_wf.
     length T_s = length cols →
     na_locs_wf (cols ++ [∅]) P_s σ_s (<[π:=fill K_s #()]> T_s ++ [e_s]).
   Proof.
-    move => Hwf HT ? Hlen π' col' /lookup_app_Some[Hcol'|[?/(elem_of_list_split_length _ _ _) [[|?[|??]][?[??]]]]]; simplify_eq.
+    move => Hwf HT ? Hlen π' col' /lookup_app_Some[Hcol'|[?/(list_elem_of_split_length _ _ _) [[|?[|??]][?[??]]]]]; simplify_eq.
     2: { eexists []. split; [by simplify_list_eq|set_solver]. }
     have [lcol [Hlcol {}Hwf]]:= Hwf _ _ Hcol'.
     destruct (decide (π = π')); simplify_map_eq.

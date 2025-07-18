@@ -334,7 +334,7 @@ Section utils.
     { rewrite /disabled_tag lookup_insert_ne //. }
     rewrite /trees_contain /trees_at_block Htr in Cont.
     destruct Dis as (Hv&Dis). split; first done.
-    rewrite lookup_insert. rewrite Htr in Dis.
+    rewrite lookup_insert_eq. rewrite Htr in Dis.
     destruct Dis as [Dis|Nd].
     - left. eapply disabled_tag_at_tree_apply_access_irreversible. 1,2,4: done.
       by eapply Uni.

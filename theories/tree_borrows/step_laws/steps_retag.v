@@ -202,7 +202,7 @@ Proof.
     split_and!.
     2-5: rewrite /array_tag_map -!insert_union_singleton_l.
     2-3: intros t blk (x & [([= <- <-]&<-)|(?&?)]%lookup_insert_Some);
-         [by rewrite lookup_insert|eapply lookup_insert_is_Some'; right].
+         [by rewrite lookup_insert_eq|eapply lookup_insert_is_Some'; right].
          2: eapply Ht2. 3: eapply Ht3. 2-3: by eapply mk_is_Some.
     2,3: intros tg l1 l2; rewrite !dom_insert_L;
          intros [[= Heq1 Heq2]%elem_of_singleton|H1%elem_of_dom]%elem_of_union;
@@ -292,7 +292,7 @@ Proof.
   - intros [(<-&<-) | (Hne & (i & Hi & -> & ->)%IH)]%lookup_insert_Some;
      [exists n; naive_solver | exists i; naive_solver].
   - intros (i & Hi & -> & ->). destruct (decide (i = n)) as [-> | Hneq].
-    1: by rewrite lookup_insert.
+    1: by rewrite lookup_insert_eq.
     rewrite lookup_insert_ne. 1: apply IH; exists i; split; try done.
     1: lia. rewrite /shift_loc. intros [= H]. lia.
 Qed.
@@ -432,7 +432,7 @@ Proof.
       right; exists cc, ae; split; first done.
       destruct Hin as (MM&HMM&Hin). destruct (decide (c = cc)) as [->|Hne].
       2: exists MM; by rewrite lookup_insert_ne.
-      eexists. rewrite lookup_insert; split; first done.
+      eexists. rewrite lookup_insert_eq; split; first done.
       assert (MM = M) as -> by congruence.
       destruct Hin as (L&HML&HL). exists L. split_and!; try done.
       rewrite lookup_insert_ne //. intros <-. congruence.
@@ -466,12 +466,12 @@ Proof.
       { eapply bind_Some in Hit as (p&Hp&[= <-]). split; first done.
         split; last first. 1: split; last done.
         all: destruct pk; try done. intros _. exists tk_res.
-        cbv in Htk. injection Htk as <-. rewrite lookup_insert /=. split; first done.
-        rewrite /= /heaplet_lookup /= lookup_union /= /array_tag_map /= lookup_singleton /= union_Some_l /= list_to_heaplet_nth.
+        cbv in Htk. injection Htk as <-. rewrite lookup_insert_eq /=. split; first done.
+        rewrite /= /heaplet_lookup /= lookup_union /= /array_tag_map /= lookup_singleton_eq /= union_Some_l /= list_to_heaplet_nth.
         eapply lookup_lt_is_Some_2; by lia. }
       eexists. split; last exact Hprot.
       eapply bind_Some in Happly1_t as (tr&Htr&(tr2&Happ&[= <-])%bind_Some).
-      exists tr2. rewrite /= lookup_insert. split; first done.
+      exists tr2. rewrite /= lookup_insert_eq. split; first done.
       edestruct create_child_determined as (ix&Hix&HH). 4: { erewrite Hit in Hix; injection Hix as ->; apply HH. }
       3: done.
       all: rewrite /trees_contain /trees_at_block Htr // -Hsnp_eq // in Hotin_t, Hntnin_t. }
@@ -492,7 +492,7 @@ Proof.
     split_and!.
     2-5: rewrite /array_tag_map -!insert_union_singleton_l.
     2-3: intros t blk (x & [([= <- <-]&<-)|(?&?)]%lookup_insert_Some);
-         [by rewrite lookup_insert|eapply lookup_insert_is_Some'; right].
+         [by rewrite lookup_insert_eq|eapply lookup_insert_is_Some'; right].
          2: eapply Ht2. 3: eapply Ht3. 2-3: by eapply mk_is_Some.
     2,3: intros tg l1 l2; rewrite !dom_insert_L;
          intros [[= Heq1 Heq2]%elem_of_singleton|H1%elem_of_dom]%elem_of_union;

@@ -87,7 +87,7 @@ Proof.
          destruct (decide (c = c')) as [->|Hne'].
          2: exists MM; split; last done; rewrite lookup_insert_ne //.
          assert (M = MM) as -> by congruence.
-         eexists. rewrite lookup_insert. split; first done.
+         eexists. rewrite lookup_insert_eq. split; first done.
          destruct H3B as (LL&HLL&H3B). exists LL.
          rewrite lookup_insert_ne //. }
     iLeft. rewrite /pub_loc. iIntros (sc_t' Hsc_t').
@@ -350,7 +350,7 @@ Proof.
       rewrite /call_set_in'.
       destruct (decide (c = cc)) as [->|Hnecc]; last first.
       1: by rewrite lookup_insert_ne.
-      rewrite lookup_insert. eexists; split; first done.
+      rewrite lookup_insert_eq. eexists; split; first done.
       destruct Hin as (M'&HM'&HHH). assert (M' = M) as -> by congruence.
       rewrite /call_set_in lookup_delete_ne //.
     + iLeft. iIntros (v Hvs). assert (tk = tk_unq tk_act) as -> by congruence.
@@ -413,7 +413,7 @@ Proof.
           destruct Ho3 as (lp&pp&Hpp&HHH&Hxx); exists lp, pp; (split_and!; [done| |done]);
           destruct HHH as (M'&HM'&HHH);
           (destruct (decide (c = call pp)) as [->|Hnec]; last (exists M'; rewrite lookup_insert_ne //));
-          destruct HHH as (L'&HL'&HHH); exists (delete t M); rewrite lookup_insert; (split; first done);
+          destruct HHH as (L'&HL'&HHH); exists (delete t M); rewrite lookup_insert_eq; (split; first done);
           assert (M = M') as -> by congruence;
           (destruct (decide (t = t')) as [->|Hnet]; first congruence);
           exists L'; by rewrite lookup_delete_ne. *)

@@ -103,8 +103,8 @@ Proof.
   target_pures.
 
   sim_apply (Write _ _) (Write _ _) (sim_write_activate_protected with "Htag_i Hi_t Hi_s Hcall") "Htag_i Hi_t Hi_s Hcall". 1-3: done.
-  { intros off Hoff. simpl in *. assert (off = 0)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert /=. do 2 eexists; split; first done.
-    by rewrite lookup_insert. }
+  { intros off Hoff. simpl in *. assert (off = 0)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert_eq /=. do 2 eexists; split; first done.
+    by rewrite lookup_insert_eq. }
   sim_pures.
 
   (* first write, between retag and opt code *)
@@ -117,8 +117,8 @@ Proof.
   source_pures. 
   source_apply (Write (Place _ _ _) _) (source_write_protected_active with "Hcall Htag_i Hi_s") "Hi_s Htag_i Hcall". 1,3,4: done.
   1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
-  2: rewrite lookup_insert //.
-  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert; by eexists.
+  2: rewrite lookup_insert_eq //.
+  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert_eq; by eexists.
   source_pures. source_finish.
 
   (* first write, between retag and opt code *)
@@ -139,8 +139,8 @@ Proof.
   (* do the second store (happening on both sides) in the source *)
   source_apply (Write (Place _ _ _) _) (source_write_protected_active with "Hcall Htag_i Hi_s") "Hi_s Htag_i Hcall". 1,3,4: done.
   1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
-  2: rewrite lookup_insert //.
-  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert; by eexists.
+  2: rewrite lookup_insert_eq //.
+  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert_eq; by eexists.
   source_pures. source_finish.
   (* do the second store (happening on both sides) in the target *)
   target_apply (Copy (Place _ _ _)) (target_copy_local with "Htag Ht") "Ht Htag". 2: done.
@@ -148,16 +148,16 @@ Proof.
   target_pures. 
   target_apply (Write (Place _ _ _) _) (target_write_protected_active with "Hcall Htag_i Hi_t") "Hi_t Htag_i Hcall". 1,3,4: done.
   1: { rewrite write_range_to_to_list; last (simpl; lia). rewrite Z.sub_diag /= //. }
-  2: rewrite lookup_insert //.
-  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert; by eexists.
+  2: rewrite lookup_insert_eq //.
+  1: intros off (?&?); assert (off = i.2) as -> by (simpl in *; lia); rewrite /shift_loc /= Z.add_0_r lookup_insert_eq; by eexists.
   target_pures. target_finish.
 
   (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  iApply (sim_make_unique_public with "Hi_t Hi_s Htag_i Hcall []"). 1: by rewrite lookup_insert. 1: iIntros "_"; done.
-  iIntros  "Htag_i Hcall". iEval (rewrite !fmap_insert !fmap_empty !insert_insert /=) in "Hcall".
-  iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert.
-  iIntros "Hc". iEval (rewrite delete_insert) in "Hc".
+  iApply (sim_make_unique_public with "Hi_t Hi_s Htag_i Hcall []"). 1: by rewrite lookup_insert_eq. 1: iIntros "_"; done.
+  iIntros  "Htag_i Hcall". iEval (rewrite !fmap_insert !fmap_empty !insert_insert_eq /=) in "Hcall".
+  iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert_eq.
+  iIntros "Hc". iEval (rewrite delete_insert_id) in "Hc".
   sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "Hc") "".
   sim_pures. rewrite !subst_result.
   sim_val. iModIntro. iSplit; first done. done.

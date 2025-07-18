@@ -799,7 +799,7 @@ Section lemmas.
       exfalso.
       specialize (Ha i _ ltac:(lia) Hown) as (stk'' & Hstk'' & Hacc).
       destruct access1 as [[n' ?] | ] eqn:Hacc_eq; last done. injection Hacc as [= ->].
-      specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%elem_of_list_singleton & Htg & _).
+      specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%list_elem_of_singleton & Htg & _).
       (* contradiction, since t is public *)
       simpl in Htg. subst bor. enough (tk_local = tk_pub) by congruence.
       apply Hpub. split; first done. exists i. split; first done. lia.
@@ -816,7 +816,7 @@ Section lemmas.
     induction v as [|? v IH] in l, l', sc, M |-*; cbn; first done.
     intros Hl. rewrite (IH l (l' +ₗ 1)); first last.
     { destruct l', l; cbn in *; lia. }
-    rewrite insert_commute; first done. intros ->; lia.
+    rewrite insert_insert_ne; first done. intros ->; lia.
   Qed.
   Lemma write_mem_head l sc v M :
     <[ l := sc ]> (write_mem (l +ₗ 1) v M) = write_mem l (sc :: v) M.
@@ -890,7 +890,7 @@ Section lemmas.
         }
         revert Ha_t.
         destruct (decide (l' = l)) as [-> | Hneq_loc] => Ha_t.
-        * rewrite lookup_insert => [= ->]. by eapply loc_controlled_mem_insert, Ha_t.
+        * rewrite lookup_insert_eq => [= ->]. by eapply loc_controlled_mem_insert, Ha_t.
         * rewrite lookup_insert_ne; last congruence. intros ?.
           eapply loc_controlled_mem_insert_ne; [done | by apply Ha_t].
       + destruct (decide (t = t')) as [<- | Hneq].
@@ -972,7 +972,7 @@ Section lemmas.
         }
         revert Ha_s.
         destruct (decide (l' = l)) as [-> | Hneq_loc] => Ha_s.
-        * rewrite lookup_insert => [= ->]. by eapply loc_controlled_mem_insert, Ha_s.
+        * rewrite lookup_insert_eq => [= ->]. by eapply loc_controlled_mem_insert, Ha_s.
         * rewrite lookup_insert_ne; last congruence. intros ?.
           eapply loc_controlled_mem_insert_ne; [done | by apply Ha_s].
       + destruct (decide (t = t')) as [<- | Hneq].
@@ -1069,7 +1069,7 @@ Section lemmas.
         }
         revert Ha_t.
         destruct (decide (l' = l)) as [-> | Hneq_loc] => Ha_t.
-        * rewrite lookup_insert => [= ->]. by eapply loc_controlled_mem_insert, Ha_t.
+        * rewrite lookup_insert_eq => [= ->]. by eapply loc_controlled_mem_insert, Ha_t.
         * rewrite lookup_insert_ne; last congruence. intros ?.
           eapply loc_controlled_mem_insert_ne; [done | by apply Ha_t].
       + destruct (decide (t = t')) as [<- | Hneq].
@@ -1170,7 +1170,7 @@ Section lemmas.
         }
         revert Ha_s.
         destruct (decide (l' = l)) as [-> | Hneq_loc] => Ha_s.
-        * rewrite lookup_insert => [= ->]. by eapply loc_controlled_mem_insert, Ha_s.
+        * rewrite lookup_insert_eq => [= ->]. by eapply loc_controlled_mem_insert, Ha_s.
         * rewrite lookup_insert_ne; last congruence. intros ?.
           eapply loc_controlled_mem_insert_ne; [done | by apply Ha_s].
       + destruct (decide (t = t')) as [<- | Hneq].
@@ -1228,7 +1228,7 @@ Section lemmas.
       destruct Hpre as (it'&Hlu'&Hndis). simpl in Hlu'|-*.
       destruct Hlu' as (tr'&Htr'&Hlu').
       pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
-      rewrite delete_insert_delete in Htr'|-*.
+      rewrite delete_insert_eq in Htr'|-*.
       eapply lookup_delete_Some in Htr' as (Hne&Htr').
       destruct Hcontrol as (Hown&Hmem).
       { exists it'. split; last done. exists tr'. done. }
@@ -1242,7 +1242,7 @@ Section lemmas.
       destruct Hpre as (it'&Hlu'&Hndis). simpl in Hlu'|-*.
       destruct Hlu' as (tr'&Htr'&Hlu').
       pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
-      rewrite delete_insert_delete in Htr'|-*.
+      rewrite delete_insert_eq in Htr'|-*.
       eapply lookup_delete_Some in Htr' as (Hne&Htr').
       destruct Hcontrol as (Hown&Hmem).
       { exists it'. split; last done. exists tr'. done. }
@@ -1267,7 +1267,7 @@ Section lemmas.
         destruct Hown as (it&tr&Hit&Htr&HH).
         exists it, tr. split; first done. simpl. split; last done.
         pose proof Hdealloc as (trl&Htrl&(trl'&Htrl'&[= <-])%bind_Some)%bind_Some.
-        rewrite delete_insert_delete lookup_delete_ne //.
+        rewrite delete_insert_eq lookup_delete_ne //.
   Qed. (*
 
 
@@ -1374,7 +1374,7 @@ Proof.
   apply loc_controlled_local in Hcontrol as (Hcontrol & _).
   destruct (tag_unique_head_access σ_t.(scs) _ (Tagged t) None kind ltac:(by exists [])) as (n' & Hn).
   move : Hst Hin_stack Haccess .
-  rewrite Hcontrol => [= <-]. rewrite elem_of_list_singleton => ->.
+  rewrite Hcontrol => [= <-]. rewrite list_elem_of_singleton => ->.
   rewrite Hn => [= _ <-]. done.
 Qed.
 

@@ -286,10 +286,10 @@ Proof.
     destruct (decide (i ∈ O)); last naive_solver.
     iDestruct "H" as "[_ H]". by iApply "H".
   - rewrite /csim_expr_all_wo. iIntros "H".
-    rewrite big_sepL_insert_acc; last eapply list_lookup_insert, lookup_lt_Some, Hlook.
+    rewrite big_sepL_insert_acc; last eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
     destruct (decide (i ∈ O)); last naive_solver.
     iDestruct "H" as "[_ H]". iSpecialize ("H" $! (e_t', e_s')).
-    rewrite list_insert_insert list_insert_id //. by iApply "H".
+    rewrite list_insert_insert_eq list_insert_id //. by iApply "H".
 Qed.
 
 Lemma csim_expr_all_wo_app O P1 P2:
@@ -351,7 +351,7 @@ Lemma csim_expr_must_step_all_core_ind P O D i:
 Proof.
   iIntros (Hel Hsub) "#IHO Hall". specialize (Hsub _ Hel) as Hthread.
   eapply threads_spec in Hthread as (e & Hlook).
-  eapply list_lookup_fmap_inv in Hlook as ([e_t e_s] & -> & Hlook).
+  eapply list_lookup_fmap_Some_1 in Hlook as ([e_t e_s] & -> & Hlook).
   rewrite csim_expr_all_to_wo (csim_expr_all_wo_split _ _ i) //.
   replace (∅ ∪ {[i]}: gset nat) with ({[i]}: gset nat) by set_solver.
   iDestruct "Hall" as "[Hsim Hall]".
@@ -378,11 +378,11 @@ Proof.
       iFrame. iApply (must_step_all_weaken _ O); first set_solver.
       iApply (must_step_all_add_values _ (O ∖ {[i]})).
       { intros j Hj. destruct (decide (j = i)); subst; last set_solver.
-        right. exists v_t, v_s. eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+        right. exists v_t, v_s. eapply list_lookup_insert_eq, lookup_lt_Some, Hlook. }
       iApply ("IHO" with "[//]").
       { iPureIntro. rewrite list_fmap_insert //=. etrans; last by eapply threads_insert. set_solver. }
       rewrite csim_expr_all_to_wo (csim_expr_all_wo_split _ ∅ i); last set_solver; last first.
-      { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+      { eapply list_lookup_insert_eq, lookup_lt_Some, Hlook. }
       replace (∅ ∪ {[i]}: gset nat) with ({[i]}: gset nat) by set_solver.
       rewrite (csim_expr_all_wo_insert i); last set_solver. iFrame.
       iApply csim_expr_base. iExists v_t, v_s. iFrame.
@@ -422,7 +422,7 @@ Proof.
            iSplit. { iPureIntro. constructor. }
            simpl. rewrite bi.and_elim_l. replace (O ∖ ∅) with O by set_solver.
            iApply ("Hupd" with "[] [//] [] [Hall] Hpost").
-           ++ iPureIntro. eapply list_lookup_insert, lookup_lt_Some, Hlook.
+           ++ iPureIntro. eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
            ++ iPureIntro. rewrite list_fmap_insert. by etrans; last eapply threads_insert.
            ++ rewrite -csim_expr_all_wo_insert //. set_solver.
         -- iDestruct "NoStutter" as (e_s' e_s'' σ_s' σ_s'' efs_s Hnfs Hprim) "(SI & Hsim & Hfrks)".
@@ -439,7 +439,7 @@ Proof.
            rewrite csim_expr_all_app. iSplitR "Hfrks".
            ++ rewrite csim_expr_all_to_wo (csim_expr_all_wo_split _ ∅ i);
               last set_solver;
-              last by eapply list_lookup_insert, lookup_lt_Some, Hlook.
+              last by eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
               rewrite -csim_expr_all_wo_insert; last set_solver.
               replace (∅ ∪ {[i]}: gset nat) with ({[i]}: gset nat) by set_solver.
               iFrame. iApply (csim_expr_mono with "Hpost [Hsim]").
@@ -447,7 +447,7 @@ Proof.
            ++ rewrite /csim_expr_all.
               by rewrite big_sepL2_alt csim_expr_eq bi.and_elim_r length_insert length_fmap.
       + eapply fair_pool_step_inv in Hstep as (e_j & e_j_t' & efs_t & Hstep & Hlook' & Hupd & Hdecr).
-        eapply list_lookup_fmap_inv in Hlook' as ([e_j_t e_j_s] & -> & Hlookj); simpl in Hstep.
+        eapply list_lookup_fmap_Some_1 in Hlook' as ([e_j_t e_j_s] & -> & Hlookj); simpl in Hstep.
         eapply Hdecr in HD as (d' & -> & HD'); last done.
         assert (d' < S d') as Hlt by lia.
         iSpecialize ("IHd" $! d' Hlt with "Hsim Hpost").
@@ -466,7 +466,7 @@ Proof.
           -- iPureIntro. rewrite fmap_app list_fmap_insert fst_zip ?Hlen //=.
              etrans; last by eapply threads_prim_step. done.
           -- rewrite (csim_expr_all_wo_split _ {[i]} j); last set_solver; last first.
-             { eapply lookup_app_l_Some, list_lookup_insert, lookup_lt_Some, Hlookj. }
+             { eapply lookup_app_l_Some, list_lookup_insert_eq, lookup_lt_Some, Hlookj. }
              iFrame. rewrite -csim_expr_all_wo_app; last first.
              { intros k Hk. assert (k = j ∨ k = i) as [] by set_solver; subst; rewrite length_insert; by eapply lookup_lt_Some. }
              rewrite length_insert length_fmap.

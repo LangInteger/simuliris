@@ -100,21 +100,21 @@ Proof.
   (* do the target load *)
   target_apply (Copy (Place _ _ _)) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
   target_pures. target_apply (Copy _) (target_copy_protected with "Hcall Htag_i Hi_t") "Hi_t Hcall Htag_i"; first done.
-  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert.  set_solver. }
+  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert_eq.  set_solver. }
   sim_pures.
 
   (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s Hvrel"); [ | apply lookup_insert | ].
+  iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s Hvrel"); [ | apply lookup_insert_eq | ].
   { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. }
   iIntros "Hcall Htag_i Hi_t Hi_s".
   iApply (sim_remove_empty_calls t_i with "Hcall").
-  { rewrite lookup_insert. done. }
+  { rewrite lookup_insert_eq. done. }
   { rewrite Hlen_t. set_solver. }
   iIntros "Hcall".
   sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "[Hcall]") "".
   { replace (delete t_i _) with (∅ : gmap ptr_id (gset loc)); first done.
-    apply map_eq. intros t'. rewrite delete_insert_delete delete_insert; done.
+    apply map_eq. intros t'. rewrite delete_insert_eq delete_insert_id; done.
   }
   sim_pures.
   sim_val. iModIntro. iSplit; first done.

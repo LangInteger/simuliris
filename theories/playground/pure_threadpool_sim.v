@@ -325,10 +325,10 @@ Lemma sim_expr_all_insert P i e_t e_s:
   sim_expr_all (<[i:=(e_t, e_s)]> P).
 Proof.
   intros Hall Hsim e_t' e_s' Hin.
-  eapply elem_of_list_lookup_1 in Hin as [j Hlook].
+  eapply list_elem_of_lookup_1 in Hin as [j Hlook].
   eapply list_lookup_insert_Some in Hlook as [(-> & Heq & _)|(Hne & Hlook)].
   - naive_solver.
-  - by eapply Hall, elem_of_list_lookup_2.
+  - by eapply Hall, list_elem_of_lookup_2.
 Qed.
 
 Lemma sim_expr_all_app P P' :
@@ -406,8 +406,8 @@ Proof.
   - intros Hlocal. eapply local_all_stutter_target_no_fork; eauto.
     eapply (local_all_weaken _ O); last set_solver.
     eapply IH.
-    + eapply list_lookup_insert, lookup_lt_Some, Hlook.
-    + by rewrite list_insert_insert.
+    + eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
+    + by rewrite list_insert_insert_eq.
 Qed.
 
 
@@ -445,9 +445,9 @@ Proof.
   - intros Hlook. exists []. rewrite list_insert_id //. constructor.
   - intros Hlook. eapply no_forks_pool_step in Hstep; last done.
     destruct (IH (<[j := e']> T)) as (I & Hsteps').
-    { eapply list_lookup_insert, lookup_lt_Some, Hlook. }
+    { eapply list_lookup_insert_eq, lookup_lt_Some, Hlook. }
     exists (j :: I).  econstructor; eauto.
-    revert Hsteps'; by rewrite list_insert_insert.
+    revert Hsteps'; by rewrite list_insert_insert_eq.
 Qed.
 
 Lemma local_all_not_stuttered i e_t e_t' e_s e_s' e_s'' P O D' T_t' T_f_s T_f_t:
@@ -469,7 +469,7 @@ Proof.
   eapply pool_steps_trans; first done.
   eapply pool_steps_single, pool_step_iff.
   exists e_s', e_s'', T_f_s.
-  rewrite list_insert_insert list_lookup_insert //.
+  rewrite list_insert_insert_eq list_lookup_insert_eq //.
   eapply lookup_lt_Some; rewrite list_lookup_fmap Hlook //.
 Qed.
 
@@ -486,8 +486,8 @@ Proof.
     left. split; last done. intros i; set_solver.
   - specialize (Hsub _ Hel) as Hthread.
     eapply threads_spec in Hthread as (e & Hlook).
-    eapply list_lookup_fmap_inv in Hlook as ([e_t e_s] & -> & Hlook).
-    assert (sim_expr e_t e_s) as Hsim by eapply Hall, elem_of_list_lookup_2, Hlook.
+    eapply list_lookup_fmap_Some_1 in Hlook as ([e_t e_s] & -> & Hlook).
+    assert (sim_expr e_t e_s) as Hsim by eapply Hall, list_elem_of_lookup_2, Hlook.
     revert Hsim; rewrite sim_expr_unfold /sim_expr_body; intros Hsim.
     revert e_t e_s Hsim P Hall Hlook D Hsub.
     change (lfp (sim_expr_inner sim_expr) ⪯
@@ -506,7 +506,7 @@ Proof.
          { rewrite list_fmap_insert //=. etrans; last eapply threads_update. set_solver. }
       * intros j Hj; destruct (decide (i = j)); subst; last set_solver.
          right; exists e_t, e_s'. repeat split; eauto.
-         eapply list_lookup_insert, lookup_lt_Some, Hlook.
+         eapply list_lookup_insert_eq, lookup_lt_Some, Hlook.
     + pose proof val_no_step. assert (¬ val e_t) as Hnval by naive_solver.
       eapply local_all_delay_for; intros Hdom.
       destruct (Hdom i) as [d HD]; last clear Hdom.
@@ -534,7 +534,7 @@ Proof.
            revert Hsim; rewrite -sim_expr_unfold; intros Hsim.
            rewrite right_id in Hupd.
            eapply local_all_stutter_source'; eauto.
-           eapply IH; eauto using sim_expr_all_insert, list_lookup_insert, lookup_lt_Some.
+           eapply IH; eauto using sim_expr_all_insert, list_lookup_insert_eq, lookup_lt_Some.
            etrans; first eapply Hsub.
            rewrite list_fmap_insert; eapply threads_update.
         -- destruct NoStutter as (e_s' & e_s'' & T_s & Hfrk & Hsrc & Hlen & Hsims).
@@ -548,9 +548,9 @@ Proof.
            { done. }
            { eapply Hsims; simpl; set_solver. }
            { intros ???; eapply Hsims; simpl; set_solver. }
-        * eapply list_lookup_fmap_inv in Hlookj as ([e_j_t_ e_j_s] & -> & Hlookj).
+        * eapply list_lookup_fmap_Some_1 in Hlookj as ([e_j_t_ e_j_s] & -> & Hlookj).
           rename e_j_t_ into e_j_t; simpl in Htgt.
-          assert (sim_expr e_j_t e_j_s) as Hsim by eapply Hall, elem_of_list_lookup_2, Hlookj.
+          assert (sim_expr e_j_t e_j_s) as Hsim by eapply Hall, list_elem_of_lookup_2, Hlookj.
           eapply id in HD as HD'.
           eapply Hdecr in HD' as (m & -> & HD'); last done.
           eapply sim_expr_inv_step in Hsim as [Stutter|NoStutter]; last done.

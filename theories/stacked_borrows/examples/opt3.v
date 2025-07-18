@@ -87,14 +87,14 @@ Proof.
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
   source_pures.
   source_apply (Write _ _) (source_write_protected with "Hcall Htag_i Hi_s") "Hi_s Hcall Htag_i"; [done.. | | ].
-  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert.  set_solver. }
+  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert_eq.  set_solver. }
   sim_pures.
 
   (* do the target write *)
   target_apply (Copy (Place _ _ _)) (target_copy_local with "Htag Ht") "Ht Htag"; first done.
   target_pures.
   target_apply (Write _ _) (target_write_protected with "Hcall Htag_i Hi_t") "Hi_t Hcall Htag_i"; [done.. | | ].
-  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert.  set_solver. }
+  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert_eq.  set_solver. }
   sim_pures.
 
   (* do the call *)
@@ -105,22 +105,22 @@ Proof.
   source_apply (Copy (Place _ _ _)) (source_copy_local with "Htag Hs") "Hs Htag"; first done.
   source_pures.
   source_apply (Write _ _) (source_write_protected with "Hcall Htag_i Hi_s") "Hi_s Hcall Htag_i"; [done.. | | ].
-  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert.  set_solver. }
+  { simpl. intros i0 Hi0. assert (i0 = O) as -> by lia. eexists. split; first apply lookup_insert_eq.  set_solver. }
   sim_pures.
 
   (* cleanup: remove the protector ghost state, make the external locations public, free the local locations*)
   sim_apply (Free _) (Free _) (sim_free_local with "Htag Ht Hs") "Htag"; [done..|]. sim_pures.
-  iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s []"); [ | apply lookup_insert | | ].
+  iApply (sim_protected_unprotectN with "Hcall Htag_i Hi_t Hi_s []"); [ | apply lookup_insert_eq | | ].
   { simpl. cbn in Hlen_t. intros i' Hi'. replace i' with O by lia. rewrite elem_of_union elem_of_singleton. eauto. }
   { iApply big_sepL2_singleton. done. }
   iIntros "Hcall Htag_i Hi_t Hi_s".
   iApply (sim_remove_empty_calls t_i with "Hcall").
-  { rewrite lookup_insert. done. }
+  { rewrite lookup_insert_eq. done. }
   { simpl. set_solver. }
   iIntros "Hcall".
   sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "[Hcall]") "".
   { replace (delete t_i _) with (∅ : gmap ptr_id (gset loc)); first done.
-    apply map_eq. intros t'. rewrite delete_insert_delete delete_insert; done.
+    apply map_eq. intros t'. rewrite delete_insert_eq delete_insert_id; done.
   }
   sim_pures.
   iApply sim_expr_base. iExists r_t, r_s. eauto.

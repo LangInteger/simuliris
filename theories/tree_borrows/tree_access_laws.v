@@ -96,7 +96,7 @@ Proof.
   destruct (apply_access_spec_per_node Ex Det Acc) as [it' [itAcc [Ex' Det']]].
   exists it'.
   split; [|split; [|split]].
-  - exists tr'. split; [apply lookup_insert|]. split; assumption.
+  - exists tr'. split; [apply lookup_insert_eq|]. split; assumption.
   - eapply item_apply_access_preserves_metadata.
     symmetry. eassumption.
   - eapply item_apply_access_preserves_metadata.
@@ -154,7 +154,7 @@ Proof.
   destruct (apply_access_spec_per_node Ex Det Acc) as [it' [itAcc [Ex' Det']]].
   exists it'.
   split; [|split; [|split]].
-  - exists tr'. split; [apply lookup_insert|]. split; assumption.
+  - exists tr'. split; [apply lookup_insert_eq|]. split; assumption.
   - eapply item_apply_access_preserves_metadata.
     symmetry. eassumption.
   - eapply item_apply_access_preserves_metadata.
@@ -210,7 +210,7 @@ Proof.
   rewrite /item_apply_access in itAcc. symmetry in itAcc.
   apply bind_Some in itAcc as (permsnew&Hpermsnew&[= Hitnew]).
   exists itnew. split.
-  { exists tr'. split; first by rewrite lookup_insert. done. }
+  { exists tr'. split; first by rewrite lookup_insert_eq. done. }
   subst itnew. simpl. split_and!; try done.
   rewrite /item_lookup; simpl. f_equal.
   eapply (mem_apply_range'_spec _ _ offi) in Hpermsnew.
@@ -255,9 +255,9 @@ Proof.
   { eapply apply_within_trees_wf; try done. eapply memory_access_tag_count. }
   pose proof App as (trold&Htrold&(trnew&Htrnew&[= <-])%bind_Some)%bind_Some.
   destruct Lookup as (tr'&Htr'&Hlookup).
-  rewrite lookup_insert in Htr'. injection Htr' as <-.
+  rewrite lookup_insert_eq in Htr'. injection Htr' as <-.
   pose proof Hlookup as (Hunq&_).
-  eapply wf_tree_tree_unique in Hunq; last eapply WFnew, lookup_insert.
+  eapply wf_tree_tree_unique in Hunq; last eapply WFnew, lookup_insert_eq.
   rewrite /tree_unique in Hunq. erewrite <-memory_access_tag_count in Hunq; last done.
   pose proof (unique_exists Hunq) as Hcont.
   apply unique_lookup in Hunq as (itold&Hdet).
@@ -265,7 +265,7 @@ Proof.
   2: done. 3: by eexists. 2: lia.
   destruct App as (itnew' & (trnew' & Htrnew' & Hitnew') & Hperms).
   assert (trnew' = trnew) as ->.
-  { rewrite lookup_insert in Htrnew'. congruence. }
+  { rewrite lookup_insert_eq in Htrnew'. congruence. }
   assert (itnew' = itnew) as -> by by eapply tree_lookup_unique.
   exists itold. split; last done.
   by exists trold.
@@ -300,14 +300,14 @@ Proof.
   assert (tree_contains lu_tg tr') as Ex. {
     eapply trees_at_block_projection.
     1: eapply trees_contain_trees_lookup_2; eassumption.
-    by eapply lookup_insert.
+    by eapply lookup_insert_eq.
   }
   assert (tree_item_determined lu_tg itnew tr') as NewDet. {
-    destruct Lookup as (? & Heq & Hlu). rewrite lookup_insert in Heq.
+    destruct Lookup as (? & Heq & Hlu). rewrite lookup_insert_eq in Heq.
     injection Heq as <-. apply Hlu.
   }
   assert (tree_unique lu_tg tr) as UnqPre.
-  { eapply wf_tree_tree_unique in Ex. 2: eapply wf', lookup_insert.
+  { eapply wf_tree_tree_unique in Ex. 2: eapply wf', lookup_insert_eq.
     rewrite /tree_unique. erewrite tree_apply_access_same_count.
     1: apply Ex.
     apply Acc. }
@@ -321,9 +321,9 @@ Proof.
     enough (itnew' = itnew) as <- by eapply HH2.
     eapply (tree_lookup_unique tr' lu_tg).
     + destruct Hlu2 as (? & Hx & Hy).
-      rewrite lookup_insert in Hx. congruence.
+      rewrite lookup_insert_eq in Hx. congruence.
     + destruct Lookup as (? & Hx & Hy).
-      rewrite lookup_insert in Hx. congruence.
+      rewrite lookup_insert_eq in Hx. congruence.
   - done.
   - apply OutOfBounds.
 Qed.
@@ -356,11 +356,11 @@ Proof.
   intros App WFold InBounds Lookup.
   odestruct (apply_trees_access_lookup_general _ _ _ _ _ xH) as (it&H1&H2&H3&H4).
   2: by eapply wf_tree_wf_singleton.
-  - rewrite /apply_within_trees lookup_singleton /=. erewrite App. rewrite /= insert_singleton. done.
+  - rewrite /apply_within_trees lookup_singleton_eq /=. erewrite App. rewrite /= insert_singleton_eq. done.
   - done.
-  - exists tr. split; first by eapply lookup_singleton. done.
+  - exists tr. split; first by eapply lookup_singleton_eq. done.
   - exists it. split_and; try done.
-    destruct H1 as (tr1'&H1&H1'). rewrite lookup_singleton in H1. injection H1 as <-. done.
+    destruct H1 as (tr1'&H1&H1'). rewrite lookup_singleton_eq in H1. injection H1 as <-. done.
 Qed.
 
 Lemma tree_access_lookup_outside offi cids tr kind off1 sz acc_tg lu_tg tr' itold b :
@@ -377,11 +377,11 @@ Proof.
   intros App WFold InBounds Lookup.
   odestruct (apply_trees_access_lookup_outside xH offi _ _ _ xH) as (it&H1&H2&H3&H4).
   2: by eapply wf_tree_wf_singleton.
-  - rewrite /apply_within_trees lookup_singleton /=. erewrite App. rewrite /= insert_singleton. done.
+  - rewrite /apply_within_trees lookup_singleton_eq /=. erewrite App. rewrite /= insert_singleton_eq. done.
   - intros (H1&H2). done.
-  - exists tr. split; first by eapply lookup_singleton. done.
+  - exists tr. split; first by eapply lookup_singleton_eq. done.
   - exists it. split_and; try done.
-    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton in H1. injection H1 as <-. done.
+    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton_eq in H1. injection H1 as <-. done.
 Qed.
 
 Lemma tree_access_lookup_general_rev offi cids tr kind off1 sz acc_tg lu_tg tr' itnew b :
@@ -398,11 +398,11 @@ Proof.
   intros App WFold InBounds Lookup.
   odestruct (apply_trees_access_lookup_general_rev _ _ _ _ xH) as (it&H1&H2&H3&H4).
   2: by eapply wf_tree_wf_singleton.
-  - rewrite /apply_within_trees lookup_singleton /=. erewrite App. rewrite /= insert_singleton. done.
+  - rewrite /apply_within_trees lookup_singleton_eq /=. erewrite App. rewrite /= insert_singleton_eq. done.
   - done.
-  - exists tr'. split; first by eapply lookup_singleton. done.
+  - exists tr'. split; first by eapply lookup_singleton_eq. done.
   - exists it. split_and; try done.
-    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton in H1. injection H1 as <-. done.
+    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton_eq in H1. injection H1 as <-. done.
 Qed.
 
 Lemma tree_access_lookup_outside_rev offi cids tr kind off1 sz acc_tg lu_tg tr' itnew b :
@@ -419,11 +419,11 @@ Proof.
   intros App WFold InBounds Lookup.
   odestruct (apply_trees_access_lookup_outside_rev xH offi _ _ _ xH) as (it&H1&H2&H3&H4).
   2: by eapply wf_tree_wf_singleton.
-  - rewrite /apply_within_trees lookup_singleton /=. erewrite App. rewrite /= insert_singleton. done.
+  - rewrite /apply_within_trees lookup_singleton_eq /=. erewrite App. rewrite /= insert_singleton_eq. done.
   - intros (H1&H2). done.
-  - exists tr'. split; first by eapply lookup_singleton. done.
+  - exists tr'. split; first by eapply lookup_singleton_eq. done.
   - exists it. split_and; try done.
-    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton in H1. injection H1 as <-. done.
+    destruct H1 as (tr''&H1&H1'). rewrite lookup_singleton_eq in H1. injection H1 as <-. done.
 Qed.
 
 
@@ -723,7 +723,7 @@ Lemma create_then_access_implies_earlier_access_trees trs blk ak cc cids tg_par 
 Proof.
   intros Hwf Hcont Hncont Hchild Hread.
   eapply bind_Some in Hchild as (tr&Htr&(tr'&Hchild&[= <-])%bind_Some).
-  rewrite /apply_within_trees lookup_insert /= in Hread.
+  rewrite /apply_within_trees lookup_insert_eq /= in Hread.
   eapply bind_Some in Hread as (tr''&Hread&Htr'').
   rewrite /apply_within_trees Htr /=. eapply option_bind_always_some; last done.
   rewrite /trees_contain /trees_at_block !Htr in Hcont, Hncont.

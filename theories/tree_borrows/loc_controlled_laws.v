@@ -47,7 +47,7 @@ Proof.
       { destruct (decide (l.1 = blk)) as [<- | Hne].
         - rewrite /apply_within_trees Hx /= in Happly.
           apply bind_Some in Happly as (newtr & H1 & [= H2]).
-          rewrite -H2 lookup_insert in Htrnew.
+          rewrite -H2 lookup_insert_eq in Htrnew.
           erewrite (access_same_rel_dec H1). congruence.
         - apply bind_Some in Happly as (itwrong & Hwrong & (y & Hy & [= Hacc])%bind_Some).
           rewrite -Hacc lookup_insert_ne // Hx in Htrnew. congruence. }
@@ -79,7 +79,7 @@ Proof.
       { destruct (decide (l.1 = blk)) as [<- | Hne].
         - rewrite /apply_within_trees Hx /= in Happly.
           apply bind_Some in Happly as (newtr & H1 & [= H2]).
-          rewrite -H2 lookup_insert in Htrnew.
+          rewrite -H2 lookup_insert_eq in Htrnew.
           erewrite (access_same_rel_dec H1). congruence.
         - apply bind_Some in Happly as (itwrong & Hwrong & (y & Hy & [= Hacc])%bind_Some).
           rewrite -Hacc lookup_insert_ne // Hx in Htrnew. congruence. }
@@ -107,7 +107,7 @@ Proof.
     { destruct (decide (l.1 = blk)) as [<-|Hne].
       - rewrite /apply_within_trees Htrold /= in Happly.
         eapply bind_Some in Happly as (? & H1 & [= H2]).
-        rewrite -H2 lookup_insert in Htrnew.
+        rewrite -H2 lookup_insert_eq in Htrnew.
         injection Htrnew as ->. eapply memory_access_wf; last done.
         destruct Hwf as [_ Hwf _ _]. by eapply Hwf.
       - eapply bind_Some in Happly as (? & H1 & (? & H2 & [= H3])%bind_Some).
@@ -120,7 +120,7 @@ Proof.
     { destruct (decide (l.1 = blk)) as [<-|Hne].
       - rewrite /apply_within_trees Htrold /= in Happly.
         eapply bind_Some in Happly as (? & H1 & [= H2]).
-        rewrite -H2 lookup_insert in Htrnew.
+        rewrite -H2 lookup_insert_eq in Htrnew.
         injection Htrnew as ->. rewrite /tree_unique.
         by erewrite tree_apply_access_same_count.
       - eapply bind_Some in Happly as (? & H1 & (? & H2 & [= H3])%bind_Some).
@@ -179,11 +179,11 @@ Proof.
       eexists; by subst blk. } subst ppo. 
     repeat case_match; simplify_eq; done. }
   intros _. split; last done.
-  rewrite -Hstrs /trees_lookup lookup_insert in Hlunew.
+  rewrite -Hstrs /trees_lookup lookup_insert_eq in Hlunew.
   destruct Hlunew as (?&[= <-]&Hlunew).
   exists itnew, trnew.
   split; first done.
-  split; first rewrite -Hstrs Hblk lookup_insert //.
+  split; first rewrite -Hstrs Hblk lookup_insert_eq //.
   split; first done.
   split.
   { intros _. by rewrite Hactive. } 
@@ -193,7 +193,7 @@ Proof.
   destruct Hrst as (_&Holdothers).
   intros itmod tmod Hlumod.
   eapply apply_trees_access_lookup_general_rev in Happlys as Happlys'.
-  2: done. 2: eassumption. 2: { exists trnew; split; last exact Hlumod. rewrite -Hstrs lookup_insert //. }
+  2: done. 2: eassumption. 2: { exists trnew; split; last exact Hlumod. rewrite -Hstrs lookup_insert_eq //. }
   destruct Happlys' as (itold' & (tr'&Htr''&Hluold) & HX1 & HX2 & Hperm).
   assert (tr' = trold) as ->.
   { rewrite Htrold in Htr''. congruence. }
@@ -231,7 +231,7 @@ Proof.
   subst blk. exfalso.
   pose proof Happly as (trold&Htrold&(trnew&Haccess&[= Hstrs])%bind_Some)%bind_Some.
   assert (strs σ' !! l.1 = Some trnew) as Htrnew.
-  { by rewrite -Hstrs lookup_insert. }
+  { by rewrite -Hstrs lookup_insert_eq. }
   destruct tk as [|tkk|].
   - destruct Hpre as (itnew&(trnew'&Htrnew'&Hitnew)&Hnondis).
     assert (trnew' = trnew) as -> by congruence. clear Htrnew'.
@@ -390,7 +390,7 @@ Proof.
   intros _. split; last done.
   eapply bind_Some in Hcreate as (tr&Htr&(tr1&Hcreate&[= Htr1])%bind_Some).
   eassert (∃ it, _ = Some it ∧ trees_lookup trs1 blk tg_cld it) as (itcld&Hitcld&Hlucld1).
-  { subst trs1. rewrite /trees_lookup /= lookup_insert /=.
+  { subst trs1. rewrite /trees_lookup /= lookup_insert_eq /=.
     odestruct create_child_determined as (it&Hit&HHit). 4: exists it; split; [eexact Hit|].
     4: eexists; split; first done; eexact HHit. 3: exact Hcreate.
     all: rewrite /trees_contain /trees_at_block Htr // in Hcont,Hncont. }
@@ -413,11 +413,11 @@ Proof.
     eapply apply_trees_access_lookup_general_rev in Happly as Happlyself.
     2: done. 3: exists tr'; split; first congruence; exact Hito'. 2: exact Hbound.
     destruct Happlyself as (ito&Hito&Hinito&Hiproto&Haccesso).
-    rewrite /trees_rel_dec -Htr1 lookup_insert /= in Haccesso.
+    rewrite /trees_rel_dec -Htr1 lookup_insert_eq /= in Haccesso.
     erewrite (memory_access_same_rel_dec false) in Haccesso.
     2: { eapply bind_Some in Happly as (x&Hx&(y&Hy&[= HH])%bind_Some).
-         rewrite -Htr1 lookup_insert in Hx. assert (x = tr1) as -> by congruence.
-         rewrite -HH lookup_insert in Htr'. assert (y = tr') as -> by congruence.
+         rewrite -Htr1 lookup_insert_eq in Hx. assert (x = tr1) as -> by congruence.
+         rewrite -HH lookup_insert_eq in Htr'. assert (y = tr') as -> by congruence.
          exact Hy. }
     rewrite rel_dec_flip2 /apply_access_perm in Haccesso.
     eapply bind_Some in Haccesso as (p1&Hp1&(p2&Hp2&[= HH])%bind_Some).
@@ -433,11 +433,11 @@ Proof.
     eapply apply_trees_access_lookup_general_rev in Happly as Happlyself.
     2: done. 3: exists tr'; split; first congruence; exact Hito'. 2: exact Hbound.
     destruct Happlyself as (ito&Hito&Hinito&Hiproto&Haccesso).
-    rewrite /trees_rel_dec -Htr1 lookup_insert /= in Haccesso.
+    rewrite /trees_rel_dec -Htr1 lookup_insert_eq /= in Haccesso.
     erewrite <- (memory_access_same_rel_dec false).
     2: { eapply bind_Some in Happly as (x&Hx&(y&Hy&[= HH])%bind_Some).
-         rewrite -Htr1 lookup_insert in Hx. assert (x = tr1) as -> by congruence.
-         rewrite -HH lookup_insert in Htr'. assert (y = tr') as -> by congruence.
+         rewrite -Htr1 lookup_insert_eq in Hx. assert (x = tr1) as -> by congruence.
+         rewrite -HH lookup_insert_eq in Htr'. assert (y = tr') as -> by congruence.
          exact Hy. }
     rewrite rel_dec_flip2 /apply_access_perm in Haccesso.
     eapply bind_Some in Haccesso as (p1&Hp1&(p2&Hp2&[= HH])%bind_Some).
@@ -448,15 +448,15 @@ Proof.
          1: by injection Hreldec as <-.
          exfalso. eapply insertion_order_nonparent. 4: done. 4: exact Hc.
          - destruct Hito as (tr1X&HX&Hito). assert (tr1X = tr1) as ->.
-           { rewrite -Htr1 lookup_insert in HX. congruence. }
+           { rewrite -Htr1 lookup_insert_eq in HX. congruence. }
            eapply insertion_minimal_tags. 3: done. 2: eapply Hito.
            simpl. intros ->. eapply Hc2. by left.
          - intros Hx. eapply Hncont. by rewrite /trees_contain /trees_at_block Htr.
          - by rewrite /trees_contain /trees_at_block Htr in Hcont. }
     2: enough (match perm (item_lookup ito' l.2) with Active => False | _ => True end) as Heno.
     2: { eapply bind_Some in Happly as (X&HX&(Y&Happly&[= HY])%bind_Some).
-         assert (X = tr1) as ->. { rewrite -Htr1 lookup_insert // in HX; congruence. }
-         assert (Y = tr') as ->. { rewrite -HY lookup_insert /= in Htr'; congruence. }
+         assert (X = tr1) as ->. { rewrite -Htr1 lookup_insert_eq // in HX; congruence. }
+         assert (Y = tr') as ->. { rewrite -HY lookup_insert_eq /= in Htr'; congruence. }
          destruct (perm (item_lookup ito' l.2)) as [?| | | |] eqn:Heq; simpl. 3: done. 2,4: right; done.
          all: right; tauto. }
     all: destruct (perm (item_lookup ito l.2)) as [[]| | | |], (bool_decide (protector_is_active (iprot ito') cids)).
@@ -603,7 +603,7 @@ Proof.
   subst blk.
   pose proof Happly as (trold&Htrold&(trnew&Haccess&[= Hstrs])%bind_Some)%bind_Some.
   assert (strs σ' !! l.1 = Some trnew) as Htrnew.
-  { by rewrite -Hstrs lookup_insert. }
+  { by rewrite -Hstrs lookup_insert_eq. }
   rewrite /loc_controlled. rewrite -Heq_shp.
   pose proof Htgcld as Htgcldtr. rewrite /trees_contain /trees_at_block Htrold in Htgcldtr.
   pose proof Htgpar as Htgpartr. rewrite /trees_contain /trees_at_block Htrold in Htgpartr.
@@ -734,7 +734,7 @@ Proof.
   subst blk.
   pose proof Happly as (trold&Htrold&(trnew&Haccess&[= Hstrs])%bind_Some)%bind_Some.
   assert (strs σ' !! l.1 = Some trnew) as Htrnew.
-  { by rewrite -Hstrs lookup_insert. }
+  { by rewrite -Hstrs lookup_insert_eq. }
   rewrite /loc_controlled.
   destruct tk as [|act|] eqn:Heq; simpl.
   - intros (it & Htrlu & Hperm).
@@ -766,7 +766,7 @@ Proof.
       assert (rel_dec trnew t' tg_lu = rel_dec trold t' tg_lu) as Hreldec.
       { rewrite /apply_within_trees Hx /= in Happly.
         apply bind_Some in Happly as (newtr & H1 & [= H2]).
-        rewrite -H2 lookup_insert in Htrnew.
+        rewrite -H2 lookup_insert_eq in Htrnew.
         erewrite (access_same_rel_dec H1). congruence. }
       rewrite Hreldec. destruct HHHH as (Hinit2 & Hprot2 & Hperm2).
       rewrite /trees_rel_dec Htrold in Hperm2.
@@ -837,7 +837,7 @@ Proof.
       assert (∀ tg1 tg2, rel_dec trnew tg1 tg2 = rel_dec trold tg1 tg2) as Hreldec_strong.
       { intros tg1 tg2. rewrite /apply_within_trees Hx /= in Happly.
         apply bind_Some in Happly as (newtr & H1 & [= H2]).
-        rewrite -H2 lookup_insert in Htrnew.
+        rewrite -H2 lookup_insert_eq in Htrnew.
         erewrite (access_same_rel_dec H1). congruence. }
       assert (rel_dec trnew t' tg_lu = rel_dec trold t' tg_lu) as Hreldec.
       { eapply Hreldec_strong. }
@@ -905,7 +905,7 @@ Proof.
     assert (wf_tree trnew) as Hwfnew.
     { rewrite /apply_within_trees Htrold /= in Happly.
       eapply bind_Some in Happly as (? & H1 & [= H2]).
-      rewrite -H2 lookup_insert in Htrnew.
+      rewrite -H2 lookup_insert_eq in Htrnew.
       injection Htrnew as ->. eapply memory_access_wf; last done.
       destruct Hwf as [_ Hwf _ _]. by eapply Hwf.
     }
@@ -914,7 +914,7 @@ Proof.
     assert (tree_unique t' trold) as Hunqold.
     { rewrite /apply_within_trees Htrold /= in Happly.
       eapply bind_Some in Happly as (? & H1 & [= H2]).
-      rewrite -H2 lookup_insert in Htrnew.
+      rewrite -H2 lookup_insert_eq in Htrnew.
       injection Htrnew as ->. rewrite /tree_unique.
       by erewrite tree_apply_access_same_count.
     }
@@ -959,7 +959,7 @@ Proof.
   pose proof Happly as (trold&Htrold&(trnew&Haccess&[= Hstrs])%bind_Some)%bind_Some.
   destruct Htgin as (trold'&Htrold'&Hitacc). assert  (trold = trold') as <- by congruence. clear Htrold'.
   assert (strs σ' !! l.1 = Some trnew) as Htrnew.
-  { by rewrite -Hstrs lookup_insert. }
+  { by rewrite -Hstrs lookup_insert_eq. }
   destruct Hitaccnew as (trnew'&Htrnew'&Hitaccnew). assert  (trnew = trnew') as <- by congruence. clear Htrnew'.
   eapply memory_access_wf in Haccess as Htrnewwf. 2: by eapply Hwf.
   eapply memory_access_compat_parents_more_active in Haccess as HtrnewPMI. 2: by eapply Hwf. 2: by eapply Hitacc. 2: by eapply Hwf.
@@ -972,7 +972,7 @@ Proof.
   assert (∀ tg1 tg2, rel_dec trnew tg1 tg2 = rel_dec trold tg1 tg2) as Hreldeceq.
   { intros ??. rewrite /apply_within_trees Htrold /= in Happly.
     apply bind_Some in Happly as (newtr & H1 & [= H2]).
-    rewrite -H2 lookup_insert in Htrnew.
+    rewrite -H2 lookup_insert_eq in Htrnew.
     erewrite (access_same_rel_dec H1). congruence. }
   rewrite /loc_controlled.
   destruct tk as [|act|] eqn:Heq; simpl.
@@ -1165,7 +1165,7 @@ Proof.
     assert (wf_tree trnew) as Hwfnew.
     { rewrite /apply_within_trees Htrold /= in Happly.
       eapply bind_Some in Happly as (? & H1 & [= H2]).
-      rewrite -H2 lookup_insert in Htrnew.
+      rewrite -H2 lookup_insert_eq in Htrnew.
       injection Htrnew as ->. eapply memory_access_wf; last done.
       destruct Hwf as [_ Hwf _ _]. by eapply Hwf.
     }
@@ -1174,7 +1174,7 @@ Proof.
     assert (tree_unique t' trold) as Hunqold.
     { rewrite /apply_within_trees Htrold /= in Happly.
       eapply bind_Some in Happly as (? & H1 & [= H2]).
-      rewrite -H2 lookup_insert in Htrnew.
+      rewrite -H2 lookup_insert_eq in Htrnew.
       injection Htrnew as ->. rewrite /tree_unique.
       by erewrite tree_apply_access_same_count.
     }
@@ -1359,7 +1359,7 @@ Proof.
   eapply bind_Some in Happly as (trold & Htrold & (trnew&Haccess&[= Hstrs])%bind_Some).
   rewrite /trees_contain /trees_at_block Htrold in Hcontain.
   assert (strs σ' !! blk = Some trnew) as Htrnew.
-  1: rewrite -Hstrs lookup_insert //.
+  1: rewrite -Hstrs lookup_insert_eq //.
   eapply wf_tree_tree_unique in Hcontain as Hunique; last by eapply Hwf_pre.
   eapply unique_lookup in Hunique as (itold & Hdet).
   assert (tree_lookup trold tg itold) as Hitold by done.
@@ -1446,7 +1446,7 @@ Proof.
   intros Hcontains.
   destruct (decide (blk2 = blk1)) as [Heq|Hne].
   - subst blk2. assert (tr = tr1) as -> by congruence.
-    rewrite lookup_insert. eapply count_gt0_exists.
+    rewrite lookup_insert_eq. eapply count_gt0_exists.
      erewrite <- H2; last done. eapply count_gt0_exists. done.
   - rewrite lookup_insert_ne; last done. by rewrite Htr.
 Qed.
@@ -1512,7 +1512,7 @@ Proof.
   - simpl in *. injection Htrr as ->. by rewrite insert_id.
   - simpl in *. pose proof Htrr as Htrr'. eapply Hf in Htrr as (sy&Htrr).
     specialize (IH _ Htrr). rewrite IH. simpl. rewrite Htrr in Htrr'.
-    rewrite /apply_within_trees /= lookup_insert /= Htrr' /= insert_insert //.
+    rewrite /apply_within_trees /= lookup_insert_eq /= Htrr' /= insert_insert_eq //.
 Qed.
 
 Lemma apply_within_trees_map_fold {X Y} `{Countable X} (fn : X → Y → option (tree item) → option (tree item)) (S : tree item → gmap X Y) (blk : block) (trs trs' : trees) :
@@ -1528,7 +1528,7 @@ Proof.
   - simpl in *. injection Htrr as ->. by rewrite insert_id.
   - simpl in *. pose proof Htrr as Htrr'. eapply Hf in Htrr as (sy&Htrr).
     specialize (IH _ Htrr). rewrite Hshape IH. simpl. rewrite Htrr in Htrr'.
-    rewrite /apply_within_trees /= lookup_insert /= Htrr' /= insert_insert //.
+    rewrite /apply_within_trees /= lookup_insert_eq /= Htrr' /= insert_insert_eq //.
 Qed.
 
 Lemma apply_within_trees_foldr {X}  (fn : X → option (tree item) → option (tree item)) (S : tree item → list X) (blk : block) (trs trs' : trees) :
@@ -1544,7 +1544,7 @@ Proof.
   - simpl in *. injection Htrr as ->. by rewrite insert_id.
   - simpl in *. pose proof Htrr as Htrr'. eapply Hf in Htrr as (sy&Htrr).
     specialize (IH _ Htrr). rewrite IH. simpl. rewrite Htrr in Htrr'.
-    rewrite /apply_within_trees /= lookup_insert /= Htrr' /= insert_insert //.
+    rewrite /apply_within_trees /= lookup_insert_eq /= Htrr' /= insert_insert_eq //.
 Qed. *)
 Lemma apply_within_trees_foldr {X} (fn : X → tree item → option (tree item)) lst blk trs :
   blk ∈ dom trs →
@@ -1594,7 +1594,7 @@ Proof.
   rewrite /trees_contain /trees_at_block.
   destruct (decide (blk1 = blk2)) as [->|Hne].
   2: by rewrite lookup_insert_ne.
-  rewrite lookup_insert Htr. intros H. eapply preserve_tag_count_contains. 2: done. 2: exact Htr'. done.
+  rewrite lookup_insert_eq Htr. intros H. eapply preserve_tag_count_contains. 2: done. 2: exact Htr'. done.
 Qed.
 
 Local Definition PS (σ : state) (S : gset (nat * gmap Z access_kind)) blk :=
@@ -1647,7 +1647,7 @@ Proof.
   pose (σm := mkState (shp σ) trm (scs σ) (snp σ) (snc σ)).
   eapply (tree_access_many_state_wf_helper_3 σm). 1: done. 3: exact H2.
   1: exact HS.
-  eapply lookup_weaken. 2: exact HL'. rewrite lookup_insert. done.
+  eapply lookup_weaken. 2: exact HL'. rewrite lookup_insert_eq. done.
 Qed.
 
 Lemma tree_access_many_state_wf_helper_1 σ trs' blk (S : gset _) eS' :
@@ -1707,7 +1707,7 @@ Proof.
   pose (σm := mkState (shp σ) trm (scs σ) (snp σ) (snc σ)).
   eapply (tree_access_many_loc_controlled_helper_3 σm). 5: exact H2.
   4: done. 2: done. 1: eapply H1.
-  eapply lookup_weaken. 2: exact HL'. rewrite lookup_insert. done.
+  eapply lookup_weaken. 2: exact HL'. rewrite lookup_insert_eq. done.
 Qed.
 
 Lemma tree_access_many_loc_controlled_helper_1 σ trs' blk S l tg_lu tk sc :
@@ -1871,7 +1871,7 @@ Proof.
   split; last done.
   epose proof (init_perms_lookup Active 0 sz off) as H.
   eexists _, _. rewrite /bor_state_own_on. split_and!.
-  2: rewrite -Hnewtrees /= /extend_trees lookup_insert //.
+  2: rewrite -Hnewtrees /= /extend_trees lookup_insert_eq //.
   - by eapply tree_lookup_init_tree.
   - rewrite /item_lookup /=. destruct (init_perms _ _ _ !! off). 2: lia.
     destruct H as [-> _]. done.

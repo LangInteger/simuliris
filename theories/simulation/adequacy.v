@@ -64,7 +64,7 @@ Section meta_level_simulation.
         iSplit; first done. iFrame. iSplit.
         * iPureIntro. intros j. destruct (decide (j = i)) as [->|Hne].
           { exists v_t, v_s. split; first done.
-            eapply list_lookup_insert, lookup_lt_Some, Hlook'. }
+            eapply list_lookup_insert_eq, lookup_lt_Some, Hlook'. }
           intros Hj; assert (j ∈ V) as Hj' by set_solver.
           rewrite list_lookup_insert_ne //. eauto.
         * rewrite -{2}(list_insert_id T_t i (of_val v_t)) //. iApply "Hpost".

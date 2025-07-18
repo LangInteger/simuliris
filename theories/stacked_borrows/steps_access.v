@@ -12,7 +12,7 @@ Proof.
   rewrite /access1. case find_granting as [gip|] eqn:Eq1; [|done].
   apply fmap_Some in Eq1 as [[i it] [(IN & [GR Eq] & FR)%list_find_Some EQ]].
   intros ?. exists it. split; last split; [|done|].
-  - by eapply elem_of_list_lookup_2.
+  - by eapply list_elem_of_lookup_2.
   - intros Eq1. by rewrite Eq1 in GR.
 Qed.
 
@@ -154,7 +154,7 @@ Proof.
   case (α !! (l +ₗ n)) as [stkn|] eqn:Eqn; [|done] => /=.
   case f as [stkn'|] eqn: Eqn'; [|done] => /= /IH [IH1 IH2]. split.
   - intros i Lt. case (decide (i = n)) => Eq'; [subst i|].
-    + rewrite IH2; [by apply lookup_delete|].
+    + rewrite IH2; [by apply lookup_delete_eq|].
       move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + apply IH1. by lia.
   - intros l' Lt. rewrite IH2.
@@ -182,7 +182,7 @@ Proof.
   revert l. induction n as [|n IH]; intros l; simpl.
   { split; intros ??; by [lia|]. } split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0 lookup_delete //.
+    + rewrite shift_loc_0 lookup_delete_eq //.
     + rewrite lookup_delete_ne.
       * specialize (IH (l +ₗ 1))as [IH _].
         rewrite (_: l +ₗ S i = l +ₗ 1 +ₗ i).
@@ -254,14 +254,14 @@ Proof.
   simplify_eq. rewrite /find_top_active_protector.
   case list_find eqn:EqF; [done|]. intros _.
   apply list_find_None in EqF. exists it'.
-  have ?: it' ∈ stk by eapply elem_of_list_lookup_2. done.
+  have ?: it' ∈ stk by eapply list_elem_of_lookup_2. done.
 Qed.
 
 Lemma dealloc1_singleton_Some it t cids:
   is_Some (dealloc1 [it] t cids) →
   it.(tg) = t ∧ (¬ is_active_protector cids it) ∧ grants it.(perm) AccessWrite.
 Proof.
-  move => /dealloc1_Some [it' [/elem_of_list_singleton In' [? [FA ?]]]].
+  move => /dealloc1_Some [it' [/list_elem_of_singleton In' [? [FA ?]]]].
   subst. split; last split; [done| |done].
   rewrite ->Forall_forall in FA. apply FA. by left.
 Qed.

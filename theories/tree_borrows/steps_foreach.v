@@ -55,7 +55,7 @@ Proof.
   destruct (trs !! blk) as [t|] eqn:Lookup; inversion Applied as [H0].
   destruct (fn t) as [t'|] eqn:Result; inversion H0 as [t0].
   split.
-  - exists t; exists t'. try repeat split; [apply lookup_insert|apply Result].
+  - exists t; exists t'. try repeat split; [apply lookup_insert_eq|apply Result].
   - intros blk' Diff. symmetry. apply lookup_insert_ne. apply Diff.
 Qed.
 (* NOTE: stack analogue was:
@@ -93,7 +93,7 @@ Proof.
   destruct (IH (l +ₗ 1) h) as [IH1 IH2].
   split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0_nat lookup_insert //.
+    + rewrite shift_loc_0_nat lookup_insert_eq //.
     + have Eql: l +ₗ S i = (l +ₗ 1) +ₗ i.
       { rewrite shift_loc_assoc. f_equal. lia. }
       rewrite lookup_insert_ne.
@@ -127,7 +127,7 @@ Proof. move => l' s' /init_mem_lookup_case [[//]|//]. Qed.
 
 Lemma extend_trees_lookup trs tg off sz blk :
   (extend_trees tg blk off sz trs) !! blk = Some (init_tree tg off sz).
-Proof. apply lookup_insert. Qed.
+Proof. apply lookup_insert_eq. Qed.
 
 Lemma extend_trees_lookup_ne trs tg off sz blk blk' :
   blk ≠ blk' ->
@@ -143,7 +143,7 @@ Proof.
   revert l. induction n as [|n IH]; intros l; simpl.
   { split; intros ??; by [lia|]. } split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0 lookup_delete //.
+    + rewrite shift_loc_0 lookup_delete_eq //.
     + rewrite lookup_delete_ne.
       * specialize (IH (l +ₗ 1))as [IH _].
         rewrite (_: l +ₗ S i = l +ₗ 1 +ₗ i).

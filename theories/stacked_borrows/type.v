@@ -62,8 +62,8 @@ Lemma list_nat_max_spec ns :
 Proof.
   induction ns as [|i ns IHi]; simpl; [rewrite elem_of_nil; naive_solver|].
   right. destruct IHi as [[]|[In MAX]].
-  - subst. rewrite /= Nat.max_0_r elem_of_list_singleton.
-    setoid_rewrite elem_of_list_singleton. naive_solver.
+  - subst. rewrite /= Nat.max_0_r list_elem_of_singleton.
+    setoid_rewrite list_elem_of_singleton. naive_solver.
   - split.
     + apply Nat.max_case; [by left|by right].
     + move => i' /elem_of_cons [->|In']; first by apply Nat.le_max_l.
@@ -429,7 +429,7 @@ Proof.
   rewrite -(app_nil_r (sub_sum_types' Tc 0)) -{2}(Nat.add_0_l (tsize Tc))
           (_: [] = (λ nT: nat * type, (nT.1 + (tsize Tc), nT.2)) <$> []) //.
   rewrite sub_sum_types_foldl /= elem_of_app.
-  right. simpl. apply elem_of_list_fmap.
+  right. simpl. apply list_elem_of_fmap.
   exists (n, T). by rewrite Nat.add_comm /=.
 Qed.
 
@@ -446,7 +446,7 @@ Lemma sub_sum_types_sum_first T Tc Ts n :
 Proof.
   rewrite /sub_sum_types /= => IN. right.
   apply foldl_inner_app_elem_of_init.
-  rewrite -(Nat.add_0_l 1) sub_sum_type'_shift -Nat.add_1_r elem_of_list_fmap.
+  rewrite -(Nat.add_0_l 1) sub_sum_type'_shift -Nat.add_1_r list_elem_of_fmap.
   by exists (n, T).
 Qed.
 
@@ -469,7 +469,7 @@ Proof. cbn. rewrite -Nat.succ_lt_mono. apply foldl_inner_init_lt; [intros|]; lia
 
 Lemma sub_sum_types'_le n m Tc T: (n, Tc) ∈ sub_sum_types' T m → m ≤ n.
 Proof.
-  rewrite -{1}(Nat.add_0_l m) sub_sum_type'_shift elem_of_list_fmap =>
+  rewrite -{1}(Nat.add_0_l m) sub_sum_type'_shift list_elem_of_fmap =>
           [[[??] [? ?]]]. simplify_eq. simpl. lia.
 Qed.
 
@@ -487,7 +487,7 @@ Lemma sub_sum_types_elem_of n T Ts:
 Proof.
   rewrite {1}/sub_sum_types /= elem_of_cons => [[?|]]; [simplify_eq; by left|].
   intros [?%not_elem_of_nil|[Tc [IN1 IN2]]]%foldl_inner_app_elem_of; [done|right].
-  move : IN2. rewrite -(Nat.add_0_l 1) sub_sum_type'_shift elem_of_list_fmap.
+  move : IN2. rewrite -(Nat.add_0_l 1) sub_sum_type'_shift list_elem_of_fmap.
   move => [[n1 T'] [Eq IN2]]. simplify_eq. simpl. split; [lia|].
   exists Tc. split; [done|]. by rewrite Nat.add_sub.
 Qed.
@@ -509,7 +509,7 @@ Proof.
   - destruct IN. subst. by left.
   - cbn. right. rewrite foldl_inner_app_elem_of_inv. right.
     destruct IN as [Gt0 [Tc [IN1 IN2]]]. exists Tc. split; [done|].
-    rewrite -(Nat.add_0_l 1) sub_sum_type'_shift elem_of_list_fmap.
+    rewrite -(Nat.add_0_l 1) sub_sum_type'_shift list_elem_of_fmap.
     exists (n - 1, T). split; [|done]. simpl. f_equal. lia.
 Qed.
 
@@ -604,7 +604,7 @@ Proof.
   rewrite -(app_nil_r (sub_ref_types' T 0)) -{2}(Nat.add_0_l (tsize T))
           (_: [] = (λ nT: nat * type, (nT.1 + (tsize T), nT.2)) <$> []) //.
   rewrite sub_ref_types_foldl /= elem_of_app.
-  right. simpl. apply elem_of_list_fmap.
+  right. simpl. apply list_elem_of_fmap.
   exists (n, Reference pk Tr). by rewrite Nat.add_comm /=.
 Qed.
 
@@ -613,7 +613,7 @@ Lemma sub_ref_types_sum_first T Tc Ts n :
 Proof.
   rewrite /sub_ref_types /= => IN.
   apply foldl_inner_app_elem_of_init.
-  rewrite -(Nat.add_0_l 1) sub_ref_type'_shift -Nat.add_1_r elem_of_list_fmap.
+  rewrite -(Nat.add_0_l 1) sub_ref_type'_shift -Nat.add_1_r list_elem_of_fmap.
   by exists (n, T).
 Qed.
 

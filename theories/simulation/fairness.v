@@ -80,7 +80,7 @@ Definition div_exec_trace {p T σ} (f: div_exec p T σ) n :=
 Lemma div_exec_trace_spec {p T σ} (f: div_exec p T σ) n i:
   i ∈ div_exec_trace f n ↔ (∃ m, (f m).(id) = i ∧ m < n).
 Proof.
-  rewrite /div_exec_trace elem_of_list_fmap.
+  rewrite /div_exec_trace list_elem_of_fmap.
   split; intros (m & Heq & Hlt); exists m; (split; first done).
   - eapply elem_of_seq in Hlt. lia.
   - eapply elem_of_seq. lia.
@@ -130,14 +130,14 @@ Definition active_threads T :=
 Lemma active_threads_spec T i:
   i ∈ active_threads T ↔ ∃ e, T !! i = Some e ∧ to_val e = None.
 Proof.
-  rewrite /active_threads /enabled elem_of_list_to_set elem_of_list_fmap.
+  rewrite /active_threads /enabled elem_of_list_to_set list_elem_of_fmap.
   split.
   - intros [[i' e] [-> Hlook]]; simpl.
-    eapply elem_of_list_filter in Hlook as [? Hlook].
+    eapply list_elem_of_filter in Hlook as [? Hlook].
     eapply elem_of_lookup_imap in Hlook as (? & ? & Heq & ?).
     injection Heq as ??; subst. eexists; split; eauto.
   - intros [e [Hlook Hval]]. exists (i, e).
-    split; first done. eapply elem_of_list_filter.
+    split; first done. eapply list_elem_of_filter.
     split; first done. eapply elem_of_lookup_imap.
     eexists _, _. split; done.
 Qed.
@@ -497,8 +497,8 @@ Section delay_based_fairness.
     i ∈ I → delays_for_trace I D1 !! i = delays_for_trace I D2 !! i.
   Proof.
     induction 1 as [i|i j I Hel IH]; simpl.
-    - by rewrite !lookup_insert.
-    - destruct (decide (i = j)); first (subst; by rewrite !lookup_insert).
+    - by rewrite !lookup_insert_eq.
+    - destruct (decide (i = j)); first (subst; by rewrite !lookup_insert_eq).
       by rewrite !lookup_insert_ne //= !lookup_fmap IH.
   Qed.
 
@@ -528,7 +528,7 @@ Section delay_based_fairness.
     delays_for T (<[i := 0]> (S <$> D)).
   Proof.
     intros Hstep Hdel. intros j Hj. destruct (decide (i = j)).
-    { subst; rewrite lookup_insert; eauto. }
+    { subst; rewrite lookup_insert_eq; eauto. }
     rewrite lookup_insert_ne // lookup_fmap fmap_is_Some.
     eapply Hdel, active_threads_step; eauto.
     set_solver.

@@ -462,10 +462,10 @@ Proof.
   iSplit. {
     iPureIntro.
     apply: no_forks_step. { apply: base_prim_step. by constructor. }
-    apply: no_forks_step. { apply: base_prim_step. constructor. by rewrite lookup_insert. }
+    apply: no_forks_step. { apply: base_prim_step. constructor. by rewrite lookup_insert_eq. }
     apply: no_forks_refl.
   }
-  destruct σ_s => /=. rewrite insert_insert insert_id //. iFrame.
+  destruct σ_s => /=. rewrite insert_insert_eq insert_id //. iFrame.
   iSplitL "Hinv". { by iApply sheap_inv_load. }
   by iApply "Ht".
 Qed.
@@ -538,11 +538,11 @@ Proof.
   iSplit. {
     iPureIntro.
     apply: no_forks_step. { apply: base_prim_step. by constructor. }
-    apply: no_forks_step. { apply: base_prim_step. econstructor. by rewrite lookup_insert. }
+    apply: no_forks_step. { apply: base_prim_step. econstructor. by rewrite lookup_insert_eq. }
     apply: no_forks_refl.
   }
   iDestruct ("Hsim" with "Hl") as "$" => /=.
-  rewrite insert_insert. iFrame.
+  rewrite insert_insert_eq. iFrame.
   by iApply sheap_inv_store.
 Qed.
 

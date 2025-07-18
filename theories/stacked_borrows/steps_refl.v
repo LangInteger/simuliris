@@ -262,7 +262,7 @@ Proof.
   * intros _. simpl in Hown.
     specialize (for_each_access1_lookup_inv _ _ _ _ _ _ _ Hread _ _ Hown) as (st' & Hst' & [[n' Hacc_eq] | Heq]).
     2: { rewrite Heq. done. }
-    specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%elem_of_list_singleton & Htg & _).
+    specialize (access1_in_stack _ _ _ _ _ _ Hacc_eq) as (it & ->%list_elem_of_singleton & Htg & _).
     (* contradiction, since t is public *)
     simpl in Htg. subst bor. discriminate Hbor. done.
 Qed.
@@ -588,7 +588,7 @@ Proof.
         destruct nt as [ nt | ]; last by eauto.
         destruct Hnt as [<- | [-> ?]]; first congruence.
         destruct (decide (t = σ_s.(snp))) as [-> | Hneq'].
-        - rewrite lookup_insert in Hsome. injection Hsome as [= <-]. left; naive_solver.
+        - rewrite lookup_insert_eq in Hsome. injection Hsome as [= <-]. left; naive_solver.
         - rewrite lookup_insert_ne in Hsome; last done. by right.
       }
       - (* the new tag: nothing to show, since we don't put the tagged locations under control *)

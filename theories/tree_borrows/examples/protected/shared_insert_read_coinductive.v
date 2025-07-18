@@ -173,8 +173,8 @@ Proof.
   target_pures. target_bind (Copy _).
   iApply (target_copy_protected with "Hcall Htag_i Hi_t"). 1: done.
   2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-  2: by rewrite lookup_insert.
-  { intros off Hoff. simpl in *. rewrite /range'_contains /sizeof_scalar /= in Hoff. assert (off = i.2)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert /=. by eexists. }
+  2: by rewrite lookup_insert_eq.
+  { intros off Hoff. simpl in *. rewrite /range'_contains /sizeof_scalar /= in Hoff. assert (off = i.2)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert_eq /=. by eexists. }
   iIntros "Hi_t _ Hcall". target_finish.
   sim_pures.
 
@@ -222,8 +222,8 @@ Proof.
     source_pures. source_bind (Copy _).
     iApply (source_copy_protected with "Hcall Htag_i Hi_s"). 1: done.
     2: simpl; lia. 1: rewrite read_range_heaplet_to_list // Z.sub_diag /= //.
-    2: by rewrite lookup_insert.
-    { intros off Hoff. simpl in *. rewrite /range'_contains /sizeof_scalar /= in Hoff. assert (off = i.2)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert /=. by eexists. }
+    2: by rewrite lookup_insert_eq.
+    { intros off Hoff. simpl in *. rewrite /range'_contains /sizeof_scalar /= in Hoff. assert (off = i.2)%nat as -> by lia. rewrite /shift_loc /= Z.add_0_r /call_set_in lookup_insert_eq /=. by eexists. }
     iIntros "Hi_s _ Hcall". source_finish.
     sim_pures.
 
@@ -261,8 +261,8 @@ Proof.
     iApply sim_expr_base. iLeft. sim_pures.
     sim_apply (Free _) (Free _) (sim_free_local with "Hx Ht_x Hs_x") "Hx"; [done..|]. sim_pures.
     sim_apply (Free _) (Free _) (sim_free_local with "Hctr Ht_ctr Hs_ctr") "Hctr"; [done..|]. sim_pures.
-    iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert.
-    iIntros "Hc". iEval (rewrite delete_insert) in "Hc".
+    iApply (sim_protected_unprotect_public with "Hcall Htag_i"). 1: by rewrite lookup_insert_eq.
+    iIntros "Hc". iEval (rewrite delete_insert_id) in "Hc".
     sim_apply (EndCall _) (EndCall _) (sim_endcall_own with "Hc") "".
     sim_pures.
     sim_val. iModIntro. iSplit; first done. unfold rrel, value_rel. simpl. done.

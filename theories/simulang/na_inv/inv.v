@@ -256,7 +256,7 @@ Section fix_heap.
     iApply (target_red_store_na with "Hlt"). iIntros "Hlt".
     iApply target_red_base. iModIntro.
     iApply (sim_bij_release NaExcl with "Hbij Hc Hlt Hls Hv"); [by simplify_map_eq|].
-    iIntros "Hc". rewrite delete_insert //. by iApply "Hsim".
+    iIntros "Hc". rewrite delete_insert_id //. by iApply "Hsim".
   Qed.
 
   Lemma sim_bij_store_sc K_t K_s π l_t l_s v_t v_s Φ col :
@@ -355,7 +355,7 @@ Section fix_heap.
     iApply (target_red_load_na with "Hlt"). iIntros "Hlt".
     iApply target_red_base. iModIntro.
     iApply (sim_bij_release (NaRead _) with "Hbij Hc Hlt Hls Hv"); [by simplify_map_eq|].
-    iIntros "Hc". rewrite delete_insert //. by iApply "Hsim".
+    iIntros "Hc". rewrite delete_insert_id //. by iApply "Hsim".
   Qed.
 
   Lemma sim_bij_load_sc π l_t l_s Φ col :

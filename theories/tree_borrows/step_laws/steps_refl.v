@@ -69,7 +69,7 @@ Proof.
     iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
     destruct Ht2 as (Hlt&Ht2); split. 1: simpl; lia.
     rewrite /= /α_s' /= /extend_trees /=. destruct (decide (l'.1 = blk)) as [<-|Hf].
-    + rewrite lookup_insert. right. intros Hc%init_tree_contains_only. lia.
+    + rewrite lookup_insert_eq. right. intros Hc%init_tree_contains_only. lia.
     + rewrite lookup_insert_ne //.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.

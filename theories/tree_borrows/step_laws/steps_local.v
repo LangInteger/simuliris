@@ -158,7 +158,7 @@ Proof.
     iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
     destruct (decide (l.1 = blk ∧ off_hl ≤ l.2 < off_hl + length v_t')) as [(<-&Hrange)|Hout].
     { iRight. iExists t. iPureIntro. exists tk_local. split; first done. split; last by left.
-      rewrite /heaplet_lookup lookup_insert /=. destruct (list_to_heaplet v_t' off_hl !! l.2) eqn:HH; first done.
+      rewrite /heaplet_lookup lookup_insert_eq /=. destruct (list_to_heaplet v_t' off_hl !! l.2) eqn:HH; first done.
       eapply list_to_heaplet_lookup_None in HH. lia. }
     { iDestruct ("Hsrel" $! l Hl) as "[H|%Hpriv]".
       - iLeft. iIntros (sc Hsc). iApply "H".
@@ -173,7 +173,7 @@ Proof.
     exists tk. split; first done. rewrite /heaplet_lookup /=.
     destruct (decide ((t, blk) = (itag it', l.1))) as [Heq|Hne].
     2: by rewrite lookup_insert_ne.
-    rewrite Heq lookup_insert /=. eapply elem_of_dom, list_to_heaplet_dom.
+    rewrite Heq lookup_insert_eq /=. eapply elem_of_dom, list_to_heaplet_dom.
     rewrite -Hlength. eapply list_to_heaplet_dom, elem_of_dom. rewrite /heaplet_lookup -Heq Hhl /= // in Hhltk.
   - destruct Htag_interp as (Ht1&Ht2&Ht3&Ht4&Ht5). split_and!.
     + intros t' tk' Htk'. destruct (Ht1 t' tk' Htk') as (HHt1&HHt2&HHtlocal&HHt3&HHt4&HHt5). split_and!.
@@ -381,7 +381,7 @@ Proof.
     iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
     destruct Ht2 as (Hlt&Ht2); split. 1: simpl; lia.
     rewrite /= /α_s' /= /extend_trees /=. destruct (decide (l'.1 = blk)) as [<-|Hf].
-    + rewrite lookup_insert. right. intros Hc%init_tree_contains_only. lia.
+    + rewrite lookup_insert_eq. right. intros Hc%init_tree_contains_only. lia.
     + rewrite lookup_insert_ne //.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.
@@ -397,7 +397,7 @@ Proof.
       apply init_mem_lookup_fresh_inv in Hsc as Hsc'; last eapply is_fresh_block.
       destruct Hsc' as [([= ->] & -> & Hpos & Hlt)|[([=] & _)|(Hthru&Hne)]].
       * iRight. iPureIntro. exists nt, tk_local. subst vs.
-        rewrite /heaplet_lookup !lookup_insert /=. split; first done.
+        rewrite /heaplet_lookup !lookup_insert_eq /=. split; first done.
         split. 1: eapply elem_of_dom, list_to_heaplet_dom; rewrite length_replicate; lia.
         by left.
       * iDestruct "Hsrel" as "(_&_&_&_&_&Hsrel)".
@@ -578,7 +578,7 @@ Proof.
     iIntros (t' l' Htl'). iDestruct ("Ht2" $! t' l' Htl') as "($&%Ht2)". iPureIntro.
     destruct Ht2 as (Hlt&Ht2); split. 1: simpl; lia.
     rewrite /=. destruct (decide (l'.1 = l.1)) as [Heq|Hf].
-    + rewrite Heq lookup_delete //.
+    + rewrite Heq lookup_delete_eq //.
     + rewrite lookup_delete_ne //. eapply apply_within_trees_lookup in Happly_s as (_&H2). rewrite -H2 //.
   - (* pub cid *)
     iApply (pub_cid_interp_preserve_sub with "Hpub_cid"); simpl; done.

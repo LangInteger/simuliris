@@ -333,11 +333,11 @@ Proof.
   destruct kind.
   - destruct (replace_check_is_Some cids (take i stk)) as [? Eq2];
       [|rewrite Eq2 /=; by eexists].
-    intros jt [j Eqj]%elem_of_list_lookup_1 IU.
+    intros jt [j Eqj]%list_elem_of_lookup_1 IU.
     have ?: (j < i)%nat.
     { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
     destruct (Lti j jt) as [Eq1 PR]; [done|..].
-    + symmetry. by rewrite -Eqj lookup_take.
+    + symmetry. by rewrite -Eqj lookup_take_lt.
     + move : PR. by rewrite /= IU.
   - destruct (find_first_write_incompatible_is_Some (take i stk) it.(perm))
       as [idx Eqx]; [done|by apply IW|]. rewrite Eqx /=.
@@ -348,7 +348,7 @@ Proof.
       have ?: (j < i)%nat.
       { rewrite -(length_take_le stk i); [|done]. by eapply lookup_lt_Some. }
       destruct (Lti j jt) as [Eq1 PR]; [done|..].
-      * symmetry. by rewrite -Eqj lookup_take.
+      * symmetry. by rewrite -Eqj lookup_take_lt.
       * move : PR. by rewrite /= Eqx decide_True.
 Qed.
 
@@ -382,7 +382,7 @@ Lemma copy_base_step' P (σ: state) l bor T v α (WF: state_wf σ) :
   base_step P (Copy (Place l bor T)) σ (Val v) σ' [].
 Proof.
   intros RM. econstructor; econstructor; eauto.
-  (*move => l1 [t1|//] /elem_of_list_lookup [i Eqi].*)
+  (*move => l1 [t1|//] /list_elem_of_lookup [i Eqi].*)
   (*apply (state_wf_mem_tag _ WF (l +ₗ i) l1).*)
   (*destruct (read_mem_values _ _ _ _ RM) as [Eq1 Eq2].*)
   (*rewrite Eq2; [done|]. rewrite -Eq1. by eapply lookup_lt_Some.*)
@@ -617,7 +617,7 @@ Proof.
   intros access ACC. rewrite /grant.
   destruct (find_granting_is_Some stk access old) as [[i pi] Eqi].
   { destruct ACC as (i & it & Eqi & ND & NEq & Eqt & Lt).
-    exists it. split; [by eapply elem_of_list_lookup_2|].
+    exists it. split; [by eapply list_elem_of_lookup_2|].
     do 2 (split; [done|]). intros Eqa. apply NEq. by rewrite Eqa. }
   rewrite Eqi. cbn -[item_insert_dedup].
   destruct (access1_is_Some _ _ _ _ ACC) as [[i' stk'] Eq].

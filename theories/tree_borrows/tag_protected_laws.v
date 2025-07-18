@@ -106,7 +106,7 @@ Proof.
   pose proof Hwithin as (postread&Hread&Hdealloc)%bind_Some.
   eapply tag_protected_preserved_by_access in Hread as HH. 2-4: done.
   destruct (decide (l.1 = blk)) as [<-|Hout], ps as [|ae].
-  - clear HH. intros it (tr&Htr&Hit). by rewrite lookup_delete in Htr.
+  - clear HH. intros it (tr&Htr&Hit). by rewrite lookup_delete_eq in Htr.
   - exfalso. destruct HH as (it & (tr & Htr & Hlu) & Hprot & Hstrong & Hweak & Hinit).
     destruct ae; last first.
     { destruct Hpreprot as (it' & (tr' & Htr' & Hlu') & Hprot' & Hstrong' & Hweak' & Hinit'). destruct l.
@@ -146,7 +146,7 @@ Proof.
   destruct (decide (l.1 = blk)%Z) as [<-|Hdiffblk]; last first.
   { exists tt. split; last done. by rewrite lookup_insert_ne. }
   assert (tt = tr) as <- by congruence.
-  exists tr'. split; first by rewrite lookup_insert.
+  exists tr'. split; first by rewrite lookup_insert_eq.
   destruct Hit as (Hin&Hlu). split.
   - eapply insertion_preserves_tags. 2: done. done.
   - eapply create_child_preserves_determined. 2: apply Hlu. 2: eapply Hcreate.
@@ -162,7 +162,7 @@ Proof.
   eapply Hprot. destruct Hlu as (tt&Htt&Hit).
   destruct (decide (l.1 = blk)%Z) as [<-|Hdiffblk]; last first.
   { exists tt. split; last done. by rewrite lookup_insert_ne in Htt. }
-  rewrite lookup_insert in Htt.
+  rewrite lookup_insert_eq in Htt.
   assert (tt = tr') as -> by congruence.
   exists tr. split; first done.
   destruct Hit as (Hin&Hlu). split.
@@ -208,12 +208,12 @@ Lemma tag_protected_preserved_by_access_tree tg_acc tg_prs loff C c tr tr' acc o
 Proof.
   intros H1 H2 H3 H4.
   eapply wf_tree_wf_singleton_any in H1.
-  eassert ({[loff.1 := tr]} !! _ = Some tr) as Hlu by eapply lookup_singleton.
-  eassert ({[loff.1 := tr']} !! _ = Some tr') as Hlu' by eapply lookup_singleton.
+  eassert ({[loff.1 := tr]} !! _ = Some tr) as Hlu by eapply lookup_singleton_eq.
+  eassert ({[loff.1 := tr']} !! _ = Some tr') as Hlu' by eapply lookup_singleton_eq.
   setoid_rewrite tag_protected_for_tree_spec; last done.
   eapply tag_protected_preserved_by_access. 1: done. 2: done.
   - rewrite /apply_within_trees /=. setoid_rewrite Hlu. rewrite /=. erewrite H2.
-    rewrite /= insert_singleton //.
+    rewrite /= insert_singleton_eq //.
   - eapply tag_protected_for_tree_spec; done.
 Qed.
 
@@ -309,7 +309,7 @@ Proof.
   split; last first.
   { intros c1 M1 c2 M2 t (?&?)%lookup_delete_Some (?&?)%lookup_delete_Some. by eapply Hinj. }
   intros c' M' Hsome. destruct (decide (c' = c)) as [-> | Hneq].
-  { rewrite lookup_delete in Hsome. done. }
+  { rewrite lookup_delete_eq in Hsome. done. }
   rewrite lookup_delete_ne in Hsome; last done.
   apply Hinterp in Hsome as (Hin & Hpid).
   split.

@@ -66,7 +66,7 @@ Section eliminations.
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. target_load. sim_val. source_load. sim_pures.
     iApply (sim_bij_release (NaRead _) with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
-    iIntros "Hc". rewrite delete_insert //.
+    iIntros "Hc". rewrite delete_insert_id //.
     sim_val => /=. iModIntro. iFrame "∗Hv".
   Qed.
 
@@ -81,7 +81,7 @@ Section eliminations.
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_store. target_store. sim_val. source_load. sim_pures.
     iApply (sim_bij_release NaExcl with "Hv1 Hc [$] [$] Hv2"); [by simplify_map_eq| ].
-    iIntros "Hc". rewrite delete_insert //.
+    iIntros "Hc". rewrite delete_insert_id //.
     sim_val => /=. iModIntro. iFrame "∗Hv2".
   Qed.
 
@@ -106,7 +106,7 @@ Section eliminations.
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. target_load. source_store. sim_pures.
     iApply (sim_bij_release NaExcl with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
-    iIntros "Hc". rewrite delete_insert //.
+    iIntros "Hc". rewrite delete_insert_id //.
     sim_val => /=. iModIntro. iFrame "∗Hv".
   Qed.
 
@@ -121,7 +121,7 @@ Section eliminations.
     iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_store. target_store. sim_val. source_store.
     iApply (sim_bij_release NaExcl with "Hv2 Hc [$] [$] Hv1"); [by simplify_map_eq| ].
-    iIntros "Hc". rewrite delete_insert //.
+    iIntros "Hc". rewrite delete_insert_id //.
     sim_val => /=. iModIntro. by iFrame.
   Qed.
 
@@ -136,7 +136,7 @@ Section eliminations.
     iIntros (q v_t v_s) "Hl_t Hl_s #Hv Hc".
     source_load. sim_val. sim_pures.
     iApply (sim_bij_release (NaRead _) with "Hv1 Hc [$] [$] Hv"); [by simplify_map_eq| ].
-    iIntros "Hc". rewrite delete_insert //.
+    iIntros "Hc". rewrite delete_insert_id //.
     sim_val => /=. iModIntro. by iFrame.
   Qed.
 
@@ -218,7 +218,7 @@ Section reorderings.
       iIntros (v_t' v_s') "#? Hc". rewrite /pointsto_list /=.
       iIntros "[(?&?&_&_) _]". sim_val. target_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hx Hc [$] [$] Hv"); [by simplify_map_eq| ].
-      iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. iFrame. by iSplit.
+      iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. iFrame. by iSplit.
     - iApply (sim_bij_exploit_load with "Hy Hc"); [|done|].
       { intros. safe_reach_bind (Load _ _)%E.
         eapply safe_reach_safe_implies; first apply _.
@@ -235,7 +235,7 @@ Section reorderings.
       iIntros (v_t' v_s') "#? Hc". rewrite /pointsto_list /=.
       iIntros "[(?&?&_&_) _]". sim_val. source_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hy Hc [$] [$] Hv"); [by simplify_map_eq| ].
-      iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. iFrame. by iSplit.
+      iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. iFrame. by iSplit.
   Qed.
 
   Lemma R_WW_sim o1 o2 x y:
@@ -277,7 +277,7 @@ Section reorderings.
         apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros "Hc /=". source_store.
       iApply (sim_bij_release NaExcl with "Hy Hc [$] [$] Hr2"); [by simplify_map_eq| ].
-      iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
+      iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. by iFrame.
     - iApply (sim_bij_exploit_store with "Hx Hc"); [|done|].
       { intros. safe_reach_fill (_ <- _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
@@ -286,7 +286,7 @@ Section reorderings.
       { rewrite lookup_insert_ne //. move => ?. simplify_eq. }
       iIntros "Hc". sim_val. target_store.
       iApply (sim_bij_release NaExcl with "Hx Hc [$] [$] Hr1"); [by simplify_map_eq| ].
-      iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
+      iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. by iFrame.
   Qed.
 
   Lemma R_WR_sim o1 o2 x y:
@@ -329,7 +329,7 @@ Section reorderings.
         safe_reach_fill (! _)%E. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros "Hc /=". source_load. sim_pures.
       iApply (sim_bij_release (NaRead _) with "Hy Hc [$] [$] Hv"); [by simplify_map_eq| ].
-      iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
+      iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. by iFrame.
     - iApply (sim_bij_exploit_store with "Hx Hc"); [|done|].
       { intros. safe_reach_fill (_ <- _)%E. apply: safe_reach_safe_implies => ?. apply: safe_reach_refl. apply: post_in_ectx_intro. naive_solver. }
       iIntros (v_t v_s) "Hl_t Hl_s #Hv Hc".
@@ -338,7 +338,7 @@ Section reorderings.
       { rewrite lookup_insert_ne //. move => ?. simplify_eq. }
       iIntros (v_t' v_s') "Hv' Hc". sim_val. target_store. sim_pures.
       iApply (sim_bij_release NaExcl with "Hx Hc [$] [$] Hr2"); [by simplify_map_eq| ].
-      iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
+      iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. by iFrame.
   Qed.
 
   Lemma R_RW_sim o1 o2 x y:
@@ -375,6 +375,6 @@ Section reorderings.
     { rewrite lookup_insert_ne //. move => ?. simplify_eq. }
     iIntros (v_t' v_s') "Hv' Hc". sim_val. source_store. sim_pures.
     iApply (sim_bij_release NaExcl with "Hy Hc [$] [$] Hr1"); [by simplify_map_eq| ].
-    iIntros "Hc". rewrite delete_insert //. sim_val. iModIntro. by iFrame.
+    iIntros "Hc". rewrite delete_insert_id //. sim_val. iModIntro. by iFrame.
   Qed.
 End reorderings.

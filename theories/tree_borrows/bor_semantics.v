@@ -133,7 +133,7 @@ Proof.
       assert (~range'_contains ((z' + 1)%Z, sz) z') by (unfold range'_contains; simpl; lia).
       destruct (decide (range'_contains ((z'+1)%Z, sz) z')); [contradiction|].
       rewrite Unchanged.
-      apply lookup_insert.
+      apply lookup_insert_eq.
   (* Case 2: the item is in the middle of the range or completely outside.
      -> the map we get from the aux call is not altered on the location that matters *)
     + simpl in MemForeach.

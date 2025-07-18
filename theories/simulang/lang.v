@@ -806,7 +806,7 @@ Lemma delete_free_mem σ l n o:
   delete l (free_mem (l +ₗ o) n σ) = free_mem (l +ₗ o) n (delete l σ).
 Proof.
   intros HO.
-  induction n as [|n IH] in o, HO|-* => //=. rewrite delete_commute. f_equal.
+  induction n as [|n IH] in o, HO|-* => //=. rewrite delete_delete. f_equal.
   rewrite loc_add_assoc IH; [done | lia].
 Qed.
 
@@ -1116,17 +1116,17 @@ Proof.
   try (f_equal; eauto).
   all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first done end.
   - case_decide.
-    + simplify_eq/=. by rewrite lookup_insert.
+    + simplify_eq/=. by rewrite lookup_insert_eq.
     + rewrite lookup_insert_ne; done.
   - case_decide.
     + rewrite delete_insert_ne; last by congruence. done.
-    + simplify_eq/=. by rewrite delete_insert_delete.
+    + simplify_eq/=. by rewrite delete_insert_eq.
   - case_decide.
     + rewrite delete_insert_ne; last by congruence. done.
-    + simplify_eq/=. by rewrite delete_insert_delete.
+    + simplify_eq/=. by rewrite delete_insert_eq.
   - case_decide.
     + rewrite delete_insert_ne; last by congruence. done.
-    + simplify_eq/=. by rewrite delete_insert_delete.
+    + simplify_eq/=. by rewrite delete_insert_eq.
 Qed.
 
 Lemma subst_subst_map x (v : val) map e :
@@ -1138,21 +1138,21 @@ Proof.
   all: try match goal with |- context[binder_delete ?x _] => destruct x; simpl; first by auto end.
   - match goal with |- context[delete _ _ !! ?s] => rename s into x end.
     destruct (decide (xx=x)) as [->|Hne].
-    + rewrite lookup_delete // lookup_insert //. simpl.
+    + rewrite lookup_delete_eq // lookup_insert_eq //. simpl.
       rewrite decide_True //.
     + rewrite lookup_delete_ne // lookup_insert_ne //.
       destruct (map !! x) as [rr|].
       * by destruct rr.
       * simpl. rewrite decide_False //.
   - case_decide.
-    + rewrite delete_insert_ne //; last congruence. rewrite delete_commute. eauto.
-    + simplify_eq. rewrite delete_idemp delete_insert_delete. done.
+    + rewrite delete_insert_ne //; last congruence. rewrite delete_delete. eauto.
+    + simplify_eq. rewrite delete_delete_eq delete_insert_eq. done.
   - case_decide.
-    + rewrite delete_insert_ne //; last congruence. rewrite delete_commute. eauto.
-    + simplify_eq. rewrite delete_idemp delete_insert_delete. done.
+    + rewrite delete_insert_ne //; last congruence. rewrite delete_delete. eauto.
+    + simplify_eq. rewrite delete_delete_eq delete_insert_eq. done.
   - case_decide.
-    + rewrite delete_insert_ne //; last congruence. rewrite delete_commute. eauto.
-    + simplify_eq. rewrite delete_idemp delete_insert_delete. done.
+    + rewrite delete_insert_ne //; last congruence. rewrite delete_delete. eauto.
+    + simplify_eq. rewrite delete_delete_eq delete_insert_eq. done.
 Qed.
 
 Lemma subst_map_singleton x v e :
@@ -1205,7 +1205,7 @@ Local Lemma binder_delete_eq x y (xs1 xs2 : gmap string val) :
 Proof.
   destruct y as [|s]; first done. simpl.
   destruct (decide (s = x)) as [->|Hne].
-  - rewrite !lookup_delete //.
+  - rewrite !lookup_delete_eq //.
   - rewrite !lookup_delete_ne //. eauto.
 Qed.
 
@@ -1248,7 +1248,7 @@ Lemma free_vars_subst_map xs e :
 Proof.
   induction xs as [| x v xs HNone IH] using map_ind.
   - rewrite subst_map_empty. set_solver.
-  - rewrite -subst_subst_map delete_notin // free_vars_subst IH. set_solver.
+  - rewrite -subst_subst_map delete_id // free_vars_subst IH. set_solver.
 Qed.
 
 (* Proving the mixin *)

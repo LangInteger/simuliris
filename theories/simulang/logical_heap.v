@@ -529,12 +529,12 @@ Section heap.
     apply local_update_total_valid=> _ Hvalid _.
     assert (([^op list] k↦y ∈ zip sts vl,
       {[l +ₗ (1 + k) := (1%Qp, to_lock_stateR y.1, to_agree y.2)]} : heapUR) !! l = None).
-    { move: (Hvalid l). rewrite lookup_op lookup_singleton.
+    { move: (Hvalid l). rewrite lookup_op lookup_singleton_eq.
       by move=> /(cmra_discrete_valid_iff 0) /exclusiveN_Some_l. }
     rewrite -insert_singleton_op //. etrans.
     { apply (delete_local_update _ _ l (1%Qp, to_lock_stateR st, to_agree v)).
-      by rewrite lookup_insert. }
-    rewrite delete_insert // -to_heap_delete delete_free_mem; [|done].
+      by rewrite lookup_insert_eq. }
+    rewrite delete_insert_id // -to_heap_delete delete_free_mem; [|done].
     setoid_rewrite <-loc_add_assoc. by apply IH.
   Qed.
 

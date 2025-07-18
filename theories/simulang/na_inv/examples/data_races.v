@@ -64,7 +64,7 @@ Section data_race.
     generalize (z + z)%Z => z'.
     target_store. sim_pures. source_load.
     iApply (sim_bij_release NaExcl with "Hl Hc [$] [$] []"); [ by simplify_map_eq| done| ].
-    iIntros "Hc". rewrite delete_insert //.
+    iIntros "Hc". rewrite delete_insert_id //.
     sim_val. iFrame. done.
   Qed.
 
@@ -171,8 +171,8 @@ Section data_race.
         (* cleanup *)
         source_free. source_free. target_free. target_free. sim_pures.
         iApply (sim_bij_release (NaRead qx) with "Hbij_x Hc Hx_t Hx_s [//]").
-        { apply lookup_insert. }
-        rewrite delete_insert; last done. iIntros "Hc".
+        { apply lookup_insert_eq. }
+        rewrite delete_insert_id; last done. iIntros "Hc".
         sim_val. eauto.
       + (* compare unequal and take another trip around the loop *)
         apply bool_decide_eq_false_1 in Heq_vx_s.
@@ -245,12 +245,12 @@ Section data_race.
         (* cleanup *)
         source_free. source_free. target_free. target_free. sim_pures.
         iApply (sim_bij_release (NaRead qy) with "Hbij_y Hc Hy_t Hy_s [//]").
-        { apply lookup_insert. }
-        rewrite delete_insert; last by rewrite lookup_insert_ne.
+        { apply lookup_insert_eq. }
+        rewrite delete_insert_id; last by rewrite lookup_insert_ne.
         iIntros "Hc".
         iApply (sim_bij_release (NaRead qx) with "Hbij_x Hc Hx_t Hx_s [//]").
-        { apply lookup_insert. }
-        rewrite delete_insert; last done. iIntros "Hc".
+        { apply lookup_insert_eq. }
+        rewrite delete_insert_id; last done. iIntros "Hc".
         sim_val. eauto.
       + (* compare unequal and take another trip around the loop *)
         apply bool_decide_eq_false_1 in Heq_vy_s.
@@ -361,8 +361,8 @@ Section data_race.
       (* cleanup *)
       source_free. source_free. target_free. target_free. sim_pures.
       iApply (sim_bij_release (NaRead q) with "Hbij Hc Hl_t Hl_s [//]").
-      { apply lookup_insert. }
-      rewrite delete_insert; last done. iIntros "Hc".
+      { apply lookup_insert_eq. }
+      rewrite delete_insert_id; last done. iIntros "Hc".
       sim_val. eauto.
     - (* compare unequal and take another trip around the loop *)
       apply bool_decide_eq_false_1 in Heq_v_s.
@@ -525,7 +525,7 @@ Section data_race.
         }
         iIntros "Hc".
         iApply (sim_bij_release (NaRead _) with "Hbij Hc [$] [$] Hv"); [by simplify_map_eq| ].
-        iIntros "Hc". rewrite delete_insert //.
+        iIntros "Hc". rewrite delete_insert_id //.
         sim_val. sim_pures. sim_val; by iFrame.
   Qed.
 

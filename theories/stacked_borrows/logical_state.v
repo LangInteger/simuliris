@@ -141,8 +141,8 @@ Section bijection_lemmas.
     do 4 (iSplitR; first done).
     iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
     - iLeft. iIntros (sc_t') "%Hsc_t'". iExists sc_s.
-      iSplitR. { iPureIntro. by rewrite lookup_insert. }
-      move :Hsc_t'; rewrite lookup_insert => [= <-] //.
+      iSplitR. { iPureIntro. by rewrite lookup_insert_eq. }
+      move :Hsc_t'; rewrite lookup_insert_eq => [= <-] //.
     - rewrite lookup_insert_ne in Hsome; last done.
       iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | Hpriv]".
       + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done | done]. iApply "Hpub".
@@ -273,7 +273,7 @@ Section call_defs.
     call_set_interp (delete c M) (state_upd_calls (.∖ {[c]}) σ).
   Proof.
     intros Hinterp c' M' Hsome. destruct (decide (c' = c)) as [-> | Hneq].
-    { rewrite lookup_delete in Hsome. done. }
+    { rewrite lookup_delete_eq in Hsome. done. }
     rewrite lookup_delete_ne in Hsome; last done.
     apply Hinterp in Hsome as (Hin & Hpid).
     split.
@@ -383,7 +383,7 @@ Section heap_defs.
     loc_controlled l t tk sc' (state_upd_mem <[l := sc']> σ).
   Proof.
     intros Him Hpre. apply Him in Hpre as [Hown Hmem]. split; first done.
-    rewrite lookup_insert; done.
+    rewrite lookup_insert_eq; done.
   Qed.
 
   Section local.
@@ -408,10 +408,10 @@ Section heap_defs.
     destruct tk'; last by eauto.
     - intros (st' &  pm & opro &  Hst & Hin & Hpm).
       move : Hst Hin. rewrite Heq.
-      move => [= <-] /elem_of_list_singleton [=]; eauto.
+      move => [= <-] /list_elem_of_singleton [=]; eauto.
     - intros (st' &  pm & opro &  Hst & Hin & Hpm).
       move : Hst Hin. rewrite Heq.
-      move => [= <-] /elem_of_list_singleton [=]; eauto.
+      move => [= <-] /list_elem_of_singleton [=]; eauto.
   Qed.
   Lemma bor_state_local_own_exclusive l t t' tk' σ :
     bor_state_own l t tk_local σ →
@@ -665,8 +665,8 @@ Section public_call_ids.
     iDestruct "Hc" as "[ %Hdead | Halive]".
     { (* contradictory *) exfalso. naive_solver. }
     iFrame "Halive". iExists M. iFrame "Hauth".
-    rewrite -{2}(insert_delete M c ()); last done.
-    rewrite big_sepM_insert; last apply lookup_delete.
+    rewrite -{2}(insert_delete_id M c ()); last done.
+    rewrite big_sepM_insert; last apply lookup_delete_eq.
     iSplitR "Hpubr".
     - iFrame "Hpublic". iLeft. simpl. iPureIntro. split_and!; [set_solver.. | done ].
     - iApply (big_sepM_mono with "Hpubr").
@@ -815,7 +815,7 @@ Section tainted_tags.
     specialize (init_stacks_lookup_case _ _ _ _ _ _ Hstk') as [(Hstk'' & Hi) | (i & Hi & ->)].
     + right. right. eauto.
     + left. simpl. move : Hstk'. rewrite (proj1 (init_stacks_lookup _ _ _ _)); last done.
-      intros [= <-]. move : Hit. rewrite elem_of_list_singleton => -> /=. lia.
+      intros [= <-]. move : Hit. rewrite list_elem_of_singleton => -> /=. lia.
   Qed.
 End tainted_tags.
 
@@ -912,7 +912,7 @@ Proof.
   induction v as [ | sc v IH] in l, i |-*.
   - simpl. lia.
   - simpl. intros Hi. destruct i as [ | i].
-    + rewrite shift_loc_0_nat. rewrite lookup_insert. done.
+    + rewrite shift_loc_0_nat. rewrite lookup_insert_eq. done.
     + rewrite lookup_insert_ne; first last. { destruct l; simpl; intros [= ?]; lia. }
       move : (IH (l +ₗ 1) i ltac:(lia)). rewrite shift_loc_assoc.
       by replace (Z.of_nat (S i)) with (1 + i) by lia.
@@ -985,7 +985,7 @@ Proof.
   intros Hi. induction v as [ | sc' v IH] in l, i, Hi |-*; simpl.
   - rewrite insert_union_singleton_l. rewrite -map_union_assoc. rewrite !map_empty_union.
     by rewrite insert_union_singleton_l.
-  - rewrite insert_commute. 2: { intros [= Heq]. destruct l; simpl in *. injection Heq. lia. }
+  - rewrite insert_insert_ne. 2: { intros [= Heq]. destruct l; simpl in *. injection Heq. lia. }
     rewrite shift_loc_assoc. rewrite -insert_union_l. rewrite (IH l (i + 1)%Z); last lia.
     rewrite -insert_union_l. done.
 Qed.

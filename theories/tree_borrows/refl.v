@@ -404,7 +404,7 @@ Section log_rel.
     iApply (big_sepL2_impl with "IH2").
     iIntros (i e_t' e_s' Hlt Hls) "!# #He". iApply "He"; last done.
     iApply (subst_map_rel_weaken with "[$]").
-    apply elem_of_list_lookup_2 in Hls, Hlt.
+    apply list_elem_of_lookup_2 in Hls, Hlt.
     apply (free_vars_case_2 e_s) in Hls. apply (free_vars_case_2 e_t) in Hlt.
     set_solver+Hls Hlt.
   Qed.

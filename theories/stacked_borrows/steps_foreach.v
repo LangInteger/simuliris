@@ -73,13 +73,13 @@ Proof.
   split; last split.
   - intros i stk Lt Eqi. case (decide (i = n)) => Eq'; [subst i|].
     + rewrite Eqi in Eqn. simplify_eq.
-      rewrite Eqn' IH3; [by rewrite lookup_insert; eexists|].
+      rewrite Eqn' IH3; [by rewrite lookup_insert_eq; eexists|].
       move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + apply IH1; [lia|]. rewrite lookup_insert_ne; [done|].
       by move => /shift_loc_inj /Nat2Z.inj ? //.
   - intros i stk Lt Eqi. case (decide (i = n)) => Eq'; [subst i|].
     + move : Eqi. rewrite IH3.
-      * rewrite lookup_insert. intros. simplify_eq. naive_solver.
+      * rewrite lookup_insert_eq. intros. simplify_eq. naive_solver.
       * move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + destruct (IH2 i stk) as [stk0 [Eq0 Eqf0]]; [lia|done|].
       exists stk0. split; [|done]. move : Eq0. rewrite lookup_insert_ne; [done|].
@@ -133,7 +133,7 @@ Proof.
   split.
   - intros i Lt.
     case (decide (i = n)) => Eq'; [subst i|].
-    + rewrite Eqn. rewrite IH2; [rewrite lookup_insert; naive_solver|].
+    + rewrite Eqn. rewrite IH2; [rewrite lookup_insert_eq; naive_solver|].
       move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + destruct (IH1 i) as (stk & stk' & Eqs & ?); [lia|].
       rewrite lookup_insert_ne in Eqs; [naive_solver|].
@@ -156,7 +156,7 @@ Proof.
   split.
   - intros i Lt.
     case (decide (i = n)) => Eq'; [subst i|].
-    + rewrite Eqn. rewrite IH2; [rewrite lookup_delete; naive_solver|].
+    + rewrite Eqn. rewrite IH2; [rewrite lookup_delete_eq; naive_solver|].
       move => ?? /shift_loc_inj /Nat2Z.inj ?. by lia.
     + destruct (IH1 i) as (stk & stk' & Eqs & ?); [lia|].
       rewrite lookup_delete_ne in Eqs; [naive_solver|].
@@ -176,7 +176,7 @@ Proof.
   destruct (IH (l +ₗ 1) h) as [IH1 IH2].
   split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0_nat lookup_insert //.
+    + rewrite shift_loc_0_nat lookup_insert_eq //.
     + have Eql: l +ₗ S i = (l +ₗ 1) +ₗ i.
       { rewrite shift_loc_assoc. f_equal. lia. }
       rewrite lookup_insert_ne.
@@ -219,7 +219,7 @@ Proof.
   destruct (IH (l +ₗ 1) α) as [IH1 IH2].
   split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0_nat lookup_insert //.
+    + rewrite shift_loc_0_nat lookup_insert_eq //.
     + have Eql: l +ₗ S i = (l +ₗ 1) +ₗ i.
       { rewrite shift_loc_assoc. f_equal. lia. }
       rewrite lookup_insert_ne.

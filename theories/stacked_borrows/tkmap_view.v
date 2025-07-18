@@ -161,7 +161,7 @@ Section rel.
     { naive_solver. }
     induction f as [|k [tk ag] f Hk' IH] using map_ind.
     { exists ∅. split; [|done]. apply: map_Forall_empty. }
-    move: (Hf k). rewrite lookup_insert=> -[/= Hv ?].
+    move: (Hf k). rewrite lookup_insert_eq=> -[/= Hv ?].
     destruct (to_agree_uninjN n ag) as [v ?]; [done|].
     destruct IH as (m & Hm & Hdom).
     { intros k'. destruct (decide (k = k')) as [->|?]; [by rewrite Hk'|].
@@ -169,7 +169,7 @@ Section rel.
     apply tgkR_validN_inv in Hv as (tk' & Htk').
     exists (<[k:=(tk', v)]> m).
     rewrite /tkmap_view_rel /= /tkmap_view_rel_raw map_Forall_insert //=. split_and!.
-    - exists v, tk'. by rewrite lookup_insert Htk'.
+    - exists v, tk'. by rewrite lookup_insert_eq Htk'.
     - eapply map_Forall_impl; [apply Hm|]; simpl.
       intros k' [dq' ag'] (v'&?&?&?). exists v'.
       rewrite lookup_insert_ne; naive_solver.
@@ -238,13 +238,13 @@ Section lemmas.
     split.
     - intros Hrel.
       edestruct (Hrel k) as (v' & tk' & Hagree & Htk & ->).
-      { rewrite lookup_singleton. done. }
+      { rewrite lookup_singleton_eq. done. }
       simpl in *. apply (inj _) in Hagree. rewrite Hagree.
       apply (inj _) in Htk. rewrite Htk.
       done.
     - intros ([tk' v'] & Hs & Hm & Hv')%dist_Some_inv_r' k' [tkr va].
       destruct (decide (k = k')) as [<-|Hne]; last by rewrite lookup_singleton_ne.
-      rewrite lookup_singleton. intros [= <- <-]. simpl in *.
+      rewrite lookup_singleton_eq. intros [= <- <-]. simpl in *.
       exists v', tk'. split_and!; by rewrite ?Hv' ?Hm.
   Qed.
 
@@ -369,9 +369,9 @@ Section lemmas.
       { destruct (bf !! k) as [[tkr' va']|] eqn:Hbf; last done.
         specialize (Hrel _ _ Hbf). destruct Hrel as (v' & tk' & _ & _ & Hm).
         exfalso. rewrite Hm in Hfresh. done. }
-      rewrite lookup_singleton Hbf right_id.
+      rewrite lookup_singleton_eq Hbf right_id.
       intros [= <- <-]. eexists; eexists. do 2 (split; first done).
-      rewrite lookup_insert. done.
+      rewrite lookup_insert_eq. done.
     - rewrite lookup_singleton_ne; last done.
       rewrite left_id=>Hbf.
       specialize (Hrel _ _ Hbf). destruct Hrel as (v' & tk' & ? & ? & Hm).
@@ -402,7 +402,7 @@ Section lemmas.
     apply view_update_dealloc=>n bf Hrel j [tkr va] Hbf /=.
     destruct (decide (j = k)) as [->|Hne].
     - edestruct (Hrel k) as (v' & tk' & _ & Htk & _).
-      { rewrite lookup_op Hbf lookup_singleton -Some_op. done. }
+      { rewrite lookup_op Hbf lookup_singleton_eq -Some_op. done. }
       exfalso.
       assert (Exclusive (to_tgkR tk)) as Hexcl.
       { destruct Htk_eq as [-> | ->]; [apply to_tgkR_local_excl | apply to_tgkR_unq_excl]. }
@@ -424,17 +424,17 @@ Section lemmas.
     rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].
     - assert (bf !! k = None) as Hbf.
       { move: Hrel =>/view_rel_validN /(_ k).
-        rewrite lookup_op lookup_singleton.
+        rewrite lookup_op lookup_singleton_eq.
         destruct (bf !! k) as [[tkr' va']|] eqn:Hbf; last done.
         rewrite Hbf. clear Hbf.
         rewrite -Some_op -pair_op.
         assert (Exclusive (to_tgkR tk)) as Hexcl.
         { destruct Htk_eq as [-> | ->]; [apply to_tgkR_local_excl | apply to_tgkR_unq_excl]. }
         move=>[/= /Hexcl Hdf _]. done. }
-      rewrite Hbf right_id lookup_singleton. clear Hbf.
+      rewrite Hbf right_id lookup_singleton_eq. clear Hbf.
       intros [= <- <-].
       eexists; exists tk. split_and!; [done | done | ].
-      rewrite lookup_insert. done.
+      rewrite lookup_insert_eq. done.
     - rewrite lookup_singleton_ne; last done.
       rewrite left_id=>Hbf.
       edestruct (Hrel j) as (v'' & tk'' & ? & ? & Hm).
@@ -452,9 +452,9 @@ Section lemmas.
   (*Proof.*)
     (*apply view_update_frag=>m n bf Hrel j [df va] /=.*)
     (*rewrite lookup_op. destruct (decide (j = k)) as [->|Hne].*)
-    (*- rewrite lookup_singleton.*)
+    (*- rewrite lookup_singleton_eq.*)
       (*edestruct (Hrel k ((dq, to_agree v) ⋅? bf !! k)) as (v' & Hdf & Hva & Hm).*)
-      (*{ rewrite lookup_op lookup_singleton.*)
+      (*{ rewrite lookup_op lookup_singleton_eq.*)
         (*destruct (bf !! k) eqn:Hbf; by rewrite Hbf. }*)
       (*rewrite Some_op_opM. intros [= Hbf].*)
       (*exists v'. rewrite assoc; split; last done.*)

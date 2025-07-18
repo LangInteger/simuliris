@@ -320,7 +320,7 @@ Section utils.
   Proof.
     intros Htr Httr blk'.
     destruct (decide (blk = blk')) as [Heq|Hne].
-    - rewrite -!Heq !lookup_insert. by econstructor.
+    - rewrite -!Heq !lookup_insert_eq. by econstructor.
     - rewrite !lookup_insert_ne //.
   Qed.
 
@@ -341,7 +341,7 @@ Section utils.
     destruct (fn ttr1) as [ttr1'|] eqn:Hfnttr1; last done.
     rewrite /= in Happly. injection Happly as <-.
     destruct (Hfn ttr1 ttr1' ttr2) as (ttr2' & Hfnttr2 & Heq'); try done.
-    1: by rewrite lookup_insert.
+    1: by rewrite lookup_insert_eq.
     rewrite Hfnttr2 /=. eexists; split; first done.
     by apply trees_equal_insert.
   Qed.
@@ -352,7 +352,7 @@ Section utils.
   Proof.
     intros Htr blk'.
     destruct (decide (blk = blk')) as [Heq|Hne].
-    - rewrite -!Heq !lookup_delete. by econstructor.
+    - rewrite -!Heq !lookup_delete_eq. by econstructor.
     - rewrite !lookup_delete_ne //.
   Qed.
 
@@ -374,7 +374,7 @@ Section utils.
   Proof.
     intros Hwf (tr&Htr&(tr'&Htr'&[= <-])%bind_Some)%bind_Some Heq.
     intros bb. destruct (decide (bb = blk)) as [<-|Hne].
-    - rewrite lookup_insert Htr. econstructor. eapply Heq. 1,3: done. by rewrite lookup_insert.
+    - rewrite lookup_insert_eq Htr. econstructor. eapply Heq. 1,3: done. by rewrite lookup_insert_eq.
     - rewrite lookup_insert_ne //. destruct (trs !! bb) eqn:HHeq. all: rewrite !HHeq. all: econstructor.
       eapply tree_equal_reflexive. eapply wf_tree_tree_item_determined, Hwf, HHeq.
   Qed.

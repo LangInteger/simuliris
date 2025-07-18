@@ -245,7 +245,7 @@ Proof.
   intro blk'; destruct (decide (blk = blk')); intros tr Lookup'.
   all: inversion E; simplify_eq.
   (* Handle the insertion/deletion *)
-  1: rewrite lookup_insert in Lookup'.
+  1: rewrite lookup_insert_eq in Lookup'.
   2: rewrite lookup_insert_ne in Lookup'; [|done].
   all: simplify_eq.
   (* WF impl *)
@@ -329,8 +329,8 @@ Proof.
   rewrite /apply_within_trees /=.
   destruct (trs !! blk) as [tr1|] eqn:Heq; last done.
   rewrite /=. destruct (fn1 tr1) as [tr1b|]; last done.
-  rewrite /= lookup_insert /=. destruct (fn2 tr1b) as [tr1c|]; last done.
-  rewrite /= insert_insert //.
+  rewrite /= lookup_insert_eq /=. destruct (fn2 tr1b) as [tr1c|]; last done.
+  rewrite /= insert_insert_eq //.
 Qed.
 
 Lemma apply_within_trees_same_dom (trs trs' : gmap positive (tree item)) blk fn :
@@ -1490,7 +1490,7 @@ Lemma apply_within_trees_access_compat_protected_parents_not_disabled b blk trs 
 Proof.
   intros (Hwf&_) Hcont H1 H2 (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
   intros blk' tr' [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
-  2: by eapply H2. ospecialize (H1 blk tr1' _). 1: by rewrite lookup_insert.
+  2: by eapply H2. ospecialize (H1 blk tr1' _). 1: by rewrite lookup_insert_eq.
   eapply memory_access_compat_parents_not_disabled.
   1: by eapply Hwf.
   3: by eapply H2. 3: done. 2: done.
@@ -1555,7 +1555,7 @@ Lemma apply_within_trees_deallocate_compat_protected_parents_not_disabled blk tr
 Proof.
   intros (Hwf&_) Hcont H1 H2 (tr1&Htr1&(tr1'&Htr1'&[= <-])%bind_Some)%bind_Some.
   intros blk' tr' [(<-&<-)|(Hne&Hin)]%lookup_insert_Some.
-  2: by eapply H2. ospecialize (H1 blk tr1' _). 1: by rewrite lookup_insert.
+  2: by eapply H2. ospecialize (H1 blk tr1' _). 1: by rewrite lookup_insert_eq.
   eapply memory_deallocate_compat_protected_parents_not_disabled.
   1: by eapply Hwf.
   2: by eapply H2. 2: done. 2: done.
@@ -1667,7 +1667,7 @@ Lemma free_mem_delete h k1 k2 sz : free_mem k1 sz (delete k2 h) = delete k2 (fre
 Proof.
   induction sz as [|n IH] in h,k1|-*.
   - done.
-  - rewrite /= delete_commute. f_equiv. apply IH.
+  - rewrite /= delete_delete. f_equiv. apply IH.
 Qed.
 
 Lemma free_mem_block_dom (blk:block) n (sz:nat) h :
@@ -1697,7 +1697,7 @@ Proof.
     intros m. destruct (Exact (1 + m)) as (HL & HR).
     rewrite //= /shift_loc //= in HL,HR,Exact|-*. split.
     + intros H. assert (m ≠ -1) as Hnneg.
-      * intros ->. rewrite -Z.add_assoc Z.add_opp_diag_r Z.add_0_r lookup_delete in H.
+      * intros ->. rewrite -Z.add_assoc Z.add_opp_diag_r Z.add_0_r lookup_delete_eq in H.
         by apply is_Some_None in H.
       * rewrite Z.add_assoc in HL.
         rewrite lookup_delete_ne in H; first by apply HL in H; lia.
@@ -1852,7 +1852,7 @@ Proof.
     [split; [intros ?; by lia|done]|].
   destruct (IH (l +ₗ 1) (<[l:=v]> h)) as [IH1 IH2]. split.
   - intros i Lt. destruct i as [|i].
-    + rewrite shift_loc_0_nat /=. rewrite IH2; [by rewrite lookup_insert|].
+    + rewrite shift_loc_0_nat /=. rewrite IH2; [by rewrite lookup_insert_eq|].
       move => ? _.
       rewrite shift_loc_assoc -{1}(shift_loc_0 l) => /shift_loc_inj ?. by lia.
     + rewrite /= -IH1; [|lia].  by rewrite shift_loc_assoc -(Nat2Z.inj_add 1).
@@ -2297,10 +2297,10 @@ Proof.
   intros k1 v1 m r Hk1 IH k.
   destruct (fn v1) as [y|] eqn:Hv1; split.
   - intros [(->&->)|(Hne&(vk&Hvk&Hfnvk)%IH)]%lookup_insert_Some.
-    + exists v1; by rewrite lookup_insert.
+    + exists v1; by rewrite lookup_insert_eq.
     + exists vk. rewrite lookup_insert_ne //.
   - intros (v&[(<-&<-)|(Hne&HIH)]%lookup_insert_Some&Hfnv).
-    + rewrite lookup_insert. congruence.
+    + rewrite lookup_insert_eq. congruence.
     + rewrite lookup_insert_ne //. eapply IH. by eexists.
   - intros (vk&Hvk&Hfnvk)%IH. exists vk. rewrite lookup_insert_ne //.
     intros ->; congruence.
@@ -2499,7 +2499,7 @@ Proof.
     intros _ tr Htr.
     rewrite /fn /= /apply_within_trees /= HIHk Htr /= in Hfn.
     eapply bind_Some in Hfn as (tr'&Htr'&[= <-]).
-    exists tr'. rewrite lookup_insert //.
+    exists tr'. rewrite lookup_insert_eq //.
   - destruct (HIH k) as (HIH1&HIH2).
     destruct (HIH kin) as (_&HIHkin).
     specialize (HIHkin Hnin).
@@ -2818,7 +2818,7 @@ Proof.
   intros blk' tr' [(<-&<-)|(Hne&HH)]%lookup_insert_Some.
   2: by eapply H2.
   eapply insert_child_parents_more_init; try done. 1: by eapply H2. 1: by eapply H3.
-  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
+  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert_eq.
 Qed.
 
 Lemma insert_child_parents_more_active cids oldt nxtp pk im rk cid tro trn : 
@@ -2898,7 +2898,7 @@ Proof.
   intros blk' tr' [(<-&<-)|(Hne&HH)]%lookup_insert_Some.
   2: by eapply H2.
   eapply insert_child_parents_more_active; try done. 1: by eapply H2. 1: by eapply H3.
-  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
+  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert_eq.
 Qed.
 
 Lemma insert_child_protected_parents_not_disabled cids oldt nxtp pk im rk cid tro trn : 
@@ -2981,7 +2981,7 @@ Proof.
   intros blk' tr' [(<-&<-)|(Hne&HH)]%lookup_insert_Some.
   2: by eapply H2.
   eapply insert_child_protected_parents_not_disabled; try done. 1: by eapply H2. 1: by eapply H3.
-  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
+  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert_eq.
 Qed.
 
 Lemma insert_child_no_active_cousins cids oldt nxtp pk im rk cid tro trn : 
@@ -3040,7 +3040,7 @@ Proof.
   intros blk' tr' [(<-&<-)|(Hne&HH)]%lookup_insert_Some.
   2: by eapply H2.
   eapply insert_child_no_active_cousins; try done. 1: by eapply H2. 1: by eapply H3.
-  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert.
+  destruct H3' as (H3'&_). eapply H3'. eapply lookup_insert_eq.
 Qed.
 
 Lemma state_wf_nt_not_contained σ blk :
@@ -3108,7 +3108,7 @@ Proof.
   rewrite /trees_contain /trees_at_block in Hroot|-*.
   destruct (trs !! blk') as [tr1|] eqn:Heq. 2: done.
   destruct (decide (blk = blk')) as [->|Hne].
-  - rewrite lookup_insert. assert (tr = tr1) as -> by congruence.
+  - rewrite lookup_insert_eq. assert (tr = tr1) as -> by congruence.
     by eapply insertion_preserves_tags.
   - rewrite lookup_insert_ne // Heq //.
 Qed.
@@ -3147,7 +3147,7 @@ Proof.
   - eapply create_child_roots_compat. 2: done. apply WF.
   - apply WF.
   - eapply bind_Some in RETAG_EFFECT as (x1&Hx1&(x2&Hx2&[= <-])%bind_Some).
-    rewrite /trees_contain /trees_at_block lookup_insert. eapply insertion_contains; last done.
+    rewrite /trees_contain /trees_at_block lookup_insert_eq. eapply insertion_contains; last done.
     by rewrite /trees_contain /trees_at_block Hx1 in EXISTS_TAG.
 Qed.
 

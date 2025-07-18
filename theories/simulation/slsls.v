@@ -526,11 +526,11 @@ Section fix_lang.
       (* we prove that we can stutter the source and still end up at the right place *)
       iSpecialize ("Hcont" with "Hpost"). rewrite sim_expr_unfold.
       iMod ("Hcont" with "[$Hstate]") as "[Val|[Step|Call]]".
-      + iPureIntro. rewrite -fill_comp list_lookup_insert; [ | by apply: lookup_lt_Some].
+      + iPureIntro. rewrite -fill_comp list_lookup_insert_eq; [ | by apply: lookup_lt_Some].
         split; [done|]. apply: pool_safe_no_forks; [done..|].
         apply fill_no_forks. by apply fill_no_forks.
       + iModIntro. iLeft. iDestruct "Val" as (e_s'' σ_s'' Hnf') "[SI HΦ]".
-        iExists e_s'', σ_s''. rewrite list_insert_insert. iFrame. iPureIntro. eapply no_forks_trans, Hnf'.
+        iExists e_s'', σ_s''. rewrite list_insert_insert_eq. iFrame. iPureIntro. eapply no_forks_trans, Hnf'.
         by eapply fill_no_forks.
       + iModIntro. iRight. iLeft.
         iDestruct "Step" as "($ & Step)".
@@ -550,13 +550,13 @@ Section fix_lang.
              by iFrame.
         * iDestruct "Step" as (e_s'' e_s''' σ_s'' σ_s''' efs_s Hforks) "(Hprim & SI & Hsim & Hforks)".
           iModIntro. iRight. iExists e_s'', e_s''', σ_s'', σ_s''', efs_s.
-          rewrite list_insert_insert. iFrame.
+          rewrite list_insert_insert_eq. iFrame.
           iSplit; first by iPureIntro; eauto using no_forks_trans, fill_no_forks.
           iApply (big_sepL2_impl with "Hforks"). clear.
           iIntros "!>" (π' e_t e_s ??) "H". rewrite length_insert. by iRight.
       + iModIntro. iRight. iRight. iDestruct "Call" as (f K_t' v_t K_s'' v_s σ_s'' Hfill Hnf) "(HΩ & SI & Hsim)".
         iExists f, K_t', v_t, K_s'', v_s, σ_s''.
-        rewrite list_insert_insert. iFrame.
+        rewrite list_insert_insert_eq. iFrame.
         iSplit; first by iPureIntro.
         iSplit; first by iPureIntro; eauto using no_forks_trans, fill_no_forks.
         clear. iIntros (v_t v_s) "HΩ". iRight. by iApply "Hsim".
@@ -647,11 +647,11 @@ Section fix_lang.
       iDestruct ("Hmon" with "Hpost") as "[HF|Hpost]"; last first.
       { iModIntro. iLeft. iExists _, _. iFrame. by iPureIntro. }
       iMod ("Hlock_step" with "HF [$Hstate ]") as "[Hred Hstep]".
-      { iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
+      { iPureIntro. rewrite list_lookup_insert_eq; [ | by apply: lookup_lt_Some]. split; [done|].
         apply: pool_safe_no_forks; [done..|]. by apply fill_no_forks. }
       iModIntro. iRight. iLeft. iFrame.
       iIntros (e_t' efs_t σ_t' Hprim_t). iMod ("Hstep" with "[//]") as (e_s'' σ_s'' -> Hnfs) "[SI Hjoin]".
-      iModIntro. iRight. rewrite list_insert_insert. iExists e_s', e_s'', σ_s', σ_s'', []; simpl.
+      iModIntro. iRight. rewrite list_insert_insert_eq. iExists e_s', e_s'', σ_s', σ_s'', []; simpl.
       rewrite app_nil_r. iFrame.
       by iPureIntro.
     - iModIntro. iRight; iLeft. iDestruct "Hstep" as "[%Hred Hstep]".
@@ -821,11 +821,11 @@ Section fix_lang.
     iMod ("Hsource" with "[$Hstate //]") as (e_s' σ_s') "(%Hexec & Hstate & Hsim)".
     rewrite {1}sim_expr_unfold.
     iMod ("Hsim" with "[Hstate]") as "Hsim".
-    { iFrame. iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
+    { iFrame. iPureIntro. rewrite list_lookup_insert_eq; [ | by apply: lookup_lt_Some]. split; [done|].
         apply: pool_safe_no_forks; [done..|]. by apply fill_no_forks. }
     iModIntro. iDestruct "Hsim" as "[Hval | [Hstep | Hcall]]".
     - iLeft. iDestruct "Hval" as (e_s'' σ_s'') "(% & Hstate & Hphi)".
-      rewrite list_insert_insert. iExists e_s'', σ_s''. iFrame. iPureIntro. by eapply no_forks_trans.
+      rewrite list_insert_insert_eq. iExists e_s'', σ_s''. iFrame. iPureIntro. by eapply no_forks_trans.
     - iDestruct "Hstep" as "(%&Hstep)". iRight; iLeft.
       iSplitR; first by iPureIntro.
       iIntros (e_t' efs_t σ_t') "Hprim". iMod ("Hstep" with "Hprim") as "[Hstutter | Hred]"; iModIntro.
@@ -837,11 +837,11 @@ Section fix_lang.
         iDestruct "Hstutter" as "(-> & SI & Hsim)"; simpl; iFrame.
         by iPureIntro.
       + iRight. iDestruct "Hred" as (e_s'' e_s''' σ_s'' σ_s''' efs_s) "(%Hnfs & Hstep & Hstate & Hsim & Hfrks)".
-        rewrite list_insert_insert length_insert.
+        rewrite list_insert_insert_eq length_insert.
         iExists e_s'', e_s''', σ_s'', σ_s''', efs_s. iFrame. iPureIntro.
         by eapply no_forks_trans.
     - iDestruct "Hcall" as (f K_t v_t K_s' v_s σ_s'') "(-> & % & Hv & Hstate & Hsim)".
-      iRight; iRight. iExists f, K_t, v_t, K_s', v_s, σ_s''. rewrite list_insert_insert. iFrame.
+      iRight; iRight. iExists f, K_t, v_t, K_s', v_s, σ_s''. rewrite list_insert_insert_eq. iFrame.
       iPureIntro. split; first done.
       by eapply no_forks_trans.
   Qed.
@@ -946,9 +946,9 @@ Section fix_lang.
     { iModIntro. iExists e_s, σ_s. rewrite list_insert_id //. iFrame. iPureIntro. eapply no_forks_refl. }
     iDestruct "Hstep" as (e_s' σ_s') "(% & Hstate & IH)".
     iMod ("IH" with "[$Hstate]") as (e_s'' σ_s'') "(% & Hp & Hs)".
-    { iPureIntro. rewrite list_lookup_insert; [ | by apply: lookup_lt_Some]. split; [done|].
+    { iPureIntro. rewrite list_lookup_insert_eq; [ | by apply: lookup_lt_Some]. split; [done|].
       apply: pool_safe_no_forks; [done..|]. apply fill_no_forks. eauto using no_forks_step, no_forks_refl. }
-    iModIntro. rewrite list_insert_insert.
+    iModIntro. rewrite list_insert_insert_eq.
     iExists e_s'', σ_s''; iFrame. iPureIntro. by apply: no_forks_trans.
   Qed.
 

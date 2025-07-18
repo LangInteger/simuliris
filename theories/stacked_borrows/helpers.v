@@ -25,7 +25,7 @@ Lemma foldr_gmap_insert_lookup `{Countable K} {A C: Type}
 Proof.
   induction cs as [|a' ? IHm]; simpl; [naive_solver|].
   case (decide (f a' = k)) => [->|?].
-  - rewrite lookup_insert. naive_solver.
+  - rewrite lookup_insert_eq. naive_solver.
   - by rewrite lookup_insert_ne.
 Qed.
 
@@ -44,7 +44,7 @@ Lemma foldr_gmap_delete_lookup `{Countable K} {A C: Type}
 Proof.
   induction cs as [|a' ? IHm]; simpl; [naive_solver|].
   case (decide (f a' = k)) => [->|?].
-  - by rewrite lookup_delete.
+  - by rewrite lookup_delete_eq.
   - by rewrite lookup_delete_ne.
 Qed.
 

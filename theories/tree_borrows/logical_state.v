@@ -80,7 +80,7 @@ Lemma heaplet_lookup_insert M k v :
 Proof.
   rewrite /heaplet_lookup /heaplet_insert.
   destruct (M !! (k.1, k.2.1)) as [lv|] eqn:Heq.
-  all: rewrite /= lookup_insert /= lookup_insert //.
+  all: rewrite /= lookup_insert_eq /= lookup_insert_eq //.
 Qed.
 
 Lemma heaplet_lookup_insert_ne M k1 k2 v :
@@ -90,7 +90,7 @@ Proof.
   intros Hne.
   rewrite /heaplet_lookup /heaplet_insert.
   destruct (decide ((k1.1, k1.2.1) = (k2.1, k2.2.1))) as [Hk1eq|Hk1ne].
-  - rewrite -Hk1eq /= lookup_insert /= lookup_insert_ne //.
+  - rewrite -Hk1eq /= lookup_insert_eq /= lookup_insert_ne //.
       1: by destruct (M !! (k1.1, k1.2.1)).
       by destruct k1 as [?[??]], k2 as [?[??]]; simpl in *; congruence.
   - rewrite /= lookup_insert_ne //.
@@ -215,8 +215,8 @@ Section bijection_lemmas.
     do 4 (iSplitR; first done).
     iIntros (l') "%Hsome". destruct (decide (l = l')) as [<- | Hneq].
     - iLeft. iIntros (sc_t') "%Hsc_t'". iExists sc_s.
-      iSplitR. { iPureIntro. by rewrite lookup_insert. }
-      move :Hsc_t'; rewrite lookup_insert => [= <-] //.
+      iSplitR. { iPureIntro. by rewrite lookup_insert_eq. }
+      move :Hsc_t'; rewrite lookup_insert_eq => [= <-] //.
     - rewrite lookup_insert_ne in Hsome; last done.
       iDestruct ("Hrel" $! l' with "[//]") as "[Hpub | Hpriv]".
       + iLeft. iIntros (sc_t'). rewrite !lookup_insert_ne; [ | done | done]. iApply "Hpub".
@@ -462,7 +462,7 @@ Section heap_defs.
     loc_controlled l t tk sc' (state_upd_mem <[l := sc']> σ).
   Proof.
     intros Him Hpre. apply Him in Hpre as [Hown Hmem]. split; first done.
-    rewrite lookup_insert; done.
+    rewrite lookup_insert_eq; done.
   Qed.
 
   (** Domain agreement for the two heap views for source and target *)
@@ -478,9 +478,9 @@ Section heap_defs.
   Proof.
     intros [H1a H1b] Hdom. split; intros l (x&(x1&H1&H2)%bind_Some);
      (destruct (decide (l.1 = blk)) as [<-|Hne];
-      first (rewrite /= lookup_insert in H1; injection H1 as H1)).
-    1: rewrite /heaplet_lookup lookup_insert /= -elem_of_dom -Hdom elem_of_dom H1 H2 //.
-    2: rewrite /heaplet_lookup lookup_insert /= -elem_of_dom Hdom elem_of_dom H1 H2 //.
+      first (rewrite /= lookup_insert_eq in H1; injection H1 as H1)).
+    1: rewrite /heaplet_lookup lookup_insert_eq /= -elem_of_dom -Hdom elem_of_dom H1 H2 //.
+    2: rewrite /heaplet_lookup lookup_insert_eq /= -elem_of_dom Hdom elem_of_dom H1 H2 //.
     all: rewrite /heaplet_lookup /= !lookup_insert_ne // in H1|-*; try congruence.
     1: eapply H1a. 2: eapply H1b.
     all: rewrite /heaplet_lookup /= H1 /= H2 //.
@@ -492,7 +492,7 @@ Section heap_defs.
   Proof.
     intros [H1a H1b]. split; intros l (x&(x1&H1&H2)%bind_Some);
      (destruct (decide (l.1 = blk)) as [<-|Hne];
-      first (rewrite /= lookup_delete /= in H1; try done)).
+      first (rewrite /= lookup_delete_eq /= in H1; try done)).
     all: simpl in H1.
     all: rewrite /heaplet_lookup /= !lookup_delete_ne // in H1|-*; try congruence.
     1: eapply H1a. 2: eapply H1b.
@@ -551,7 +551,7 @@ Section heap_defs.
       + eapply H3l. rewrite /heaplet_lookup H1 /=. eapply elem_of_dom. rewrite H2. by eapply elem_of_dom_2.
       + eapply H3l. rewrite /heaplet_lookup HMo /= HH //.
     - rewrite /heaplet_lookup /=. destruct (decide ((t, blk) = (t', l.1))) as [[= -> ->]|Hne].
-      + rewrite lookup_insert /=. eapply elem_of_dom. rewrite -H2.
+      + rewrite lookup_insert_eq /=. eapply elem_of_dom. rewrite -H2.
         eapply mk_is_Some, H3r in Hx. rewrite /heaplet_lookup /= H1 /= in Hx. by eapply elem_of_dom.
       + rewrite lookup_insert_ne //. by eapply H3r.
   Qed.
@@ -564,7 +564,7 @@ Section heap_defs.
   Proof.
     intros H1 H2 (H3l&H3r); split; intros l [x Hx].
     - rewrite /heaplet_lookup /=. destruct (decide ((t, blk) = (t', l.1))) as [[= -> ->]|Hne].
-      + rewrite lookup_insert /=. eapply elem_of_dom. rewrite -H2.
+      + rewrite lookup_insert_eq /=. eapply elem_of_dom. rewrite -H2.
         eapply mk_is_Some, H3l in Hx. rewrite /heaplet_lookup /= H1 /= in Hx. by eapply elem_of_dom.
       + rewrite lookup_insert_ne //. by eapply H3l.
     - eapply bind_Some in Hx as (Mo&[([= -> ->]&<-)|(Hne&HMo)]%lookup_insert_Some&HH); simpl in *.
@@ -705,8 +705,8 @@ Section public_call_ids.
     iDestruct "Hc" as "[ %Hdead | Halive]".
     { (* contradictory *) exfalso. naive_solver. }
     iFrame "Halive". iExists M. iFrame "Hauth".
-    rewrite -{2}(insert_delete M c ()); last done.
-    rewrite big_sepM_insert; last apply lookup_delete.
+    rewrite -{2}(insert_delete_id M c ()); last done.
+    rewrite big_sepM_insert; last apply lookup_delete_eq.
     iSplitR "Hpubr".
     - iFrame "Hpublic". iLeft. simpl. iPureIntro. split_and!; [set_solver.. | done ].
     - iApply (big_sepM_mono with "Hpubr").
@@ -868,7 +868,7 @@ Lemma list_to_heaplet_empty_length {A} (lst : list A) idx :
 Proof.
   destruct lst as [|a?]; split; intros H; try done.
   exfalso. enough ((∅ : gmap _ _) !! idx = Some a) as Hc by done.
-  rewrite -H lookup_insert //.
+  rewrite -H lookup_insert_eq //.
 Qed.
 
 Lemma list_to_heaplet_lookup_Some {A} (lst : list A) idx lu r :
@@ -895,7 +895,7 @@ Proof.
   induction lst as [|hd tl IH] in idx,off|-*.
   - rewrite /= lookup_empty //.
   - destruct off as [|off].
-    + rewrite /= Z.add_0_r lookup_insert //.
+    + rewrite /= Z.add_0_r lookup_insert_eq //.
     + rewrite /= lookup_insert_ne; last lia.
       rewrite -(IH (idx + 1)). f_equal. lia.
 Qed.
@@ -1106,7 +1106,7 @@ Lemma write_mem_insert l vs hp li vi :
 Proof.
   induction vs as [|v vs IH] in hp,l|-*; first done.
   intros Hli. simpl. rewrite -IH. 2: simpl; lia.
-  f_equal. eapply insert_commute. intros H. subst l. lia.
+  f_equal. eapply insert_insert_ne. intros H. subst l. lia.
 Qed.
 
 Lemma write_range_write_memory l_hl l_wr v_t v_wr v_t' hp :
@@ -1128,7 +1128,7 @@ Proof.
   rewrite write_mem_insert. 2: simpl; lia.
   erewrite Hhp'. eexists; split; first done.
   intros idx Hidx. destruct (decide (idx = base)) as [<-|Hne].
-  + rewrite Hbase lookup_insert -Hwrite list_lookup_insert //.
+  + rewrite Hbase lookup_insert_eq -Hwrite list_lookup_insert_eq //.
     eapply write_range_to_list_same_length in Hvt1. lia.
   + rewrite lookup_insert_ne. 2: injection; lia.
     rewrite (Hi' idx). 2: lia. subst v_t'. by rewrite list_lookup_insert_ne.
@@ -1154,7 +1154,7 @@ Proof.
   rewrite write_mem_insert. 2: simpl; lia.
   erewrite Hhp'. eexists; split; first done.
   intros idx Hidx. destruct idx as [|idx].
-  + rewrite Z.add_0_r. rewrite lookup_insert. simpl. done.
+  + rewrite Z.add_0_r. rewrite lookup_insert_eq. simpl. done.
   + rewrite lookup_insert_ne. 2: injection; lia. simpl.
     rewrite -(Hi' idx). 2: lia. rewrite /shift_loc /=. do 2 f_equal. lia. 
 Qed.
@@ -1167,7 +1167,7 @@ Proof.
   induction vnew as [|v vs IH] in b,vold,i,r|-*; simpl.
   1: intros H; split_and!; try done; lia.
   destruct (decide (i = b ∧ i < length vold)) as [(->&Hlt)|Hne].
-  - rewrite list_lookup_insert. 2: rewrite write_range_to_list_length; lia.
+  - rewrite list_lookup_insert_eq. 2: rewrite write_range_to_list_length; lia.
     intros <-. split; last lia.
     intros _. rewrite Nat.sub_diag /= //.
   - assert (<[ b := v ]> (write_range_to_list (S b) vs vold) !! i = write_range_to_list (S b) vs vold !! i) as ->.
@@ -1186,7 +1186,7 @@ Proof.
   induction vnew as [|v vs IH] in b,vold,i,r|-*; simpl; intros (H1&H2); symmetry.
   1: eapply H2; lia.
   destruct (decide (i = b ∧ i < length vold)) as [(->&Hlt)|Hne].
-  - rewrite list_lookup_insert. 2: rewrite write_range_to_list_length; lia.
+  - rewrite list_lookup_insert_eq. 2: rewrite write_range_to_list_length; lia.
     rewrite Nat.sub_diag /= in H1. eapply H1. lia.
   - assert (<[ b := v ]> (write_range_to_list (S b) vs vold) !! i = write_range_to_list (S b) vs vold !! i) as ->.
     { destruct (decide (i = b)) as [->|Hne2]. 2: by rewrite list_lookup_insert_ne.
