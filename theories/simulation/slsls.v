@@ -889,7 +889,7 @@ Section fix_lang.
   Proof.
     constructor.
     - iIntros (l1 l2 Hne Hne') "H". by iApply source_red_rec_mono.
-    - intros l Hne n e1 e2 Heq. apply (discrete_iff _ _) in Heq as ->. done.
+    - intros l Hne n e1 e2 Heq. apply (discrete_iff _ _ _) in Heq as ->. done.
   Qed.
 
   Definition source_red_def Ψ π := bi_least_fixpoint (source_red_rec Ψ π).
@@ -1076,7 +1076,7 @@ Section fix_lang.
   Proof.
     constructor.
     - iIntros (l1 l2 Hn1 Hn2) "H". by iApply target_red_mon.
-    - intros l Hne n e1 e2 Heq. apply (discrete_iff _ _) in Heq as ->. done.
+    - intros l Hne n e1 e2 Heq. apply (discrete_iff _ _ _) in Heq as ->. done.
   Qed.
 
   Definition target_red_def Ψ := bi_least_fixpoint (target_red_rec Ψ).
