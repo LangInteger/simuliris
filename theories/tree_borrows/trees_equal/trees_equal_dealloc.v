@@ -136,7 +136,7 @@ Section utils.
     simpl in Htrr. eapply is_Some_if_neg in Htrr.
     destruct (Hiteq 0) as (Hloceq&_). simpl.
     rewrite -!Hiprot -!Hloceq !Hiprot1.
-    opose proof (trees_equal_same_protector_end_action _ _ _ _ Heqpw). 1-4: done.
+    opose proof (trees_equal_same_protector_end_action _ _ _ _ Heqpw) as Hspea. 1-4: done.
     rewrite !bool_decide_decide in Htrr.
     destruct decide as [Hisprot|] in Htrr.
     2: rewrite bool_decide_false //.
@@ -147,9 +147,9 @@ Section utils.
     destruct decide as [|Hisatoff] in Htrr; first done.
     rewrite bool_decide_false //.
     intros (off&lp&Hofflp&Hpa)%map_Exists_lookup_1.
-    ospecialize (H2 Hisprot2 Hlu1pw Hitm2 off).
-    eapply Hisatoff. rewrite /item_lookup Hofflp /= in H2.
-    rewrite -H2 in Hpa.
+    ospecialize (Hspea Hisprot2 Hlu1pw Hitm2 off).
+    eapply Hisatoff. rewrite /item_lookup Hofflp /= in Hspea.
+    rewrite -Hspea in Hpa.
     destruct (iperm itm1 !! off) as [lp2|] eqn:Heqoff.
     2: { exfalso; eapply is_Some_None; exact Hpa. }
     simpl in Hpa.
