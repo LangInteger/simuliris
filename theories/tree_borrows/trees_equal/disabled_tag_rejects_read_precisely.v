@@ -119,8 +119,8 @@ Section disabled_tag_rejects_reads_precisely.
     protected_parents_not_disabled C tr →
     no_active_cousins C tr →
     tree_lookup tr tg ittg →
-    (* ReservedIM can be temporarily disabled, we can not handle this *)
-    (∀ l, range'_contains range l → perm (item_lookup ittg l) ≠ ReservedIM) →
+    (* ReservedIM and Cell can be temporarily disabled, we can not handle this *)
+    (∀ l, range'_contains range l → perm (item_lookup ittg l) ≠ ReservedIM ∧ perm (item_lookup ittg l) ≠ Cell) →
     memory_access_maybe_nonchildren_only b AccessRead C tg range tr = None →
     ∃ l, range'_contains range l ∧ (disabled_tag_at C tr tg l ∨
          (* we never have things that have active children, so this case will be contradictory *)
@@ -136,10 +136,11 @@ Section disabled_tag_rejects_reads_precisely.
     eapply mem_apply_range'_fail_condition in HNone as (l&Hl&Hll).
     specialize (Hndis (itag it)). setoid_rewrite every_child_ParentChildIn in Hndis. 2: eapply Hwf.
     2: eapply Hwf, Hit.
-    ospecialize (Hndis it _ (itag it) _ _). 1: apply Hit. 2: left; done. 1: eapply Hwf, Hit.
+    ospecialize (Hndis l it _ (itag it) _ _). 1: apply Hit. 2: left; done. 1: eapply Hwf, Hit.
     eapply every_node_iff_every_lookup in Hndis. 2: { intros x Hx%Hwf. by eapply unique_lookup. }
-    2: apply Hit. specialize (Hndis eq_refl l).
+    2: apply Hit. specialize (Hndis eq_refl).
     exists l. split; first done.
+    rewrite /item_protected_all_parents_not_disabled in Hndis.
     destruct (rel_dec tr tg (itag it)) as [[ii|]|] eqn:Hreldec.
     - destruct b; first done.
       change (default _ _) with (item_lookup it l) in Hll.
@@ -148,8 +149,8 @@ Section disabled_tag_rejects_reads_precisely.
       split; first done.
       rewrite rel_dec_flip2 Hreldec /=. split; first done.
       rewrite /= in Hll.
-      destruct ini, pp as [[]| | | |], (bool_decide (protector_is_active (iprot it) C)) eqn:Hbd; simpl in *; try done.
-      2: { exfalso. ospecialize (Hndis eq_refl _ eq_refl); last done. by eapply bool_decide_eq_true_1. }
+      destruct ini, pp as [|[]| | | |], (bool_decide (protector_is_active (iprot it) C)) eqn:Hbd; simpl in *; try done.
+      2: { exfalso. ospecialize (Hndis eq_refl _). 1: by eapply bool_decide_eq_true_1. by destruct Hndis. }
       split; first done.
       eapply bool_decide_eq_true_1; done.
     - rewrite maybe_non_children_only_no_effect in Hll. 2: done.
@@ -157,25 +158,26 @@ Section disabled_tag_rejects_reads_precisely.
       left. exists tg. econstructor. 1: by rewrite rel_dec_refl.
       1: exact Hittg.
       ospecialize (Hnac _ _ _ _ l Hittg Hit Hreldec).
-      rewrite bool_decide_decide in Hll. destruct (item_lookup it l) as [[] [[]| | | |]] eqn:Heqitl, (decide (protector_is_active (iprot it) C)) as [Hp|].
+      rewrite bool_decide_decide in Hll. destruct (item_lookup it l) as [[] [|[]| | | |]] eqn:Heqitl, (decide (protector_is_active (iprot it) C)) as [Hp|].
       all: simpl in Hll; try discriminate Hll.
-      2: by specialize (Hndis eq_refl Hp eq_refl).
+      2: by destruct (Hndis eq_refl Hp).
       destruct (item_lookup ittg l) as [ini prm] eqn:Heq.
       destruct ini.
-      { destruct prm as [[]| | | |].
-        6: econstructor.
+      { destruct prm as [|[]| | | |].
+        7: econstructor.
         all: (ospecialize (Hnac _ eq_refl); last done).
-        1,2,5: right; rewrite Heq; split; last done; simpl; eauto.
-        2: left; rewrite Heq; done.
-        exfalso. specialize (HNoIM l Hl). rewrite Heq in HNoIM. done. }
+        2,3,6: right; rewrite Heq; split; last done; simpl; eauto.
+        3: left; rewrite Heq; done.
+        all: exfalso; specialize (HNoIM l Hl); rewrite Heq in HNoIM.
+        all: by destruct HNoIM. }
       econstructor.
       econstructor. 1: exact Hreldec. 1: done. 1: done. 1: done.
-      intros ->. specialize (HNoIM l Hl). rewrite Heq in HNoIM. done.
+      all: intros ->; specialize (HNoIM l Hl); rewrite Heq in HNoIM; by destruct HNoIM.
     - left. exists (itag it). econstructor. 1: exact Hreldec. 1: done.
       rewrite maybe_non_children_only_no_effect in Hll. 2: done.
       change (default _ _) with (item_lookup it l) in Hll.
-      destruct (item_lookup it l) as [ini [[]| | | |]] eqn:Heqitl.
-      1-5: rewrite /apply_access_perm /apply_access_perm_inner /= most_init_comm /= Tauto.if_same /= // in Hll.
+      destruct (item_lookup it l) as [ini [|[]| | | |]] eqn:Heqitl.
+      1-6: rewrite /apply_access_perm /apply_access_perm_inner /= most_init_comm /= Tauto.if_same /= // in Hll.
       destruct ini. 1: econstructor 1.
       econstructor 2. econstructor 1.
   Qed.

@@ -56,7 +56,7 @@ Section call_set.
     pseudo_disabled (C1 ∪ {[ nxtc ]}) tr1 tg l p1 cid.
   Proof.
     induction 1 as [|???????? HH]. 1: by econstructor 1.
-    econstructor 2. 1,2,4: done.
+    econstructor 2. 1,2,4,5: done.
     1: eapply protector_is_active_mono; last done; set_solver.
     done.
   Qed.

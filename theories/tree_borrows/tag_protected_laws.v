@@ -10,75 +10,130 @@ From simuliris.tree_borrows Require Import tree_access_laws logical_state inv_ac
 From simuliris.tree_borrows.trees_equal Require Export trees_equal_base random_lemmas.
 From iris.prelude Require Import options.
 
+
+Definition item_protected_for_noinit (P : Prop) (no_children_pred_on : tag → loc → Prop) c it blk off (ps:logical_protector) :=
+      protector_is_for_call c it.(iprot)
+    ∧ protector_matches_strength ps it.(iprot)
+    ∧ (ps = EnsuringAccess WeaklyNoChildren → no_children_pred_on it.(itag) (blk, off))
+      (* we must be initialized, otherwise deallocation could continue *)
+    ∧ (P → (item_lookup it off).(initialized) = PermInit)
+      (* we can never be disabled, as we are protected *)
+    ∧ (item_lookup it off).(perm) ≠ Disabled
+      (* we must not be cell, because protected Cell makes no sense and provides no guarantees *)
+    ∧ (item_lookup it off).(perm) ≠ Cell.
+
+Definition tag_protected_for_noinit (P : Prop) (Q : tag → loc → Prop) c trs l t ps := match ps with
+  EnsuringAccess ae => ∃ it, trees_lookup trs l.1 t it ∧ item_protected_for_noinit P Q c it l.1 l.2 ps
+| Deallocable   => ∀ it, trees_lookup trs l.1 t it → item_protected_for_noinit P Q c it l.1 l.2 ps end.
+
+Lemma into_tag_protected_for_noinit P Q c trs l t ps : 
+  tag_protected_for Q c trs l t ps → tag_protected_for_noinit P Q c trs l t ps.
+Proof.
+  destruct ps.
+  - intros H it Hit. destruct (H it Hit) as (H2&H3&H4&H5&H6&H7). split_and!; done.
+  - intros (it&H1&H2&H3&H4&H5&H6&H7). exists it; split; last split_and!. all: done.
+Qed.
+
 (* TODO move somewhere else *)
 Lemma tag_protected_preserved_by_access_strong tg_acc tg_prs l C c trs trs' acc blk off sz b P ae:
   wf_trees trs →
   apply_within_trees (memory_access_maybe_nonchildren_only b acc C tg_acc (off, sz)) blk trs = Some trs' →
   call_is_active c C →
-  tag_protected_for P c trs  l tg_prs (EnsuringAccess ae) →
+  tag_protected_for_noinit (¬ (blk = l.1 ∧ tg_prs = tg_acc ∧ off ≤ l.2 < off + sz)) P c trs  l tg_prs (EnsuringAccess ae) →
   tag_protected_for P c trs' l tg_prs (EnsuringAccess ae).
 Proof.
-  intros Hwf Hwithin Hcall (it & Hlu & Hprot & Hstrong & Hweak & Hinit).
+  intros Hwf Hwithin Hcall (it & Hlu & Hprot & Hstrong & Hweak & Hinit & Hndis & Hcell).
   destruct (decide (l.1 = blk ∧ (off ≤ l.2 < off + sz))%Z) as [(<- & Hin)|Hout].
   - pose proof Hlu as Hlu2. eapply apply_trees_access_lookup_general in Hlu2 as (itnew & Hlunew & Heqinit & Heqprot & Hacc); [|done..].
     exists itnew. split; first done. rewrite /item_protected_for -Heqprot.
     assert (itag it = itag itnew) as Heqitag by by repeat erewrite trees_lookup_correct_tag.
     rewrite -Heqitag. 
     do 3 (split; first done).
-    intros Hperminit.
     assert (protector_is_active (iprot itnew) C) as Hactive.
     { exists c. rewrite -Heqprot. done. }
-    edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq].
-    2: { erewrite Heq in Hacc. injection Hacc as Hacc. rewrite -Hacc.
-         eapply Hinit. rewrite Hacc. done. }
-    rewrite Heq in Hacc.
+    edestruct maybe_non_children_only_effect_or_nop_strong as [(Heq&_)|(Heq&Hwhy)].
+    2: { erewrite Heq in Hacc. injection Hacc as Hacc. rewrite -Hacc. split; last done.
+         eapply Hinit. intros (_&->&_). rewrite trees_rel_dec_refl in Hwhy. by destruct Hwhy as (?&?&?). }
+    erewrite Heq in Hacc.
     apply bind_Some in Hacc as (perm1 & Hacc & (perm2 & Htrigger & [= Heqperm])%bind_Some).
-    rewrite -Heqperm /= in Hperminit |- *.
     rewrite (bool_decide_eq_true_2 _ Hactive) /= in Hacc, Htrigger.
     rewrite /apply_access_perm_inner in Hacc.
-    
-    destruct (initialized (item_lookup it l.2)); simpl in *;
-      [ specialize (Hinit eq_refl) | ].
-    all: destruct trees_rel_dec eqn:Hreldec; destruct acc; destruct (perm (item_lookup it l.2)) as [[]| | | |] eqn:Hpermold; simpl in *; simplify_eq; try done;
-         repeat (simplify_eq; try done; (try simpl in Htrigger); simplify_eq; try done).
+    assert (initialized (item_lookup itnew l.2) = PermInit) as Hinitnew.
+    { rewrite -Heqperm. destruct (decide (tg_acc = tg_prs)) as [->|Hne].
+      * rewrite trees_rel_dec_refl most_init_comm //.
+      * rewrite Hinit //. intros (_&->&_). done. }
+    split_and!.
+    + done.
+    + rewrite -Heqperm /= in Hinitnew|-*. rewrite Hinitnew /= in Htrigger.
+      intros ->. clear -Htrigger. by case_match.
+    + intros Hcello. rewrite -Heqperm /= in Hcello. subst perm2.
+      assert (perm1 = Cell) as ->.
+      { clear -Htrigger. repeat (case_match; simplify_eq; try done). }
+      enough (perm (item_lookup it l.2) = Cell) as HH by done.
+      clear -Hacc. repeat (case_match; simplify_eq; try done).
   - eapply apply_trees_access_lookup_outside in Hlu as Hlu2; [|done..].
     destruct Hlu2 as (itnew & Hlunew & Heqinit & Heqprot & Hacc).
     exists itnew. split; first done. rewrite /item_protected_for -Heqprot.
     assert (itag it = itag itnew) as Heqitag by by repeat erewrite trees_lookup_correct_tag.
     rewrite -Heqitag. 
     do 2 (split; first done).
-    by rewrite -Hacc.
+    rewrite -Hacc. split_and!. 1,3,4: done.
+    eapply Hinit. intros (?&?&?). eapply Hout. done.
 Qed.
+
 Lemma tag_protected_preserved_by_access_weak tg_acc tg_prs l C c trs trs' acc blk off sz b P :
   wf_trees trs →
   apply_within_trees (memory_access_maybe_nonchildren_only b acc C tg_acc (off, sz)) blk trs = Some trs' →
   call_is_active c C →
-  tag_protected_for P c trs  l tg_prs Deallocable →
+  tag_protected_for_noinit (¬ (blk = l.1 ∧ tg_prs = tg_acc ∧ off ≤ l.2 < off + sz)) P c trs  l tg_prs Deallocable →
   tag_protected_for P c trs' l tg_prs Deallocable.
 Proof.
-  intros Hwf Hwithin Hcall Hold it Hlu.
+  intros Hwf Hwithin Hcall Hold.
   destruct (decide (l.1 = blk ∧ (off ≤ l.2 < off + sz))%Z) as [(<- & Hin)|Hout].
-  - eapply apply_trees_access_lookup_general_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
-    specialize (Hold itold Hluold) as (Hprot & Hstrong & Hinit).
+  - intros it Hlu.
+    eapply apply_trees_access_lookup_general_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
+    specialize (Hold itold Hluold) as (Hprot & Hstrong & HP & Hinit & Hndis & Hcell).
     rewrite /item_protected_for -Heqprot.
     do 3 (split; first done).
-    intros Hperminit.
     assert (protector_is_active (iprot it) C) as Hactive.
     { exists c. rewrite -Heqprot. done. }
-    edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq].
-    2: { erewrite Heq in Hacc. injection Hacc as Hacc. rewrite -Hacc.
-         eapply Hinit. rewrite Hacc. done. }
-    rewrite Heq in Hacc.
+    edestruct maybe_non_children_only_effect_or_nop_strong as [(Heq&_)|(Heq&Hwhy)].
+    2: { erewrite Heq in Hacc. injection Hacc as Hacc. rewrite -Hacc. split; last done.
+         eapply Hinit. intros (_&->&_). rewrite trees_rel_dec_refl in Hwhy. by destruct Hwhy as (?&?&?). }
+    erewrite Heq in Hacc.
     apply bind_Some in Hacc as (perm1 & Hacc & (perm2 & Htrigger & [= Heqperm])%bind_Some).
-    rewrite -Heqperm /= in Hperminit |- *.
     rewrite (bool_decide_eq_true_2 _ Hactive) /= in Hacc, Htrigger.
-    rewrite Hperminit in Htrigger.
-    intros ->. by destruct perm1.
-  - eapply apply_trees_access_lookup_outside_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
-    specialize (Hold itold Hluold) as (Hprot & Hstrong & Hweak & Hinit).
+    rewrite /apply_access_perm_inner in Hacc.
+    assert (initialized (item_lookup it l.2) = PermInit) as Hinitnew.
+    { rewrite -Heqperm. destruct (decide (tg_acc = tg_prs)) as [->|Hne].
+      * rewrite trees_rel_dec_refl most_init_comm //.
+      * rewrite Hinit //. intros (_&->&_). done. } split_and!.
+    + done.
+    + rewrite -Heqperm /= in Hinitnew|-*. rewrite Hinitnew /= in Htrigger.
+      intros ->. clear -Htrigger. by case_match.
+    + intros Hcello. rewrite -Heqperm /= in Hcello. subst perm2.
+      assert (perm1 = Cell) as ->.
+      { clear -Htrigger. repeat (case_match; simplify_eq; try done). }
+      enough (perm (item_lookup itold l.2) = Cell) as HH by done.
+      clear -Hacc. repeat (case_match; simplify_eq; try done).
+  - intros it Hlu.
+    eapply apply_trees_access_lookup_outside_rev in Hlu as (itold & Hluold & Heqinit & Heqprot & Hacc); [|done..].
+    specialize (Hold itold Hluold) as (Hprot & Hstrong & Hweak & Hinit&?&?).
     rewrite /item_protected_for -Heqprot.
-    do 3 (split; first done).
-    by rewrite -Hacc.
+    do 2 (split; first done).
+    rewrite -Hacc. split_and!. 1,3,4: done.
+    eapply Hinit. intros (?&?&?). eapply Hout. done.
+Qed.
+Lemma tag_protected_preserved_by_access_init tg_acc tg_prs l C c trs trs' acc blk off sz b ps P:
+  wf_trees trs →
+  apply_within_trees (memory_access_maybe_nonchildren_only b acc C tg_acc (off, sz)) blk trs = Some trs' →
+  call_is_active c C →
+  tag_protected_for_noinit (¬ (blk = l.1 ∧ tg_prs = tg_acc ∧ off ≤ l.2 < off + sz)) P c trs  l tg_prs ps →
+  tag_protected_for P c trs' l tg_prs ps.
+Proof.
+  destruct ps.
+  - eapply tag_protected_preserved_by_access_weak.
+  - eapply tag_protected_preserved_by_access_strong.
 Qed.
 Lemma tag_protected_preserved_by_access tg_acc tg_prs l C c trs trs' acc blk off sz b ps P:
   wf_trees trs →
@@ -87,9 +142,8 @@ Lemma tag_protected_preserved_by_access tg_acc tg_prs l C c trs trs' acc blk off
   tag_protected_for P c trs  l tg_prs ps →
   tag_protected_for P c trs' l tg_prs ps.
 Proof.
-  destruct ps.
-  - eapply tag_protected_preserved_by_access_weak.
-  - eapply tag_protected_preserved_by_access_strong.
+  intros ????. eapply tag_protected_preserved_by_access_init. 1-3: done.
+  eapply into_tag_protected_for_noinit. done.
 Qed.
 
 (* TODO move somewhere else *)
@@ -109,7 +163,7 @@ Proof.
   - clear HH. intros it (tr&Htr&Hit). by rewrite lookup_delete_eq in Htr.
   - exfalso. destruct HH as (it & (tr & Htr & Hlu) & Hprot & Hstrong & Hweak & Hinit).
     destruct ae; last first.
-    { destruct Hpreprot as (it' & (tr' & Htr' & Hlu') & Hprot' & Hstrong' & Hweak' & Hinit'). destruct l.
+    { destruct Hpreprot as (it' & (tr' & Htr' & Hlu') & Hprot' & Hstrong' & Hweak' & Hinit' & Hndis' & Hcell'). destruct l.
       erewrite tree_lookup_correct_tag in Hweak'; last done. 
       eapply HPprotect. 1: done. 3: by eapply Hweak'. 1: done. 1: eexists; split; first done. 2: eapply Hprot'. 1: eapply Hlu'. done.
     }
@@ -121,9 +175,16 @@ Proof.
     eapply is_Some_if_neg in Hcheck.
     rewrite (bool_decide_eq_true_2) /= in Hcheck.
     2: by destruct (iprot it) as [[]|].
+    rewrite (bool_decide_eq_true_2) /= in Hcheck.
+    2: by exists c.
     rewrite /=bool_decide_eq_false in Hcheck.
     eapply Hcheck.
-    exists c. done.
+    rewrite /item_lookup in Hinit. exists l.2.
+    destruct (iperm it !! l.2) as [lp|] eqn:Heq.
+    2: by destruct Hinit.
+    eexists; split; first done. simpl in Hinit.
+    destruct Hinit as (Hi1&Hi2&Hi3).
+    rewrite /protector_end_action Hi1. destruct (perm lp); done.
   - intros it (tr&(Hne&Hin)%lookup_delete_Some&Hit).
     eapply HH. exists tr. split; last done.
     eapply bind_Some in Hdealloc as (tr1&Htr1&(tr2&Htr2&[= Heq])%bind_Some).
@@ -331,7 +392,7 @@ Proof.
   - intros ??. split_and!; try by eapply H. done.
   - destruct H as (?&?&H). eexists; split; first done.
     split_and!; try eapply H. done. 
-  - destruct H as (it&Hit&Hprot&Hstrong&HP1&Hrst).
+  - destruct H as (it&Hit&Hprot&Hstrong&HP1&Hrst1&Hrst2&Hrst3).
     exists it. split; first done. split_and!; try done.
     intros ?; eapply Hweak; try done. by eapply HP1.
   

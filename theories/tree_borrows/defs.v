@@ -31,20 +31,20 @@ Record item_wf (it:item) (nxtp:tag) (nxtc:call_id) := {
 (** Relating the state of the current item with that of its parents.
     The important properties are:
     - an initialized item must have initialized parents,
-    - an Active item must have Active parents,
-    - a protected must not have Disabled parents.
+    - an Active item must have Active parents (or Cell parents),
+    - a protected must not have Disabled parents (except if the protected item is Cell).
  *)
 Definition item_all_more_init itp itc := ∀ l, initialized (item_lookup itc l) = PermInit → initialized (item_lookup itp l) = PermInit.
 Definition parents_more_init (tr : tree item) := ∀ tg, every_child tg item_all_more_init tr.
-Definition item_all_more_active itp itc := ∀ l, perm (item_lookup itc l) = Active → perm (item_lookup itp l) = Active.
+Definition item_all_more_active itp itc := ∀ l, perm (item_lookup itc l) = Active → perm (item_lookup itp l) = Active ∨ perm (item_lookup itp l) = Cell.
 Definition parents_more_active (tr : tree item) := ∀ tg, every_child tg item_all_more_active tr.
 
-Definition item_protected_all_parents_not_disabled C itp itc := ∀ l, initialized (item_lookup itc l) = PermInit → protector_is_active (iprot itc) C → perm (item_lookup itp l) ≠ Disabled.
-Definition protected_parents_not_disabled C (tr : tree item) := ∀ tg, every_child tg (item_protected_all_parents_not_disabled C) tr.
+Definition item_protected_all_parents_not_disabled C l itp itc := initialized (item_lookup itc l) = PermInit → protector_is_active (iprot itc) C → perm (item_lookup itp l) ≠ Disabled ∨ perm (item_lookup itc l) = Cell.
+Definition protected_parents_not_disabled C (tr : tree item) := ∀ tg l, every_child tg (item_protected_all_parents_not_disabled C l) tr.
 
 Definition active_or_prot_init C it off := 
   perm (item_lookup it off) = Active ∨
-  ((protector_is_active it.(iprot) C) ∨ let p := perm (item_lookup it off) in (p = Frozen ∨ p = Reserved ResActivable ∨ p = Reserved ResConflicted)) ∧ initialized (item_lookup it off) = PermInit.
+  ((protector_is_active it.(iprot) C ∧ perm (item_lookup it off) ≠ Cell) ∨ let p := perm (item_lookup it off) in (p = Frozen ∨ p = Reserved ResActivable ∨ p = Reserved ResConflicted)) ∧ initialized (item_lookup it off) = PermInit.
 (* the definition is asymmetric: an active tag only has very restricted foreign cousins *)
 Definition no_active_cousins C tr := ∀ tg1 it1 tg2 it2 off, tree_lookup tr tg1 it1 → tree_lookup tr tg2 it2 → rel_dec tr tg1 tg2 = Foreign Cousin → active_or_prot_init C it1 off → perm (item_lookup it2 off) = Active → False.
 

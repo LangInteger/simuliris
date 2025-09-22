@@ -23,7 +23,7 @@ Section utils.
     pseudo_conflicted C tr' tg l ResActivable.
   Proof.
     intros PseudoC Acc.
-    inversion PseudoC as [|tg_cous it_cous cous_rel [cous_ex cous_det] cous_prot cous_nondis cous_init].
+    inversion PseudoC as [|tg_cous it_cous cous_rel [cous_ex cous_det] cous_prot cous_nondis cous_init cous_noncell].
     destruct (apply_access_spec_per_node cous_ex cous_det Acc)
           as (cous' & cous'_spec & cous'_ex & cous'_det).
     symmetry in cous'_spec.
@@ -57,13 +57,21 @@ Section utils.
         rewrite /item_lookup in cous_init.
         destruct (iperm it_cous !! l) eqn:it_cous_defined;
         rewrite it_cous_defined cous_init //=.
+      * rewrite /item_lookup /= perm'_lookup /=.
+        intros ->. eapply cous_noncell. rewrite /item_lookup /=.
+        assert (perm = Cell) as ->.
+        { clear -perm_check_prot. repeat (case_match; simplify_eq; try done). }
+        clear -perm_apply_inner. rewrite /apply_access_perm_inner in perm_apply_inner.
+        repeat (case_match; simplify_eq; try done).
       * rewrite /item_lookup /= perm'_lookup //.
       * rewrite /item_lookup /= perm'_lookup //.
+      * rewrite /item_lookup /= perm'_lookup /=. done.
     + (* out of range is a lot easier *)
       econstructor.
       * erewrite <- access_same_rel_dec; eassumption.
       * split; eassumption.
       * eassumption.
+      * rewrite /item_lookup /= effect_at_l. assumption.
       * rewrite /item_lookup /= effect_at_l. assumption.
       * rewrite /item_lookup /= effect_at_l. assumption.
   Qed.
@@ -108,6 +116,7 @@ Section utils.
     {p tr tr' tg acc_tg kind range witness loc b}
     (Frz : parent_has_perm p tr tg witness loc)
     (nRIM : p ≠ ReservedIM)
+    (nCell : p ≠ Cell)
     (Cont : tree_contains acc_tg tr)
     (Uni : wf_tree tr)
     (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
@@ -116,7 +125,7 @@ Section utils.
   Proof.
     inversion Frz as [it_witness incl Rel Lookup Perm Init].
     assert (itag it_witness = witness) as <- by by eapply tree_lookup_correct_tag.
-    destruct (parent_has_perm_similarly_disabled_after_access C Lookup Perm nRIM Init Acc) as [it' [Lookup' [Init' Perm']]].
+    destruct (parent_has_perm_similarly_disabled_after_access C Lookup Perm nRIM nCell Init Acc) as [it' [Lookup' [Init' Perm']]].
     intros bd. subst bd. intros Hbd. specialize (Perm' Hbd) as (Hd&Hnoprot).
     econstructor.
     + erewrite <- access_same_rel_dec; eassumption.
@@ -408,15 +417,21 @@ Section utils.
       + inversion Confl1 as [|X1 X2 X3 X4 X5 X6 X7 X8 H]; simplify_eq.
         1: destruct kind, bool_decide in perm1Spec; cbv in perm1Spec; injection perm1Spec as <-; econstructor 1.
         econstructor 2. 1-4: done.
-        intros ->.
-        destruct (bool_decide (protector_is_active (iprot it1) C)), kind, p1 as [[]| | | |]; try discriminate perm1Spec.
-        all: done.
+        * intros ->.
+          destruct (bool_decide (protector_is_active (iprot it1) C)), kind, p1 as [|[]| | | |]; try discriminate perm1Spec.
+          all: done.
+        * intros ->.
+          destruct (bool_decide (protector_is_active (iprot it1) C)), kind, p1 as [|[]| | | |]; try discriminate perm1Spec.
+          all: done.
       + inversion Confl2 as [|X1 X2 X3 X4 X5 X6 X7 X8 H]; simplify_eq.
         1: destruct kind, bool_decide in perm1Spec; cbv in perm2Spec; injection perm2Spec as <-; econstructor 1.
         econstructor 2. 1-4: done.
-        intros ->.
-        destruct (bool_decide (protector_is_active (iprot it2) C)), kind, p2 as [[]| | | |]; try discriminate perm2Spec.
-        all: done.
+        * intros ->.
+          destruct (bool_decide (protector_is_active (iprot it2) C)), kind, p2 as [|[]| | | |]; try discriminate perm1Spec.
+          all: done.
+        * intros ->.
+          destruct (bool_decide (protector_is_active (iprot it2) C)), kind, p2 as [|[]| | | |]; try discriminate perm1Spec.
+          all: done.
     - econstructor.
       + eapply disabled_in_practice_tree_apply_access_irreversible; last eassumption. 2-3: done.
         eassumption.
@@ -427,6 +442,9 @@ Section utils.
         rewrite SameInit.
         case_match; last reflexivity.
         f_equal. f_equal. rewrite SameTg. apply SameRel.
+      + erewrite <-cell_item_apply_access_irreversible; last done.
+        erewrite <-(cell_item_apply_access_irreversible _ (it':=it2')); last done.
+        done.
     - (* Proof idea:
          each item is Reserved. Therefore it can:
          - get a child read: nothing happens
@@ -449,15 +467,20 @@ Section utils.
              rewrite (item_apply_access_effect_on_initialized ItAcc2).
              rewrite -itLookup1 -itLookup2 /=.
              case_match; last reflexivity.
-             f_equal. f_equal. rewrite SameTg. apply SameRel. }
+             f_equal. f_equal. rewrite SameTg. apply SameRel.
+            + erewrite <-cell_item_apply_access_irreversible; last done.
+              erewrite <-(cell_item_apply_access_irreversible _ (it':=it2')); last done.
+              rewrite -itLookup1 -itLookup2. simpl. done. }
       destruct (Hfrzo Forwards trd') as (p'&Hfrzalmost&Hfrz').
       1: destruct d; first done. 1: eapply tree_equal_sym in HeqTree; exact HeqTree.
       rewrite SameRel SameTg in ItAcc1.
+      epose proof (cell_item_apply_access_irreversible _ ItAcc1 l) as ItAcc1Cell.
+      epose proof (cell_item_apply_access_irreversible _ ItAcc2 l) as ItAcc2Cell.
       rewrite bind_Some in ItAcc1; destruct ItAcc1 as [perms1' [perms1'Spec it1'Spec]].
       rewrite bind_Some in ItAcc2; destruct ItAcc2 as [perms2' [perms2'Spec it2'Spec]].
       injection it1'Spec; intros; subst; clear it1'Spec.
       injection it2'Spec; intros; subst; clear it2'Spec.
-      rewrite /item_lookup /=.
+      rewrite /item_lookup /= in ItAcc1Cell,ItAcc2Cell|-*.
       pose proof (mem_apply_range'_spec _ _ l _ _ perms1'Spec) as perm1'Spec; clear perms1'Spec.
       pose proof (mem_apply_range'_spec _ _ l _ _ perms2'Spec) as perm2'Spec; clear perms2'Spec.
       (* Now we do the case analysis of the access that occured *)
@@ -479,9 +502,13 @@ Section utils.
       (* Now we're within range *)
       destruct perm1'Spec as [perm1' [perm1'Lookup perm1'Spec]].
       destruct perm2'Spec as [perm2' [perm2'Lookup perm2'Spec]].
+      rewrite perm1'Lookup /= in ItAcc1Cell.
+      rewrite perm2'Lookup /= in ItAcc2Cell.
       rewrite perm1'Lookup perm2'Lookup; clear perm1'Lookup perm2'Lookup.
       simpl.
       rewrite /item_lookup in itLookup1, itLookup2.
+      rewrite -itLookup1 /= in ItAcc1Cell.
+      rewrite -itLookup2 /= in ItAcc2Cell.
       rewrite -itLookup1 in perm1'Spec; clear itLookup1.
       rewrite -itLookup2 in perm2'Spec; clear itLookup2.
       assert (∃ p, parent_has_perm p (match d with Backwards => tr1 | _ => tr2 end) tg witness_tg l ∧ (p = Frozen ∨ p = Active)) as (pt&Htrans&Hptrans).
@@ -492,11 +519,13 @@ Section utils.
       all: rewrite !Heff /= in perm1'Spec,perm2'Spec; clear Heff.
       2: { simplify_eq. econstructor 6; eassumption. }
       3: { eapply @parent_has_perm_similarly_disabled with (tr' := match d with Forwards => tr2' | _ => tr1' end) in Htrans.
-           4: by destruct d. 4: by destruct d. 3: destruct d; done.
-           3: { rewrite /becomes_disabled in HX|-*. destruct d.
+           4: by destruct d. 4: by destruct d. 4: destruct d; done.
+           4: { rewrite /becomes_disabled in HX|-*. destruct d.
                 1: rewrite -SameRel //. rewrite SameRel //. }
            2: destruct Hptrans; by simplify_eq.
+           2: destruct Hptrans; by simplify_eq.
            econstructor 5. 3: by simplify_eq.
+           3: by simplify_eq.
            all: eapply parent_has_disabled_perm_is_pseudo_disabled; by destruct d. }
       (* Next we need to unwrap the apply_access_perm to get to apply_access_perm_inner *)
       all: rewrite bind_Some in perm1'Spec; destruct perm1'Spec as [perm1 [perm1Spec perm1'Spec]].
@@ -506,11 +535,13 @@ Section utils.
       all: rewrite bind_Some in perm2'Spec; destruct perm2'Spec as [tmp2 [tmp2Spec perm2'Spec]].
       all: injection perm2'Spec; simpl; intros; subst; clear perm2'Spec.
       2: { eapply @parent_has_perm_similarly_disabled with (tr' := match d with Forwards => tr2' | _ => tr1' end) in Htrans.
-           4: by destruct d. 4: by destruct d. 3: destruct d; done.
-           3: { rewrite /becomes_disabled in HX|-*. destruct d.
+           4: by destruct d. 4: by destruct d. 4: destruct d; done.
+           4: { rewrite /becomes_disabled in HX|-*. destruct d.
                 1: rewrite -SameRel //. rewrite SameRel //. }
            2: destruct Hptrans; by simplify_eq.
+           2: destruct Hptrans; by simplify_eq.
            econstructor 5. 3: by simplify_eq.
+           3: { rewrite -ItAcc1Cell -ItAcc2Cell. done. }
            all: eapply parent_has_disabled_perm_is_pseudo_disabled; by destruct d. }
       simpl in *. rewrite -SameProt in tmp2Spec,perm2Spec.
       (* We can finally start the big case analysis at the level of the state machine *)

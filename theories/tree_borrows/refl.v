@@ -365,11 +365,9 @@ Section log_rel.
     { iApply (subst_map_rel_weaken with "[$]"). set_solver. }
     iIntros (v_t1 v_s1) "[_ Hv1]".
     discr_source. val_discr_source "Hv1". val_discr_source "Hv2".
-    destruct (decide (pk = ShrRef ∧ im = InteriorMut)) as [(->&->)|Hnim].
-    - iApply (sim_retag_noop). solve_rrel_refl.
-    - iApply (sim_retag_public with "[-]"). 1: done.
-      { by iApply value_rel_ptr. }
-      iIntros (t) "Hv". sim_val. eauto.
+    iApply (sim_retag_public with "[-]").
+    { by iApply value_rel_ptr. }
+    iIntros (t) "Hv". sim_val. eauto.
   Qed.
 
   Local Lemma sim_case π e_t e_s el_t el_s Ψ :

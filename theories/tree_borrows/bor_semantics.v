@@ -17,7 +17,7 @@ From Equations Require Import Equations.
 From iris.prelude Require Import prelude options.
 From stdpp Require Export gmap.
 
-From simuliris.tree_borrows Require Export lang_base notation tree  locations.
+From simuliris.tree_borrows Require Export lang_base notation tree locations.
 From iris.prelude Require Import options.
 
 (*** TREE BORROWS SEMANTICS ---------------------------------------------***)
@@ -343,6 +343,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessRead, Foreign _ =>
       (* Foreign read. Makes [Reserved] conflicted, freezes [Active]. *)
       match perm with
+      | Cell => Some Cell
       | Reserved ResActivable => Some (Reserved (if isprot then ResConflicted else ResActivable))
       | Active => if isprot then
         (* So that the function is commutative on all states and not just on reachable states,
@@ -355,6 +356,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Foreign _ =>
       (* Foreign write. Disables everything except interior mutable [Reserved]. *)
       match perm with
+      | Cell => Some Cell
       (* NOTE: this can never happen, but having it simplifies theorems. *)
       | ReservedIM => if isprot then Some Disabled else Some $ ReservedIM
       | Disabled => Some Disabled
@@ -370,6 +372,7 @@ Definition apply_access_perm_inner (kind:access_kind) (rel:rel_pos) (isprot:bool
   | AccessWrite, Child _ =>
       (* Child write. Activates unconflicted [Reserved]. *)
       match perm with
+      | Cell => Some Cell
       | Reserved ResConflicted => if isprot then None else Some Active
       | Reserved ResActivable | ReservedIM | Active => Some Active
       | _ => None
@@ -552,6 +555,13 @@ Definition memory_access := memory_access_maybe_nonchildren_only false.
 (* Same thing but only to nonchildren, provides the access to perform on function exit. *)
 Definition memory_access_nonchildren_only := memory_access_maybe_nonchildren_only true.
 
+Definition protector_end_action (ls : lazy_permission) : option access_kind := 
+  if ls.(initialized) then match ls.(perm) with
+    Cell => None
+  | Active => Some AccessWrite
+  | _ => Some AccessRead
+  end else None.
+
 (* The transformation to apply on function exit doesn't actually do anything
    except trigger UB if there is still a protector, but it's simpler to express it
    in terms of functions that we already have. *)
@@ -561,8 +571,11 @@ Definition memory_deallocate cids t range
   let post_write := memory_access AccessWrite cids t range tr in
   (* Then strong protector UB. *)
   let find_strong_prot : item -> option item := fun it => (
-    (* FIXME: consider switching to plain [decide] *)
-    if bool_decide (protector_is_strong it.(iprot)) && bool_decide (protector_is_active it.(iprot) cids)
+    if bool_decide (protector_is_strong it.(iprot))
+    && bool_decide (protector_is_active it.(iprot) cids)
+       (* Check if the protector is actually relevant anywhere *)
+       (* Note that for "default" lazy_perms, protector_end_action lp would be None as they are lazy *)
+    && bool_decide (map_Exists (λ _ lp, is_Some (protector_end_action lp)) it.(iperm))
     then None
     else Some it
   ) in
@@ -602,6 +615,7 @@ Definition reach p p' : Prop :=
   | Active, (Active | Frozen | Disabled)
   | Frozen, (Frozen | Disabled)
   | Disabled, (Disabled)
+  | Cell, Cell
   => True
   | _, _ => False
   end.
@@ -620,7 +634,7 @@ Definition freeze_like p : Prop :=
 
 Ltac destruct_permission :=
   match goal with
-  | p : permission |- _ => destruct p as [[]| | | |]
+  | p : permission |- _ => destruct p as [|[]| | | |]
   end.
 
 Ltac invert_reach :=
@@ -649,7 +663,7 @@ Lemma reach_complete p p' :
   witness_reach p p' -> reach p p'.
 Proof.
   repeat destruct_permission; simpl; intro WReach; try tauto.
-  all: do 15 reach_inversion_strategy.
+  all: do 20 reach_inversion_strategy.
 Qed.
 
 Ltac witness_reach_solve :=
@@ -667,7 +681,7 @@ Ltac witness_reach_solve :=
 Lemma reach_sound p p' :
   reach p p' -> witness_reach p p'.
 Proof.
-  destruct p as [[]| | | |], p' as [[]| | | |]; simpl; intro; try tauto.
+  destruct p as [|[]| | | |], p' as [|[]| | | |]; simpl; intro; try tauto.
   all: do 10 witness_reach_solve.
 Qed.
 
@@ -717,7 +731,7 @@ Proof.
      upwards of 2000 cases *)
   destruct kind, rel.
   all: destruct isprot.
-  all: destruct init, perm as [[]| | | |]; simpl in *; inversion Acc1; subst.
+  all: destruct init, perm as [|[]| | | |]; simpl in *; inversion Acc1; subst.
   all: simpl; try auto.
   all: destruct isprot'; simpl; try auto.
 Qed.
@@ -779,7 +793,7 @@ Definition ParentChildInBlk tg tg' trs blk :=
 (* None indicates an identity retag *)
 Definition retag_perm (pk : pointer_kind) (im : interior_mut) (rk : retag_kind) : option permission :=
   match pk, im, rk with
-  | ShrRef, InteriorMut, _ => None
+  | ShrRef, InteriorMut, _ => Some Cell
   | ShrRef, _, _ => Some Frozen
   | (MutRef | Box), InteriorMut, Default => Some (ReservedIM)
   | (MutRef | Box), _, _ => Some (Reserved ResActivable)
@@ -842,10 +856,7 @@ Definition tree_get_all_protected_tags_initialized_locs (cid : nat) (tr : tree i
   : gset (tag * gmap Z access_kind) :=
   fold_nodes ∅ (fun it lacc racc =>
     (if decide (Some cid = option_map call it.(iprot)) then
-      {[(it.(itag), mem_enumerate_sat (fun (p:lazy_permission) =>
-        (* filter out the uninitialized *)
-        if initialized p then Some (match perm p with Active => AccessWrite | _ => AccessRead end)
-        else None) it.(iperm))]} else ∅)
+      {[(it.(itag), mem_enumerate_sat protector_end_action it.(iperm))]} else ∅)
     ∪ lacc
     ∪ racc
   ) tr.

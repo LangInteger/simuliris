@@ -201,9 +201,9 @@ Lemma apply_access_perm_preserves_backward_reach
 Proof.
   destruct b, kind, rel.
   (* We have to destructure the permission a bit deep because of the Reserved parameters *)
-  all: destruct pre as [[] [[]| | | |]]; try (inversion Access; done).
-  all: destruct post as [[] [[]| | | |]]; try (inversion Access; done).
-  all: destruct p0 as [[]| | | |]; try (inversion Access; done).
+  all: destruct pre as [[] [|[]| | | |]]; try (inversion Access; done).
+  all: destruct post as [[] [|[]| | | |]]; try (inversion Access; done).
+  all: destruct p0 as [|[]| | | |]; try (inversion Access; done).
 Qed.
 
 Lemma apply_access_perm_preserves_forward_unreach
@@ -212,9 +212,9 @@ Lemma apply_access_perm_preserves_forward_unreach
   : ~reach (perm pre) p0 -> ~reach (perm post) p0.
 Proof.
   destruct b, kind, rel.
-  all: destruct pre as [[][[]| | | |]]; try (inversion Access; done).
-  all: destruct post as [[][[]| | | |]]; try (inversion Access; done).
-  all: destruct p0 as [[]| | | |]; try (inversion Access; done).
+  all: destruct pre as [[][|[]| | | |]]; try (inversion Access; done).
+  all: destruct post as [[][|[]| | | |]]; try (inversion Access; done).
+  all: destruct p0 as [|[]| | | |]; try (inversion Access; done).
 Qed.
 
 Lemma apply_access_perm_preserves_protected_freeze_like
@@ -224,7 +224,7 @@ Lemma apply_access_perm_preserves_protected_freeze_like
 Proof.
   unfold freeze_like.
   destruct kind, rel.
-  all: destruct pre as [[][[]| | | |]].
+  all: destruct pre as [[][|[]| | | |]].
   all: inversion Access.
   (* all cases easy *)
   all: intros [H|H]; inversion H.
@@ -319,7 +319,7 @@ Lemma apply_access_perm_preserves_perminit
   : (initialized pre) = PermInit -> initialized post = PermInit.
 Proof.
   destruct kind, rel.
-  all: destruct pre as [[][[]| | | |]], b.
+  all: destruct pre as [[][|[]| | | |]], b.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -364,7 +364,7 @@ Lemma apply_access_perm_child_produces_perminit
   : initialized post = PermInit.
 Proof.
   destruct kind, rel; try inversion CHILD.
-  all: destruct pre as [[][[]| | | |]], b.
+  all: destruct pre as [[][|[]| | | |]], b.
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.
@@ -455,7 +455,7 @@ Lemma apply_access_perm_protected_initialized_preserves_nondis
   : (initialized pre) = PermInit -> ~reach Disabled (perm pre) -> ~reach Disabled (perm post).
 Proof.
   destruct kind, rel.
-  all: destruct pre as [[][[]| | | |]].
+  all: destruct pre as [[][|[]| | | |]].
   all: inversion Access.
   (* all cases easy *)
   all: simpl; auto.

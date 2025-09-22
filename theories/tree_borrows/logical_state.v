@@ -330,8 +330,12 @@ Section call_defs.
           protector_is_for_call c it.(iprot)
         ∧ protector_matches_strength ps it.(iprot)
         ∧ (ps = EnsuringAccess WeaklyNoChildren → no_children_pred_on it.(itag) (blk, off))
-        ∧ (((item_lookup it off).(initialized) = PermInit  
-          → (item_lookup it off).(perm) ≠ Disabled)).
+          (* we must be initialized, otherwise deallocation could continue *)
+        ∧ (item_lookup it off).(initialized) = PermInit
+          (* we can never be disabled, as we are protected *)
+        ∧ (item_lookup it off).(perm) ≠ Disabled
+          (* we must not be cell, because protected Cell makes no sense and provides no guarantees *)
+        ∧ (item_lookup it off).(perm) ≠ Cell.
 
   Definition tag_protected_for c trs l t ps := match ps with
       EnsuringAccess ae => ∃ it, trees_lookup trs l.1 t it ∧ item_protected_for c it l.1 l.2 ps
@@ -414,9 +418,9 @@ Section heap_defs.
             (* Parents must not be disabled. If This is active, then we can also conclude the parents are active by state_wf. *)
           | Foreign (Parent _) => (item_lookup it' l.2).(perm) ≠ Disabled
           | Foreign Cousin => let lp := item_lookup it' l.2 in lp.(initialized) = PermLazy ∨ match lp.(perm) with
-                     (* If active, the others are either uninitialized, or Disabled, or Reserved IM (i.e. surive foreign writes and don't cause UB) *)
+                     (* If active, the others are either uninitialized, or Cell, or Disabled, or Reserved IM (i.e. surive foreign writes and don't cause UB) *)
                      (* Otherwise, the others must not be initialized active (i.e. survive foreign reads) *)
-                     Active => False | Disabled | ReservedIM => True | _ => tkk = tk_res ∨ ¬ P end end.
+                     Active => False | Cell | Disabled | ReservedIM => True | _ => tkk = tk_res ∨ ¬ P end end.
 
   Definition bor_state_own_on (l : loc) (t : tag) (tk : tag_kind) (σ : state) it tr :=
     (item_lookup it l.2).(initialized) = PermInit ∧

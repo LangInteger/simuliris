@@ -603,16 +603,16 @@ Proof.
   { odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv&tr_prv&Htrprv&Hitprv&Hinit&Hactive&Hothers)&Hvls); first done.
     destruct Hitacc as (tr_acc&Htracc&Hitacc). assert (tr_prv = tr_acc) as -> by congruence.
     eapply Hothers. done. }
-  destruct (call_set_interp_access _ _ _ _ _ _ _ Hcall Hcc) as (Hccv&Htv&it_prv&Hitprv&Hprotcc&_&Hnondis).
+  destruct (call_set_interp_access _ _ _ _ _ _ _ Hcall Hcc) as (Hccv&Htv&it_prv&Hitprv&Hprotcc&_&Hae&Hprinit&Hnondis&Hcell).
   odestruct (Hcontrol_t _ _ Hhl _) as ((it_prv'&tr_prv&Htrprv'&Hitprv'&Hinit&Hactive&Hothers)&Hvls).
-  { exists it_prv. split; first done. eapply Hnondis. }
+  { exists it_prv. split; first done. intros _. eapply Hnondis. }
   destruct Hitprv as (tr_prv'&Htrprv&Hitprv).
   assert (tr_prv = tr_prv') as <- by congruence.
   assert (it_prv = it_prv') as <- by by eapply tree_lookup_unique. clear Hitprv' Htrprv'.
   ospecialize (Hactive _).
   { intros _. exists cc. split; first done. apply Hccv. }
   assert (perm (item_lookup it_prv l.2) = Active) as Hactive2.
-  { destruct (perm (item_lookup it_prv l.2)) as [[]| | | |]; try done. }
+  { destruct (perm (item_lookup it_prv l.2)) as [|[]| | | |]; try done. }
   rewrite Hactive2 in Hactive. clear Hactive. rename Hactive2 into Hactive.
   edestruct (apply_trees_access_lookup_general false) as (it_prv' & Hitprv' & Hinitprv & Hpermprv & Haccprv).
   1: exact Happly. 1: apply Hwf_t. 1: apply Hinside. 1: exists tr_prv; split; first done; apply Hitprv.

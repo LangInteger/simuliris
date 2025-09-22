@@ -8,7 +8,7 @@ From simuliris.tree_borrows Require Export defs class_instances.
 From simuliris.tree_borrows Require Import wishlist steps_progress steps_inv.
 From simuliris.tree_borrows Require Import logical_state inv_accessors.
 From simuliris.tree_borrows.trees_equal Require Import trees_equal_base random_lemmas.
-From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_preserved_by_access.
+From simuliris.tree_borrows.trees_equal Require Import trees_equal_more_access trees_equal_dealloc trees_equal_preserved_by_access.
 From iris.prelude Require Import options.
 
 Section lifting.
@@ -37,8 +37,8 @@ Proof.
   odestruct (apply_within_trees_equal _ _ _ _ _ _ _ _ Happly_s) as (trt' & Happly_t & Heq'); [|exact Hsst_eq|].
   { intros ttr1 ttr1' ttr2 H1 H2 Httr1 Httr1' Httr2.
     assert (tree_contains bor_s ttr1) as Hcont' by rewrite /trees_contain /trees_at_block Httr1 // in Hcontain.
-    edestruct tree_equal_allows_more_deallocation as (ttr2'&Httr2'). 5: exact H2.
-    1,5: by eapply Hwf_s. 1-3: rewrite ?Hscs_eq; by eapply Hwf_t.
+    edestruct tree_equal_allows_more_deallocation as (ttr2'&Httr2'). 9: exact H2.
+    1,4,6,9: by eapply Hwf_s. 1-5: rewrite ?Hscs_eq; by eapply Hwf_t.
     1: eapply mk_is_Some, H1.
     exists ttr2'; split; first done.
     eapply tree_equal_memory_deallocate. 7-10: done.

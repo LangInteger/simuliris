@@ -23,17 +23,18 @@ Section utils.
     ParentChildIn tg1 tg2 tr →
     perm (item_lookup it1 off) = Disabled →
     initialized (item_lookup it2 off) = PermInit →
+    perm (item_lookup it2 off) ≠ Cell →
     protector_is_active (iprot it2) C →
     False.
   Proof.
-    intros Hl1 Hl2 HPC Hp1 Hp2 Hp3.
-    specialize (HH tg1). eapply every_child_ParentChildIn in HH.
+    intros Hl1 Hl2 HPC Hp1 Hp2 HpC Hp3.
+    specialize (HH tg1 off). eapply every_child_ParentChildIn in HH.
     2: done. 2, 4: eapply Hwf. 2,4: eapply Hl1. 2: eapply Hl2. 2: done.
     assert (tg1 = itag it1) as -> by by eapply tree_lookup_correct_tag in Hl1.
     assert (tg2 = itag it2) as -> by by eapply tree_lookup_correct_tag in Hl2.
     eapply every_node_eqv_universal in HH.
     2: eapply tree_lookup_to_exists_node, Hl2.
-    ospecialize (HH _ _ Hp2 Hp3). 1: done. congruence.
+    odestruct (HH eq_refl Hp2 Hp3). 1: done. congruence.
   Qed.
 
   Lemma disabled_in_practice_not_prot_init tr tg1 tg2 it off
@@ -42,13 +43,14 @@ Section utils.
     (HH : protected_parents_not_disabled C tr) :
     tree_lookup tr tg2 it →
     initialized (item_lookup it off) = PermInit →
+    perm (item_lookup it off) ≠ Cell →
     protector_is_active (iprot it) C →
     disabled_in_practice C tr tg2 tg1 off →
     False.
   Proof.
-    intros Hl1 Hini Hperm [it_witness incl H1 H2 H3].
+    intros Hl1 Hini Hncell Hperm [it_witness incl H1 H2 H3].
     destruct (decide (perm (item_lookup it_witness off) = Disabled)) as [Hdis|Hnondis].
-    + eapply parents_not_disabled_child_not_prot_init. 1: exact Hwf. 1: done. 4: exact Hdis. 4: exact Hini. 4: exact Hperm.
+    + eapply parents_not_disabled_child_not_prot_init. 1: exact Hwf. 1: done. 4: exact Hdis. 4: exact Hini. 4: exact Hncell. 4: exact Hperm.
       1-2: done.
       rewrite /rel_dec in H1. destruct decide; done.
     + inversion H3 as [X1 X2 X3|lp X HH1 HH2 X2]; simplify_eq.
@@ -72,6 +74,20 @@ Section utils.
   Qed.
 
 
+  Lemma perm_eq_up_to_C_same_cell d tr1 tr2 tg off prot it1 it2
+    (Hwf1 : wf_tree tr1)
+    (Hwf2 : wf_tree tr2) :
+    tree_lookup tr1 tg it1 →
+    tree_lookup tr2 tg it2 →
+    perm_eq_up_to_C C tr1 tr2 tg off prot d (item_lookup it1 off) (item_lookup it2 off) →
+    perm (item_lookup it1 off) = Cell ↔ perm (item_lookup it2 off) = Cell.
+  Proof.
+    intros Hl1 Hl2 H. inversion H as [| | |p1 p2 HX1 HX2 HX3 HX4|X1 X2 X3 X4 X5 X6 X7| |p1 p2 ini Hr]; try done; simplify_eq.
+    - inversion HX1; inversion HX2; simplify_eq; simpl; split; congruence.
+    - destruct d; simpl in Hr; inversion Hr; simplify_eq; simpl.
+      all: split; intros ?; done.
+  Qed.
+
   Lemma perm_eq_up_to_C_same_protected_active d tr1 tr2 tg off prot it1 it2 ev1 ev2
     (Hwf1 : wf_tree tr1)
     (Hwf2 : wf_tree tr2)
@@ -85,10 +101,12 @@ Section utils.
     tree_lookup tr2 tg it2 →
     prot = iprot it1 → prot = iprot it2 →
     protector_is_active prot C →
+    perm (item_lookup it1 off) ≠ Cell →
+    perm (item_lookup it2 off) ≠ Cell →
     perm_eq_up_to_C C tr1 tr2 tg off prot d (item_lookup it1 off) (item_lookup it2 off) →
     perm (item_lookup it1 off) = Active ↔ perm (item_lookup it2 off) = Active.
   Proof.
-    intros Hl1 Hl2 Hiprot1 Hiprot2 Hprot H. inversion H as [| | |p1 p2 HX1 HX2 HX3 HX4|X1 X2 X3 X4 X5 X6 X7| |p1 p2 ini Hr]; try done; simplify_eq.
+    intros Hl1 Hl2 Hiprot1 Hiprot2 Hprot HnC1 HnC2 H. inversion H as [| | |p1 p2 HX1 HX2 HX3 HX4|X1 X2 X3 X4 X5 X6 X7| |p1 p2 ini Hr]; try done; simplify_eq.
     - simpl; split; intros Hact; exfalso.
       + rewrite /item_lookup in HX3.
         destruct lookup eqn:Heq in HX3.
@@ -106,10 +124,47 @@ Section utils.
         simpl in Heq. by ospecialize (Heq _).
     - split; intros XX; eapply item_wf_item_lookup_active in XX; try done.
       all: exfalso; destruct d;
-           (eapply disabled_in_practice_not_prot_init in X4; [done..| |by congruence]).
+           (eapply disabled_in_practice_not_prot_init in X4; [try done..| |by congruence]).
       all: congruence.
     - destruct d; simpl in Hr; inversion Hr; simplify_eq; simpl.
-      2,4: done. all: exfalso; done.
+      all: split; intros ?; done.
+  Qed.
+
+  Lemma tree_equals_protected_initialized_one d tr1 tr2 cid ev1 ev2
+    (AllUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
+    (AllUnique2 : forall tg, tree_contains tg tr2 -> tree_unique tg tr2)
+    (PND1 : protected_parents_not_disabled C tr1)
+    (PND2 : protected_parents_not_disabled C tr2)
+    (HCS1 : no_active_cousins C tr1)
+    (HCS2 : no_active_cousins C tr2)
+    (Hiwf1 : tree_items_compat_nexts tr1 ev1 ev2)
+    (Hiwf2 : tree_items_compat_nexts tr2 ev1 ev2) :
+    cid ∈ C →
+    tree_equal C d tr1 tr2 →
+    tree_get_all_protected_tags_initialized_locs cid tr1 ⊆
+    tree_get_all_protected_tags_initialized_locs cid tr2.
+  Proof.
+    intros Hcid Heq. intros (tg&lst).
+    intros (it&Hlu&Hprot&Hinit)%tree_all_protected_initialized_elem_of; try done.
+    all: eapply tree_all_protected_initialized_elem_of; first done.
+    edestruct (tree_equal_transfer_lookup_1 C Heq Hlu) as (it'&Hit'&Heqit').
+    exists it'. split; first done.
+    split; first by erewrite <- item_eq_up_to_C_same_iprot.
+    intros z. specialize (Hinit z). destruct (Heqit' z) as (Hproteq&Heqlu).
+    erewrite <- perm_eq_up_to_C_same_init. 2: done.
+    opose proof (perm_eq_up_to_C_same_cell _ _ _ _ _ _ _ _ _ _ _ _ _) as HH.
+    5: exact Heqlu. 1-4: done. setoid_rewrite <- HH. 
+    destruct (decide (perm (item_lookup it z) = Cell)) as [Hcell|Hncell].
+    { rewrite Hcell. rewrite Hcell in Hinit. intros ?. rewrite Hinit. tauto. }
+    setoid_rewrite <- perm_eq_up_to_C_same_protected_active. 17: eassumption. 2-7: try done.
+    1,4,5,6,7: done.
+    + eapply every_node_eqv_universal in Hiwf1. 2: eapply tree_lookup_to_exists_node, Hlu.
+      exact Hiwf1.
+    + eapply every_node_eqv_universal in Hiwf2. 2: eapply tree_lookup_to_exists_node, Hit'.
+      exact Hiwf2.
+    + by eexists cid.
+    + done.
+    + by rewrite -HH.
   Qed.
 
   Lemma tree_equals_protected_initialized d tr1 tr2 cid ev1 ev2
@@ -127,32 +182,10 @@ Section utils.
     tree_get_all_protected_tags_initialized_locs cid tr2.
   Proof.
     intros Hcid Heq. eapply gset_leibniz. intros (tg&lst).
-    split; intros (it&Hlu&Hprot&Hinit)%tree_all_protected_initialized_elem_of; try done.
-    all: eapply tree_all_protected_initialized_elem_of; first done.
-    - edestruct (tree_equal_transfer_lookup_1 C Heq Hlu) as (it'&Hit'&Heqit').
-      exists it'. split; first done.
-      split; first by erewrite <- item_eq_up_to_C_same_iprot.
-      intros z. specialize (Hinit z). destruct (Heqit' z) as (Hproteq&Heqlu).
-      erewrite <- perm_eq_up_to_C_same_init. 2: done.
-      setoid_rewrite <- perm_eq_up_to_C_same_protected_active. 15: eassumption. 2-7: try done.
-      1,4,5,6,7: done.
-      + eapply every_node_eqv_universal in Hiwf1. 2: eapply tree_lookup_to_exists_node, Hlu.
-        exact Hiwf1.
-      + eapply every_node_eqv_universal in Hiwf2. 2: eapply tree_lookup_to_exists_node, Hit'.
-        exact Hiwf2.
-      + by eexists cid.
-    - edestruct (tree_equal_transfer_lookup_2 C Heq Hlu) as (it'&Hit'&Heqit').
-      exists it'. split; first done.
-      split; first by erewrite item_eq_up_to_C_same_iprot.
-      intros z. specialize (Hinit z). destruct (Heqit' z) as (Hproteq&Heqlu).
-      erewrite perm_eq_up_to_C_same_init. 2: done.
-      setoid_rewrite perm_eq_up_to_C_same_protected_active. 15: eassumption. 2-7: done.
-      1,4,5,6,7: done.
-      + eapply every_node_eqv_universal in Hiwf1. 2: eapply tree_lookup_to_exists_node, Hit'.
-        exact Hiwf1.
-      + eapply every_node_eqv_universal in Hiwf2. 2: eapply tree_lookup_to_exists_node, Hlu.
-        exact Hiwf2.
-      + rewrite Hproteq. by eexists cid.
+    split.
+    - intros H. eapply tree_equals_protected_initialized_one; last exact H. all: done.
+    - intros H. eapply tree_equals_protected_initialized_one; last exact H. 1-9: done.
+      eapply tree_equal_sym. done.
   Qed.
 
   Lemma tree_equals_access_many_helper_2 tg (L : gmap Z _) tr1 tr1' tr2

@@ -39,6 +39,7 @@ Section utils.
       * eassumption.
       * rewrite /item_lookup /= effect_at_l. assumption.
       * done.
+      * done.
     + (* within range. Big case analysis incoming. *)
       destruct effect_at_l as (perm' & perm'_lookup & perm'_spec).
       rewrite /item_lookup in cous_init. rewrite cous_init in perm'_spec.
@@ -51,6 +52,7 @@ Section utils.
            | split; eassumption
            | done
            | rewrite /item_lookup perm'_lookup /= //
+           | done
            | done
            ].
   Qed.
@@ -188,13 +190,13 @@ Section utils.
            done. }
       rewrite /item_lookup in Hlu. rewrite -Hlu in SpecVal.
       rewrite /apply_access_perm /apply_access_perm_inner most_init_comm /= in SpecVal.
-      destruct kind, bool_decide eqn:Hbdc, lp as [[]| | | |] eqn:Hpm in SpecVal.
+      destruct kind, bool_decide eqn:Hbdc, lp as [|[]| | | |] eqn:Hpm in SpecVal.
       all: simpl in SpecVal. all: try discriminate SpecVal.
       all: injection SpecVal as <-.
       all: rewrite /= /item_lookup /= LookupVal /=.
       all: econstructor 2.
       all: eapply access_preserves_pseudo_disabled; last done.
-      all: econstructor; [exact Hcs|exact Hlucs|exact Hprotcs|exact Hppcs|].
+      all: econstructor; [exact Hcs|exact Hlucs|exact Hprotcs|exact Hppcs| |].
       all: intros [=].
       all: subst lp; eapply Hcsfoo; done.
   Qed.
@@ -217,7 +219,42 @@ Section utils.
     rewrite Hk in Hff. simplify_eq.
     by specialize (Hfb _ eq_refl).
   Qed.
-    
+
+  Lemma cell_item_apply_access_irreversible
+    {rd kind range b it it'}
+    (Spec' : item_apply_access (maybe_non_children_only b (apply_access_perm kind)) C rd range it = Some it')
+    : ∀ l, perm (item_lookup it l) = Cell ↔ perm (item_lookup it' l) = Cell.
+  Proof.
+    rewrite bind_Some in Spec'. destruct Spec' as [tmp [PermsApp Build]].
+    intros loc.
+    injection Build; intros; subst; clear Build.
+    pose proof (mem_apply_range'_spec _ _ loc _ _ PermsApp) as LocSpec.
+    destruct (decide _); last first.
+    + rewrite /item_lookup /= LocSpec //.
+    + destruct LocSpec as [val [LookupVal SpecVal]].
+      rewrite /item_lookup LookupVal /=.
+      rewrite /maybe_non_children_only /nonchildren_only in SpecVal.
+      rewrite /= /apply_access_perm /apply_access_perm_inner in SpecVal.
+      destruct (default {| initialized := PermLazy; perm := initp it |} (iperm it !! loc)) eqn:Heq.
+      rewrite Heq in SpecVal.
+      repeat (case_match; simpl in *; simplify_eq; (try done); try (simpl; tauto)).
+  Qed.
+
+  Lemma cell_tree_apply_access_irreversible
+    {tr tr' tg acc_tg kind range b it}
+    (Lookup : tree_lookup tr tg it)
+    (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
+    : exists it',
+        tree_lookup tr' tg it'
+        /\ ∀ l, perm (item_lookup it l) = Cell ↔ perm (item_lookup it' l) = Cell.
+  Proof.
+    destruct (apply_access_spec_per_node (proj1 Lookup) (proj2 Lookup) Acc) as [it' [Spec' [Ex' Det']]].
+    exists it'.
+    split; first done.
+    symmetry in Spec'.
+    eapply cell_item_apply_access_irreversible. exact Spec'.
+  Qed.
+
   Lemma frozen_tree_apply_access_irreversible
     {tr tr' tg acc_tg kind range loc b it}
     (Lookup : tree_lookup tr tg it)
@@ -261,6 +298,7 @@ Section utils.
     (Lookup : tree_lookup tr tg it)
     (Frz : (item_lookup it loc).(perm) = pp)
     (nRIM : pp ≠ ReservedIM)
+    (nCell : pp ≠ Cell)
     (Ini : (item_lookup it loc).(initialized) = PermInit)
     (Acc : tree_apply_access (maybe_non_children_only b (apply_access_perm kind)) C acc_tg range tr = Some tr')
     : exists it',

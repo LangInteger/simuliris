@@ -20,6 +20,7 @@ Section utils.
     (Lookup : tree_lookup tr tg it)
     (Protected : protector_is_active (iprot it) C)
     (IsInit : initialized (item_lookup it l) = PermInit)
+    (IsNotCell : perm (item_lookup it l) ≠ Cell)
     (IsCousin : rel_dec tr acc_tg tg = Foreign Cousin)
     (InRange : range'_contains range l)
     : ~ is_Some (tree_apply_access (maybe_non_children_only b (apply_access_perm AccessWrite)) C acc_tg range tr).
@@ -37,7 +38,8 @@ Section utils.
     rewrite bool_decide_eq_true_2 in Absurd; [|auto].
     enough (is_Some (apply_access_perm AccessWrite (Foreign Cousin) true (item_lookup it l))) as Absurd'.
     - rewrite /apply_access_perm in Absurd'.
-      destruct (item_lookup _ _) as [[] [[]| | | |]], b; simpl in Absurd'.
+      destruct (item_lookup _ _) as [[] [|[]| | | |]], b; simpl in Absurd'.
+      all: try (clear -IsNotCell; done).
       all: try inversion Absurd'; discriminate.
     - rewrite /item_lookup. setoid_rewrite maybe_non_children_only_no_effect in Absurd; last done.
       apply Absurd; [|done].
@@ -167,7 +169,7 @@ Section utils.
       rewrite Hpp bool_decide_true // in GlobalSuccess.
       rewrite maybe_non_children_only_no_effect // in GlobalSuccess.
       destruct kind; destruct GlobalSuccess as [x [=]].
-    - rewrite /=. intros _. destruct kind, isprot, p2 as [[]| | | |]; simpl; done.
+    - rewrite /=. intros _. destruct kind, isprot, p2 as [|[]| | | |]; simpl; done.
   Qed.
 
   Lemma frozen_in_practice_rejects_child_write
@@ -246,7 +248,7 @@ Section utils.
       |??? Prot Confl1 Confl2 Lookup1 Lookup2
       |??? Prot Lookup1 Lookup2
       |p1 p2 Confl1 Confl2 Lookup1 Lookup2
-      |witness_tg ?? Dis1 Dis2 Lookup1 Lookup2
+      |witness_tg ?? Dis1 Dis2 Lookup1 Lookup2 NotCell
       |ini ?? witness_tg Frz Lookup1 Lookup2
       |p1 p2 ini Hd Lookup1 Lookup2
     ].
@@ -384,19 +386,21 @@ Section utils.
         rewrite /maybe_non_children_only /nonchildren_only.
         repeat rewrite if_fun_absorb_args.
         inversion Dis2 as [it_witness ? RelWitness LookupWitness DisWitnessPre].
+        destruct (decide (perm (item_lookup it2 l) = Cell)) as [Hcell|Hncell].
+        { rewrite /apply_access_perm /apply_access_perm_inner Hcell /=. clear. repeat (case_match; try done). }
         (* we are protected. this means we are not initalized by state_wf *)
         assert (initialized (item_lookup it2 l) = PermLazy) as HH.
         1: inversion DisWitnessPre as [HX DisWitness|lp HX HDis Hlookup]; simplify_eq.
-        { specialize (ProtParentsNonDis witness_tg). eapply every_child_ParentChildIn in ProtParentsNonDis.
+        { specialize (ProtParentsNonDis witness_tg l). eapply every_child_ParentChildIn in ProtParentsNonDis.
           2: done. 2: eapply GloballyUnique2, LookupWitness. 2: eapply LookupWitness. 2: eapply GloballyUnique2, Ex2.
           2: rewrite /rel_dec in RelWitness; by destruct (decide (ParentChildIn witness_tg (itag it1) tr2)).
           setoid_rewrite every_node_eqv_universal in ProtParentsNonDis.
           ospecialize (ProtParentsNonDis it2 _ _).
           1: eapply exists_determined_exists; eapply Ex2. 1: by eapply tree_lookup_correct_tag.
           rewrite /item_protected_all_parents_not_disabled in ProtParentsNonDis.
-          ospecialize (ProtParentsNonDis l). destruct (initialized (item_lookup it2 l)); last done.
+          destruct (initialized (item_lookup it2 l)); last done.
           rewrite -EqProt -DisWitness in ProtParentsNonDis. ospecialize (ProtParentsNonDis _ _).
-          1: done. 1: by eapply bool_decide_eq_true_1. 1: done. }
+          1: done. 1: by eapply bool_decide_eq_true_1. by destruct ProtParentsNonDis. }
         { specialize (ParentsMoreInit witness_tg). eapply every_child_ParentChildIn in ParentsMoreInit.
           2: done. 2: eapply GloballyUnique2, LookupWitness. 2: eapply LookupWitness. 2: eapply GloballyUnique2, Ex2.
           2: rewrite /rel_dec in RelWitness; by destruct (decide (ParentChildIn witness_tg (itag it1) tr2)).
@@ -433,6 +437,7 @@ Section utils.
            a hypothesis [protector_is_active] in the context. We can derive a contradiction. *)
         all: exfalso.
         all: unfold apply_access_perm, apply_access_perm_inner in Acc1.
+        all: rewrite -Lookup1 in Acc1.
         all: repeat (case_match; simpl in Acc1; try auto).
         all: try (inversion Acc1; congruence).
         (* We have all the elements of the contradiction, but a bit of rewriting is necessary
@@ -448,7 +453,7 @@ Section utils.
         | |- _ => try contradiction
         end.
         all: assert (initialized (item_lookup it1 l) = ini) as Ini1 by (rewrite -Lookup1; done).
-        all: simpl in *; congruence.
+        all: simpl in *; try congruence.
       + (* Child write is necessarily UB due to the Frozen parent *)
         exfalso.
         specialize (Hrestrict eq_refl). subst d.
@@ -577,52 +582,6 @@ Section utils.
     is_Some (memory_access_nonchildren_only kind C acc_tg range tr2).
   Proof.
     by eapply (tree_equal_allows_more_access_maybe_nonchildren_only true).
-  Qed.
-
-  Lemma tree_equal_allows_more_deallocation
-    {tr1 tr2 acc_tg range}
-    (GloballyUnique1 : forall tg, tree_contains tg tr1 -> tree_unique tg tr1)
-    (GloballyUnique2 : forall tg, tree_contains tg tr2 -> tree_unique tg tr2)
-    (ProtParentsNonDis : protected_parents_not_disabled C tr2)
-    (PMI : parents_more_init tr2) :
-    tree_equal C Forwards tr1 tr2 ->
-    tree_unique acc_tg tr1 ->
-    is_Some (memory_deallocate C acc_tg range tr1) ->
-    is_Some (memory_deallocate C acc_tg range tr2).
-  Proof.
-    intros Heq Hunq (tr1'&(pw1&Hpw1&Htrr%mk_is_Some)%bind_Some).
-    pose proof Hpw1 as HH.
-    eapply mk_is_Some, tree_equal_allows_more_access in HH as (pw2&Hpw2). 2-8: done.
-    assert (wf_tree pw1) as Hwfpw1.
-    { eapply preserve_tag_count_wf. 3: exact Hpw1. 2: done. eapply memory_access_tag_count. }
-    (* opose proof (tree_equal_preserved_by_memory_access _ _ _ _ _ _ _ _ Hpw1 Hpw2) as Heqpw.
-    1-3: done. 1-4: done. 1: by eapply unique_exists. *)
-    rewrite /memory_deallocate Hpw2 /option_bind //.
-    eapply join_success_condition, every_node_map, every_node_eqv_universal.
-    intros itm2 Hitm2%exists_node_to_tree_lookup.
-    2: { intros ttg Hcont.
-         eapply access_preserves_tags, GloballyUnique2 in Hcont.
-         2: apply Hpw2. setoid_rewrite <- tree_apply_access_preserve_unique; last apply Hpw2.
-         done. }
-    assert (tree_contains (itag itm2) pw2) as Hcont by apply Hitm2.
-    eapply access_preserves_tags in Hcont as Hcont1. 2: exact Hpw2.
-    destruct Heq as (Hsame&_&Hacc). setoid_rewrite <- Hsame in Hcont1.
-    apply Hacc in Hcont1 as (itm1'&itm2'&Hlu1&Hlu2&Hiteq).
-    assert (iprot itm2' = iprot itm2) as Hiprot.
-    { symmetry. eapply tree_apply_access_preserves_protector. 1-2: done. 1: apply Hpw2. }
-    assert (tree_contains (itag itm2) pw1) as (itm1&Hlu1pw)%Hwfpw1%unique_implies_lookup.
-    { setoid_rewrite <- access_preserves_tags. 2: apply Hpw1. apply Hlu1. }
-    assert (iprot itm1' = iprot itm1) as Hiprot1.
-    { symmetry. eapply tree_apply_access_preserves_protector. 1-2: done. 1: apply Hpw1. }
-    assert (itag itm1 = itag itm2) as Htageq.
-    1: eapply tree_lookup_correct_tag, Hlu1pw.
-    eapply join_success_condition in Htrr.
-    setoid_rewrite every_node_map in Htrr.
-    eapply every_node_eqv_universal in Htrr.
-    2: { eapply tree_lookup_to_exists_node. rewrite -Htageq in Hlu1. done. }
-    simpl in Htrr. eapply is_Some_if_neg in Htrr.
-    destruct (Hiteq 0) as (Hloceq&_). simpl.
-    rewrite -!Hiprot -!Hloceq !Hiprot1 Htrr. done.
   Qed.
 
   Lemma trees_equal_allows_more_access d tr1 tr2 blk kind acc_tg range :

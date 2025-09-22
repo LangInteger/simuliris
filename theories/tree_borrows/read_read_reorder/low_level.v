@@ -59,7 +59,7 @@ Lemma apply_access_perm_read_commutes
 Proof.
   move=> p0 p1 p2 Step01 Step12.
   unfold apply_access_perm in *.
-  all: destruct p0 as [[] [[]| | | | ]].
+  all: destruct p0 as [[] [|[]| | | | ]].
   all: destruct prot; simpl in *.
   all: destruct rel1; simpl in *.
   all: try (inversion Step01; done).
@@ -80,7 +80,7 @@ Lemma apply_access_perm_read_persistent
 Proof.
   move=> p0 p1 p2 wf Step01 Step12.
   unfold apply_access_perm in *.
-  all: destruct p0 as [[] [[]| | | | ]].
+  all: destruct p0 as [[] [|[]| | | | ]].
   all: destruct prot; simpl in *.
   all: destruct rel1; simpl in *.
   all: try (inversion Step01; done).

@@ -409,7 +409,7 @@ Section utils.
     (AllUnique : forall tg, tree_contains tg tr -> tree_unique tg tr) :
     (tg, lst) ∈ tree_get_all_protected_tags_initialized_locs cid tr ↔
     ∃ it, tree_lookup tr tg it ∧ protector_is_for_call cid it.(iprot) ∧
-    ∀ z v, lst !! z = Some v ↔ initialized (item_lookup it z) = PermInit ∧ (v = AccessWrite ↔ perm (item_lookup it z) = Active).
+    ∀ z v, lst !! z = Some v ↔ initialized (item_lookup it z) = PermInit ∧ perm (item_lookup it z) ≠ Cell ∧ (v = AccessWrite ↔ perm (item_lookup it z) = Active).
   Proof.
     setoid_rewrite tree_all_protected_initialized_exists_node.
     split.
@@ -437,7 +437,7 @@ Section utils.
     assert (tg2 = itag it2) as -> by by eapply tree_lookup_correct_tag in Hl2.
     eapply every_node_eqv_universal in HPP.
     2: eapply tree_lookup_to_exists_node, Hl2.
-    ospecialize (HPP _ _ Hp2). 1: done. congruence.
+    ospecialize (HPP _ _ Hp2). 1: done. destruct HPP; congruence.
   Qed.
 
 

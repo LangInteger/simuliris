@@ -45,6 +45,8 @@ Section utils.
         (* and who on this location is initalized not disabled *)
         (item_lookup it_cous l).(perm) ≠ Disabled ->
         (item_lookup it_cous l).(initialized) = PermInit ->
+        (* Also not Cell because Cell does not do protector end action *)
+        (item_lookup it_cous l).(perm) ≠ Cell ->
         pseudo_conflicted tr tg l ResActivable
     .
 
@@ -119,6 +121,8 @@ Section utils.
         disabled_in_practice C tr2 tg witness_tg l ->
         (* Added initialization requirement to help with the lemma [perm_eq_up_to_C_same_init] *)
         (initialized p = initialized p') ->
+        (* Additionally require that Cell nodes are the same everywhere, since we often have a Cell corner case *)
+        (perm p = Cell ↔ perm p' = Cell) ->
         perm_eq_up_to_C tr1 tr2 tg l cid d p p'
     | perm_eq_up_to_C_frozen_parent ini confl1 confl2 witness_tg :
         (* not needed for IM, that's already covered by refl *)
@@ -258,7 +262,7 @@ Section utils.
     + econstructor 3; eassumption.
     + econstructor 4; eassumption.
     + econstructor 5; try eassumption.
-      done.
+      all: by symmetry.
     + econstructor 6; destruct d; eassumption.
     + econstructor 7; destruct d; eassumption.
   Qed.
@@ -422,7 +426,7 @@ Section defs.
   Definition tree_equal_asymmetric_read_pre_protected tr range it acc_tg (mode:bool) := 
     (∀ off, range'_contains range off → 
             let pp_acc := item_lookup it off in
-            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧
+            pp_acc.(initialized) = PermInit ∧ pp_acc.(perm) ≠ Disabled ∧ pp_acc.(perm) ≠ Cell (* protectors don't apply to cell *) ∧
             ∀ tg' it', tree_lookup tr tg' it' → 
             let pp := item_lookup it' off in
             let rd := rel_dec tr tg' acc_tg in (* flipped here so that it's correcty lined up with logical_state *)
@@ -444,8 +448,8 @@ Section defs.
             match rd with
             | Child (Strict Immediate) => pp.(perm) = Disabled
             | Child _ => True
-            | Foreign (Parent _) => pp.(initialized) = PermInit ∧ pp.(perm) = Active (* this follows from state_wf *)
-            | Foreign Cousin => match pp.(perm) with Disabled => True | ReservedIM => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
+            | Foreign (Parent _) => pp.(initialized) = PermInit ∧ (pp.(perm) = Active ∨ pp.(perm) = Cell) (* this follows from state_wf *)
+            | Foreign Cousin => match pp.(perm) with Disabled | Cell => True | ReservedIM => ¬ protector_is_active it'.(iprot) C (* never occurs *) | _ => pp.(initialized) = PermLazy end end).
 
 End defs.
 

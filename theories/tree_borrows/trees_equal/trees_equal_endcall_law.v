@@ -36,7 +36,8 @@ Definition is_pseudo_disabled_by_in' C (tr : tree item) (tg tg_cous : tag) (it :
     protector_is_active it_cous.(iprot) C ∧
     item_lookup it_cous l = mkPerm PermInit Active ∧
     item_lookup it l = mkPerm PermLazy lp ∧
-    lp ≠ ReservedIM.
+    lp ≠ ReservedIM ∧
+    lp ≠ Cell.
 
 Definition is_pseudo_disabled_by_in (C : call_id_set) (tr : tree item) (tg : tag) (it : item) (S : gset (tag * gmap Z access_kind)) lp : Prop := 
   ∃ tg_cous L,
@@ -104,7 +105,7 @@ Proof.
   1: by intros [= ->]. simpl.
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
-  intros tg' it acc (tg_cs&SL&HS&Hlu&Hreldec&it_cous&l&HlL&Hlucs&Hisprotcs&Hppcs&Hres&Hlp).
+  intros tg' it acc (tg_cs&SL&HS&Hlu&Hreldec&it_cous&l&HlL&Hlucs&Hisprotcs&Hppcs&Hres&Hlp&Hcell).
   assert (tree_unique tg_acc tr2) as Hunq2.
   { rewrite /tree_unique. erewrite <- tree_access_many_helper_2. 1: exact Hunq. exact Hoff. }
   assert (wf_tree tr2) as Hwf2.
@@ -132,7 +133,7 @@ Proof.
       destruct HH as [|HH]; first done.
       rewrite /rel_dec in HH.
       rewrite /rel_dec /apply_access_perm /apply_access_perm_inner in H4cs.
-      destruct v, (decide (ParentChildIn tg_cs tg_acc tr2)), (item_lookup itcs' off) as [[][[]| | | |]] eqn:HHH.
+      destruct v, (decide (ParentChildIn tg_cs tg_acc tr2)), (item_lookup itcs' off) as [[][|[]| | | |]] eqn:HHH.
       all: destruct (initialized (item_lookup itcs' off)) eqn:Heqini.
       all: rewrite /= in H4cs.
       all: try discriminate H4cs. 
@@ -159,7 +160,7 @@ Proof.
       rewrite Hrr in H4.
       rewrite Hres maybe_non_children_only_no_effect // in H4.
       rewrite /apply_access_perm /apply_access_perm_inner in H4.
-      destruct (item_lookup it' off) as [[][[]| | | |]] eqn:Hppplu, (bool_decide (protector_is_active (iprot it) C)) eqn:Hprot.
+      destruct (item_lookup it' off) as [[][|[]| | | |]] eqn:Hppplu, (bool_decide (protector_is_active (iprot it) C)) eqn:Hprot.
       all: simpl in H4.
       all: try discriminate H4.
       all: injection H4 as <-. all: try reflexivity.
@@ -175,14 +176,16 @@ Proof.
         split; first done.
         split. 1: by rewrite H3cs.
         split; first done. split; first done.
-        intros ->.
-        edestruct maybe_non_children_only_effect_or_nop_strong as [(Heff&HH)|(Heff&HH)]; erewrite Heff in H4; clear Heff.
-        2: { injection H4 as H4. rewrite -H4 in Hres. injection Hres as <-. by eapply Hlp. }
-        rewrite /apply_access_perm /apply_access_perm_inner in H4.
-        destruct v, (rel_dec tr2 tg_acc tg'), (bool_decide (protector_is_active (iprot it) C)) eqn:Hppr; simpl in H4.
+        split.
+        all: intros ->.
+        all: edestruct maybe_non_children_only_effect_or_nop_strong as [(Heff&HH)|(Heff&HH)]; erewrite Heff in H4; clear Heff.
+        2,4: injection H4 as H4; rewrite -H4 in Hres; injection Hres as <-; by eapply Hlp.
+        all: rewrite /apply_access_perm /apply_access_perm_inner in H4.
+        all: destruct v, (rel_dec tr2 tg_acc tg'), (bool_decide (protector_is_active (iprot it) C)) eqn:Hppr; simpl in H4.
         all: try discriminate H4.
         all: injection H4 as H4. all: rewrite -H4 in Hres.
         all: injection Hres as Hres. all: subst acc. Unshelve.
+        all: try by eapply (Hcell).
         all: try by eapply (Hlp ResConflicted).
         all: try by eapply (Hlp ResActivable).
         all: eapply HnoPRI; first by eapply bool_decide_eq_true.
@@ -257,7 +260,7 @@ Proof.
   { simpl. intros [= ->] tg it acc (?&?&?&?&?&?&HH&_). set_solver. }
   intros (tr2&Hoff&HL)%bind_Some.
   specialize (IH _ Hoff).
-  intros tg' it acc (Hlu&Hreldec&it_cous&l&HlL&Hlucs&Hisprot&Hiniact&Hres&Hnores).
+  intros tg' it acc (Hlu&Hreldec&it_cous&l&HlL&Hlucs&Hisprot&Hiniact&Hres&Hnores&Hnocell).
   assert (tree_unique tg_acc tr2) as Hunq2.
   { rewrite /tree_unique. erewrite <- tree_access_many_helper_2. 1: exact Hunq. exact Hoff. }
   assert (wf_tree tr2) as Hwf2.
@@ -274,7 +277,7 @@ Proof.
     destruct ini.
     { exfalso. eapply bind_Some in H4 as (x&Hx&(y&Hy&[=])%bind_Some). }
     rewrite lookup_insert_eq in HlL. injection HlL as ->.
-    destruct pp as [[]| | | |], (bool_decide (protector_is_active (iprot it) C)).
+    destruct pp as [|[]| | | |], (bool_decide (protector_is_active (iprot it) C)).
     all: simpl in H4; try discriminate H4; injection H4 as <-.
     all: try done. all: exfalso; by eapply Hnores.
   - odestruct (tree_access_lookup_outside_rev l) as (it'&H1&H2&H3&H4).
@@ -498,7 +501,7 @@ Lemma tree_access_protected_active_initialized_equally acc C tg_acc it_acc tr tr
   no_active_cousins C tr →
   tree_lookup tr tg_acc it_acc →
   protector_is_active it_acc.(iprot) C →
-  (off1 ≤ offi < off1 + sz → ∃ pp, (item_lookup it_acc offi) = mkPerm PermInit pp ∧ (acc = AccessWrite → pp = Active)) →
+  (off1 ≤ offi < off1 + sz → ∃ pp, (item_lookup it_acc offi) = mkPerm PermInit pp ∧ pp ≠ Cell ∧ (acc = AccessWrite → pp = Active)) →
   memory_access_nonchildren_only acc C tg_acc (off1, sz) tr = Some tr' →
   ∀ tgl it it', tree_lookup tr tgl it → tree_lookup tr' tgl it' → (item_lookup it offi) = mkPerm PermInit Active ↔ (item_lookup it' offi) = mkPerm PermInit Active.
 Proof.
@@ -511,7 +514,7 @@ Proof.
     assert (itnew = it') as ->.
     { eapply tree_determined_unify. 1-2: eapply Hitnewlu. 1: apply Hit'. }
     by rewrite Heq3.
-  - specialize (Hinitacc Hin) as (ppi&Hinitacc&Hppi).
+  - specialize (Hinitacc Hin) as (ppi&Hinitacc&Hnocell&Hppi).
     eapply tree_access_lookup_general in Hacc as Hacc2; [|done..|exact Hit].
     destruct Hacc2 as (itnew&Hitnewlu&Heq1&Heq2&Heq3).
     assert (itnew = it') as ->.
@@ -529,7 +532,7 @@ Proof.
     all: split.
     + intros Hitoff. rewrite Hitoff /= in Hpp,Hpn|-*.
       f_equal.
-      destruct acc, (bool_decide (protector_is_active (iprot it') C)), pp as [[]| | | |]; simpl in Hpn,Hpp.
+      destruct acc, (bool_decide (protector_is_active (iprot it') C)), pp as [|[]| | | |]; simpl in Hpn,Hpp.
       all: try discriminate Hpn. all: injection Hpn as <-.
       all: simpl in Hpp; try discriminate Hpp. all: done.
     + rewrite /=. intros [= ->].
@@ -545,16 +548,50 @@ Proof.
       ospecialize (Hmoreactive _ offi _). 1: by eapply tree_lookup_correct_tag.
       1: rewrite Hinitacc //.
       rewrite most_init_comm /= in Hiniteq.
-      destruct (item_lookup it offi); f_equal; done.
+      simpl in Hmoreactive. destruct Hmoreactive as [Heq|Heq]; rewrite Heq in Hpn.
+      all: destruct (item_lookup it offi); f_equal; try done.
     + intros Hitoff. exfalso. eapply Hcousins with (off:=offi).
       2: exact Hit. 1: exact Hlu. 1: rewrite /rel_dec decide_False // decide_False //.
-      2: rewrite Hitoff //. right. split; first by left.
-      rewrite Hinitacc. done.
+      2: rewrite Hitoff //. right. rewrite Hinitacc. split.
+      1: left; done. done.
     + intros Hwrong. exfalso. rewrite /= in Hwrong. injection Hwrong as Hwinit Hppeq. subst pp.
       all: rewrite Hwinit /= in Hpp.
-      destruct acc, (bool_decide (protector_is_active (iprot it') C)), (perm (item_lookup it offi)) as [[]| | | |]; cbv in Hpn;
+      destruct acc, (bool_decide (protector_is_active (iprot it') C)), (perm (item_lookup it offi)) as [|[]| | | |]; cbv in Hpn;
       try discriminate Hpn; injection Hpn as <-.
       all: discriminate Hpp.
+Qed.
+
+Lemma tree_access_equally_cell acc C tg_acc it_acc tr tr' off1 (sz : nat) :
+  wf_tree tr →
+  tree_lookup tr tg_acc it_acc →
+  memory_access_nonchildren_only acc C tg_acc (off1, sz) tr = Some tr' →
+  ∀ offi tgl it it', tree_lookup tr tgl it → tree_lookup tr' tgl it' → perm (item_lookup it offi) = Cell ↔ perm (item_lookup it' offi) = Cell.
+Proof.
+  intros Hwf Hlu Hacc offi tgl it it' Hit Hit'.
+  destruct (decide (off1 ≤ offi < off1 + sz)) as [Hin|Hout]; last first.
+  - eapply tree_access_lookup_outside in Hacc; [|done..|exact Hit].
+    destruct Hacc as (itnew&Hitnewlu&Heq1&Heq2&Heq3).
+    assert (itnew = it') as ->.
+    { eapply tree_determined_unify. 1-2: eapply Hitnewlu. 1: apply Hit'. }
+    by rewrite Heq3.
+  - eapply tree_access_lookup_general in Hacc as Hacc2; [|done..|exact Hit].
+    destruct Hacc2 as (itnew&Hitnewlu&Heq1&Heq2&Heq3).
+    assert (itnew = it') as ->.
+    { eapply tree_determined_unify. 1-2: eapply Hitnewlu. 1: apply Hit'. }
+    eapply tree_access_lookup_general in Hacc as Hacc2; [|done..|exact Hlu].
+    destruct Hacc2 as (itaccnew&Hitaccnewlu&Heqacc1&Heqacc2&Heqacc3).
+    edestruct maybe_non_children_only_effect_or_nop_strong as [(Heq&Haccrel)|(Heq&Hb&Himm)]; erewrite Heq in Heq3.
+    2: by injection Heq3 as ->. clear Heq. 
+    eapply bind_Some in Heq3 as (pn&Hpn&(pp&Hpp&[= Heq3])%bind_Some).
+    rewrite -Heq3 /=. split.
+    + intros Hcell. rewrite Hcell in Hpn.
+      assert (pn = Cell) as ->.
+      { clear -Hpn. rewrite /apply_access_perm_inner in Hpn. do 2 case_match; congruence. }
+      clear -Hpp. repeat (case_match; simplify_eq; try done).
+    + intros ->. assert (pn = Cell) as ->.
+      { clear -Hpp. repeat (case_match; simplify_eq; try done). }
+      clear -Hpn. rewrite /apply_access_perm_inner in Hpn.
+      repeat (case_match; simplify_eq; try done).
 Qed.
 
 
@@ -650,6 +687,35 @@ Proof.
   eapply Hinit. 2: done. rewrite dom_insert_L. set_solver.
 Qed.
 
+Lemma tree_access_many_equally_cell_2 C tg_acc it_acc (L : gmap Z _) tr1 trL :
+  wf_tree tr1 →
+  tree_lookup tr1 tg_acc it_acc →
+  let fn := (λ L tr, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg_acc (l, 1%nat)) (Some tr) L) in
+  fn L tr1 = Some trL →
+  ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → perm (item_lookup it1 l) = Cell ↔ perm (item_lookup itL l) = Cell.
+Proof.
+  intros Hwf1 Hlookup1 fn. subst fn; simpl.
+  map_fold_weak_ind L as off v L HH1 HH2 IH in trL; simpl.
+  { intros [= ->]. intros tg1 it1 it2 l Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
+    by eapply tree_lookup_unique. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  intros tgl it1 itL z Hit1 HitL.
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_2. 1: exact Hwf1. 1: apply Hoff. }
+  assert (tree_unique tg_acc tr1) as Hunqtr1.
+  { eapply Hwf1, Hlookup1. }
+  assert (tree_unique tg_acc tr2) as Hunqtr2.
+  { rewrite /tree_unique in Hunqtr1|-*. erewrite <-tree_access_many_helper_2. 1: exact Hunqtr1. 1: exact Hoff. }
+  assert (tree_unique tgl tr2) as Hunqtgl2.
+  { rewrite /tree_unique. erewrite <-tree_access_many_helper_2. 2: exact Hoff. eapply Hwf1. by eapply Hit1. }
+  eapply unique_implies_lookup in Hunqtgl2 as Hmid. destruct Hmid as (it2&Hit2).
+  eapply unique_implies_lookup in Hunqtr2 as Hmid. destruct Hmid as (itacc2&Hitacc2).
+  eapply unique_implies_lookup in Hunqtr1 as Hmid. destruct Hmid as (itacc1&Hitacc1).
+  ospecialize (IH _ Hoff).
+  erewrite IH. 2-3: done.
+  erewrite tree_access_equally_cell. 1: done. 3: done. all: done.
+Qed.
+
 Lemma tree_access_many_equally_active_initialized_2 C tg_acc it_acc (L : gmap Z _) tr1 trL :
   wf_tree tr1 →
   parents_more_init tr1 →
@@ -657,7 +723,7 @@ Lemma tree_access_many_equally_active_initialized_2 C tg_acc it_acc (L : gmap Z 
   no_active_cousins C tr1 →
   tree_lookup tr1 tg_acc it_acc →
   protector_is_active it_acc.(iprot) C →
-  (∀ z v, L !! z = Some v → ∃ pp, (item_lookup it_acc z) = mkPerm PermInit pp ∧ (v = AccessWrite → pp = Active)) →
+  (∀ z v, L !! z = Some v → ∃ pp, (item_lookup it_acc z) = mkPerm PermInit pp ∧ pp ≠ Cell ∧ (v = AccessWrite → pp = Active)) →
   let fn := (λ L tr, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg_acc (l, 1%nat)) (Some tr) L) in
   fn L tr1 = Some trL →
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → (item_lookup it1 l) = mkPerm PermInit Active ↔ (item_lookup itL l) = mkPerm PermInit Active.
@@ -692,12 +758,16 @@ Proof.
   eapply tree_access_protected_active_initialized_equally. 8: exact HL. 1-2: done. 7: exact HitL. 6: exact Hit2. 3: done. 1-2: done.
   1: by rewrite -Hprot.
   intros H. assert (off = z) as -> by lia.
-  destruct (Hinit z v) as (pp&Hpp1&Hpp2). 1: by rewrite lookup_insert_eq.
+  destruct (Hinit z v) as (pp&Hpp1&Hppnc&Hpp2). 1: by rewrite lookup_insert_eq.
+  opose proof (tree_access_many_equally_cell_2 _ _ _ _ _ _ _ _ Hoff _ _ _ z) as Hcells; [done..|].
   destruct (item_lookup itacc2 z) as [ii2 pp2] eqn:Heqii. exists pp2.
   assert (ii2 = PermInit) as ->.
   { opose proof* tree_access_many_more_initialized_2 as Hini. 2: exact Hoff. 1: done. 1: exact Hlookup1. 1: done.
     1: erewrite Hpp1; done. by rewrite Heqii in Hini. }
-  split; first done. intros Hv. specialize (Hpp2 Hv). subst pp.
+  split; first done. split.
+  { intros ->. eapply Hppnc. ospecialize (Hcells Hlookup1 _); first done. rewrite Hpp1 in Hcells.
+    apply Hcells. by rewrite Heqii. }
+  intros Hv. specialize (Hpp2 Hv). subst pp.
   eapply tree_access_many_more_active_initialized_2 in Hpp1. 3: exact Hoff. 2: done. 2,4: done. 2: done.
   rewrite Heqii in Hpp1. by simplify_eq.
 Qed.
@@ -724,6 +794,33 @@ Proof.
     eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
   intros Hini.
   erewrite <- (tree_access_many_more_initialized_2 _ _ _ _ _ Hwf2 HL _ it2 itL); try done.
+  eapply IH. all: done.
+Qed.
+
+Lemma tree_access_many_equally_cell_1 C (L : list (tag * gmap Z _)) tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  (∀ tg_acc E, (tg_acc, E) ∈ L → tree_contains tg_acc tr1) →
+  let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg (l, 1%nat)) (Some tr1) (L)) (Some tr) E) in
+  fn L tr1 = Some trL →
+  ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → perm (item_lookup it1 l) = Cell ↔ perm (item_lookup itL l) = Cell.
+Proof.
+  intros Hcont fn.
+  induction L as [|(tg_acc&S) L IH] in trL,Hcont|-*; simpl.
+  { intros [= ->]. intros tg1 it1 it2 off Hit1 Hit2. enough (it1 = it2) by (by simplify_eq).
+    by eapply tree_lookup_unique. }
+  intros (tr2&Hoff&HL)%bind_Some.
+  ospecialize (IH _ _ Hoff).
+  { intros ?? H; eapply Hcont. by right. }
+  intros tgl it1 itL off Hit1 HitL.
+  assert (wf_tree tr2) as Hwf2.
+  { eapply preserve_tag_count_wf. 1: eapply tree_access_many_helper_1. 1: exact Hwf1. 1: apply Hoff. }
+  assert (∃ it, tree_lookup tr2 tgl it) as (it2&Hit2).
+  { eapply lookup_implies_contains, count_gt0_exists in HitL.
+    erewrite <- tree_access_many_helper_2 in HitL; last done.
+    eapply count_gt0_exists in HitL. by eapply unique_implies_lookup, wf_tree_tree_unique. }
+  assert (tree_unique tg_acc tr2) as (itacc2&Hitacc2)%unique_implies_lookup.
+  { rewrite /tree_unique. erewrite <- tree_access_many_helper_1. 2: exact Hoff. eapply Hwf1, Hcont. by left. }
+  erewrite <- (tree_access_many_equally_cell_2 _ _ _ _ _ _ Hwf2 Hitacc2 HL _ _ _ _ Hit2 HitL).
   eapply IH. all: done.
 Qed.
 
@@ -805,7 +902,7 @@ Lemma tree_access_many_equally_active_initialized_1 C (L : list (tag * gmap Z _)
   parents_more_init tr1 →
   parents_more_active tr1 →
   no_active_cousins C tr1 →
-  (∀ tg_acc E, (tg_acc, E) ∈ L → ∃ it_acc, tree_lookup tr1 tg_acc it_acc ∧ protector_is_active it_acc.(iprot) C ∧ ∀ z v, E !! z = Some v → ∃ pp, (item_lookup it_acc z) = mkPerm PermInit pp ∧ (v = AccessWrite → pp = Active)) →
+  (∀ tg_acc E, (tg_acc, E) ∈ L → ∃ it_acc, tree_lookup tr1 tg_acc it_acc ∧ protector_is_active it_acc.(iprot) C ∧ ∀ z v, E !! z = Some v → ∃ pp, (item_lookup it_acc z) = mkPerm PermInit pp ∧ pp ≠ Cell ∧ (v = AccessWrite → pp = Active)) →
   let fn := (λ E tr, foldr (λ '(tg, L) tr, tr ≫= λ tr1, map_fold (λ l v tr2, tr2 ≫= memory_access_nonchildren_only v C tg (l, 1%nat)) (Some tr1) (L)) (Some tr) E) in
   fn L tr1 = Some trL →
   ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → (item_lookup it1 l) = mkPerm PermInit Active ↔ (item_lookup itL l) = mkPerm PermInit Active.
@@ -843,12 +940,17 @@ Proof.
   eapply tree_access_many_equally_active_initialized_2. 8: exact HL. 1-2: done. 7: exact HitL. 6: exact Hit2. 3: done. 1-2: done.
   1: by rewrite -Hprot.
   intros zz v Hzv.
-  destruct (HHinit zz v) as (pp&Hpp1&Hpp2). 1: done.
+  destruct (HHinit zz v) as (pp&Hpp1&Hppnc&Hpp2). 1: done.
   destruct (item_lookup itacc2 zz) as [ii2 pp2] eqn:Heqii. exists pp2.
   assert (ii2 = PermInit) as ->.
   { opose proof* tree_access_many_more_initialized_1 as Hini. 2: exact Hoff. 1: done. 1: exact Hit_acc. 1: done.
     1: erewrite Hpp1; done. by rewrite Heqii in Hini. }
-  split; first done. intros Hv. specialize (Hpp2 Hv). subst pp.
+  opose proof (tree_access_many_equally_cell_1 _ _ _ _ Hwf1 _ Hoff) as Hcells; last first.
+  2: { intros x1 x2 H. destruct (Hinit x1 x2) as (it&Hit&_). 1: by right. eapply Hit. }
+  split; first done. split.
+  { intros ->. eapply Hppnc. ospecialize (Hcells _ _ _ zz Hit_acc _); first done. rewrite Hpp1 in Hcells.
+    apply Hcells. by rewrite Heqii. }
+  intros Hv. specialize (Hpp2 Hv). subst pp.
   eapply tree_access_many_more_active_initialized_1 in Hpp1. 5: exact Hoff. 2-3: done. 3: done. 3: done. 3: done.
   1: rewrite Heqii in Hpp1; by simplify_eq.
   intros tt EE Htt.
@@ -883,6 +985,19 @@ Proof.
   eapply tree_determined_unify. 3: eapply Hlu'. 1-2: eapply Hit.
 Qed.
 
+Lemma tree_access_many_equally_cell C cid tr1 trL
+  (Hwf1 : wf_tree tr1) :
+  tree_access_all_protected_initialized C cid tr1 = Some trL →
+  ∀ tgl it1 itL l, tree_lookup tr1 tgl it1 → tree_lookup trL tgl itL → perm (item_lookup it1 l) = Cell ↔ perm (item_lookup itL l) = Cell.
+Proof.
+  rewrite /tree_access_all_protected_initialized.
+  rewrite /set_fold /=. eapply tree_access_many_equally_cell_1.
+  - done.
+  - intros tg E (it&Hit&Hprot&HHit)%elem_of_elements%tree_all_protected_initialized_elem_of.
+    1: eapply Hit.
+    by eapply Hwf1.
+Qed.
+
 Lemma tree_access_many_equally_initialized C cid tr1 trL
   (Hwf1 : wf_tree tr1) (Hmi : parents_more_init tr1) :
   tree_access_all_protected_initialized C cid tr1 = Some trL →
@@ -913,9 +1028,9 @@ Proof.
   2: by eapply Hwf1.
   exists it. split; first done.
   split. 1: by exists cid.
-  intros z v (H1&H2)%HHit.
+  intros z v (H1&Hnc&H2)%HHit.
   destruct (item_lookup it z) as (ii&pp). exists pp.
-  simpl in *. subst ii. split; first done.
+  simpl in *. subst ii. split; first done. split; first done.
   intros ->%H2. done.
 Qed.
 
@@ -955,6 +1070,7 @@ Proof.
     all: eapply tree_access_many_helper_1; exact Hacc. }
   opose proof (tree_access_many_preserve_protector _ _ _ _ _ Hacc) as Hproteq. 1: done.
   opose proof (tree_access_many_equally_initialized _ _ _ _ _ _ Hacc) as Hiniteq. 1-2: done.
+  opose proof (tree_access_many_equally_cell _ _ _ _ _ Hacc) as Hcelleq. 1: done.
   opose proof (tree_access_many_equally_active_initialized _ _ _ _ _ _ _ _ _ Hacc) as Hacteq. 1-5: done.
   intros [tg E]; split; (intros (it&Hit&Hprot&HH)%tree_all_protected_initialized_elem_of; last done);
     (eapply tree_all_protected_initialized_elem_of; first done).
@@ -966,7 +1082,9 @@ Proof.
     intros z v.
     specialize (Hiniteq _ _ _ z Hit Hit'). rewrite -Hiniteq.
     specialize (Hacteq _ _ _ z Hit Hit').
-    setoid_rewrite HH. split; intros (Hini&Hact); split. 1,3: done.
+    specialize (Hcelleq _ _ _ z Hit Hit').
+    setoid_rewrite HH. split; intros (Hini&Hncell&Hact); (split; last split). 1,4: done.
+    1: by rewrite -Hcelleq. 2: by rewrite Hcelleq. 
     all: setoid_rewrite Hact.
     all: destruct (item_lookup it z) as [ini1 pp1], (item_lookup it' z) as [ini2 pp2]; simpl in *; subst ini1 ini2. 
     all: split; intros ->; destruct Hacteq as [HX1 HX2]; try specialize (HX1 eq_refl); try specialize (HX2 eq_refl); by simplify_eq.
@@ -978,7 +1096,9 @@ Proof.
     intros z v.
     specialize (Hiniteq _ _ _ z Hit' Hit). rewrite Hiniteq.
     specialize (Hacteq _ _ _ z Hit' Hit).
-    setoid_rewrite HH. split; intros (Hini&Hact); split. 1,3: done.
+    specialize (Hcelleq _ _ _ z Hit' Hit).
+    setoid_rewrite HH. split; intros (Hini&Hncell&Hact); (split; last split). 1,4: done.
+    1: by rewrite Hcelleq. 2: by rewrite -Hcelleq. 
     all: setoid_rewrite Hact.
     all: destruct (item_lookup it z) as [ini1 pp1], (item_lookup it' z) as [ini2 pp2]; simpl in *; subst ini1 ini2. 
     all: split; intros ->; destruct Hacteq as [HX1 HX2]; try specialize (HX1 eq_refl); try specialize (HX2 eq_refl); by simplify_eq.
@@ -1143,6 +1263,7 @@ Proof.
       split. 2: { split; first done. split; first by eexists. done. }
       eapply mem_enumerate_initalized. rewrite Hpermcs. done.
     + assumption.
+    + assumption.
   - econstructor 6.
     all: eassumption.
   - inversion HH as [x H|x H]; simplify_eq.
@@ -1206,7 +1327,7 @@ Proof.
   1: econstructor 2; econstructor 1.
   destruct Hd5 as (c'&Hc1&Hc2).
   destruct (decide (c' = cid)) as [<-|Hno]; last first.
-  { econstructor 2. econstructor 2. 1: exact Hd3. 1: exact Hd4. 2-3: done.
+  { econstructor 2. econstructor 2. 1: exact Hd3. 1: exact Hd4. 2-4: done.
     exists c'. split; first done. rewrite /call_is_active in Hc2|-*. set_solver. }
   ospecialize (HraiD1' _ _ pX _); last first.
   { econstructor. rewrite HraiD1'. econstructor 1. }
@@ -1223,6 +1344,7 @@ Proof.
     simpl in Hd6. subst lpx. done.
   - done.
   - exists c'. split; first done. done.
+  - done.
   - done.
   - done.
   - done.

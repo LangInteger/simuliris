@@ -53,6 +53,7 @@ Context (C : call_id_set).
       + done.
       + done.
       + done.
+      + done.
   Qed.
 
   Definition disabled_tag_at_create_child_irreversible
@@ -239,7 +240,7 @@ Context (C : call_id_set).
         pose proof Hcont as Hcont2. setoid_rewrite H1 in Hcont2. econstructor 2. 1: done.
         * inversion Hi2 as [|tg_cs it_cs Hii1 Hii2 Hii3 Hii4 Hii5 Hii6]; simplify_eq; first by econstructor 1.
           destruct Hii2 as [HA HB].
-          econstructor 2. 3-5: done.
+          econstructor 2. 3-6: done.
           2: { split. 1: by eapply insert_preserves_exists.
                setoid_rewrite <- insert_true_preserves_every; first done.
                intros <-. done. }
@@ -255,7 +256,7 @@ Context (C : call_id_set).
              1-2: by intros <-.
         * inversion Hi3 as [|tg_cs it_cs Hii1 Hii2 Hii3 Hii4 Hii5 Hii6]; simplify_eq; first by econstructor 1.
           destruct Hii2 as [HA HB].
-          econstructor 2. 3-5: done.
+          econstructor 2. 3-6: done.
           2: { split. 1: by eapply insert_preserves_exists.
                setoid_rewrite <- insert_true_preserves_every; first done.
                intros <-. done. }
@@ -278,6 +279,7 @@ Context (C : call_id_set).
           2: { split. 1: by eapply insert_preserves_exists.
                setoid_rewrite <- insert_true_preserves_every; first done.
                intros <-. done. }
+          2: done.
           rewrite /rel_dec in Hii1|-*.
           destruct (decide (ParentChildIn tg_cs tg tr1)) as [|HnPC]; first done.
           destruct (decide (ParentChildIn tg tg_cs tr1)) as [|HnPC2]; first done.
@@ -290,7 +292,7 @@ Context (C : call_id_set).
              1-2: by intros <-.
         * inversion Hi3 as [|tg_cs it_cs X1 X2 Hii1 Hii2 Hii3 Hii4]; simplify_eq; first by econstructor 1.
           destruct Hii2 as [HA HB].
-          econstructor 2. 3-5: done.
+          econstructor 2. 3-6: done.
           2: { split. 1: by eapply insert_preserves_exists.
                setoid_rewrite <- insert_true_preserves_every; first done.
                intros <-. done. }
@@ -325,6 +327,7 @@ Context (C : call_id_set).
              lia.
           -- eassumption.
           -- eassumption.
+        * auto.
         * auto.
       + econstructor 6; destruct d.
         * eapply frozen_in_practice_create_child_irreversible.

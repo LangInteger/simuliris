@@ -77,7 +77,7 @@ Context (C : call_id_set).
     destruct (decide _) as [HinRange|?]; last first.
     { rewrite /item_lookup /= PerLoc.
       constructor. }
-    destruct (TreeShapeProper _ HinRange) as (Htginit&Htgnondis&Hothers).
+    destruct (TreeShapeProper _ HinRange) as (Htginit&Htgnondis&Hnotcel&Hothers).
     (* Keep digging until [apply_access_perm_inner] *)
     destruct PerLoc as (perm' & perm'Lookup & perm'Spec).
     pose proof Hothers as Hothers_pure.
@@ -128,10 +128,12 @@ Context (C : call_id_set).
           destruct (item_lookup itsw loc) as [ini prm] eqn:Heq; simpl in *; subst prm.
           edestruct (bool_decide (protector_is_active (iprot itsw) C)), ini in Hacc; simpl in Hacc; try discriminate Hacc; injection Hacc as <-.
           all: try econstructor 1. all: econstructor 2; econstructor 1.
+        * clear -Inner MoreInit. simpl. rewrite /apply_access_perm_inner in Inner.
+          repeat (case_match; simplify_eq; simpl; try done).
       + rewrite /apply_access_perm_inner /= in Inner. rewrite /= most_init_comm /=.
         destruct Hspecials as (Hfrz&Hnact).
-        destruct (item_lookup it0 loc) as [ini [cfl| | | |]] eqn:Hperm.
-        2,4,5: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
+        destruct (item_lookup it0 loc) as [ini [|cfl| | | |]] eqn:Hperm.
+        1,3,5,6: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
         2: exfalso; by eapply Hnact.
         simpl in *. assert (∃ cfl', validated = Reserved cfl') as (cfl'&->).
         { destruct ini, cfl, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; eexists; simplify_eq; done. }
@@ -153,7 +155,7 @@ Context (C : call_id_set).
           all: rewrite /item_lookup -Hiteq /= HPP /= //.
     - rewrite /= most_init_comm /=.
       rewrite /apply_access_perm_inner /= in Inner.
-      destruct (item_lookup it0 loc) as [[] [[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
+      destruct (item_lookup it0 loc) as [[] [|[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
       all: try by (simplify_eq; econstructor 1).
       1-2: simplify_eq; econstructor 2;
             [by eapply bool_decide_eq_true_1| |econstructor 1].
@@ -276,22 +278,23 @@ Context (C : call_id_set).
         rewrite /item_lookup /= -Hitsweq HPP /=.
         repeat (case_match; simpl in *; try done; simplify_eq).
         all: by eapply disabled_is_disabled.
+        * clear -Inner MoreInit. simpl. rewrite /apply_access_perm_inner in Inner.
+          repeat (case_match; simplify_eq; simpl; try done).
     - rewrite /= most_init_comm /=.
       rewrite /apply_access_perm_inner /= in Inner.
       eapply rel_dec_flip in Hreldec.
-      destruct (item_lookup it0 loc) as [[] [[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
+      destruct (item_lookup it0 loc) as [[] [|[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
       all: try by (simplify_eq; first [done | econstructor 1]).
       all: try by eapply bool_decide_eq_true_1 in Hprot.
       all: injection Inner as <-; injection MoreInit as <-. 
       all: econstructor 4; last econstructor 1.
-      all: econstructor 2; [exact Hreldec|exact Lkup|done|destruct (item_lookup it loc); simpl in *; congruence| ].
-      all: intros [=]. all: by eapply bool_decide_eq_true_1.
+      all: econstructor 2; [exact Hreldec|exact Lkup|done|destruct (item_lookup it loc); simpl in *; congruence|done|done].
     - destruct Hothers as (Hini&Hact).
       rewrite /apply_access_perm_inner /= in Inner.
       destruct (item_lookup it0 loc) as [ini pp] eqn:Hperm.
-      simpl in Hini, Hact. subst ini pp. simpl in Inner. simplify_eq. simpl in MoreInit.
+      simpl in Hini, Hact. subst ini. simpl in Inner. simplify_eq. simpl in MoreInit.
       destruct (bool_decide (protector_is_active (iprot it0) C)); simpl in MoreInit|-*; simplify_eq.
-      all: econstructor 1.
+      all: destruct Hact; simplify_eq; econstructor 1.
     - simpl in *. assert (itag it = itag it0) as Htageq.
       { rewrite /rel_dec in Hreldec. do 2 (destruct decide; try done).
         eapply mutual_parent_child_implies_equal. 1: done. 1: eapply Lkup. all: done. }

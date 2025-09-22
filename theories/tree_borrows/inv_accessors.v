@@ -415,7 +415,7 @@ Section lemmas.
     tag_protected_for P c σ.(strs) l tg (EnsuringAccess ae) →
     bor_state_pre l tg tk σ.
   Proof.
-    intros (it&Hit&Hforcall&Hstrength&HP&Hndis).
+    intros (it&Hit&Hforcall&Hstrength&HP&Hinit&Hndis&Hncell).
     destruct tk.
     - by exists it.
     - by exists it.
@@ -488,7 +488,54 @@ Section lemmas.
     2: eapply Hwf. 2,4: eapply Hwf, Hit. 2: eapply Hit. 2: by left.
     eapply every_node_eqv_universal in Hntrs.
     2: by eapply tree_lookup_to_exists_node.
-    eapply Hntrs. all: done.
+    destruct Hntrs as [Hc|Hc]. 1-4: done.
+    congruence.
+  Qed.
+
+  Lemma cell_node_perms_eq_up_to_C C tr1 tr2 tg off pr d lp1 lp2 :
+    perm_eq_up_to_C C tr1 tr2 tg off pr d lp1 lp2 →
+    perm lp1 = Cell → perm lp2 = Cell.
+  Proof.
+    intros Hsameperm.
+    destruct lp1 as [it1i it1p].
+    destruct lp2 as [it2i it2p]. simpl. intros ->.
+    inversion Hsameperm as
+      [perm Lookup EqLookup
+      |??? Prot Confl1 Confl2 Lookup1 Lookup2
+      |??? Prot Lookup1 Lookup2
+      |p1 p2 Confl1 Confl2 Lookup1 Lookup2
+      |witness_tg ?? Dis1 Dis2 SameInit SameCell
+      |ini ?? witness_tg Frz Lookup1 Lookup2
+      |p1 p2 ini Hd Lookup1 Lookup2
+    ]; simplify_eq.
+    - done.
+    - inversion Confl1; congruence.
+    - simpl in *. rewrite <- SameCell. done.
+    - destruct d; inversion Hd.
+  Qed.
+
+  Lemma cell_nodes_trees_equal C d trs1 trs2 l tg it1 it2 :
+    wf_trees trs1 → wf_trees trs2 →
+    trees_equal C d trs1 trs2 →
+    trees_lookup trs1 l.1 tg it1 →
+    trees_lookup trs2 l.1 tg it2 →
+    perm (item_lookup it1 l.2) = Cell →
+    perm (item_lookup it2 l.2) = Cell.
+  Proof.
+    intros Hwf1 Hwf2 Heq (tr1&Htr1&Hit1) (tr2&Htr2&Hit2) Hcell.
+    specialize (Heq l.1). rewrite Htr1 Htr2 in Heq.
+    inversion Heq as [x y Heq2|]; subst.
+    destruct Heq2 as (_&_&Heq2).
+    edestruct Heq2 as (it1'&it2'&Hit1'&Hit2'&Heq2').
+    1: eapply Hit1.
+    eapply tree_lookup_unique in Hit1'; last exact Hit1.
+    eapply tree_lookup_unique in Hit2'; last exact Hit2.
+    subst it1' it2'.
+    specialize (Heq2' l.2).
+    destruct Heq2' as [Hsameprot Hsameperm].
+    destruct (item_lookup it1 l.2) as [it1i it1p] eqn:Heqit1.
+    destruct (item_lookup it2 l.2) as [it2i it2p] eqn:Heqit2.
+    by eapply cell_node_perms_eq_up_to_C.
   Qed.
 
   Lemma tag_protected_for_trees_equal P C c d trs1 trs2 l tg ps :
@@ -505,28 +552,38 @@ Section lemmas.
       specialize (Heq l.1). rewrite Htr2 in Heq.
       inversion Heq as [tr1 tr2' Heq12 Htr1 X5|]; simplify_eq. symmetry in Htr1.
       destruct (tree_equal_transfer_lookup_2 C Heq12 Hit2) as (it1&Hit1&Heqit).
-      odestruct (Hx it1 _) as (HHit1&HHit1B&HXX&HHit1C). 1: by exists tr1.
+      odestruct (Hx it1 _) as (HHit1&HHit1B&HXX&HHit1I&Hit1nD&HHit1nC). 1: by exists tr1.
       destruct (Heqit l.2) as (Heqprot&Heqperm).
+      eapply perm_eq_up_to_C_same_init in Heqperm as Heqinit.
+      rewrite HHit1I in Heqinit.
       split_and!.
       + by rewrite -Heqprot.
       + by rewrite -Heqprot.
       + done.
-      + intros Hini Hndis. eapply wf_trees_parents_not_disabled_self.
-        6: exact Hndis. 5: exact Hini. 3: exists tr2; done. 1-2: done.
+      + done.
+      + intros Hndis. eapply wf_trees_parents_not_disabled_self.
+        6: exact Hndis. 5: done. 3: exists tr2; done. 1-2: done.
         exists c. split; last done. by rewrite -Heqprot.
-    - intros (it1&(tr1&Htr1&Hit1)&HHit1&HHit1B&HHit1X&HHit1C).
+      + intros Hcell. eapply cell_node_perms_eq_up_to_C in Hcell; last by eapply perm_eq_up_to_C_sym in Heqperm.
+        contradiction.
+    - intros (it1&(tr1&Htr1&Hit1)&HHit1&HHit1B&HHit1X&HHit1I&HHit1nD&HHit1Cell).
       specialize (Heq l.1). rewrite Htr1 in Heq.
       inversion Heq as [tr1' tr2 Heq12 X4 Htr2|]; simplify_eq. symmetry in Htr2.
       destruct (tree_equal_transfer_lookup_1 C Heq12 Hit1) as (it2&Hit2&Heqit).
       exists it2. split. 1: by exists tr2.
       destruct (Heqit l.2) as (Heqprot&Heqperm).
+      eapply perm_eq_up_to_C_same_init in Heqperm as Heqinit.
+      rewrite HHit1I in Heqinit.
       split_and!.
       + by rewrite -Heqprot.
       + by rewrite -Heqprot.
       + intros [= ->]. eapply tree_lookup_correct_tag in Hit1, Hit2. rewrite Hit2 -Hit1. by eapply HHit1X.
-      + intros Hini Hndis. eapply wf_trees_parents_not_disabled_self.
-        6: exact Hndis. 5: exact Hini. 3: exists tr2; done. 1-2: done.
+      + done.
+      + intros Hndis. eapply wf_trees_parents_not_disabled_self.
+        6: exact Hndis. 5: done. 3: exists tr2; done. 1-2: done.
         exists c. split; last done. by rewrite -Heqprot.
+      + intros Hcell. eapply cell_node_perms_eq_up_to_C in Hcell; last by eapply perm_eq_up_to_C_sym in Heqperm.
+        contradiction.
   Qed.
 
   Lemma bor_interp_readN_source_protected σ_t σ_s M_call M_tag M_t M_s t l_rd l_hl tk sz scs_hl scs_rd L M c :

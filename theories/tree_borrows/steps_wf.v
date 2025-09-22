@@ -571,7 +571,7 @@ Proof.
   - destruct Hpx as (?&Hkk&Hpx).
     rewrite Hpnew in Hkk. injection Hkk as <-.
     eapply Hpreach in Hpx. rewrite Heq in Hpx.
-    destruct perm as [[]| | | |] eqn:Hperm in Hpx. 1,2,4,5,6: try by cbv in Hpx.
+    destruct perm as [|[]| | | |] eqn:Hperm in Hpx. 1,2,3,5,6,7: by cbv in Hpx.
     eapply HIM; first done. done.
   - eapply Hlazy; first exact Hfn.
     rewrite /default. destruct (iperm it1 !! k) as [pold|] eqn:Hpold.
@@ -770,7 +770,7 @@ Proof.
   2: by eapply H.
   rewrite /parents_more_init.
   intros tg. eapply every_child_initial_tree.
-  intros _ l. done.
+  intros _ l ?. by left.
 Qed.
 
 Lemma extend_trees_not_disabled C trs n b z n2 :
@@ -781,8 +781,8 @@ Proof.
   intros [(<-&<-)|(Hne1&Htr)]%lookup_insert_Some.
   2: by eapply H.
   rewrite /parents_more_init.
-  intros tg. eapply every_child_initial_tree.
-  intros _ l _ (c&Hc&_). done.
+  intros tg l. eapply every_child_initial_tree.
+  intros _ _ (c&Hc&_). done.
 Qed.
 
 Lemma extend_trees_no_active_cousins C trs n b z n2 :
@@ -1091,10 +1091,11 @@ Proof.
     assert (x = y) as -> by repeat (case_match; simplify_eq; try done). clear Hy.
     rewrite /rel_dec Htgitpar decide_True // in Hx. 2: { eapply ParentChild_transitive. 2: exact HPCI. done. }
     destruct acc.
-    - simpl in Hxc. rewrite WFactive in Hx.
-      2: repeat (case_match; simplify_eq; try done).
-      rewrite /apply_access_perm_inner in Hx. congruence.
-    - simpl in Hx. repeat (case_match; simplify_eq; try done). }
+    - simpl in Hxc. destruct WFactive as [WFactive|WFactive];
+      [by repeat (case_match; simplify_eq; try done)|left|right].
+      all: rewrite WFactive in Hx.
+      all: rewrite /apply_access_perm_inner in Hx; congruence.
+    - simpl in Hx. repeat (case_match; simplify_eq; try done); (try by left); by right. }
   destruct (decide (ParentChildIn tg_par tg tr)) as [HPCI2|HnPCI2].
   { edestruct (maybe_non_children_only_effect_or_nop_strong b) as [(Heq&Hfacts')|(Heq&->&imm'&Hreldec')].
     all: erewrite Heq in Haccp; clear Heq. 2: rewrite /rel_dec Htgitpar decide_True // in Hreldec'.
@@ -1108,7 +1109,9 @@ Proof.
     injection Haccc as <-. specialize (WFactive Hcldact).
     eapply bind_Some in Haccp as (x&Hx&(y&Hy&[= <-])%bind_Some). simpl.
     assert (x = y) as -> by repeat (case_match; simplify_eq; try done). clear Hy.
-    rewrite WFactive in Hx. rewrite /rel_dec Htgitpar decide_True // in Hx. destruct acc; cbv in Hx; congruence. }
+    destruct WFactive as [WFactive|WFactive]; [left|right].
+    all: rewrite WFactive in Hx; rewrite /rel_dec Htgitpar decide_True // in Hx.
+    all: destruct acc; cbv in Hx; congruence. }
   edestruct (maybe_non_children_only_effect_or_nop_strong b) as [(Heq&Hfacts')|(Heq&->&imm'&Hreldec')].
   all: erewrite Heq in Haccp; clear Heq.
   { edestruct (maybe_non_children_only_effect_or_nop_strong b) as [(Heq&Hfacts)|(Heq&->&imm&Hreldec)].
@@ -1143,7 +1146,7 @@ Lemma memory_access_compat_parents_not_disabled b tr tr' acc cids tg range :
 Proof.
   intros WFunq Hcont WFinit WFpnd Dealloc.
   assert (tree_unique tg tr) as Hunq by by eapply WFunq.
-  intros tg_par.
+  intros tg_par l.
   destruct (decide (tree_contains tg_par tr)) as [Hunqpar%WFunq|Hninpar].
   2: { eapply every_child_not_in, count_0_not_exists. erewrite <-memory_access_tag_count; last done.
        by eapply count_0_not_exists. }
@@ -1178,7 +1181,7 @@ Proof.
   specialize (WFpnd tg_par). setoid_rewrite every_child_ParentChildIn in WFpnd.
   2: done. 2: done. 
   ospecialize (WFinit _ Hitpar' tgcld _ _). 1: done. 1: done.
-  ospecialize (WFpnd _ Hitpar tgcld _ _). 1: done. 1: by setoid_rewrite access_eqv_rel.
+  ospecialize (WFpnd l _ Hitpar tgcld _ _). 1: done. 1: by setoid_rewrite access_eqv_rel.
   epose proof HPCpc' as HPCpc. setoid_rewrite <- access_eqv_rel in HPCpc; try done.
   eapply every_node_eqv_universal in WFinit.
   2: { eapply exists_determined_exists. 2: exact Hitcld'. 1: by eapply unique_exists. }
@@ -1191,9 +1194,10 @@ Proof.
   symmetry in Hpostpar. symmetry in Hpostcld.
   eapply bind_Some in Hpostpar as (pp&Hpostpar&[= <-]).
   eapply bind_Some in Hpostcld as (pc&Hpostcld&[= <-]).
-  intros l. specialize (WFinit l). specialize (WFpnd l).
+  specialize (WFinit l).
   eapply (mem_apply_range'_spec _ _ l) in Hpostpar.
   eapply (mem_apply_range'_spec _ _ l) in Hpostcld.
+  rewrite /item_protected_all_parents_not_disabled /=.
   destruct decide as [Hrange|Hnrange]; last first.
   { rewrite /item_lookup /= Hpostpar Hpostcld. apply WFpnd. }
   destruct Hpostpar as (ppnew&Hppnew&Haccp).
@@ -1211,7 +1215,7 @@ Proof.
   { edestruct (maybe_non_children_only_effect_or_nop_strong b) as [(Heq&Hfacts)|(Heq&->&imm&Hreldec)].
     all: erewrite Heq in Haccp; clear Heq. 2: rewrite Htgitpar /rel_dec decide_True // in Hreldec.
     rewrite Htgitpar /rel_dec decide_True // in Haccp.
-    eapply bind_Some in Haccp as (x&Hx&(y&Hy&[= <-])%bind_Some); simpl.
+    eapply bind_Some in Haccp as (x&Hx&(y&Hy&[= <-])%bind_Some); simpl. left.
     intros ->. assert (x = Disabled) as -> by repeat (case_match; simplify_eq; try done).
     clear Hy. rewrite /apply_access_perm_inner in Hx.
     repeat (case_match; simplify_eq; try done). }
@@ -1238,19 +1242,27 @@ Proof.
          eapply cousins_have_disjoint_children. 5: eapply HPCpc. 5: eapply HPCI4.
          1-3: done. rewrite /rel_dec decide_False // decide_False //. }
     rewrite Htgitpar /rel_dec decide_False // /apply_access_perm_inner /= in Hx.
-    destruct acc.
-    { destruct (perm (default {| initialized := PermLazy; perm := initp itpar |} (iperm itpar !! l))) as [[]| | | |] eqn:HHH,
-               (bool_decide (protector_is_active (iprot itpar) cids)); rewrite HHH in Hx; rewrite /= in Hx Hy; try by simplify_eq.
-      exfalso. eapply WFpnd. 2-3: done.
-      eapply bind_Some in Haccc as (xc&Hxc&(yc&Hyc&[= <-])%bind_Some). simpl in Hisinit.
-      rewrite Htgitcld /rel_dec most_init_comm /= decide_False /= in Hisinit.
-      2: { intros H. eapply HnPCI. do 2 (eapply ParentChild_transitive; first eassumption). by left. }
-      done. }
-    { eapply bind_Some in Haccc as (xc&Hxc&(yc&Hyc&[= <-])%bind_Some). rewrite /= in Hisinit.
-      rewrite Hisinit in Hyc. rewrite bool_decide_true // in Hyc Hxc.
-      rewrite Htgitcld /rel_dec decide_False /= in Hxc.
-      2: { intros H. eapply HnPCI. do 2 (eapply ParentChild_transitive; first eassumption). by left. }
-      exfalso. repeat (case_match; simplify_eq; try done). } }
+    eapply bind_Some in Haccc as (xc&Hxc&(yc&Hyc&[= <-])%bind_Some). simpl in Hisinit.
+    rewrite Htgitcld /rel_dec most_init_comm /= decide_False /= in Hisinit.
+    2: { intros H. eapply HnPCI. do 2 (eapply ParentChild_transitive; first eassumption). by left. }
+    simpl. destruct acc.
+    { destruct (perm (default {| initialized := PermLazy; perm := initp itpar |} (iperm itpar !! l))) as [|[]| | | |] eqn:HHH,
+               (bool_decide (protector_is_active (iprot itpar) cids)); rewrite HHH in Hx; rewrite /= in Hx Hy; try (left; by simplify_eq).
+      odestruct (WFpnd _ _) as [Hc|Hc]; [done|done|done|].
+      rewrite /item_lookup in Hc. rewrite Hc /= in Hxc.
+      right. clear -Hxc Hyc. repeat case_match; congruence. }
+    destruct (decide (perm (item_lookup itcld l) = Cell)) as [Heq|Hne].
+    { right. rewrite /item_lookup in Heq. rewrite Heq /= in Hxc.
+      clear -Hxc Hyc. repeat case_match; congruence. }
+    odestruct (WFpnd _ _) as [Hc|Hc]; [done|done| |done].
+    left. intros ->.
+    destruct (bool_decide (protector_is_active (iprot itpar) cids)) eqn:Hprotpar.
+    1: by destruct x.
+    injection Hy as ->.
+    rewrite Hisinit in Hyc. rewrite bool_decide_true // in Hyc Hxc.
+    rewrite Htgitcld /rel_dec decide_False /= in Hxc.
+    2: { intros H. eapply HnPCI. do 2 (eapply ParentChild_transitive; first eassumption). by left. }
+    repeat (case_match; simplify_eq; try done). }
 Qed.
 
 
@@ -1315,22 +1327,25 @@ Proof.
     destruct Ha1 as [Ha1|(Hp1&Hi1)].
     1: repeat (case_match; simpl in *; simplify_eq; try done).
     destruct acc.
-    2: { destruct Hp1 as [|[|[]]].
+    2: { destruct Hp1 as [[? Hnc]|[|[]]].
          1: rewrite bool_decide_eq_true_2 // in Hlp1'.
          all: repeat (case_match; simpl in *; simplify_eq; try done). }
     assert (perm (item_lookup it2 off) = Active) as Ha2old.
     { clear Hlp1'. rewrite maybe_non_children_only_no_effect // /= /apply_access_perm /apply_access_perm_inner /= in Hlp2'.
       rewrite /item_lookup.
-      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [[]| | | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
+      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [|[]| | | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
       all: try discriminate Hlp2'. all: injection Hlp2' as <-.
       all: try discriminate Ha2. all: done. }
-    destruct (perm (default _ _)) as [[]| | | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
+    destruct (perm (default _ _)) as [|[]| | | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
+    { eapply bind_Some in Hlp1' as (px&Hpx1&[= <-]).
+      destruct bool_decide in Hpx1; simpl in Hpx1, Hp1; simplify_eq; clear -Hp1.
+      all: by destruct Hp1 as [[_ ?]|[[=]|[[=]|[=]]]]. }
     all: rewrite most_init_comm /= in Hinit.
     all: destruct (iperm it1 !! off) as [[[] prm]|] eqn:Hlu; rewrite Hlu /= // in Hinit.
     all: eapply WFcs; [exact Hit1|exact Hit2|exact Hreldec| |exact Ha2old].
     all: try (left; apply Hperm).
     all: try (right; split; last (by rewrite /item_lookup Hlu /= //)).
-    all: destruct Hp1 as [Hx|Hp1]; first by left.
+    all: destruct Hp1 as [[Hx Hnc]|Hp1]; first (left; split; [done|rewrite /item_lookup Hperm //]).
     all: right.
     all: destruct (bool_decide (protector_is_active (iprot it1) cids)); simpl in *.
     all: rewrite /item_lookup Hperm. all: try done; try by eauto.
@@ -1355,24 +1370,28 @@ Proof.
     destruct Ha1 as [Ha1|(Hp1&Hi1)].
     1: repeat (case_match; simpl in *; simplify_eq; try done).
     destruct acc.
-    2: { destruct Hp1 as [|[|[]]].
-         1: rewrite bool_decide_eq_true_2 // in Hlp1'.
-         all: repeat (case_match; simpl in *; simplify_eq; try done). }
+    2: { destruct Hp1 as [[Hprot Hcell]|[|[]]].
+         2-4: repeat (case_match; simpl in *; simplify_eq; try done).
+         rewrite bool_decide_eq_true_2 // in Hlp1'.
+         repeat (case_match; simpl in *; simplify_eq; try done). }
     assert (perm (item_lookup it2 off) = Active) as Ha2old.
     { clear Hlp1'. edestruct maybe_non_children_only_effect_or_nop as [Heq|Heq]; erewrite Heq in Hlp2'.
       2: { injection Hlp2' as <-. rewrite /item_lookup Ha2 //. } clear Heq.
       rewrite /= /apply_access_perm /apply_access_perm_inner /= in Hlp2'.
       rewrite /item_lookup.
-      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [[]| | | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
+      destruct (default (mkPerm PermLazy (initp it2)) (iperm it2 !! off)) as [[] [|[]| | | |]] eqn:HH, bool_decide; rewrite HH /= in Hlp2'.
       all: try discriminate Hlp2'. all: injection Hlp2' as <-.
       all: try discriminate Ha2. }
-    destruct (perm (default _ _)) as [[]| | | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
+    destruct (perm (default _ _)) as [|[]| | | |] eqn:Hperm, most_init eqn:Hinit; simpl in *; try by simplify_eq.
+    { eapply bind_Some in Hlp1' as (px&Hpx1&[= <-]).
+      destruct bool_decide in Hpx1; simpl in Hpx1, Hp1; simplify_eq; clear -Hp1.
+      all: by destruct Hp1 as [[_ ?]|[[=]|[[=]|[=]]]]. }
     all: rewrite most_init_comm /= in Hinit.
     all: destruct (iperm it1 !! off) as [[[] prm]|] eqn:Hlu; rewrite Hlu /= // in Hinit.
     all: eapply WFcs; [exact Hit1|exact Hit2|exact Hreldec| |exact Ha2old].
     all: try (left; apply Hperm).
     all: try (right; split; last (by rewrite /item_lookup Hlu /= //)).
-    all: destruct Hp1 as [Hx|Hp1]; first by left.
+    all: destruct Hp1 as [[Hx Hnc]|Hp1]; first (left; split; [done|rewrite /item_lookup Hperm //]).
     all: right.
     all: destruct (bool_decide (protector_is_active (iprot it1) cids)); simpl in *.
     all: rewrite /item_lookup Hperm. all: try done; try by eauto.
@@ -1991,7 +2010,7 @@ Lemma each_tree_protected_parents_not_disabled_grow trs cids cidsnew :
   each_tree_protected_parents_not_disabled cids trs →
   each_tree_protected_parents_not_disabled (cidsnew ∪ cids) trs.
 Proof.
-  intros (Hwf&_) Hnew H1 blk tr Htr tg.
+  intros (Hwf&_) Hnew H1 blk tr Htr tg l.
   specialize (H1 blk tr Htr tg).
   specialize (Hnew blk tr Htr).
   specialize (Hwf _ _ Htr).
@@ -2004,7 +2023,7 @@ Proof.
   2-3: by eapply Hwf. 2-4: done.
   eapply every_node_eqv_universal. intros it_cld Hitcld Htgitcld.
   eapply every_node_eqv_universal in H1. 2: exact Hitcld.
-  intros off Hinit (c&Hcc1&[Hcc2|Hcc2]%elem_of_union).
+  intros Hinit (c&Hcc1&[Hcc2|Hcc2]%elem_of_union).
   2: eapply H1; try done; by eexists.
   exfalso. eapply every_node_eqv_universal in Hnew. 2: exact Hitcld.
   eapply Hnew. by exists c.
@@ -2020,7 +2039,7 @@ Proof.
   eapply H1. 1: eassumption. 3,5: eassumption. 1: exact Hit1. 1: exact Hit2.
   destruct Hpa as [Hpa|(Hp&Hi)]; first by left.
   right. split; last done. destruct Hp as [Hp|Hx]. 2: by right. left.
-  destruct Hp as (c&Hc&HHc). exists c. split; first done.
+  destruct Hp as [(c&Hc&HHc) Hnc]. split; last done. exists c. split; first done.
   eapply elem_of_union in HHc as [HHc|HHc]; last done.
   exfalso. specialize (Hnew _ _ Htr).
   eapply every_node_eqv_universal in Hnew. 2: eapply tree_lookup_to_exists_node, Hit1.
@@ -2309,26 +2328,28 @@ Proof.
 Qed.
 
 Lemma mem_enumerate_initalized it :
-  ∀ (z : Z) v, mem_enumerate_sat (λ p : lazy_permission, if initialized p then Some (match perm p with Active => AccessWrite | _ => AccessRead end) else None) (iperm it) !! z = Some v ↔ (initialized (item_lookup it z) = PermInit ∧ (v = AccessWrite ↔ perm (item_lookup it z) = Active)).
+  ∀ (z : Z) v, mem_enumerate_sat protector_end_action (iperm it) !! z = Some v ↔ (initialized (item_lookup it z) = PermInit ∧ perm (item_lookup it z) ≠ Cell ∧ (v = AccessWrite ↔ perm (item_lookup it z) = Active)).
 Proof.
   intros z v. split.
   - intros (pp&Hpp&Hinit)%mem_enumerate_sat_elem_of.
-    rewrite /item_lookup Hpp /=.
+    rewrite /item_lookup Hpp /=. unfold protector_end_action in Hinit.
     destruct (initialized pp); last done.
     split; first done.
-    split. 2: intros Heq; rewrite Heq in Hinit; by simplify_eq. intros ->. by destruct (perm pp).
+    destruct (perm pp); try discriminate Hinit; injection Hinit as <-; subst.
+    all: split; first done.
+    all: split; done.
   - intros (Hinit&Hactive). eapply mem_enumerate_sat_elem_of.
     rewrite /item_lookup in Hinit,Hactive. destruct (iperm it !! z) as [[[] pp]|] eqn:Heq.
     all: simpl in Hinit. 2-3: done. simpl in Hactive.
     exists (mkPerm PermInit pp). rewrite Heq. split; first done. simpl.
     destruct pp, v; simpl in *; try done.
-    all: destruct Hactive as (H1&H2); by first [specialize (H1 eq_refl) | specialize (H2 eq_refl)].
+    all: destruct Hactive as [Hx (H1&H2)]; try done; by first [specialize (H1 eq_refl) | specialize (H2 eq_refl)].
 Qed.
 
 Lemma tree_all_protected_initialized_exists_node cid tr tg lst :
   (tg, lst) ∈ tree_get_all_protected_tags_initialized_locs cid tr ↔
   exists_node (λ it, it.(itag) = tg ∧ protector_is_for_call cid it.(iprot) ∧ 
-    ∀ z v, lst !! z = Some v ↔ (initialized (item_lookup it z) = PermInit ∧ (v = AccessWrite ↔ perm (item_lookup it z) = Active))) tr.
+    ∀ z v, lst !! z = Some v ↔ (initialized (item_lookup it z) = PermInit ∧ perm (item_lookup it z) ≠ Cell ∧ (v = AccessWrite ↔ perm (item_lookup it z) = Active))) tr.
 Proof.
   induction tr as [|it tr1 IH1 tr2 IH2]; first done.
   simpl in *. split.
@@ -2586,7 +2607,7 @@ Lemma each_tree_protected_parents_not_disabled_shrink trs cids cidsnew :
   each_tree_protected_parents_not_disabled cids trs →
   each_tree_protected_parents_not_disabled cidsnew trs.
 Proof.
-  intros (Hwf&_) Hnew H1 blk tr Htr tg.
+  intros (Hwf&_) Hnew H1 blk tr Htr tg l.
   specialize (H1 blk tr Htr tg).
   specialize (Hwf _ _ Htr).
   destruct (decide (tree_contains tg tr)) as [Hin|Hnin].
@@ -2598,7 +2619,7 @@ Proof.
   2-3: by eapply Hwf. 2-4: done.
   eapply every_node_eqv_universal. intros it_cld Hitcld Htgitcld.
   eapply every_node_eqv_universal in H1. 2: exact Hitcld.
-  intros off Hinit (c&Hcc1&Hcc%Hnew).
+  intros Hinit (c&Hcc1&Hcc%Hnew).
   eapply H1; try done. by exists c.
 Qed.
 
@@ -2612,7 +2633,7 @@ Proof.
   eapply H1. 1: exact Htr. 1: exact Hit1. 1: exact Hit2. 1: done. 2: done.
   destruct Hpa as [Hpa|(Hp&Hi)]; first by left.
   right; split; last done. destruct Hp as [Hp|Hx]; last by right. left.
-  destruct Hp as (c&Hc&HHc%Hnew). by exists c.
+  destruct Hp as [(c&Hc&HHc%Hnew) Hp2]; split; last done. by exists c.
 Qed.
 
 Lemma endcall_step_wf_inner trs' c σ :
@@ -2836,7 +2857,7 @@ Proof.
   destruct (decide (tg = nxtp)) as [->|Hne].
   { eapply every_child_ParentChildIn. 1-2: by eapply wf_tree_tree_unique.
     intros itp Hitdet tgcld Hunq HPC. eapply every_node_eqv_universal.
-    intros itn Hitn Htg l. enough (itn = itp) by by subst.
+    intros itn Hitn Htg l. enough (itn = itp) by (left; by subst).
     eapply every_node_eqv_universal in Hitdet. 1: eapply Hitdet. 2: done.
     rewrite Htg. destruct HPC as [?|HPC]; first by subst.
     exfalso. eapply insertion_order_nonstrictparent. 3: done. 3: done.
@@ -2910,7 +2931,7 @@ Lemma insert_child_protected_parents_not_disabled cids oldt nxtp pk im rk cid tr
   ¬ tree_contains nxtp tro →
   protected_parents_not_disabled cids trn.
 Proof.
-  intros H1 H2 Hwfo Hwfn H4 H5 tg.
+  intros H1 H2 Hwfo Hwfn H4 H5 tg off.
   opose proof (insertion_contains _ _ _ _ _ _ _ _ _ H4 H1) as Hcontnew.
   opose proof (insertion_preserves_tags H4 H1) as H4new.
   destruct (decide (tg = nxtp)) as [->|Hne].

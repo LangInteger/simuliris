@@ -109,15 +109,15 @@ Proof.
     destruct Hx as [[=]|(c'&ae&[= ->]&Hcs)].
     destruct HHt3 as (_&HHt3).
     { opose proof* (call_set_interp_access) as Hacc. 1: done. 1: exact Hcs.
-      destruct Hacc as (Hc&Hv&it&Hit&Hprot1&Hprot2&Hprot3&Hprot4).
+      destruct Hacc as (Hc&Hv&it&Hit&Hprot1&Hprot2&Hprot3&Hprot4&Hprot5&_).
       exists it. done. }
     specialize (HHt4 ll sc_ll_s).
     destruct HHt4 as (_&HHt4).
     1: rewrite /heaplet_lookup /= -Hlleq Hhl_s /= Hoff //.
     { opose proof* (call_set_interp_access) as Hacc. 1: done. 1: exact Hcs.
-      destruct Hacc as (Hc&Hv&it&Hit&Hprot1&Hprot2&Hprot3&Hprot4).
+      destruct Hacc as (Hc&Hv&it&Hit&Hprot1&Hprot2&Hprot3&Hprot4&Hprot5&Hprot6).
       odestruct trees_equal_find_equal_tag_protected_initialized_not_disabled as (it2&HH1&HH2&HH3).
-      3: by eapply trees_equal_sym. 1-2: by eapply Hwf_s. 2: exact Hprot4. 2: exists c'; by rewrite Hscs_eq.
+      3: by eapply trees_equal_sym. 1-2: by eapply Hwf_s. 2: intros _; exact Hprot5. 2: exists c'; by rewrite Hscs_eq.
       1: done.
       exists it2. done. }
     iExists sc_ll_s. iSplit; first done.
@@ -142,9 +142,9 @@ Proof.
       intros l' ps' (ps&<-&Hps)%lookup_fmap_Some.
       specialize (MH3 _ _ Hps) as H3.
       destruct ps as [|[]]; simpl.
-      * intros it Hit. destruct (H3 _ Hit) as (HH1&HH2&HH3&HH4). split_and!; done.
-      * destruct H3 as (it&Hit&HH1&HH2&HH3&HH4). exists it. split; first done. split_and!; done.
-      * intros it (tr&Htr&Hit). destruct H3 as (it'&(tr'&Htr'&Hit')&HH1&HH2&HH3&HH4).
+      * intros it Hit. destruct (H3 _ Hit) as (HH1&HH2&HH3&HH4&?&?). split_and!; done.
+      * destruct H3 as (it&Hit&HH1&HH2&HH3&HH4&?&?). exists it. split; first done. split_and!; done.
+      * intros it (tr&Htr&Hit). destruct H3 as (it'&(tr'&Htr'&Hit')&HH1&HH2&HH3&HH4&?&?).
         assert (tr' = tr) as -> by congruence.
         assert (it = it') as -> by by eapply tree_lookup_unique. split_and!; done.
     + specialize (Hcall_interp _ _ Hprot) as (_&H2).

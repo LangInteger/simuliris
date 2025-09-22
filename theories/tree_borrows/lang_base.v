@@ -81,6 +81,7 @@ Qed.
    We will sometimes call "permission" something that in reality is a
    [lazy_permission]. *)
 Inductive permission :=
+  | Cell
   | Reserved (confl:res_conflicted)
   | ReservedIM
   | Active
@@ -94,12 +95,14 @@ Proof.
   refine (inj_countable
     (λ p,
       match p with
+      | Cell => inl 4
       | Reserved c => inr c
       | ReservedIM => inl 3
       | Active => inl 0 | Frozen => inl 1 | Disabled => inl 2
       end)
     (λ s,
       Some match s with
+      | inl 4 => Cell
       | inr c => Reserved c
       | inl 3 => ReservedIM
       | inl 0 => Active | inl 1 => Frozen | inl _ => Disabled

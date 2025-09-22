@@ -25,7 +25,7 @@ Section disabled_tag.
         protector_is_active it_cous.(iprot) C ->
         (item_lookup it_cous l) = mkPerm PermInit Active ->
         (* This is not allowed, since it actually survives foreign writes. *)
-        lp ≠ ReservedIM ->
+        lp ≠ ReservedIM -> lp ≠ Cell ->
         pseudo_disabled _ _ _ lp prot
     .
 

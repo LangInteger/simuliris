@@ -85,7 +85,8 @@ Context (C : call_id_set).
     rewrite rel_dec_flip2 in Hothers.
     destruct (rel_dec tr (itag it) (itag it0)) as [[]|[]] eqn:Hreldec.
     - rewrite /apply_access_perm_inner /= in Inner. rewrite /= most_init_comm /=.
-      destruct (item_lookup it0 loc) as [ini [cfl| | | |]] eqn:Hperm.
+      destruct (item_lookup it0 loc) as [ini [|cfl| | | |]] eqn:Hperm.
+      1: { enough (validated = Cell) as -> by econstructor 1. clear -Inner MoreInit. by repeat (case_match; simplify_eq; try done). }
       2,4,5: by (destruct ini, (bool_decide (protector_is_active (iprot it0) C)); simpl in *; simplify_eq; econstructor 1).
       2: { simpl in Hothers. ospecialize (Hothers eq_refl). subst.
            destruct (decide (protector_is_active (iprot it0) C)) as [Hprot|HNoProt].
@@ -101,7 +102,7 @@ Context (C : call_id_set).
       destruct most_init in MoreInit; simplify_eq; econstructor 7; econstructor; done.
     - rewrite /= most_init_comm /=.
       rewrite /apply_access_perm_inner /= in Inner.
-      destruct (item_lookup it0 loc) as [[] [[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
+      destruct (item_lookup it0 loc) as [[] [|[]| | | |]] eqn:Hperm, (bool_decide (protector_is_active (iprot it0) C)) eqn:Hprot; simpl in *.
       all: try by (simplify_eq; econstructor 1).
       all: simplify_eq. all: (try by specialize (Hothers eq_refl)).
       2: { econstructor 7; econstructor. by eapply bool_decide_eq_false_1. }

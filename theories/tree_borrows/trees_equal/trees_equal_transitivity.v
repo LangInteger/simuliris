@@ -43,23 +43,23 @@ Context (C : call_id_set).
       ospecialize (Heach _ _ _ tg). 1: symmetry; exact Htr2.
       eapply every_child_ParentChildIn in Heach. 2: by eapply Hwf. 2,4: eapply Hwf; first done; eapply Hit2.
       2: eapply Hit2. 2: by left.
-      rewrite every_node_eqv_universal in Heach. ospecialize (Heach it2 _ _ off _ _ Hdis).
+      rewrite every_node_eqv_universal in Heach. ospecialize (Heach it2 _ _ _ _).
       1: eapply exists_determined_exists; eapply Hit2. 1: by eapply tree_lookup_correct_tag.
-      1: done. 1: by rewrite -Hprotit. done.
+      1: done. 1: by rewrite -Hprotit. rewrite Hdis in Heach. by destruct Heach.
     - split; last done. simpl. done.
     - split; last done. simpl. intros ->. destruct d; by inversion H.
   Qed.
 
-  Lemma tree_equal_transfer_item_non_disabled d tr1 tr2 tg it off :
+  Lemma tree_equal_transfer_item_usefully_protected d tr1 tr2 tg it off :
     protected_parents_not_disabled C tr1 →
     no_active_cousins C tr1 →
     (∀ tg, tree_contains tg tr1 → tree_unique tg tr1) →
     tree_equal C d tr1 tr2 →
     tree_lookup tr1 tg it →
-    protector_is_active (iprot it) C ∧ perm (item_lookup it off) ≠ Disabled ∧ initialized (item_lookup it off) = PermInit →
-    ∃ it2, tree_lookup tr2 tg it2 ∧ protector_is_active (iprot it2) C ∧ perm (item_lookup it2 off) ≠ Disabled ∧ initialized (item_lookup it2 off) = PermInit.
+    protector_is_active (iprot it) C ∧ perm (item_lookup it off) ≠ Disabled ∧ perm (item_lookup it off) ≠ Cell ∧ initialized (item_lookup it off) = PermInit →
+    ∃ it2, tree_lookup tr2 tg it2 ∧ protector_is_active (iprot it2) C ∧ perm (item_lookup it2 off) ≠ Disabled ∧ perm (item_lookup it2 off) ≠ Cell ∧ initialized (item_lookup it2 off) = PermInit.
   Proof.
-    intros Hpnd Hnac Hunq (He1&He2&He3) Hlu (Hprot&Hndis&Hini).
+    intros Hpnd Hnac Hunq (He1&He2&He3) Hlu (Hprot&Hndis&Hnc&Hini).
     destruct (He3 tg) as (it1&it2&Hlu1&Hlu2&Heq).
     1: eapply Hlu.
     assert (it = it1) as -> by by eapply tree_lookup_unique.
@@ -73,23 +73,23 @@ Context (C : call_id_set).
       inversion Hdip1 as [itw p Hreldec Hluw Hdisw].
       rewrite /rel_dec in Hreldec. destruct decide; last done.
       eapply tree_lookup_correct_tag in Hlu as HH. subst tg.
-      specialize (Hpnd wit_tg). eapply every_child_ParentChildIn in Hpnd.
+      specialize (Hpnd wit_tg off). eapply every_child_ParentChildIn in Hpnd.
       2: eapply Hunq. 2: eapply Hunq, Hluw. 2: eapply Hluw. 2: eapply Hunq, Hlu.
       2: done.
       eapply every_node_eqv_universal in Hpnd.
       2: { eapply tree_lookup_to_exists_node. eapply Hlu. }
       inversion Hdisw as [X1 HH X2|pp X2 Hdis Hlazy X5]; simplify_eq.
-      { unshelve eapply (Hpnd _ off); [done..|by rewrite -HH]. }
+      { unshelve odestruct (Hpnd _) as [H|H]; [done..|eapply H; by rewrite -HH|done]. }
       inversion Hdis as [X1 HH X2|tgcs itcs lp X1 Hcs Hlucs Hprotcs Hactcs HH X2 X3]; simplify_eq.
-      { unshelve eapply (Hpnd _ off). 1-3: done. rewrite -Hlazy. done. }
+      { unshelve odestruct (Hpnd _) as [H|H]. 1-3: done. 1: by rewrite -Hlazy in H. done. }
       eapply Hnac. 2: eapply Hlucs. 1: eapply Hlu. 3: by erewrite Hactcs.
       2: right; split; last done; left; done.
       eapply child_of_this_is_foreign_for_cousin. 4: exact Hcs.
       1-3: eapply Hunq. 1: eapply Hluw. 1: eapply Hlucs. 1: eapply Hlu.
       rewrite /rel_dec decide_True //.
     - split; first done. rewrite -Heq1 /= in Hini. rewrite /= Hini //.
-    - rewrite -Heq1 /= in Hini Hndis. simplify_eq. split; last done.
-      simpl. destruct d; inversion Hd; done.
+    - rewrite -Heq1 /= in Hini Hndis. simplify_eq. split_and!; last done.
+      all: simpl; destruct d; inversion Hd; done.
  Qed.
 
   Lemma tree_equal_transfer_pseudo_conflicted d tr1 tr2 tg off confl :
@@ -101,11 +101,11 @@ Context (C : call_id_set).
     pseudo_conflicted C tr2 tg off confl.
   Proof.
     intros Hpnd Hnac Hunq (HH1&HH2&HH3) Hconfl.
-    inversion Hconfl as [|tg_cs it_cs Hcs Hlu Hprot Hperm Hini]; simplify_eq.
+    inversion Hconfl as [|tg_cs it_cs Hcs Hlu Hprot Hperm Hini Hncell]; simplify_eq.
     - econstructor 1.
-    - edestruct tree_equal_transfer_item_non_disabled as (it2&Hit2&Hprot2&Hndis2&Hini2).
+    - edestruct tree_equal_transfer_item_usefully_protected as (it2&Hit2&Hprot2&Hndis2&Hncell2&Hini2).
       1: exact Hpnd. 1: exact Hnac. 1: exact Hunq. 1: split; done. 1: exact Hlu.
-      1: split; done.
+      1: done.
       econstructor 2. 1: by erewrite <- HH2. 1: exact Hit2.
       all: done.
   Qed.
@@ -119,7 +119,7 @@ Context (C : call_id_set).
                      tree_item_determined tg_cs it_cs tr ∧
                      protector_is_active (iprot it_cs) C ∧
                      item_lookup it_cs off = mkPerm PermInit Active ∧
-                     match pp with ReservedIM => False | _ => True end).
+                     match pp with ReservedIM | Cell => False | _ => True end).
     assert (∀ it, Decision (P it)) as DecP.
     { intros it.
       rewrite /P.
@@ -132,7 +132,9 @@ Context (C : call_id_set).
       1: exact H1. 1: split. 2: exact H2.
       1: eapply exists_node_eqv_existential; exists it; done.
       1: done. 1: done.
-      1: intros ->. done.
+      1: intros ->.
+      1: done.
+      1: by destruct pp.
     - right. intros Hdis.
       induction Hdis as [|tg_cs it_cs lp Hlp H1 H2 H3 H4 H5]; first done.
       eapply HnP. eapply exists_node_eqv_existential.
@@ -142,7 +144,7 @@ Context (C : call_id_set).
       split; first eapply H2.
       split; first done.
       split; first done. 
-      destruct lp as [| | | |]; try done.
+      destruct lp as [| | | | |]; try done.
   Defined.
 
   Global Instance is_disabled_dec tr tg off lp oprot : Decision (is_disabled C tr tg off lp oprot).
@@ -205,8 +207,9 @@ Context (C : call_id_set).
       { rewrite -X2 in Hnondis. done. }
       inversion HH1 as [|tgcs itcs X1 X2 H1' H2' H3' H4 H5 X3 X4]; simplify_eq.
       { rewrite -HH2 in Hnondis. done. }
-      eapply HNC. 1: exact H2'. 1: exact Hl1. 3: exact Hact. 2: right; split; first by left.
-      2: by rewrite H4.
+      eapply HNC. 1: exact H2'. 1: exact Hl1. 3: exact Hact. 2: right; split.
+      3: by rewrite H4.
+      2: { left. split; first done. by rewrite H4. }
       rewrite /rel_dec in H1|-*.
       destruct decide as [HPC1|] in H1; last done. clear H1.
       rewrite decide_False; last first.
@@ -238,6 +241,7 @@ Context (C : call_id_set).
     1: by rewrite He2.
     1: rewrite Hprot //.
     2: done.
+    2: done.
     rewrite H4 in Hiteq.
     inversion Hiteq as [| | | | | |p1 p2 ini Hd]; simplify_eq.
     - congruence.
@@ -250,12 +254,12 @@ Context (C : call_id_set).
 
   Lemma transfer_pseudo_disabled_notimm p1 p2 tr tg off pp :
     pseudo_disabled C tr tg off p1 pp →
-    p2 ≠ ReservedIM → p1 ≠ Disabled →
+    p2 ≠ ReservedIM → p2 ≠ Cell → p1 ≠ Disabled →
     pseudo_disabled C tr tg off p2 pp.
   Proof.
     intros H Hne1 Hne2.
     inversion H as [|X1 X2 X3 X4 X5 X6 X7 X8 X9]. 1: done. econstructor 2.
-    1-4: done. done.
+    1-4: done. all: done.
   Qed.
 
   Lemma conflicted_transfer_pseudo_disabled c1 c2 tr tg off pp :
@@ -433,8 +437,8 @@ Context (C : call_id_set).
     perm_eq_up_to_C C tr1 tr3 tg l cid Forwards perm1 perm3.
   Proof.
     intros Hpnd Hunq1 Hunq2 Hpma1 Hnac1 Hpma2 Hnac2 Heq12 Heq23 EqC1 EqC2.
-    inversion EqC1 as [pp1|ini1 confl1 confl2 Hprot HP1 HP2|ini1 confl1 confl2 HnoProt|p1 p2 HP1 HP2|wit_tg lp1 lp2 Hdip1 Hdip2 Hini|ini1 confl1 confl2 wit_tg HF|p1 p2 ini Hd]; simplify_eq;
-    inversion EqC2 as [pp1'|ini1' confl1' confl2' Hprot' HP1' HP2'|ini1' confl1' confl2' HnoProt'|p1' p2' HP1' HP2'|wit_tg' lp1 lp2 Hdip1' Hdip2' Hini'|ini1' confl1' confl2' wit_tg' HF'|p1' p2' ini' Hd']; simplify_eq.
+    inversion EqC1 as [pp1|ini1 confl1 confl2 Hprot HP1 HP2|ini1 confl1 confl2 HnoProt|p1 p2 HP1 HP2|wit_tg lp1 lp2 Hdip1 Hdip2 Hini Hcell|ini1 confl1 confl2 wit_tg HF|p1 p2 ini Hd]; simplify_eq;
+    inversion EqC2 as [pp1'|ini1' confl1' confl2' Hprot' HP1' HP2'|ini1' confl1' confl2' HnoProt'|p1' p2' HP1' HP2'|wit_tg' lp1 lp2 Hdip1' Hdip2' Hini' Hcell'|ini1' confl1' confl2' wit_tg' HF'|p1' p2' ini' Hd']; simplify_eq.
     (* easy case: perm1 = perm2 *)
     + econstructor 1.
     + econstructor 2. 1: done. 2: done.
@@ -444,11 +448,11 @@ Context (C : call_id_set).
     + econstructor 4. 2: done.
       eapply tree_equal_transfer_pseudo_disabled. 5: done. all: done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. congruence.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: congruence. done.
     + eapply trees_equal_transfer_frozen_in_practice_many in HF' as [(Hfip&Hfip2)|(tr&Hdi9p&Hdip2)]. 3-5: eassumption.
       * econstructor 6. all: edestruct Hfip2 as (px&Hpx&Hrz). 1: by eapply tree_equal_sym.
         enough (px = Frozen) as -> by done. destruct Hrz as [->|(->&[=])]; tauto.
-      * econstructor 5; last done. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.
+      * econstructor 5; [| |done..]. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.
     + econstructor 7. apply Hd'.
     (* case 2: perm1 and perm2 are pseudo_conflicted Reserved *)
     + econstructor 2. 1: done. 1: done.
@@ -459,11 +463,11 @@ Context (C : call_id_set).
       eapply conflicted_transfer_pseudo_disabled.
       eapply tree_equal_transfer_pseudo_disabled. 4: done. all: done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor 5. 1: exact Hw1. 1: exact Hw3. simpl in *. eapply Hini'.
+      1: done. econstructor 5. 1: exact Hw1. 1: exact Hw3. 2: { split; first done. rewrite -Hcell'. done. } simpl in *. eapply Hini'.
     + eapply trees_equal_transfer_frozen_in_practice_many in HF' as [(Hfip&Hfip2)|(tr&Hdi9p&Hdip2)]. 3-5: eassumption.
       * econstructor 6. all: edestruct Hfip2 as (px&Hpx&Hrz). 1: by eapply tree_equal_sym.
         enough (px = Frozen) as -> by done. destruct Hrz as [->|(->&[=])]; tauto.
-      * econstructor 5; last done. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.
+      * econstructor 5; [| |done..]. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.
     + inversion Hd'; simplify_eq. destruct confl1; last econstructor 1.
       econstructor 7; econstructor; done.
     (* case 3: perm1 and perm2 are unprotected reserved *)
@@ -474,7 +478,7 @@ Context (C : call_id_set).
       eapply conflicted_transfer_pseudo_disabled.
       eapply tree_equal_transfer_pseudo_disabled. 4: done. all: done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 2: { split; first done. rewrite -Hcell'. done. } simpl in *. done.
     + by econstructor 3.
     + inversion Hd'; simplify_eq; done.
     (* case 4: perm1 and perm2 are pseudo-disabled *)
@@ -488,7 +492,8 @@ Context (C : call_id_set).
       eapply tree_equal_transfer_pseudo_disabled. 5: by eapply tree_equal_sym. all: done.
     + econstructor 4. all: done. 
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: by simpl in *. rewrite -Hcell'.
+      inversion HP1; inversion HP2; done.
     + econstructor 4. 1: done.
       eapply conflicted_transfer_pseudo_disabled.
       eapply tree_equal_transfer_pseudo_disabled. 5: by eapply tree_equal_sym. all: done.
@@ -498,19 +503,22 @@ Context (C : call_id_set).
       all: inversion Hd'; done.
     (* case 5: perm1 and perm2 are disabled in practice *)
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: by simpl in *. by etransitivity.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3.  1: by simpl in *. by etransitivity.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3.  1: by simpl in *. by etransitivity.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3.  1: by simpl in *. rewrite Hcell.
+      inversion HP1'; inversion HP2'; done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. congruence.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: simpl in *; congruence. by etransitivity.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: by simpl in *.
+      rewrite Hcell. done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: by simpl in *.
+      rewrite Hcell. simpl. by inversion Hd'.
     (* case 6: perm1 and perm2 are frozen in practice. *)
     + by econstructor 6.
     + by econstructor 6.
@@ -520,7 +528,8 @@ Context (C : call_id_set).
       1: eapply tree_equal_transfer_pseudo_disabled. 5: done. 1-4: done.
       all: done.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: by simpl in *.
+      rewrite -Hcell'. done.
     + by econstructor 6.
     + inversion Hd'; try done.
       simplify_eq. destruct confl1. 2: econstructor 1.
@@ -534,12 +543,12 @@ Context (C : call_id_set).
       1: eapply tree_equal_transfer_pseudo_disabled. 5: done. 1-4: done.
       all: by inversion Hd.
     + odestruct (trees_equal_transfer_disabled_in_practice_twice Hunq1 Hpma1 Hnac1 Heq12 Heq23) as (ww&Hw1&Hw2&Hw3).
-      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. simpl in *. done.
+      1: done. econstructor. 1: exact Hw1. 1: exact Hw3. 1: by simpl in *. rewrite -Hcell'. by inversion Hd.
     + eapply trees_equal_transfer_frozen_in_practice_many in HF' as [(Hfip&Hfip2)|(tr&Hdi9p&Hdip2)]. 3-5: eassumption.
       * inversion Hd; simplify_eq. econstructor 6.
         all: edestruct Hfip2 as (px&Hpx&Hrz). 1: by eapply tree_equal_sym.
         enough (px = Frozen) as -> by done. destruct Hrz as [->|(->&[=])]; tauto.
-      * econstructor 5; last done. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.
+      * econstructor 5. 3: done. 3: by inversion Hd. all: eapply Hdip2. 2: done. 1: by eapply tree_equal_sym.
     + inversion Hd; inversion Hd'; by simplify_eq.
   Qed.
 
