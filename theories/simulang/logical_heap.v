@@ -252,7 +252,7 @@ Section heap.
 
   Lemma heap_pointsto_agree l q1 q2 v1 v2 st1 st2 : l ↦[st1]{q1} v1 ∗ l ↦[st2]{q2} v2 ⊢ ⌜v1 = v2⌝.
   Proof.
-    rewrite heap_pointsto_eq -own_op -auth_frag_op own_valid discrete_valid.
+    rewrite heap_pointsto_eq -own_op -auth_frag_op own_valid internal_cmra_valid_discrete.
     eapply pure_elim; [done|]. move => /auth_frag_valid /=.
     rewrite singleton_op -pair_op singleton_valid => -[? /to_agree_op_inv_L->]; eauto.
   Qed.
