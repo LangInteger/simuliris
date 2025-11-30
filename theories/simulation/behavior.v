@@ -1,4 +1,4 @@
-From Coq.Logic Require Import Classical.
+From Stdlib.Logic Require Import Classical.
 From stdpp Require Import strings.
 From simuliris.simulation Require Import fairness language.
 From iris.prelude Require Import options.

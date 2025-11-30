@@ -1,4 +1,4 @@
-From Coq.QArith Require Import Qcanon.
+From Stdlib.QArith Require Import Qcanon.
 From iris.algebra Require Export view gmap frac dfrac.
 From iris.algebra Require Import local_updates proofmode_classes big_op.
 From iris.algebra Require Import csum excl.

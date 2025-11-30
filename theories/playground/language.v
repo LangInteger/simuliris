@@ -1,4 +1,4 @@
-From Coq Require Import Logic.IndefiniteDescription.
+From Stdlib Require Import Logic.IndefiniteDescription.
 From stdpp Require Import gmap.
 From iris.prelude Require Import prelude.
 From iris.prelude Require Import options.

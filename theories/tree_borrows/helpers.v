@@ -1,4 +1,4 @@
-From Coq Require Import ssreflect.
+From Stdlib Require Import ssreflect.
 From stdpp Require Export list gmap.
 From iris.prelude Require Export prelude.
 From iris.prelude Require Import options.
