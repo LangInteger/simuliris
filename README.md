@@ -7,7 +7,7 @@ It also contains the proofs for [Tree Borrows](theories/tree_borrows/README.md).
 
 This version is known to compile with:
 
- - Rocq 9.0.0
+ - Rocq 9.1.0
  - A development version of [Iris](https://gitlab.mpi-sws.org/iris/iris)
  - A recent version of [Coq-Equations](https://github.com/mattam82/Coq-Equations)
 
