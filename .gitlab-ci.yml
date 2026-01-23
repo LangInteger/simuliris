@@ -40,6 +40,7 @@ trigger-iris.dev:
   variables:
     STDPP_REPO: "iris/stdpp"
     IRIS_REPO: "iris/iris"
+    NIGHTLY_COQ: "9.1.dev" # 9.2 does not work due to Equations
     OPAM_PINS: "coq version $NIGHTLY_COQ   git+https://gitlab.mpi-sws.org/$STDPP_REPO#$STDPP_REV   git+https://gitlab.mpi-sws.org/$IRIS_REPO#$IRIS_REV"
   except:
   only:
