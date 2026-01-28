@@ -122,7 +122,7 @@ Lemma gen_heap_bij_init_names `{gen_heap_bijGpreS L_t L_s V_t V_s Σ} val_rel :
     let hG := GenHeapBijGS L_t L_s V_t V_s Σ γ in
     gen_heap_bij_inv val_rel.
 Proof.
-  iMod (gset_bij_own_alloc_empty) as (γ) "Hinv".
+  iMod (gset_bij_own_alloc_empty (A:=L_t) (B:=L_s)) as (γ) "Hinv".
   iExists γ. iModIntro. iExists (∅). iSplitL "Hinv"; first by iApply "Hinv".
   by iApply big_sepS_empty.
 Qed.

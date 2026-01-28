@@ -1139,9 +1139,8 @@ Local Ltac log_rel_subst_l l cont :=
   match l with
   | nil => cont ()
   | ?x :: ?l =>
-    unshelve iApply (gen_log_rel_subst _ _ x _ _ #() with "[]");
-    [ apply _ (* Persistency of the value relation *)
-    | done (* [val_rel] for the dummy value *)
+    iApply (gen_log_rel_subst _ _ x _ _ #() with "[]");
+    [ done (* [val_rel] for the dummy value *)
     | let v_t := fresh "v_t" in
       let v_s := fresh "v_s" in
       let H := iFresh in
