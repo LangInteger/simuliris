@@ -49,6 +49,51 @@ Section pre_allocated.
   Qed.
 End pre_allocated.
 
+
+(* define the equivalence relationship *)
+Section pre_allocated.
+
+  Context `{!simpleGS Σ}.
+
+  Variable l_s l_t : loc.
+
+  Definition target : expr :=
+    Call f#"f" #24;;
+    #42.
+
+  Definition source : expr :=
+    Call f#"f" #24;;
+    !#l_s.
+
+  Lemma relate_s_t π:
+    ⊢ {{{ l_t ↦t #42 ∗ l_s ↦s #42 }}} 
+        target ⪯[π] source
+      {{{ lift_post (λ v_t v_s, ⌜v_t = v_s⌝ ∗ l_t ↦t #42 ∗ l_s ↦s #42) }}}.
+  Proof.
+    unfold source. unfold target.
+    (* introduce the pre-condition *)
+    iIntros "!> [Hlt Hls]". 
+    (* continue with a pair of sub-expr, here is the call *)
+    sim_bind (Call _ _) (Call _ _). 
+    (* solve the first premise of sim_bind by sim_call *)
+    (* leave the second premise of sim_bind to solve later *)
+    iApply sim_call; [done..|].
+    (* work on the second premise of sim_bind *)
+    iIntros (v_s v_t) "H". 
+    (* replace both call with the return value, v_s / v_t *)
+    iApply lift_post_val. 
+    (* use pure step to continue the sequencing, omitting v_s / v_t *)
+    sim_pures.
+    (* take a load step in source, while the target shutters *)
+    (* this is a combination of source-focus / source-load in the paper *)
+    source_load. 
+    (* apply sim_val, since both sides are values now *)
+    sim_val. 
+    (* regular proof for the three parts combined by "*" *)
+    iModIntro. iFrame. iPureIntro. reflexivity.
+  Qed.
+End pre_allocated.
+
 (** * Examples from Section 2 of the paper *)
 (** Here, we prove both the quadruples shown in the paper,
   and the logical relation (then deriving closed proofs of contextual refinement).
