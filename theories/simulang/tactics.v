@@ -2,6 +2,32 @@ From stdpp Require Import fin_maps fin_map_dom.
 From simuliris.simulang Require Import lang notation.
 From iris.prelude Require Import options.
 
+Fixpoint decompose_expr(K : list ectx_item) (e : expr)
+  : option (list ectx_item * expr) :=
+  match e with
+  | Let x e1 e2 => decompose_expr ((LetEctx x e2)::K) e1
+  | Call e (Val v) => decompose_expr ((CallLEctx v)::K) e
+  | Call e1 e2 => decompose_expr ((CallREctx e1)::K) e2
+  | UnOp op e1 => decompose_expr ((UnOpEctx op)::K) e1
+  | BinOp op e1 (Val v) => decompose_expr ((BinOpLEctx op v)::K) e1
+  | BinOp op e1 e2 => decompose_expr ((BinOpREctx op e1)::K) e2
+  | If e0 e1 e2 => decompose_expr ((IfEctx e1 e2)::K) e0
+  | Pair e1 (Val v) => decompose_expr ((PairLEctx v)::K) e1
+  | Pair e1 e2 => decompose_expr ((PairREctx e1)::K) e2
+  | Fst e1 => decompose_expr (FstEctx::K) e1
+  | Snd e1 => decompose_expr (SndEctx::K) e1
+  | InjL e1 => decompose_expr (InjLEctx::K) e1
+  | InjR e1 => decompose_expr (InjREctx::K) e1
+  | Match e0 x1 e1 x2 e2 => decompose_expr ((MatchEctx x1 e1 x2 e2)::K) e0
+  | AllocN e1 (Val v) => decompose_expr ((AllocNLEctx v)::K) e1
+  | AllocN e1 e2 => decompose_expr ((AllocNREctx e1)::K) e2 
+  | FreeN e1 (Val v) => decompose_expr ((FreeNLEctx v)::K) e1
+  | FreeN e1 e2 => decompose_expr ((FreeNREctx e1)::K) e2
+  | Load o e => decompose_expr ((LoadEctx o)::K) e
+  | Store o e1 (Val v) => decompose_expr ((StoreLEctx o v)::K) e1
+  | Store o e1 e2 => decompose_expr ((StoreREctx o e1)::K) e2
+  | _ => Some (K, e)
+  end.
 
 (** The tactic [reshape_expr e tac] decomposes the expression [e] into an
 evaluation context [K] and a subexpression [e']. It calls the tactic [tac K e']
