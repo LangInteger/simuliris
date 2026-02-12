@@ -50,6 +50,31 @@ Section pre_allocated.
 End pre_allocated.
 
 
+Section spec_preservation.
+  Variable source_allocated: list loc.
+
+  Variable mapping: gmap loc loc.
+  Variable heap_s: gset loc.
+  Variable heap_t: gset loc.
+
+  Definition state := loc -> val.
+  Variable mem_s: state.
+  Variable mem_t: state.
+
+  Definition wf_mapping : Prop :=
+    heap_s ⊆ dom mapping.
+
+  Definition equivalence: Prop :=
+    wf_mapping ->
+    (forall add_s, add_s ∈ heap_s ->
+      match mapping !! add_s with
+      | Some add_t => mem_s add_s = mem_t add_t
+      | None => False
+      end).
+
+End spec_preservation.
+
+
 (* define the equivalence relationship *)
 Section pre_allocated.
 
