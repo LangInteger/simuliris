@@ -110,15 +110,19 @@ Section specs.
   (* =====================================================================================
                                    spec preservation 
      ===================================================================================== *)
+  Definition build_target_specification (Q : state -> Prop) : state -> Prop :=
+    fun t_mem =>
+      exists s_mem,
+        equivalence s_mem t_mem /\ Q s_mem.
+
   Context `{!simpleGS Σ}.
-  Lemma preservation_of_respecting_the_specs s_exp t_exp s_mem t_mem Q :
+  Lemma preservation_of_respecting_the_specs s_exp t_exp s_mem t_mem Q_s Q_t :
       (⊢ {{{ ⌜equivalence s_mem t_mem⌝  }}} 
           t_exp ⪯[uid] s_exp
         {{{ lift_post (λ v_t v_s, ⌜equivalence s_mem t_mem⌝) }}})
-      -> respecting_the_specs s_exp s_mem Q
-      -> respecting_the_specs t_exp t_mem Q.
+      -> respecting_the_specs s_exp s_mem Q_s
+      -> Q_t = build_target_specification Q_s /\ respecting_the_specs t_exp t_mem Q_t.
   Proof.
   Admitted.
-
 
 End specs.
