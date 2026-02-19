@@ -115,6 +115,7 @@ Section specs.
         equivalence s_mem t_mem /\ Q s_mem.
 
   Context `{!simpleGS Σ}.
+  Context {Λ : language}.
 
   Fixpoint do_mem_points_to_t (mem : list (loc * (lock_state * val))) : iProp Σ :=
     match mem with
@@ -132,14 +133,23 @@ Section specs.
   Definition mem_points_to_s (mem : gmap loc (lock_state * val)) : iProp Σ :=
     do_mem_points_to_s (map_to_list mem).
 
+  Definition mem_equiv_rel s_mem t_mem :=
+    (⌜equivalence s_mem t_mem⌝ 
+      ∗ (mem_points_to_s s_mem.(heap)) 
+      ∗ (mem_points_to_t t_mem.(heap)))%I.
+
+  Definition mem_equiv_post_rel :=
+    (λ e_t e_s, ∃ v_t v_s, ∃ s_mem t_mem, 
+      ⌜e_t = of_val v_t⌝ ∗ ⌜e_s = of_val v_s⌝ ∗ val_rel v_t v_s
+      ∗ ⌜equivalence s_mem t_mem⌝ 
+      ∗ (mem_points_to_s s_mem.(heap)) 
+      ∗ (mem_points_to_t t_mem.(heap)))%I.
+
   Lemma preservation_of_respecting_the_specs s_exp t_exp Q_s Q_t :
     forall (s_mem : state) (t_mem : state),
-    exists (s_mem' : state) (t_mem' : state),
-      (⊢ {{{ ⌜equivalence s_mem t_mem⌝ 
-            ∗ (mem_points_to_s s_mem.(heap)) 
-            ∗ (mem_points_to_t t_mem.(heap)) }}} 
+      (⊢ {{{ mem_equiv_rel s_mem t_mem }}} 
           t_exp ⪯[uid] s_exp
-        {{{ lift_post (λ v_t v_s, ⌜v_t = v_s⌝) }}})
+        {{{ mem_equiv_post_rel }}})
       -> respecting_the_specs s_exp s_mem Q_s
       -> Q_t = build_target_specification Q_s /\ respecting_the_specs t_exp t_mem Q_t.
   Proof.
