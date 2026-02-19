@@ -155,8 +155,4 @@ Section specs.
       -> respecting_the_specs t_exp t_mem Q_t.
   Proof.
   Admitted.
-
-              (* ⌜equivalence s_mem' t_mem'⌝
-            ∗ (mem_points_to_s s_mem'.(heap)) 
-            ∗ (mem_points_to_t t_mem'.(heap)) *)
 End specs.
