@@ -95,11 +95,10 @@ Section specs.
   Variable heap_s: gset loc.
   Variable heap_t: gset loc.
 
-
   Definition wf_mapping : Prop :=
     heap_s ⊆ dom mapping.
 
-  Definition equivalence s_mem t_mem: Prop :=
+  Definition equivalence (s_mem : state) (t_mem : state): Prop :=
     wf_mapping ->
     (forall add_s, add_s ∈ heap_s ->
       match mapping !! add_s with
@@ -116,13 +115,37 @@ Section specs.
         equivalence s_mem t_mem /\ Q s_mem.
 
   Context `{!simpleGS Σ}.
-  Lemma preservation_of_respecting_the_specs s_exp t_exp s_mem t_mem Q_s Q_t :
-      (⊢ {{{ ⌜equivalence s_mem t_mem⌝  }}} 
+
+  Fixpoint do_mem_points_to_t (mem : list (loc * (lock_state * val))) : iProp Σ :=
+    match mem with
+    | [] => emp
+    | (l, (ls, v)) :: xs => l ↦t v ∗ do_mem_points_to_t xs
+    end.
+  Fixpoint do_mem_points_to_s (mem : list (loc * (lock_state * val))) : iProp Σ :=
+    match mem with
+    | [] => emp
+    | (l, (ls, v)) :: xs => l ↦s v ∗ do_mem_points_to_s xs
+    end.
+
+  Definition mem_points_to_t (mem : gmap loc (lock_state * val)) : iProp Σ :=
+    do_mem_points_to_t (map_to_list mem).
+  Definition mem_points_to_s (mem : gmap loc (lock_state * val)) : iProp Σ :=
+    do_mem_points_to_s (map_to_list mem).
+
+  Lemma preservation_of_respecting_the_specs s_exp t_exp Q_s Q_t :
+    forall (s_mem : state) (t_mem : state),
+    exists (s_mem' : state) (t_mem' : state),
+      (⊢ {{{ ⌜equivalence s_mem t_mem⌝ 
+            ∗ (mem_points_to_s s_mem.(heap)) 
+            ∗ (mem_points_to_t t_mem.(heap)) }}} 
           t_exp ⪯[uid] s_exp
-        {{{ lift_post (λ v_t v_s, ⌜equivalence s_mem t_mem⌝) }}})
+        {{{ lift_post (λ v_t v_s, ⌜v_t = v_s⌝) }}})
       -> respecting_the_specs s_exp s_mem Q_s
       -> Q_t = build_target_specification Q_s /\ respecting_the_specs t_exp t_mem Q_t.
   Proof.
   Admitted.
 
+              (* ⌜equivalence s_mem' t_mem'⌝
+            ∗ (mem_points_to_s s_mem'.(heap)) 
+            ∗ (mem_points_to_t t_mem'.(heap)) *)
 End specs.

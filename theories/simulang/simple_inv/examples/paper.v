@@ -128,6 +128,7 @@ Section fix_bi.
     sim_pures. source_load. sim_val. done.
   Qed.
 
+  Print Call.
   (** First example from 2.2 *)
   Definition ex_2_2_1_unopt : expr :=
     let: "y" := ref(#42) in

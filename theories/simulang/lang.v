@@ -920,6 +920,8 @@ Inductive base_step (P : prog) : expr → state → expr → state → list expr
      P !! f = Some fn →
      base_step P (Call (Val $ LitV $ LitFn f) (Val v)) σ (apply_func fn v) σ [].
 
+Print apply_func.
+Locate apply_func.
 
 Definition of_class (m : mixin_expr_class val) : expr :=
   match m with
