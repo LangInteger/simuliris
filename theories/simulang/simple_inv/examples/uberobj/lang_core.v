@@ -145,13 +145,14 @@ Section specs.
       ∗ (mem_points_to_s s_mem.(heap)) 
       ∗ (mem_points_to_t t_mem.(heap)))%I.
 
-  Lemma preservation_of_respecting_the_specs s_exp t_exp Q_s Q_t :
-    forall (s_mem : state) (t_mem : state),
+  Lemma preservation_of_respecting_the_specs Q_s Q_t :
+    Q_t = build_target_specification Q_s ->
+    forall s_exp t_exp (s_mem : state) (t_mem : state),
       (⊢ {{{ mem_equiv_rel s_mem t_mem }}} 
           t_exp ⪯[uid] s_exp
         {{{ mem_equiv_post_rel }}})
       -> respecting_the_specs s_exp s_mem Q_s
-      -> Q_t = build_target_specification Q_s /\ respecting_the_specs t_exp t_mem Q_t.
+      -> respecting_the_specs t_exp t_mem Q_t.
   Proof.
   Admitted.
 
