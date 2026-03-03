@@ -20,6 +20,7 @@ Section log_rel_structural.
 
   TODO: Make this a typeclass?
    *)
+
   Definition log_rel_structural : Prop := (∀ e_t e_s,
      let head_t := expr_split_head e_t in
      let head_s := expr_split_head e_s in

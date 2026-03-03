@@ -9,6 +9,8 @@ From iris.prelude Require Import options.
 Section refl.
   Context `{!simpleGS Σ}.
 
+  Locate log_rel_structural.
+  Print log_rel_structural.
   Theorem simple_log_rel_structural : log_rel_structural heapbij.loc_rel (const True%I) simulang_wf.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".

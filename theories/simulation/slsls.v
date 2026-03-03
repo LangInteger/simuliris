@@ -263,6 +263,7 @@ Section fix_lang.
 
   (** Instantiate Sim typeclasses. Instances are local, see hitn and comment at
   the bottom of this file. *)
+  Locate unseal.
   Definition sim_expr_aux : seal greatest_def.
   Proof. by eexists. Qed.
   Local Instance sim_expr_stutter : SimE PROP Λ := (sim_expr_aux).(unseal).

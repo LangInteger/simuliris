@@ -6,6 +6,7 @@ From iris.prelude Require Import options.
 
 (** Define "observable behavior" and contextual refinement. *)
 
+Locate init_state.
 (** Force initial state to be empty *)
 Definition init_state (σ_t σ_s : state) : Prop :=
   σ_t = init_state ∧ σ_s = init_state.

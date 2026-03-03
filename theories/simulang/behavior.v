@@ -30,6 +30,7 @@ Fixpoint obs_val (v_t v_s : val) {struct v_s} : Prop :=
   | _,_ => False
   end.
 
+Locate prog_ref.
 (** The simulang instance of [prog_ref]. *)
 Definition prog_ref := prog_ref init_state "main" #() obs_val.
 
@@ -73,6 +74,7 @@ Notation ectx_wf := (gen_ectx_wf simulang_wf).
 Notation ctx_wf := (gen_ctx_wf simulang_wf).
 
 (** Contextual refinement. *)
+Locate prog_ref.
 Definition ctx_ref (e_t e_s : expr) :=
   ∀ (C : ctx) (fname x : string) (p : prog),
     (* The other functions need to be well-formed and closed *)

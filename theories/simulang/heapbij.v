@@ -35,6 +35,11 @@ Section definitions.
     gset_bij_own_elem heapbijG_bij_name l_t l_s.
 End definitions.
 
+Print gset_bij_own_elem.
+Locate gset_bij_own_elem.
+Locate dyn_block.
+Print heapbijG_bij_name.
+
 Definition loc_rel `{heapbijGS Σ} l_t l_s : iProp Σ :=
   block_rel (loc_block l_t) (loc_block l_s) ∗ ⌜loc_idx l_t = loc_idx l_s⌝.
 Notation "l_t '↔h' l_s" := (loc_rel l_t l_s) (at level 30) : bi_scope.

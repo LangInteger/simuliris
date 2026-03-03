@@ -15,6 +15,7 @@ Class simpleGS (Σ : gFunctors) := SimpleGS {
   simpleGS_bijGS :: heapbijGS Σ;
 }.
 
+Check gen_log_rel.
 Notation val_rel := (gen_val_rel loc_rel).
 Notation log_rel := (gen_log_rel val_rel (λ _, True%I)).
 

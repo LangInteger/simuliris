@@ -23,6 +23,7 @@ Section globalbij.
   Global Instance globalbij_interp_persistent: Persistent globalbij_interp.
   Proof using Hpers. apply _. Qed.
 
+  Print log_rel.
   (** If one can extract [globalbij_interp] from [sheap_inv], one can
       prove [log_rel (GlobalVar x) (GlobalVar x)] and a stronger lemma
       for [source_red (GlobalVar n)] (see the lemmas below). *)

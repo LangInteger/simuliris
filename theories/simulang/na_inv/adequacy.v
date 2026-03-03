@@ -54,6 +54,8 @@ Proof.
     iSplit; [done|]. iIntros (??) "[? $]".
 Qed.
 
+Locate log_rel.
+Locate ctx_ref.
 (** Adequacy for open terms. *)
 Theorem log_rel_adequacy Σ `{!naGpreS Σ} e_t e_s :
   (∀ `(naGS Σ), ⊢ log_rel e_t e_s) →

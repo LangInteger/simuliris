@@ -65,6 +65,9 @@ Section laws.
   Qed.
 End laws.
 
+Locate gen_val_rel.
+Locate heapbij.loc_rel.
+Locate block_rel.
 Notation val_rel := (gen_val_rel heapbij.loc_rel).
 Notation log_rel := (gen_log_rel val_rel (λ π, na_locs π ∅)).
 
