@@ -9,8 +9,6 @@ From iris.prelude Require Import options.
 Section refl.
   Context `{!simpleGS Σ}.
 
-  Locate log_rel_structural.
-  Print log_rel_structural.
   Theorem simple_log_rel_structural : log_rel_structural heapbij.loc_rel (const True%I) simulang_wf.
   Proof.
     intros e_t e_s ?? Hwf Hs. iIntros "IH".
@@ -64,6 +62,10 @@ Section refl.
     intros ?. iApply gen_log_rel_ctx; first by apply simple_log_rel_structural. done.
   Qed.
 
+  Print func.
+  Print func_rel.
+  Locate func_rel.
+  Check func_rel.
   Lemma log_rel_func x e_t e_s :
     free_vars e_t ∪ free_vars e_s ⊆ {[x]} →
     log_rel e_t e_s -∗

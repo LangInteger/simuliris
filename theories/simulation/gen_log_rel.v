@@ -200,6 +200,7 @@ Section fix_lang.
       {{ λ v_t v_s, thread_own π ∗ val_rel v_t v_s }}.
   Proof.
     iIntros (?) "Hlog Hval Hπ".
+    unfold gen_log_rel.
     iDestruct ("Hlog" $! _ {[arg := (v_t, v_s)]} with "[Hval] Hπ") as "Hsim".
     { by iApply subst_map_rel_singleton. }
     rewrite !map_fmap_singleton. done.

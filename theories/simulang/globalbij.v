@@ -59,13 +59,14 @@ Section globalbij.
     iApply sim_expr_base. by iApply "Hs".
   Qed.
 
+  Locate sheap_inv_contains_globalbij.
   Lemma log_rel_global_var x :
     sheap_inv_contains_globalbij →
     ⊢ log_rel (GlobalVar x) (GlobalVar x).
   Proof using Hpers.
     rewrite /log_rel /gen_log_rel.
     iIntros (Hrel ? xs) "!# Hs Ht"; simpl.
-    iApply sim_global_var; first done. iIntros (??) "Hrel".
+    iApply sim_global_var. first done. iIntros (??) "Hrel".
     iApply lift_post_val. iFrame.
   Qed.
 End globalbij.

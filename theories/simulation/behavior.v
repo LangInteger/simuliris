@@ -12,6 +12,7 @@ Section beh.
   (** Observations on final values (of the main thread) *)
   Variable (O: val Λ → val Λ → Prop).
 
+  Locate safe.
   (** * "Whole-program refinement", stated in a constructive way. *)
   Definition prog_ref (p_t p_s : prog Λ) :=
     ∀ σ_t σ_s, I σ_t σ_s → safe p_s (of_call main u) σ_s →
