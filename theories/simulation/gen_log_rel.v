@@ -18,7 +18,6 @@ Section fix_lang.
   Context {Λ : language}.
   Context `{!simulirisGS PROP Λ}.
 
-  Print simulirisGS.
   Set Default Proof Using "Type*".
 
   Implicit Types
@@ -64,21 +63,6 @@ Section fix_lang.
   Proof.
     rewrite /prog_rel.
     iIntros "#He #Hp !# %f %fn".
-    destruct (decide (f = fname)) as [->|Hne].
-    - rewrite !lookup_insert_eq.
-      iIntros ([= <-]). iExists _. iSplitR; done.
-    - rewrite !lookup_insert_ne //.
-      iIntros (Hf). iExists fn. iSplitR; first done.
-      by iApply "Hp".
-  Qed.
-
-  Locate func_rel.
-  Lemma prog_rel_refl_insert_1 P (fname : string) (fn_t fn_s : func Λ) :
-    □((func_rel fn_t fn_s) ∗ (∀ f fn, ⌜P !! f = Some fn⌝ -∗ func_rel fn fn))
-     -∗ prog_rel (<[fname:=fn_t]> P) (<[fname:=fn_s]> P).
-  Proof.
-    rewrite /prog_rel.
-    iIntros "[#He #Hp] !# %f %fn".
     destruct (decide (f = fname)) as [->|Hne].
     - rewrite !lookup_insert_eq.
       iIntros ([= <-]). iExists _. iSplitR; done.

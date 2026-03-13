@@ -11,7 +11,6 @@ Section log_rel_structural.
   Local Notation val_rel := (gen_val_rel loc_rel).
   Local Notation log_rel := (gen_log_rel val_rel thread_own).
 
-  Check thread_own.
   (** [log_rel_structural] is the main theorem one wants to prove. It
   implies the reflexivity theorem for expressions, evaluation contexts
   and general contexts.
