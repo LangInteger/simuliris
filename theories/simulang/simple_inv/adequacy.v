@@ -88,7 +88,7 @@ Lemma simplang_adequacy_1 `{sheapGpreS Σ} p_t p_s :
     ([∗ map] n↦v ∈ gs,
       global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
       global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)
-    ) -∗
+    ) -∗ 
     target_globals (dom gs) -∗
     source_globals (dom gs) ==∗
     sheap_inv p_s (state_init gs) [Call f#"main" #()] ∗
@@ -103,16 +103,25 @@ Proof.
   iIntros "Hprog_rel %σ_t %σ_s (%gs&%&->&->)".
   iMod (sheap_init p_t _ p_s _) as (HsheapGS) "Hinit".
   iMod ("Hprog_rel" $! HsheapGS gs with "[//]") as (HsheapInv loc_rel) "Hprog_rel".
-  iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & Hmt_t & Hp_s & Hmt_s & Hgs_s & Hgs_t & Hprogs_are)".
-  iMod ("Hprog_rel" with "Hp_t Hp_s [Hmt_t Hmt_s] Hgs_t Hgs_s") as "(Hinv & Hunit & Hobs & Hprog_rel)".
+  iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & Hmt_t & Hp_s & Hmt_s & #Hgs_s & #Hgs_t & Hprogs_are)".
+  iMod ("Hprog_rel" with "Hp_t Hp_s [Hmt_t Hmt_s] Hgs_t Hgs_s") as "(Hinv & Hunit & Hobs & #Hprog_rel)".
   { rewrite !big_sepM_sep. iFrame. }
   iModIntro. iExists sheapGS_simulirisGS.
-Admitted.
-  (* iFrame "Hprog_rel Hprogs_are Hunit".
+  iSplitL "Hprog_rel".
+  { unfold prog_rel. iIntros "!# %f %fn_s %Hpsf". iSpecialize ("Hprog_rel" $! f fn_s Hpsf). 
+    iDestruct ("Hprog_rel" with "Hgs_t Hgs_s") as (fn_t) "[%Hpt Hfr1]".
+    iExists fn_t.
+    iSplit. 
+    - iPureIntro. exact Hpt.
+    - unfold func_rel.
+      iIntros (v_t v_s π) "Hext".
+      iApply ("Hfr1" with "Hext Hgs_t Hgs_s").
+  }
+  iFrame "Hprogs_are Hunit".
   iSplitR "Hobs".
   - iApply "Hstate". done.
   - iIntros (??) "Hext". iApply gen_val_rel_obs. iApply "Hobs". done. 
-Qed. *)
+Qed.
 
 Lemma prog_rel_adequacy_1 Σ `{!simpleGpreS Σ} (p_t p_s : prog):
   isat (∀ `(simpleGS Σ) gs,
