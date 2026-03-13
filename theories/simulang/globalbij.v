@@ -66,7 +66,7 @@ Section globalbij.
   Proof using Hpers.
     rewrite /log_rel /gen_log_rel.
     iIntros (Hrel ? xs) "!# Hs Ht"; simpl.
-    iApply sim_global_var. first done. iIntros (??) "Hrel".
+    iApply sim_global_var; first done. iIntros (??) "Hrel".
     iApply lift_post_val. iFrame.
   Qed.
 End globalbij.

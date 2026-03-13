@@ -15,7 +15,7 @@ Section adequacy.
       + by iApply "IH1".
   Qed.
 
-  Locate init_state.
+  Locate slsls_adequacy.
   Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s :
     isat (∀ `(sheapGS Σ) gs,
       ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗

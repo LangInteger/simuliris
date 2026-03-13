@@ -3,7 +3,7 @@
 From iris.algebra.lib Require Import gset_bij.
 From iris.base_logic.lib Require Import gset_bij.
 From simuliris.logic Require Import satisfiable.
-From simuliris.simulation Require Import slsls closed_sim gen_log_rel.
+From simuliris.simulation Require Import slsls closed_sim gen_log_rel adequacy.
 From simuliris.simulang Require Import proofmode tactics pure_refl.
 From simuliris.simulang Require Import gen_adequacy behavior wf gen_refl.
 From simuliris.simulang.simple_inv Require Import inv refl.
@@ -19,8 +19,89 @@ Global Instance subG_sbijΣ Σ :
   subG simpleΣ Σ → simpleGpreS Σ.
 Proof. solve_inG. Qed.
 
-Print gen_log_rel.
-Print log_rel.
+Locate ext_rel.
+Definition func_rel_1 `{!simpleGS Σ} (fn_t fn_s : func) (gs : gmap string val): iProp Σ :=
+  ∀ v_t v_s π, ext_rel π v_t v_s -∗
+    target_globals (dom gs) -∗
+    source_globals (dom gs) -∗
+    (apply_func fn_t v_t) ⪯{π} (apply_func fn_s v_s) {{ ext_rel π }}.
+Definition prog_rel_1 `{!simpleGS Σ} (P_t : gmap fname func) (P_s : gmap fname func) (gs : gmap string val): iProp Σ :=
+  □ ∀ f fn_s, ⌜P_s !! f = Some fn_s⌝ →
+    target_globals (dom gs) -∗
+    source_globals (dom gs) -∗
+     ∃ fn_t, ⌜P_t !! f = Some fn_t⌝ ∗ func_rel_1 fn_t fn_s gs.
+
+Lemma simplang_adequacy `{sheapGpreS Σ} p_t p_s :
+  isat (∀ `(sheapGS Σ) gs,
+    ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
+    |==> ∃ `(sheapInv Σ) loc_rel,
+    ([∗ map] f ↦ fn ∈ p_t, f @t fn) -∗
+    ([∗ map] f ↦ fn ∈ p_s, f @s fn) -∗
+    ([∗ map] n↦v ∈ gs,
+      global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
+      global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)
+    ) -∗
+    target_globals (dom gs) -∗
+    source_globals (dom gs) ==∗
+    sheap_inv p_s (state_init gs) [Call f#"main" #()] ∗
+    ext_rel 0 #() #() ∗
+    (∀ v_t v_s, ext_rel 0 v_t v_s -∗ gen_val_rel loc_rel v_t v_s) ∗
+    prog_rel p_t p_s
+  ) →
+  prog_ref p_t p_s.
+Proof.
+  intros Hrel. eapply (slsls_adequacy (sat:=isat)).
+  eapply sat_mono, Hrel. clear Hrel.
+  iIntros "Hprog_rel %σ_t %σ_s (%gs&%&->&->)".
+  iMod (sheap_init p_t _ p_s _) as (HsheapGS) "Hinit".
+  iMod ("Hprog_rel" $! HsheapGS gs with "[//]") as (HsheapInv loc_rel) "Hprog_rel".
+  iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & Hmt_t & Hp_s & Hmt_s & Hgs_s & Hgs_t & Hprogs_are)".
+  iMod ("Hprog_rel" with "Hp_t Hp_s [Hmt_t Hmt_s] Hgs_t Hgs_s") as "(Hinv & Hunit & Hobs & Hprog_rel)".
+  { rewrite !big_sepM_sep. iFrame. }
+  iModIntro. iExists sheapGS_simulirisGS.
+  iFrame "Hprog_rel Hprogs_are Hunit".
+  iSplitR "Hobs".
+  - iApply "Hstate". done.
+  - iIntros (??) "Hext". iApply gen_val_rel_obs. iApply "Hobs". done.
+Qed.
+
+Print sheapGS.
+Print simpleGS.
+(* simpleGS has sheapGS *)
+(* replace simpleGS by sheapGS all the way *)
+Lemma simplang_adequacy_1 `{sheapGpreS Σ} p_t p_s :
+  isat (∀ `(sheapGS Σ) gs,
+    ⌜map_Forall (λ _ v, val_wf v) gs⌝ -∗
+    |==> ∃ `(sheapInv Σ) loc_rel,
+    ([∗ map] f ↦ fn ∈ p_t, f @t fn) -∗
+    ([∗ map] f ↦ fn ∈ p_s, f @s fn) -∗
+    ([∗ map] n↦v ∈ gs,
+      global_loc n ↦t v ∗ target_block_size (global_loc n) (Some 1) ∗
+      global_loc n ↦s v ∗ source_block_size (global_loc n) (Some 1)
+    ) -∗
+    target_globals (dom gs) -∗
+    source_globals (dom gs) ==∗
+    sheap_inv p_s (state_init gs) [Call f#"main" #()] ∗
+    ext_rel 0 #() #() ∗
+    (∀ v_t v_s, ext_rel 0 v_t v_s -∗ gen_val_rel loc_rel v_t v_s) ∗
+    prog_rel_1 p_t p_s gs
+  ) →
+  prog_ref p_t p_s.
+Proof.
+  intros Hrel. eapply (slsls_adequacy (sat:=isat)).
+  eapply sat_mono, Hrel. clear Hrel.
+  iIntros "Hprog_rel %σ_t %σ_s (%gs&%&->&->)".
+  iMod (sheap_init p_t _ p_s _) as (HsheapGS) "Hinit".
+  iMod ("Hprog_rel" $! HsheapGS gs with "[//]") as (HsheapInv loc_rel) "Hprog_rel".
+  iDestruct ("Hinit" $! HsheapInv) as "(Hstate & Hp_t & Hmt_t & Hp_s & Hmt_s & Hgs_s & Hgs_t & Hprogs_are)".
+  iMod ("Hprog_rel" with "Hp_t Hp_s [Hmt_t Hmt_s] Hgs_t Hgs_s") as "(Hinv & Hunit & Hobs & Hprog_rel)".
+  { rewrite !big_sepM_sep. iFrame. }
+  iModIntro. iExists sheapGS_simulirisGS.
+  iFrame "Hprog_rel Hprogs_are Hunit".
+  iSplitR "Hobs".
+  - iApply "Hstate". done.
+  - iIntros (??) "Hext". iApply gen_val_rel_obs. iApply "Hobs". done.
+Qed.
 
 Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog):
   isat (∀ `(simpleGS Σ) gs,
@@ -29,7 +110,7 @@ Lemma prog_rel_adequacy Σ `{!simpleGpreS Σ} (p_t p_s : prog):
     ([∗ map] f ↦ fn ∈ p_s, f @s fn) -∗
     target_globals (dom gs) -∗
     source_globals (dom gs) ==∗
-    ([∗ map] v∈gs, val_rel v v) ∗ prog_rel p_t p_s
+    ([∗ map] v∈gs, val_rel v v) ∗ prog_rel_1 p_t p_s gs
   ) →
   prog_ref p_t p_s.
 Proof.
@@ -41,7 +122,7 @@ Proof.
   iExists simple_inv, heapbij.loc_rel.
   iSpecialize ("Hprog_rel" $! HΣ).
   iIntros "Hp_t Hp_s Hmt #Hgs_t #Hgs_s".
-  iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs $]".
+  iMod ("Hprog_rel" with "[//] [$] [$] [$] [$]") as "[#Hvs #Hpr]".
   iMod (heapbij_insert_globals with "Hbij Hmt Hvs") as (L') "[Hbij #Hls]"; [done| ].
   iModIntro. iSplitL "Hbij"; [|iSplitR; [done|]].
   - iExists _. iFrame. iExists _,_. by iFrame "#".
@@ -480,16 +561,15 @@ Qed.
 Lemma gen_log_rel_func `{simpleGS Σ} x e_t e_s (gs : gmap string val) :
   (∀ v_t v_s π, ext_rel π v_t v_s ⊣⊢ thread_own π ∗ val_rel v_t v_s) →
   free_vars e_t ∪ free_vars e_s ⊆ {[x]} →
-  target_globals (dom gs) -∗
-  source_globals (dom gs) -∗
   gen_log_rel_1 e_t e_s -∗
-  func_rel (Λ:=simp_lang) (x, e_t) (x, e_s).
+  func_rel (x, e_t) (x, e_s) gs.
 Proof.
-  iIntros (Hext_val Hvars) "Hgt Hgs Hlog %v_t %v_s %π".
+  iIntros (Hext_val Hvars) "Hgt Hgs #Hlog %v_t %v_s %π".
+  iModIntro.
   rewrite Hext_val. iIntros "[Hthread Hval]".
   iApply (sim_wand with "[-]").
   - rewrite /= /apply_func /= -!subst_map_singleton.
-    iApply (gen_log_rel_singleton with "Hgt Hgs Hlog Hval Hthread"); done.
+    iApply (gen_log_rel_singleton); eauto.
   - setoid_rewrite <- Hext_val. eauto.
 Qed.
 
@@ -584,7 +664,7 @@ Lemma log_rel_func `{simpleGS Σ} (x : string) e_t e_s (gs : gmap string val) :
   target_globals (dom gs) -∗
   source_globals (dom gs) -∗
   gen_log_rel_1 e_t e_s -∗
-  func_rel (Λ:=simp_lang) (x, e_t) (x, e_s).
+  func_rel  (x, e_t) (x, e_s).
 Proof.
   apply gen_log_rel_func.
   iIntros (v_t v_s π). rewrite /= left_id. eauto.
@@ -604,11 +684,15 @@ Theorem log_rel_adequacy_1 Σ `{!simpleGpreS Σ} e_t e_s (gss : gmap string val)
 Proof.
   intros Hrel C fname x p Hpwf HCwf Hvars.
   apply (prog_rel_adequacy Σ). eapply isat_intro.
-  iIntros (? gs Hgs) "_ _ _ _ !#".
-  iSplit.
+  iIntros (? gs Hgs) "_ _ Hgs Hgt !#".
+  iSplitR "Hgs Hgt".
   { iApply big_sepM_intro. iIntros "!>" (???). iApply val_wf_sound. by apply: Hgs. }
-  iApply prog_rel_refl_insert.
-  - iModIntro. unfold func_rel.  apply gen_log_rel_func.
+  iApply prog_rel_refl_insert_1.
+  Locate prog_rel_refl_insert_1.
+  Locate isat.
+  iModIntro.
+  iSplitL "Hgs Hgt".
+  - iApply log_rel_func; eauto.
     iApply log_rel_ctx; first done. iApply Hrel.
   - iIntros "!# %f %fn %Hfn". destruct fn as [arg body].
     destruct (Hpwf _ _ Hfn) as [Hfn_wf Hfn_vars].
